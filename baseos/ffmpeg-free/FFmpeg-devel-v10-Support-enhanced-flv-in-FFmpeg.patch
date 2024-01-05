@@ -1,0 +1,1230 @@
+From patchwork Mon May 15 08:31:56 2023
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Steven Liu <lq@chinaffmpeg.org>
+X-Patchwork-Id: 41615
+Delivered-To: ffmpegpatchwork2@gmail.com
+Received: by 2002:a05:6a20:ba91:b0:105:feb:71f2 with SMTP id
+ fb17csp1443896pzb;
+        Mon, 15 May 2023 01:33:01 -0700 (PDT)
+X-Google-Smtp-Source: 
+ ACHHUZ69PgG6fq/KF6IIeKoVV29fkg7cAJfmPD3LnnTmI9YYVAPo/alZm7B+7f+FoOgn9rHdYUo5
+X-Received: by 2002:a17:907:97cb:b0:96a:4654:9a57 with SMTP id
+ js11-20020a17090797cb00b0096a46549a57mr16869758ejc.54.1684139580951;
+        Mon, 15 May 2023 01:33:00 -0700 (PDT)
+ARC-Seal: i=1; a=rsa-sha256; t=1684139580; cv=none;
+        d=google.com; s=arc-20160816;
+        b=iOREUkvWDLqSJl40trM7wg3ufEQ23FOBLjpslXsds5HWyK48b/76lFgQwRfHJbHqbh
+         vc4N6DopB5msRi0VK/pJnDAdtuyQR2tqEgLvbZpHJzjK1zHUKRV5JHlmVhNvQOfYWpMR
+         VL/1OMmbTctEza2Z7/VYsrVLHLy4QOlLh4w/JdRcx/7rhiOA1ixpMxC4qUb5IGMhnqen
+         P2dDbAoqdmGUZtmA4VOfxkgkHnIaeFv+UffJGIZs1Lyb7c3zytwdpLLiezRzVLWQaStW
+         TVdcDk45pOrA29lZ46Tq8YNJP7O5zfSevFIqrB85mUjSNoyZi24gz19yxJa/09O1qb+o
+         thzw==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=google.com;
+ s=arc-20160816;
+        h=sender:errors-to:content-transfer-encoding:cc:reply-to
+         :list-subscribe:list-help:list-post:list-archive:list-unsubscribe
+         :list-id:precedence:subject:feedback-id:mime-version:references
+         :in-reply-to:message-id:date:to:from:delivered-to;
+        bh=Qg7uugO6uqQCX67+SdNELVYF39/WDPRDFt1+H7toQ+s=;
+        b=b1cxdqSVG1Oc157HlNUA+LfJhknU/nr3g5wnSLXmP7DrR+RQp2CFwGfjV+wTkfWLok
+         WydumkYG2biOpmhMi+mG4ci5WvU2R9bv1qpKGreRpsImGmjubQxu5CC9gwmenz3c+1v8
+         pu+qkw142w9uMerjOpaw6oWvaHq9hWGVy6Uni33AqMJhfj9WqSwBCezk62krxzBar/VN
+         XNbzzpAMIuXcj0DcHS70oDHOTbtLq4uDLGpkQwnBpYbswfGD0h8N+B+BSCs3ZqN/l5Jc
+         juIQY4i3ja2W1yHm6Zlze2qU8lFRPzRwVBZBv9vro88VyFic0UZx9wRuIqJB9BZIb0h/
+         vkiA==
+ARC-Authentication-Results: i=1; mx.google.com;
+       spf=pass (google.com: domain of ffmpeg-devel-bounces@ffmpeg.org
+ designates 79.124.17.100 as permitted sender)
+ smtp.mailfrom=ffmpeg-devel-bounces@ffmpeg.org
+Return-Path: <ffmpeg-devel-bounces@ffmpeg.org>
+Received: from ffbox0-bg.mplayerhq.hu (ffbox0-bg.ffmpeg.org. [79.124.17.100])
+        by mx.google.com with ESMTP id
+ gt37-20020a1709072da500b0096b1c38458dsi2828116ejc.409.2023.05.15.01.33.00;
+        Mon, 15 May 2023 01:33:00 -0700 (PDT)
+Received-SPF: pass (google.com: domain of ffmpeg-devel-bounces@ffmpeg.org
+ designates 79.124.17.100 as permitted sender) client-ip=79.124.17.100;
+Authentication-Results: mx.google.com;
+       spf=pass (google.com: domain of ffmpeg-devel-bounces@ffmpeg.org
+ designates 79.124.17.100 as permitted sender)
+ smtp.mailfrom=ffmpeg-devel-bounces@ffmpeg.org
+Received: from [127.0.1.1] (localhost [127.0.0.1])
+	by ffbox0-bg.mplayerhq.hu (Postfix) with ESMTP id D930568BE0C;
+	Mon, 15 May 2023 11:32:57 +0300 (EEST)
+X-Original-To: ffmpeg-devel@ffmpeg.org
+Delivered-To: ffmpeg-devel@ffmpeg.org
+Received: from bg4.exmail.qq.com (bg4.exmail.qq.com [43.155.67.158])
+ by ffbox0-bg.mplayerhq.hu (Postfix) with ESMTPS id 522F7680274
+ for <ffmpeg-devel@ffmpeg.org>; Mon, 15 May 2023 11:32:49 +0300 (EEST)
+X-QQ-mid: bizesmtp68t1684139564tg642pbl
+Received: from localhost ( [103.102.203.204]) by bizesmtp.qq.com (ESMTP) with
+ id ; Mon, 15 May 2023 16:32:42 +0800 (CST)
+X-QQ-SSF: 01100000000000Z0Z000000A0000000
+X-QQ-FEAT: nCMT0YKS3i1MU7IXSsiS1Rwde6i/4Rq2kuPO2PoXw3OvtJB24MU+Y2GwdEg4Y
+ pg0ZfSggM3VBmRCkHI3ioSOH2mvVyYG9LgwhhyfixPaFItcpF4EF6xoZepQpa1H5v1BDi7s
+ iwCwF3shgH8dl96iJKKryT4TtjUTnYRoRhCPtLCGfUthaM/R44xdqxRvjDqIVn1BUMb5GPu
+ DMuaskzO8QQCFxvduUvovkXjJc5v17Krm2lf945Tmm/pIpV/qLjAgAhYHqOoxrgBGHZDYWY
+ 0XeS7RvYkKTR24z9m9Sk75veOTKtFzksnbLJYkIDYj+voAd1djXPJWtuB2elhm/DIa9+5lW
+ 2DnKrJ/Bb2Ok13ggXoC600jHcxkLbuOqDuK5k5Dhub7ECOTPJythkMV+FYQCw==
+X-QQ-GoodBg: 0
+X-BIZMAIL-ID: 14547348156280638791
+From: Steven Liu <lq@chinaffmpeg.org>
+To: ffmpeg-devel@ffmpeg.org
+Date: Mon, 15 May 2023 16:31:56 +0800
+Message-Id: <20230515083201.48201-2-lq@chinaffmpeg.org>
+X-Mailer: git-send-email 2.40.0
+In-Reply-To: <20230515083201.48201-1-lq@chinaffmpeg.org>
+References: 
+ <CAEg-Je-vYD97KnbaqTkK5=UJ9T3htmtH3Qykcwo3+rNCx=w+jQ@mail.gmail.com>
+ <20230515083201.48201-1-lq@chinaffmpeg.org>
+MIME-Version: 1.0
+X-QQ-SENDSIZE: 520
+Feedback-ID: bizesmtp:chinaffmpeg.org:qybglogicsvrsz:qybglogicsvrsz3a-3
+Subject: [FFmpeg-devel] [PATCH v10 1/6] avformat/flvenc: support mux hevc in
+ enhanced flv
+X-BeenThere: ffmpeg-devel@ffmpeg.org
+X-Mailman-Version: 2.1.29
+Precedence: list
+List-Id: FFmpeg development discussions and patches <ffmpeg-devel.ffmpeg.org>
+List-Unsubscribe: <https://ffmpeg.org/mailman/options/ffmpeg-devel>,
+ <mailto:ffmpeg-devel-request@ffmpeg.org?subject=unsubscribe>
+List-Archive: <https://ffmpeg.org/pipermail/ffmpeg-devel>
+List-Post: <mailto:ffmpeg-devel@ffmpeg.org>
+List-Help: <mailto:ffmpeg-devel-request@ffmpeg.org?subject=help>
+List-Subscribe: <https://ffmpeg.org/mailman/listinfo/ffmpeg-devel>,
+ <mailto:ffmpeg-devel-request@ffmpeg.org?subject=subscribe>
+Reply-To: FFmpeg development discussions and patches <ffmpeg-devel@ffmpeg.org>
+Cc: Steven Liu <lq@chinaffmpeg.org>
+Errors-To: ffmpeg-devel-bounces@ffmpeg.org
+Sender: "ffmpeg-devel" <ffmpeg-devel-bounces@ffmpeg.org>
+X-TUID: WUhHC4/dXuk+
+
+Signed-off-by: Steven Liu <lq@chinaffmpeg.org>
+---
+ libavformat/Makefile |  2 +-
+ libavformat/flv.h    | 15 +++++++++++++++
+ libavformat/flvenc.c | 38 +++++++++++++++++++++++++++++---------
+ 3 files changed, 45 insertions(+), 10 deletions(-)
+
+diff --git a/libavformat/Makefile b/libavformat/Makefile
+index f8ad7c6a11..1ef3d15467 100644
+--- a/libavformat/Makefile
++++ b/libavformat/Makefile
+@@ -214,7 +214,7 @@ OBJS-$(CONFIG_FLAC_MUXER)                += flacenc.o flacenc_header.o \
+ OBJS-$(CONFIG_FLIC_DEMUXER)              += flic.o
+ OBJS-$(CONFIG_FLV_DEMUXER)               += flvdec.o
+ OBJS-$(CONFIG_LIVE_FLV_DEMUXER)          += flvdec.o
+-OBJS-$(CONFIG_FLV_MUXER)                 += flvenc.o avc.o
++OBJS-$(CONFIG_FLV_MUXER)                 += flvenc.o avc.o hevc.o
+ OBJS-$(CONFIG_FOURXM_DEMUXER)            += 4xm.o
+ OBJS-$(CONFIG_FRAMECRC_MUXER)            += framecrcenc.o framehash.o
+ OBJS-$(CONFIG_FRAMEHASH_MUXER)           += hashenc.o framehash.o
+diff --git a/libavformat/flv.h b/libavformat/flv.h
+index 3571b90279..91e0a4140c 100644
+--- a/libavformat/flv.h
++++ b/libavformat/flv.h
+@@ -35,6 +35,12 @@
+ 
+ #define FLV_VIDEO_FRAMETYPE_OFFSET   4
+ 
++/* Extended VideoTagHeader
++ * defined in reference link:
++ * https://github.com/veovera/enhanced-rtmp/blob/main/enhanced-rtmp-v1.pdf
++ * */
++#define FLV_IS_EX_HEADER          0x80
++
+ /* bitmasks to isolate specific values */
+ #define FLV_AUDIO_CHANNEL_MASK    0x01
+ #define FLV_AUDIO_SAMPLESIZE_MASK 0x02
+@@ -112,6 +118,15 @@ enum {
+     FLV_CODECID_MPEG4   = 9,
+ };
+ 
++enum {
++    PacketTypeSequenceStart         = 0,
++    PacketTypeCodedFrames           = 1,
++    PacketTypeSequenceEnd           = 2,
++    PacketTypeCodedFramesX          = 3,
++    PacketTypeMetadata              = 4,
++    PacketTypeMPEG2TSSequenceStart  = 5,
++};
++
+ enum {
+     FLV_FRAME_KEY            = 1 << FLV_VIDEO_FRAMETYPE_OFFSET, ///< key frame (for AVC, a seekable frame)
+     FLV_FRAME_INTER          = 2 << FLV_VIDEO_FRAMETYPE_OFFSET, ///< inter frame (for AVC, a non-seekable frame)
+diff --git a/libavformat/flvenc.c b/libavformat/flvenc.c
+index 721f062811..35e198fa15 100644
+--- a/libavformat/flvenc.c
++++ b/libavformat/flvenc.c
+@@ -28,6 +28,7 @@
+ #include "libavcodec/mpeg4audio.h"
+ #include "avio.h"
+ #include "avc.h"
++#include "hevc.h"
+ #include "avformat.h"
+ #include "flv.h"
+ #include "internal.h"
+@@ -46,6 +47,7 @@ static const AVCodecTag flv_video_codec_ids[] = {
+     { AV_CODEC_ID_VP6,      FLV_CODECID_VP6 },
+     { AV_CODEC_ID_VP6A,     FLV_CODECID_VP6A },
+     { AV_CODEC_ID_H264,     FLV_CODECID_H264 },
++    { AV_CODEC_ID_HEVC,     MKBETAG('h', 'v', 'c', '1') },
+     { AV_CODEC_ID_NONE,     0 }
+ };
+ 
+@@ -489,7 +491,7 @@ static void flv_write_codec_header(AVFormatContext* s, AVCodecParameters* par, i
+     FLVContext *flv = s->priv_data;
+ 
+     if (par->codec_id == AV_CODEC_ID_AAC || par->codec_id == AV_CODEC_ID_H264
+-            || par->codec_id == AV_CODEC_ID_MPEG4) {
++            || par->codec_id == AV_CODEC_ID_MPEG4 || par->codec_id == AV_CODEC_ID_HEVC) {
+         int64_t pos;
+         avio_w8(pb,
+                 par->codec_type == AVMEDIA_TYPE_VIDEO ?
+@@ -532,10 +534,19 @@ static void flv_write_codec_header(AVFormatContext* s, AVCodecParameters* par, i
+             }
+             avio_write(pb, par->extradata, par->extradata_size);
+         } else {
+-            avio_w8(pb, par->codec_tag | FLV_FRAME_KEY); // flags
+-            avio_w8(pb, 0); // AVC sequence header
+-            avio_wb24(pb, 0); // composition time
+-            ff_isom_write_avcc(pb, par->extradata, par->extradata_size);
++            if (par->codec_id == AV_CODEC_ID_HEVC) {
++                avio_w8(pb, FLV_IS_EX_HEADER | PacketTypeSequenceStart); // ExVideoTagHeader mode with PacketTypeSequenceStart
++                avio_write(pb, "hvc1", 4);
++            } else {
++                avio_w8(pb, par->codec_tag | FLV_FRAME_KEY); // flags
++                avio_w8(pb, 0); // AVC sequence header
++                avio_wb24(pb, 0); // composition time
++            }
++
++            if (par->codec_id == AV_CODEC_ID_HEVC)
++                ff_isom_write_hvcc(pb, par->extradata, par->extradata_size, 0);
++            else
++                ff_isom_write_avcc(pb, par->extradata, par->extradata_size);
+         }
+         data_size = avio_tell(pb) - pos;
+         avio_seek(pb, -data_size - 10, SEEK_CUR);
+@@ -832,13 +843,13 @@ static int flv_write_packet(AVFormatContext *s, AVPacket *pkt)
+     if (par->codec_id == AV_CODEC_ID_VP6F || par->codec_id == AV_CODEC_ID_VP6A ||
+         par->codec_id == AV_CODEC_ID_VP6  || par->codec_id == AV_CODEC_ID_AAC)
+         flags_size = 2;
+-    else if (par->codec_id == AV_CODEC_ID_H264 || par->codec_id == AV_CODEC_ID_MPEG4)
++    else if (par->codec_id == AV_CODEC_ID_H264 || par->codec_id == AV_CODEC_ID_MPEG4 || par->codec_id == AV_CODEC_ID_HEVC)
+         flags_size = 5;
+     else
+         flags_size = 1;
+ 
+     if (par->codec_id == AV_CODEC_ID_AAC || par->codec_id == AV_CODEC_ID_H264
+-            || par->codec_id == AV_CODEC_ID_MPEG4) {
++            || par->codec_id == AV_CODEC_ID_MPEG4 || par->codec_id == AV_CODEC_ID_HEVC) {
+         size_t side_size;
+         uint8_t *side = av_packet_get_side_data(pkt, AV_PKT_DATA_NEW_EXTRADATA, &side_size);
+         if (side && side_size > 0 && (side_size != par->extradata_size || memcmp(side, par->extradata, side_size))) {
+@@ -858,7 +869,7 @@ static int flv_write_packet(AVFormatContext *s, AVPacket *pkt)
+                "Packets are not in the proper order with respect to DTS\n");
+         return AVERROR(EINVAL);
+     }
+-    if (par->codec_id == AV_CODEC_ID_H264 || par->codec_id == AV_CODEC_ID_MPEG4) {
++    if (par->codec_id == AV_CODEC_ID_H264 || par->codec_id == AV_CODEC_ID_MPEG4 || par->codec_id == AV_CODEC_ID_HEVC) {
+         if (pkt->pts == AV_NOPTS_VALUE) {
+             av_log(s, AV_LOG_ERROR, "Packet is missing PTS\n");
+             return AVERROR(EINVAL);
+@@ -903,6 +914,10 @@ static int flv_write_packet(AVFormatContext *s, AVPacket *pkt)
+         if (par->extradata_size > 0 && *(uint8_t*)par->extradata != 1)
+             if ((ret = ff_avc_parse_nal_units_buf(pkt->data, &data, &size)) < 0)
+                 return ret;
++    } else if (par->codec_id == AV_CODEC_ID_HEVC) {
++        if (par->extradata_size > 0 && *(uint8_t*)par->extradata != 1)
++            if ((ret = ff_hevc_annexb2mp4_buf(pkt->data, &data, &size, 0, NULL)) < 0)
++                return ret;
+     } else if (par->codec_id == AV_CODEC_ID_AAC && pkt->size > 2 &&
+                (AV_RB16(pkt->data) & 0xfff0) == 0xfff0) {
+         if (!s->streams[pkt->stream_index]->nb_frames) {
+@@ -964,7 +979,12 @@ static int flv_write_packet(AVFormatContext *s, AVPacket *pkt)
+         avio_wb32(pb, data_size + 11);
+     } else {
+         av_assert1(flags>=0);
+-        avio_w8(pb,flags);
++        if (par->codec_id == AV_CODEC_ID_HEVC) {
++            avio_w8(pb, FLV_IS_EX_HEADER | PacketTypeCodedFramesX); // ExVideoTagHeader mode with PacketTypeCodedFramesX
++            avio_write(pb, "hvc1", 4);
++        } else {
++            avio_w8(pb, flags);
++        }
+         if (par->codec_id == AV_CODEC_ID_VP6)
+             avio_w8(pb,0);
+         if (par->codec_id == AV_CODEC_ID_VP6F || par->codec_id == AV_CODEC_ID_VP6A) {
+
+From patchwork Mon May 15 08:31:57 2023
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Steven Liu <lq@chinaffmpeg.org>
+X-Patchwork-Id: 41616
+Delivered-To: ffmpegpatchwork2@gmail.com
+Received: by 2002:a05:6a20:ba91:b0:105:feb:71f2 with SMTP id
+ fb17csp1444123pzb;
+        Mon, 15 May 2023 01:33:22 -0700 (PDT)
+X-Google-Smtp-Source: 
+ ACHHUZ4qSqnHARATYvNTOiXhMIIgGWUHo612wN3Ui1r3cYPQd57E+B9kiCRYijDhzgObKMKkDm54
+X-Received: by 2002:a17:907:6e8e:b0:94f:3521:396 with SMTP id
+ sh14-20020a1709076e8e00b0094f35210396mr35740883ejc.23.1684139602011;
+        Mon, 15 May 2023 01:33:22 -0700 (PDT)
+ARC-Seal: i=1; a=rsa-sha256; t=1684139601; cv=none;
+        d=google.com; s=arc-20160816;
+        b=EFJgx9cm5ew2+PIpTeHi7QCzos//oOs5q/HndQxc0+dHYlju5X4rVSACmfk9L0DH3j
+         +cG0n2/3wAsguA1rC3B8a+qXkRfAXC1ropuhDwKCZCdw0Iv40Vm4JeHolEQWRni8Ko+F
+         MhWY7AvxrX4GsO0pp4SfKsVFaJdo18dlpn+BUd9FX5N7V6lUTadQsVcJYJBd2B2MIRUi
+         mJaEPp8WpRkiS92DgWhPzUC9ELnwrySnNL0mOo9DCd9cjFXQ9KXW6qjRoP0blbL8N2ws
+         BlY2dJVmSM36n/GK9gZb+6fUg3xVufDUfdRr0m4jpa/ILD93/nwAZsqhk3k4j00se+CO
+         7Vrw==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=google.com;
+ s=arc-20160816;
+        h=sender:errors-to:content-transfer-encoding:cc:reply-to
+         :list-subscribe:list-help:list-post:list-archive:list-unsubscribe
+         :list-id:precedence:subject:feedback-id:mime-version:references
+         :in-reply-to:message-id:date:to:from:delivered-to;
+        bh=ygUb60Tr5LbPnhiS1As+hL+qX45KII+ocpY9X3Jq4TI=;
+        b=UpGhqbfo/+m9WW5qE92LKOdOlxkCWyy2QVqiXCjXpxepdDd0IKkhGqSspte9zJrUT8
+         QWg8IiDK6JTnGnvp+hO6doZjhXc1GyyTx6cMQQX+2JzqTtbWF03S94GwBgmN/U2RIK9M
+         f980SSgfNZRSJF5kJ+dO2ix4M5WIWhxEYB/MRzn/RbxAvYkwLNG1gMMBTNimogbFsXRo
+         h5WgGxO4k8mx/x8PBrtNv1aPZ86FAcXC3Aieao7aVnRDvWjepEus5jEfGu2QuqnvM2qK
+         WIjUyFrppJL/crANtgR+tFcL8395bRGYObYtIBblUQ/g5ddHzjsaClJ/42r3h1vez39q
+         nPjQ==
+ARC-Authentication-Results: i=1; mx.google.com;
+       spf=pass (google.com: domain of ffmpeg-devel-bounces@ffmpeg.org
+ designates 79.124.17.100 as permitted sender)
+ smtp.mailfrom=ffmpeg-devel-bounces@ffmpeg.org
+Return-Path: <ffmpeg-devel-bounces@ffmpeg.org>
+Received: from ffbox0-bg.mplayerhq.hu (ffbox0-bg.ffmpeg.org. [79.124.17.100])
+        by mx.google.com with ESMTP id
+ v21-20020a1709060b5500b0095ec54a22bcsi10907595ejg.106.2023.05.15.01.33.21;
+        Mon, 15 May 2023 01:33:21 -0700 (PDT)
+Received-SPF: pass (google.com: domain of ffmpeg-devel-bounces@ffmpeg.org
+ designates 79.124.17.100 as permitted sender) client-ip=79.124.17.100;
+Authentication-Results: mx.google.com;
+       spf=pass (google.com: domain of ffmpeg-devel-bounces@ffmpeg.org
+ designates 79.124.17.100 as permitted sender)
+ smtp.mailfrom=ffmpeg-devel-bounces@ffmpeg.org
+Received: from [127.0.1.1] (localhost [127.0.0.1])
+	by ffbox0-bg.mplayerhq.hu (Postfix) with ESMTP id D3F7668C092;
+	Mon, 15 May 2023 11:33:18 +0300 (EEST)
+X-Original-To: ffmpeg-devel@ffmpeg.org
+Delivered-To: ffmpeg-devel@ffmpeg.org
+Received: from bg4.exmail.qq.com (bg4.exmail.qq.com [43.155.67.158])
+ by ffbox0-bg.mplayerhq.hu (Postfix) with ESMTPS id 8180368C004
+ for <ffmpeg-devel@ffmpeg.org>; Mon, 15 May 2023 11:33:11 +0300 (EEST)
+X-QQ-mid: bizesmtp62t1684139585txhp32ou
+Received: from localhost ( [103.102.203.204]) by bizesmtp.qq.com (ESMTP) with
+ id ; Mon, 15 May 2023 16:33:04 +0800 (CST)
+X-QQ-SSF: 01100000000000Z0Z000000A0000000
+X-QQ-FEAT: 6ArnuSDJ+inVC06MH1nrJeu56+35diptW3dCdHt3bMayFZoCyE8QyUO0QY9zm
+ iY62JCSpSKYEK4ca2kpxkB99PI50FiWfNtzLDZ+VzUTy013GMpLwh1CWeVX5cF15RyEAIC9
+ u3Ozg7IY8mv+GiDtf6FDgSyumE1D93qxV1R2sJ5v38V3NbNPcikg0aDxZXOlC+Hr+LdhsZi
+ 4X5tDi3NovhpCf+8Wo+ZaejHOrE8MUcUGpbh8dHRew6dnmkdkK5ytSHSZEye8RsXZnMdp4A
+ mqBZqIDGw1a4e04JAc/NDCs7qq4qthxMFB1skhaOv6DLcL+EqV2QFwnJn7V5Oof7BwfjaTG
+ mEAVpiZDnQhFvOgHemH1v61Blub2nCnAurrGhGMaywIzFXT87aOSLCDlFprSg==
+X-QQ-GoodBg: 0
+X-BIZMAIL-ID: 11210839191292587357
+From: Steven Liu <lq@chinaffmpeg.org>
+To: ffmpeg-devel@ffmpeg.org
+Date: Mon, 15 May 2023 16:31:57 +0800
+Message-Id: <20230515083201.48201-3-lq@chinaffmpeg.org>
+X-Mailer: git-send-email 2.40.0
+In-Reply-To: <20230515083201.48201-1-lq@chinaffmpeg.org>
+References: 
+ <CAEg-Je-vYD97KnbaqTkK5=UJ9T3htmtH3Qykcwo3+rNCx=w+jQ@mail.gmail.com>
+ <20230515083201.48201-1-lq@chinaffmpeg.org>
+MIME-Version: 1.0
+X-QQ-SENDSIZE: 520
+Feedback-ID: bizesmtp:chinaffmpeg.org:qybglogicsvrsz:qybglogicsvrsz3a-3
+Subject: [FFmpeg-devel] [PATCH v10 2/6] avformat/flvdec: support demux hevc
+ in enhanced flv
+X-BeenThere: ffmpeg-devel@ffmpeg.org
+X-Mailman-Version: 2.1.29
+Precedence: list
+List-Id: FFmpeg development discussions and patches <ffmpeg-devel.ffmpeg.org>
+List-Unsubscribe: <https://ffmpeg.org/mailman/options/ffmpeg-devel>,
+ <mailto:ffmpeg-devel-request@ffmpeg.org?subject=unsubscribe>
+List-Archive: <https://ffmpeg.org/pipermail/ffmpeg-devel>
+List-Post: <mailto:ffmpeg-devel@ffmpeg.org>
+List-Help: <mailto:ffmpeg-devel-request@ffmpeg.org?subject=help>
+List-Subscribe: <https://ffmpeg.org/mailman/listinfo/ffmpeg-devel>,
+ <mailto:ffmpeg-devel-request@ffmpeg.org?subject=subscribe>
+Reply-To: FFmpeg development discussions and patches <ffmpeg-devel@ffmpeg.org>
+Cc: Steven Liu <lq@chinaffmpeg.org>
+Errors-To: ffmpeg-devel-bounces@ffmpeg.org
+Sender: "ffmpeg-devel" <ffmpeg-devel-bounces@ffmpeg.org>
+X-TUID: SFsjHMHu2ISl
+
+Signed-off-by: Steven Liu <lq@chinaffmpeg.org>
+---
+ libavformat/flvdec.c | 58 ++++++++++++++++++++++++++++++++++++++------
+ 1 file changed, 50 insertions(+), 8 deletions(-)
+
+diff --git a/libavformat/flvdec.c b/libavformat/flvdec.c
+index d83edff727..c8e6cadf1c 100644
+--- a/libavformat/flvdec.c
++++ b/libavformat/flvdec.c
+@@ -79,6 +79,8 @@ typedef struct FLVContext {
+     int64_t last_ts;
+     int64_t time_offset;
+     int64_t time_pos;
++
++    uint8_t exheader;
+ } FLVContext;
+ 
+ /* AMF date type */
+@@ -302,13 +304,25 @@ static void flv_set_audio_codec(AVFormatContext *s, AVStream *astream,
+     }
+ }
+ 
+-static int flv_same_video_codec(AVCodecParameters *vpar, int flags)
++static int flv_same_video_codec(AVFormatContext *s, AVCodecParameters *vpar, int flags)
+ {
+     int flv_codecid = flags & FLV_VIDEO_CODECID_MASK;
++    FLVContext *flv = s->priv_data;
+ 
+     if (!vpar->codec_id && !vpar->codec_tag)
+         return 1;
+ 
++    if (flv->exheader) {
++        uint8_t *codec_id_str = (uint8_t *)s->pb->buf_ptr;
++        uint32_t codec_id = codec_id_str[3] | codec_id_str[2] << 8 | codec_id_str[1] << 16 | codec_id_str[0] << 24;
++        switch(codec_id) {
++            case MKBETAG('h', 'v', 'c', '1'):
++                return vpar->codec_id == AV_CODEC_ID_HEVC;
++            default:
++                break;
++        }
++    }
++
+     switch (flv_codecid) {
+     case FLV_CODECID_H263:
+         return vpar->codec_id == AV_CODEC_ID_FLV1;
+@@ -331,9 +345,24 @@ static int flv_set_video_codec(AVFormatContext *s, AVStream *vstream,
+                                int flv_codecid, int read)
+ {
+     FFStream *const vstreami = ffstream(vstream);
++    FLVContext *flv = s->priv_data;
+     int ret = 0;
+     AVCodecParameters *par = vstream->codecpar;
+     enum AVCodecID old_codec_id = vstream->codecpar->codec_id;
++    flv_codecid &= FLV_VIDEO_CODECID_MASK;
++
++    if (flv->exheader) {
++        uint32_t codec_id = avio_rb32(s->pb);
++
++        switch(codec_id) {
++            case MKBETAG('h', 'v', 'c', '1'):
++                par->codec_id = AV_CODEC_ID_HEVC;
++                vstreami->need_parsing = AVSTREAM_PARSE_HEADERS;
++                return 4;
++            default:
++                break;
++        }
++    }
+     switch (flv_codecid) {
+     case FLV_CODECID_H263:
+         par->codec_id = AV_CODEC_ID_FLV1;
+@@ -796,6 +825,7 @@ static int flv_read_header(AVFormatContext *s)
+     s->start_time = 0;
+     flv->sum_flv_tag_size = 0;
+     flv->last_keyframe_stream_index = -1;
++    flv->exheader = 0;
+ 
+     return 0;
+ }
+@@ -1071,6 +1101,11 @@ retry:
+     } else if (type == FLV_TAG_TYPE_VIDEO) {
+         stream_type = FLV_STREAM_TYPE_VIDEO;
+         flags    = avio_r8(s->pb);
++        /*
++         * Reference Enhancing FLV 2023-03-v1.0.0-B.8
++         * https://github.com/veovera/enhanced-rtmp/blob/main/enhanced-rtmp-v1.pdf
++         * */
++        flv->exheader = (flags >> 7) & 1;
+         size--;
+         if ((flags & FLV_VIDEO_FRAMETYPE_MASK) == FLV_FRAME_VIDEO_INFO_CMD)
+             goto skip;
+@@ -1129,7 +1164,7 @@ skip:
+                 break;
+         } else if (stream_type == FLV_STREAM_TYPE_VIDEO) {
+             if (st->codecpar->codec_type == AVMEDIA_TYPE_VIDEO &&
+-                (s->video_codec_id || flv_same_video_codec(st->codecpar, flags)))
++                (s->video_codec_id || flv_same_video_codec(s, st->codecpar, flags)))
+                 break;
+         } else if (stream_type == FLV_STREAM_TYPE_SUBTITLE) {
+             if (st->codecpar->codec_type == AVMEDIA_TYPE_SUBTITLE)
+@@ -1230,7 +1265,7 @@ retry_duration:
+             avcodec_parameters_free(&par);
+         }
+     } else if (stream_type == FLV_STREAM_TYPE_VIDEO) {
+-        int ret = flv_set_video_codec(s, st, flags & FLV_VIDEO_CODECID_MASK, 1);
++        int ret = flv_set_video_codec(s, st, flags, 1);
+         if (ret < 0)
+             return ret;
+         size -= ret;
+@@ -1242,16 +1277,23 @@ retry_duration:
+ 
+     if (st->codecpar->codec_id == AV_CODEC_ID_AAC ||
+         st->codecpar->codec_id == AV_CODEC_ID_H264 ||
+-        st->codecpar->codec_id == AV_CODEC_ID_MPEG4) {
+-        int type = avio_r8(s->pb);
+-        size--;
++        st->codecpar->codec_id == AV_CODEC_ID_MPEG4 ||
++        st->codecpar->codec_id == AV_CODEC_ID_HEVC) {
++        int type = 0;
++        if (flv->exheader && stream_type == FLV_STREAM_TYPE_VIDEO) {
++            type = flags & 0x0F;
++        } else {
++            type = avio_r8(s->pb);
++            size--;
++        }
+ 
+         if (size < 0) {
+             ret = AVERROR_INVALIDDATA;
+             goto leave;
+         }
+ 
+-        if (st->codecpar->codec_id == AV_CODEC_ID_H264 || st->codecpar->codec_id == AV_CODEC_ID_MPEG4) {
++        if (st->codecpar->codec_id == AV_CODEC_ID_H264 || st->codecpar->codec_id == AV_CODEC_ID_MPEG4 ||
++            (st->codecpar->codec_id == AV_CODEC_ID_HEVC && type == PacketTypeCodedFrames)) {
+             // sign extension
+             int32_t cts = (avio_rb24(s->pb) + 0xff800000) ^ 0xff800000;
+             pts = av_sat_add64(dts, cts);
+@@ -1267,7 +1309,7 @@ retry_duration:
+             }
+         }
+         if (type == 0 && (!st->codecpar->extradata || st->codecpar->codec_id == AV_CODEC_ID_AAC ||
+-            st->codecpar->codec_id == AV_CODEC_ID_H264)) {
++            st->codecpar->codec_id == AV_CODEC_ID_H264 || st->codecpar->codec_id == AV_CODEC_ID_HEVC)) {
+             AVDictionaryEntry *t;
+ 
+             if (st->codecpar->extradata) {
+
+From patchwork Mon May 15 08:31:58 2023
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Steven Liu <lq@chinaffmpeg.org>
+X-Patchwork-Id: 41617
+Delivered-To: ffmpegpatchwork2@gmail.com
+Received: by 2002:a05:6a20:ba91:b0:105:feb:71f2 with SMTP id
+ fb17csp1444209pzb;
+        Mon, 15 May 2023 01:33:31 -0700 (PDT)
+X-Google-Smtp-Source: 
+ ACHHUZ5N/MWld9fXzokkRVS1e13AYakkRyH/RvyBiJ7xA512EWdWgrGE4ferugcTRoHNahvjayC9
+X-Received: by 2002:a17:907:9724:b0:96a:1260:dbf5 with SMTP id
+ jg36-20020a170907972400b0096a1260dbf5mr18082554ejc.45.1684139611447;
+        Mon, 15 May 2023 01:33:31 -0700 (PDT)
+ARC-Seal: i=1; a=rsa-sha256; t=1684139611; cv=none;
+        d=google.com; s=arc-20160816;
+        b=op6Xl3YinOSd8d/Ya4YpQjHSbJx0t7fHaCHvvqvkJgTbKfjmTJjDFsMWkeT/ceA1lA
+         xV9Y1JGrAlZmudpgaJtXHukLJessnBrqaBy5gm0lX6bJ0X4AKJt/F7GB3FR3OPISq79w
+         7djeHUx2VAxfWn1awCcFrcyyMPrGB2GPMdoXxcUVmySNNK0ohuroQ2JhVRajwj0sIBFg
+         f0pu7vXX9ct499tFl5rHEd//2Xl3rY6kNHfPlMOcJEclT+35TUaTWE88+rJODaiMArcZ
+         RaFK8xqfAOJjw0X9t6YiwBk1Kl/sFKEj71Fxu5khg7IvhF7kzRDSZXLCkKW9UvPYhGOl
+         25Bw==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=google.com;
+ s=arc-20160816;
+        h=sender:errors-to:content-transfer-encoding:cc:reply-to
+         :list-subscribe:list-help:list-post:list-archive:list-unsubscribe
+         :list-id:precedence:subject:feedback-id:mime-version:references
+         :in-reply-to:message-id:date:to:from:delivered-to;
+        bh=0O0kUGD5r8lgXEiC2RUfiZ1ccVRPd03lWds0dqdVEq0=;
+        b=OAvZATeoNq/BI3pJd21Xz2nKh+ZI8Zkofe4Ob6USu1ZEOyZzK2xxgtxL6SjJAxecG6
+         NfECg8e13DLbnVAB5OnMK8TY/HV/4N/iqPksn6PbJSkCyafRqg477+SRs7tOl89c3isr
+         Cp8o+j7t+gW2fkV9Y6L8MZa9etJpusa0LYXVBLPDs+tHNgXNec9UTA1YnoSyMqErrh58
+         chMh6B6P+5aRcKrBfKZY1F8WAzMjphdQ78c3YZ+ikgGfkoPgRKTEUq+xQAMm7UXirMcn
+         qtndeDiQypN1eg7LiEbAsLhj7K2jibIlDmwUk+6JDE1ASz05FViAbk3nFfWydNP8iUlh
+         z+CQ==
+ARC-Authentication-Results: i=1; mx.google.com;
+       spf=pass (google.com: domain of ffmpeg-devel-bounces@ffmpeg.org
+ designates 79.124.17.100 as permitted sender)
+ smtp.mailfrom=ffmpeg-devel-bounces@ffmpeg.org
+Return-Path: <ffmpeg-devel-bounces@ffmpeg.org>
+Received: from ffbox0-bg.mplayerhq.hu (ffbox0-bg.ffmpeg.org. [79.124.17.100])
+        by mx.google.com with ESMTP id
+ rv22-20020a17090710d600b00965e8c67d7dsi11399192ejb.285.2023.05.15.01.33.31;
+        Mon, 15 May 2023 01:33:31 -0700 (PDT)
+Received-SPF: pass (google.com: domain of ffmpeg-devel-bounces@ffmpeg.org
+ designates 79.124.17.100 as permitted sender) client-ip=79.124.17.100;
+Authentication-Results: mx.google.com;
+       spf=pass (google.com: domain of ffmpeg-devel-bounces@ffmpeg.org
+ designates 79.124.17.100 as permitted sender)
+ smtp.mailfrom=ffmpeg-devel-bounces@ffmpeg.org
+Received: from [127.0.1.1] (localhost [127.0.0.1])
+	by ffbox0-bg.mplayerhq.hu (Postfix) with ESMTP id CAF3668C08B;
+	Mon, 15 May 2023 11:33:22 +0300 (EEST)
+X-Original-To: ffmpeg-devel@ffmpeg.org
+Delivered-To: ffmpeg-devel@ffmpeg.org
+Received: from bg4.exmail.qq.com (bg4.exmail.qq.com [43.155.67.158])
+ by ffbox0-bg.mplayerhq.hu (Postfix) with ESMTPS id 5613068C08B
+ for <ffmpeg-devel@ffmpeg.org>; Mon, 15 May 2023 11:33:16 +0300 (EEST)
+X-QQ-mid: bizesmtp62t1684139591t5vf5iss
+Received: from localhost ( [103.102.203.204]) by bizesmtp.qq.com (ESMTP) with
+ id ; Mon, 15 May 2023 16:33:09 +0800 (CST)
+X-QQ-SSF: 01100000000000Z0Z000000A0000000
+X-QQ-FEAT: 0VYWLLCf4rd8sf4B0xdI45yO9pa7cA5LkUN5r8jryl/9HUTcEOcDnq6sEFLpU
+ pZ/JnwSIqfqFtRB8Bq8+032WcwZIBdGWmOUpIZLcDlBPHVtS9YwSO56p7te0932mhQHQVWr
+ 2MJ60EhPcxfhXG3M89QSysYDgLjUIRbb/cP/Br05mCJ05c+Q4NzWwlRwweOG0lUJ4aMNli9
+ i3Qf8lSAK8hK3JWYZP0Fg66JaFkZvw6Yz6N4ESVf4Vp85rwWKPfpBz538IiCze/ePbVgZWB
+ zvbU1mVAkapT05cTLyqAlv7tefflgoYcrW79Z+Opy2wSYDZLpCkRIe+w4yWG7eCg71dUgnc
+ 79D+MVyHSJjuXS/sQLaeFanS1V55WK4izy9J/bFHdSprmySwmpk8hf5zhIZOQ==
+X-QQ-GoodBg: 0
+X-BIZMAIL-ID: 5377996165340525619
+From: Steven Liu <lq@chinaffmpeg.org>
+To: ffmpeg-devel@ffmpeg.org
+Date: Mon, 15 May 2023 16:31:58 +0800
+Message-Id: <20230515083201.48201-4-lq@chinaffmpeg.org>
+X-Mailer: git-send-email 2.40.0
+In-Reply-To: <20230515083201.48201-1-lq@chinaffmpeg.org>
+References: 
+ <CAEg-Je-vYD97KnbaqTkK5=UJ9T3htmtH3Qykcwo3+rNCx=w+jQ@mail.gmail.com>
+ <20230515083201.48201-1-lq@chinaffmpeg.org>
+MIME-Version: 1.0
+X-QQ-SENDSIZE: 520
+Feedback-ID: bizesmtp:chinaffmpeg.org:qybglogicsvrsz:qybglogicsvrsz3a-3
+Subject: [FFmpeg-devel] [PATCH v10 3/6] avformat/flvenc: support mux av1 in
+ enhanced flv
+X-BeenThere: ffmpeg-devel@ffmpeg.org
+X-Mailman-Version: 2.1.29
+Precedence: list
+List-Id: FFmpeg development discussions and patches <ffmpeg-devel.ffmpeg.org>
+List-Unsubscribe: <https://ffmpeg.org/mailman/options/ffmpeg-devel>,
+ <mailto:ffmpeg-devel-request@ffmpeg.org?subject=unsubscribe>
+List-Archive: <https://ffmpeg.org/pipermail/ffmpeg-devel>
+List-Post: <mailto:ffmpeg-devel@ffmpeg.org>
+List-Help: <mailto:ffmpeg-devel-request@ffmpeg.org?subject=help>
+List-Subscribe: <https://ffmpeg.org/mailman/listinfo/ffmpeg-devel>,
+ <mailto:ffmpeg-devel-request@ffmpeg.org?subject=subscribe>
+Reply-To: FFmpeg development discussions and patches <ffmpeg-devel@ffmpeg.org>
+Cc: Steven Liu <lq@chinaffmpeg.org>
+Errors-To: ffmpeg-devel-bounces@ffmpeg.org
+Sender: "ffmpeg-devel" <ffmpeg-devel-bounces@ffmpeg.org>
+X-TUID: dRfPdsIvexzh
+
+Signed-off-by: Steven Liu <lq@chinaffmpeg.org>
+---
+ libavformat/Makefile |  2 +-
+ libavformat/flvenc.c | 22 ++++++++++++++++++----
+ 2 files changed, 19 insertions(+), 5 deletions(-)
+
+diff --git a/libavformat/Makefile b/libavformat/Makefile
+index 1ef3d15467..c868e1626c 100644
+--- a/libavformat/Makefile
++++ b/libavformat/Makefile
+@@ -214,7 +214,7 @@ OBJS-$(CONFIG_FLAC_MUXER)                += flacenc.o flacenc_header.o \
+ OBJS-$(CONFIG_FLIC_DEMUXER)              += flic.o
+ OBJS-$(CONFIG_FLV_DEMUXER)               += flvdec.o
+ OBJS-$(CONFIG_LIVE_FLV_DEMUXER)          += flvdec.o
+-OBJS-$(CONFIG_FLV_MUXER)                 += flvenc.o avc.o hevc.o
++OBJS-$(CONFIG_FLV_MUXER)                 += flvenc.o avc.o hevc.o av1.o
+ OBJS-$(CONFIG_FOURXM_DEMUXER)            += 4xm.o
+ OBJS-$(CONFIG_FRAMECRC_MUXER)            += framecrcenc.o framehash.o
+ OBJS-$(CONFIG_FRAMEHASH_MUXER)           += hashenc.o framehash.o
+diff --git a/libavformat/flvenc.c b/libavformat/flvenc.c
+index 35e198fa15..c1784b332d 100644
+--- a/libavformat/flvenc.c
++++ b/libavformat/flvenc.c
+@@ -28,6 +28,7 @@
+ #include "libavcodec/mpeg4audio.h"
+ #include "avio.h"
+ #include "avc.h"
++#include "av1.h"
+ #include "hevc.h"
+ #include "avformat.h"
+ #include "flv.h"
+@@ -48,6 +49,7 @@ static const AVCodecTag flv_video_codec_ids[] = {
+     { AV_CODEC_ID_VP6A,     FLV_CODECID_VP6A },
+     { AV_CODEC_ID_H264,     FLV_CODECID_H264 },
+     { AV_CODEC_ID_HEVC,     MKBETAG('h', 'v', 'c', '1') },
++    { AV_CODEC_ID_AV1,      MKBETAG('a', 'v', '0', '1') },
+     { AV_CODEC_ID_NONE,     0 }
+ };
+ 
+@@ -491,7 +493,8 @@ static void flv_write_codec_header(AVFormatContext* s, AVCodecParameters* par, i
+     FLVContext *flv = s->priv_data;
+ 
+     if (par->codec_id == AV_CODEC_ID_AAC || par->codec_id == AV_CODEC_ID_H264
+-            || par->codec_id == AV_CODEC_ID_MPEG4 || par->codec_id == AV_CODEC_ID_HEVC) {
++            || par->codec_id == AV_CODEC_ID_MPEG4 || par->codec_id == AV_CODEC_ID_HEVC
++            || par->codec_id == AV_CODEC_ID_AV1) {
+         int64_t pos;
+         avio_w8(pb,
+                 par->codec_type == AVMEDIA_TYPE_VIDEO ?
+@@ -537,6 +540,9 @@ static void flv_write_codec_header(AVFormatContext* s, AVCodecParameters* par, i
+             if (par->codec_id == AV_CODEC_ID_HEVC) {
+                 avio_w8(pb, FLV_IS_EX_HEADER | PacketTypeSequenceStart); // ExVideoTagHeader mode with PacketTypeSequenceStart
+                 avio_write(pb, "hvc1", 4);
++            } else if (par->codec_id == AV_CODEC_ID_AV1) {
++                avio_w8(pb, FLV_IS_EX_HEADER | PacketTypeSequenceStart);
++                avio_write(pb, "av01", 4);
+             } else {
+                 avio_w8(pb, par->codec_tag | FLV_FRAME_KEY); // flags
+                 avio_w8(pb, 0); // AVC sequence header
+@@ -545,6 +551,8 @@ static void flv_write_codec_header(AVFormatContext* s, AVCodecParameters* par, i
+ 
+             if (par->codec_id == AV_CODEC_ID_HEVC)
+                 ff_isom_write_hvcc(pb, par->extradata, par->extradata_size, 0);
++            else if (par->codec_id == AV_CODEC_ID_AV1)
++                ff_isom_write_av1c(pb, par->extradata, par->extradata_size, 1);
+             else
+                 ff_isom_write_avcc(pb, par->extradata, par->extradata_size);
+         }
+@@ -843,13 +851,15 @@ static int flv_write_packet(AVFormatContext *s, AVPacket *pkt)
+     if (par->codec_id == AV_CODEC_ID_VP6F || par->codec_id == AV_CODEC_ID_VP6A ||
+         par->codec_id == AV_CODEC_ID_VP6  || par->codec_id == AV_CODEC_ID_AAC)
+         flags_size = 2;
+-    else if (par->codec_id == AV_CODEC_ID_H264 || par->codec_id == AV_CODEC_ID_MPEG4 || par->codec_id == AV_CODEC_ID_HEVC)
++    else if (par->codec_id == AV_CODEC_ID_H264 || par->codec_id == AV_CODEC_ID_MPEG4 ||
++             par->codec_id == AV_CODEC_ID_HEVC || par->codec_id == AV_CODEC_ID_AV1)
+         flags_size = 5;
+     else
+         flags_size = 1;
+ 
+     if (par->codec_id == AV_CODEC_ID_AAC || par->codec_id == AV_CODEC_ID_H264
+-            || par->codec_id == AV_CODEC_ID_MPEG4 || par->codec_id == AV_CODEC_ID_HEVC) {
++            || par->codec_id == AV_CODEC_ID_MPEG4 || par->codec_id == AV_CODEC_ID_HEVC
++            || par->codec_id == AV_CODEC_ID_AV1) {
+         size_t side_size;
+         uint8_t *side = av_packet_get_side_data(pkt, AV_PKT_DATA_NEW_EXTRADATA, &side_size);
+         if (side && side_size > 0 && (side_size != par->extradata_size || memcmp(side, par->extradata, side_size))) {
+@@ -869,7 +879,8 @@ static int flv_write_packet(AVFormatContext *s, AVPacket *pkt)
+                "Packets are not in the proper order with respect to DTS\n");
+         return AVERROR(EINVAL);
+     }
+-    if (par->codec_id == AV_CODEC_ID_H264 || par->codec_id == AV_CODEC_ID_MPEG4 || par->codec_id == AV_CODEC_ID_HEVC) {
++    if (par->codec_id == AV_CODEC_ID_H264 || par->codec_id == AV_CODEC_ID_MPEG4 ||
++        par->codec_id == AV_CODEC_ID_HEVC ||  par->codec_id == AV_CODEC_ID_AV1) {
+         if (pkt->pts == AV_NOPTS_VALUE) {
+             av_log(s, AV_LOG_ERROR, "Packet is missing PTS\n");
+             return AVERROR(EINVAL);
+@@ -982,6 +993,9 @@ static int flv_write_packet(AVFormatContext *s, AVPacket *pkt)
+         if (par->codec_id == AV_CODEC_ID_HEVC) {
+             avio_w8(pb, FLV_IS_EX_HEADER | PacketTypeCodedFramesX); // ExVideoTagHeader mode with PacketTypeCodedFramesX
+             avio_write(pb, "hvc1", 4);
++        } else if (par->codec_id == AV_CODEC_ID_AV1) {
++            avio_w8(pb, FLV_IS_EX_HEADER | PacketTypeCodedFrames);
++            avio_write(pb, "av01", 4);
+         } else {
+             avio_w8(pb, flags);
+         }
+
+From patchwork Mon May 15 08:31:59 2023
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Steven Liu <lq@chinaffmpeg.org>
+X-Patchwork-Id: 41618
+Delivered-To: ffmpegpatchwork2@gmail.com
+Received: by 2002:a05:6a20:ba91:b0:105:feb:71f2 with SMTP id
+ fb17csp1444290pzb;
+        Mon, 15 May 2023 01:33:41 -0700 (PDT)
+X-Google-Smtp-Source: 
+ ACHHUZ7k5HSYVpKlutDCH3BVN03oQ1eQ9NWjKwBebLGv5fK0d2qVGGgCtBo3XdEGlDTDUuvlDzRX
+X-Received: by 2002:a17:907:9347:b0:94f:322d:909c with SMTP id
+ bv7-20020a170907934700b0094f322d909cmr26994118ejc.34.1684139620986;
+        Mon, 15 May 2023 01:33:40 -0700 (PDT)
+ARC-Seal: i=1; a=rsa-sha256; t=1684139620; cv=none;
+        d=google.com; s=arc-20160816;
+        b=BBSgegXR1u0K767R9MAxQddt49hZNhDS+YgCHGYo0B07ClteK018739TK9tupVh7pK
+         wuvk/gzkEpIZpf2I3LQnpaxvQx0ZnllSKyz+x+560wEVKkQw5tlwpgr4qA3m0ApBBmQR
+         2ZUu6WRpBnVeXJbT5n+ymITrLd1NVXLNPqoz7kL0iDML0b2iC9PqCoGRTHF6zJZFtCH2
+         ZYUq4OdcbflvqqLBvKvSgEwuVof0bqDwD8kfq9noKTf7wrx5bcdIbq6XMYG1n6AnPq7R
+         R+ekmhosFoZ7IgohAkj9k8j6l4ipCc6yVN2M8TN1TfTwRC01vzz+SRYOXZWLNb0eqZzh
+         Zp2A==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=google.com;
+ s=arc-20160816;
+        h=sender:errors-to:content-transfer-encoding:cc:reply-to
+         :list-subscribe:list-help:list-post:list-archive:list-unsubscribe
+         :list-id:precedence:subject:feedback-id:mime-version:references
+         :in-reply-to:message-id:date:to:from:delivered-to;
+        bh=J5hIt8/6l7983HWQOAGA1qy6mjWmMWu6DJ2RZRfJeuQ=;
+        b=rX88kWHJtUiqnNutEQCOwUvfl5lV/FVHviaDHIsiatvB92XG71pgeFVXopTjJ+st3F
+         lu+/rKnYKAVXFqF4WHMP6bu0VT5bFE2A9806gTD5Rf1D2yGVjKWRH8fhY6Jl2KhEhQA+
+         Efc6fMZ2qZRmdx5S2INE2k+sY3zgWZsFkv2NDowFLnjnpmTGneVW82ybCbL06DRH7Jts
+         wxWDfFfTqnp2VNwD0C462f5ogLB8cH7f9uoFviTovEYcXc8iLpHP38cJa3hdAuJg972S
+         cgjJSuZUaQ38bqmw7th2MDkaFSzryck0wafneRdJUxyKG7ltbwk4hgAz89yzUB7nZeU6
+         yucA==
+ARC-Authentication-Results: i=1; mx.google.com;
+       spf=pass (google.com: domain of ffmpeg-devel-bounces@ffmpeg.org
+ designates 79.124.17.100 as permitted sender)
+ smtp.mailfrom=ffmpeg-devel-bounces@ffmpeg.org
+Return-Path: <ffmpeg-devel-bounces@ffmpeg.org>
+Received: from ffbox0-bg.mplayerhq.hu (ffbox0-bg.ffmpeg.org. [79.124.17.100])
+        by mx.google.com with ESMTP id
+ gv41-20020a1709072be900b00965f171543esi11575148ejc.148.2023.05.15.01.33.40;
+        Mon, 15 May 2023 01:33:40 -0700 (PDT)
+Received-SPF: pass (google.com: domain of ffmpeg-devel-bounces@ffmpeg.org
+ designates 79.124.17.100 as permitted sender) client-ip=79.124.17.100;
+Authentication-Results: mx.google.com;
+       spf=pass (google.com: domain of ffmpeg-devel-bounces@ffmpeg.org
+ designates 79.124.17.100 as permitted sender)
+ smtp.mailfrom=ffmpeg-devel-bounces@ffmpeg.org
+Received: from [127.0.1.1] (localhost [127.0.0.1])
+	by ffbox0-bg.mplayerhq.hu (Postfix) with ESMTP id D65AD68C0A8;
+	Mon, 15 May 2023 11:33:29 +0300 (EEST)
+X-Original-To: ffmpeg-devel@ffmpeg.org
+Delivered-To: ffmpeg-devel@ffmpeg.org
+Received: from bg4.exmail.qq.com (bg4.exmail.qq.com [43.155.67.158])
+ by ffbox0-bg.mplayerhq.hu (Postfix) with ESMTPS id 5AA6768C09F
+ for <ffmpeg-devel@ffmpeg.org>; Mon, 15 May 2023 11:33:22 +0300 (EEST)
+X-QQ-mid: bizesmtp75t1684139596t4okf86m
+Received: from localhost ( [103.102.203.204]) by bizesmtp.qq.com (ESMTP) with
+ id ; Mon, 15 May 2023 16:33:15 +0800 (CST)
+X-QQ-SSF: 01100000000000Z0Z000000A0000000
+X-QQ-FEAT: KvvwR/hcPA3wY6H84uX1Z4OhW9I2bQ1QV35znBz44h8GZ/oUuMaFpDcrT3dSg
+ MUkTVTMEyhXhHNx2JIMxfw5+q/3TCUtvnKXsxLZtQsy/0Nq/y+p0xVsHJzQmM8CvbT6L6Q3
+ OmxwvGAO6ljvI/iA+SXU+3+HUNyetDE8UTRW1ZGCtG9iJRbK9wXPoiAMzLepT2+CHGO2brq
+ CwH6RA/e9/I4xOHLleywtC4oDlPuyHovxzzedsBTrXYic5tb0+D65abc6NjfHr7zrYD/DQu
+ HY0NNweX9YP/jE8jJ0TPLhcx7wighw+KDFbYf+UcUuaPHhzfAZh2f6aplibzVuvV78OPq2S
+ thQ/XeMGf/W9C/Oy4Eq145+G+pUQ7zx/OKY8Jj/33dmvwZkUr8=
+X-QQ-GoodBg: 0
+X-BIZMAIL-ID: 9530387995930120932
+From: Steven Liu <lq@chinaffmpeg.org>
+To: ffmpeg-devel@ffmpeg.org
+Date: Mon, 15 May 2023 16:31:59 +0800
+Message-Id: <20230515083201.48201-5-lq@chinaffmpeg.org>
+X-Mailer: git-send-email 2.40.0
+In-Reply-To: <20230515083201.48201-1-lq@chinaffmpeg.org>
+References: 
+ <CAEg-Je-vYD97KnbaqTkK5=UJ9T3htmtH3Qykcwo3+rNCx=w+jQ@mail.gmail.com>
+ <20230515083201.48201-1-lq@chinaffmpeg.org>
+MIME-Version: 1.0
+X-QQ-SENDSIZE: 520
+Feedback-ID: bizesmtp:chinaffmpeg.org:qybglogicsvrsz:qybglogicsvrsz3a-3
+Subject: [FFmpeg-devel] [PATCH v10 4/6] avformat/flvdec: support demux av1
+ in enhanced flv
+X-BeenThere: ffmpeg-devel@ffmpeg.org
+X-Mailman-Version: 2.1.29
+Precedence: list
+List-Id: FFmpeg development discussions and patches <ffmpeg-devel.ffmpeg.org>
+List-Unsubscribe: <https://ffmpeg.org/mailman/options/ffmpeg-devel>,
+ <mailto:ffmpeg-devel-request@ffmpeg.org?subject=unsubscribe>
+List-Archive: <https://ffmpeg.org/pipermail/ffmpeg-devel>
+List-Post: <mailto:ffmpeg-devel@ffmpeg.org>
+List-Help: <mailto:ffmpeg-devel-request@ffmpeg.org?subject=help>
+List-Subscribe: <https://ffmpeg.org/mailman/listinfo/ffmpeg-devel>,
+ <mailto:ffmpeg-devel-request@ffmpeg.org?subject=subscribe>
+Reply-To: FFmpeg development discussions and patches <ffmpeg-devel@ffmpeg.org>
+Cc: Steven Liu <lq@chinaffmpeg.org>
+Errors-To: ffmpeg-devel-bounces@ffmpeg.org
+Sender: "ffmpeg-devel" <ffmpeg-devel-bounces@ffmpeg.org>
+X-TUID: MKqjViniwIy+
+
+Signed-off-by: Steven Liu <lq@chinaffmpeg.org>
+---
+ libavformat/flvdec.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/libavformat/flvdec.c b/libavformat/flvdec.c
+index c8e6cadf1c..a0362ff11c 100644
+--- a/libavformat/flvdec.c
++++ b/libavformat/flvdec.c
+@@ -318,6 +318,8 @@ static int flv_same_video_codec(AVFormatContext *s, AVCodecParameters *vpar, int
+         switch(codec_id) {
+             case MKBETAG('h', 'v', 'c', '1'):
+                 return vpar->codec_id == AV_CODEC_ID_HEVC;
++            case MKBETAG('a', 'v', '0', '1'):
++                return vpar->codec_id == AV_CODEC_ID_AV1;
+             default:
+                 break;
+         }
+@@ -359,6 +361,10 @@ static int flv_set_video_codec(AVFormatContext *s, AVStream *vstream,
+                 par->codec_id = AV_CODEC_ID_HEVC;
+                 vstreami->need_parsing = AVSTREAM_PARSE_HEADERS;
+                 return 4;
++            case MKBETAG('a', 'v', '0', '1'):
++                par->codec_id = AV_CODEC_ID_AV1;
++                vstreami->need_parsing = AVSTREAM_PARSE_HEADERS;
++                return 4;
+             default:
+                 break;
+         }
+@@ -1278,7 +1284,8 @@ retry_duration:
+     if (st->codecpar->codec_id == AV_CODEC_ID_AAC ||
+         st->codecpar->codec_id == AV_CODEC_ID_H264 ||
+         st->codecpar->codec_id == AV_CODEC_ID_MPEG4 ||
+-        st->codecpar->codec_id == AV_CODEC_ID_HEVC) {
++        st->codecpar->codec_id == AV_CODEC_ID_HEVC ||
++        st->codecpar->codec_id == AV_CODEC_ID_AV1) {
+         int type = 0;
+         if (flv->exheader && stream_type == FLV_STREAM_TYPE_VIDEO) {
+             type = flags & 0x0F;
+@@ -1309,7 +1316,8 @@ retry_duration:
+             }
+         }
+         if (type == 0 && (!st->codecpar->extradata || st->codecpar->codec_id == AV_CODEC_ID_AAC ||
+-            st->codecpar->codec_id == AV_CODEC_ID_H264 || st->codecpar->codec_id == AV_CODEC_ID_HEVC)) {
++            st->codecpar->codec_id == AV_CODEC_ID_H264 || st->codecpar->codec_id == AV_CODEC_ID_HEVC ||
++            st->codecpar->codec_id == AV_CODEC_ID_AV1)) {
+             AVDictionaryEntry *t;
+ 
+             if (st->codecpar->extradata) {
+
+From patchwork Mon May 15 08:32:00 2023
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Steven Liu <lq@chinaffmpeg.org>
+X-Patchwork-Id: 41619
+Delivered-To: ffmpegpatchwork2@gmail.com
+Received: by 2002:a05:6a20:ba91:b0:105:feb:71f2 with SMTP id
+ fb17csp1444532pzb;
+        Mon, 15 May 2023 01:34:10 -0700 (PDT)
+X-Google-Smtp-Source: 
+ ACHHUZ4QlFqXMa0WNHK3Z3HLgPm2UskuQZX2wmbFhYm+ZL0BsDRPhLxJboG0YhDPFi999aVCQZE+
+X-Received: by 2002:a05:6402:14c3:b0:50d:fcfb:8633 with SMTP id
+ f3-20020a05640214c300b0050dfcfb8633mr9613789edx.9.1684139650196;
+        Mon, 15 May 2023 01:34:10 -0700 (PDT)
+ARC-Seal: i=1; a=rsa-sha256; t=1684139650; cv=none;
+        d=google.com; s=arc-20160816;
+        b=sjfm4xhTPqjGNyHlxS3/kMPilx13EB+7S0YxjOI5lR9MMg8Sy3KgL187C6tuZqUwoZ
+         dJo7A3q41EK4WJyWTTUyqUOr8q8JPjbBTCJpVsERuMuMWpHrhQxvwEDibvfuDI0ZI2vK
+         y5pqRZ23OMNZLCC+fsc85gQDKPgvkYZTYisSOsWVRiZQGl04TipfZE1Uza8R7ZEXRgdH
+         ZW770YcfzVXmKKzralH4thSFhGfMZRpX7kj6oBtmpUco4Z6iu42o3iBTcaioGBzdWdPY
+         KL94WAIaMnCyO1JJaUAJGzEcQTGhPbXUzG7JvmqEwSa168GBSEjQJ3qJc8oOr+UVWcvn
+         HvaQ==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=google.com;
+ s=arc-20160816;
+        h=sender:errors-to:content-transfer-encoding:cc:reply-to
+         :list-subscribe:list-help:list-post:list-archive:list-unsubscribe
+         :list-id:precedence:subject:feedback-id:mime-version:references
+         :in-reply-to:message-id:date:to:from:delivered-to;
+        bh=b1Sp5oqZAMwakI7a3Zvw4MdnKPyomZo8cXqDnyJamjg=;
+        b=jcFJOli16NPqGPnMDcJVER3TEkWreNJ2Vu7711GhJhFkmXLNFhS2FUAoT9QBTy+JWm
+         jxaBjiVvs1MMQ+a3k3yT7AzVSUMMDDSagiE/jWzQ+vBN9dr/jQOMtJWxwfm4oTbBc0/r
+         GcHTgPKB2HvEiLOWaJ4CSfZcYBvosoew/IfPgKm06P2Btmc+faSXLCZ63nKEVTq7NCpx
+         qllJPkFmvlwB/+soxN7nZgTzXm/uurSOBMajImRGPOZUOZQE1I5Tk8OtJXZP6QtlSvXT
+         ZcglewhTYuHlAXbpT4sYyddMwKg9yPu6/Wmrol/wg3QpXPZ0lVtLeTozus/2UTISJrR5
+         Lp3Q==
+ARC-Authentication-Results: i=1; mx.google.com;
+       spf=pass (google.com: domain of ffmpeg-devel-bounces@ffmpeg.org
+ designates 79.124.17.100 as permitted sender)
+ smtp.mailfrom=ffmpeg-devel-bounces@ffmpeg.org
+Return-Path: <ffmpeg-devel-bounces@ffmpeg.org>
+Received: from ffbox0-bg.mplayerhq.hu (ffbox0-bg.ffmpeg.org. [79.124.17.100])
+        by mx.google.com with ESMTP id
+ f25-20020a056402151900b0050bd37278d9si11856925edw.435.2023.05.15.01.34.09;
+        Mon, 15 May 2023 01:34:10 -0700 (PDT)
+Received-SPF: pass (google.com: domain of ffmpeg-devel-bounces@ffmpeg.org
+ designates 79.124.17.100 as permitted sender) client-ip=79.124.17.100;
+Authentication-Results: mx.google.com;
+       spf=pass (google.com: domain of ffmpeg-devel-bounces@ffmpeg.org
+ designates 79.124.17.100 as permitted sender)
+ smtp.mailfrom=ffmpeg-devel-bounces@ffmpeg.org
+Received: from [127.0.1.1] (localhost [127.0.0.1])
+	by ffbox0-bg.mplayerhq.hu (Postfix) with ESMTP id 0DB6568C092;
+	Mon, 15 May 2023 11:34:07 +0300 (EEST)
+X-Original-To: ffmpeg-devel@ffmpeg.org
+Delivered-To: ffmpeg-devel@ffmpeg.org
+Received: from bg4.exmail.qq.com (bg4.exmail.qq.com [43.154.221.58])
+ by ffbox0-bg.mplayerhq.hu (Postfix) with ESMTPS id 96A14680274
+ for <ffmpeg-devel@ffmpeg.org>; Mon, 15 May 2023 11:33:59 +0300 (EEST)
+X-QQ-mid: bizesmtp76t1684139634tg83beu0
+Received: from localhost ( [103.102.203.204]) by bizesmtp.qq.com (ESMTP) with
+ id ; Mon, 15 May 2023 16:33:52 +0800 (CST)
+X-QQ-SSF: 01100000000000Z0Z000000A0000000
+X-QQ-FEAT: DWSCcwW/aQb83U5Bq9N00w3kkIuofNiUvlQbgR0sgGjFEas+vh7wXyRycFT/z
+ w33SH7uNRX8lmP+8+iy6jQH/gsaQRVAau2z8K0utdx9GuZMvY0e5SZfB0zBfncb1NdBZJxB
+ Ptvibavnj2rDlqrGLO9dvFEfmYj1K48HYp6rdjCb+xRPfyOtnct3Zq6ST7F1DxU1+Kmt8cw
+ 2qVgeA79DNHm1JbcDzi/2W/SpzWHWk/jamN4cAQfKyP9B4AvMPaFd8kdl6akYbR0Q84H73M
+ Pcx8UXz6iw4sCTSPFzf0zrsI4+shly9KFp4UESTfRbDEJ46pcyw8+6Uz+Q7w+7CRtPlOsms
+ K6IAbcLwicf/v8Rm2nHdrNPotcaMgY5p7IqmkY/Y/b2feqKiAM=
+X-QQ-GoodBg: 0
+X-BIZMAIL-ID: 4611718483056789364
+From: Steven Liu <lq@chinaffmpeg.org>
+To: ffmpeg-devel@ffmpeg.org
+Date: Mon, 15 May 2023 16:32:00 +0800
+Message-Id: <20230515083201.48201-6-lq@chinaffmpeg.org>
+X-Mailer: git-send-email 2.40.0
+In-Reply-To: <20230515083201.48201-1-lq@chinaffmpeg.org>
+References: 
+ <CAEg-Je-vYD97KnbaqTkK5=UJ9T3htmtH3Qykcwo3+rNCx=w+jQ@mail.gmail.com>
+ <20230515083201.48201-1-lq@chinaffmpeg.org>
+MIME-Version: 1.0
+X-QQ-SENDSIZE: 520
+Feedback-ID: bizesmtp:chinaffmpeg.org:qybglogicsvrsz:qybglogicsvrsz3a-3
+Subject: [FFmpeg-devel] [PATCH v10 5/6] avformat/flvenc: support mux vp9 in
+ enhanced flv
+X-BeenThere: ffmpeg-devel@ffmpeg.org
+X-Mailman-Version: 2.1.29
+Precedence: list
+List-Id: FFmpeg development discussions and patches <ffmpeg-devel.ffmpeg.org>
+List-Unsubscribe: <https://ffmpeg.org/mailman/options/ffmpeg-devel>,
+ <mailto:ffmpeg-devel-request@ffmpeg.org?subject=unsubscribe>
+List-Archive: <https://ffmpeg.org/pipermail/ffmpeg-devel>
+List-Post: <mailto:ffmpeg-devel@ffmpeg.org>
+List-Help: <mailto:ffmpeg-devel-request@ffmpeg.org?subject=help>
+List-Subscribe: <https://ffmpeg.org/mailman/listinfo/ffmpeg-devel>,
+ <mailto:ffmpeg-devel-request@ffmpeg.org?subject=subscribe>
+Reply-To: FFmpeg development discussions and patches <ffmpeg-devel@ffmpeg.org>
+Cc: Steven Liu <lq@chinaffmpeg.org>
+Errors-To: ffmpeg-devel-bounces@ffmpeg.org
+Sender: "ffmpeg-devel" <ffmpeg-devel-bounces@ffmpeg.org>
+X-TUID: appcyLUJeeFW
+
+Signed-off-by: Steven Liu <lq@chinaffmpeg.org>
+---
+ libavformat/Makefile |  2 +-
+ libavformat/flvenc.c | 22 ++++++++++++++--------
+ 2 files changed, 15 insertions(+), 9 deletions(-)
+
+diff --git a/libavformat/Makefile b/libavformat/Makefile
+index c868e1626c..16cfe107ea 100644
+--- a/libavformat/Makefile
++++ b/libavformat/Makefile
+@@ -214,7 +214,7 @@ OBJS-$(CONFIG_FLAC_MUXER)                += flacenc.o flacenc_header.o \
+ OBJS-$(CONFIG_FLIC_DEMUXER)              += flic.o
+ OBJS-$(CONFIG_FLV_DEMUXER)               += flvdec.o
+ OBJS-$(CONFIG_LIVE_FLV_DEMUXER)          += flvdec.o
+-OBJS-$(CONFIG_FLV_MUXER)                 += flvenc.o avc.o hevc.o av1.o
++OBJS-$(CONFIG_FLV_MUXER)                 += flvenc.o avc.o hevc.o av1.o vpcc.o
+ OBJS-$(CONFIG_FOURXM_DEMUXER)            += 4xm.o
+ OBJS-$(CONFIG_FRAMECRC_MUXER)            += framecrcenc.o framehash.o
+ OBJS-$(CONFIG_FRAMEHASH_MUXER)           += hashenc.o framehash.o
+diff --git a/libavformat/flvenc.c b/libavformat/flvenc.c
+index c1784b332d..475dd0bf44 100644
+--- a/libavformat/flvenc.c
++++ b/libavformat/flvenc.c
+@@ -29,6 +29,7 @@
+ #include "avio.h"
+ #include "avc.h"
+ #include "av1.h"
++#include "vpcc.h"
+ #include "hevc.h"
+ #include "avformat.h"
+ #include "flv.h"
+@@ -50,6 +51,7 @@ static const AVCodecTag flv_video_codec_ids[] = {
+     { AV_CODEC_ID_H264,     FLV_CODECID_H264 },
+     { AV_CODEC_ID_HEVC,     MKBETAG('h', 'v', 'c', '1') },
+     { AV_CODEC_ID_AV1,      MKBETAG('a', 'v', '0', '1') },
++    { AV_CODEC_ID_VP9,      MKBETAG('v', 'p', '0', '9') },
+     { AV_CODEC_ID_NONE,     0 }
+ };
+ 
+@@ -494,7 +496,7 @@ static void flv_write_codec_header(AVFormatContext* s, AVCodecParameters* par, i
+ 
+     if (par->codec_id == AV_CODEC_ID_AAC || par->codec_id == AV_CODEC_ID_H264
+             || par->codec_id == AV_CODEC_ID_MPEG4 || par->codec_id == AV_CODEC_ID_HEVC
+-            || par->codec_id == AV_CODEC_ID_AV1) {
++            || par->codec_id == AV_CODEC_ID_AV1 || par->codec_id == AV_CODEC_ID_VP9) {
+         int64_t pos;
+         avio_w8(pb,
+                 par->codec_type == AVMEDIA_TYPE_VIDEO ?
+@@ -540,9 +542,9 @@ static void flv_write_codec_header(AVFormatContext* s, AVCodecParameters* par, i
+             if (par->codec_id == AV_CODEC_ID_HEVC) {
+                 avio_w8(pb, FLV_IS_EX_HEADER | PacketTypeSequenceStart); // ExVideoTagHeader mode with PacketTypeSequenceStart
+                 avio_write(pb, "hvc1", 4);
+-            } else if (par->codec_id == AV_CODEC_ID_AV1) {
++            } else if (par->codec_id == AV_CODEC_ID_AV1 || par->codec_id == AV_CODEC_ID_VP9) {
+                 avio_w8(pb, FLV_IS_EX_HEADER | PacketTypeSequenceStart);
+-                avio_write(pb, "av01", 4);
++                avio_write(pb, par->codec_id == AV_CODEC_ID_AV1 ? "av01" : "vp09", 4);
+             } else {
+                 avio_w8(pb, par->codec_tag | FLV_FRAME_KEY); // flags
+                 avio_w8(pb, 0); // AVC sequence header
+@@ -553,6 +555,8 @@ static void flv_write_codec_header(AVFormatContext* s, AVCodecParameters* par, i
+                 ff_isom_write_hvcc(pb, par->extradata, par->extradata_size, 0);
+             else if (par->codec_id == AV_CODEC_ID_AV1)
+                 ff_isom_write_av1c(pb, par->extradata, par->extradata_size, 1);
++            else if (par->codec_id == AV_CODEC_ID_VP9)
++                ff_isom_write_vpcc(s, pb, par->extradata, par->extradata_size, par);
+             else
+                 ff_isom_write_avcc(pb, par->extradata, par->extradata_size);
+         }
+@@ -852,14 +856,15 @@ static int flv_write_packet(AVFormatContext *s, AVPacket *pkt)
+         par->codec_id == AV_CODEC_ID_VP6  || par->codec_id == AV_CODEC_ID_AAC)
+         flags_size = 2;
+     else if (par->codec_id == AV_CODEC_ID_H264 || par->codec_id == AV_CODEC_ID_MPEG4 ||
+-             par->codec_id == AV_CODEC_ID_HEVC || par->codec_id == AV_CODEC_ID_AV1)
++             par->codec_id == AV_CODEC_ID_HEVC || par->codec_id == AV_CODEC_ID_AV1 ||
++             par->codec_id == AV_CODEC_ID_VP9)
+         flags_size = 5;
+     else
+         flags_size = 1;
+ 
+     if (par->codec_id == AV_CODEC_ID_AAC || par->codec_id == AV_CODEC_ID_H264
+             || par->codec_id == AV_CODEC_ID_MPEG4 || par->codec_id == AV_CODEC_ID_HEVC
+-            || par->codec_id == AV_CODEC_ID_AV1) {
++            || par->codec_id == AV_CODEC_ID_AV1 || par->codec_id == AV_CODEC_ID_VP9) {
+         size_t side_size;
+         uint8_t *side = av_packet_get_side_data(pkt, AV_PKT_DATA_NEW_EXTRADATA, &side_size);
+         if (side && side_size > 0 && (side_size != par->extradata_size || memcmp(side, par->extradata, side_size))) {
+@@ -880,7 +885,8 @@ static int flv_write_packet(AVFormatContext *s, AVPacket *pkt)
+         return AVERROR(EINVAL);
+     }
+     if (par->codec_id == AV_CODEC_ID_H264 || par->codec_id == AV_CODEC_ID_MPEG4 ||
+-        par->codec_id == AV_CODEC_ID_HEVC ||  par->codec_id == AV_CODEC_ID_AV1) {
++        par->codec_id == AV_CODEC_ID_HEVC ||  par->codec_id == AV_CODEC_ID_AV1 ||
++        par->codec_id == AV_CODEC_ID_VP9) {
+         if (pkt->pts == AV_NOPTS_VALUE) {
+             av_log(s, AV_LOG_ERROR, "Packet is missing PTS\n");
+             return AVERROR(EINVAL);
+@@ -993,9 +999,9 @@ static int flv_write_packet(AVFormatContext *s, AVPacket *pkt)
+         if (par->codec_id == AV_CODEC_ID_HEVC) {
+             avio_w8(pb, FLV_IS_EX_HEADER | PacketTypeCodedFramesX); // ExVideoTagHeader mode with PacketTypeCodedFramesX
+             avio_write(pb, "hvc1", 4);
+-        } else if (par->codec_id == AV_CODEC_ID_AV1) {
++        } else if (par->codec_id == AV_CODEC_ID_AV1 || par->codec_id == AV_CODEC_ID_VP9) {
+             avio_w8(pb, FLV_IS_EX_HEADER | PacketTypeCodedFrames);
+-            avio_write(pb, "av01", 4);
++            avio_write(pb, par->codec_id == AV_CODEC_ID_AV1 ? "av01" : "vp09", 4);
+         } else {
+             avio_w8(pb, flags);
+         }
+
+From patchwork Mon May 15 08:32:01 2023
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Steven Liu <lq@chinaffmpeg.org>
+X-Patchwork-Id: 41620
+Delivered-To: ffmpegpatchwork2@gmail.com
+Received: by 2002:a05:6a20:ba91:b0:105:feb:71f2 with SMTP id
+ fb17csp1444616pzb;
+        Mon, 15 May 2023 01:34:19 -0700 (PDT)
+X-Google-Smtp-Source: 
+ ACHHUZ4K6eOJwwn7jPfy0dhTP4IQr2XzDB8PfB7Er6aQtrCrxnddiRIgdBqZB72dHhyqfbILXd5E
+X-Received: by 2002:a17:906:ee8e:b0:95e:c549:9ace with SMTP id
+ wt14-20020a170906ee8e00b0095ec5499acemr28082182ejb.62.1684139659496;
+        Mon, 15 May 2023 01:34:19 -0700 (PDT)
+ARC-Seal: i=1; a=rsa-sha256; t=1684139659; cv=none;
+        d=google.com; s=arc-20160816;
+        b=FM9SQbkYmqWaOAa8YRKsdoj3BSoNN/SsDqXgEaRL8lCygJuahCT1ybocV1IqmUSTxS
+         l5AcUJGbZbl2BeNhK5mX43aCfKBSSF3DLhmRCMBC8pU2iPmv7TuSV58kRfLY6r83j8Ic
+         dV56QUYYtN+Ve0BWnaHFOzivSNAgHxwePstQL043LHD2rn+B5CyNvq7l2CahnhMJ8JUG
+         zJNSBe/LFF0Lhkymqd877vkJ+x+UjSWEIdomIJdAcAt2D06jDxwIF/nnLDDHmvQeny2N
+         8xqssE401QcYCq6GtRi0UTAyMrYiDU4RUPOh8Kjb5YoMXYpbI+BCsr6VJlh6/F6cFD58
+         YStw==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=google.com;
+ s=arc-20160816;
+        h=sender:errors-to:content-transfer-encoding:cc:reply-to
+         :list-subscribe:list-help:list-post:list-archive:list-unsubscribe
+         :list-id:precedence:subject:feedback-id:mime-version:references
+         :in-reply-to:message-id:date:to:from:delivered-to;
+        bh=JCKfqtynP85UyN4OG5PQuC2GOM45EC75rPa/TN9Pkis=;
+        b=MF78hg+0KkjUNq5Bjz6b4rjcJDJqrFufWHhDWzKgWCGo15fvnVg3UY8PDvpsUYxxSA
+         SXQJP1urvuxLvJ9m6N20/mBCgrN9Cqca537oiWWNbayAOBLuihXPNDPZLqYgD9yg+03U
+         Qo46rKs8BxkuzTKsqfFu1cf8b3qgqp2wt2mOFFnRU8p9J5foA5HCpHoEB1SWo8KqKjqz
+         NeFoyh4k/CHk8Qy2rhQ/ahuNo0zByXEVuGqBEK1GakW8bC6DpX/gX9PnsE7BvpOrO/+z
+         iEJxUd1RyUFDRETjdcqfLeRlEBO0NbFi9GTRjg0oY7m2OM8gh9zw7TIOoKfKaCVepa+1
+         zs+g==
+ARC-Authentication-Results: i=1; mx.google.com;
+       spf=pass (google.com: domain of ffmpeg-devel-bounces@ffmpeg.org
+ designates 79.124.17.100 as permitted sender)
+ smtp.mailfrom=ffmpeg-devel-bounces@ffmpeg.org
+Return-Path: <ffmpeg-devel-bounces@ffmpeg.org>
+Received: from ffbox0-bg.mplayerhq.hu (ffbox0-bg.ffmpeg.org. [79.124.17.100])
+        by mx.google.com with ESMTP id
+ f21-20020a170906825500b00965c55c71d9si10492876ejx.988.2023.05.15.01.34.19;
+        Mon, 15 May 2023 01:34:19 -0700 (PDT)
+Received-SPF: pass (google.com: domain of ffmpeg-devel-bounces@ffmpeg.org
+ designates 79.124.17.100 as permitted sender) client-ip=79.124.17.100;
+Authentication-Results: mx.google.com;
+       spf=pass (google.com: domain of ffmpeg-devel-bounces@ffmpeg.org
+ designates 79.124.17.100 as permitted sender)
+ smtp.mailfrom=ffmpeg-devel-bounces@ffmpeg.org
+Received: from [127.0.1.1] (localhost [127.0.0.1])
+	by ffbox0-bg.mplayerhq.hu (Postfix) with ESMTP id 3486468C072;
+	Mon, 15 May 2023 11:34:13 +0300 (EEST)
+X-Original-To: ffmpeg-devel@ffmpeg.org
+Delivered-To: ffmpeg-devel@ffmpeg.org
+Received: from bg4.exmail.qq.com (bg4.exmail.qq.com [43.154.221.58])
+ by ffbox0-bg.mplayerhq.hu (Postfix) with ESMTPS id 6482B68C0A0
+ for <ffmpeg-devel@ffmpeg.org>; Mon, 15 May 2023 11:34:05 +0300 (EEST)
+X-QQ-mid: bizesmtp71t1684139639tsfp6osq
+Received: from localhost ( [103.102.203.204]) by bizesmtp.qq.com (ESMTP) with
+ id ; Mon, 15 May 2023 16:33:58 +0800 (CST)
+X-QQ-SSF: 01100000000000Z0Z000000A0000000
+X-QQ-FEAT: v2TBAhtyi5HmOI8RH62YXWVaml0uNXxcsJwtXrqVzXdpJwJpkYcpKS0jOn5b8
+ vputCYK1FNClBNOmv9AzELjT/K26cFOsUYKBpAudrf8Al/Kmwl8CjyT6nDK06QByrHu67A4
+ sX8VQrazIXO6ZPIrfA9ElusXtssmR22e8ju0nXX7oNy/AS4t0bZkuJRVmYCoHSCnLqnvF9r
+ YboVdmg0ZbLovrXBy26bgQr944G/tQRTeAGorAwE61Lf9tqlRKuT8TO8/BA/V7zBuaZTSxA
+ nghl61awPoduY4vd9Nepw43V2Cun4wfPTvAMJn9EQhrdUge4sIN0Q4EuWkBd9dC/nTOwVKV
+ WsjLxbyL6apFe08XmyeS9MDJkL+bFN3ykpDJqblBg8C1AYOjVyYFS2Yt/atcQ==
+X-QQ-GoodBg: 0
+X-BIZMAIL-ID: 14221595051603022987
+From: Steven Liu <lq@chinaffmpeg.org>
+To: ffmpeg-devel@ffmpeg.org
+Date: Mon, 15 May 2023 16:32:01 +0800
+Message-Id: <20230515083201.48201-7-lq@chinaffmpeg.org>
+X-Mailer: git-send-email 2.40.0
+In-Reply-To: <20230515083201.48201-1-lq@chinaffmpeg.org>
+References: 
+ <CAEg-Je-vYD97KnbaqTkK5=UJ9T3htmtH3Qykcwo3+rNCx=w+jQ@mail.gmail.com>
+ <20230515083201.48201-1-lq@chinaffmpeg.org>
+MIME-Version: 1.0
+X-QQ-SENDSIZE: 520
+Feedback-ID: bizesmtp:chinaffmpeg.org:qybglogicsvrsz:qybglogicsvrsz3a-3
+Subject: [FFmpeg-devel] [PATCH v10 6/6] avformat/flvdec: support demux vp9
+ in enhanced flv
+X-BeenThere: ffmpeg-devel@ffmpeg.org
+X-Mailman-Version: 2.1.29
+Precedence: list
+List-Id: FFmpeg development discussions and patches <ffmpeg-devel.ffmpeg.org>
+List-Unsubscribe: <https://ffmpeg.org/mailman/options/ffmpeg-devel>,
+ <mailto:ffmpeg-devel-request@ffmpeg.org?subject=unsubscribe>
+List-Archive: <https://ffmpeg.org/pipermail/ffmpeg-devel>
+List-Post: <mailto:ffmpeg-devel@ffmpeg.org>
+List-Help: <mailto:ffmpeg-devel-request@ffmpeg.org?subject=help>
+List-Subscribe: <https://ffmpeg.org/mailman/listinfo/ffmpeg-devel>,
+ <mailto:ffmpeg-devel-request@ffmpeg.org?subject=subscribe>
+Reply-To: FFmpeg development discussions and patches <ffmpeg-devel@ffmpeg.org>
+Cc: Steven Liu <lq@chinaffmpeg.org>
+Errors-To: ffmpeg-devel-bounces@ffmpeg.org
+Sender: "ffmpeg-devel" <ffmpeg-devel-bounces@ffmpeg.org>
+X-TUID: wOtvTzk+zhdw
+
+Signed-off-by: Steven Liu <lq@chinaffmpeg.org>
+---
+ libavformat/flvdec.c | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/libavformat/flvdec.c b/libavformat/flvdec.c
+index a0362ff11c..a6a94a4021 100644
+--- a/libavformat/flvdec.c
++++ b/libavformat/flvdec.c
+@@ -320,6 +320,8 @@ static int flv_same_video_codec(AVFormatContext *s, AVCodecParameters *vpar, int
+                 return vpar->codec_id == AV_CODEC_ID_HEVC;
+             case MKBETAG('a', 'v', '0', '1'):
+                 return vpar->codec_id == AV_CODEC_ID_AV1;
++            case MKBETAG('v', 'p', '0', '9'):
++                return vpar->codec_id == AV_CODEC_ID_VP9;
+             default:
+                 break;
+         }
+@@ -365,6 +367,10 @@ static int flv_set_video_codec(AVFormatContext *s, AVStream *vstream,
+                 par->codec_id = AV_CODEC_ID_AV1;
+                 vstreami->need_parsing = AVSTREAM_PARSE_HEADERS;
+                 return 4;
++            case MKBETAG('v', 'p', '0', '9'):
++                par->codec_id = AV_CODEC_ID_VP9;
++                vstreami->need_parsing = AVSTREAM_PARSE_HEADERS;
++                return 4;
+             default:
+                 break;
+         }
+@@ -1285,7 +1291,8 @@ retry_duration:
+         st->codecpar->codec_id == AV_CODEC_ID_H264 ||
+         st->codecpar->codec_id == AV_CODEC_ID_MPEG4 ||
+         st->codecpar->codec_id == AV_CODEC_ID_HEVC ||
+-        st->codecpar->codec_id == AV_CODEC_ID_AV1) {
++        st->codecpar->codec_id == AV_CODEC_ID_AV1 ||
++        st->codecpar->codec_id == AV_CODEC_ID_VP9) {
+         int type = 0;
+         if (flv->exheader && stream_type == FLV_STREAM_TYPE_VIDEO) {
+             type = flags & 0x0F;
+@@ -1317,7 +1324,7 @@ retry_duration:
+         }
+         if (type == 0 && (!st->codecpar->extradata || st->codecpar->codec_id == AV_CODEC_ID_AAC ||
+             st->codecpar->codec_id == AV_CODEC_ID_H264 || st->codecpar->codec_id == AV_CODEC_ID_HEVC ||
+-            st->codecpar->codec_id == AV_CODEC_ID_AV1)) {
++            st->codecpar->codec_id == AV_CODEC_ID_AV1 || st->codecpar->codec_id == AV_CODEC_ID_VP9)) {
+             AVDictionaryEntry *t;
+ 
+             if (st->codecpar->extradata) {

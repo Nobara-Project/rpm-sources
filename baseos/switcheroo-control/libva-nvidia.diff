@@ -1,0 +1,14 @@
+diff '--color=auto' -ru a/src/switcheroo-control.c b/src/switcheroo-control.c
+--- a/src/switcheroo-control.c	2022-07-01 12:29:43.000000000 +0300
++++ b/src/switcheroo-control.c	2023-09-30 00:39:37.340679199 +0300
+@@ -254,6 +254,10 @@
+ 		/* Make sure Vulkan apps always select Nvidia GPUs */
+ 		g_ptr_array_add (array, g_strdup ("__VK_LAYER_NV_optimus"));
+ 		g_ptr_array_add (array, g_strdup ("NVIDIA_only"));
++		
++		/* Make sure LIBVA apps always select Nvidia GPUs */
++		g_ptr_array_add (array, g_strdup ("LIBVA_DRIVER_NAME"));
++		g_ptr_array_add (array, g_strdup ("nvidia"));
+ 	} else {
+ 		char *id;
+ 

@@ -1,0 +1,26 @@
+From f0a888957160f81b7a2823d6f12d465e47fef3dd Mon Sep 17 00:00:00 2001
+From: Thomas Crider <gloriouseggroll@gmail.com>
+Date: Mon, 1 Jan 2024 19:52:12 -0500
+Subject: [PATCH] reverse legion button swap logic so it matches whats expected
+ per controller button icons
+
+---
+ output_dev.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/output_dev.c b/output_dev.c
+index 2185ce9..1de4c6c 100644
+--- a/output_dev.c
++++ b/output_dev.c
+@@ -724,7 +724,7 @@ void decode_hidraw_to_gamepad(gamepad_status_t *gamepad, const message_t *msg) {
+     gamepad->r4 = (backButtonbyte & 0x20) ? 1 : 0; // R4 button
+     gamepad->r5 = (backButtonbyte & 0x04) ? 1 : 0; // R5 button
+ 	gamepad->touchpad_press = (backButtonbyte & 0x08) ? 1 : 0; //M2 button
+-	if (swapLegionButtons == 0) {
++	if (swapLegionButtons == 1) {
+ 		// Swap the share and option buttons with Legion buttons
+         gamepad->share = (legionButtonbyte & 0x40) ? 1 : 0;
+         gamepad->option = (legionButtonbyte & 0x80) ? 1 : 0;
+-- 
+2.43.0
+

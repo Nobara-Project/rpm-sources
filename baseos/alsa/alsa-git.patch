@@ -1,0 +1,82 @@
+From 9685505bf438467d9b11919b332b066d3a1c94d0 Mon Sep 17 00:00:00 2001
+From: Jaroslav Kysela <perex@perex.cz>
+Date: Mon, 4 Sep 2023 09:37:29 +0200
+Subject: [PATCH 1/2] gitcompile: Add static build
+
+Signed-off-by: Jaroslav Kysela <perex@perex.cz>
+---
+ gitcompile | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/gitcompile b/gitcompile
+index 0fe092ce..c70448f7 100755
+--- a/gitcompile
++++ b/gitcompile
+@@ -32,6 +32,10 @@ if [ $# -ne 0 ]; then
+       lto="-flto -flto-partition=none"
+       echo "Forced lto build..."
+       shift ;;
++    static)
++      static=yes
++      echo "Selected static build..."
++      shift ;;
+     *)
+       endloop=yes
+       ;;
+@@ -75,6 +79,12 @@ if [ "$python2" = "yes" ]; then
+   args="$args --enable-python2"
+ fi
+ 
++if [ "$static" = "yes" ]; then
++  #args="$args --enable-shared=no --enable-static=yes"
++  args="$args --disable-shared"
++fi
++
++
+ touch ltconfig
+ libtoolize --force --copy --automake
+ aclocal $ACLOCAL_FLAGS
+-- 
+2.41.0
+
+
+From fcce13a6726c52882bd8b7131c61c4eba308792c Mon Sep 17 00:00:00 2001
+From: Jaroslav Kysela <perex@perex.cz>
+Date: Mon, 4 Sep 2023 09:38:26 +0200
+Subject: [PATCH 2/2] control.h: Fix ump header file detection
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Apparently, the control.h is used from apps separately (outside
+asoundlib.h). Avoid errors like:
+
+/usr/include/alsa/control.h:417:47: error: ‘snd_ump_endpoint_info_t’ has not been declared
+  417 | int snd_ctl_ump_endpoint_info(snd_ctl_t *ctl, snd_ump_endpoint_info_t *info);
+      |                                               ^~~~~~~~~~~~~~~~~~~~~~~
+/usr/include/alsa/control.h:418:44: error: ‘snd_ump_block_info_t’ has not been declared
+  418 | int snd_ctl_ump_block_info(snd_ctl_t *ctl, snd_ump_block_info_t *info);
+      |                                            ^~~~~~~~~~~~~~~~~~~~
+
+Fixes: https://github.com/alsa-project/alsa-lib/issues/348
+Signed-off-by: Jaroslav Kysela <perex@perex.cz>
+---
+ include/control.h | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/include/control.h b/include/control.h
+index ab482ba4..e7541d56 100644
+--- a/include/control.h
++++ b/include/control.h
+@@ -413,6 +413,8 @@ int snd_ctl_pcm_prefer_subdevice(snd_ctl_t *ctl, int subdev);
+ int snd_ctl_rawmidi_next_device(snd_ctl_t *ctl, int * device);
+ int snd_ctl_rawmidi_info(snd_ctl_t *ctl, snd_rawmidi_info_t * info);
+ int snd_ctl_rawmidi_prefer_subdevice(snd_ctl_t *ctl, int subdev);
++#endif
++#ifdef __ALSA_UMP_H
+ int snd_ctl_ump_next_device(snd_ctl_t *ctl, int *device);
+ int snd_ctl_ump_endpoint_info(snd_ctl_t *ctl, snd_ump_endpoint_info_t *info);
+ int snd_ctl_ump_block_info(snd_ctl_t *ctl, snd_ump_block_info_t *info);
+-- 
+2.41.0
+

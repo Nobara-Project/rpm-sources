@@ -1,0 +1,20 @@
+--- a/skia/ext/SkMemory_new_handler.cpp
++++ b/skia/ext/SkMemory_new_handler.cpp
+@@ -79,7 +79,7 @@
+   // TODO(b.kelemen): we should always use UncheckedMalloc but currently it
+   // doesn't work as intended everywhere.
+   void* result;
+-#if BUILDFLAG(IS_IOS)
++#if 1
+   result = malloc(size);
+ #else
+   // It's the responsibility of the caller to check the return value.
+@@ -99,7 +99,7 @@
+   // TODO(b.kelemen): we should always use UncheckedCalloc but currently it
+   // doesn't work as intended everywhere.
+   void* result;
+-#if BUILDFLAG(IS_IOS)
++#if 1
+   result = calloc(1, size);
+ #else
+   // It's the responsibility of the caller to check the return value.

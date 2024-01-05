@@ -1,0 +1,136 @@
+From 4177d05ab55fb79a0cb16733e0fc74ce098594d1 Mon Sep 17 00:00:00 2001
+From: Thomas Crider <tcrider@localhost.localdomain>
+Date: Wed, 16 Nov 2022 12:36:25 -0700
+Subject: [PATCH 2/6] Revert 'Install shared objects under their ABI names'
+
+---
+ Makefile     |  6 ++++++
+ Makerules    | 44 ++++++++++++++++++++++++++++++++++++++++----
+ elf/Makefile | 10 ++++++++--
+ 3 files changed, 54 insertions(+), 6 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 179dd478..b7604958 100644
+--- a/Makefile
++++ b/Makefile
+@@ -109,6 +109,12 @@ elf/ldso_install:
+ # Ignore the error if we cannot update /etc/ld.so.cache.
+ ifeq (no,$(cross-compiling))
+ ifeq (yes,$(build-shared))
++install: install-symbolic-link
++.PHONY: install-symbolic-link
++install-symbolic-link: subdir_install
++	$(symbolic-link-prog) $(symbolic-link-list)
++	rm -f $(symbolic-link-list)
++
+ install:
+ 	-test ! -x $(elf-objpfx)ldconfig || LC_ALL=C \
+ 	  $(elf-objpfx)ldconfig $(addprefix -r ,$(install_root)) \
+diff --git a/Makerules b/Makerules
+index d1e139d0..26a159c0 100644
+--- a/Makerules
++++ b/Makerules
+@@ -980,12 +980,14 @@ versioned := $(strip $(foreach so,$(install-lib.so),\
+ install-lib.so-versioned := $(filter $(versioned), $(install-lib.so))
+ install-lib.so-unversioned := $(filter-out $(versioned), $(install-lib.so))
+ 
+-# For libraries whose soname have version numbers, we install two files:
++# For libraries whose soname have version numbers, we install three files:
+ #	$(inst_libdir)/libfoo.so	-- for linking, symlink or ld script
+-#	$(inst_slibdir)/libfoo.so.NN	-- for loading by SONAME
++#	$(inst_slibdir)/libfoo.so.NN	-- for loading by SONAME, symlink
++#	$(inst_slibdir)/libfoo-X.Y.Z.so -- the real shared object file
+ install-lib-nosubdir: $(install-lib.so-unversioned:%=$(inst_slibdir)/%) \
+ 		      $(foreach L,$(install-lib.so-versioned),\
+ 				$(inst_libdir)/$L \
++				$(inst_slibdir)/$(L:.so=)-$(version).so \
+ 				$(inst_slibdir)/$L$($L-version))
+ 
+ # Install all the unversioned shared libraries.
+@@ -1018,8 +1020,34 @@ ln -f $(objpfx)/$(@F) $@
+ endef
+ endif
+ 
++ifeq (yes,$(build-shared))
++ifeq (no,$(cross-compiling))
++symbolic-link-prog := $(elf-objpfx)sln
++symbolic-link-list := $(elf-objpfx)symlink.list
++define make-shlib-link
++echo `$(..)scripts/rellns-sh -p $< $@` $@ >> $(symbolic-link-list)
++endef
++else # cross-compiling
++# We need a definition that can be used by elf/Makefile's install rules.
++symbolic-link-prog = $(LN_S)
++endif
++endif
++ifndef make-shlib-link
++define make-shlib-link
++rm -f $@
++$(LN_S) `$(..)scripts/rellns-sh -p $< $@` $@
++endef
++endif
++
+ ifdef libc.so-version
+-$(inst_slibdir)/libc.so$(libc.so-version): $(common-objpfx)libc.so $(+force)
++# For a library specified to be version N, install three files:
++# libc.so	->	libc.so.N	(e.g. libc.so.6)
++# libc.so.6	->	libc-VERSION.so	(e.g. libc-1.10.so)
++
++$(inst_slibdir)/libc.so$(libc.so-version): $(inst_slibdir)/libc-$(version).so \
++					   $(+force)
++	$(make-shlib-link)
++$(inst_slibdir)/libc-$(version).so: $(common-objpfx)libc.so $(+force)
+ 	$(do-install-program)
+ 
+ install: $(inst_slibdir)/libc.so$(libc.so-version)
+@@ -1089,7 +1117,15 @@ include $(o-iterator)
+ generated += $(foreach o,$(versioned),$o$($o-version))
+ 
+ define o-iterator-doit
+-$(inst_slibdir)/$o$($o-version): $(objpfx)$o $(+force);
++$(inst_slibdir)/$o$($o-version): $(inst_slibdir)/$(o:.so=)-$(version).so \
++				 $(+force);
++	$$(make-shlib-link)
++endef
++object-suffixes-left := $(versioned)
++include $(o-iterator)
++
++define o-iterator-doit
++$(inst_slibdir)/$(o:.so=)-$(version).so: $(objpfx)$o $(+force);
+ 	$$(do-install-program)
+ endef
+ object-suffixes-left := $(versioned)
+diff --git a/elf/Makefile b/elf/Makefile
+index d75b85d4..83e3121f 100644
+--- a/elf/Makefile
++++ b/elf/Makefile
+@@ -1384,10 +1384,16 @@ $(objpfx)trusted-dirs.st: Makefile $(..)Makeconfig
+ CPPFLAGS-dl-load.c += -I$(objpfx). -I$(csu-objpfx).
+ 
+ ifeq (yes,$(build-shared))
+-$(inst_rtlddir)/$(rtld-installed-name): $(objpfx)ld.so $(+force)
++$(inst_slibdir)/$(rtld-version-installed-name): $(objpfx)ld.so $(+force)
+ 	$(make-target-directory)
+ 	$(do-install-program)
+ 
++$(inst_rtlddir)/$(rtld-installed-name): \
++  $(inst_slibdir)/$(rtld-version-installed-name) \
++  $(inst_slibdir)/libc-$(version).so
++	$(make-target-directory)
++	$(make-shlib-link)
++
+ # Creates the relative /usr/bin/ld.so symbolic link.
+ $(inst_bindir)/ld.so: $(inst_rtlddir)/$(rtld-installed-name)
+ 	$(make-target-directory)
+@@ -1396,7 +1402,7 @@ $(inst_bindir)/ld.so: $(inst_rtlddir)/$(rtld-installed-name)
+ # Special target called by parent to install just the dynamic linker.
+ .PHONY: ldso_install
+ ldso_install: $(inst_rtlddir)/$(rtld-installed-name)
+-endif # $(build-shared)
++endif
+ 
+ 
+ # Workarounds for ${exec_prefix} expansion in configure variables.
+-- 
+2.38.1
+

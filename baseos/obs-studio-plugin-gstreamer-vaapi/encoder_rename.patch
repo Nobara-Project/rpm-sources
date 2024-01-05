@@ -1,0 +1,49 @@
+diff --git a/obs-vaapi.c b/obs-vaapi.c
+index 1dbaf9e..923ea3f 100644
+--- a/obs-vaapi.c
++++ b/obs-vaapi.c
+@@ -74,33 +74,33 @@ static void enough_data()
+ static const char *get_name(void *type_data)
+ {
+ 	if (g_strcmp0(type_data, "obs-va-vah264enc") == 0) {
+-		return "VAAPI H.264";
++		return "GPU: AMD/Intel VAAPI H.264 (GStreamer)";
+ 	} else if (g_strcmp0(type_data, "obs-va-vah264lpenc") == 0) {
+-		return "VAAPI H.264 (Low Power)";
++		return "GPU: AMD/Intel VAAPI H.264 - Low Power (GStreamer)";
+ 	} else if (g_strcmp0(type_data, "obs-va-vah265enc") == 0) {
+-		return "VAAPI H.265";
++		return "GPU: AMD/Intel VAAPI H.265/HEVC (GStreamer)";
+ 	} else if (g_strcmp0(type_data, "obs-va-vah265lpenc") == 0) {
+-		return "VAAPI H.265 (Low Power)";
++		return "GPU: AMD/Intel VAAPI H.265/HEVC - Low Power (GStreamer)";
+ 	} else if (g_strcmp0(type_data, "obs-va-vaav1enc") == 0) {
+-		return "VAAPI AV1";
++		return "GPU: AMD/Intel VAAPI AV1 (GStreamer)";
+ 	} else if (g_strcmp0(type_data, "obs-va-vaav1lpenc") == 0) {
+-		return "VAAPI AV1 (Low Power)";
++		return "GPU: AMD/Intel VAAPI AV1 - Low Power (GStreamer)";
+ 	} else if (g_strcmp0(type_data, "obs-vaapi-vaapih264enc") == 0) {
+-		return "VAAPI H.264 (Legacy)";
++		return "GPU: AMD/Intel VAAPI H.264 - Legacy (GStreamer)";
+ 	} else if (g_strcmp0(type_data, "obs-vaapi-vaapih265enc") == 0) {
+-		return "VAAPI H.265 (Legacy)";
++		return "GPU: AMD/Intel VAAPI H.265/HEVC - Legacy (GStreamer)";
+ 	} else {
+ 		gchar **fields = g_regex_split_simple(
+ 			"obs-va-va(renderD\\d+)(h264|h265|av1)(lp)?enc",
+ 			type_data, 0, 0);
+ 
+ 		gchar *name = g_strdup_printf(
+-			"VAAPI %s on %s%s",
++			"GPU: AMD/Intel VAAPI %s on %s%s",
+ 			g_strcmp0(fields[2], "h264") == 0   ? "H.264"
+-			: g_strcmp0(fields[2], "h265") == 0 ? "H.265"
++			: g_strcmp0(fields[2], "h265") == 0 ? "H.265/HEVC"
+ 							    : "AV1",
+ 			fields[1],
+-			g_strcmp0(fields[3], "lp") == 0 ? " (Low Power)" : "");
++			g_strcmp0(fields[3], "lp") == 0 ? " - Low Power (GStreamer)" : " (GStreamer)");
+ 
+ 		g_strfreev(fields);
+ 		g_hash_table_insert(hash_table, name, NULL);

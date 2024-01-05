@@ -1,0 +1,88 @@
+#############
+Upgrade notes
+#############
+
+To resolve numerous security flaws, the nginx package was updated to 1.10.x.
+
+You should review your configuration files in /etc/nginx to determine if there
+are any incompatibilities. Below is a summary of the main incompatible changes.
+Some nginx directives have been changed or removed, so you may need to modify
+your configuration.
+
+Please see upstream release notes for a complete list of new features,
+bug fixes, and changes: http://nginx.org/en/CHANGES-1.10
+One notable feature is support for HTTP/2.
+
+Nginx gained support for dynamic modules. As part of this update, dynamic
+modules have been split into subpackages. For the time being these are hard
+dependencies to aid the upgrade path. When you install nginx, all of these
+modules are installed and enabled by default:
+  - nginx-mod-http-geoip
+  - nginx-mod-http-image-filter
+  - nginx-mod-http-perl
+  - nginx-mod-http-xslt-filter
+  - nginx-mod-mail
+  - nginx-mod-stream
+
+Changes with nginx 1.10.x
+
+    *) Change: non-idempotent requests (POST, LOCK, PATCH) are no longer
+       passed to the next server by default if a request has been sent to a
+       backend; the "non_idempotent" parameter of the "proxy_next_upstream"
+       directive explicitly allows retrying such requests.
+
+    *) Change: now the "output_buffers" directive uses two buffers by
+       default.
+
+    *) Change: now nginx limits subrequests recursion, not simultaneous
+       subrequests.
+
+    *) Change: now nginx checks the whole cache key when returning a
+       response from cache.
+       Thanks to Gena Makhomed and Sergey Brester.
+
+    *) Change: the "proxy_downstream_buffer" and "proxy_upstream_buffer"
+       directives of the stream module are replaced with the
+       "proxy_buffer_size" directive.
+
+    *) Change: duplicate "http", "mail", and "stream" blocks are now
+       disallowed.
+
+    *) Change: now SSLv3 protocol is disabled by default.
+
+    *) Change: some long deprecated directives are not supported anymore.
+
+    *) Change: obsolete aio and rtsig event methods have been removed.
+
+Changes with nginx 1.8.x
+
+    *) Change: the "sendfile" parameter of the "aio" directive is
+       deprecated; now nginx automatically uses AIO to pre-load data for
+       sendfile if both "aio" and "sendfile" directives are used.
+
+    *) Change: now the "If-Modified-Since", "If-Range", etc. client request
+       header lines are passed to a backend while caching if nginx knows in
+       advance that the response will not be cached (e.g., when using
+       proxy_cache_min_uses).
+
+    *) Change: now after proxy_cache_lock_timeout nginx sends a request to a
+       backend with caching disabled; the new directives
+       "proxy_cache_lock_age", "fastcgi_cache_lock_age",
+       "scgi_cache_lock_age", and "uwsgi_cache_lock_age" specify a time
+       after which the lock will be released and another attempt to cache a
+       response will be made.
+
+    *) Change: the "log_format" directive can now be used only at http
+       level.
+
+    *) Change: now nginx takes into account the "Vary" header line in a
+       backend response while caching.
+
+    *) Change: the deprecated "limit_zone" directive is not supported
+       anymore.
+
+    *) Change: now the "stub_status" directive does not require a parameter.
+
+    *) Change: URI escaping now uses uppercase hexadecimal digits.
+       Thanks to Piotr Sikora.
+

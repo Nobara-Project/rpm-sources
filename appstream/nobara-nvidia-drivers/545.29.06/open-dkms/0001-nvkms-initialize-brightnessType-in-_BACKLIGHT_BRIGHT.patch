@@ -1,0 +1,68 @@
+From 7083712a29742e081d58f6fa2626e8ad84be6808 Mon Sep 17 00:00:00 2001
+From: Andy Ritger <aritger@nvidia.com>
+Date: Thu, 9 Nov 2023 08:58:53 -0800
+Subject: [PATCH] nvkms: initialize brightnessType in
+ _BACKLIGHT_BRIGHTNESS_PARAMS
+X-NVConfidentiality: public
+
+---
+ src/nvidia-modeset/src/nvkms-attributes.c | 2 ++
+ src/nvidia-modeset/src/nvkms-rm.c         | 1 +
+ src/nvidia-modeset/src/nvkms.c            | 2 ++
+ 3 files changed, 5 insertions(+)
+
+diff --git a/src/nvidia-modeset/src/nvkms-attributes.c b/src/nvidia-modeset/src/nvkms-attributes.c
+index cad8d2b85613..d27d488a66f7 100644
+--- a/src/nvidia-modeset/src/nvkms-attributes.c
++++ b/src/nvidia-modeset/src/nvkms-attributes.c
+@@ -67,6 +67,7 @@ static NvBool DpySetBacklightBrightness(NVDpyEvoRec *pDpyEvo, NvS64 brightness)
+     params.subDeviceInstance = pDispEvo->displayOwner;
+     params.displayId = nvDpyEvoGetConnectorId(pDpyEvo);
+     params.brightness = brightness;
++    params.brightnessType = NV0073_CTRL_SPECIFIC_BACKLIGHT_BRIGHTNESS_TYPE_PERCENT100;
+ 
+     ret = nvRmApiControl(
+             nvEvoGlobal.clientHandle,
+@@ -97,6 +98,7 @@ static NvBool DpyGetBacklightBrightness(const NVDpyEvoRec *pDpyEvo,
+ 
+     params.subDeviceInstance = pDispEvo->displayOwner;
+     params.displayId = nvDpyEvoGetConnectorId(pDpyEvo);
++    params.brightnessType = NV0073_CTRL_SPECIFIC_BACKLIGHT_BRIGHTNESS_TYPE_PERCENT100;
+ 
+     ret = nvRmApiControl(
+             nvEvoGlobal.clientHandle,
+diff --git a/src/nvidia-modeset/src/nvkms-rm.c b/src/nvidia-modeset/src/nvkms-rm.c
+index 9e4f9133338e..6768f8602ca0 100644
+--- a/src/nvidia-modeset/src/nvkms-rm.c
++++ b/src/nvidia-modeset/src/nvkms-rm.c
+@@ -5467,6 +5467,7 @@ void nvRmRegisterBacklight(NVDispEvoRec *pDispEvo)
+ 
+         params.subDeviceInstance = pDispEvo->displayOwner;
+         params.displayId         = displayId;
++        params.brightnessType = NV0073_CTRL_SPECIFIC_BACKLIGHT_BRIGHTNESS_TYPE_PERCENT100;
+ 
+         status = nvRmApiControl(nvEvoGlobal.clientHandle,
+                                 pDevEvo->displayCommonHandle,
+diff --git a/src/nvidia-modeset/src/nvkms.c b/src/nvidia-modeset/src/nvkms.c
+index eb68e672f7b1..1038873e78bf 100644
+--- a/src/nvidia-modeset/src/nvkms.c
++++ b/src/nvidia-modeset/src/nvkms.c
+@@ -6451,6 +6451,7 @@ NvBool nvKmsGetBacklight(NvU32 display_id, void *drv_priv, NvU32 *brightness)
+ 
+     params.subDeviceInstance = pDispEvo->displayOwner;
+     params.displayId = display_id;
++    params.brightnessType = NV0073_CTRL_SPECIFIC_BACKLIGHT_BRIGHTNESS_TYPE_PERCENT100;
+ 
+     status = nvRmApiControl(nvEvoGlobal.clientHandle,
+                             pDevEvo->displayCommonHandle,
+@@ -6474,6 +6475,7 @@ NvBool nvKmsSetBacklight(NvU32 display_id, void *drv_priv, NvU32 brightness)
+     params.subDeviceInstance = pDispEvo->displayOwner;
+     params.displayId  = display_id;
+     params.brightness = brightness;
++    params.brightnessType = NV0073_CTRL_SPECIFIC_BACKLIGHT_BRIGHTNESS_TYPE_PERCENT100;
+ 
+     status = nvRmApiControl(nvEvoGlobal.clientHandle,
+                             pDevEvo->displayCommonHandle,
+-- 
+2.41.0
+

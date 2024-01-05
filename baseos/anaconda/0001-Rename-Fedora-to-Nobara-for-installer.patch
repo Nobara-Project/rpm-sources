@@ -1,0 +1,3077 @@
+From 5eb32e72cd27452f2e8a70ef9f456b294e122d98 Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Wed, 19 Apr 2023 00:08:04 -0600
+Subject: [PATCH] rename fedora to nobara
+
+---
+ data/liveinst/gnome/fedora-welcome.js         |  6 ++---
+ .../org.fedoraproject.welcome-screen.desktop  |  2 +-
+ data/liveinst/liveinst.desktop                |  2 +-
+ po/af.po                                      | 16 ++++++-------
+ po/am.po                                      |  8 +++----
+ po/ar.po                                      |  8 +++----
+ po/as.po                                      | 16 ++++++-------
+ po/ast.po                                     | 12 +++++-----
+ po/be.po                                      | 14 +++++------
+ po/bg.po                                      | 16 ++++++-------
+ po/bn.po                                      |  8 +++----
+ po/bn_IN.po                                   | 16 ++++++-------
+ po/ca.po                                      | 16 ++++++-------
+ po/cs.po                                      | 12 +++++-----
+ po/cy.po                                      |  8 +++----
+ po/da.po                                      | 16 ++++++-------
+ po/de.po                                      | 24 +++++++++----------
+ po/el.po                                      | 12 +++++-----
+ po/en_GB.po                                   |  8 +++----
+ po/eo.po                                      | 16 ++++++-------
+ po/es.po                                      | 20 ++++++++--------
+ po/et.po                                      | 10 ++++----
+ po/eu.po                                      | 12 +++++-----
+ po/fa.po                                      |  8 +++----
+ po/fi.po                                      | 22 ++++++++---------
+ po/fil.po                                     | 12 +++++-----
+ po/fr.po                                      | 16 ++++++-------
+ po/fur.po                                     | 16 ++++++-------
+ po/fy.po                                      | 12 +++++-----
+ po/ga.po                                      | 16 ++++++-------
+ po/gl.po                                      | 16 ++++++-------
+ po/gu.po                                      | 16 ++++++-------
+ po/he.po                                      | 14 +++++------
+ po/hi.po                                      |  8 +++----
+ po/hr.po                                      | 10 ++++----
+ po/hu.po                                      | 16 ++++++-------
+ po/ia.po                                      | 16 ++++++-------
+ po/id.po                                      | 14 +++++------
+ po/is.po                                      |  8 +++----
+ po/it.po                                      | 20 ++++++++--------
+ po/ja.po                                      | 20 ++++++++--------
+ po/ka.po                                      | 12 +++++-----
+ po/kk.po                                      | 20 ++++++++--------
+ po/km.po                                      |  8 +++----
+ po/kn.po                                      | 16 ++++++-------
+ po/ko.po                                      | 10 ++++----
+ po/lt.po                                      | 16 ++++++-------
+ po/lv.po                                      |  8 +++----
+ po/ml.po                                      |  8 +++----
+ po/mr.po                                      | 12 +++++-----
+ po/my.po                                      | 12 +++++-----
+ po/nb.po                                      | 14 +++++------
+ po/nl.po                                      | 20 ++++++++--------
+ po/nn.po                                      |  8 +++----
+ po/oc.po                                      |  8 +++----
+ po/or.po                                      | 16 ++++++-------
+ po/pa.po                                      |  8 +++----
+ po/pl.po                                      | 12 +++++-----
+ po/pt.po                                      | 16 ++++++-------
+ po/pt_BR.po                                   | 24 +++++++++----------
+ po/ro.po                                      | 14 +++++------
+ po/ru.po                                      | 20 ++++++++--------
+ po/si.po                                      |  8 +++----
+ po/sk.po                                      | 14 +++++------
+ po/sq.po                                      | 10 ++++----
+ po/sr.po                                      |  8 +++----
+ po/sr@latin.po                                |  8 +++----
+ po/sv.po                                      | 16 ++++++-------
+ po/ta.po                                      | 16 ++++++-------
+ po/te.po                                      |  8 +++----
+ po/th.po                                      | 16 ++++++-------
+ po/tr.po                                      | 24 +++++++++----------
+ po/uk.po                                      | 20 ++++++++--------
+ po/ur.po                                      |  8 +++----
+ po/vi.po                                      |  8 +++----
+ po/zh_CN.po                                   | 20 ++++++++--------
+ po/zh_HK.po                                   | 14 +++++------
+ po/zh_TW.po                                   | 14 +++++------
+ 78 files changed, 516 insertions(+), 516 deletions(-)
+
+diff --git a/data/liveinst/gnome/fedora-welcome.js b/data/liveinst/gnome/fedora-welcome.js
+index fc42e5d..adca786 100755
+--- a/data/liveinst/gnome/fedora-welcome.js
++++ b/data/liveinst/gnome/fedora-welcome.js
+@@ -46,7 +46,7 @@ class WelcomeWindow extends Adw.ApplicationWindow {
+     }
+ 
+     constructor(application) {
+-        const title = _('Welcome to Fedora!');
++        const title = _('Welcome to Nobara!');
+         super({
+             application,
+             title,
+@@ -58,7 +58,7 @@ class WelcomeWindow extends Adw.ApplicationWindow {
+         const statusPage = new Adw.StatusPage({
+             title,
+             iconName: 'fedora-logo-icon',
+-            description: _('This live media can be used to install Fedora or as a temporary system. Installation can be started at any time using the install icon in Activities.'),
++            description: _('This live media can be used to install Nobara or as a temporary system. Installation can be started at any time using the install icon in Activities.'),
+         });
+         this.content.set_child(statusPage);
+ 
+@@ -71,7 +71,7 @@ class WelcomeWindow extends Adw.ApplicationWindow {
+         statusPage.set_child(buttonBox);
+ 
+         const installButton = new Gtk.Button({
+-            label: _('Install Fedora…'),
++            label: _('Install Nobara…'),
+             actionName: 'window.install-fedora',
+         });
+         installButton.add_css_class('pill');
+diff --git a/data/liveinst/gnome/org.fedoraproject.welcome-screen.desktop b/data/liveinst/gnome/org.fedoraproject.welcome-screen.desktop
+index c3551b1..e186142 100644
+--- a/data/liveinst/gnome/org.fedoraproject.welcome-screen.desktop
++++ b/data/liveinst/gnome/org.fedoraproject.welcome-screen.desktop
+@@ -1,5 +1,5 @@
+ [Desktop Entry]
+-Name=Welcome to Fedora
++Name=Welcome to Nobara
+ Icon=fedora-logo-icon
+ Exec=/usr/share/anaconda/gnome/fedora-welcome
+ Terminal=false
+diff --git a/data/liveinst/liveinst.desktop b/data/liveinst/liveinst.desktop
+index 841ff04..4ac089d 100644
+--- a/data/liveinst/liveinst.desktop
++++ b/data/liveinst/liveinst.desktop
+@@ -2,7 +2,7 @@
+ Name=Install to Hard Drive
+ GenericName=Install
+ Comment=Install the live CD to your hard disk
+-Categories=System;Utility;X-Red-Hat-Base;X-Fedora;GNOME;GTK;
++Categories=System;Utility;X-Red-Hat-Base;X-Nobara;GNOME;GTK;
+ Exec=/usr/bin/liveinst
+ Terminal=false
+ Type=Application
+diff --git a/po/af.po b/po/af.po
+index d888782..c16a744 100644
+--- a/po/af.po
++++ b/po/af.po
+@@ -7402,8 +7402,8 @@ msgstr "Installeer die lewendige CD op die hardeskyf"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Welkom by Fedora"
++msgid "Welcome to Nobara"
++msgstr "Welkom by Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ #, fuzzy
+@@ -7783,17 +7783,17 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Probeer Fedora"
++msgid "Try Nobara"
++msgstr "Probeer Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"Fedora voer tans uit vanaf lewendige media.\n"
+-"Fedora kan nou geïnstalleer word, of kies “Installeer op hardeskyf” in die "
++"Nobara voer tans uit vanaf lewendige media.\n"
++"Nobara kan nou geïnstalleer word, of kies “Installeer op hardeskyf” in die "
+ "oorsig van Aktiwiteite op ’n later stadium."
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+diff --git a/po/am.po b/po/am.po
+index d953f0e..686a670 100644
+--- a/po/am.po
++++ b/po/am.po
+@@ -6772,7 +6772,7 @@ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
++msgid "Welcome to Nobara"
+ msgstr ""
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+@@ -7080,13 +7080,13 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
++msgid "Try Nobara"
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ 
+diff --git a/po/ar.po b/po/ar.po
+index f36c68d..75f1197 100644
+--- a/po/ar.po
++++ b/po/ar.po
+@@ -7192,7 +7192,7 @@ msgstr "تثبيت القرص الحي على القرص الصلب"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
++msgid "Welcome to Nobara"
+ msgstr "مرحبًا بكم في فيدورا"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+@@ -7565,13 +7565,13 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
++msgid "Try Nobara"
+ msgstr "جرّب فيدورا"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ "تقوم حاليًا بتشغيل فيدورا من الوسيط الحي.\n"
+diff --git a/po/as.po b/po/as.po
+index 3168117..ee76337 100644
+--- a/po/as.po
++++ b/po/as.po
+@@ -7446,8 +7446,8 @@ msgstr "লাইভ CD ক আপোনাৰ হাৰ্ড ডিষ্ক
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Fedora লৈ স্বাগতম"
++msgid "Welcome to Nobara"
++msgstr "Nobara লৈ স্বাগতম"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ #, fuzzy
+@@ -7823,17 +7823,17 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Fedora ব্যৱহাৰ কৰি চাওক"
++msgid "Try Nobara"
++msgstr "Nobara ব্যৱহাৰ কৰি চাওক"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"আপুনি বৰ্তমানে Fedora ক জীৱন্ত মাধ্যমৰ পৰা ব্যৱহাৰ কৰি আছে।\n"
+-"আপুনি Fedora ক এতিয়া ইনস্টল কৰিব পাৰে, অথবা পিছত যিকোনো সময়ত কাৰ্য্যসমূহ অভাৰভিউত "
++"আপুনি বৰ্তমানে Nobara ক জীৱন্ত মাধ্যমৰ পৰা ব্যৱহাৰ কৰি আছে।\n"
++"আপুনি Nobara ক এতিয়া ইনস্টল কৰিব পাৰে, অথবা পিছত যিকোনো সময়ত কাৰ্য্যসমূহ অভাৰভিউত "
+ "\"হাৰ্ড ড্ৰাইভলে ইনস্টল কৰক\" নিৰ্বাচন কৰিব পাৰে।"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+diff --git a/po/ast.po b/po/ast.po
+index 3794dd9..f55d7f0 100644
+--- a/po/ast.po
++++ b/po/ast.po
+@@ -6994,8 +6994,8 @@ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Afáyate en Fedora"
++msgid "Welcome to Nobara"
++msgstr "Afáyate en Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ #, fuzzy
+@@ -7366,13 +7366,13 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Probar Fedora"
++msgid "Try Nobara"
++msgstr "Probar Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ 
+diff --git a/po/be.po b/po/be.po
+index 4ba0a10..2078334 100644
+--- a/po/be.po
++++ b/po/be.po
+@@ -7668,8 +7668,8 @@ msgstr "Інсталяваць live CD на ваш цвёрды дыск"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Вітаем у Fedora"
++msgid "Welcome to Nobara"
++msgstr "Вітаем у Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ #, fuzzy
+@@ -8075,16 +8075,16 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Паспрабаваць Fedora"
++msgid "Try Nobara"
++msgstr "Паспрабаваць Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"Цяпер вы запусцілі Fedora з live носьбіта. Можна зараз інсталяваць Fedora "
++"Цяпер вы запусцілі Nobara з live носьбіта. Можна зараз інсталяваць Nobara "
+ "альбо у любы пазнейшы час пазначце \"Інсталяваць на цвёрды дыск\" у аглядзе "
+ "дзеянняў."
+ 
+diff --git a/po/bg.po b/po/bg.po
+index be10671..8324c06 100644
+--- a/po/bg.po
++++ b/po/bg.po
+@@ -7597,8 +7597,8 @@ msgstr "Инсталиране на живото CD на вашия твърд 
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Добре дошли във Fedora"
++msgid "Welcome to Nobara"
++msgstr "Добре дошли във Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ #, fuzzy
+@@ -7982,17 +7982,17 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Пробвайте Fedora"
++msgid "Try Nobara"
++msgstr "Пробвайте Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"В момента Вие ползвате Fedora, стартирана от жива медия.\n"
+-"Вие можете да инсталирате Fedora сега, или да изберете \"Инсталиране на "
++"В момента Вие ползвате Nobara, стартирана от жива медия.\n"
++"Вие можете да инсталирате Nobara сега, или да изберете \"Инсталиране на "
+ "твърдия диск\" от изгледа Дейности в който и да е по-късен момент."
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+diff --git a/po/bn.po b/po/bn.po
+index b36966c..a02bd58 100644
+--- a/po/bn.po
++++ b/po/bn.po
+@@ -7103,7 +7103,7 @@ msgstr "হার্ড-ডিস্কে লাইভ CD ইনস্টল 
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
++msgid "Welcome to Nobara"
+ msgstr ""
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+@@ -7435,13 +7435,13 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
++msgid "Try Nobara"
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ 
+diff --git a/po/bn_IN.po b/po/bn_IN.po
+index ea8e4d6..d391318 100644
+--- a/po/bn_IN.po
++++ b/po/bn_IN.po
+@@ -7503,8 +7503,8 @@ msgstr "হার্ড-ডিস্কে লাইভ CD ইনস্টল 
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Fedora তে স্বাগতম"
++msgid "Welcome to Nobara"
++msgstr "Nobara তে স্বাগতম"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ #, fuzzy
+@@ -7880,17 +7880,17 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Fedora ব্যবহার করে দেখুন"
++msgid "Try Nobara"
++msgstr "Nobara ব্যবহার করে দেখুন"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"অাপনি বর্তমানে লাইভ মিডিয়া থেকে Fedora চালাচ্ছেন।\n"
+-"অাপনি এখনই Fedora ইনস্টল করতে পারেন, বা পরে যেকোনো সময়ে ক্রিয়াকলাপ পূর্বরূপ থেকে "
++"অাপনি বর্তমানে লাইভ মিডিয়া থেকে Nobara চালাচ্ছেন।\n"
++"অাপনি এখনই Nobara ইনস্টল করতে পারেন, বা পরে যেকোনো সময়ে ক্রিয়াকলাপ পূর্বরূপ থেকে "
+ "\"হার্ড ড্রাইভে ইনস্টল করুন\" বেছে নিতে পারেন।"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+diff --git a/po/ca.po b/po/ca.po
+index a340c66..6832130 100644
+--- a/po/ca.po
++++ b/po/ca.po
+@@ -7785,8 +7785,8 @@ msgstr "Instal·leu el CD autònom al vostre disc dur"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Benvingut a Fedora"
++msgid "Welcome to Nobara"
++msgstr "Benvingut a Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ #, fuzzy
+@@ -8192,17 +8192,17 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Proveu Fedora"
++msgid "Try Nobara"
++msgstr "Proveu Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"Ara mateix esteu executant Fedora des d'un mitjà autònom.\n"
+-"Podeu instal·lar Fedora ara, o més tard en qualsevol moment en triar "
++"Ara mateix esteu executant Nobara des d'un mitjà autònom.\n"
++"Podeu instal·lar Nobara ara, o més tard en qualsevol moment en triar "
+ "\"Instal·la al disc dur\" a la visió general de les activitats."
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+diff --git a/po/cs.po b/po/cs.po
+index 09b6f64..f1b91d6 100644
+--- a/po/cs.po
++++ b/po/cs.po
+@@ -7476,7 +7476,7 @@ msgstr "Nainstalovat z Live CD do počítače"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
++msgid "Welcome to Nobara"
+ msgstr "Vítejte ve Fedoře"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+@@ -7660,7 +7660,7 @@ msgstr "Volby úložiště"
+ #, fuzzy
+ #| msgid ""
+ #| "Installation destination allows you to configure which disks will be used "
+-#| "as the installation target for your Fedora installation. At least 1 disk "
++#| "as the installation target for your Nobara installation. At least 1 disk "
+ #| "must be selected for the installation to proceed."
+ msgid ""
+ "In Installation destination, you can configure disks to be used as the "
+@@ -7668,7 +7668,7 @@ msgid ""
+ "installationprocess to proceed."
+ msgstr ""
+ "Cíl instalace vám umožní nastavit, které jednotky budou použity jako "
+-"instalační cíl pro vaši Fedora instalaci. Alespoň jedna jednotka musí být "
++"instalační cíl pro vaši Nobara instalaci. Alespoň jedna jednotka musí být "
+ "vybrána, aby instalace mohla pokračovat."
+ 
+ #: ui/webui/src/components/storage/HelpStorageOptions.jsx:26
+@@ -7823,13 +7823,13 @@ msgstr ""
+ "jisti, že chcete pokračovat v instalaci?"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
++msgid "Try Nobara"
+ msgstr "Vyzkoušet Fedoru"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ "Nyní máte Fedoru spuštěnou z instalačního média.\n"
+diff --git a/po/cy.po b/po/cy.po
+index 6fe4fbe..d381db0 100644
+--- a/po/cy.po
++++ b/po/cy.po
+@@ -6770,7 +6770,7 @@ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
++msgid "Welcome to Nobara"
+ msgstr ""
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+@@ -7090,13 +7090,13 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
++msgid "Try Nobara"
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ 
+diff --git a/po/da.po b/po/da.po
+index d524b81..5a2c280 100644
+--- a/po/da.po
++++ b/po/da.po
+@@ -7509,8 +7509,8 @@ msgstr "Installér live-CD til din harddisk"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Velkommen til Fedora"
++msgid "Welcome to Nobara"
++msgstr "Velkommen til Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ #, fuzzy
+@@ -7916,17 +7916,17 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Prøv Fedora"
++msgid "Try Nobara"
++msgstr "Prøv Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"Du kører i øjeblikket Fedora fra et live-medie.\n"
+-"Du kan installere Fedora nu, eller vælge \"Installér på harddisk\" i "
++"Du kører i øjeblikket Nobara fra et live-medie.\n"
++"Du kan installere Nobara nu, eller vælge \"Installér på harddisk\" i "
+ "Aktivitets-oversigten på et senere tidspunkt."
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+diff --git a/po/de.po b/po/de.po
+index b0820b2..f589cb4 100644
+--- a/po/de.po
++++ b/po/de.po
+@@ -7557,8 +7557,8 @@ msgstr "Installieren der Live-CD auf Ihre Festplatte"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Willkommen bei Fedora"
++msgid "Welcome to Nobara"
++msgstr "Willkommen bei Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ msgid "Common languages"
+@@ -7734,7 +7734,7 @@ msgstr "Speicheroptionen"
+ #, fuzzy
+ #| msgid ""
+ #| "Installation destination allows you to configure which disks will be used "
+-#| "as the installation target for your Fedora installation. At least 1 disk "
++#| "as the installation target for your Nobara installation. At least 1 disk "
+ #| "must be selected for the installation to proceed."
+ msgid ""
+ "In Installation destination, you can configure disks to be used as the "
+@@ -7742,7 +7742,7 @@ msgid ""
+ "installationprocess to proceed."
+ msgstr ""
+ "Unter Installationsziel können Sie konfigurieren, welche Festplatten als "
+-"Installationsziel für Ihre Fedora-Installation verwendet werden sollen. "
++"Installationsziel für Ihre Nobara-Installation verwendet werden sollen. "
+ "Mindestens 1 Festplatte muss ausgewählt werden, damit die Installation "
+ "fortgesetzt werden kann."
+ 
+@@ -7911,17 +7911,17 @@ msgstr ""
+ "gemacht werden. Sind Sie sicher, die Installation fortzusetzen?"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Fedora ausprobieren"
++msgid "Try Nobara"
++msgstr "Nobara ausprobieren"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"Fedora läuft derzeit auf dem Installationsmedium.\n"
+-"Sie können Fedora jetzt gleich installieren oder in der Aktivitäten-"
++"Nobara läuft derzeit auf dem Installationsmedium.\n"
++"Sie können Nobara jetzt gleich installieren oder in der Aktivitäten-"
+ "Übersicht zu einem späteren Zeitpunkt »Auf Festplatte installieren« wählen."
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+@@ -8100,9 +8100,9 @@ msgstr "Installation auf die Festplatte wird gestartet"
+ #~ msgstr "Wählen Sie Ihre Sprache."
+ 
+ #~ msgid ""
+-#~ "Fedora is successfully installed. To begin using it, reboot your system."
++#~ "Nobara is successfully installed. To begin using it, reboot your system."
+ #~ msgstr ""
+-#~ "Fedora wurde erfolgreich installiert. Bitte starten Sie zum Abschluß das "
++#~ "Nobara wurde erfolgreich installiert. Bitte starten Sie zum Abschluß das "
+ #~ "System neu."
+ 
+ #~ msgid "Installation progress"
+diff --git a/po/el.po b/po/el.po
+index 2d89e35..c3faefc 100644
+--- a/po/el.po
++++ b/po/el.po
+@@ -6881,8 +6881,8 @@ msgstr "Εγκαταστήστε το live CD στο σκληρό σας δίσ
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Καλώς ήρθατε στο Fedora"
++msgid "Welcome to Nobara"
++msgstr "Καλώς ήρθατε στο Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ msgid "Common languages"
+@@ -7221,13 +7221,13 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Δοκιμάστε το Fedora"
++msgid "Try Nobara"
++msgstr "Δοκιμάστε το Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ 
+diff --git a/po/en_GB.po b/po/en_GB.po
+index a484ca7..91ac1ac 100644
+--- a/po/en_GB.po
++++ b/po/en_GB.po
+@@ -6831,7 +6831,7 @@ msgstr "Install the live CD to your hard disk"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
++msgid "Welcome to Nobara"
+ msgstr ""
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+@@ -7155,13 +7155,13 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
++msgid "Try Nobara"
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ 
+diff --git a/po/eo.po b/po/eo.po
+index 7e95434..6d3987b 100644
+--- a/po/eo.po
++++ b/po/eo.po
+@@ -7530,8 +7530,8 @@ msgstr "Instali la senperan KD-on al via disko"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Bonvenon al Fedora"
++msgid "Welcome to Nobara"
++msgstr "Bonvenon al Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ #, fuzzy
+@@ -7935,17 +7935,17 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Provu Fedora"
++msgid "Try Nobara"
++msgstr "Provu Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"Vi ĉimomente rulas Fedora de senpera datumportilo.\n"
+-"Vi povas instali Fedora nun, aŭ elekti \"Instali al disko\" en la aktivecoj "
++"Vi ĉimomente rulas Nobara de senpera datumportilo.\n"
++"Vi povas instali Nobara nun, aŭ elekti \"Instali al disko\" en la aktivecoj "
+ "superrigardo poste."
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+diff --git a/po/es.po b/po/es.po
+index e36a6c9..9021cf2 100644
+--- a/po/es.po
++++ b/po/es.po
+@@ -7553,8 +7553,8 @@ msgstr "Instalar el CD vivo en su disco duro"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Le damos la bienvenida a Fedora"
++msgid "Welcome to Nobara"
++msgstr "Le damos la bienvenida a Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ msgid "Common languages"
+@@ -7728,7 +7728,7 @@ msgstr "Opciones de almacenamiento"
+ #, fuzzy
+ #| msgid ""
+ #| "Installation destination allows you to configure which disks will be used "
+-#| "as the installation target for your Fedora installation. At least 1 disk "
++#| "as the installation target for your Nobara installation. At least 1 disk "
+ #| "must be selected for the installation to proceed."
+ msgid ""
+ "In Installation destination, you can configure disks to be used as the "
+@@ -7736,7 +7736,7 @@ msgid ""
+ "installationprocess to proceed."
+ msgstr ""
+ "El destino de la instalación le permite configurar qué discos se utilizarán "
+-"como destino de la instalación de Fedora. Al menos 1 disco debe ser "
++"como destino de la instalación de Nobara. Al menos 1 disco debe ser "
+ "seleccionado para que la instalación proceda."
+ 
+ #: ui/webui/src/components/storage/HelpStorageOptions.jsx:26
+@@ -7906,17 +7906,17 @@ msgstr ""
+ "seguro de que quieres continuar con la instalación?"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Probar Fedora"
++msgid "Try Nobara"
++msgstr "Probar Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"Actualmente está ejecutando Fedora desde un medio vivo.\n"
+-"Puede instalar Fedora ahora, o elegir «Instalar en el disco duro» en el "
++"Actualmente está ejecutando Nobara desde un medio vivo.\n"
++"Puede instalar Nobara ahora, o elegir «Instalar en el disco duro» en el "
+ "resumen de actividades en cualquier momento."
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+diff --git a/po/et.po b/po/et.po
+index cb3163a..a374f9a 100644
+--- a/po/et.po
++++ b/po/et.po
+@@ -6882,8 +6882,8 @@ msgstr "Paigalda laiv CD kõvakettale"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Teretulemast Fedorasse"
++msgid "Welcome to Nobara"
++msgstr "Teretulemast Nobarasse"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ msgid "Common languages"
+@@ -7234,13 +7234,13 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
++msgid "Try Nobara"
+ msgstr "Proovi FEdorat"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ 
+diff --git a/po/eu.po b/po/eu.po
+index f92f569..c8b9f7f 100644
+--- a/po/eu.po
++++ b/po/eu.po
+@@ -6902,8 +6902,8 @@ msgstr "Instalatu live CDa zure disko gogorrean"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Ongi etorri Fedora-ra"
++msgid "Welcome to Nobara"
++msgstr "Ongi etorri Nobara-ra"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ #, fuzzy
+@@ -7276,13 +7276,13 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Probatu Fedora"
++msgid "Try Nobara"
++msgstr "Probatu Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ 
+diff --git a/po/fa.po b/po/fa.po
+index d1543af..c847711 100644
+--- a/po/fa.po
++++ b/po/fa.po
+@@ -6947,7 +6947,7 @@ msgstr "نصب سی‌دی زنده بر روی هارد دیسک"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
++msgid "Welcome to Nobara"
+ msgstr "به فدورا خوش آمدید"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+@@ -7282,13 +7282,13 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
++msgid "Try Nobara"
+ msgstr "امتحان کردن فدورا"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ 
+diff --git a/po/fi.po b/po/fi.po
+index 7c10027..22fc120 100644
+--- a/po/fi.po
++++ b/po/fi.po
+@@ -7387,8 +7387,8 @@ msgstr "Asenna live-CD kiintolevylle"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Tervetuloa Fedoraan"
++msgid "Welcome to Nobara"
++msgstr "Tervetuloa Nobaraan"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ msgid "Common languages"
+@@ -7562,7 +7562,7 @@ msgid ""
+ "installation target. You must select a minimum of 1 disk for the "
+ "installationprocess to proceed."
+ msgstr ""
+-"Asennuskohteen avulla voit määrittää, mitä levyjä käytetään Fedora-"
++"Asennuskohteen avulla voit määrittää, mitä levyjä käytetään Nobara-"
+ "asennuksesi asennuskohteena. Vähintään 1 levy on valittava, jotta asennusta "
+ "voidaan jatkaa."
+ 
+@@ -7724,17 +7724,17 @@ msgstr ""
+ "asennusta?"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Kokeile Fedoraa"
++msgid "Try Nobara"
++msgstr "Kokeile Nobaraa"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"Käytät nyt Fedoraa Live-medialta.\n"
+-"Voit asentaa Fedoran nyt tai valita \"Asenna levylle\":n Toiminnot-"
++"Käytät nyt Nobaraa Live-medialta.\n"
++"Voit asentaa Nobaran nyt tai valita \"Asenna levylle\":n Toiminnot-"
+ "yleiskatsauksesta milloin tahansa myöhemmin."
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+@@ -7908,9 +7908,9 @@ msgstr "Aloitetaan asennus kiintolevylle"
+ #~ msgstr "Valitse kieli, jota haluat käyttää."
+ 
+ #~ msgid ""
+-#~ "Fedora is successfully installed. To begin using it, reboot your system."
++#~ "Nobara is successfully installed. To begin using it, reboot your system."
+ #~ msgstr ""
+-#~ "Fedora on asennettu onnistuneesti. Aloita sen käyttö käynnistämällä "
++#~ "Nobara on asennettu onnistuneesti. Aloita sen käyttö käynnistämällä "
+ #~ "järjestelmä uudelleen."
+ 
+ #~ msgid "Installation progress"
+diff --git a/po/fil.po b/po/fil.po
+index c24b75b..bb9ca6e 100644
+--- a/po/fil.po
++++ b/po/fil.po
+@@ -6872,7 +6872,7 @@ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
++msgid "Welcome to Nobara"
+ msgstr ""
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+@@ -7196,17 +7196,17 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
++msgid "Try Nobara"
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"Pinapatakbo mo ang Fedora mula sa live media.\n"
+-"Maaari ka ng mag-install ng Fedora ngayon, o piliin ang \"Install to Hard "
++"Pinapatakbo mo ang Nobara mula sa live media.\n"
++"Maaari ka ng mag-install ng Nobara ngayon, o piliin ang \"Install to Hard "
+ "Drive\" sa Activities Overview sa ibang pagkakataon."
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+diff --git a/po/fr.po b/po/fr.po
+index 5a6afaf..712b44b 100644
+--- a/po/fr.po
++++ b/po/fr.po
+@@ -7581,8 +7581,8 @@ msgstr "Installer le CD live sur votre disque dur"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Bienvenue sur Fedora"
++msgid "Welcome to Nobara"
++msgstr "Bienvenue sur Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ msgid "Common languages"
+@@ -7923,17 +7923,17 @@ msgstr ""
+ "sûr de vouloir continuer avec l'installation ?"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Essayez Fedora"
++msgid "Try Nobara"
++msgstr "Essayez Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"Vous êtes en train d’utiliser Fedora depuis un média live.\n"
+-"Vous pouvez installer Fedora maintenant, ou choisir « Installer sur le "
++"Vous êtes en train d’utiliser Nobara depuis un média live.\n"
++"Vous pouvez installer Nobara maintenant, ou choisir « Installer sur le "
+ "disque dur » dans la vue d’ensemble des activités plus tard."
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+diff --git a/po/fur.po b/po/fur.po
+index 4a3f0c2..2ba873a 100644
+--- a/po/fur.po
++++ b/po/fur.po
+@@ -7401,8 +7401,8 @@ msgstr "Instale il CD 'live' sul disc fis"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Benvignûts su Fedora"
++msgid "Welcome to Nobara"
++msgstr "Benvignûts su Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ msgid "Common languages"
+@@ -7746,17 +7746,17 @@ msgstr ""
+ "operazion. Continuâ pardabon cu la instalazion?"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Prove Fedora"
++msgid "Try Nobara"
++msgstr "Prove Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"Si sta eseguint Fedora di un media live.\n"
+-"Al è cumò pussibil instalâ Fedora o, in cualsisei moment, sielzi \"Instale "
++"Si sta eseguint Nobara di un media live.\n"
++"Al è cumò pussibil instalâ Nobara o, in cualsisei moment, sielzi \"Instale "
+ "sul disc fis\" inte panoramiche des ativitâts."
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+diff --git a/po/fy.po b/po/fy.po
+index 2578f21..ebee7fd 100644
+--- a/po/fy.po
++++ b/po/fy.po
+@@ -7018,8 +7018,8 @@ msgstr "Ynstallearje de live CD nei jo hurde skiif"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Wolkom by Fedora"
++msgid "Welcome to Nobara"
++msgstr "Wolkom by Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ msgid "Common languages"
+@@ -7368,13 +7368,13 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Fedora probearje"
++msgid "Try Nobara"
++msgstr "Nobara probearje"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ 
+diff --git a/po/ga.po b/po/ga.po
+index 5a72a52..e847cdc 100644
+--- a/po/ga.po
++++ b/po/ga.po
+@@ -6869,8 +6869,8 @@ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Fáilte go Fedora"
++msgid "Welcome to Nobara"
++msgstr "Fáilte go Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ #, fuzzy
+@@ -7231,17 +7231,17 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Bain Triail as Fedora"
++msgid "Try Nobara"
++msgstr "Bain Triail as Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"Tá Fedora á rith agat ó mheáin beo faoi láthair.\n"
+-"Is féidir leat Fedora a shuiteáil anois, nó roghnaigh \"Suiteáil go "
++"Tá Nobara á rith agat ó mheáin beo faoi láthair.\n"
++"Is féidir leat Nobara a shuiteáil anois, nó roghnaigh \"Suiteáil go "
+ "Tiomántán Crua\" san Fhoramharc Gníomhartha ag aon am níos déanaí."
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+diff --git a/po/gl.po b/po/gl.po
+index 2c2be3a..84a16eb 100644
+--- a/po/gl.po
++++ b/po/gl.po
+@@ -7023,8 +7023,8 @@ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Benvida/o a Fedora"
++msgid "Welcome to Nobara"
++msgstr "Benvida/o a Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ msgid "Common languages"
+@@ -7375,17 +7375,17 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Experimente Fedora"
++msgid "Try Nobara"
++msgstr "Experimente Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"Agora está a executar Fedora desde un dispositivo ao vivo.\n"
+-"Pode instalar Fedora agora mesmo ou escoller «Instalar no disco duro» na "
++"Agora está a executar Nobara desde un dispositivo ao vivo.\n"
++"Pode instalar Nobara agora mesmo ou escoller «Instalar no disco duro» na "
+ "vista xeral de actividades se o desexa máis tarde."
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+diff --git a/po/gu.po b/po/gu.po
+index d280610..d0bc48a 100644
+--- a/po/gu.po
++++ b/po/gu.po
+@@ -7252,8 +7252,8 @@ msgstr "live CD નું તમારી હાર્ડ ડિસ્કમા
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Fedora માં સ્વાગત છે"
++msgid "Welcome to Nobara"
++msgstr "Nobara માં સ્વાગત છે"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ #, fuzzy
+@@ -7629,17 +7629,17 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Fedora નો પ્રયત્ન કરો"
++msgid "Try Nobara"
++msgstr "Nobara નો પ્રયત્ન કરો"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"તમે હાલમાં લાઇવ મીડિયામાંથી Fedora ને ચલાવી રહ્યા છો.\n"
+-"તમે Fedora ને હવે સ્થાપિત કરી શકો છો, અથવા કોઇપણ સમયે પ્રવત્તિઓમાં  \"હાર્ડ ડ્રાઇવમાં "
++"તમે હાલમાં લાઇવ મીડિયામાંથી Nobara ને ચલાવી રહ્યા છો.\n"
++"તમે Nobara ને હવે સ્થાપિત કરી શકો છો, અથવા કોઇપણ સમયે પ્રવત્તિઓમાં  \"હાર્ડ ડ્રાઇવમાં "
+ "સ્થાપિત કરો\" ને પસંદ કરી શકો છો."
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+diff --git a/po/he.po b/po/he.po
+index 9645594..bf948a6 100644
+--- a/po/he.po
++++ b/po/he.po
+@@ -7314,7 +7314,7 @@ msgstr "התקנת התקליטור החי לכונן הקשיח"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
++msgid "Welcome to Nobara"
+ msgstr "ברוך בואך לפדורה"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+@@ -7680,17 +7680,17 @@ msgid ""
+ msgstr "הכוננים הנבחרים יימחקו, לא ניתן לבטל פעולה זו. להמשיך בהתקנה?"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "נסו את Fedora"
++msgid "Try Nobara"
++msgstr "נסו את Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"Fedora רצה כעת ממדיה חיה.\n"
+-"ניתן להתקין את Fedora כעת, או לבחור „התקנה לכונן הקשיח” בסקירת הפעילויות "
++"Nobara רצה כעת ממדיה חיה.\n"
++"ניתן להתקין את Nobara כעת, או לבחור „התקנה לכונן הקשיח” בסקירת הפעילויות "
+ "במועד מאוחר יותר."
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+diff --git a/po/hi.po b/po/hi.po
+index bab456b..0d347cc 100644
+--- a/po/hi.po
++++ b/po/hi.po
+@@ -7117,7 +7117,7 @@ msgstr "अपने हार्ड डिस्क में लाइव स
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
++msgid "Welcome to Nobara"
+ msgstr "फेडोरा में स्वागत है"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+@@ -7483,13 +7483,13 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
++msgid "Try Nobara"
+ msgstr "फेडोरा आजमाएँ"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ "आप अभी फेडोरा लाइव मीडिया पर चला रहे हैं.\n"
+diff --git a/po/hr.po b/po/hr.po
+index e0145cf..1d292fd 100644
+--- a/po/hr.po
++++ b/po/hr.po
+@@ -7433,7 +7433,7 @@ msgstr "Instaliraj live CD-a na čvrsti disk"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
++msgid "Welcome to Nobara"
+ msgstr "Dobrodošli u Fedoru"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+@@ -7606,7 +7606,7 @@ msgstr "Mogućnosti uređaja pohrane"
+ #, fuzzy
+ #| msgid ""
+ #| "Installation destination allows you to configure which disks will be used "
+-#| "as the installation target for your Fedora installation. At least 1 disk "
++#| "as the installation target for your Nobara installation. At least 1 disk "
+ #| "must be selected for the installation to proceed."
+ msgid ""
+ "In Installation destination, you can configure disks to be used as the "
+@@ -7780,13 +7780,13 @@ msgstr ""
+ "nastaviti s instalacijom?"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
++msgid "Try Nobara"
+ msgstr "Isprobajte Fedoru"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ "Trenutno ste pokrenuli Fedoru s live medija.\n"
+diff --git a/po/hu.po b/po/hu.po
+index 558f233..e3c637b 100644
+--- a/po/hu.po
++++ b/po/hu.po
+@@ -7491,8 +7491,8 @@ msgstr "Live CD telepítése a merevlemezre"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Üdvözli a Fedora"
++msgid "Welcome to Nobara"
++msgstr "Üdvözli a Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ #, fuzzy
+@@ -7678,7 +7678,7 @@ msgstr "Tárhelybeállítások"
+ #, fuzzy
+ #| msgid ""
+ #| "Installation destination allows you to configure which disks will be used "
+-#| "as the installation target for your Fedora installation. At least 1 disk "
++#| "as the installation target for your Nobara installation. At least 1 disk "
+ #| "must be selected for the installation to proceed."
+ msgid ""
+ "In Installation destination, you can configure disks to be used as the "
+@@ -7686,7 +7686,7 @@ msgid ""
+ "installationprocess to proceed."
+ msgstr ""
+ "A telepítési cél lehetővé teszi, hogy beállítsa mely lemezek legyenek "
+-"telepítési célként használva a Fedora telepítéséhez. A telepítés "
++"telepítési célként használva a Nobara telepítéséhez. A telepítés "
+ "folytatásához legalább 1 lemezt ki kell választania."
+ 
+ #: ui/webui/src/components/storage/HelpStorageOptions.jsx:26
+@@ -7872,16 +7872,16 @@ msgstr ""
+ "folytatja a telepítést?"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
++msgid "Try Nobara"
+ msgstr "Próbálja ki a Fedorát"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"A Fedora jelenleg élő médiáról fut.\n"
++"A Nobara jelenleg élő médiáról fut.\n"
+ "Telepítheti most, vagy válassza később a „Telepítés a merevlemezre” ikont a "
+ "Tevékenységek közül."
+ 
+diff --git a/po/ia.po b/po/ia.po
+index e94c088..4abf860 100644
+--- a/po/ia.po
++++ b/po/ia.po
+@@ -7264,8 +7264,8 @@ msgstr "Installar le LiveCD sur le disco dur"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Benvenite a Fedora"
++msgid "Welcome to Nobara"
++msgstr "Benvenite a Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ msgid "Common languages"
+@@ -7635,17 +7635,17 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Probar Fedora"
++msgid "Try Nobara"
++msgstr "Probar Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"Actualmente Fedora es lanceate desde un live-medio. \n"
+-"Il pote installar Fedora ora, o eliger \"Installar sur le disco dur\" in le "
++"Actualmente Nobara es lanceate desde un live-medio. \n"
++"Il pote installar Nobara ora, o eliger \"Installar sur le disco dur\" in le "
+ "Resume de activitates plus tarde."
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+diff --git a/po/id.po b/po/id.po
+index 3028656..73852aa 100644
+--- a/po/id.po
++++ b/po/id.po
+@@ -7406,8 +7406,8 @@ msgstr "Instal live CD ke harddisk anda"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Selamat datang di Fedora"
++msgid "Welcome to Nobara"
++msgstr "Selamat datang di Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ msgid "Common languages"
+@@ -7744,16 +7744,16 @@ msgstr ""
+ "hendak melanjutkan instalasi?"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Coba Fedora"
++msgid "Try Nobara"
++msgstr "Coba Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"Anda sedang menjalankan Fedora dari live media.\n"
++"Anda sedang menjalankan Nobara dari live media.\n"
+ "Anda dapat memasang sekarang, atau pilih \"Pasang ke Harddisk\" dari "
+ "Ringkasan Aktivitas kapan saja nanti."
+ 
+diff --git a/po/is.po b/po/is.po
+index da68813..beddc73 100644
+--- a/po/is.po
++++ b/po/is.po
+@@ -6787,7 +6787,7 @@ msgstr "Setja upp innihald keyrslugeisladisksins (live-CD) á harða diskinn"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
++msgid "Welcome to Nobara"
+ msgstr ""
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+@@ -7109,13 +7109,13 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
++msgid "Try Nobara"
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ 
+diff --git a/po/it.po b/po/it.po
+index 8e17437..f2a10c1 100644
+--- a/po/it.po
++++ b/po/it.po
+@@ -7529,8 +7529,8 @@ msgstr "Installa il live CD sul disco rigido"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Benvenuti in Fedora"
++msgid "Welcome to Nobara"
++msgstr "Benvenuti in Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ msgid "Common languages"
+@@ -7702,7 +7702,7 @@ msgstr "Opzioni di storage"
+ #, fuzzy
+ #| msgid ""
+ #| "Installation destination allows you to configure which disks will be used "
+-#| "as the installation target for your Fedora installation. At least 1 disk "
++#| "as the installation target for your Nobara installation. At least 1 disk "
+ #| "must be selected for the installation to proceed."
+ msgid ""
+ "In Installation destination, you can configure disks to be used as the "
+@@ -7710,7 +7710,7 @@ msgid ""
+ "installationprocess to proceed."
+ msgstr ""
+ "Destinazione installazione consente di configurare quale disco usare come "
+-"destinazione di installazione per la tua installazione Fedora. Al massimo un "
++"destinazione di installazione per la tua installazione Nobara. Al massimo un "
+ "disco può essere selezionato per l'installazione affinché si possa procedere."
+ 
+ #: ui/webui/src/components/storage/HelpStorageOptions.jsx:26
+@@ -7878,17 +7878,17 @@ msgstr ""
+ "Sei sicuro di voler continuare l'installazione?"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Prova Fedora"
++msgid "Try Nobara"
++msgstr "Prova Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"Si sta eseguendo Fedora da un media live.\n"
+-"È possibile installare Fedora, o scegliere di \"Installare su disco rigido\" "
++"Si sta eseguendo Nobara da un media live.\n"
++"È possibile installare Nobara, o scegliere di \"Installare su disco rigido\" "
+ "fra le attività, successivamente."
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+diff --git a/po/ja.po b/po/ja.po
+index 4fb5d56..9288a1d 100644
+--- a/po/ja.po
++++ b/po/ja.po
+@@ -7473,8 +7473,8 @@ msgstr "ライブ CD をハードディスクにインストール"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Fedora へようこそ"
++msgid "Welcome to Nobara"
++msgstr "Nobara へようこそ"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ #, fuzzy
+@@ -7657,14 +7657,14 @@ msgstr "ストレージオプション"
+ #, fuzzy
+ #| msgid ""
+ #| "Installation destination allows you to configure which disks will be used "
+-#| "as the installation target for your Fedora installation. At least 1 disk "
++#| "as the installation target for your Nobara installation. At least 1 disk "
+ #| "must be selected for the installation to proceed."
+ msgid ""
+ "In Installation destination, you can configure disks to be used as the "
+ "installation target. You must select a minimum of 1 disk for the "
+ "installationprocess to proceed."
+ msgstr ""
+-"インストール先では、Fedora インストールのインストール先として使用するディスク"
++"インストール先では、Nobara インストールのインストール先として使用するディスク"
+ "を設定できます。インストールを続行するには、1 つ以上のディスクを選択する必要"
+ "があります。"
+ 
+@@ -7836,17 +7836,17 @@ msgstr ""
+ "もよろしいですか?"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Fedora を試す"
++msgid "Try Nobara"
++msgstr "Nobara を試す"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"現在、ライブメディアから Fedora を実行しています。\n"
+-"いますぐ Fedora をインストールできます。または後で「アクティビティーオーバー"
++"現在、ライブメディアから Nobara を実行しています。\n"
++"いますぐ Nobara をインストールできます。または後で「アクティビティーオーバー"
+ "ビュー」内から「ハードドライブへインストール」を選択することもできます。"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+diff --git a/po/ka.po b/po/ka.po
+index 0980010..bdee1b8 100644
+--- a/po/ka.po
++++ b/po/ka.po
+@@ -6838,8 +6838,8 @@ msgstr "დააყენეთ livecd თქვენს მყარ დი
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "მოგესალმებათ Fedora"
++msgid "Welcome to Nobara"
++msgstr "მოგესალმებათ Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ msgid "Common languages"
+@@ -7152,13 +7152,13 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "სცადეთ Fedora"
++msgid "Try Nobara"
++msgstr "სცადეთ Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ 
+diff --git a/po/kk.po b/po/kk.po
+index e1917a3..d3ba24c 100644
+--- a/po/kk.po
++++ b/po/kk.po
+@@ -7411,8 +7411,8 @@ msgstr "Тірі CD-ін қатты дискіңізге орнату"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Fedora-ға қош келдіңіз"
++msgid "Welcome to Nobara"
++msgstr "Nobara-ға қош келдіңіз"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ msgid "Common languages"
+@@ -7584,14 +7584,14 @@ msgstr "Сақтаушы опциялары"
+ #, fuzzy
+ #| msgid ""
+ #| "Installation destination allows you to configure which disks will be used "
+-#| "as the installation target for your Fedora installation. At least 1 disk "
++#| "as the installation target for your Nobara installation. At least 1 disk "
+ #| "must be selected for the installation to proceed."
+ msgid ""
+ "In Installation destination, you can configure disks to be used as the "
+ "installation target. You must select a minimum of 1 disk for the "
+ "installationprocess to proceed."
+ msgstr ""
+-"Орнату мақсаты әрекеті сіздің Fedora орнатуыңыз үшін қай дисктер "
++"Орнату мақсаты әрекеті сіздің Nobara орнатуыңыз үшін қай дисктер "
+ "қолданылатынын баптауды мүмкін етеді. Орнатуды жалғастыру үшін кем дегенде 1 "
+ "диск таңдалуы керек."
+ 
+@@ -7757,17 +7757,17 @@ msgstr ""
+ "шынымен қалайсыз ба?"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Fedora қолданып көру"
++msgid "Try Nobara"
++msgstr "Nobara қолданып көру"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"Fedora-ны қазір тірі тасушыдан қолданудасыз.\n"
+-"Fedora-ны дәл қазір орната аласыз, немесе кейін де, \"Қатты дискіге орнату\" "
++"Nobara-ны қазір тірі тасушыдан қолданудасыз.\n"
++"Nobara-ны дәл қазір орната аласыз, немесе кейін де, \"Қатты дискіге орнату\" "
+ "нұсқасын Әрекеттерді шолудан таңдай аласыз."
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+diff --git a/po/km.po b/po/km.po
+index ee9376c..e15e59a 100644
+--- a/po/km.po
++++ b/po/km.po
+@@ -7157,7 +7157,7 @@ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
++msgid "Welcome to Nobara"
+ msgstr ""
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+@@ -7510,13 +7510,13 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
++msgid "Try Nobara"
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ 
+diff --git a/po/kn.po b/po/kn.po
+index 9fad177..53ce86e 100644
+--- a/po/kn.po
++++ b/po/kn.po
+@@ -7410,8 +7410,8 @@ msgstr "ಲೈವ್ ಚಿತ್ರಿಕೆ ಹಾರ್ಡ್ ಡ್ರೈವ
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Fedora ಗೆ ಸ್ವಾಗತ"
++msgid "Welcome to Nobara"
++msgstr "Nobara ಗೆ ಸ್ವಾಗತ"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ #, fuzzy
+@@ -7787,17 +7787,17 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Fedora ಅನ್ನು ಬಳಸಿ ನೋಡಿ"
++msgid "Try Nobara"
++msgstr "Nobara ಅನ್ನು ಬಳಸಿ ನೋಡಿ"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"ನೀವು ಈಗ Fedora ಲೈವ್ ಮಾಧ್ಯಮವನ್ನು ಚಲಾಯಿಸುತ್ತಿದ್ದೀರಿ.\n"
+-"Fedora ವನ್ನು ನೀವು ಈಗಲೆ ಅನುಸ್ಥಾಪಿಸಬಹುದು, ಆಥವ ಚಟುವಟಿಕೆಯ ಅವಲೋಕನದಲ್ಲಿನ\"ಹಾರ್ಡ್ "
++"ನೀವು ಈಗ Nobara ಲೈವ್ ಮಾಧ್ಯಮವನ್ನು ಚಲಾಯಿಸುತ್ತಿದ್ದೀರಿ.\n"
++"Nobara ವನ್ನು ನೀವು ಈಗಲೆ ಅನುಸ್ಥಾಪಿಸಬಹುದು, ಆಥವ ಚಟುವಟಿಕೆಯ ಅವಲೋಕನದಲ್ಲಿನ\"ಹಾರ್ಡ್ "
+ "ಡ್ರೈವಿಗೆ ಅನುಸ್ಥಾಪಿಸು\"  ಅನ್ನು ಆನಂತರ ಸಮಯದಲ್ಲಿ ಆಯ್ಕೆ ಮಾಡಬಹುದು.."
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+diff --git a/po/ko.po b/po/ko.po
+index c1e7506..3ee2e6d 100644
+--- a/po/ko.po
++++ b/po/ko.po
+@@ -7297,7 +7297,7 @@ msgstr "라이브 CD를 하드 디스크에 설치합니다"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
++msgid "Welcome to Nobara"
+ msgstr "페도라에 오신 것을 환영합니다"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+@@ -7627,13 +7627,13 @@ msgstr ""
+ "행 할까요?"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
++msgid "Try Nobara"
+ msgstr "페도라를 사용해보세요"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ "현재 라이브 미디어에서 페도라를 실행하고 있습니다.\n"
+@@ -7812,7 +7812,7 @@ msgstr "하드 드라이브에 설치를 시작합니다"
+ #~ msgstr "사용하고자 하는 언어를 선택하세요."
+ 
+ #~ msgid ""
+-#~ "Fedora is successfully installed. To begin using it, reboot your system."
++#~ "Nobara is successfully installed. To begin using it, reboot your system."
+ #~ msgstr ""
+ #~ "페도라가 성공적으로 설치되었습니다. 이를 사용하기 위하여, 시스템을 재시작"
+ #~ "하세요."
+diff --git a/po/lt.po b/po/lt.po
+index 764e102..bedb63c 100644
+--- a/po/lt.po
++++ b/po/lt.po
+@@ -7350,8 +7350,8 @@ msgstr "Įdiegti tiesiogiai paleidžiamą CD jūsų kietajame diske"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Sveiki pradėję naudoti Fedora"
++msgid "Welcome to Nobara"
++msgstr "Sveiki pradėję naudoti Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ msgid "Common languages"
+@@ -7689,17 +7689,17 @@ msgstr ""
+ "diegimą?"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Bandyti Fedora"
++msgid "Try Nobara"
++msgstr "Bandyti Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"Šiuo metu naudojate Fedora iš tiesiogiai paleidžiamos laikmenos.\n"
+-"Galite dabar įdiegti Fedora arba pasirinkti „Įdiegti į kietąjį diską- iš "
++"Šiuo metu naudojate Nobara iš tiesiogiai paleidžiamos laikmenos.\n"
++"Galite dabar įdiegti Nobara arba pasirinkti „Įdiegti į kietąjį diską- iš "
+ "veiklų apžvalgos bet kada vėliau."
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+diff --git a/po/lv.po b/po/lv.po
+index 3d490be..268191a 100644
+--- a/po/lv.po
++++ b/po/lv.po
+@@ -6842,7 +6842,7 @@ msgstr "Instalēt dzīvo CD uz cietā diska"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
++msgid "Welcome to Nobara"
+ msgstr ""
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+@@ -7167,13 +7167,13 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
++msgid "Try Nobara"
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ 
+diff --git a/po/ml.po b/po/ml.po
+index 70e25e1..fa72e60 100644
+--- a/po/ml.po
++++ b/po/ml.po
+@@ -7113,7 +7113,7 @@ msgstr "നിങ്ങളുടെ ഹാര്‍ഡ് ഡിസ്കില
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
++msgid "Welcome to Nobara"
+ msgstr "ഫെഡോറയിലേക്കു് സ്വാഗതം"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+@@ -7479,13 +7479,13 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
++msgid "Try Nobara"
+ msgstr "ഫെഡോറ ഉപയോഗിച്ചു് നോക്കുക"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ "നിങ്ങള്‍ നിലവില്‍ ലൈവ് മീഡിയയില്‍ നിന്നും ഫെഡോറ പ്രവര്‍ത്തിയ്ക്കുന്നു.\n"
+diff --git a/po/mr.po b/po/mr.po
+index da08fe1..ba51f31 100644
+--- a/po/mr.po
++++ b/po/mr.po
+@@ -7168,7 +7168,7 @@ msgstr "लाइव्ह CD ला तुमच्या हार्ड ड
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
++msgid "Welcome to Nobara"
+ msgstr "फेडोरावर स्वागत आहे"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+@@ -7536,17 +7536,17 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
++msgid "Try Nobara"
+ msgstr "फेडोरा वारून पहा"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+diff --git a/po/my.po b/po/my.po
+index 964a906..81e68b1 100644
+--- a/po/my.po
++++ b/po/my.po
+@@ -6814,8 +6814,8 @@ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Fedora မှ ကြိုဆိုပါသည်"
++msgid "Welcome to Nobara"
++msgstr "Nobara မှ ကြိုဆိုပါသည်"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ msgid "Common languages"
+@@ -7159,13 +7159,13 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Fedora ကို စမ်းသုံးကြည့်ပါ။"
++msgid "Try Nobara"
++msgstr "Nobara ကို စမ်းသုံးကြည့်ပါ။"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ 
+diff --git a/po/nb.po b/po/nb.po
+index 2618579..e5c5fed 100644
+--- a/po/nb.po
++++ b/po/nb.po
+@@ -7231,8 +7231,8 @@ msgstr "Installer live-CDen til din harddisk"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Velkommen til Fedora"
++msgid "Welcome to Nobara"
++msgstr "Velkommen til Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ msgid "Common languages"
+@@ -7604,15 +7604,15 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Prøv Fedora"
++msgid "Try Nobara"
++msgstr "Prøv Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+-msgstr "Du kjører Fedora fra "
++msgstr "Du kjører Nobara fra "
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+ msgid ""
+diff --git a/po/nl.po b/po/nl.po
+index 12ce40c..ff4bf37 100644
+--- a/po/nl.po
++++ b/po/nl.po
+@@ -7452,8 +7452,8 @@ msgstr "Installeer de Live-CD op je harde schijf"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Welkom bij Fedora"
++msgid "Welcome to Nobara"
++msgstr "Welkom bij Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ msgid "Common languages"
+@@ -7792,17 +7792,17 @@ msgstr ""
+ "gemaakt. Weet je zeker dat je door wilt gaan met de installatie?"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Probeer Fedora"
++msgid "Try Nobara"
++msgstr "Probeer Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"Je draait Fedora op dit moment vanaf live-media.\n"
+-"Je kunt Fedora nu installeren, of je kiest \"Naar harde schijf installeren\" "
++"Je draait Nobara op dit moment vanaf live-media.\n"
++"Je kunt Nobara nu installeren, of je kiest \"Naar harde schijf installeren\" "
+ "in het 'Activiteiten'-overzicht op een later moment."
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+@@ -7980,9 +7980,9 @@ msgstr "Beginnen met installeren naar harde schijf"
+ #~ msgstr "Selecteer de taal die je wilt gebruiken."
+ 
+ #~ msgid ""
+-#~ "Fedora is successfully installed. To begin using it, reboot your system."
++#~ "Nobara is successfully installed. To begin using it, reboot your system."
+ #~ msgstr ""
+-#~ "Fedora is succesvol geïnstalleerd. Start je systeem opnieuw op om het te "
++#~ "Nobara is succesvol geïnstalleerd. Start je systeem opnieuw op om het te "
+ #~ "gebruiken."
+ 
+ #~ msgid "Installation progress"
+diff --git a/po/nn.po b/po/nn.po
+index e6a51c5..80ee5fb 100644
+--- a/po/nn.po
++++ b/po/nn.po
+@@ -6900,7 +6900,7 @@ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
++msgid "Welcome to Nobara"
+ msgstr ""
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+@@ -7254,13 +7254,13 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
++msgid "Try Nobara"
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ 
+diff --git a/po/oc.po b/po/oc.po
+index 9f8c9ab..91c0cfa 100644
+--- a/po/oc.po
++++ b/po/oc.po
+@@ -6805,7 +6805,7 @@ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
++msgid "Welcome to Nobara"
+ msgstr ""
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+@@ -7166,13 +7166,13 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
++msgid "Try Nobara"
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ 
+diff --git a/po/or.po b/po/or.po
+index 524794f..1a7547c 100644
+--- a/po/or.po
++++ b/po/or.po
+@@ -7117,8 +7117,8 @@ msgstr "ଆପଣଙ୍କ ହାର୍ଡ ଡିସ୍କରେ ପ୍ରତ୍
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Fedora ରେ ଆପଣଙ୍କୁ ସ୍ୱାଗତ"
++msgid "Welcome to Nobara"
++msgstr "Nobara ରେ ଆପଣଙ୍କୁ ସ୍ୱାଗତ"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ msgid "Common languages"
+@@ -7483,17 +7483,17 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Fedora ବ୍ୟବହାର କରନ୍ତୁ"
++msgid "Try Nobara"
++msgstr "Nobara ବ୍ୟବହାର କରନ୍ତୁ"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"ଆପଣ ବର୍ତ୍ତମାନ ଲାଇଭ ମେଡିଆରୁ Fedora କୁ ଚଲାଉଛନ୍ତି।\n"
+-"ଆପଣ ବର୍ତ୍ତମାନ Fedora ସ୍ଥାପନ କରିପାରିବେ, କିମ୍ବା ପରେ କାର୍ଯ୍ୟକ୍ରମ ସମୀକ୍ଷାରେ \"ହାର୍ଡ ଡ୍ରାଇଭରେ "
++"ଆପଣ ବର୍ତ୍ତମାନ ଲାଇଭ ମେଡିଆରୁ Nobara କୁ ଚଲାଉଛନ୍ତି।\n"
++"ଆପଣ ବର୍ତ୍ତମାନ Nobara ସ୍ଥାପନ କରିପାରିବେ, କିମ୍ବା ପରେ କାର୍ଯ୍ୟକ୍ରମ ସମୀକ୍ଷାରେ \"ହାର୍ଡ ଡ୍ରାଇଭରେ "
+ "ସ୍ଥାପନ କରନ୍ତୁ\" କୁ ବାଛନ୍ତୁ।"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+diff --git a/po/pa.po b/po/pa.po
+index b137fe7..7801761 100644
+--- a/po/pa.po
++++ b/po/pa.po
+@@ -7096,7 +7096,7 @@ msgstr "ਆਪਣੀ ਹਾਰਡ ਡਰਾਈਵ ਤੇ ਲਾਈਵ CD ਇੰ
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
++msgid "Welcome to Nobara"
+ msgstr "ਫੇਡੋਰਾ ਵਲੋਂ ਜੀ ਆਇਆਂ ਨੂੰ"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+@@ -7409,13 +7409,13 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
++msgid "Try Nobara"
+ msgstr "ਫੇਡੋਰਾ ਵਰਤ ਕੇ ਵੇਖੋ"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ "ਇਸ ਸਮੇਂ ਤੁਸੀਂ ਫੇਡੋਰਾ ਲਾਈਵ ਮੀਡਿਆ ਚਲਾ ਰਹੇ ਹੋ।\n"
+diff --git a/po/pl.po b/po/pl.po
+index 44cbc39..12357e0 100644
+--- a/po/pl.po
++++ b/po/pl.po
+@@ -7451,7 +7451,7 @@ msgstr "Instalacja obrazu Live na dysku twardym"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
++msgid "Welcome to Nobara"
+ msgstr "Witaj w Fedorze"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+@@ -7792,16 +7792,16 @@ msgstr ""
+ "pewno kontynuować instalację?"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
++msgid "Try Nobara"
+ msgstr "Wypróbuj Fedorę"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"Obecnie Fedora jest uruchomiona z nośnika Live.\n"
++"Obecnie Nobara jest uruchomiona z nośnika Live.\n"
+ "Można zainstalować Fedorę teraz lub wybrać „Instalacja na dysku twardym” na "
+ "ekranie podglądu w dowolnym czasie."
+ 
+@@ -7981,7 +7981,7 @@ msgstr "Rozpoczynanie instalacji na dysku twardym"
+ #~ msgstr "Proszę wybrać używany język."
+ 
+ #~ msgid ""
+-#~ "Fedora is successfully installed. To begin using it, reboot your system."
++#~ "Nobara is successfully installed. To begin using it, reboot your system."
+ #~ msgstr "Pomyślnie zainstalowano Fedorę. Należy ponownie uruchomić komputer."
+ 
+ #~ msgid "Installation progress"
+diff --git a/po/pt.po b/po/pt.po
+index 19ed6de..6e72b40 100644
+--- a/po/pt.po
++++ b/po/pt.po
+@@ -7470,8 +7470,8 @@ msgstr "Instalar o CD Live no seu disco rígido"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Bem-vindo ao Fedora"
++msgid "Welcome to Nobara"
++msgstr "Bem-vindo ao Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ #, fuzzy
+@@ -7852,17 +7852,17 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Teste o Fedora"
++msgid "Try Nobara"
++msgstr "Teste o Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"Atualmente, está a executar o Fedora de um disco ''live''.\n"
+-"Pode instalar o Fedora agora ou escolher \"Instalar no Disco Rígido\" no "
++"Atualmente, está a executar o Nobara de um disco ''live''.\n"
++"Pode instalar o Nobara agora ou escolher \"Instalar no Disco Rígido\" no "
+ "«Resumo das Atividades» em qualquer altura."
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+diff --git a/po/pt_BR.po b/po/pt_BR.po
+index 8dc933d..f915561 100644
+--- a/po/pt_BR.po
++++ b/po/pt_BR.po
+@@ -7519,8 +7519,8 @@ msgstr "Instalar o live CD no seu disco rígido"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Boas-vindas ao Fedora"
++msgid "Welcome to Nobara"
++msgstr "Boas-vindas ao Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ msgid "Common languages"
+@@ -7694,7 +7694,7 @@ msgstr "Opções de armazenamento"
+ #, fuzzy
+ #| msgid ""
+ #| "Installation destination allows you to configure which disks will be used "
+-#| "as the installation target for your Fedora installation. At least 1 disk "
++#| "as the installation target for your Nobara installation. At least 1 disk "
+ #| "must be selected for the installation to proceed."
+ msgid ""
+ "In Installation destination, you can configure disks to be used as the "
+@@ -7702,7 +7702,7 @@ msgid ""
+ "installationprocess to proceed."
+ msgstr ""
+ "O destino de instalação permite que você configure quais discos serão usados "
+-"como destino de instalação para o seu Fedora. Pelo menos 1 disco deve ser "
++"como destino de instalação para o seu Nobara. Pelo menos 1 disco deve ser "
+ "selecionado para que a instalação continue."
+ 
+ #: ui/webui/src/components/storage/HelpStorageOptions.jsx:26
+@@ -7868,17 +7868,17 @@ msgstr ""
+ "certeza de que deseja continuar com a instalação?"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Experimentar o Fedora"
++msgid "Try Nobara"
++msgstr "Experimentar o Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"Você está executando o Fedora a partir da mídia live.\n"
+-"Você pode instalar o Fedora agora ou escolher \"Instalar no disco rígido\" "
++"Você está executando o Nobara a partir da mídia live.\n"
++"Você pode instalar o Nobara agora ou escolher \"Instalar no disco rígido\" "
+ "no Panorama de Atividades a qualquer momento."
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+@@ -8055,9 +8055,9 @@ msgstr "Iniciando Instalação no Disco Rígido"
+ #~ msgstr "Selecione o idioma que você gostaria de usar."
+ 
+ #~ msgid ""
+-#~ "Fedora is successfully installed. To begin using it, reboot your system."
++#~ "Nobara is successfully installed. To begin using it, reboot your system."
+ #~ msgstr ""
+-#~ "O Fedora foi instalado com sucesso. Para começar a usá-lo, reinicie seu "
++#~ "O Nobara foi instalado com sucesso. Para começar a usá-lo, reinicie seu "
+ #~ "sistema."
+ 
+ #~ msgid "Installation progress"
+diff --git a/po/ro.po b/po/ro.po
+index e858a78..09ffcad 100644
+--- a/po/ro.po
++++ b/po/ro.po
+@@ -7705,8 +7705,8 @@ msgstr "Instalează CD-ul live pe disc"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Bun venit la Fedora"
++msgid "Welcome to Nobara"
++msgstr "Bun venit la Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ #, fuzzy
+@@ -8086,16 +8086,16 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Încearcă Fedora"
++msgid "Try Nobara"
++msgstr "Încearcă Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"Momentan rulați Fedora de pe mediul portabil.\n"
++"Momentan rulați Nobara de pe mediul portabil.\n"
+ "Poți instala Feodra acum, sau să alegi „Instalează pe discul dur” din "
+ "panorama de Activități oricând."
+ 
+diff --git a/po/ru.po b/po/ru.po
+index 9e0f485..c9d011f 100644
+--- a/po/ru.po
++++ b/po/ru.po
+@@ -7473,8 +7473,8 @@ msgstr "Установить Live CD на жёсткий диск"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Добро пожаловать в Fedora"
++msgid "Welcome to Nobara"
++msgstr "Добро пожаловать в Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ msgid "Common languages"
+@@ -7649,7 +7649,7 @@ msgstr "Параметры хранения данных"
+ #, fuzzy
+ #| msgid ""
+ #| "Installation destination allows you to configure which disks will be used "
+-#| "as the installation target for your Fedora installation. At least 1 disk "
++#| "as the installation target for your Nobara installation. At least 1 disk "
+ #| "must be selected for the installation to proceed."
+ msgid ""
+ "In Installation destination, you can configure disks to be used as the "
+@@ -7657,7 +7657,7 @@ msgid ""
+ "installationprocess to proceed."
+ msgstr ""
+ "Местоназначение установки позволяет вам настроить, какие диски будут "
+-"использоваться для вашей установки Fedora. Для продолжения установки должен "
++"использоваться для вашей установки Nobara. Для продолжения установки должен "
+ "быть выбран хотя бы 1 диск."
+ 
+ #: ui/webui/src/components/storage/HelpStorageOptions.jsx:26
+@@ -7824,17 +7824,17 @@ msgstr ""
+ "продолжить установку?"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Попробуйте Fedora"
++msgid "Try Nobara"
++msgstr "Попробуйте Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"Fedora запущена с установочного диска.\n"
+-"Вы можете установить Fedora сейчас или в любое время выбрать «Установить на "
++"Nobara запущена с установочного диска.\n"
++"Вы можете установить Nobara сейчас или в любое время выбрать «Установить на "
+ "жесткий диск» в меню «Обзор»."
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+diff --git a/po/si.po b/po/si.po
+index 0c2fbb5..944ebbb 100644
+--- a/po/si.po
++++ b/po/si.po
+@@ -6824,7 +6824,7 @@ msgstr "සජීවී CD තැටිය ඔබේ දෘඩ තැටිය
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
++msgid "Welcome to Nobara"
+ msgstr ""
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+@@ -7148,13 +7148,13 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
++msgid "Try Nobara"
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ 
+diff --git a/po/sk.po b/po/sk.po
+index 98ddcb9..ef9a938 100644
+--- a/po/sk.po
++++ b/po/sk.po
+@@ -7389,8 +7389,8 @@ msgstr "Inštalácia Live CD na váš pevný disk"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Vitajte v systéme Fedora"
++msgid "Welcome to Nobara"
++msgstr "Vitajte v systéme Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ msgid "Common languages"
+@@ -7727,16 +7727,16 @@ msgstr ""
+ "pokračovať v inštalácii?"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Skúsiť systém Fedora"
++msgid "Try Nobara"
++msgstr "Skúsiť systém Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"Momentálne máte spustený systém Fedora z live média.\n"
++"Momentálne máte spustený systém Nobara z live média.\n"
+ "Môžete ho nainštalovať ihneď alebo kedykoľvek neskôr spustením odkazu "
+ "„Inštalovať na pevný disk“ v prehľade Aktivít."
+ 
+diff --git a/po/sq.po b/po/sq.po
+index 89d685c..d6dba90 100644
+--- a/po/sq.po
++++ b/po/sq.po
+@@ -7618,8 +7618,8 @@ msgstr "Instalojeni CD \"live\" te hard disku juaj"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Mirëserdhët në Fedora"
++msgid "Welcome to Nobara"
++msgstr "Mirëserdhët në Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ #, fuzzy
+@@ -7996,13 +7996,13 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
++msgid "Try Nobara"
+ msgstr "Provo Fedorën"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ "Ju jeni duke e përdorur Fedorën nga pajisja në kohë reale.\n"
+diff --git a/po/sr.po b/po/sr.po
+index c2e6b3a..e90f5c4 100644
+--- a/po/sr.po
++++ b/po/sr.po
+@@ -7675,7 +7675,7 @@ msgstr "Инсталирајте живи ЦД на ваш чврсти диск
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
++msgid "Welcome to Nobara"
+ msgstr "Добродошли у Fedoru"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+@@ -8082,13 +8082,13 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
++msgid "Try Nobara"
+ msgstr "Пробајте Fedoru"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ "Тренутно покрећете Fedoru са live медија.\n"
+diff --git a/po/sr@latin.po b/po/sr@latin.po
+index 6ab6ae4..3d9d6fc 100644
+--- a/po/sr@latin.po
++++ b/po/sr@latin.po
+@@ -6816,7 +6816,7 @@ msgstr "Instalirajte živi CD na vaš čvrsti disk"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
++msgid "Welcome to Nobara"
+ msgstr ""
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+@@ -7139,13 +7139,13 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
++msgid "Try Nobara"
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ 
+diff --git a/po/sv.po b/po/sv.po
+index 8d6799c..62526a0 100644
+--- a/po/sv.po
++++ b/po/sv.po
+@@ -7381,8 +7381,8 @@ msgstr "Installera live-cd:n på din hårddisk"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Välkommen till Fedora"
++msgid "Welcome to Nobara"
++msgstr "Välkommen till Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ msgid "Common languages"
+@@ -7719,17 +7719,17 @@ msgstr ""
+ "att du vill fortsätta med installationen?"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Prova Fedora"
++msgid "Try Nobara"
++msgstr "Prova Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"Du kör för närvarande Fedora från ett live-medium.\n"
+-"Du kan installera Fedora nu, eller välja ”Installera på hårddisk” i "
++"Du kör för närvarande Nobara från ett live-medium.\n"
++"Du kan installera Nobara nu, eller välja ”Installera på hårddisk” i "
+ "aktivitetsöversikten vid ett senare tillfälle."
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+diff --git a/po/ta.po b/po/ta.po
+index 1249389..36eb318 100644
+--- a/po/ta.po
++++ b/po/ta.po
+@@ -7449,8 +7449,8 @@ msgstr "உங்கள் நிலைவட்டில் நேரடி க
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Fedora க்கு வரவேற்கிறோம்"
++msgid "Welcome to Nobara"
++msgstr "Nobara க்கு வரவேற்கிறோம்"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ #, fuzzy
+@@ -7826,17 +7826,17 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Fedora வை முயற்சித்துப் பாருங்கள்"
++msgid "Try Nobara"
++msgstr "Nobara வை முயற்சித்துப் பாருங்கள்"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"இப்போது நீங்கள் Fedora வை நேரடி ஊடகத்திலிருந்து இயக்குகிறீர்கள்.\n"
+-"இப்போது நீங்கள் Fedora வை நிறுவலாம் அல்லது பிறகு எப்போது விரும்பினாலும் செயல்பாடுகள் "
++"இப்போது நீங்கள் Nobara வை நேரடி ஊடகத்திலிருந்து இயக்குகிறீர்கள்.\n"
++"இப்போது நீங்கள் Nobara வை நிறுவலாம் அல்லது பிறகு எப்போது விரும்பினாலும் செயல்பாடுகள் "
+ "மேலோட்டத்திலிருந்து \"வன் வட்டு இயக்கிக்கு நிறுவவும்\" என்பதைத் தேர்வு செய்து நிறுவலாம்."
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+diff --git a/po/te.po b/po/te.po
+index a8c0655..efd69c9 100644
+--- a/po/te.po
++++ b/po/te.po
+@@ -7100,7 +7100,7 @@ msgstr "మీ హార్డుడిస్కు కి లైవ్ CD న
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
++msgid "Welcome to Nobara"
+ msgstr "ఫెడోరాకు స్వాగతం"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+@@ -7466,13 +7466,13 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
++msgid "Try Nobara"
+ msgstr "ఫెడోరా ప్రయత్నించు"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ "మీరు ఫెడోరాను లైవ్ మాధ్యమం నుండి నడుపుతున్నారు.\n"
+diff --git a/po/th.po b/po/th.po
+index 84e3c52..b7d05fc 100644
+--- a/po/th.po
++++ b/po/th.po
+@@ -6902,8 +6902,8 @@ msgstr "ติดตั้ง live CD ลงฮาร์ดดิสก์"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "ยินดีต้อนรับสู่ Fedora"
++msgid "Welcome to Nobara"
++msgstr "ยินดีต้อนรับสู่ Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ #, fuzzy
+@@ -7244,17 +7244,17 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "ลองใช้ Fedora"
++msgid "Try Nobara"
++msgstr "ลองใช้ Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"ตอนนี้คุณกำลังเรียกใช้ Fedora จาก live media\n"
+-"คุณจะติดตั้ง Fedora เลยก็ได้ หรือเลือก \"ติดตั้งลงฮาร์ดไดรฟ์\" ในภาพรวมกิจกรรม ได้ในภายหลัง"
++"ตอนนี้คุณกำลังเรียกใช้ Nobara จาก live media\n"
++"คุณจะติดตั้ง Nobara เลยก็ได้ หรือเลือก \"ติดตั้งลงฮาร์ดไดรฟ์\" ในภาพรวมกิจกรรม ได้ในภายหลัง"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+ msgid ""
+diff --git a/po/tr.po b/po/tr.po
+index 8f8fb02..4be21c3 100644
+--- a/po/tr.po
++++ b/po/tr.po
+@@ -7434,8 +7434,8 @@ msgstr "Canlı CD'yi sabit diskinize kurun"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Fedora'ya Hoş Geldiniz"
++msgid "Welcome to Nobara"
++msgstr "Nobara'ya Hoş Geldiniz"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ msgid "Common languages"
+@@ -7608,14 +7608,14 @@ msgstr "Depolama seçenekleri"
+ #, fuzzy
+ #| msgid ""
+ #| "Installation destination allows you to configure which disks will be used "
+-#| "as the installation target for your Fedora installation. At least 1 disk "
++#| "as the installation target for your Nobara installation. At least 1 disk "
+ #| "must be selected for the installation to proceed."
+ msgid ""
+ "In Installation destination, you can configure disks to be used as the "
+ "installation target. You must select a minimum of 1 disk for the "
+ "installationprocess to proceed."
+ msgstr ""
+-"Kurulum hedefi, Fedora kurulumunuz için hangi disklerin kullanılacağını "
++"Kurulum hedefi, Nobara kurulumunuz için hangi disklerin kullanılacağını "
+ "yapılandırmanızı sağlar. Kurulumun sürmesi için en az 1 disk seçilmelidir."
+ 
+ #: ui/webui/src/components/storage/HelpStorageOptions.jsx:26
+@@ -7781,17 +7781,17 @@ msgstr ""
+ "emin misiniz?"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Fedora'yı Dene"
++msgid "Try Nobara"
++msgstr "Nobara'yı Dene"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"Şu an Fedora'yı canlı ortamdan çalıştırıyorsunuz.\n"
+-"Fedora'yı şimdi kurabilir ya da istediğiniz zaman Etkinlikler'den \"Sabit "
++"Şu an Nobara'yı canlı ortamdan çalıştırıyorsunuz.\n"
++"Nobara'yı şimdi kurabilir ya da istediğiniz zaman Etkinlikler'den \"Sabit "
+ "Diske Kur\"u seçebilirsiniz."
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+@@ -7968,9 +7968,9 @@ msgstr "Sabit Diske Kurulum Başlıyor"
+ #~ msgstr "Kullanmak istediğiniz dili seçin."
+ 
+ #~ msgid ""
+-#~ "Fedora is successfully installed. To begin using it, reboot your system."
++#~ "Nobara is successfully installed. To begin using it, reboot your system."
+ #~ msgstr ""
+-#~ "Fedora başarıyla kuruldu. Kullanmaya başlamak için sisteminizi yeniden "
++#~ "Nobara başarıyla kuruldu. Kullanmaya başlamak için sisteminizi yeniden "
+ #~ "başlatın."
+ 
+ #~ msgid "Installation progress"
+diff --git a/po/uk.po b/po/uk.po
+index 57f6a2d..6849dc4 100644
+--- a/po/uk.po
++++ b/po/uk.po
+@@ -7470,8 +7470,8 @@ msgstr "Встановити live CD на жорсткий диск"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "Вітаємо у Fedora"
++msgid "Welcome to Nobara"
++msgstr "Вітаємо у Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ msgid "Common languages"
+@@ -7815,17 +7815,17 @@ msgstr ""
+ "хочете продовжити встановлення?"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "Спробувати Fedora"
++msgid "Try Nobara"
++msgstr "Спробувати Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"Систему запущено з портативного носія Fedora.\n"
+-"Ви можете встановити Fedora зараз або скористатися пунктом «Встановити на "
++"Систему запущено з портативного носія Nobara.\n"
++"Ви можете встановити Nobara зараз або скористатися пунктом «Встановити на "
+ "жорсткий диск» на панелі огляду «Діяльність» будь-коли пізніше."
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+@@ -8005,9 +8005,9 @@ msgstr "Початок встановлення на жорсткий диск"
+ #~ msgstr "Виберіть мову, якою ви хочете скористатися."
+ 
+ #~ msgid ""
+-#~ "Fedora is successfully installed. To begin using it, reboot your system."
++#~ "Nobara is successfully installed. To begin using it, reboot your system."
+ #~ msgstr ""
+-#~ "Fedora успішно встановлено. Щоб почати користуватися системою, "
++#~ "Nobara успішно встановлено. Щоб почати користуватися системою, "
+ #~ "перезавантажте комп'ютер."
+ 
+ #~ msgid "Installation progress"
+diff --git a/po/ur.po b/po/ur.po
+index 8b74d8c..75b46fc 100644
+--- a/po/ur.po
++++ b/po/ur.po
+@@ -6789,7 +6789,7 @@ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
++msgid "Welcome to Nobara"
+ msgstr ""
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+@@ -7124,13 +7124,13 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
++msgid "Try Nobara"
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ 
+diff --git a/po/vi.po b/po/vi.po
+index f6a7c8b..1073a8b 100644
+--- a/po/vi.po
++++ b/po/vi.po
+@@ -6843,7 +6843,7 @@ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
++msgid "Welcome to Nobara"
+ msgstr ""
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+@@ -7151,13 +7151,13 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
++msgid "Try Nobara"
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+ 
+diff --git a/po/zh_CN.po b/po/zh_CN.po
+index 707f2c6..e9c8878 100644
+--- a/po/zh_CN.po
++++ b/po/zh_CN.po
+@@ -7138,8 +7138,8 @@ msgstr "将 Live CD 安装到您的硬盘"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "欢迎使用 Fedora"
++msgid "Welcome to Nobara"
++msgstr "欢迎使用 Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ msgid "Common languages"
+@@ -7452,17 +7452,17 @@ msgid ""
+ msgstr "所选磁盘的内容将被清除，且无法取消。您确定要继续进行安装吗？"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "试用 Fedora"
++msgid "Try Nobara"
++msgstr "试用 Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"您目前正在通过免安装介质运行 Fedora。\n"
+-"您现在就可以安装 Fedora，也可以在稍后通过选择活动概览中的 “安装到硬盘” 来进行"
++"您目前正在通过免安装介质运行 Nobara。\n"
++"您现在就可以安装 Nobara，也可以在稍后通过选择活动概览中的 “安装到硬盘” 来进行"
+ "安装。"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+@@ -7622,8 +7622,8 @@ msgstr "开始安装到硬盘"
+ #~ msgstr "选择您要使用的语言。"
+ 
+ #~ msgid ""
+-#~ "Fedora is successfully installed. To begin using it, reboot your system."
+-#~ msgstr "Fedora 已成功安装。重启后即可使用。"
++#~ "Nobara is successfully installed. To begin using it, reboot your system."
++#~ msgstr "Nobara 已成功安装。重启后即可使用。"
+ 
+ #~ msgid "Installation progress"
+ #~ msgstr "安装进度"
+diff --git a/po/zh_HK.po b/po/zh_HK.po
+index 2b56a72..024fba3 100644
+--- a/po/zh_HK.po
++++ b/po/zh_HK.po
+@@ -6903,8 +6903,8 @@ msgstr "將即時 CD 安裝至你的硬碟上"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "歡迎使用 Fedora"
++msgid "Welcome to Nobara"
++msgstr "歡迎使用 Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ msgid "Common languages"
+@@ -7262,16 +7262,16 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "試用 Fedora"
++msgid "Try Nobara"
++msgstr "試用 Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"你目前正從 live 媒體執行 Fedora。你現在可以安裝 Fedora，或稍後的任何時刻從活"
++"你目前正從 live 媒體執行 Nobara。你現在可以安裝 Nobara，或稍後的任何時刻從活"
+ "動「總覽」中，選擇「安裝至硬碟」。"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+diff --git a/po/zh_TW.po b/po/zh_TW.po
+index 8689c94..0b15a1b 100644
+--- a/po/zh_TW.po
++++ b/po/zh_TW.po
+@@ -7192,8 +7192,8 @@ msgstr "將 Live CD 安裝至您的硬碟上"
+ 
+ #: data/liveinst/gnome/fedora-welcome.desktop:3
+ #: data/liveinst/gnome/fedora-welcome.js:65
+-msgid "Welcome to Fedora"
+-msgstr "歡迎使用 Fedora"
++msgid "Welcome to Nobara"
++msgstr "歡迎使用 Nobara"
+ 
+ #: ui/webui/src/components/localization/InstallationLanguage.jsx:175
+ #, fuzzy
+@@ -7523,16 +7523,16 @@ msgid ""
+ msgstr ""
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:94
+-msgid "Try Fedora"
+-msgstr "試用 Fedora"
++msgid "Try Nobara"
++msgstr "試用 Nobara"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:110
+ msgid ""
+-"You are currently running Fedora from live media.\n"
+-"You can install Fedora now, or choose \"Install to Hard Drive\" in the "
++"You are currently running Nobara from live media.\n"
++"You can install Nobara now, or choose \"Install to Hard Drive\" in the "
+ "Activities Overview at any later time."
+ msgstr ""
+-"您目前正從 live 媒體執行 Fedora。您現在可以安裝 Fedora，或稍後的任何時刻從活"
++"您目前正從 live 媒體執行 Nobara。您現在可以安裝 Nobara，或稍後的任何時刻從活"
+ "動「概覽」中，選擇「安裝至硬碟」。"
+ 
+ #: data/liveinst/gnome/fedora-welcome.js:130
+-- 
+2.39.2
+

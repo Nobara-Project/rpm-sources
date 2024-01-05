@@ -1,0 +1,26 @@
+From 53ddb319c991cdb6f874bd63c92dcd09267d0acd Mon Sep 17 00:00:00 2001
+From: Jan Kolarik <jkolarik@redhat.com>
+Date: Thu, 19 Oct 2023 10:26:43 +0200
+Subject: [PATCH] Revert "Does not print Verify: package (RhBug:1908253)"
+
+This reverts commit b2acddd4f6fda369a7f2f1656a7cd646c3423f60.
+---
+ dnf/base.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/dnf/base.py b/dnf/base.py
+index 6d33e250..b0786caa 100644
+--- a/dnf/base.py
++++ b/dnf/base.py
+@@ -1174,7 +1174,7 @@ class Base(object):
+ 
+         # sync up what just happened versus what is in the rpmdb
+         if not self._ts.isTsFlagSet(rpm.RPMTRANS_FLAG_TEST):
+-            self._verify_transaction()
++            self._verify_transaction(cb.verify_tsi_package)
+ 
+         return tid
+ 
+-- 
+2.41.0
+

@@ -1,0 +1,85 @@
+From 34132643150c2fbaf8c08bcd29e358831db3966c Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Fri, 23 Jun 2023 19:02:01 -0600
+Subject: [PATCH] Fix flatpak package search failing after Install Location
+ changed to system
+
+---
+ yumex/backend/flatpak/backend.py | 16 +++++++++++-----
+ yumex/ui/flatpak_installer.py    |  3 ++-
+ yumex/ui/flatpak_view.py         |  2 +-
+ 3 files changed, 14 insertions(+), 7 deletions(-)
+
+diff --git a/yumex/backend/flatpak/backend.py b/yumex/backend/flatpak/backend.py
+index 913eb19..0c12346 100644
+--- a/yumex/backend/flatpak/backend.py
++++ b/yumex/backend/flatpak/backend.py
+@@ -41,7 +41,7 @@ class FlatpakBackend:
+ 
+     def find(self, source: str, key: str, location: FlatpakLocation) -> list[str]:
+         """find an available id containing a key"""
+-        if location == FlatpakLocation.SYSTEM:
++        if location == "system":
+             refs = self.system.list_remote_refs_sync(source)
+         else:
+             refs = self.user.list_remote_refs_sync(source)
+@@ -53,9 +53,12 @@ class FlatpakBackend:
+                     found.append(ref.get_name())
+         return found
+ 
+-    def find_ref(self, source: str, key: str) -> str | None:
++    def find_ref(self, source: str, key: str, location: FlatpakLocation) -> str | None:
+         """find the ref string containing a key"""
+-        refs: list[FlatpakRef] = self.user.list_remote_refs_sync(source)
++        if location == "system":
++            refs: list[FlatpakRef] = self.system.list_remote_refs_sync(source)
++        else:
++            refs: list[FlatpakRef] = self.user.list_remote_refs_sync(source)
+         found = None
+         for ref in refs:
+             if ref.get_kind() == Flatpak.RefKind.APP:
+@@ -67,9 +70,12 @@ class FlatpakBackend:
+             return ref
+         return None
+ 
+-    def get_icon_path(self, remote_name: str) -> str | None:
++    def get_icon_path(self, remote_name: str, location: FlatpakLocation) -> str | None:
+         """get the path to flatpak icon cache"""
+-        remote = self.user.get_remote_by_name(remote_name)
++        if location == "system":
++            remote = self.system.get_remote_by_name(remote_name)
++        else:
++            remote = self.user.get_remote_by_name(remote_name)
+         if remote:
+             appstream_dir = remote.get_appstream_dir().get_path()
+             return f"{appstream_dir}/icons/flatpak/128x128/"
+diff --git a/yumex/ui/flatpak_installer.py b/yumex/ui/flatpak_installer.py
+index 706929f..d508765 100644
+--- a/yumex/ui/flatpak_installer.py
++++ b/yumex/ui/flatpak_installer.py
+@@ -123,7 +123,8 @@ class YumexFlatpakInstaller(Adw.Window):
+         if not remote_name:
+             self.icon.set_from_icon_name("flatpak-symbolic")
+             return
+-        icon_path = self.backend.get_icon_path(remote_name)
++        location = FlatpakLocation(self.location.get_selected_item().get_string())
++        icon_path = self.backend.get_icon_path(remote_name, location)
+         icon_file = Path(f"{icon_path}/{id}.png")
+         if icon_file.exists():
+             self.icon.set_from_file(icon_file.as_posix())
+diff --git a/yumex/ui/flatpak_view.py b/yumex/ui/flatpak_view.py
+index bce5629..a8118ae 100644
+--- a/yumex/ui/flatpak_view.py
++++ b/yumex/ui/flatpak_view.py
+@@ -98,7 +98,7 @@ class YumexFlatpakView(Gtk.ListView):
+         if fp_id:
+             remote = flatpak_installer.remote.get_selected_item().get_string()
+             location = flatpak_installer.location.get_selected_item().get_string()
+-            ref = self.backend.find_ref(remote, fp_id)
++            ref = self.backend.find_ref(remote, fp_id, location)
+             log(
+                 f"FlatPakView.install : remote: {remote} location: {location} ref: {ref}"
+             )
+-- 
+2.41.0
+

@@ -1,0 +1,1774 @@
+ 
+From cbef7e88ff6e1d03791969848e62ce33f5bbf781 Mon Sep 17 00:00:00 2001
+From: Maksim Sisov <msisov@igalia.com>
+Date: Mon, 16 Mar 2020 15:01:22 +0200
+Subject: [PATCH] add ozone/x11 support
+
+---
+ BUILD.gn                                      |  31 +-
+ include/internal/cef_types_linux.h            |   4 +-
+ .../browser_platform_delegate_native_linux.cc |  76 +--
+ .../browser_platform_delegate_native_linux.h  |   8 +-
+ libcef/browser/native/native_window_linux.h   |  44 ++
+ libcef/browser/native/window_x11.cc           | 421 +----------------
+ libcef/browser/native/window_x11.h            |  52 +--
+ libcef/browser/native/window_x11_base.cc      | 442 ++++++++++++++++++
+ libcef/browser/native/window_x11_base.h       |  78 ++++
+ libcef/browser/native/window_x11_ozone.cc     |  30 ++
+ libcef/browser/native/window_x11_ozone.h      |  37 ++
+ .../osr/render_widget_host_view_osr.cc        |  12 +-
+ patch/patch.cfg                               |   6 +-
+ ...-from-DWTHX11-to-DWTHLinux-for-Ozone.patch | 152 ++++++
+ .../browser/browser_window_osr_gtk.cc         |   2 +
+ tools/make_config_header.py                   |   2 +-
+ 16 files changed, 881 insertions(+), 516 deletions(-)
+ create mode 100644 libcef/browser/native/native_window_linux.h
+ create mode 100644 libcef/browser/native/window_x11_base.cc
+ create mode 100644 libcef/browser/native/window_x11_base.h
+ create mode 100644 libcef/browser/native/window_x11_ozone.cc
+ create mode 100644 libcef/browser/native/window_x11_ozone.h
+ create mode 100644 patch/patches/0001-move-patches-from-DWTHX11-to-DWTHLinux-for-Ozone.patch
+
+diff --git a/BUILD.gn b/BUILD.gn
+index b46650c0..d68365fd 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -112,6 +112,7 @@ import("//tools/grit/repack.gni")
+ import("//tools/grit/grit_rule.gni")
+ import("//tools/v8_context_snapshot/v8_context_snapshot.gni")
+ import("//ui/gl/features.gni")
++import("//ui/ozone/ozone.gni")
+ import("//v8/gni/v8.gni")
+ if (is_clang) {
+   import("//build/config/clang/clang.gni")
+@@ -886,6 +887,7 @@ static_library("libcef_static") {
+     sources += gypi_paths2.includes_linux + [
+       "libcef/browser/native/browser_platform_delegate_native_linux.cc",
+       "libcef/browser/native/browser_platform_delegate_native_linux.h",
++      "libcef/browser/native/native_window_linux.h",
+       "libcef/browser/native/menu_runner_linux.cc",
+       "libcef/browser/native/menu_runner_linux.h",
+       "libcef/browser/osr/browser_platform_delegate_osr_linux.cc",
+@@ -895,11 +897,23 @@ static_library("libcef_static") {
+       "libcef/browser/printing/print_dialog_linux.h",
+     ]
+
+-    if (use_x11) {
++    if (use_x11 || ozone_platform_x11) {
+       sources += [
+-        "libcef/browser/native/window_x11.cc",
+-        "libcef/browser/native/window_x11.h",
++        "libcef/browser/native/window_x11_base.cc",
++        "libcef/browser/native/window_x11_base.h",
+       ]
++      if (use_x11) {
++        sources += [
++          "libcef/browser/native/window_x11.cc",
++          "libcef/browser/native/window_x11.h",
++        ]
++      }
++      if (ozone_platform_x11) {
++        sources += [
++          "libcef/browser/native/window_x11_ozone.cc",
++          "libcef/browser/native/window_x11_ozone.h",
++        ]
++      }
+     }
+
+     deps += [
+@@ -2237,7 +2251,7 @@ if (is_mac) {
+       sources += gypi_paths2.includes_linux +
+                  gypi_paths2.cefsimple_sources_linux
+
+-      if (use_x11) {
++      if (use_x11 || ozone_platform_x11) {
+         libs = [
+           "X11",
+         ]
+@@ -2297,7 +2311,14 @@ if (is_mac) {
+       sources += gypi_paths2.shared_sources_linux +
+                  gypi_paths2.ceftests_sources_linux
+
+-      if (use_x11) {
++      if (use_x11 || ozone_platform_x11) {
++        # Ozone can be either be used with glib or libevent. However,
++        # when CEF is used with GTK, we need to be sure we can recieve
++        # GTK events, which are received through glib. Thus, make sure
++        # use_glib is set to true.
++        if (ozone_platform_x11) {
++          assert(use_glib)
++        }
+         libs = [
+           "X11",
+         ]
+diff --git a/include/internal/cef_types_linux.h b/include/internal/cef_types_linux.h
+index b21d6551..ded7745b 100644
+--- a/include/internal/cef_types_linux.h
++++ b/include/internal/cef_types_linux.h
+@@ -36,7 +36,7 @@
+
+ #if defined(OS_LINUX)
+
+-#if defined(CEF_X11)
++#if defined(CEF_X11) || defined(CEF_OZONE_X11)
+ typedef union _XEvent XEvent;
+ typedef struct _XDisplay XDisplay;
+ #endif
+@@ -67,7 +67,7 @@ extern "C" {
+ // Return the singleton X11 display shared with Chromium. The display is not
+ // thread-safe and must only be accessed on the browser process UI thread.
+ ///
+-#if defined(CEF_X11)
++#if defined(CEF_X11) || defined(CEF_OZONE_X11)
+ CEF_EXPORT XDisplay* cef_get_xdisplay();
+ #endif
+
+diff --git a/libcef/browser/native/browser_platform_delegate_native_linux.cc b/libcef/browser/native/browser_platform_delegate_native_linux.cc
+index 491610aa..c842c506 100644
+--- a/libcef/browser/native/browser_platform_delegate_native_linux.cc
++++ b/libcef/browser/native/browser_platform_delegate_native_linux.cc
+@@ -9,6 +9,7 @@
+ #include "libcef/browser/browser_host_impl.h"
+ #include "libcef/browser/context.h"
+ #include "libcef/browser/native/menu_runner_linux.h"
++#include "libcef/browser/native/native_window_linux.h"
+ #include "libcef/browser/native/window_delegate_view.h"
+ #include "libcef/browser/thread_util.h"
+
+@@ -23,11 +24,16 @@
+ #include "ui/events/keycodes/keyboard_code_conversion_xkb.h"
+ #include "ui/events/keycodes/keysym_to_unicode.h"
+ #include "ui/gfx/font_render_params.h"
++#include "ui/views/widget/desktop_aura/desktop_window_tree_host_linux.h"
+ #include "ui/views/widget/widget.h"
+
+-#if defined(USE_X11)
++#if defined(CEF_X11)
+ #include "libcef/browser/native/window_x11.h"
+-#include "ui/views/widget/desktop_aura/desktop_window_tree_host_x11.h"
++#endif
++
++#if defined(CEF_OZONE_X11)
++#include "libcef/browser/native/window_x11_ozone.h"
++#include "ui/ozone/public/ozone_platform.h"
+ #endif
+
+ namespace {
+@@ -74,14 +80,26 @@ bool CefBrowserPlatformDelegateNativeLinux::CreateHostWindow() {
+   gfx::Rect rect(window_info_.x, window_info_.y, window_info_.width,
+                  window_info_.height);
+
+-#if defined(USE_X11)
+-  DCHECK(!window_x11_);
++  DCHECK(!native_window_);
++#if defined(CEF_X11)
+   // Create a new window object. It will delete itself when the associated X11
+   // window is destroyed.
+-  window_x11_ =
++  native_window_ =
+       new CefWindowX11(browser_, window_info_.parent_window, rect,
+                        CefString(&window_info_.window_name).ToString());
+-  window_info_.window = window_x11_->xwindow();
++#else
++  const std::string platform_name = ui::OzonePlatform::GetPlatformName();
++  if (platform_name == "x11") {
++    native_window_ =
++        new CefWindowX11Ozone(browser_, window_info_.parent_window, rect,
++                              CefString(&window_info_.window_name).ToString());
++  } else {
++    NOTREACHED() << "Not supported platform: Ozone/"
++                 << ui::OzonePlatform::GetPlatformName();
++  }
++#endif
++  DCHECK(native_window_);
++  window_info_.window = native_window_->GetAcceleratedWidget();
+
+   host_window_created_ = true;
+
+@@ -89,7 +107,7 @@ bool CefBrowserPlatformDelegateNativeLinux::CreateHostWindow() {
+   browser_->AddRef();
+
+   CefWindowDelegateView* delegate_view = new CefWindowDelegateView(
+-      GetBackgroundColor(), window_x11_->TopLevelAlwaysOnTop(),
++      GetBackgroundColor(), native_window_->TopLevelAlwaysOnTop(),
+       GetBoundsChangedCallback());
+   delegate_view->Init(window_info_.window, browser_->web_contents(),
+                       gfx::Rect(gfx::Point(), rect.size()));
+@@ -97,8 +115,7 @@ bool CefBrowserPlatformDelegateNativeLinux::CreateHostWindow() {
+   window_widget_ = delegate_view->GetWidget();
+   window_widget_->Show();
+
+-  window_x11_->Show();
+-#endif  // defined(USE_X11)
++  native_window_->Show();
+
+   // As an additional requirement on Linux, we must set the colors for the
+   // render widgets in webkit.
+@@ -127,10 +144,8 @@ bool CefBrowserPlatformDelegateNativeLinux::CreateHostWindow() {
+ }
+
+ void CefBrowserPlatformDelegateNativeLinux::CloseHostWindow() {
+-#if defined(USE_X11)
+-  if (window_x11_)
+-    window_x11_->Close();
+-#endif
++  if (native_window_)
++    native_window_->Close();
+ }
+
+ CefWindowHandle CefBrowserPlatformDelegateNativeLinux::GetHostWindowHandle()
+@@ -154,31 +169,28 @@ void CefBrowserPlatformDelegateNativeLinux::SendFocusEvent(bool setFocus) {
+     browser_->web_contents()->Focus();
+   }
+
+-#if defined(USE_X11)
+-  if (window_x11_) {
++  if (native_window_) {
+     // Give native focus to the DesktopNativeWidgetAura for the root window.
+     // Needs to be done via the ::Window so that keyboard focus is assigned
+     // correctly.
+-    window_x11_->Focus();
++    native_window_->Focus();
+   }
+-#endif  // defined(USE_X11)
+ }
+
+ void CefBrowserPlatformDelegateNativeLinux::NotifyMoveOrResizeStarted() {
+   // Call the parent method to dismiss any existing popups.
+   CefBrowserPlatformDelegate::NotifyMoveOrResizeStarted();
+
+-#if defined(USE_X11)
+-  if (!window_x11_)
++  if (!native_window_)
+     return;
+
+-  views::DesktopWindowTreeHostX11* tree_host = window_x11_->GetHost();
++  views::DesktopWindowTreeHostLinux* tree_host = native_window_->GetHost();
+   if (!tree_host)
+     return;
+
+   // Explicitly set the screen bounds so that WindowTreeHost::*Screen()
+   // methods return the correct results.
+-  const gfx::Rect& bounds = window_x11_->GetBoundsInScreen();
++  const gfx::Rect& bounds = native_window_->GetBoundsInScreen();
+   tree_host->set_screen_bounds(bounds);
+
+   // Send updated screen rectangle information to the renderer process so that
+@@ -186,16 +198,13 @@ void CefBrowserPlatformDelegateNativeLinux::NotifyMoveOrResizeStarted() {
+   content::RenderWidgetHostImpl::From(
+       browser_->web_contents()->GetRenderViewHost()->GetWidget())
+       ->SendScreenRects();
+-#endif  // defined(USE_X11)
+ }
+
+ void CefBrowserPlatformDelegateNativeLinux::SizeTo(int width, int height) {
+-#if defined(USE_X11)
+-  if (window_x11_) {
+-    window_x11_->SetBounds(
+-        gfx::Rect(window_x11_->bounds().origin(), gfx::Size(width, height)));
++  if (native_window_) {
++    native_window_->SetBounds(gfx::Rect(native_window_->GetBounds().origin(),
++                                        gfx::Size(width, height)));
+   }
+-#endif  // defined(USE_X11)
+ }
+
+ gfx::Point CefBrowserPlatformDelegateNativeLinux::GetScreenPoint(
+@@ -203,18 +212,15 @@ gfx::Point CefBrowserPlatformDelegateNativeLinux::GetScreenPoint(
+   if (windowless_handler_)
+     return windowless_handler_->GetParentScreenPoint(view);
+
+-#if defined(USE_X11)
+-  if (!window_x11_)
++  if (!native_window_)
+     return view;
+
+   // We can't use aura::Window::GetBoundsInScreen on Linux because it will
+   // return bounds from DesktopWindowTreeHostX11 which in our case is relative
+   // to the parent window instead of the root window (screen).
+-  const gfx::Rect& bounds_in_screen = window_x11_->GetBoundsInScreen();
++  const gfx::Rect& bounds_in_screen = native_window_->GetBoundsInScreen();
+   return gfx::Point(bounds_in_screen.x() + view.x(),
+                     bounds_in_screen.y() + view.y());
+-#endif  // defined(USE_X11)
+-  return gfx::Point();
+ }
+
+ void CefBrowserPlatformDelegateNativeLinux::ViewText(const std::string& text) {
+@@ -258,10 +264,14 @@ void CefBrowserPlatformDelegate::HandleExternalProtocol(const GURL& url) {}
+
+ CefEventHandle CefBrowserPlatformDelegateNativeLinux::GetEventHandle(
+     const content::NativeWebKeyboardEvent& event) const {
+-  if (!event.os_event)
++ if (!event.os_event)
+     return nullptr;
++#if defined(USE_X11)
+   return const_cast<CefEventHandle>(
+       static_cast<CefEventHandle>(event.os_event->native_event()));
++#else
++  return nullptr;
++#endif
+ }
+
+ std::unique_ptr<CefMenuRunner>
+diff --git a/libcef/browser/native/browser_platform_delegate_native_linux.h b/libcef/browser/native/browser_platform_delegate_native_linux.h
+index 96ee95a7..1fe8de39 100644
+--- a/libcef/browser/native/browser_platform_delegate_native_linux.h
++++ b/libcef/browser/native/browser_platform_delegate_native_linux.h
+@@ -7,9 +7,7 @@
+
+ #include "libcef/browser/native/browser_platform_delegate_native_aura.h"
+
+-#if defined(USE_X11)
+-class CefWindowX11;
+-#endif
++class CefNativeWindowLinux;
+
+ // Windowed browser implementation for Linux.
+ class CefBrowserPlatformDelegateNativeLinux
+@@ -50,9 +48,7 @@ class CefBrowserPlatformDelegateNativeLinux
+   // associated root window is destroyed.
+   views::Widget* window_widget_;
+
+-#if defined(USE_X11)
+-  CefWindowX11* window_x11_ = nullptr;
+-#endif
++  CefNativeWindowLinux* native_window_ = nullptr;
+ };
+
+ #endif  // CEF_LIBCEF_BROWSER_NATIVE_BROWSER_PLATFORM_DELEGATE_NATIVE_LINUX_H_
+diff --git a/libcef/browser/native/native_window_linux.h b/libcef/browser/native/native_window_linux.h
+new file mode 100644
+index 00000000..350888e0
+--- /dev/null
++++ b/libcef/browser/native/native_window_linux.h
+@@ -0,0 +1,44 @@
++// Copyright 2020 The Chromium Embedded Framework Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be found
++// in the LICENSE file.
++
++#ifndef CEF_LIBCEF_BROWSER_NATIVE_NATIVE_WINDOW_LINUX_H_
++#define CEF_LIBCEF_BROWSER_NATIVE_NATIVE_WINDOW_LINUX_H_
++#pragma once
++
++#include "ui/gfx/native_widget_types.h"
++
++namespace gfx {
++class Rect;
++}
++
++namespace views {
++class DesktopWindowTreeHostLinux;
++}
++
++// Base abstract class for handling native windows when CEF hosts the windows.
++class CefNativeWindowLinux {
++ public:
++  virtual ~CefNativeWindowLinux() = default;
++
++  // Handles basic functionality of the NativeWindow.
++  virtual void Show() = 0;
++  virtual void Hide() = 0;
++  virtual void Close() = 0;
++
++  // Sets the NativeWindow focused.
++  virtual void Focus() = 0;
++
++  virtual void SetBounds(const gfx::Rect& bounds) = 0;
++  virtual gfx::Rect GetBounds() const = 0;
++  virtual gfx::Rect GetBoundsInScreen() = 0;
++
++  // Returns host this NativeWindow is parented with.
++  virtual views::DesktopWindowTreeHostLinux* GetHost() = 0;
++
++  virtual bool TopLevelAlwaysOnTop() const = 0;
++
++  virtual gfx::AcceleratedWidget GetAcceleratedWidget() const = 0;
++};
++
++#endif  // CEF_LIBCEF_BROWSER_NATIVE_NATIVE_WINDOW_LINUX_H_
+\ No newline at end of file
+diff --git a/libcef/browser/native/window_x11.cc b/libcef/browser/native/window_x11.cc
+index 462ce420..440b964c 100644
+--- a/libcef/browser/native/window_x11.cc
++++ b/libcef/browser/native/window_x11.cc
+@@ -4,443 +4,28 @@
+ // found in the LICENSE file.
+
+ #include "libcef/browser/native/window_x11.h"
+-#include "libcef/browser/thread_util.h"
+
+-#include "ui/base/x/x11_util.h"
+ #include "ui/events/platform/platform_event_source.h"
+-#include "ui/views/widget/desktop_aura/desktop_window_tree_host_x11.h"
+-#include "ui/views/widget/desktop_aura/x11_topmost_window_finder.h"
+-
+-#include <X11/Xatom.h>
+-#include <X11/Xlib.h>
+-#include <X11/Xutil.h>
+-#include <X11/extensions/XInput2.h>
+-
+-namespace {
+-
+-const char kAtom[] = "ATOM";
+-const char kWMDeleteWindow[] = "WM_DELETE_WINDOW";
+-const char kWMProtocols[] = "WM_PROTOCOLS";
+-const char kNetWMName[] = "_NET_WM_NAME";
+-const char kNetWMPid[] = "_NET_WM_PID";
+-const char kNetWMPing[] = "_NET_WM_PING";
+-const char kNetWMState[] = "_NET_WM_STATE";
+-const char kXdndProxy[] = "XdndProxy";
+-const char kUTF8String[] = "UTF8_STRING";
+-
+-::Window FindEventTarget(const ui::PlatformEvent& xev) {
+-  ::Window target = xev->xany.window;
+-  if (xev->type == GenericEvent)
+-    target = static_cast<XIDeviceEvent*>(xev->xcookie.data)->event;
+-  return target;
+-}
+-
+-::Window FindChild(::Display* display, ::Window window) {
+-  ::Window root;
+-  ::Window parent;
+-  ::Window* children;
+-  ::Window child_window = x11::None;
+-  unsigned int nchildren;
+-  if (XQueryTree(display, window, &root, &parent, &children, &nchildren) &&
+-      nchildren == 1) {
+-    child_window = children[0];
+-    XFree(children);
+-  }
+-  return child_window;
+-}
+-
+-::Window FindToplevelParent(::Display* display, ::Window window) {
+-  ::Window top_level_window = window;
+-  ::Window root = x11::None;
+-  ::Window parent = x11::None;
+-  ::Window* children = nullptr;
+-  unsigned int nchildren = 0;
+-  // Enumerate all parents of "window" to find the highest level window
+-  // that either:
+-  //   - has a parent that does not contain the _NET_WM_PID property
+-  //   - has a parent that is the root window.
+-  while (XQueryTree(display, window, &root, &parent, &children, &nchildren)) {
+-    if (children) {
+-      XFree(children);
+-    }
+-
+-    top_level_window = window;
+-    if (!ui::PropertyExists(parent, kNetWMPid) || parent == root) {
+-      break;
+-    }
+-    window = parent;
+-  }
+-  return top_level_window;
+-}
+-
+-}  // namespace
+-
+-CEF_EXPORT XDisplay* cef_get_xdisplay() {
+-  if (!CEF_CURRENTLY_ON(CEF_UIT))
+-    return nullptr;
+-  return gfx::GetXDisplay();
+-}
+
+ CefWindowX11::CefWindowX11(CefRefPtr<CefBrowserHostImpl> browser,
+                            ::Window parent_xwindow,
+                            const gfx::Rect& bounds,
+                            const std::string& title)
+-    : browser_(browser),
+-      xdisplay_(gfx::GetXDisplay()),
+-      parent_xwindow_(parent_xwindow),
+-      xwindow_(0),
+-      window_mapped_(false),
+-      bounds_(bounds),
+-      focus_pending_(false),
+-      weak_ptr_factory_(this) {
+-  if (parent_xwindow_ == x11::None)
+-    parent_xwindow_ = DefaultRootWindow(xdisplay_);
+-
+-  XSetWindowAttributes swa;
+-  memset(&swa, 0, sizeof(swa));
+-  swa.background_pixmap = x11::None;
+-  swa.override_redirect = false;
+-  xwindow_ = XCreateWindow(xdisplay_, parent_xwindow_, bounds.x(), bounds.y(),
+-                           bounds.width(), bounds.height(),
+-                           0,               // border width
+-                           CopyFromParent,  // depth
+-                           InputOutput,
+-                           CopyFromParent,  // visual
+-                           CWBackPixmap | CWOverrideRedirect, &swa);
+-  CHECK(xwindow_);
+-
++    : CefWindowX11Base(browser, parent_xwindow, bounds, title) {
+   if (ui::PlatformEventSource::GetInstance())
+     ui::PlatformEventSource::GetInstance()->AddPlatformEventDispatcher(this);
+-
+-  long event_mask = FocusChangeMask | StructureNotifyMask | PropertyChangeMask;
+-  XSelectInput(xdisplay_, xwindow_, event_mask);
+-  XFlush(xdisplay_);
+-
+-  // TODO(erg): We currently only request window deletion events. We also
+-  // should listen for activation events and anything else that GTK+ listens
+-  // for, and do something useful.
+-  ::Atom protocols[2];
+-  protocols[0] = gfx::GetAtom(kWMDeleteWindow);
+-  protocols[1] = gfx::GetAtom(kNetWMPing);
+-  XSetWMProtocols(xdisplay_, xwindow_, protocols, 2);
+-
+-  // We need a WM_CLIENT_MACHINE and WM_LOCALE_NAME value so we integrate with
+-  // the desktop environment.
+-  XSetWMProperties(xdisplay_, xwindow_, NULL, NULL, NULL, 0, NULL, NULL, NULL);
+-
+-  // Likewise, the X server needs to know this window's pid so it knows which
+-  // program to kill if the window hangs.
+-  // XChangeProperty() expects "pid" to be long.
+-  static_assert(sizeof(long) >= sizeof(pid_t),
+-                "pid_t should not be larger than long");
+-  long pid = getpid();
+-  XChangeProperty(xdisplay_, xwindow_, gfx::GetAtom(kNetWMPid), XA_CARDINAL, 32,
+-                  PropModeReplace, reinterpret_cast<unsigned char*>(&pid), 1);
+-
+-  // Set the initial window name, if provided.
+-  if (!title.empty()) {
+-    XChangeProperty(xdisplay_, xwindow_, gfx::GetAtom(kNetWMName),
+-                    gfx::GetAtom(kUTF8String), 8, PropModeReplace,
+-                    reinterpret_cast<const unsigned char*>(title.c_str()),
+-                    title.size());
+-  }
+ }
+
+ CefWindowX11::~CefWindowX11() {
+-  DCHECK(!xwindow_);
+   if (ui::PlatformEventSource::GetInstance())
+     ui::PlatformEventSource::GetInstance()->RemovePlatformEventDispatcher(this);
+ }
+
+-void CefWindowX11::Close() {
+-  XEvent ev = {0};
+-  ev.xclient.type = ClientMessage;
+-  ev.xclient.window = xwindow_;
+-  ev.xclient.message_type = gfx::GetAtom(kWMProtocols);
+-  ev.xclient.format = 32;
+-  ev.xclient.data.l[0] = gfx::GetAtom(kWMDeleteWindow);
+-  ev.xclient.data.l[1] = x11::CurrentTime;
+-  XSendEvent(xdisplay_, xwindow_, false, NoEventMask, &ev);
+-
+-  auto host = GetHost();
+-  if (host)
+-    host->Close();
+-}
+-
+-void CefWindowX11::Show() {
+-  if (xwindow_ == x11::None)
+-    return;
+-
+-  if (!window_mapped_) {
+-    // Before we map the window, set size hints. Otherwise, some window managers
+-    // will ignore toplevel XMoveWindow commands.
+-    XSizeHints size_hints;
+-    size_hints.flags = PPosition | PWinGravity;
+-    size_hints.x = bounds_.x();
+-    size_hints.y = bounds_.y();
+-    // Set StaticGravity so that the window position is not affected by the
+-    // frame width when running with window manager.
+-    size_hints.win_gravity = StaticGravity;
+-    XSetWMNormalHints(xdisplay_, xwindow_, &size_hints);
+-
+-    XMapWindow(xdisplay_, xwindow_);
+-
+-    // TODO(thomasanderson): Find out why this flush is necessary.
+-    XFlush(xdisplay_);
+-    window_mapped_ = true;
+-
+-    // Setup the drag and drop proxy on the top level window of the application
+-    // to be the child of this window.
+-    ::Window child = FindChild(xdisplay_, xwindow_);
+-    ::Window toplevel_window = FindToplevelParent(xdisplay_, xwindow_);
+-    DCHECK(toplevel_window);
+-    if (child && toplevel_window) {
+-      // Configure the drag&drop proxy property for the top-most window so
+-      // that all drag&drop-related messages will be sent to the child
+-      // DesktopWindowTreeHostX11. The proxy property is referenced by
+-      // DesktopDragDropClientAuraX11::FindWindowFor.
+-      ::Window proxy_target = gfx::kNullAcceleratedWidget;
+-      ui::GetXIDProperty(toplevel_window, kXdndProxy, &proxy_target);
+-
+-      if (proxy_target != child) {
+-        // Set the proxy target for the top-most window.
+-        XChangeProperty(xdisplay_, toplevel_window, gfx::GetAtom(kXdndProxy),
+-                        XA_WINDOW, 32, PropModeReplace,
+-                        reinterpret_cast<unsigned char*>(&child), 1);
+-        // Do the same for the proxy target per the spec.
+-        XChangeProperty(xdisplay_, child, gfx::GetAtom(kXdndProxy), XA_WINDOW,
+-                        32, PropModeReplace,
+-                        reinterpret_cast<unsigned char*>(&child), 1);
+-      }
+-    }
+-  }
+-}
+-
+-void CefWindowX11::Hide() {
+-  if (xwindow_ == x11::None)
+-    return;
+-
+-  if (window_mapped_) {
+-    XWithdrawWindow(xdisplay_, xwindow_, 0);
+-    window_mapped_ = false;
+-  }
+-}
+-
+-void CefWindowX11::Focus() {
+-  if (xwindow_ == x11::None || !window_mapped_)
+-    return;
+-
+-  if (browser_.get()) {
+-    ::Window child = FindChild(xdisplay_, xwindow_);
+-    if (child && ui::IsWindowVisible(child)) {
+-      // Give focus to the child DesktopWindowTreeHostX11.
+-      XSetInputFocus(xdisplay_, child, RevertToParent, x11::CurrentTime);
+-    }
+-  } else {
+-    XSetInputFocus(xdisplay_, xwindow_, RevertToParent, x11::CurrentTime);
+-  }
+-}
+-
+-void CefWindowX11::SetBounds(const gfx::Rect& bounds) {
+-  if (xwindow_ == x11::None)
+-    return;
+-
+-  bool origin_changed = bounds_.origin() != bounds.origin();
+-  bool size_changed = bounds_.size() != bounds.size();
+-  XWindowChanges changes = {0};
+-  unsigned value_mask = 0;
+-
+-  if (size_changed) {
+-    changes.width = bounds.width();
+-    changes.height = bounds.height();
+-    value_mask = CWHeight | CWWidth;
+-  }
+-
+-  if (origin_changed) {
+-    changes.x = bounds.x();
+-    changes.y = bounds.y();
+-    value_mask |= CWX | CWY;
+-  }
+-
+-  if (value_mask)
+-    XConfigureWindow(xdisplay_, xwindow_, value_mask, &changes);
+-}
+-
+-gfx::Rect CefWindowX11::GetBoundsInScreen() {
+-  int x, y;
+-  Window child;
+-  if (XTranslateCoordinates(xdisplay_, xwindow_, DefaultRootWindow(xdisplay_),
+-                            0, 0, &x, &y, &child)) {
+-    return gfx::Rect(gfx::Point(x, y), bounds_.size());
+-  }
+-  return gfx::Rect();
+-}
+-
+-views::DesktopWindowTreeHostX11* CefWindowX11::GetHost() {
+-  if (browser_.get()) {
+-    ::Window child = FindChild(xdisplay_, xwindow_);
+-    if (child) {
+-      return static_cast<views::DesktopWindowTreeHostX11*>(
+-          views::DesktopWindowTreeHostLinux::GetHostForWidget(child));
+-    }
+-  }
+-  return nullptr;
+-}
+-
+ bool CefWindowX11::CanDispatchEvent(const ui::PlatformEvent& event) {
+-  ::Window target = FindEventTarget(event);
+-  return target == xwindow_;
++  return IsTargetedBy(event);
+ }
+
+ uint32_t CefWindowX11::DispatchEvent(const ui::PlatformEvent& event) {
+-  XEvent* xev = event;
+-  switch (xev->type) {
+-    case ConfigureNotify: {
+-      DCHECK_EQ(xwindow_, xev->xconfigure.event);
+-      DCHECK_EQ(xwindow_, xev->xconfigure.window);
+-      // It's possible that the X window may be resized by some other means
+-      // than from within Aura (e.g. the X window manager can change the
+-      // size). Make sure the root window size is maintained properly.
+-      gfx::Rect bounds(xev->xconfigure.x, xev->xconfigure.y,
+-                       xev->xconfigure.width, xev->xconfigure.height);
+-      bounds_ = bounds;
+-
+-      if (browser_.get()) {
+-        ::Window child = FindChild(xdisplay_, xwindow_);
+-        if (child) {
+-          // Resize the child DesktopWindowTreeHostX11 to match this window.
+-          XWindowChanges changes = {0};
+-          changes.width = bounds.width();
+-          changes.height = bounds.height();
+-          XConfigureWindow(xdisplay_, child, CWHeight | CWWidth, &changes);
+-
+-          browser_->NotifyMoveOrResizeStarted();
+-        }
+-      }
+-      break;
+-    }
+-    case ClientMessage: {
+-      Atom message_type = xev->xclient.message_type;
+-      if (message_type == gfx::GetAtom(kWMProtocols)) {
+-        Atom protocol = static_cast<Atom>(xev->xclient.data.l[0]);
+-        if (protocol == gfx::GetAtom(kWMDeleteWindow)) {
+-          // We have received a close message from the window manager.
+-          if (!browser_ || browser_->TryCloseBrowser()) {
+-            // Allow the close.
+-            XDestroyWindow(xdisplay_, xwindow_);
+-
+-            xwindow_ = x11::None;
+-
+-            if (browser_.get()) {
+-              // Force the browser to be destroyed and release the reference
+-              // added in PlatformCreateWindow().
+-              browser_->WindowDestroyed();
+-            }
+-
+-            delete this;
+-          }
+-        } else if (protocol == gfx::GetAtom(kNetWMPing)) {
+-          XEvent reply_event = *xev;
+-          reply_event.xclient.window = parent_xwindow_;
+-
+-          XSendEvent(xdisplay_, reply_event.xclient.window, false,
+-                     SubstructureRedirectMask | SubstructureNotifyMask,
+-                     &reply_event);
+-          XFlush(xdisplay_);
+-        }
+-      }
+-      break;
+-    }
+-    case x11::FocusIn:
+-      // This message is received first followed by a "_NET_ACTIVE_WINDOW"
+-      // message sent to the root window. When X11DesktopHandler handles the
+-      // "_NET_ACTIVE_WINDOW" message it will erroneously mark the WebView
+-      // (hosted in a DesktopWindowTreeHostX11) as unfocused. Use a delayed
+-      // task here to restore the WebView's focus state.
+-      if (!focus_pending_) {
+-        focus_pending_ = true;
+-        CEF_POST_DELAYED_TASK(CEF_UIT,
+-                              base::Bind(&CefWindowX11::ContinueFocus,
+-                                         weak_ptr_factory_.GetWeakPtr()),
+-                              100);
+-      }
+-      break;
+-    case x11::FocusOut:
+-      // Cancel the pending focus change if some other window has gained focus
+-      // while waiting for the async task to run. Otherwise we can get stuck in
+-      // a focus change loop.
+-      if (focus_pending_)
+-        focus_pending_ = false;
+-      break;
+-    case PropertyNotify: {
+-      ::Atom changed_atom = xev->xproperty.atom;
+-      if (changed_atom == gfx::GetAtom(kNetWMState)) {
+-        // State change event like minimize/maximize.
+-        if (browser_.get()) {
+-          ::Window child = FindChild(xdisplay_, xwindow_);
+-          if (child) {
+-            // Forward the state change to the child DesktopWindowTreeHostX11
+-            // window so that resource usage will be reduced while the window is
+-            // minimized.
+-            std::vector<::Atom> atom_list;
+-            if (ui::GetAtomArrayProperty(xwindow_, kNetWMState, &atom_list) &&
+-                !atom_list.empty()) {
+-              ui::SetAtomArrayProperty(child, kNetWMState, "ATOM", atom_list);
+-            } else {
+-              // Set an empty list of property values to pass the check in
+-              // DesktopWindowTreeHostX11::OnWMStateUpdated().
+-              XChangeProperty(xdisplay_, child,
+-                              gfx::GetAtom(kNetWMState),  // name
+-                              gfx::GetAtom(kAtom),        // type
+-                              32,  // size in bits of items in 'value'
+-                              PropModeReplace, NULL,
+-                              0);  // num items
+-            }
+-          }
+-        }
+-      }
+-      break;
+-    }
+-  }
+-
++  ProcessXEvent(event);
+   return ui::POST_DISPATCH_STOP_PROPAGATION;
+ }
+-
+-void CefWindowX11::ContinueFocus() {
+-  if (!focus_pending_)
+-    return;
+-  if (browser_.get())
+-    browser_->SetFocus(true);
+-  focus_pending_ = false;
+-}
+-
+-bool CefWindowX11::TopLevelAlwaysOnTop() const {
+-  ::Window toplevel_window = FindToplevelParent(xdisplay_, xwindow_);
+-
+-  Atom state_atom = gfx::GetAtom("_NET_WM_STATE");
+-  Atom state_keep_above = gfx::GetAtom("_NET_WM_STATE_KEEP_ABOVE");
+-  Atom* states;
+-
+-  Atom actual_type;
+-  int actual_format;
+-  unsigned long num_items;
+-  unsigned long bytes_after;
+-
+-  XGetWindowProperty(xdisplay_, toplevel_window, state_atom, 0, 1024,
+-                     x11::False, XA_ATOM, &actual_type, &actual_format,
+-                     &num_items, &bytes_after,
+-                     reinterpret_cast<unsigned char**>(&states));
+-
+-  bool always_on_top = false;
+-
+-  for (unsigned long i = 0; i < num_items; ++i) {
+-    if (states[i] == state_keep_above) {
+-      always_on_top = true;
+-      break;
+-    }
+-  }
+-
+-  XFree(states);
+-
+-  return always_on_top;
+-}
+diff --git a/libcef/browser/native/window_x11.h b/libcef/browser/native/window_x11.h
+index 998857f9..d71e630e 100644
+--- a/libcef/browser/native/window_x11.h
++++ b/libcef/browser/native/window_x11.h
+@@ -9,23 +9,21 @@
+
+ // Avoid including <X11/Xlib.h>
+ typedef unsigned long Window;
+-struct _XDisplay;
+-typedef struct _XDisplay Display;
+
+ #include "libcef/browser/browser_host_impl.h"
++#include "libcef/browser/native/window_x11_base.h"
+
+-#include "base/memory/weak_ptr.h"
+ #include "ui/events/platform/platform_event_dispatcher.h"
+-#include "ui/gfx/geometry/rect.h"
+ #include "ui/gfx/x/x11_atom_cache.h"
+
+-namespace views {
+-class DesktopWindowTreeHostX11;
+-}
++namespace gfx {
++class Rect;
++}  // namespace gfx
+
+ // Object wrapper for an X11 Window.
+ // Based on WindowTreeHostX11 and DesktopWindowTreeHostX11.
+-class CefWindowX11 : public ui::PlatformEventDispatcher {
++class CefWindowX11 : public CefWindowX11Base,
++                     public ui::PlatformEventDispatcher {
+  public:
+   CefWindowX11(CefRefPtr<CefBrowserHostImpl> browser,
+                ::Window parent_xwindow,
+@@ -33,49 +31,11 @@ class CefWindowX11 : public ui::PlatformEventDispatcher {
+                const std::string& title);
+   ~CefWindowX11() override;
+
+-  void Close();
+-
+-  void Show();
+-  void Hide();
+-
+-  void Focus();
+-
+-  void SetBounds(const gfx::Rect& bounds);
+-
+-  gfx::Rect GetBoundsInScreen();
+-
+-  views::DesktopWindowTreeHostX11* GetHost();
+-
+   // ui::PlatformEventDispatcher methods:
+   bool CanDispatchEvent(const ui::PlatformEvent& event) override;
+   uint32_t DispatchEvent(const ui::PlatformEvent& event) override;
+
+-  ::Window xwindow() const { return xwindow_; }
+-  gfx::Rect bounds() const { return bounds_; }
+-
+-  bool TopLevelAlwaysOnTop() const;
+-
+  private:
+-  void ContinueFocus();
+-
+-  CefRefPtr<CefBrowserHostImpl> browser_;
+-
+-  // The display and the native X window hosting the root window.
+-  ::Display* xdisplay_;
+-  ::Window parent_xwindow_;
+-  ::Window xwindow_;
+-
+-  // Is the window mapped to the screen?
+-  bool window_mapped_;
+-
+-  // The bounds of |xwindow_|.
+-  gfx::Rect bounds_;
+-
+-  bool focus_pending_;
+-
+-  // Must always be the last member.
+-  base::WeakPtrFactory<CefWindowX11> weak_ptr_factory_;
+-
+   DISALLOW_COPY_AND_ASSIGN(CefWindowX11);
+ };
+
+diff --git a/libcef/browser/native/window_x11_base.cc b/libcef/browser/native/window_x11_base.cc
+new file mode 100644
+index 00000000..af84b909
+--- /dev/null
++++ b/libcef/browser/native/window_x11_base.cc
+@@ -0,0 +1,442 @@
++// Copyright 2020 The Chromium Embedded Framework Authors.
++// Portions copyright 2014 The Chromium Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#include "libcef/browser/native/window_x11_base.h"
++#include "libcef/browser/thread_util.h"
++
++#include "ui/base/x/x11_util.h"
++#include "ui/events/platform/platform_event_source.h"
++#include "ui/views/widget/desktop_aura/desktop_window_tree_host_linux.h"
++#include "ui/views/widget/desktop_aura/x11_topmost_window_finder.h"
++
++#include <X11/Xatom.h>
++#include <X11/Xlib.h>
++#include <X11/Xutil.h>
++#include <X11/extensions/XInput2.h>
++
++namespace {
++
++const char kAtom[] = "ATOM";
++const char kWMDeleteWindow[] = "WM_DELETE_WINDOW";
++const char kWMProtocols[] = "WM_PROTOCOLS";
++const char kNetWMName[] = "_NET_WM_NAME";
++const char kNetWMPid[] = "_NET_WM_PID";
++const char kNetWMPing[] = "_NET_WM_PING";
++const char kNetWMState[] = "_NET_WM_STATE";
++const char kXdndProxy[] = "XdndProxy";
++const char kUTF8String[] = "UTF8_STRING";
++
++::Window FindChild(::Display* display, ::Window window) {
++  ::Window root;
++  ::Window parent;
++  ::Window* children;
++  ::Window child_window = x11::None;
++  unsigned int nchildren;
++  if (XQueryTree(display, window, &root, &parent, &children, &nchildren) &&
++      nchildren == 1) {
++    child_window = children[0];
++    XFree(children);
++  }
++  return child_window;
++}
++
++::Window FindToplevelParent(::Display* display, ::Window window) {
++  ::Window top_level_window = window;
++  ::Window root = x11::None;
++  ::Window parent = x11::None;
++  ::Window* children = nullptr;
++  unsigned int nchildren = 0;
++  // Enumerate all parents of "window" to find the highest level window
++  // that either:
++  //   - has a parent that does not contain the _NET_WM_PID property
++  //   - has a parent that is the root window.
++  while (XQueryTree(display, window, &root, &parent, &children, &nchildren)) {
++    if (children) {
++      XFree(children);
++    }
++
++    top_level_window = window;
++    if (!ui::PropertyExists(parent, kNetWMPid) || parent == root) {
++      break;
++    }
++    window = parent;
++  }
++  return top_level_window;
++}
++
++}  // namespace
++
++CEF_EXPORT XDisplay* cef_get_xdisplay() {
++  if (!CEF_CURRENTLY_ON(CEF_UIT))
++    return nullptr;
++  return gfx::GetXDisplay();
++}
++
++CefWindowX11Base::CefWindowX11Base(CefRefPtr<CefBrowserHostImpl> browser,
++                                   ::Window parent_xwindow,
++                                   const gfx::Rect& bounds,
++                                   const std::string& title)
++    : browser_(browser),
++      xdisplay_(gfx::GetXDisplay()),
++      parent_xwindow_(parent_xwindow),
++      xwindow_(0),
++      window_mapped_(false),
++      bounds_(bounds),
++      focus_pending_(false),
++      weak_ptr_factory_(this) {
++  if (parent_xwindow_ == x11::None)
++    parent_xwindow_ = DefaultRootWindow(xdisplay_);
++
++  XSetWindowAttributes swa;
++  memset(&swa, 0, sizeof(swa));
++  swa.background_pixmap = x11::None;
++  swa.override_redirect = false;
++  xwindow_ = XCreateWindow(xdisplay_, parent_xwindow_, bounds.x(), bounds.y(),
++                           bounds.width(), bounds.height(),
++                           0,               // border width
++                           CopyFromParent,  // depth
++                           InputOutput,
++                           CopyFromParent,  // visual
++                           CWBackPixmap | CWOverrideRedirect, &swa);
++  CHECK(xwindow_);
++
++  long event_mask = FocusChangeMask | StructureNotifyMask | PropertyChangeMask;
++  XSelectInput(xdisplay_, xwindow_, event_mask);
++  XFlush(xdisplay_);
++
++  // TODO(erg): We currently only request window deletion events. We also
++  // should listen for activation events and anything else that GTK+ listens
++  // for, and do something useful.
++  ::Atom protocols[2];
++  protocols[0] = gfx::GetAtom(kWMDeleteWindow);
++  protocols[1] = gfx::GetAtom(kNetWMPing);
++  XSetWMProtocols(xdisplay_, xwindow_, protocols, 2);
++
++  // We need a WM_CLIENT_MACHINE and WM_LOCALE_NAME value so we integrate with
++  // the desktop environment.
++  XSetWMProperties(xdisplay_, xwindow_, NULL, NULL, NULL, 0, NULL, NULL, NULL);
++
++  // Likewise, the X server needs to know this window's pid so it knows which
++  // program to kill if the window hangs.
++  // XChangeProperty() expects "pid" to be long.
++  static_assert(sizeof(long) >= sizeof(pid_t),
++                "pid_t should not be larger than long");
++  long pid = getpid();
++  XChangeProperty(xdisplay_, xwindow_, gfx::GetAtom(kNetWMPid), XA_CARDINAL, 32,
++                  PropModeReplace, reinterpret_cast<unsigned char*>(&pid), 1);
++
++  // Set the initial window name, if provided.
++  if (!title.empty()) {
++    XChangeProperty(xdisplay_, xwindow_, gfx::GetAtom(kNetWMName),
++                    gfx::GetAtom(kUTF8String), 8, PropModeReplace,
++                    reinterpret_cast<const unsigned char*>(title.c_str()),
++                    title.size());
++  }
++}
++
++CefWindowX11Base::~CefWindowX11Base() {
++  DCHECK(!xwindow_);
++}
++
++void CefWindowX11Base::Close() {
++  XEvent ev = {0};
++  ev.xclient.type = ClientMessage;
++  ev.xclient.window = xwindow_;
++  ev.xclient.message_type = gfx::GetAtom(kWMProtocols);
++  ev.xclient.format = 32;
++  ev.xclient.data.l[0] = gfx::GetAtom(kWMDeleteWindow);
++  ev.xclient.data.l[1] = x11::CurrentTime;
++  XSendEvent(xdisplay_, xwindow_, false, NoEventMask, &ev);
++
++  auto host = GetHost();
++  if (host)
++    host->Close();
++}
++
++void CefWindowX11Base::Show() {
++  if (xwindow_ == x11::None)
++    return;
++
++  if (!window_mapped_) {
++    // Before we map the window, set size hints. Otherwise, some window managers
++    // will ignore toplevel XMoveWindow commands.
++    XSizeHints size_hints;
++    size_hints.flags = PPosition | PWinGravity;
++    size_hints.x = bounds_.x();
++    size_hints.y = bounds_.y();
++    // Set StaticGravity so that the window position is not affected by the
++    // frame width when running with window manager.
++    size_hints.win_gravity = StaticGravity;
++    XSetWMNormalHints(xdisplay_, xwindow_, &size_hints);
++
++    XMapWindow(xdisplay_, xwindow_);
++
++    // TODO(thomasanderson): Find out why this flush is necessary.
++    XFlush(xdisplay_);
++    window_mapped_ = true;
++
++    // Setup the drag and drop proxy on the top level window of the application
++    // to be the child of this window.
++    ::Window child = FindChild(xdisplay_, xwindow_);
++    ::Window toplevel_window = FindToplevelParent(xdisplay_, xwindow_);
++    DCHECK(toplevel_window);
++    if (child && toplevel_window) {
++      // Configure the drag&drop proxy property for the top-most window so
++      // that all drag&drop-related messages will be sent to the child
++      // DesktopWindowTreeHostX11. The proxy property is referenced by
++      // DesktopDragDropClientAuraX11::FindWindowFor.
++      ::Window proxy_target = gfx::kNullAcceleratedWidget;
++      ui::GetXIDProperty(toplevel_window, kXdndProxy, &proxy_target);
++
++      if (proxy_target != child) {
++        // Set the proxy target for the top-most window.
++        XChangeProperty(xdisplay_, toplevel_window, gfx::GetAtom(kXdndProxy),
++                        XA_WINDOW, 32, PropModeReplace,
++                        reinterpret_cast<unsigned char*>(&child), 1);
++        // Do the same for the proxy target per the spec.
++        XChangeProperty(xdisplay_, child, gfx::GetAtom(kXdndProxy), XA_WINDOW,
++                        32, PropModeReplace,
++                        reinterpret_cast<unsigned char*>(&child), 1);
++      }
++    }
++  }
++}
++
++void CefWindowX11Base::Hide() {
++  if (xwindow_ == x11::None)
++    return;
++
++  if (window_mapped_) {
++    XWithdrawWindow(xdisplay_, xwindow_, 0);
++    window_mapped_ = false;
++  }
++}
++
++void CefWindowX11Base::Focus() {
++  if (xwindow_ == x11::None || !window_mapped_)
++    return;
++
++  if (browser_.get()) {
++    ::Window child = FindChild(xdisplay_, xwindow_);
++    if (child && ui::IsWindowVisible(child)) {
++      // Give focus to the child DesktopWindowTreeHostX11.
++      XSetInputFocus(xdisplay_, child, RevertToParent, x11::CurrentTime);
++    }
++  } else {
++    XSetInputFocus(xdisplay_, xwindow_, RevertToParent, x11::CurrentTime);
++  }
++}
++
++void CefWindowX11Base::SetBounds(const gfx::Rect& bounds) {
++  if (xwindow_ == x11::None)
++    return;
++
++  bool origin_changed = bounds_.origin() != bounds.origin();
++  bool size_changed = bounds_.size() != bounds.size();
++  XWindowChanges changes = {0};
++  unsigned value_mask = 0;
++
++  if (size_changed) {
++    changes.width = bounds.width();
++    changes.height = bounds.height();
++    value_mask = CWHeight | CWWidth;
++  }
++
++  if (origin_changed) {
++    changes.x = bounds.x();
++    changes.y = bounds.y();
++    value_mask |= CWX | CWY;
++  }
++
++  if (value_mask)
++    XConfigureWindow(xdisplay_, xwindow_, value_mask, &changes);
++}
++
++gfx::Rect CefWindowX11Base::GetBounds() const {
++  return bounds_;
++}
++
++gfx::Rect CefWindowX11Base::GetBoundsInScreen() {
++  int x, y;
++  Window child;
++  if (XTranslateCoordinates(xdisplay_, xwindow_, DefaultRootWindow(xdisplay_),
++                            0, 0, &x, &y, &child)) {
++    return gfx::Rect(gfx::Point(x, y), bounds_.size());
++  }
++  return gfx::Rect();
++}
++
++views::DesktopWindowTreeHostLinux* CefWindowX11Base::GetHost() {
++  if (browser_.get()) {
++    ::Window child = FindChild(xdisplay_, xwindow_);
++    if (child) {
++      return views::DesktopWindowTreeHostLinux::GetHostForWidget(child);
++    }
++  }
++  return nullptr;
++}
++
++void CefWindowX11Base::ProcessXEvent(XEvent* xev) {
++  switch (xev->type) {
++    case ConfigureNotify: {
++      DCHECK_EQ(xwindow_, xev->xconfigure.event);
++      DCHECK_EQ(xwindow_, xev->xconfigure.window);
++      // It's possible that the X window may be resized by some other means
++      // than from within Aura (e.g. the X window manager can change the
++      // size). Make sure the root window size is maintained properly.
++      gfx::Rect bounds(xev->xconfigure.x, xev->xconfigure.y,
++                       xev->xconfigure.width, xev->xconfigure.height);
++      bounds_ = bounds;
++
++      if (browser_.get()) {
++        ::Window child = FindChild(xdisplay_, xwindow_);
++        if (child) {
++          // Resize the child X11Window to match this window.
++          XWindowChanges changes = {0};
++          changes.width = bounds.width();
++          changes.height = bounds.height();
++          XConfigureWindow(xdisplay_, child, CWHeight | CWWidth, &changes);
++
++          browser_->NotifyMoveOrResizeStarted();
++        }
++      }
++      break;
++    }
++    case ClientMessage: {
++      Atom message_type = xev->xclient.message_type;
++      if (message_type == gfx::GetAtom(kWMProtocols)) {
++        Atom protocol = static_cast<Atom>(xev->xclient.data.l[0]);
++        if (protocol == gfx::GetAtom(kWMDeleteWindow)) {
++          // We have received a close message from the window manager.
++          if (!browser_ || browser_->TryCloseBrowser()) {
++            // Allow the close.
++            XDestroyWindow(xdisplay_, xwindow_);
++
++            xwindow_ = x11::None;
++
++            if (browser_.get()) {
++              // Force the browser to be destroyed and release the reference
++              // added in PlatformCreateWindow().
++              browser_->WindowDestroyed();
++            }
++
++            delete this;
++          }
++        } else if (protocol == gfx::GetAtom(kNetWMPing)) {
++          XEvent reply_event = *xev;
++          reply_event.xclient.window = parent_xwindow_;
++
++          XSendEvent(xdisplay_, reply_event.xclient.window, false,
++                     SubstructureRedirectMask | SubstructureNotifyMask,
++                     &reply_event);
++          XFlush(xdisplay_);
++        }
++      }
++      break;
++    }
++    case x11::FocusIn:
++      // This message is received first followed by a "_NET_ACTIVE_WINDOW"
++      // message sent to the root window. When X11DesktopHandler handles the
++      // "_NET_ACTIVE_WINDOW" message it will erroneously mark the WebView
++      // (hosted in a DesktopWindowTreeHostX11) as unfocused. Use a delayed
++      // task here to restore the WebView's focus state.
++      if (!focus_pending_) {
++        focus_pending_ = true;
++        CEF_POST_DELAYED_TASK(CEF_UIT,
++                              base::Bind(&CefWindowX11Base::ContinueFocus,
++                                         weak_ptr_factory_.GetWeakPtr()),
++                              100);
++      }
++      break;
++    case x11::FocusOut:
++      // Cancel the pending focus change if some other window has gained focus
++      // while waiting for the async task to run. Otherwise we can get stuck in
++      // a focus change loop.
++      if (focus_pending_)
++        focus_pending_ = false;
++      break;
++    case PropertyNotify: {
++      ::Atom changed_atom = xev->xproperty.atom;
++      if (changed_atom == gfx::GetAtom(kNetWMState)) {
++        // State change event like minimize/maximize.
++        if (browser_.get()) {
++          ::Window child = FindChild(xdisplay_, xwindow_);
++          if (child) {
++            // Forward the state change to the child DesktopWindowTreeHostX11
++            // window so that resource usage will be reduced while the window is
++            // minimized.
++            std::vector<::Atom> atom_list;
++            if (ui::GetAtomArrayProperty(xwindow_, kNetWMState, &atom_list) &&
++                !atom_list.empty()) {
++              ui::SetAtomArrayProperty(child, kNetWMState, "ATOM", atom_list);
++            } else {
++              // Set an empty list of property values to pass the check in
++              // DesktopWindowTreeHostX11::OnWMStateUpdated().
++              XChangeProperty(xdisplay_, child,
++                              gfx::GetAtom(kNetWMState),  // name
++                              gfx::GetAtom(kAtom),        // type
++                              32,  // size in bits of items in 'value'
++                              PropModeReplace, NULL,
++                              0);  // num items
++            }
++          }
++        }
++      }
++      break;
++    }
++  }
++}
++
++bool CefWindowX11Base::IsTargetedBy(XEvent* xev) {
++  ::Window target_window =
++      (xev->type == GenericEvent)
++          ? static_cast<XIDeviceEvent*>(xev->xcookie.data)->event
++          : xev->xany.window;
++  return target_window == xwindow_;
++}
++
++void CefWindowX11Base::ContinueFocus() {
++  if (!focus_pending_)
++    return;
++  if (browser_.get())
++    browser_->SetFocus(true);
++  focus_pending_ = false;
++}
++
++bool CefWindowX11Base::TopLevelAlwaysOnTop() const {
++  ::Window toplevel_window = FindToplevelParent(xdisplay_, xwindow_);
++
++  Atom state_atom = gfx::GetAtom("_NET_WM_STATE");
++  Atom state_keep_above = gfx::GetAtom("_NET_WM_STATE_KEEP_ABOVE");
++  Atom* states;
++
++  Atom actual_type;
++  int actual_format;
++  unsigned long num_items;
++  unsigned long bytes_after;
++
++  XGetWindowProperty(xdisplay_, toplevel_window, state_atom, 0, 1024,
++                     x11::False, XA_ATOM, &actual_type, &actual_format,
++                     &num_items, &bytes_after,
++                     reinterpret_cast<unsigned char**>(&states));
++
++  bool always_on_top = false;
++
++  for (unsigned long i = 0; i < num_items; ++i) {
++    if (states[i] == state_keep_above) {
++      always_on_top = true;
++      break;
++    }
++  }
++
++  XFree(states);
++
++  return always_on_top;
++}
++
++gfx::AcceleratedWidget CefWindowX11Base::GetAcceleratedWidget() const {
++  // Copied from ui::X11Window.
++  return static_cast<gfx::AcceleratedWidget>(xwindow_);
++}
+diff --git a/libcef/browser/native/window_x11_base.h b/libcef/browser/native/window_x11_base.h
+new file mode 100644
+index 00000000..b7d2fb8d
+--- /dev/null
++++ b/libcef/browser/native/window_x11_base.h
+@@ -0,0 +1,78 @@
++// Copyright 2020 The Chromium Embedded Framework Authors.
++// Portions copyright 2014 The Chromium Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#ifndef CEF_LIBCEF_BROWSER_NATIVE_WINDOW_X11_BASE_H_
++#define CEF_LIBCEF_BROWSER_NATIVE_WINDOW_X11_BASE_H_
++#pragma once
++
++// Avoid including <X11/Xlib.h>
++typedef union _XEvent XEvent;
++typedef unsigned long Window;
++struct _XDisplay;
++typedef struct _XDisplay Display;
++
++#include "libcef/browser/browser_host_impl.h"
++#include "libcef/browser/native/native_window_linux.h"
++
++#include "base/memory/weak_ptr.h"
++#include "ui/events/platform/platform_event_dispatcher.h"
++#include "ui/gfx/geometry/rect.h"
++#include "ui/gfx/x/x11_atom_cache.h"
++
++// Object wrapper for an X11 Window.
++// Based on XWindow and X11Window.
++class CefWindowX11Base : public CefNativeWindowLinux {
++ public:
++  CefWindowX11Base(CefRefPtr<CefBrowserHostImpl> browser,
++                   ::Window parent_xwindow,
++                   const gfx::Rect& bounds,
++                   const std::string& title);
++  ~CefWindowX11Base() override;
++
++  // CefNativeWindow overrides:
++  void Close() override;
++  void Show() override;
++  void Hide() override;
++  void Focus() override;
++  void SetBounds(const gfx::Rect& bounds) override;
++  gfx::Rect GetBounds() const override;
++  gfx::Rect GetBoundsInScreen() override;
++  views::DesktopWindowTreeHostLinux* GetHost() override;
++  bool TopLevelAlwaysOnTop() const override;
++  gfx::AcceleratedWidget GetAcceleratedWidget() const override;
++
++ protected:
++  void ProcessXEvent(XEvent* xev);
++
++  // Says if this Window is the target for the |xev|.
++  bool IsTargetedBy(XEvent* xev);
++
++  ::Window xwindow() const { return xwindow_; }
++
++ private:
++  void ContinueFocus();
++
++  CefRefPtr<CefBrowserHostImpl> browser_;
++
++  // The display and the native X window hosting the root window.
++  ::Display* xdisplay_;
++  ::Window parent_xwindow_;
++  ::Window xwindow_;
++
++  // Is the window mapped to the screen?
++  bool window_mapped_;
++
++  // The bounds of |xwindow_|.
++  gfx::Rect bounds_;
++
++  bool focus_pending_;
++
++  // Must always be the last member.
++  base::WeakPtrFactory<CefWindowX11Base> weak_ptr_factory_;
++
++  DISALLOW_COPY_AND_ASSIGN(CefWindowX11Base);
++};
++
++#endif  // CEF_LIBCEF_BROWSER_NATIVE_WINDOW_X11_BASE_H_
+\ No newline at end of file
+diff --git a/libcef/browser/native/window_x11_ozone.cc b/libcef/browser/native/window_x11_ozone.cc
+new file mode 100644
+index 00000000..4029c53f
+--- /dev/null
++++ b/libcef/browser/native/window_x11_ozone.cc
+@@ -0,0 +1,30 @@
++// Copyright 2020 The Chromium Embedded Framework Authors.
++// Portions copyright 2014 The Chromium Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#include "libcef/browser/native/window_x11_ozone.h"
++
++#include "ui/events/platform/x11/x11_event_source.h"
++
++CefWindowX11Ozone::CefWindowX11Ozone(CefRefPtr<CefBrowserHostImpl> browser,
++                                     ::Window parent_xwindow,
++                                     const gfx::Rect& bounds,
++                                     const std::string& title)
++    : CefWindowX11Base(browser, parent_xwindow, bounds, title) {
++  if (ui::X11EventSource::GetInstance())
++    ui::X11EventSource::GetInstance()->AddXEventDispatcher(this);
++}
++
++CefWindowX11Ozone::~CefWindowX11Ozone() {
++  if (ui::X11EventSource::GetInstance())
++    ui::X11EventSource::GetInstance()->RemoveXEventDispatcher(this);
++}
++
++bool CefWindowX11Ozone::DispatchXEvent(XEvent* xev) {
++  if (!IsTargetedBy(xev))
++    return false;
++
++  ProcessXEvent(xev);
++  return true;
++}
+diff --git a/libcef/browser/native/window_x11_ozone.h b/libcef/browser/native/window_x11_ozone.h
+new file mode 100644
+index 00000000..e47f836c
+--- /dev/null
++++ b/libcef/browser/native/window_x11_ozone.h
+@@ -0,0 +1,37 @@
++// Copyright 2020 The Chromium Embedded Framework Authors.
++// Portions copyright 2014 The Chromium Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#ifndef CEF_LIBCEF_BROWSER_NATIVE_WINDOW_X11_OZONE_H_
++#define CEF_LIBCEF_BROWSER_NATIVE_WINDOW_X11_OZONE_H_
++#pragma once
++
++#include "libcef/browser/browser_host_impl.h"
++#include "libcef/browser/native/window_x11_base.h"
++
++#include "ui/events/platform/platform_event_dispatcher.h"
++#include "ui/events/platform/x11/x11_event_source.h"
++
++namespace gfx {
++class Rect;
++}  // namespace gfx
++
++// Object wrapper for an X11 Window.
++// Based on X11WindowOzone.
++class CefWindowX11Ozone : public CefWindowX11Base, public ui::XEventDispatcher {
++ public:
++  CefWindowX11Ozone(CefRefPtr<CefBrowserHostImpl> browser,
++                    ::Window parent_xwindow,
++                    const gfx::Rect& bounds,
++                    const std::string& title);
++  ~CefWindowX11Ozone() override;
++
++  // Overridden from ui::XEventDispatcher:
++  bool DispatchXEvent(XEvent* event) override;
++
++ private:
++  DISALLOW_COPY_AND_ASSIGN(CefWindowX11Ozone);
++};
++
++#endif  // CEF_LIBCEF_BROWSER_NATIVE_WINDOW_X11_OZONE_H_
+\ No newline at end of file
+diff --git a/libcef/browser/osr/render_widget_host_view_osr.cc b/libcef/browser/osr/render_widget_host_view_osr.cc
+index 05006f31..fb478464 100644
+--- a/libcef/browser/osr/render_widget_host_view_osr.cc
++++ b/libcef/browser/osr/render_widget_host_view_osr.cc
+@@ -590,8 +590,6 @@ void CefRenderWidgetHostViewOSR::UpdateCursor(
+
+   const content::CursorInfo& cursor_info = cursor.info();
+
+-  const cef_cursor_type_t cursor_type =
+-      static_cast<cef_cursor_type_t>(cursor_info.type);
+   CefCursorInfo custom_cursor_info;
+   if (cursor_info.type == ui::CursorType::kCustom) {
+     custom_cursor_info.hotspot.x = cursor_info.hotspot.x();
+@@ -622,8 +620,14 @@ void CefRenderWidgetHostViewOSR::UpdateCursor(
+   } else {
+     platform_cursor = GetPlatformCursor(cursor_info.type);
+   }
+-  handler->OnCursorChange(browser_impl_.get(), platform_cursor, cursor_type,
+-                          custom_cursor_info);
++#if defined(CEF_X11)
++ const cef_cursor_type_t cursor_type =
++     static_cast<cef_cursor_type_t>(cursor_info.type);
++ handler->OnCursorChange(browser_impl_.get(), platform_cursor, cursor_type,
++                         custom_cursor_info);
++#elif defined(USE_OZONE)
++  // TODO(msisov): Fix ozone case.
++#endif
+ #elif defined(OS_MACOSX)
+   // |web_cursor| owns the resulting |native_cursor|.
+   content::WebCursor web_cursor(cursor);
+diff --git a/patch/patch.cfg b/patch/patch.cfg
+index f9a961f2..70245dc3 100644
+--- a/patch/patch.cfg
++++ b/patch/patch.cfg
+@@ -510,5 +510,9 @@ patches = [
+     # Fix ScreenlockMonitorDeviceSource window creation error.
+     # https://bugs.chromium.org/p/chromium/issues/detail?id=1058556
+     'name': 'win_screenlock_1058556',
+-  }
++  },
++  {
++    # Move external window support from DWTHX11 to DWTHLinux
++    'name': '0001-move-patches-from-DWTHX11-to-DWTHLinux-for-Ozone',
++  },
+ ]
+diff --git a/patch/patches/0001-move-patches-from-DWTHX11-to-DWTHLinux-for-Ozone.patch b/patch/patches/0001-move-patches-from-DWTHX11-to-DWTHLinux-for-Ozone.patch
+new file mode 100644
+index 00000000..f1f83397
+--- /dev/null
++++ b/patch/patches/0001-move-patches-from-DWTHX11-to-DWTHLinux-for-Ozone.patch
+@@ -0,0 +1,152 @@
++From 09aa3c9e9278c3c51e697bbaf570cc5a20041ccc Mon Sep 17 00:00:00 2001
++From: Maksim Sisov <msisov@igalia.com>
++Date: Wed, 18 Mar 2020 09:54:59 +0200
++Subject: [PATCH] move patches
++
++---
++ .../desktop_window_tree_host_linux.cc             | 15 +++++++++++++++
++ .../desktop_aura/desktop_window_tree_host_linux.h | 15 +++++++++++++++
++ .../desktop_aura/desktop_window_tree_host_x11.cc  | 15 ---------------
++ .../desktop_aura/desktop_window_tree_host_x11.h   | 13 -------------
++ 4 files changed, 30 insertions(+), 28 deletions(-)
++
++diff --git ui/views/widget/desktop_aura/desktop_window_tree_host_linux.cc ui/views/widget/desktop_aura/desktop_window_tree_host_linux.cc
++index d7a679c4a1b8..a33db16cf27b 100644
++--- ui/views/widget/desktop_aura/desktop_window_tree_host_linux.cc
+++++ ui/views/widget/desktop_aura/desktop_window_tree_host_linux.cc
++@@ -156,6 +156,9 @@ base::OnceClosure DesktopWindowTreeHostLinux::DisableEventListening() {
++ }
++
++ void DesktopWindowTreeHostLinux::Init(const Widget::InitParams& params) {
+++  if (params.parent_widget != gfx::kNullAcceleratedWidget)
+++    has_external_parent_ = true;
+++
++   DesktopWindowTreeHostPlatform::Init(params);
++
++   if (GetX11Extension() && GetX11Extension()->IsSyncExtensionAvailable()) {
++@@ -194,6 +197,18 @@ void DesktopWindowTreeHostLinux::InitModalType(ui::ModalType modal_type) {
++   }
++ }
++
+++gfx::Rect DesktopWindowTreeHostLinux::GetWindowBoundsInScreen() const {
+++  if (!screen_bounds_.IsEmpty())
+++    return screen_bounds_;
+++  return DesktopWindowTreeHostPlatform::GetWindowBoundsInScreen();
+++}
+++
+++gfx::Point DesktopWindowTreeHostLinux::GetLocationOnScreenInPixels() const {
+++  if (!screen_bounds_.IsEmpty())
+++    return screen_bounds_.origin();
+++  return DesktopWindowTreeHostPlatform::GetLocationOnScreenInPixels();
+++}
+++
++ void DesktopWindowTreeHostLinux::OnDisplayMetricsChanged(
++     const display::Display& display,
++     uint32_t changed_metrics) {
++diff --git ui/views/widget/desktop_aura/desktop_window_tree_host_linux.h ui/views/widget/desktop_aura/desktop_window_tree_host_linux.h
++index 2f9a63d0dad3..b1c45e5ddcb7 100644
++--- ui/views/widget/desktop_aura/desktop_window_tree_host_linux.h
+++++ ui/views/widget/desktop_aura/desktop_window_tree_host_linux.h
++@@ -38,6 +38,12 @@ class VIEWS_EXPORT DesktopWindowTreeHostLinux
++       DesktopNativeWidgetAura* desktop_native_widget_aura);
++   ~DesktopWindowTreeHostLinux() override;
++
+++  void set_screen_bounds(const gfx::Rect& bounds) { screen_bounds_ = bounds; }
+++
+++  // Returns true if the widget has a external parent view/window outside of the
+++  // Chromium-controlled view/window hierarchy.
+++  bool has_external_parent() const { return has_external_parent_; }
+++
++   // A way of converting a |widget| into the content_window()
++   // of the associated DesktopNativeWidgetAura.
++   static aura::Window* GetContentWindowForWidget(gfx::AcceleratedWidget widget);
++@@ -77,6 +83,8 @@ class VIEWS_EXPORT DesktopWindowTreeHostLinux
++   void OnNativeWidgetCreated(const Widget::InitParams& params) override;
++   base::flat_map<std::string, std::string> GetKeyboardLayoutMap() override;
++   void InitModalType(ui::ModalType modal_type) override;
+++  gfx::Rect GetWindowBoundsInScreen() const override;
+++  gfx::Point GetLocationOnScreenInPixels() const override;
++
++   // PlatformWindowDelegate:
++   void DispatchEvent(ui::Event* event) override;
++@@ -133,6 +141,13 @@ class VIEWS_EXPORT DesktopWindowTreeHostLinux
++   // destroyed.
++   static std::list<gfx::AcceleratedWidget>* open_windows_;
++
+++  // Override the screen bounds when the host is a child window.
+++  gfx::Rect screen_bounds_;
+++
+++  // True if the widget has a external parent view/window outside of the
+++  // Chromium-controlled view/window hierarchy.
+++  bool has_external_parent_ = false;
+++
++   // The display and the native X window hosting the root window.
++   base::WeakPtrFactory<DesktopWindowTreeHostLinux> weak_factory_{this};
++
++diff --git ui/views/widget/desktop_aura/desktop_window_tree_host_x11.cc ui/views/widget/desktop_aura/desktop_window_tree_host_x11.cc
++index 77cfe052ed63..955a3a3bbe3d 100644
++--- ui/views/widget/desktop_aura/desktop_window_tree_host_x11.cc
+++++ ui/views/widget/desktop_aura/desktop_window_tree_host_x11.cc
++@@ -82,9 +82,6 @@ DesktopWindowTreeHostX11::~DesktopWindowTreeHostX11() {
++ // DesktopWindowTreeHostX11, DesktopWindowTreeHost implementation:
++
++ void DesktopWindowTreeHostX11::Init(const Widget::InitParams& params) {
++-  if (params.parent_widget != gfx::kNullAcceleratedWidget)
++-    has_external_parent_ = true;
++-
++   DesktopWindowTreeHostLinux::Init(params);
++
++   // Set XEventDelegate to receive selection, drag&drop and raw key events.
++@@ -140,18 +137,6 @@ void DesktopWindowTreeHostX11::EndMoveLoop() {
++ ////////////////////////////////////////////////////////////////////////////////
++ // DesktopWindowTreeHostX11 implementation:
++
++-gfx::Rect DesktopWindowTreeHostX11::GetWindowBoundsInScreen() const {
++-  if (!screen_bounds_.IsEmpty())
++-    return screen_bounds_;
++-  return DesktopWindowTreeHostLinux::GetWindowBoundsInScreen();
++-}
++-
++-gfx::Point DesktopWindowTreeHostX11::GetLocationOnScreenInPixels() const {
++-  if (!screen_bounds_.IsEmpty())
++-    return screen_bounds_.origin();
++-  return DesktopWindowTreeHostLinux::GetLocationOnScreenInPixels();
++-}
++-
++ void DesktopWindowTreeHostX11::OnXWindowSelectionEvent(XEvent* xev) {
++   DCHECK(xev);
++   DCHECK(drag_drop_client_);
++diff --git ui/views/widget/desktop_aura/desktop_window_tree_host_x11.h ui/views/widget/desktop_aura/desktop_window_tree_host_x11.h
++index 7a50560c8abc..2ccec6a2c215 100644
++--- ui/views/widget/desktop_aura/desktop_window_tree_host_x11.h
+++++ ui/views/widget/desktop_aura/desktop_window_tree_host_x11.h
++@@ -31,12 +31,6 @@ class VIEWS_EXPORT DesktopWindowTreeHostX11 : public DesktopWindowTreeHostLinux,
++       DesktopNativeWidgetAura* desktop_native_widget_aura);
++   ~DesktopWindowTreeHostX11() override;
++
++-  void set_screen_bounds(const gfx::Rect& bounds) { screen_bounds_ = bounds; }
++-
++-  // Returns true if the widget has a external parent view/window outside of the
++-  // Chromium-controlled view/window hierarchy.
++-  bool has_external_parent() const { return has_external_parent_; }
++-
++  protected:
++   // Overridden from DesktopWindowTreeHost:
++   void Init(const Widget::InitParams& params) override;
++@@ -64,13 +58,6 @@ class VIEWS_EXPORT DesktopWindowTreeHostX11 : public DesktopWindowTreeHostLinux,
++   // directly. See https://crbug.com/990756.
++   const ui::XWindow* GetXWindow() const;
++
++-  // Override the screen bounds when the host is a child window.
++-  gfx::Rect screen_bounds_;
++-
++-  // True if the widget has a external parent view/window outside of the
++-  // Chromium-controlled view/window hierarchy.
++-  bool has_external_parent_ = false;
++-
++   DesktopDragDropClientAuraX11* drag_drop_client_ = nullptr;
++
++   std::unique_ptr<X11DesktopWindowMoveClient> x11_window_move_client_;
++--
++2.25.1
++
+diff --git a/tests/cefclient/browser/browser_window_osr_gtk.cc b/tests/cefclient/browser/browser_window_osr_gtk.cc
+index a2637b2b..935afef8 100644
+--- a/tests/cefclient/browser/browser_window_osr_gtk.cc
++++ b/tests/cefclient/browser/browser_window_osr_gtk.cc
+@@ -1270,11 +1270,13 @@ void BrowserWindowOsrGtk::OnCursorChange(
+
+   ScopedGdkThreadsEnter scoped_gdk_threads;
+
++#if defined(CEF_X11)
+   // Retrieve the X11 window handle for the GTK widget.
+   ::Window xwindow = GDK_WINDOW_XID(gtk_widget_get_window(glarea_));
+
+   // Set the cursor.
+   XDefineCursor(xdisplay_, xwindow, cursor);
++#endif
+ }
+
+ bool BrowserWindowOsrGtk::StartDragging(
+diff --git a/tools/make_config_header.py b/tools/make_config_header.py
+index 09301927..dbccff66 100644
+--- a/tools/make_config_header.py
++++ b/tools/make_config_header.py
+@@ -71,7 +71,7 @@ def write_config_header(header, cef_gn_config):
+   year = get_year()
+
+   cef_x11_defines = "#define CEF_X11 1" if check_x11_build(
+-      cef_gn_config) else ""
++      cef_gn_config) else "#define CEF_OZONE_X11 1"
+
+   newcontents = '// Copyright (c) '+year+' Marshall A. Greenblatt. All rights reserved.\n'+\
+                 '//\n'+\
+--
+2.42.0

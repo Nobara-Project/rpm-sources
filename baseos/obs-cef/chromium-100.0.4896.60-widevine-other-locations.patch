@@ -1,0 +1,20 @@
+diff -up chromium-100.0.4896.60/chrome/common/chrome_paths.cc.widevine-other-locations chromium-100.0.4896.60/chrome/common/chrome_paths.cc
+--- chromium-100.0.4896.60/chrome/common/chrome_paths.cc.widevine-other-locations	2022-04-02 15:48:56.944051789 +0000
++++ chromium-100.0.4896.60/chrome/common/chrome_paths.cc	2022-04-02 15:52:34.825642103 +0000
+@@ -319,6 +319,16 @@ bool PathProvider(int key, base::FilePat
+ 
+ #if BUILDFLAG(ENABLE_WIDEVINE)
+     case chrome::DIR_BUNDLED_WIDEVINE_CDM:
++      base::PathService::Get(base::DIR_HOME, &cur);
++      cur = cur.Append(FILE_PATH_LITERAL(".local/lib/libwidevinecdm.so"));
++      if (base::PathExists(cur)) {
++        break;
++      }
++      // Yes, this has an arch hardcoded in the path, but at this time, it is the only place to find libwidevinecdm.so
++      if (base::PathExists(base::FilePath(FILE_PATH_LITERAL("/opt/google/chrome/WidevineCdm/_platform_specific/linux_x64/libwidevinecdm.so")))) {
++        cur = base::FilePath(FILE_PATH_LITERAL("/opt/google/chrome/WidevineCdm/_platform_specific/linux_x64/libwidevinecdm.so"));
++        break;
++      }
+       if (!GetComponentDirectory(&cur))
+         return false;
+       cur = cur.AppendASCII(kWidevineCdmBaseDirectory);

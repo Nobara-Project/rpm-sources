@@ -1,0 +1,109 @@
+From a641e629591d68bd3edd99bddec623dc31295f6b Mon Sep 17 00:00:00 2001
+From: Kalev Lember <klember@redhat.com>
+Date: Wed, 6 Dec 2023 14:37:34 +0100
+Subject: [PATCH] lavc/libopenh264: Drop openh264 runtime version checks
+
+Years ago, openh264 releases often changed their ABI without changing
+the library soname. To avoid running into ABI issues, a version check
+was added to lavc libopenh264 code to error out at runtime in case the
+build time and runtime openh264 versions don't match.
+
+This should no longer be an issue with newer openh264 releases and we
+can drop the runtime version check and rely on upstream doing the right
+thing and bump the library soname if the ABI changes, similar to how
+other libraries are consumed in ffmpeg.
+
+Almost all major distributions now include openh264 and this means there
+are more eyes on ABI changes and issues are discovered and reported
+quickly. See e.g. https://github.com/cisco/openh264/issues/3564 where an
+ABI issue was quickly discovered and fixed.
+
+Relaxing the check allows downstream distributions to build ffmpeg
+against e.g. openh264 2.3.1 and ship an update to ABI-compatible
+openh264 2.4.0, without needing to coordinate a lock step update between
+ffmpeg and openh264 (which can be difficult if openh264 is distributed
+by Cisco and ffmpeg comes from the distro, such as is the case for
+Fedora).
+
+Signed-off-by: Kalev Lember <klember@redhat.com>
+---
+ libavcodec/libopenh264.c    | 15 ---------------
+ libavcodec/libopenh264.h    |  2 --
+ libavcodec/libopenh264dec.c |  4 ----
+ libavcodec/libopenh264enc.c |  4 ----
+ 4 files changed, 25 deletions(-)
+
+diff --git a/libavcodec/libopenh264.c b/libavcodec/libopenh264.c
+index 0f6d28ed88..c80c85ea8b 100644
+--- a/libavcodec/libopenh264.c
++++ b/libavcodec/libopenh264.c
+@@ -46,18 +46,3 @@ void ff_libopenh264_trace_callback(void *ctx, int level, const char *msg)
+     int equiv_ffmpeg_log_level = libopenh264_to_ffmpeg_log_level(level);
+     av_log(ctx, equiv_ffmpeg_log_level, "%s\n", msg);
+ }
+-
+-int ff_libopenh264_check_version(void *logctx)
+-{
+-    // Mingw GCC < 4.7 on x86_32 uses an incorrect/buggy ABI for the WelsGetCodecVersion
+-    // function (for functions returning larger structs), thus skip the check in those
+-    // configurations.
+-#if !defined(_WIN32) || !defined(__GNUC__) || !ARCH_X86_32 || AV_GCC_VERSION_AT_LEAST(4, 7)
+-    OpenH264Version libver = WelsGetCodecVersion();
+-    if (memcmp(&libver, &g_stCodecVersion, sizeof(libver))) {
+-        av_log(logctx, AV_LOG_ERROR, "Incorrect library version loaded\n");
+-        return AVERROR(EINVAL);
+-    }
+-#endif
+-    return 0;
+-}
+diff --git a/libavcodec/libopenh264.h b/libavcodec/libopenh264.h
+index dbb9c5d429..0b462d6fdc 100644
+--- a/libavcodec/libopenh264.h
++++ b/libavcodec/libopenh264.h
+@@ -34,6 +34,4 @@
+ 
+ void ff_libopenh264_trace_callback(void *ctx, int level, const char *msg);
+ 
+-int ff_libopenh264_check_version(void *logctx);
+-
+ #endif /* AVCODEC_LIBOPENH264_H */
+diff --git a/libavcodec/libopenh264dec.c b/libavcodec/libopenh264dec.c
+index 7d650ae03e..b6a9bba2dc 100644
+--- a/libavcodec/libopenh264dec.c
++++ b/libavcodec/libopenh264dec.c
+@@ -52,13 +52,9 @@ static av_cold int svc_decode_init(AVCodecContext *avctx)
+ {
+     SVCContext *s = avctx->priv_data;
+     SDecodingParam param = { 0 };
+-    int err;
+     int log_level;
+     WelsTraceCallback callback_function;
+ 
+-    if ((err = ff_libopenh264_check_version(avctx)) < 0)
+-        return AVERROR_DECODER_NOT_FOUND;
+-
+     if (WelsCreateDecoder(&s->decoder)) {
+         av_log(avctx, AV_LOG_ERROR, "Unable to create decoder\n");
+         return AVERROR_UNKNOWN;
+diff --git a/libavcodec/libopenh264enc.c b/libavcodec/libopenh264enc.c
+index f518d0894e..6f231d22b2 100644
+--- a/libavcodec/libopenh264enc.c
++++ b/libavcodec/libopenh264enc.c
+@@ -110,14 +110,10 @@ static av_cold int svc_encode_init(AVCodecContext *avctx)
+ {
+     SVCContext *s = avctx->priv_data;
+     SEncParamExt param = { 0 };
+-    int err;
+     int log_level;
+     WelsTraceCallback callback_function;
+     AVCPBProperties *props;
+ 
+-    if ((err = ff_libopenh264_check_version(avctx)) < 0)
+-        return AVERROR_ENCODER_NOT_FOUND;
+-
+     if (WelsCreateSVCEncoder(&s->encoder)) {
+         av_log(avctx, AV_LOG_ERROR, "Unable to create encoder\n");
+         return AVERROR_UNKNOWN;
+-- 
+2.43.0
+

@@ -1,0 +1,219 @@
+diff -up chromium-103.0.5060.53/remoting/host/mojom/remoting_mojom_traits.h.remoting-extra-qualification chromium-103.0.5060.53/remoting/host/mojom/remoting_mojom_traits.h
+--- chromium-103.0.5060.53/remoting/host/mojom/remoting_mojom_traits.h.remoting-extra-qualification	2022-06-27 22:16:20.214876025 +0000
++++ chromium-103.0.5060.53/remoting/host/mojom/remoting_mojom_traits.h	2022-06-28 12:44:09.663890774 +0000
+@@ -37,7 +37,7 @@
+ namespace mojo {
+ 
+ template <>
+-class mojo::StructTraits<remoting::mojom::BoolDataView, bool> {
++class StructTraits<remoting::mojom::BoolDataView, bool> {
+  public:
+   static bool value(bool value) { return value; }
+ 
+@@ -48,7 +48,7 @@ class mojo::StructTraits<remoting::mojom
+ };
+ 
+ template <>
+-class mojo::StructTraits<remoting::mojom::FloatDataView, float> {
++class StructTraits<remoting::mojom::FloatDataView, float> {
+  public:
+   static float value(float value) { return value; }
+ 
+@@ -59,7 +59,7 @@ class mojo::StructTraits<remoting::mojom
+ };
+ 
+ template <>
+-class mojo::StructTraits<remoting::mojom::Int32DataView, int32_t> {
++class StructTraits<remoting::mojom::Int32DataView, int32_t> {
+  public:
+   static int32_t value(int32_t value) { return value; }
+ 
+@@ -71,7 +71,7 @@ class mojo::StructTraits<remoting::mojom
+ };
+ 
+ template <>
+-class mojo::StructTraits<remoting::mojom::UInt32DataView, uint32_t> {
++class StructTraits<remoting::mojom::UInt32DataView, uint32_t> {
+  public:
+   static uint32_t value(uint32_t value) { return value; }
+ 
+@@ -83,7 +83,7 @@ class mojo::StructTraits<remoting::mojom
+ };
+ 
+ template <>
+-class mojo::StructTraits<remoting::mojom::DesktopCaptureOptionsDataView,
++class StructTraits<remoting::mojom::DesktopCaptureOptionsDataView,
+                          ::webrtc::DesktopCaptureOptions> {
+  public:
+   static bool use_update_notifications(
+@@ -108,7 +108,7 @@ class mojo::StructTraits<remoting::mojom
+ };
+ 
+ template <>
+-class mojo::StructTraits<remoting::mojom::DesktopEnvironmentOptionsDataView,
++class StructTraits<remoting::mojom::DesktopEnvironmentOptionsDataView,
+                          ::remoting::DesktopEnvironmentOptions> {
+  public:
+   static bool enable_curtaining(
+@@ -205,7 +205,7 @@ struct EnumTraits<remoting::mojom::Deskt
+ };
+ 
+ template <>
+-class mojo::StructTraits<remoting::mojom::DesktopRectDataView,
++class StructTraits<remoting::mojom::DesktopRectDataView,
+                          ::webrtc::DesktopRect> {
+  public:
+   static int32_t left(const ::webrtc::DesktopRect& rect) { return rect.left(); }
+@@ -225,7 +225,7 @@ class mojo::StructTraits<remoting::mojom
+ };
+ 
+ template <>
+-class mojo::StructTraits<remoting::mojom::DesktopSizeDataView,
++class StructTraits<remoting::mojom::DesktopSizeDataView,
+                          ::webrtc::DesktopSize> {
+  public:
+   static int32_t width(const ::webrtc::DesktopSize& size) {
+@@ -241,7 +241,7 @@ class mojo::StructTraits<remoting::mojom
+ };
+ 
+ template <>
+-class mojo::StructTraits<remoting::mojom::DesktopVectorDataView,
++class StructTraits<remoting::mojom::DesktopVectorDataView,
+                          ::webrtc::DesktopVector> {
+  public:
+   static int32_t x(const ::webrtc::DesktopVector& vector) { return vector.x(); }
+@@ -253,7 +253,7 @@ class mojo::StructTraits<remoting::mojom
+ };
+ 
+ template <>
+-class mojo::StructTraits<remoting::mojom::MouseCursorDataView,
++class StructTraits<remoting::mojom::MouseCursorDataView,
+                          ::webrtc::MouseCursor> {
+  public:
+   static const webrtc::DesktopSize& image_size(
+@@ -506,7 +506,7 @@ struct EnumTraits<remoting::mojom::Audio
+ };
+ 
+ template <>
+-class mojo::StructTraits<remoting::mojom::AudioPacketDataView,
++class StructTraits<remoting::mojom::AudioPacketDataView,
+                          ::std::unique_ptr<::remoting::AudioPacket>> {
+  public:
+   static int32_t timestamp(
+@@ -544,7 +544,7 @@ class mojo::StructTraits<remoting::mojom
+ };
+ 
+ template <>
+-class mojo::StructTraits<remoting::mojom::ClipboardEventDataView,
++class StructTraits<remoting::mojom::ClipboardEventDataView,
+                          ::remoting::protocol::ClipboardEvent> {
+  public:
+   static const std::string& mime_type(
+@@ -562,7 +562,7 @@ class mojo::StructTraits<remoting::mojom
+ };
+ 
+ template <>
+-class mojo::StructTraits<remoting::mojom::KeyboardLayoutDataView,
++class StructTraits<remoting::mojom::KeyboardLayoutDataView,
+                          ::remoting::protocol::KeyboardLayout> {
+  public:
+   static const ::google::protobuf::
+@@ -576,7 +576,7 @@ class mojo::StructTraits<remoting::mojom
+ };
+ 
+ template <>
+-class mojo::UnionTraits<remoting::mojom::KeyActionDataView,
++class UnionTraits<remoting::mojom::KeyActionDataView,
+                         ::remoting::protocol::KeyboardLayout_KeyAction> {
+  public:
+   static remoting::mojom::KeyActionDataView::Tag GetTag(
+@@ -609,7 +609,7 @@ class mojo::UnionTraits<remoting::mojom:
+ };
+ 
+ template <>
+-class mojo::StructTraits<remoting::mojom::KeyBehaviorDataView,
++class StructTraits<remoting::mojom::KeyBehaviorDataView,
+                          ::remoting::protocol::KeyboardLayout_KeyBehavior> {
+  public:
+   static const ::google::protobuf::Map<
+@@ -967,7 +967,7 @@ struct EnumTraits<remoting::mojom::Layou
+ };
+ 
+ template <>
+-class mojo::StructTraits<remoting::mojom::KeyEventDataView,
++class StructTraits<remoting::mojom::KeyEventDataView,
+                          ::remoting::protocol::KeyEvent> {
+  public:
+   static bool pressed(const ::remoting::protocol::KeyEvent& event) {
+@@ -1003,7 +1003,7 @@ class mojo::StructTraits<remoting::mojom
+ };
+ 
+ template <>
+-class mojo::StructTraits<remoting::mojom::MouseEventDataView,
++class StructTraits<remoting::mojom::MouseEventDataView,
+                          ::remoting::protocol::MouseEvent> {
+  public:
+   static absl::optional<int32_t> x(
+@@ -1092,7 +1092,7 @@ class mojo::StructTraits<remoting::mojom
+ };
+ 
+ template <>
+-class mojo::StructTraits<remoting::mojom::ScreenResolutionDataView,
++class StructTraits<remoting::mojom::ScreenResolutionDataView,
+                          ::remoting::ScreenResolution> {
+  public:
+   static const ::webrtc::DesktopSize& dimensions(
+@@ -1110,7 +1110,7 @@ class mojo::StructTraits<remoting::mojom
+ };
+ 
+ template <>
+-class mojo::StructTraits<remoting::mojom::TextEventDataView,
++class StructTraits<remoting::mojom::TextEventDataView,
+                          ::remoting::protocol::TextEvent> {
+  public:
+   static const std::string& text(const ::remoting::protocol::TextEvent& event) {
+@@ -1122,7 +1122,7 @@ class mojo::StructTraits<remoting::mojom
+ };
+ 
+ template <>
+-class mojo::StructTraits<remoting::mojom::TouchEventPointDataView,
++class StructTraits<remoting::mojom::TouchEventPointDataView,
+                          ::remoting::protocol::TouchEventPoint> {
+  public:
+   static uint32_t id(const ::remoting::protocol::TouchEventPoint& event) {
+@@ -1199,7 +1199,7 @@ struct EnumTraits<remoting::mojom::Touch
+ };
+ 
+ template <>
+-class mojo::StructTraits<remoting::mojom::TouchEventDataView,
++class StructTraits<remoting::mojom::TouchEventDataView,
+                          ::remoting::protocol::TouchEvent> {
+  public:
+   static ::remoting::protocol::TouchEvent::TouchEventType event_type(
+@@ -1259,7 +1259,7 @@ struct EnumTraits<remoting::mojom::Trans
+ };
+ 
+ template <>
+-class mojo::StructTraits<remoting::mojom::TransportRouteDataView,
++class StructTraits<remoting::mojom::TransportRouteDataView,
+                          ::remoting::protocol::TransportRoute> {
+  public:
+   static ::remoting::protocol::TransportRoute::RouteType type(
+@@ -1406,7 +1406,7 @@ struct EnumTraits<remoting::mojom::Proto
+ };
+ 
+ template <>
+-class mojo::StructTraits<remoting::mojom::VideoLayoutDataView,
++class StructTraits<remoting::mojom::VideoLayoutDataView,
+                          ::remoting::protocol::VideoLayout> {
+  public:
+   static const ::google::protobuf::RepeatedPtrField<
+@@ -1425,7 +1425,7 @@ class mojo::StructTraits<remoting::mojom
+ };
+ 
+ template <>
+-class mojo::StructTraits<remoting::mojom::VideoTrackLayoutDataView,
++class StructTraits<remoting::mojom::VideoTrackLayoutDataView,
+                          ::remoting::protocol::VideoTrackLayout> {
+  public:
+   static int64_t screen_id(

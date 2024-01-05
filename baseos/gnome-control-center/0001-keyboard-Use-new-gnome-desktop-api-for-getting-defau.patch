@@ -1,0 +1,438 @@
+From c4639980f92550a65eda96d9a564940b9a18e000 Mon Sep 17 00:00:00 2001
+From: Ray Strode <rstrode@redhat.com>
+Date: Mon, 28 Aug 2023 14:40:29 -0400
+Subject: [PATCH] keyboard: Use new gnome-desktop api for getting default input
+ sources
+
+gnome-desktop now offers a way to get the default input sources for
+a system when no input settings are set.
+
+This commit changes control-center to use that api instead of just
+leaving things blank.
+---
+ panels/keyboard/cc-input-list-box.c | 126 ++++++++++++++++++----------
+ 1 file changed, 82 insertions(+), 44 deletions(-)
+
+diff --git a/panels/keyboard/cc-input-list-box.c b/panels/keyboard/cc-input-list-box.c
+index fc0e32092..7d9c9f014 100644
+--- a/panels/keyboard/cc-input-list-box.c
++++ b/panels/keyboard/cc-input-list-box.c
+@@ -1,56 +1,57 @@
+ /* cc-input-list-box.c
+  *
+  * Copyright (C) 2010 Intel, Inc
+  * Copyright (C) 2020 System76, Inc.
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation; either version 2 of the License, or
+  * (at your option) any later version.
+  *
+  * This program is distributed in the hope that it will be useful,
+  * but WITHOUT ANY WARRANTY; without even the implied warranty of
+  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  * GNU General Public License for more details.
+  *
+  * You should have received a copy of the GNU General Public License
+  * along with this program; if not, see <http://www.gnu.org/licenses/>.
+  *
+  * Author: Sergey Udaltsov   <svu@gnome.org>
+  *         Ian Douglas Scott <idscott@system76.com>
+  *
+  * SPDX-License-Identifier: GPL-2.0-or-later
+  */
+ 
+ #define GNOME_DESKTOP_USE_UNSTABLE_API
+ #include <libgnome-desktop/gnome-xkb-info.h>
++#include <libgnome-desktop/gnome-languages.h>
+ 
+ #include "cc-input-list-box.h"
+ #include "cc-input-chooser.h"
+ #include "cc-input-row.h"
+ #include "cc-input-source-ibus.h"
+ #include "cc-input-source-xkb.h"
+ 
+ #ifdef HAVE_IBUS
+ #include <ibus.h>
+ #endif
+ 
+ #define GNOME_DESKTOP_INPUT_SOURCES_DIR "org.gnome.desktop.input-sources"
+ #define KEY_INPUT_SOURCES        "sources"
+ #define KEY_MRU_SOURCES          "mru-sources"
+ 
+ struct _CcInputListBox {
+   AdwBin          parent_instance;
+ 
+   GtkListBoxRow   *add_input_row;
+   GtkListBox      *listbox;
+   GtkListBoxRow   *no_inputs_row;
+ 
+   GCancellable    *cancellable;
+ 
+   gboolean     login;
+   gboolean     login_auto_apply;
+   GPermission *permission;
+   GDBusProxy  *localed;
+ 
+   GSettings *input_settings;
+@@ -324,112 +325,187 @@ add_input_sources (CcInputListBox *self,
+ 
+   if (g_variant_n_children (sources) < 1) {
+     gtk_widget_set_visible (GTK_WIDGET (self->no_inputs_row), TRUE);
+     return;
+   }
+ 
+   g_variant_iter_init (&iter, sources);
+   while (g_variant_iter_next (&iter, "(&s&s)", &type, &id)) {
+     g_autoptr(CcInputSource) source = NULL;
+ 
+     if (g_str_equal (type, "xkb")) {
+       source = CC_INPUT_SOURCE (cc_input_source_xkb_new_from_id (self->xkb_info, id));
+     } else if (g_str_equal (type, "ibus")) {
+       source = CC_INPUT_SOURCE (cc_input_source_ibus_new (id));
+ #ifdef HAVE_IBUS
+       if (self->ibus_engines) {
+ 	IBusEngineDesc *engine_desc = g_hash_table_lookup (self->ibus_engines, id);
+ 	if (engine_desc != NULL)
+ 	  cc_input_source_ibus_set_engine_desc (CC_INPUT_SOURCE_IBUS (source), engine_desc);
+ 	}
+ #endif
+     } else {
+       g_warning ("Unhandled input source type '%s'", type);
+       continue;
+     }
+ 
+     add_input_row (self, source);
+   }
+ }
+ 
++static gboolean
++settings_have_input_sources (CcInputListBox *self)
++{
++  g_autoptr(GVariant) user_value = NULL;
++
++  user_value = g_settings_get_user_value (self->input_settings, KEY_INPUT_SOURCES);
++
++  return user_value != NULL;
++}
++
++static void
++on_got_default_sources (GObject      *source,
++                        GAsyncResult *res,
++                        gpointer      data)
++{
++  CcInputListBox *self = data;
++  g_autoptr (GError) error = NULL;
++  gboolean success = FALSE;
++  g_auto (GStrv) ids = NULL;
++  g_auto (GStrv) types = NULL;
++  gsize number_of_input_sources = 0;
++  gsize i;
++
++  success = gnome_get_default_input_sources_finish (res, &ids, &types, NULL, &error);
++
++  if (!success) {
++    g_warning ("Could not fetch default input sources: %s", error->message);
++    gtk_widget_set_visible (GTK_WIDGET (self->no_inputs_row), TRUE);
++    return;
++  }
++
++  number_of_input_sources = g_strv_length (ids);
++
++  if (number_of_input_sources == 0) {
++    gtk_widget_set_visible (GTK_WIDGET (self->no_inputs_row), TRUE);
++    return;
++  }
++
++  for (i = 0; ids[i] != NULL && types[i] != NULL; i++) {
++    g_autoptr(CcInputSource) source = NULL;
++    const char *id = ids[i];
++    const char *type = types[i];
++
++    if (g_str_equal (type, "xkb")) {
++      source = CC_INPUT_SOURCE (cc_input_source_xkb_new_from_id (self->xkb_info, id));
++    } else if (g_str_equal (type, "ibus")) {
++      source = CC_INPUT_SOURCE (cc_input_source_ibus_new (id));
++#ifdef HAVE_IBUS
++      if (self->ibus_engines) {
++	IBusEngineDesc *engine_desc = g_hash_table_lookup (self->ibus_engines, id);
++	if (engine_desc != NULL)
++	  cc_input_source_ibus_set_engine_desc (CC_INPUT_SOURCE_IBUS (source), engine_desc);
++	}
++#endif
++    } else {
++      g_warning ("Unhandled input source type '%s'", type);
++      continue;
++    }
++
++    add_input_row (self, source);
++  }
++}
++
++static void
++add_input_sources_from_defaults (CcInputListBox *self)
++{
++  gnome_get_default_input_sources (self->cancellable, on_got_default_sources, self);
++}
++
+ static void
+ add_input_sources_from_settings (CcInputListBox *self)
+ {
+   g_autoptr(GVariant) sources = NULL;
+   sources = g_settings_get_value (self->input_settings, "sources");
+   add_input_sources (self, sources);
+ }
+ 
+ static void
+ clear_input_sources (CcInputListBox *self)
+ {
+   GtkWidget *child;
+ 
+   child = gtk_widget_get_first_child (GTK_WIDGET (self->listbox));
+   while (child) {
+     GtkWidget *next = gtk_widget_get_next_sibling (child);
+ 
+     if (CC_IS_INPUT_ROW (child))
+       gtk_list_box_remove (self->listbox, GTK_WIDGET (child));
+ 
+     child = next;
+   }
+ }
+ 
+ static CcInputRow *
+ get_row_by_source (CcInputListBox *self, CcInputSource *source)
+ {
+   GtkWidget *child;
+ 
+   for (child = gtk_widget_get_first_child (GTK_WIDGET (self->listbox));
+        child;
+        child = gtk_widget_get_next_sibling (child)) {
+     CcInputRow *row;
+ 
+     if (!CC_IS_INPUT_ROW (child))
+       continue;
+     row = CC_INPUT_ROW (child);
+ 
+     if (cc_input_source_matches (source, cc_input_row_get_source (row)))
+       return row;
+   }
+ 
+   return NULL;
+ }
+ 
+ static void
+ input_sources_changed (CcInputListBox *self,
+                        const gchar   *key)
+ {
+   CcInputRow *selected;
+   g_autoptr(CcInputSource) source = NULL;
+ 
++  if (!settings_have_input_sources (self)) {
++    clear_input_sources (self);
++    add_input_sources_from_defaults (self);
++    return;
++  }
++
+   selected = CC_INPUT_ROW (gtk_list_box_get_selected_row (self->listbox));
+   if (selected)
+     source = g_object_ref (cc_input_row_get_source (selected));
+   clear_input_sources (self);
+   add_input_sources_from_settings (self);
+   if (source != NULL) {
+     CcInputRow *row = get_row_by_source (self, source);
+     if (row != NULL)
+       gtk_list_box_select_row (self->listbox, GTK_LIST_BOX_ROW (row));
+   }
+ }
+ 
+ static void
+ set_input_settings (CcInputListBox *self)
+ {
+   GVariantBuilder builder;
+   GtkWidget *child;
+   GVariant *value;
+   GVariant *previous_value = g_settings_get_value (self->input_settings, KEY_INPUT_SOURCES);
+ 
+   g_variant_builder_init (&builder, G_VARIANT_TYPE ("a(ss)"));
+ 
+   for (child = gtk_widget_get_first_child (GTK_WIDGET (self->listbox));
+        child;
+        child = gtk_widget_get_next_sibling (child)) {
+     CcInputRow *row;
+     CcInputSource *source;
+ 
+     if (!CC_IS_INPUT_ROW (child))
+       continue;
+@@ -633,101 +709,60 @@ move_input_permission_cb (GObject *source, GAsyncResult *res, gpointer user_data
+   RowData *data = user_data;
+   if (permission_acquired (G_PERMISSION (source), res, "move input"))
+     do_move_input (data->panel, data->source, data->dest);
+ }
+ 
+ static void
+ move_input (CcInputListBox *self,
+             CcInputRow    *source,
+             CcInputRow    *dest)
+ {
+   if (!self->login) {
+     do_move_input (self, source, dest);
+   } else if (g_permission_get_allowed (self->permission)) {
+     do_move_input (self, source, dest);
+   } else if (g_permission_get_can_acquire (self->permission)) {
+     g_permission_acquire_async (self->permission,
+ 				self->cancellable,
+ 				move_input_permission_cb,
+ 				row_data_new (self, source, dest));
+   }
+ }
+ 
+ static void
+ input_row_activated_cb (CcInputListBox *self, GtkListBoxRow *row)
+ {
+   if (row == self->add_input_row) {
+     add_input (self);
+   }
+ }
+ 
+-static void
+-add_input_sources_from_localed (CcInputListBox *self)
+-{
+-  g_autoptr(GVariant) layout_property = NULL;
+-  g_autoptr(GVariant) variant_property = NULL;
+-  const gchar *s;
+-  g_auto(GStrv) layouts = NULL;
+-  g_auto(GStrv) variants = NULL;
+-  gint i, n;
+-
+-  if (!self->localed)
+-    return;
+-
+-  layout_property = g_dbus_proxy_get_cached_property (self->localed, "X11Layout");
+-  if (layout_property) {
+-    s = g_variant_get_string (layout_property, NULL);
+-    layouts = g_strsplit (s, ",", -1);
+-  }
+-
+-  variant_property = g_dbus_proxy_get_cached_property (self->localed, "X11Variant");
+-  if (variant_property) {
+-    s = g_variant_get_string (variant_property, NULL);
+-    if (s && *s)
+-      variants = g_strsplit (s, ",", -1);
+-  }
+-
+-  if (variants && variants[0])
+-    n = MIN (g_strv_length (layouts), g_strv_length (variants));
+-  else if (layouts && layouts[0])
+-    n = g_strv_length (layouts);
+-  else
+-    n = 0;
+-
+-  for (i = 0; i < n && layouts[i][0]; i++) {
+-    const char *variant = variants ? variants[i] : NULL;
+-    g_autoptr(CcInputSourceXkb) source = cc_input_source_xkb_new (self->xkb_info, layouts[i], variant);
+-    add_input_row (self, CC_INPUT_SOURCE (source));
+-  }
+-  gtk_widget_set_visible (GTK_WIDGET (self->no_inputs_row), n == 0);
+-}
+-
+ static void
+ set_localed_input (CcInputListBox *self)
+ {
+   g_autoptr(GString) layouts = NULL;
+   g_autoptr(GString) variants = NULL;
+   GtkWidget *child;
+ 
+   layouts = g_string_new ("");
+   variants = g_string_new ("");
+ 
+   for (child = gtk_widget_get_first_child (GTK_WIDGET (self->listbox));
+        child;
+        child = gtk_widget_get_next_sibling (child)) {
+     CcInputRow *row;
+     CcInputSourceXkb *source;
+     g_autofree gchar *id = NULL;
+     const gchar *l, *v;
+ 
+     if (!CC_IS_INPUT_ROW (child))
+       continue;
+     row = CC_INPUT_ROW (child);
+ 
+     if (!CC_IS_INPUT_SOURCE_XKB (cc_input_row_get_source (row)))
+       continue;
+     source = CC_INPUT_SOURCE_XKB (cc_input_row_get_source (row));
+ 
+     id = cc_input_source_xkb_get_id (source);
+     if (gnome_xkb_info_get_layout_info (self->xkb_info, id, NULL, NULL, &l, &v)) {
+       if (layouts->str[0]) {
+         g_string_append_c (layouts, ',');
+@@ -786,61 +821,64 @@ cc_input_list_box_init (CcInputListBox *self)
+   gtk_widget_init_template (GTK_WIDGET (self));
+ 
+   self->login = FALSE;
+   self->login_auto_apply = FALSE;
+   self->localed = NULL;
+   self->permission = NULL;
+ 
+   self->cancellable = g_cancellable_new();
+ 
+   self->input_settings = g_settings_new (GNOME_DESKTOP_INPUT_SOURCES_DIR);
+ 
+   self->xkb_info = gnome_xkb_info_new ();
+ 
+ #ifdef HAVE_IBUS
+   ibus_init ();
+   if (!self->ibus) {
+     self->ibus = ibus_bus_new_async ();
+     if (ibus_bus_is_connected (self->ibus))
+       fetch_ibus_engines (self);
+     else
+       g_signal_connect_object (self->ibus, "connected",
+                                G_CALLBACK (fetch_ibus_engines), self,
+                                G_CONNECT_SWAPPED);
+   }
+   maybe_start_ibus ();
+ #endif
+ 
+   g_signal_connect_object (self->input_settings, "changed::" KEY_INPUT_SOURCES,
+                            G_CALLBACK (input_sources_changed), self, G_CONNECT_SWAPPED);
+ 
+-  add_input_sources_from_settings (self);
++  if (!settings_have_input_sources (self))
++    add_input_sources_from_defaults (self);
++  else
++    add_input_sources_from_settings (self);
+ }
+ 
+ void
+ cc_input_list_box_set_login (CcInputListBox *self, gboolean login)
+ {
+   self->login = login;
+   clear_input_sources (self);
+-  if (login)
+-    add_input_sources_from_localed (self);
++  if (login || !settings_have_input_sources (self))
++    add_input_sources_from_defaults (self);
+   else
+     add_input_sources_from_settings (self);
+ }
+ 
+ void
+ cc_input_list_box_set_login_auto_apply (CcInputListBox *self, gboolean login_auto_apply)
+ {
+   self->login_auto_apply = login_auto_apply;
+ }
+ 
+ void
+ cc_input_list_box_set_localed (CcInputListBox *self, GDBusProxy *localed)
+ {
+   self->localed = localed;
+ }
+ 
+ void
+ cc_input_list_box_set_permission (CcInputListBox *self, GPermission *permission)
+ {
+   self->permission = permission;
+ }
+-- 
+2.41.0.rc2
+

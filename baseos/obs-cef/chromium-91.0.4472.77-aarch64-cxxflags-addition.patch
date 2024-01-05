@@ -1,0 +1,14 @@
+diff -up chromium-91.0.4472.77/build/config/compiler/BUILD.gn.aarch-cxxflags chromium-91.0.4472.77/build/config/compiler/BUILD.gn
+--- chromium-91.0.4472.77/build/config/compiler/BUILD.gn.aarch-cxxflags	2021-06-02 12:58:21.998750145 -0400
++++ chromium-91.0.4472.77/build/config/compiler/BUILD.gn	2021-06-02 12:59:29.762092189 -0400
+@@ -1511,6 +1511,10 @@ config("default_warnings") {
+       cflags += [ "-Wno-psabi" ]
+     }
+ 
++    if (current_cpu == "arm64" && !is_clang) {
++      cflags_cc += [ "-flax-vector-conversions" ]
++    }
++
+     if (!is_clang) {
+       cflags_cc += [
+         # See comment for -Wno-c++11-narrowing.

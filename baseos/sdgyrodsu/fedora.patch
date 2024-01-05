@@ -1,0 +1,18 @@
+--- pkg/51-deck-controls.rules	2023-06-30 16:01:59.550968249 -0700
++++ pkg/51-deck-controls.rules	2023-07-01 00:06:21.865925273 -0700
+@@ -1,2 +1,2 @@
+-SUBSYSTEMS=="usb", ATTRS{idVendor}=="28de", ATTRS{idProduct}=="1205", GROUP="usbaccess"
++SUBSYSTEMS=="usb", ATTRS{idVendor}=="28de", ATTRS{idProduct}=="1205", TAG+="uaccess"
+
+
+--- pkg/sdgyrodsu.service	2023-06-30 16:01:59.551968249 -0700
++++ pkg/sdgyrodsu.service	2023-07-01 00:09:40.598922020 -0700
+@@ -7,7 +7,7 @@
+ Type=simple
+ Restart=always
+ RestartSec=1
+-ExecStart=%h/sdgyrodsu/sdgyrodsu
++ExecStart=/usr/bin/sdgyrodsu
+ 
+ [Install]
+ WantedBy=default.target

@@ -1,0 +1,26 @@
+--- chromium-103.0.5060.134/cef/tools/gn_args.py	2023-12-01 16:42:51.862808026 +0900
++++ chromium-103.0.5060.134/cef/tools/gn_args.py	2023-12-01 16:44:01.635799650 +0900
+@@ -350,14 +350,6 @@
+         'x86', 'x64', 'arm',
+         'arm64'), 'target_cpu must be "x86", "x64", "arm" or "arm64"'
+ 
+-  if platform == 'linux':
+-    if target_cpu == 'x86':
+-      assert use_sysroot, 'target_cpu="x86" requires use_sysroot=true'
+-    elif target_cpu == 'arm':
+-      assert use_sysroot, 'target_cpu="arm" requires use_sysroot=true'
+-    elif target_cpu == 'arm64':
+-      assert use_sysroot, 'target_cpu="arm64" requires use_sysroot=true'
+-
+   # ASAN requires Release builds.
+   if is_asan:
+     assert not is_debug, "is_asan=true requires is_debug=false"
+@@ -572,7 +564,7 @@
+           msg('Not generating %s configuration due to missing sysroot directory'
+               % cpu)
+     else:
+-      supported_cpus = ['x64']
++      supported_cpus = [GetArgValue(args, 'target_cpu')]
+   elif platform in ('windows', 'mac'):
+     if machine == 'amd64' or os.environ.get('CEF_ENABLE_AMD64', '') == '1':
+       supported_cpus.append('x64')

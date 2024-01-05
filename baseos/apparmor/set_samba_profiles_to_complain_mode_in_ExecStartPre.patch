@@ -1,0 +1,12 @@
+diff --git a/parser/apparmor.service b/parser/apparmor.service
+index 15b9f74..8b96838 100644
+--- a/parser/apparmor.service
++++ b/parser/apparmor.service
+@@ -9,6 +9,7 @@ ConditionSecurity=apparmor
+ 
+ [Service]
+ Type=oneshot
++ExecStartPost=/usr/sbin/aa-complain usr.sbin.smbd samba-dcerpcd samba-bgqd samba-rpcd samba-rpcd-classic samba-rpcd-spoolss
+ ExecStart=/lib/apparmor/apparmor.systemd reload
+ ExecReload=/lib/apparmor/apparmor.systemd reload
+ 

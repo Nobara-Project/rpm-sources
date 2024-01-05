@@ -1,0 +1,36 @@
+Use python3 for installed executable python scripts.
+
+Fedora is a Python3-only distribution:
+https://fedoraproject.org/wiki/FinalizingFedoraSwitchtoPython3
+
+This fixes build failures where builders may strictly enforce only
+python3 during a transitional phase.
+
+Author: Carlos O'Donell <carlos@redhat.com>
+
+
+
+diff --git a/benchtests/scripts/compare_bench.py b/benchtests/scripts/compare_bench.py
+index 9a91c2649106a740..9f1ea9d85f4b833a 100755
+--- a/benchtests/scripts/compare_bench.py
++++ b/benchtests/scripts/compare_bench.py
+@@ -1,5 +1,5 @@
+-#!/usr/bin/python
+-# Copyright (C) 2015-2023 Free Software Foundation, Inc.
++#!/usr/bin/python3
++# Copyright (C) 2015-2022 Free Software Foundation, Inc.
+ # This file is part of the GNU C Library.
+ #
+ # The GNU C Library is free software; you can redistribute it and/or
+diff --git a/benchtests/scripts/import_bench.py b/benchtests/scripts/import_bench.py
+index 92d9dc4fbaf08382..698c4ff81b13f697 100644
+--- a/benchtests/scripts/import_bench.py
++++ b/benchtests/scripts/import_bench.py
+@@ -1,5 +1,5 @@
+-#!/usr/bin/python
+-# Copyright (C) 2015-2023 Free Software Foundation, Inc.
++#!/usr/bin/python3
++# Copyright (C) 2015-2022 Free Software Foundation, Inc.
+ # This file is part of the GNU C Library.
+ #
+ # The GNU C Library is free software; you can redistribute it and/or

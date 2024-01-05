@@ -1,0 +1,26 @@
+From c782ea8252f14c663f74daae2c7e75f587d99e5f Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Wed, 23 Aug 2023 19:15:28 -0600
+Subject: [PATCH] set default rumble attenuation to 25% so that it doesn't
+ sound like a drum solo on a desk
+
+---
+ hid-xpadneo/src/hid-xpadneo.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/hid-xpadneo/src/hid-xpadneo.c b/hid-xpadneo/src/hid-xpadneo.c
+index 0417c2c..954393f 100644
+--- a/hid-xpadneo/src/hid-xpadneo.c
++++ b/hid-xpadneo/src/hid-xpadneo.c
+@@ -23,7 +23,7 @@ static u8 param_trigger_rumble_mode = 0;
+ module_param_named(trigger_rumble_mode, param_trigger_rumble_mode, byte, 0644);
+ MODULE_PARM_DESC(trigger_rumble_mode, "(u8) Trigger rumble mode. 0: pressure, 2: disable.");
+ 
+-static u8 param_rumble_attenuation[2];
++static u8 param_rumble_attenuation[2] = 25;
+ module_param_array_named(rumble_attenuation, param_rumble_attenuation, byte, NULL, 0644);
+ MODULE_PARM_DESC(rumble_attenuation,
+ 		 "(u8) Attenuate the rumble strength: all[,triggers] "
+-- 
+2.41.0
+

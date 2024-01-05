@@ -1,0 +1,28 @@
+From 15e9c2a684c526d6356f31123af50ebe3208721d Mon Sep 17 00:00:00 2001
+From: Thomas Crider <gloriouseggroll@gmail.com>
+Date: Fri, 5 Aug 2022 18:02:26 -0600
+Subject: [PATCH] xwayland-patch-fix-vsync
+
+copied from https://build.opensuse.org/package/view_file/home:hwsnemo:xwayland/xwayland/xwayland-vsync.diff?expand=1
+---
+ hw/xwayland/xwayland-present.c      |   3 +-
+ 2 files changed, 1001 insertions(+), 1 deletion(-)
+ create mode 100644 hw/xwayland/xwayland-present.c.orig
+
+diff --git a/hw/xwayland/xwayland-present.c b/hw/xwayland/xwayland-present.c
+index 99e476b..7177f4f 100644
+--- a/hw/xwayland/xwayland-present.c
++++ b/hw/xwayland/xwayland-present.c
+@@ -835,7 +835,8 @@ xwl_present_execute(present_vblank_ptr vblank, uint64_t ust, uint64_t crtc_msc)
+         dixDestroyPixmap(vblank->pixmap, vblank->pixmap->drawable.id);
+         vblank->pixmap = NULL;
+ 
+-        if (xwl_present_queue_vblank(screen, window, vblank->crtc,
++        if (vblank->target_msc > crtc_msc &&
++            xwl_present_queue_vblank(screen, window, vblank->crtc,
+                                      vblank->event_id, crtc_msc + 1)
+             == Success)
+             return;
+-- 
+2.37.1
+

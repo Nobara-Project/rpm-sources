@@ -1,0 +1,111 @@
+From c64cbde76fb8688a84f3be6c75ad8ce79860c12e Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Sat, 8 Apr 2023 23:38:34 -0600
+Subject: [PATCH] add nobara update system button
+
+---
+ data/ui/shortcuts.blp |  4 ++++
+ data/ui/window.blp    | 10 +++++++++-
+ yumex/ui/window.py    |  6 ++++++
+ 3 files changed, 19 insertions(+), 1 deletion(-)
+
+diff --git a/data/ui/shortcuts.blp b/data/ui/shortcuts.blp
+index 8736eee..8e8c37a 100644
+--- a/data/ui/shortcuts.blp
++++ b/data/ui/shortcuts.blp
+@@ -19,6 +19,10 @@ ShortcutsWindow help_overlay {
+         title: _("Apply Actions/Confirm");
+         action-name: "app.apply_actions";
+       }
++      ShortcutsShortcut {
++        title: _("Update the system/Confirm");
++        action-name: "app.update_actions";
++      }
+       ShortcutsShortcut {
+         title: _("Close Dialog/Cancel");
+         shortcut-type: accelerator;
+diff --git a/data/ui/window.blp b/data/ui/window.blp
+index 1b5dc61..4bf3143 100644
+--- a/data/ui/window.blp
++++ b/data/ui/window.blp
+@@ -66,7 +66,15 @@ template YumexMainWindow : Adw.ApplicationWindow {
+             tooltip-text: _("Apply Package Actions");
+             action-name: "app.apply_actions";
+           }
+-
++          Button update_button {
++            styles ["suggested-action"]
++            Adw.ButtonContent {
++              label: _("Update System");
++              icon-name: "playback-symbolic";
++            }
++            tooltip-text: _("Update the system");
++            action-name: "app.update_actions";
++          }
+         }
+         Gtk.Box {
+           orientation: vertical;
+diff --git a/yumex/ui/window.py b/yumex/ui/window.py
+index 5b20497..bdac11d 100644
+--- a/yumex/ui/window.py
++++ b/yumex/ui/window.py
+@@ -14,6 +14,7 @@
+ # Copyright (C) 2023  Tim Lauridsen
+ 
+ import re
++import subprocess
+ 
+ from gi.repository import Gtk, Adw, Gio
+ 
+@@ -266,6 +267,11 @@ class YumexMainWindow(Adw.ApplicationWindow):
+                 self.select_page(Page.PACKAGES)
+                 self.load_packages(PackageFilter.INSTALLED)
+ 
++    def on_update_actions_clicked(self, *_args):
++        """handler for the Update System button"""
++
++        subprocess.call(['python3', '/etc/nobara/scripts/nobara-updater/main.py'])
++
+     @Gtk.Template.Callback()
+     def on_search_changed(self, widget):
+         """handler for changes in the seach entry"""
+-- 
+2.39.2
+From bca0d87b66a4cc072440872a9b2fd23dfa970a2c Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Sat, 8 Apr 2023 23:48:14 -0600
+Subject: [PATCH] enable update functionality
+
+---
+ yumex/main.py      | 1 +
+ yumex/ui/window.py | 2 ++
+ 2 files changed, 3 insertions(+)
+
+diff --git a/yumex/main.py b/yumex/main.py
+index 1a73b8d..c3bd373 100644
+--- a/yumex/main.py
++++ b/yumex/main.py
+@@ -89,6 +89,7 @@ class YumexApplication(Adw.Application):
+         self.create_action("flatpak_install", self.win.on_actions, ["<Ctrl>I"])
+         self.create_action("flatpak_remove", self.win.on_actions, ["Delete"])
+         self.create_action("apply_actions", self.win.on_actions, ["<Ctrl>Return"])
++        self.create_action("update_actions", self.win.on_actions)
+         self.create_action("page_one", self.win.on_actions, ["<Alt>1"])
+         self.create_action("page_two", self.win.on_actions, ["<Alt>2"])
+         self.create_action("page_three", self.win.on_actions, ["<Alt>3"])
+diff --git a/yumex/ui/window.py b/yumex/ui/window.py
+index bdac11d..73cffd2 100644
+--- a/yumex/ui/window.py
++++ b/yumex/ui/window.py
+@@ -364,6 +364,8 @@ class YumexMainWindow(Adw.ApplicationWindow):
+             case "apply_actions":
+                 if self.active_page in [Page.PACKAGES, Page.QUEUE]:
+                     self.on_apply_actions_clicked()
++            case "update_actions":
++                self.on_update_actions_clicked()
+             case "flatpak_remove":
+                 if self.active_page == Page.FLATPAKS:
+                     self.flatpak_view.remove()
+-- 
+2.39.2
+

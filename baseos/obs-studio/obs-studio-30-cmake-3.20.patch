@@ -1,0 +1,423 @@
+From 09fbac02fa36e945480edb1cf8547ba8ce4d08ff Mon Sep 17 00:00:00 2001
+From: Neal Gompa <neal@gompa.dev>
+Date: Mon, 11 Sep 2023 15:50:55 -0400
+Subject: [PATCH] cmake: Allow CMake 3.20 and 3.21 to be used to build OBS
+
+CentOS Stream 9 (and thus Red Hat Enterprise Linux 9) have CMake 3.20.
+
+There does not appear to be anything preventing it from building
+on CMake 3.20, so let's permit it so that it can still be built
+for Fedora Extra Packages for Enterprise Linux 9.
+---
+ CMakeLists.txt                                        | 2 +-
+ UI/CMakeLists.txt                                     | 2 +-
+ UI/frontend-plugins/aja-output-ui/CMakeLists.txt      | 2 +-
+ UI/frontend-plugins/decklink-captions/CMakeLists.txt  | 2 +-
+ UI/frontend-plugins/decklink-output-ui/CMakeLists.txt | 2 +-
+ UI/frontend-plugins/frontend-tools/CMakeLists.txt     | 2 +-
+ UI/obs-frontend-api/CMakeLists.txt                    | 2 +-
+ deps/blake2/CMakeLists.txt                            | 2 +-
+ deps/file-updater/CMakeLists.txt                      | 2 +-
+ deps/glad/CMakeLists.txt                              | 2 +-
+ deps/happy-eyeballs/CMakeLists.txt                    | 2 +-
+ deps/json11/CMakeLists.txt                            | 2 +-
+ deps/libcaption/CMakeLists.txt                        | 2 +-
+ deps/media-playback/CMakeLists.txt                    | 2 +-
+ deps/obs-scripting/CMakeLists.txt                     | 2 +-
+ deps/obs-scripting/obslua/CMakeLists.txt              | 2 +-
+ deps/obs-scripting/obspython/CMakeLists.txt           | 2 +-
+ deps/opts-parser/CMakeLists.txt                       | 2 +-
+ deps/uthash/CMakeLists.txt                            | 2 +-
+ libobs-opengl/CMakeLists.txt                          | 2 +-
+ libobs/CMakeLists.txt                                 | 2 +-
+ plugins/CMakeLists.txt                                | 2 +-
+ plugins/aja/CMakeLists.txt                            | 2 +-
+ plugins/decklink/CMakeLists.txt                       | 2 +-
+ plugins/image-source/CMakeLists.txt                   | 2 +-
+ plugins/obs-ffmpeg/CMakeLists.txt                     | 2 +-
+ plugins/obs-ffmpeg/ffmpeg-mux/CMakeLists.txt          | 2 +-
+ plugins/obs-filters/CMakeLists.txt                    | 2 +-
+ plugins/obs-outputs/CMakeLists.txt                    | 2 +-
+ plugins/obs-qsv11/CMakeLists.txt                      | 2 +-
+ plugins/obs-transitions/CMakeLists.txt                | 2 +-
+ plugins/obs-vst/CMakeLists.txt                        | 2 +-
+ plugins/obs-webrtc/CMakeLists.txt                     | 2 +-
+ plugins/obs-x264/CMakeLists.txt                       | 2 +-
+ plugins/rtmp-services/CMakeLists.txt                  | 2 +-
+ plugins/text-freetype2/CMakeLists.txt                 | 2 +-
+ plugins/vlc-video/CMakeLists.txt                      | 2 +-
+ 37 files changed, 37 insertions(+), 37 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index b6f157fbe..3e628c792 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ if(CMAKE_HOST_SYSTEM_NAME MATCHES "(Darwin)" OR OBS_CMAKE_VERSION VERSION_GREATER_EQUAL 3.0.0)
+   include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/common/bootstrap.cmake" NO_POLICY_SCOPE)
+diff --git a/UI/CMakeLists.txt b/UI/CMakeLists.txt
+index cbebcd84d..b5660e662 100644
+--- a/UI/CMakeLists.txt
++++ b/UI/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ legacy_check()
+ 
+diff --git a/UI/frontend-plugins/aja-output-ui/CMakeLists.txt b/UI/frontend-plugins/aja-output-ui/CMakeLists.txt
+index 3555192e6..e9b9ed0ba 100644
+--- a/UI/frontend-plugins/aja-output-ui/CMakeLists.txt
++++ b/UI/frontend-plugins/aja-output-ui/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ legacy_check()
+ 
+diff --git a/UI/frontend-plugins/decklink-captions/CMakeLists.txt b/UI/frontend-plugins/decklink-captions/CMakeLists.txt
+index 3fc910b6c..0969dd7b0 100644
+--- a/UI/frontend-plugins/decklink-captions/CMakeLists.txt
++++ b/UI/frontend-plugins/decklink-captions/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ legacy_check()
+ 
+diff --git a/UI/frontend-plugins/decklink-output-ui/CMakeLists.txt b/UI/frontend-plugins/decklink-output-ui/CMakeLists.txt
+index a5e697e88..1fc0af541 100644
+--- a/UI/frontend-plugins/decklink-output-ui/CMakeLists.txt
++++ b/UI/frontend-plugins/decklink-output-ui/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ legacy_check()
+ 
+diff --git a/UI/frontend-plugins/frontend-tools/CMakeLists.txt b/UI/frontend-plugins/frontend-tools/CMakeLists.txt
+index 5a0eeba45..b29d335a3 100644
+--- a/UI/frontend-plugins/frontend-tools/CMakeLists.txt
++++ b/UI/frontend-plugins/frontend-tools/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ legacy_check()
+ 
+diff --git a/UI/obs-frontend-api/CMakeLists.txt b/UI/obs-frontend-api/CMakeLists.txt
+index ca4eae513..fd7c9433b 100644
+--- a/UI/obs-frontend-api/CMakeLists.txt
++++ b/UI/obs-frontend-api/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ legacy_check()
+ 
+diff --git a/deps/blake2/CMakeLists.txt b/deps/blake2/CMakeLists.txt
+index b9fb338a8..6e31ec857 100644
+--- a/deps/blake2/CMakeLists.txt
++++ b/deps/blake2/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ add_library(blake2 STATIC EXCLUDE_FROM_ALL )
+ add_library(OBS::blake2 ALIAS blake2)
+diff --git a/deps/file-updater/CMakeLists.txt b/deps/file-updater/CMakeLists.txt
+index e07cd2f0f..fbb358110 100644
+--- a/deps/file-updater/CMakeLists.txt
++++ b/deps/file-updater/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ find_package(CURL REQUIRED)
+ 
+diff --git a/deps/glad/CMakeLists.txt b/deps/glad/CMakeLists.txt
+index 64b05a2cc..c6d7ea19c 100644
+--- a/deps/glad/CMakeLists.txt
++++ b/deps/glad/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ find_package(OpenGL REQUIRED)
+ 
+diff --git a/deps/happy-eyeballs/CMakeLists.txt b/deps/happy-eyeballs/CMakeLists.txt
+index b3a5692cd..ff3be48ff 100644
+--- a/deps/happy-eyeballs/CMakeLists.txt
++++ b/deps/happy-eyeballs/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ add_library(happy-eyeballs INTERFACE)
+ add_library(OBS::happy-eyeballs ALIAS happy-eyeballs)
+diff --git a/deps/json11/CMakeLists.txt b/deps/json11/CMakeLists.txt
+index 78cb7c94a..82d0a063b 100644
+--- a/deps/json11/CMakeLists.txt
++++ b/deps/json11/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ add_library(json11 INTERFACE)
+ add_library(OBS::json11 ALIAS json11)
+diff --git a/deps/libcaption/CMakeLists.txt b/deps/libcaption/CMakeLists.txt
+index 53cd79196..2770b6746 100644
+--- a/deps/libcaption/CMakeLists.txt
++++ b/deps/libcaption/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ add_library(caption STATIC EXCLUDE_FROM_ALL )
+ add_library(OBS::caption ALIAS caption)
+diff --git a/deps/media-playback/CMakeLists.txt b/deps/media-playback/CMakeLists.txt
+index a84900e47..351f4bb42 100644
+--- a/deps/media-playback/CMakeLists.txt
++++ b/deps/media-playback/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ find_package(FFmpeg REQUIRED COMPONENTS avcodec avdevice avutil avformat)
+ 
+diff --git a/deps/obs-scripting/CMakeLists.txt b/deps/obs-scripting/CMakeLists.txt
+index 9096e4b27..988d2235c 100644
+--- a/deps/obs-scripting/CMakeLists.txt
++++ b/deps/obs-scripting/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ legacy_check()
+ 
+diff --git a/deps/obs-scripting/obslua/CMakeLists.txt b/deps/obs-scripting/obslua/CMakeLists.txt
+index 98517ee7d..22edd1e1c 100644
+--- a/deps/obs-scripting/obslua/CMakeLists.txt
++++ b/deps/obs-scripting/obslua/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ legacy_check()
+ 
+diff --git a/deps/obs-scripting/obspython/CMakeLists.txt b/deps/obs-scripting/obspython/CMakeLists.txt
+index f0db72f75..f0a07f66c 100644
+--- a/deps/obs-scripting/obspython/CMakeLists.txt
++++ b/deps/obs-scripting/obspython/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ legacy_check()
+ 
+diff --git a/deps/opts-parser/CMakeLists.txt b/deps/opts-parser/CMakeLists.txt
+index a87ee641e..72d61be53 100644
+--- a/deps/opts-parser/CMakeLists.txt
++++ b/deps/opts-parser/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ add_library(opts-parser INTERFACE)
+ add_library(OBS::opts-parser ALIAS opts-parser)
+diff --git a/deps/uthash/CMakeLists.txt b/deps/uthash/CMakeLists.txt
+index aecb0d74e..7ebb524f0 100644
+--- a/deps/uthash/CMakeLists.txt
++++ b/deps/uthash/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ add_library(uthash INTERFACE)
+ add_library(OBS::uthash ALIAS uthash)
+diff --git a/libobs-opengl/CMakeLists.txt b/libobs-opengl/CMakeLists.txt
+index 7ee9478ea..51751719d 100644
+--- a/libobs-opengl/CMakeLists.txt
++++ b/libobs-opengl/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ legacy_check()
+ 
+diff --git a/libobs/CMakeLists.txt b/libobs/CMakeLists.txt
+index 46112abe7..28551f61d 100644
+--- a/libobs/CMakeLists.txt
++++ b/libobs/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ legacy_check()
+ 
+diff --git a/plugins/CMakeLists.txt b/plugins/CMakeLists.txt
+index 90bea35be..26e6b57ec 100644
+--- a/plugins/CMakeLists.txt
++++ b/plugins/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ option(ENABLE_PLUGINS "Enable building OBS plugins" ON)
+ 
+diff --git a/plugins/aja/CMakeLists.txt b/plugins/aja/CMakeLists.txt
+index 423d9d099..daaa57f51 100644
+--- a/plugins/aja/CMakeLists.txt
++++ b/plugins/aja/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ legacy_check()
+ 
+diff --git a/plugins/decklink/CMakeLists.txt b/plugins/decklink/CMakeLists.txt
+index e93c7c772..8423fe52a 100644
+--- a/plugins/decklink/CMakeLists.txt
++++ b/plugins/decklink/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ legacy_check()
+ 
+diff --git a/plugins/image-source/CMakeLists.txt b/plugins/image-source/CMakeLists.txt
+index a7682454e..2f5fd3790 100644
+--- a/plugins/image-source/CMakeLists.txt
++++ b/plugins/image-source/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ legacy_check()
+ 
+diff --git a/plugins/obs-ffmpeg/CMakeLists.txt b/plugins/obs-ffmpeg/CMakeLists.txt
+index 04530ef39..16c4d1e1a 100644
+--- a/plugins/obs-ffmpeg/CMakeLists.txt
++++ b/plugins/obs-ffmpeg/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ legacy_check()
+ 
+diff --git a/plugins/obs-ffmpeg/ffmpeg-mux/CMakeLists.txt b/plugins/obs-ffmpeg/ffmpeg-mux/CMakeLists.txt
+index afa22b7a5..5644f8213 100644
+--- a/plugins/obs-ffmpeg/ffmpeg-mux/CMakeLists.txt
++++ b/plugins/obs-ffmpeg/ffmpeg-mux/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ legacy_check()
+ 
+diff --git a/plugins/obs-filters/CMakeLists.txt b/plugins/obs-filters/CMakeLists.txt
+index 22d79388c..84b337c40 100644
+--- a/plugins/obs-filters/CMakeLists.txt
++++ b/plugins/obs-filters/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ legacy_check()
+ 
+diff --git a/plugins/obs-outputs/CMakeLists.txt b/plugins/obs-outputs/CMakeLists.txt
+index cedc77da0..f131ca671 100644
+--- a/plugins/obs-outputs/CMakeLists.txt
++++ b/plugins/obs-outputs/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ legacy_check()
+ 
+diff --git a/plugins/obs-qsv11/CMakeLists.txt b/plugins/obs-qsv11/CMakeLists.txt
+index cae152765..f1c39cc6a 100644
+--- a/plugins/obs-qsv11/CMakeLists.txt
++++ b/plugins/obs-qsv11/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ legacy_check()
+ 
+diff --git a/plugins/obs-transitions/CMakeLists.txt b/plugins/obs-transitions/CMakeLists.txt
+index 65e3b13ac..c18ac96ed 100644
+--- a/plugins/obs-transitions/CMakeLists.txt
++++ b/plugins/obs-transitions/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ legacy_check()
+ 
+diff --git a/plugins/obs-vst/CMakeLists.txt b/plugins/obs-vst/CMakeLists.txt
+index bb5c32a00..78530783b 100644
+--- a/plugins/obs-vst/CMakeLists.txt
++++ b/plugins/obs-vst/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ legacy_check()
+ 
+diff --git a/plugins/obs-webrtc/CMakeLists.txt b/plugins/obs-webrtc/CMakeLists.txt
+index de943062f..84b0f1aa5 100644
+--- a/plugins/obs-webrtc/CMakeLists.txt
++++ b/plugins/obs-webrtc/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ legacy_check()
+ 
+diff --git a/plugins/obs-x264/CMakeLists.txt b/plugins/obs-x264/CMakeLists.txt
+index 4c293fb33..c75491a51 100644
+--- a/plugins/obs-x264/CMakeLists.txt
++++ b/plugins/obs-x264/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ legacy_check()
+ 
+diff --git a/plugins/rtmp-services/CMakeLists.txt b/plugins/rtmp-services/CMakeLists.txt
+index e8d304ae0..9dc0b2396 100644
+--- a/plugins/rtmp-services/CMakeLists.txt
++++ b/plugins/rtmp-services/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ legacy_check()
+ 
+diff --git a/plugins/text-freetype2/CMakeLists.txt b/plugins/text-freetype2/CMakeLists.txt
+index bb30f99a7..b19b0cd57 100644
+--- a/plugins/text-freetype2/CMakeLists.txt
++++ b/plugins/text-freetype2/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ legacy_check()
+ 
+diff --git a/plugins/vlc-video/CMakeLists.txt b/plugins/vlc-video/CMakeLists.txt
+index 0a35ae284..40a62b076 100644
+--- a/plugins/vlc-video/CMakeLists.txt
++++ b/plugins/vlc-video/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.22...3.25)
++cmake_minimum_required(VERSION 3.20...3.25)
+ 
+ legacy_check()
+ 
+-- 
+2.41.0
+

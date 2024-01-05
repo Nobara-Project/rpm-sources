@@ -1,0 +1,37 @@
+From: Jan Engelhardt <jengelh@inai.de>
+Date: 2016-04-10 23:23:53.138440254 +0200
+
+Improve the error messages a bit to say what's really going on
+(in light of a reduced build).
+
+---
+ fftools/ffmpeg.c        |    2 +-
+ fftools/ffmpeg_filter.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+Index: ffmpeg-6.0/fftools/ffmpeg.c
+===================================================================
+--- ffmpeg-6.0.orig/fftools/ffmpeg.c
++++ ffmpeg-6.0/fftools/ffmpeg.c
+@@ -2797,7 +2797,7 @@ static int init_input_stream(InputStream
+     if (ist->decoding_needed) {
+         const AVCodec *codec = ist->dec;
+         if (!codec) {
+-            snprintf(error, error_len, "Decoder (codec %s) not found for input stream #%d:%d",
++            snprintf(error, error_len, "This build of ffmpeg does not include a \"%s\" decoder needed for input stream #%d:%d.",
+                     avcodec_get_name(ist->dec_ctx->codec_id), ist->file_index, ist->st->index);
+             return AVERROR(EINVAL);
+         }
+Index: ffmpeg-6.0/fftools/ffmpeg_filter.c
+===================================================================
+--- ffmpeg-6.0.orig/fftools/ffmpeg_filter.c
++++ ffmpeg-6.0/fftools/ffmpeg_filter.c
+@@ -1064,7 +1064,7 @@ static int configure_input_filter(Filter
+ {
+     if (!ifilter->ist->dec) {
+         av_log(NULL, AV_LOG_ERROR,
+-               "No decoder for stream #%d:%d, filtering impossible\n",
++               "This build of ffmpeg does not have a suitable decoder for stream #%d:%d enabled, filtering impossible\n",
+                ifilter->ist->file_index, ifilter->ist->st->index);
+         return AVERROR_DECODER_NOT_FOUND;
+     }

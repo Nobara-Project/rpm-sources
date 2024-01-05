@@ -1,0 +1,25 @@
+From 2926bcc99f0bb4f6d73fd291bba6e03f2593f223 Mon Sep 17 00:00:00 2001
+From: Thomas Crider <gloriouseggroll@gmail.com>
+Date: Thu, 21 Dec 2023 14:19:56 -0500
+Subject: [PATCH] specify dnf4 for allowerasing
+
+---
+ scripts/lpf-sudo-install | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/scripts/lpf-sudo-install b/scripts/lpf-sudo-install
+index 7305903..3da0dff 100755
+--- a/scripts/lpf-sudo-install
++++ b/scripts/lpf-sudo-install
+@@ -23,7 +23,7 @@ done
+ 
+ (( ${#good_rpms} == 0 )) && { echo "$0: Nothing to install" >&2; exit 1; }
+ 
+-dnf -y --allowerasing install ${good_rpms[@]}
++dnf4 -y --allowerasing install ${good_rpms[@]}
+ 
+ 
+ # vim: set expandtab ts=4 sw=4:
+-- 
+2.43.0
+

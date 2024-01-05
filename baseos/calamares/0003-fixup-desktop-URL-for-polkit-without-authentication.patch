@@ -1,0 +1,43 @@
+From 47aba928f2668c1bea6f36d09a28c3f34e1de525 Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Thu, 2 Mar 2023 19:52:00 -0700
+Subject: [PATCH 3/3] fixup desktop URL for polkit without authentication
+
+---
+ calamares.desktop    | 4 ++--
+ calamares.desktop.in | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/calamares.desktop b/calamares.desktop
+index 593f48b..2507fc8 100644
+--- a/calamares.desktop
++++ b/calamares.desktop
+@@ -5,8 +5,8 @@ Name=Install System
+ GenericName=System Installer
+ Comment=Calamares — System Installer
+ Keywords=calamares;system;installer;
+-TryExec=calamares
+-Exec=sh -c "pkexec calamares"
++#TryExec=calamares
++Exec=sg wheel -c "sudo -E calamares"
+ 
+ Categories=Qt;System;
+ Icon=org.fedoraproject.AnacondaInstaller
+diff --git a/calamares.desktop.in b/calamares.desktop.in
+index 40fb273..a730a6e 100644
+--- a/calamares.desktop.in
++++ b/calamares.desktop.in
+@@ -4,8 +4,8 @@ Version=1.0
+ Name=Install System
+ GenericName=System Installer
+ Keywords=calamares;system;installer;
+-TryExec=calamares
+-Exec=sh -c "pkexec calamares"
++#TryExec=calamares
++Exec=sg wheel -c "sudo -E calamares"
+ Comment=Calamares — System Installer
+ Icon=org.fedoraproject.AnacondaInstaller
+ Terminal=false
+-- 
+2.39.2
+

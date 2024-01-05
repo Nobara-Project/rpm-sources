@@ -1,0 +1,46 @@
+From d185c6aebdc6d6084a0c562d28f7a2cc79259d27 Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Wed, 31 Aug 2022 03:23:03 -0600
+Subject: [PATCH] add yumex-dnf
+
+---
+ data/org.gnome.shell.gschema.xml.in | 2 +-
+ js/ui/appFavorites.js               | 2 ++
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/data/org.gnome.shell.gschema.xml.in b/data/org.gnome.shell.gschema.xml.in
+index d3f3c70..bca5bd2 100644
+--- a/data/org.gnome.shell.gschema.xml.in
++++ b/data/org.gnome.shell.gschema.xml.in
+@@ -50,7 +50,7 @@
+       </description>
+     </key>
+     <key name="favorite-apps" type="as">
+-      <default>[ 'org.gnome.Epiphany.desktop', 'org.gnome.Calendar.desktop', 'org.gnome.Music.desktop', 'org.gnome.Nautilus.desktop', 'org.gnome.Software.desktop' ]</default>
++      <default>[ 'org.gnome.Settings.desktop', 'yumex-dnf.desktop', 'org.gnome.Software.desktop', 'org.gnome.Nautilus.desktop', 'chromium-browser.desktop' ]</default>
+       <summary>List of desktop file IDs for favorite applications</summary>
+       <description>
+         The applications corresponding to these identifiers
+diff --git a/js/ui/appFavorites.js b/js/ui/appFavorites.js
+index a876727ed..24ce16f81 100644
+--- a/js/ui/appFavorites.js
++++ b/js/ui/appFavorites.js
+@@ -10,6 +10,7 @@ const Main = imports.ui.main;
+ // In alphabetical order
+ const RENAMED_DESKTOP_IDS = {
+     'baobab.desktop': 'org.gnome.baobab.desktop',
++    'yumex-dnf.desktop': 'yumex-dnf.desktop',
+     'cheese.desktop': 'org.gnome.Cheese.desktop',
+     'dconf-editor.desktop': 'ca.desrt.dconf-editor.desktop',
+     'empathy.desktop': 'org.gnome.Empathy.desktop',
+@@ -52,6 +53,7 @@ const RENAMED_DESKTOP_IDS = {
+     'gnotski.desktop': 'org.gnome.Klotski.desktop',
+     'gtali.desktop': 'org.gnome.Tali.desktop',
+     'iagno.desktop': 'org.gnome.Reversi.desktop',
++    'chromium-browser.desktop': 'chromium-browser.desktop',
+     'nautilus.desktop': 'org.gnome.Nautilus.desktop',
+     'org.gnome.gnome-2048.desktop': 'org.gnome.TwentyFortyEight.desktop',
+     'org.gnome.taquin.desktop': 'org.gnome.Taquin.desktop',
+-- 
+2.30.1
+

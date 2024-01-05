@@ -1,0 +1,11 @@
+[Unit]
+Description=Add Fedora flatpak repositories
+Before=flatpak-system-helper.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes	
+ExecStart=/usr/bin/bash -c "/usr/bin/flatpak-repo-setup"
+
+[Install]
+WantedBy=multi-user.target

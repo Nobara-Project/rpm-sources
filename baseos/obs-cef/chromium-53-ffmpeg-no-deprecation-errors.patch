@@ -1,0 +1,22 @@
+--- chromium-60.0.3112.40/build/linux/unbundle/ffmpeg.gn.ffmpeg-deprecation	2017-06-25 13:24:47.390218631 +0200
++++ chromium-60.0.3112.40/build/linux/unbundle/ffmpeg.gn	2017-06-25 13:32:48.528583949 +0200
+@@ -19,6 +19,12 @@
+   flags = [ "USE_SYSTEM_FFMPEG=true" ]
+ }
+ 
++config("ffmpeg_deprecations") {
++  if (is_linux) {
++    cflags = [ "-Wno-error=deprecated-declarations" ]
++  }
++}
++
+ shim_headers("ffmpeg_shim") {
+   root_path = "."
+   headers = [
+@@ -33,5 +39,5 @@
+     ":ffmpeg_features",
+     ":ffmpeg_shim",
+   ]
+-  public_configs = [ ":system_ffmpeg" ]
++  public_configs = [ ":system_ffmpeg", ":ffmpeg_deprecations" ]
+ }

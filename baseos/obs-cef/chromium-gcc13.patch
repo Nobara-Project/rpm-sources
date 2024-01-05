@@ -1,0 +1,131 @@
+--- a/third_party/abseil-cpp/absl/strings/internal/str_format/extension.h
++++ b/third_party/abseil-cpp/absl/strings/internal/str_format/extension.h
+@@ -19,6 +19,7 @@
+ #include <limits.h>
+ 
+ #include <cstddef>
++#include <cstdint>
+ #include <cstring>
+ #include <ostream>
+ 
+--- a/third_party/libgav1/src/src/utils/threadpool.cc
++++ b/third_party/libgav1/src/src/utils/threadpool.cc
+@@ -29,6 +29,7 @@
+ #include <cinttypes>
+ #include <cstddef>
+ #include <cstdint>
++#include <cstdio>
+ #include <cstring>
+ #include <new>
+ #include <utility>
+--- a/third_party/breakpad/breakpad/src/client/linux/handler/minidump_descriptor.h
++++ b/third_party/breakpad/breakpad/src/client/linux/handler/minidump_descriptor.h
+@@ -34,6 +34,7 @@
+ #include <sys/types.h>
+
+ #include <string>
++#include <cstdint>
+
+ #include "client/linux/handler/microdump_extra_info.h"
+ #include "common/using_std_string.h"
+--- a/third_party/swiftshader/third_party/llvm-10.0/llvm/include/llvm/Support/Signals.h
++++ b/third_party/swiftshader/third_party/llvm-10.0/llvm/include/llvm/Support/Signals.h
+@@ -15,6 +15,7 @@
+ #define LLVM_SUPPORT_SIGNALS_H
+ 
+ #include <string>
++#include <cstdint>
+ 
+ namespace llvm {
+ class StringRef;
+--- a/third_party/dawn/src/dawn/native/CacheKey.h
++++ b/third_party/dawn/src/dawn/native/CacheKey.h
+@@ -16,6 +16,7 @@
+ #define SRC_DAWN_NATIVE_CACHEKEY_H_
+ 
+ #include <bitset>
++#include <cstdint>
+ #include <iostream>
+ #include <limits>
+ #include <string>
+--- a/third_party/dawn/src/tint/reader/spirv/entry_point_info.h +0900
++++ b/third_party/dawn/src/tint/reader/spirv/entry_point_info.h
+@@ -15,6 +15,7 @@
+ #ifndef SRC_TINT_READER_SPIRV_ENTRY_POINT_INFO_H_
+ #define SRC_TINT_READER_SPIRV_ENTRY_POINT_INFO_H_
+ 
++#include <cstdint>
+ #include <string>
+ #include <vector>
+ 
+--- a/third_party/perfetto/src/trace_processor/importers/proto/proto_importer_module.h
++++ b/third_party/perfetto/src/trace_processor/importers/proto/proto_importer_module.h
+@@ -17,6 +17,7 @@
+ #ifndef SRC_TRACE_PROCESSOR_IMPORTERS_PROTO_PROTO_IMPORTER_MODULE_H_
+ #define SRC_TRACE_PROCESSOR_IMPORTERS_PROTO_PROTO_IMPORTER_MODULE_H_
+ 
++#include <cstdint>
+ #include "perfetto/ext/base/optional.h"
+ #include "perfetto/trace_processor/status.h"
+ 
+--- a/base/debug/stack_trace.h
++++ b/base/debug/stack_trace.h
+@@ -5,6 +5,7 @@
+ #ifndef BASE_DEBUG_STACK_TRACE_H_
+ #define BASE_DEBUG_STACK_TRACE_H_
+ 
++#include <cstdint>
+ #include <stddef.h>
+ 
+ #include <iosfwd>
+--- a/v8/src/base/logging.h
++++ b/v8/src/base/logging.h
+@@ -5,6 +5,7 @@
+ #ifndef V8_BASE_LOGGING_H_
+ #define V8_BASE_LOGGING_H_
+ 
++#include <cstdint>
+ #include <cstring>
+ #include <sstream>
+ #include <string>
+--- a/components/viz/common/shared_element_resource_id.h
++++ b/components/viz/common/shared_element_resource_id.h
+@@ -5,6 +5,7 @@
+ #ifndef COMPONENTS_VIZ_COMMON_SHARED_ELEMENT_RESOURCE_ID_H_
+ #define COMPONENTS_VIZ_COMMON_SHARED_ELEMENT_RESOURCE_ID_H_
+ 
++#include <cstdint>
+ #include <string>
+ #include <vector>
+ 
+--- a/components/payments/core/autofill_card_validation.h
++++ b/components/payments/core/autofill_card_validation.h
+@@ -5,6 +5,7 @@
+ #ifndef COMPONENTS_PAYMENTS_CORE_AUTOFILL_CARD_VALIDATION_H_
+ #define COMPONENTS_PAYMENTS_CORE_AUTOFILL_CARD_VALIDATION_H_
+ 
++#include <cstdint>
+ #include <string>
+ #include <vector>
+ 
+--- a/v8/src/inspector/v8-string-conversions.h
++++ b/v8/src/inspector/v8-string-conversions.h
+@@ -5,6 +5,7 @@
+ #ifndef V8_INSPECTOR_V8_STRING_CONVERSIONS_H_
+ #define V8_INSPECTOR_V8_STRING_CONVERSIONS_H_
+ 
++#include <cstdint>
+ #include <string>
+ 
+ // Conversion routines between UT8 and UTF16, used by string-16.{h,cc}. You may
+--- a/third_party/blink/renderer/platform/graphics/paint/effect_paint_property_node.h
++++ b/third_party/blink/renderer/platform/graphics/paint/effect_paint_property_node.h
+@@ -116,7 +116,7 @@
+ 
+     // An identifier for a document transition shared element. `id.valid()`
+     // returns true if this has been set, and false otherwise.
+-    DocumentTransitionSharedElementId document_transition_shared_element_id;
++    blink::DocumentTransitionSharedElementId document_transition_shared_element_id;
+ 
+     // An identifier to tag shared element resources generated and cached in the
+     // Viz process. This generated resource can be used as content for other

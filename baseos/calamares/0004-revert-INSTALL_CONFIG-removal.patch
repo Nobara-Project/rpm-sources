@@ -1,0 +1,161 @@
+From ec3caad7530dad64d4d5737d0d74e6c38046de8e Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Thu, 2 Mar 2023 21:48:18 -0700
+Subject: [PATCH 4/4] revert INSTALL_CONFIG removal
+
+---
+ CHANGES-3.3                                   |  7 ++-----
+ CMakeLists.txt                                | 21 +++++++------------
+ .../CalamaresAddModuleSubdirectory.cmake      | 13 +++++++++---
+ CMakeModules/CalamaresAddPlugin.cmake         | 12 +++++++++--
+ 4 files changed, 29 insertions(+), 24 deletions(-)
+
+diff --git a/CHANGES-3.3 b/CHANGES-3.3
+index f187e13..10abb54 100644
+--- a/CHANGES-3.3
++++ b/CHANGES-3.3
+@@ -24,11 +24,8 @@ This release contains contributions from (alphabetically by first name):
+  - Branding entries use ${var} instead of @{var} for substitutions,
+    in line with all the other substitution mechanisms used from C++
+    core. See documentation in `branding.desc`.
+- - Boost::Python requires at least version 1.72.
+- - KDE Frameworks must be version 5.58 or later.
+- - The `INSTALL_CONFIG` option has been removed. If you are installing
+-   the example configuration files from the Calamares repository, just
+-   stop. That was never a good idea, and you should keep your configs elsewhere.
++ - Boost::Python requires at least version 1.72
++ - KDE Frameworks must be version 5.58 or later
+ 
+ ## Modules ##
+  - *dracut* added a configurable kernel name. (thanks Anke)
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 86e8175..04fbf68 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -73,6 +73,7 @@ set(CALAMARES_SOVERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")
+ 
+ ### OPTIONS
+ #
++option(INSTALL_CONFIG "Install configuration files" OFF)
+ option(INSTALL_POLKIT "Install Polkit configuration" ON)
+ option(INSTALL_COMPLETION "Install shell completions" OFF)
+ # When adding WITH_* that affects the ABI offered by libcalamares,
+@@ -541,6 +542,7 @@ add_subdirectory(src)
+ 
+ add_feature_info(Python ${WITH_PYTHON} "Python job modules")
+ add_feature_info(Qml ${WITH_QML} "QML UI support")
++add_feature_info(Config ${INSTALL_CONFIG} "Install Calamares configuration")
+ add_feature_info(Polkit ${INSTALL_POLKIT} "Install Polkit files")
+ add_feature_info(KCrash ${BUILD_KF5Crash} "Crash dumps via KCrash")
+ 
+@@ -585,6 +587,10 @@ install(
+ ### Miscellaneous installs
+ #
+ #
++if(INSTALL_CONFIG)
++    install(FILES settings.conf DESTINATION share/calamares)
++endif()
++
+ if(INSTALL_POLKIT)
+     install(FILES com.github.calamares.calamares.policy DESTINATION "${POLKITQT-1_POLICY_FILES_INSTALL_DIR}")
+ endif()
+@@ -601,9 +607,7 @@ install(FILES calamares.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/application
+ 
+ install(FILES man/calamares.8 DESTINATION ${CMAKE_INSTALL_MANDIR}/man8/)
+ 
+-### Uninstall
+-#
+-#
++# uninstall target
+ configure_file(
+     "${CMAKE_CURRENT_SOURCE_DIR}/cmake_uninstall.cmake.in"
+     "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
+@@ -613,17 +617,6 @@ configure_file(
+ 
+ add_custom_target(uninstall COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
+ 
+-### Developer convenience
+-#
+-# The module support files -- .desc files, .conf files -- are copied into the build
+-# directory so that it is possible to run `calamares -d` from there. Copy the
+-# top-level settings.conf as well, into the build directory.
+-if( settings.conf IS_NEWER_THAN ${CMAKE_BINARY_DIR}/settings.conf )
+-    configure_file(settings.conf ${CMAKE_BINARY_DIR}/settings.conf COPYONLY)
+-endif()
+-
+-
+-
+ ### CMAKE SUMMARY REPORT
+ #
+ get_directory_property(SKIPPED_MODULES DIRECTORY src/modules DEFINITION LIST_SKIPPED_MODULES)
+diff --git a/CMakeModules/CalamaresAddModuleSubdirectory.cmake b/CMakeModules/CalamaresAddModuleSubdirectory.cmake
+index 55cf440..e0eed22 100644
+--- a/CMakeModules/CalamaresAddModuleSubdirectory.cmake
++++ b/CMakeModules/CalamaresAddModuleSubdirectory.cmake
+@@ -153,10 +153,12 @@ function( _calamares_add_module_subdirectory_impl )
+ 
+                     get_filename_component( FLEXT ${MODULE_FILE} EXT )
+                     if( "${FLEXT}" STREQUAL ".conf" )
+-                        message(STATUS "Config ${MODULE_FILE}")
++                        if( INSTALL_CONFIG )
++                            install( FILES ${CMAKE_CURRENT_BINARY_DIR}/${SUBDIRECTORY}/${MODULE_FILE}
++                                    DESTINATION ${MODULE_DATA_DESTINATION} )
++                        endif()
+                         list( APPEND MODULE_CONFIG_FILES ${MODULE_FILE} )
+                     else()
+-                        message(STATUS "Non-Config ${MODULE_FILE}")
+                         install( FILES ${CMAKE_CURRENT_BINARY_DIR}/${SUBDIRECTORY}/${MODULE_FILE}
+                                  DESTINATION ${MODULE_DESTINATION} )
+                     endif()
+@@ -167,7 +169,12 @@ function( _calamares_add_module_subdirectory_impl )
+             message( "   ${Green}TYPE:${ColorReset} jobmodule" )
+             message( "   ${Green}MODULE_DESTINATION:${ColorReset} ${MODULE_DESTINATION}" )
+             if( MODULE_CONFIG_FILES )
+-                message( "   ${Green}CONFIGURATION_FILES:${ColorReset} ${MODULE_CONFIG_FILES} => [Build directory only]" )
++                if ( INSTALL_CONFIG )
++                    set( _destination "${MODULE_DATA_DESTINATION}" )
++                else()
++                    set( _destination "[Build directory only]" )
++                endif()
++                message( "   ${Green}CONFIGURATION_FILES:${ColorReset} ${MODULE_CONFIG_FILES} => ${_destination}" )
+             endif()
+             message( "" )
+             # We copy over the lang directory, if any
+diff --git a/CMakeModules/CalamaresAddPlugin.cmake b/CMakeModules/CalamaresAddPlugin.cmake
+index a86ee6e..7e2a3f5 100644
+--- a/CMakeModules/CalamaresAddPlugin.cmake
++++ b/CMakeModules/CalamaresAddPlugin.cmake
+@@ -104,7 +104,10 @@ function( calamares_add_plugin )
+             message( FATAL_ERROR "${Red}NO_CONFIG${ColorReset} is set, with configuration ${Red}${PLUGIN_CONFIG_FILES}${ColorReset}" )
+         endif()
+         set( _destination "(unknown)" )
+-        if( NOT PLUGIN_NO_INSTALL )
++        if ( INSTALL_CONFIG AND NOT PLUGIN_NO_INSTALL )
++            set( _destination "${PLUGIN_DATA_DESTINATION}" )
++        elseif( NOT PLUGIN_NO_INSTALL )
++            # Not INSTALL_CONFIG
+             set( _destination "[Build directory only]" )
+         else()
+             set( _destination "[Skipping installation]" )
+@@ -207,12 +210,17 @@ function( calamares_add_plugin )
+ 
+         set( _warned_config OFF )
+         foreach( PLUGIN_CONFIG_FILE ${PLUGIN_CONFIG_FILES} )
+-            if( ${CMAKE_CURRENT_SOURCE_DIR}/${PLUGIN_CONFIG_FILE} IS_NEWER_THAN ${CMAKE_CURRENT_BINARY_DIR}/${PLUGIN_CONFIG_FILE} )
++            if( ${CMAKE_CURRENT_SOURCE_DIR}/${PLUGIN_CONFIG_FILE} IS_NEWER_THAN ${CMAKE_CURRENT_BINARY_DIR}/${PLUGIN_CONFIG_FILE} OR INSTALL_CONFIG )
+                 configure_file( ${PLUGIN_CONFIG_FILE} ${PLUGIN_CONFIG_FILE} COPYONLY )
+             else()
+                 message( "   ${BoldYellow}Not updating${ColorReset} ${PLUGIN_CONFIG_FILE}" )
+                 set( _warned_config ON )
+             endif()
++            if ( INSTALL_CONFIG )
++                install(
++                    FILES ${CMAKE_CURRENT_BINARY_DIR}/${PLUGIN_CONFIG_FILE}
++                    DESTINATION ${PLUGIN_DATA_DESTINATION} )
++            endif()
+         endforeach()
+         if ( _warned_config )
+             message( "" )
+-- 
+2.39.2
+

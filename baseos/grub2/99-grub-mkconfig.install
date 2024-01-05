@@ -1,0 +1,59 @@
+#!/bin/bash
+
+if ! [[ $KERNEL_INSTALL_MACHINE_ID ]]; then
+    exit 0
+fi
+
+# PV and PVH Xen DomU guests boot with pygrub that doesn't have BLS support,
+# also Xen Dom0 use the menuentries from 20_linux_xen and not the ones from
+# 10_linux. So BLS support needs to be disabled for both Xen Dom0 and DomU.
+if [[ -e /sys/hypervisor/type ]] && grep -q "^xen$" /sys/hypervisor/type; then
+    RUN_MKCONFIG=true
+    DISABLE_BLS=true
+fi
+
+ARCH=$(uname -m)
+# Older ppc64le OPAL firmware (petitboot version < 1.8.0) don't have BLS support
+# so grub2-mkconfig has to be run to generate a config with menuentry commands.
+if [[ $ARCH = "ppc64le" ]] && [ -d /sys/firmware/opal ]; then
+
+    petitboot_path="/sys/firmware/devicetree/base/ibm,firmware-versions/petitboot"
+
+    if test -e ${petitboot_path}; then
+        read -r -d '' petitboot_version < ${petitboot_path}
+        petitboot_version="$(echo ${petitboot_version//v})"
+        major_version="$(echo ${petitboot_version} | cut -d . -f1)"
+        minor_version="$(echo ${petitboot_version} | cut -d . -f2)"
+
+        if test -z ${petitboot_version} || test ${major_version} -lt 1 || \
+           test ${major_version} -eq 1 -a ${minor_version} -lt 8; then
+            RUN_MKCONFIG=true
+        fi
+    else
+        RUN_MKCONFIG=true
+    fi
+fi
+
+if [[ $DISABLE_BLS = "true" ]]; then
+    if grep -q '^GRUB_ENABLE_BLSCFG="*true"*\s*$' /etc/default/grub; then
+	sed -i 's/^GRUB_ENABLE_BLSCFG=.*/GRUB_ENABLE_BLSCFG=false/' /etc/default/grub
+    fi
+fi
+
+# A traditional grub configuration file needs to be generated only in the case when
+# the bootloaders are not capable of populating a menu entry from the BLS fragments.
+if [[ $RUN_MKCONFIG != "true" ]]; then
+    exit 0
+fi
+
+[[ -f /etc/default/grub ]] && . /etc/default/grub
+
+COMMAND="$1"
+
+case "$COMMAND" in
+    add|remove)
+        grub2-mkconfig --no-grubenv-update -o /boot/grub2/grub.cfg >& /dev/null
+        ;;
+    *)
+        ;;
+esac

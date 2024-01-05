@@ -1,0 +1,343 @@
+diff --git a/dri3proto.pc.in b/dri3proto.pc.in
+index 7725bc5cbf98da9c5a69f5b4e8d1b71bf4dfc6b9..be6ccb953cf241cd235834bf11945148cfb62b21 100644
+--- a/dri3proto.pc.in
++++ b/dri3proto.pc.in
+@@ -3,5 +3,5 @@ includedir=@includedir@
+
+ Name: DRI3Proto
+ Description: DRI3 extension headers
+-Version: 1.3
++Version: 1.4
+ Cflags: -I${includedir}
+diff --git a/dri3proto.txt b/dri3proto.txt
+index 3f9275681f01de5f1a7f4989f10454b7757c35b7..07d11528f5133306a7ad876e1752c80983090148 100644
+--- a/dri3proto.txt
++++ b/dri3proto.txt
+@@ -1,5 +1,5 @@
+ 			  The DRI3 Extension
+-			     Version 1.3
++			     Version 1.4
+ 			      2021-11-30
+
+ 			    Keith Packard
+@@ -60,7 +60,7 @@ DRI3 defines no events.
+
+ 6. Protocol Types
+
+-DRI3 defines no new protocol types.
++SYNCOBJ { XID }
+
+ 			     ❄ ❄ ❄  ❄  ❄ ❄ ❄
+
+@@ -395,6 +395,36 @@ The name of this extension is "DRI3"
+ 	If the window specified was not found, a Window error will
+ 	be returned.
+
++
++┌───
++    DRI3ImportSyncobj
++	syncobj: SYNCOBJ
++	drawable: DRAWABLE
++	fd: FD
++└───
++	Errors: IDchoice, Drawable
++
++	Imports the DRM synchronization object bound to the given 'fd'.  This
++	may then be used to enable explicit synchronization with the the
++	server-side direct rendering device associated with 'drawable'.
++
++	The provided syncobj must be a timeline syncobj.
++
++	If 'drawable' is not found, a Drawable error will be returned.
++
++
++┌───
++    DRI3FreeSyncobj
++	syncobj: SYNCOBJ
++└───
++	Errors: Value
++
++	Indicates that any resources associated with the given 'syncobj' should
++	be released by the server. The actual release may be deferred until any
++	pending operations that depend on the object have completed.
++
++	If 'syncobj' is not found, a Value error will be returned.
++
+ 			     ❄ ❄ ❄  ❄  ❄ ❄ ❄
+
+ 9. Extension Events
+@@ -703,6 +733,24 @@ A.2 Protocol Requests
+ 	4	CARD32			drmMinor
+ └───
+
++┌───
++    DRI3ImportSyncobj
++	1	CARD8			major opcode
++	1	11			DRI3 opcode
++	2	3			length
++	4	SYNCOBJ			syncobj
++	4	Drawable		drawable
++	0	FD			syncobj fd
++└───
++
++┌───
++    DRI3FreeSyncobj
++	1	CARD8			major opcode
++	1	12			DRI3 opcode
++	2	2			length
++	4	SYNCOBJ			syncobj
++└───
++
+ A.3 Protocol Events
+
+ The DRI3 extension defines no events.
+diff --git a/include/X11/extensions/dri3proto.h b/include/X11/extensions/dri3proto.h
+index 9cba105dd66acb2272a9bd7e0ad6df5a7f052c26..d941860e48dfd24db33402961f7b16e5ea55f9c2 100644
+--- a/include/X11/extensions/dri3proto.h
++++ b/include/X11/extensions/dri3proto.h
+@@ -25,7 +25,7 @@
+
+ #define DRI3_NAME			"DRI3"
+ #define DRI3_MAJOR			1
+-#define DRI3_MINOR			3
++#define DRI3_MINOR			4
+
+ #define DRI3NumberErrors		0
+ #define DRI3NumberEvents		0
+@@ -45,7 +45,13 @@
+ /* v1.3 */
+ #define xDRI3SetDRMDeviceInUse  9
+
+-#define DRI3NumberRequests		10
++/* v1.4 */
++#define xDRI3ImportSyncobj	10
++#define xDRI3FreeSyncobj	11
++
++#define DRI3NumberRequests		12
++
++#define DRI3Syncobj CARD32
+
+ typedef struct {
+     CARD8   reqType;
+@@ -261,4 +267,22 @@ typedef struct {
+ } xDRI3SetDRMDeviceInUseReq;
+ #define sz_xDRI3SetDRMDeviceInUseReq    16
+
++/* v1.4 */
++typedef struct {
++    CARD8        reqType;
++    CARD8        dri3ReqType;
++    CARD16       length;
++    DRI3Syncobj  syncobj;
++    CARD32       drawable;
++} xDRI3ImportSyncobjReq;
++#define sz_xDRI3ImportSyncobjReq 12
++
++typedef struct {
++    CARD8        reqType;
++    CARD8        dri3ReqType;
++    CARD16       length;
++    DRI3Syncobj  syncobj;
++} xDRI3FreeSyncobjReq;
++#define sz_xDRI3FreeSyncobjReq 8
++
+ #endif
+diff --git a/include/X11/extensions/presentproto.h b/include/X11/extensions/presentproto.h
+index d8dc6d271bac93c841180f8fa3682baa544088ee..ea8086312a03ca91e1775c3d7e2119ca84768924 100644
+--- a/include/X11/extensions/presentproto.h
++++ b/include/X11/extensions/presentproto.h
+@@ -24,6 +24,7 @@
+ #define _PRESENT_PROTO_H_
+
+ #include <X11/extensions/presenttokens.h>
++#include <X11/extensions/dri3proto.h>
+
+ #define Window CARD32
+ #define Pixmap CARD32
+@@ -136,6 +137,37 @@ typedef struct {
+ } xPresentQueryCapabilitiesReply;
+ #define sz_xPresentQueryCapabilitiesReply       32
+
++typedef struct {
++    CARD8   reqType;
++    CARD8   presentReqType;
++    CARD16  length;
++    Window  window;
++
++    Pixmap  pixmap;
++    CARD32  serial;
++
++    Region  valid;
++    Region  update;
++
++    INT16   x_off;
++    INT16   y_off;
++    CARD32  target_crtc;
++
++    DRI3Syncobj acquire_syncobj;
++    DRI3Syncobj release_syncobj;
++    CARD64 acquire_point;
++    CARD64 release_point;
++
++    CARD32  options;
++    CARD32  pad1;
++
++    CARD64  target_msc;
++    CARD64  divisor;
++    CARD64  remainder;
++    /* followed by a LISTofPRESENTNOTIFY */
++} xPresentPixmapSyncedReq;
++#define sz_xPresentPixmapSyncedReq	88
++
+ /*
+  * Events
+  *
+diff --git a/include/X11/extensions/presenttokens.h b/include/X11/extensions/presenttokens.h
+index 400e84d8f0a0eeab9e2ffdfffe6fc7d3d506c556..fae10fddb11b1ceaafbf45f0e9e74d8afa575aa3 100644
+--- a/include/X11/extensions/presenttokens.h
++++ b/include/X11/extensions/presenttokens.h
+@@ -36,8 +36,9 @@
+ #define X_PresentNotifyMSC		2
+ #define X_PresentSelectInput		3
+ #define X_PresentQueryCapabilities      4
++#define X_PresentPixmapSynced		5
+
+-#define PresentNumberRequests		5
++#define PresentNumberRequests		6
+
+ /* Present operation options */
+ #define PresentOptionNone               0
+@@ -62,11 +63,13 @@
+ #define PresentCapabilityFence          2
+ #define PresentCapabilityUST            4
+ #define PresentCapabilityAsyncMayTear   8
++#define PresentCapabilitySyncobj        16
+
+ #define PresentAllCapabilities  (PresentCapabilityAsync | \
+                                  PresentCapabilityFence | \
+                                  PresentCapabilityUST | \
+-                                 PresentCapabilityAsyncMayTear)
++                                 PresentCapabilityAsyncMayTear | \
++                                 PresentCapabilitySyncobj)
+
+ #define PresentAllAsyncCapabilities (PresentCapabilityAsync | PresentCapabilityAsyncMayTear)
+
+diff --git a/presentproto.txt b/presentproto.txt
+index b47409388ba31f359e21915c6f0938b354b049a9..c2f717ea272c5a38f65fd130feab6fd454454e35 100644
+--- a/presentproto.txt
++++ b/presentproto.txt
+@@ -1,5 +1,5 @@
+ 			The Present Extension
+-			     Version 1.3
++			     Version 1.4
+ 			      2023-06-13
+
+ 			    Keith Packard
+@@ -63,7 +63,8 @@ PRESENTOPTION { PresentOptionAsync,
+ PRESENTCAPABILITY { PresentCapabilityAsync,
+ 		    PresentCapabilityFence,
+ 		    PresentCapabilityUST,
+-		    PresentCapabilityAsyncMayTear }
++		    PresentCapabilityAsyncMayTear,
++		    PresentCapabilitySyncobj }
+
+ PRESENTCOMPLETEKIND { PresentCompleteKindPixmap,
+ 		      PresentCompleteKindMSCNotify }
+@@ -359,6 +360,65 @@ The name of this extension is "Present"
+ 	defined by the extension, but is expected to be on the order
+ 	of milliseconds or less.
+
++	PresentCapabilitySyncobj means that the target device supports
++	explicit synchronization using timeline DRM synchronization
++	objects. See the PresentPixmapSynced request for details.
++
++┌───
++    PresentPixmapSynced
++	window: WINDOW
++	pixmap: PIXMAP
++	serial: CARD32
++	valid-area: REGION or None
++	update-area: REGION or None
++	x-off, y-off: INT16
++	target-crtc: CRTC or None
++	acquire-syncobj: SYNCOBJ or None
++	release-syncobj: SYNCOBJ or None
++	acquire-point: CARD64
++	release-point: CARD64
++	options: SETofPRESENTOPTION
++	target-msc: CARD64
++	divisor: CARD64
++	remainder: CARD64
++	notifies: LISTofPRESENTNOTIFY
++└───
++	Errors: Window, Pixmap, Match, Value
++
++	Identical to the PresentPixmap request, except that instead of the
++	'wait-fence' and 'idle-fence' arguments it accepts mandatory
++	'acquire-syncobj' and 'release-syncobj' arguments, along with
++	corresponding acquire and release points, to be used for explicit
++	timeline-based GPU synchronization. The 'acquire-point' and
++	'release-point' are assumed to correspond to timeline points on the
++	respective DRM syncobjs.
++
++	The contents of the Pixmap will not be accessed by the server until the
++	'acquire-point' on the acquire timeline has been signaled by the
++	client. The fence need not be submitted at the time the
++	PresentPixmapSynced request is issued.
++
++	Once the 'release-point' on the release timeline has been signaled, the
++	client may assume that no further GPU or CPU access to the Pixmap by
++	the server will occur as part of the originating PresentPixmapSynced
++	request.  Note that this is a stronger guarantee than what is provided
++	by the 'idle-fence' argument of the PresentPixmap request or the
++	delivery of a PresentIdleNotify event, as those do not necessarily
++	imply that the Pixmap is idle on the GPU.
++
++	The server may wait for the acquire point and signal the release point
++	itself, as will typically happen if the request is executed by copying
++	the Pixmap's contents. Alternatively, it may forward the timelines,
++	acquire, and release points to an output sink directly, provided that
++	sink also supports explicit synchronization using DRM syncobjs.
++
++	If the server does not support PresentCapabilitySyncobj, a Value error
++	is generated.
++
++	If either 'acquire-syncobj' or 'release-syncobj' are None or do not
++	refer to previously imported syncobjs or 'acquire-point' or
++	'release-point' is zero, a Value error is generated.
++
+
+ 7.1 Requests proposed for a later Present extension version
+
+@@ -729,6 +789,31 @@ A.2 Protocol Requests
+ 	4	SETofPRESENTCAPABILITY	capabilities
+ └───
+
++┌───
++    PresentPixmapSynced
++	1	CARD8			major opcode
++	1	5			Present opcode
++	2	22+2n			length
++	4	Window			window
++	4	Pixmap			pixmap
++	4	CARD32			serial
++	4	Region			valid-area
++	4	Region			update-area
++	2	INT16			x-off
++	2	INT16			y-off
++	4	CRTC			target-crtc
++	4	SYNCOBJ			acquire-syncobj
++	4	SYNCOBJ			release-syncobj
++	8	CARD64			acquire-point
++	8	CARD64			release-point
++	4	CARD32			options
++	4				unused
++	8	CARD64			target-msc
++	8	CARD64			divisor
++	8	CARD64			remainder
++	8n	LISTofPresentNotify	notifies
++└───
++
+ A.3 Protocol Events
+
+ ┌───

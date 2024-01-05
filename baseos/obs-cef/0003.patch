@@ -1,0 +1,4344 @@
+From bbc875c6c8b5aecc176141a7a88002631ee1bad2 Mon Sep 17 00:00:00 2001
+From: Maksim Sisov <msisov@igalia.com>
+Date: Mon, 3 Feb 2020 13:39:11 +0200
+Subject: [PATCH] add wayland
+
+Wayland: fix keyboard input
+
+This patch fixes keyboard input by allowing the client to
+disable or enable keyboard focus.
+
+If the client looses focus from Wayland point of view (it sends
+keyboard leave event), Chromium/Wayland window notices that and
+disables input on the subsurface it has and also disable keyboard
+input. This is needed to let the client receive mouse/touch input
+events happening in the embedding surface. Otherwise, Wayland
+won't activate the client window until users clicks on its native
+surface. This way, we let wayland know that it must pass the
+mouse/touch events to the root window.
+
+Once the Chromium/Wayland sees the top level parent window gets
+keyboard enter event, it sets input region back and sets the keyboard
+focus. It's now the responsibility of the client to check the keyboard
+focus and disable it if it wants to get all the keyboard events.
+
+wayland: xdg: attach buffer only after the surface was ack configured
+
+wayland: host can be null
+
+wayland: fix bounds
+
+wayland: don't stop window state change messages
+
+wayland: fix race on close
+
+osr
+
+wayland
+---
+ BUILD.gn                                      |   44 +-
+ cef_paths2.gypi                               |    2 -
+ include/capi/cef_browser_capi.h               |   23 +
+ include/cef_browser.h                         |   31 +
+ include/internal/cef_linux.h                  |   41 +-
+ include/internal/cef_types_linux.h            |   15 +
+ libcef/browser/browser_host_impl.cc           |   16 +
+ libcef/browser/browser_host_impl.h            |    4 +
+ libcef/browser/browser_platform_delegate.cc   |   11 +
+ libcef/browser/browser_platform_delegate.h    |    5 +
+ .../browser_platform_delegate_native_linux.cc |   30 +-
+ .../browser_platform_delegate_native_linux.h  |    3 +
+ .../native/cef_window_factory_ozone.cc        |   44 +
+ .../browser/native/cef_window_factory_ozone.h |   24 +
+ libcef/browser/native/native_window_linux.h   |    8 +-
+ libcef/browser/native/window_wayland_ozone.cc |  261 +++
+ libcef/browser/native/window_wayland_ozone.h  |  109 +
+ libcef/browser/native/window_x11_base.cc      |   15 +
+ libcef/browser/native/window_x11_base.h       |    3 +
+ libcef_dll/cpptoc/browser_host_cpptoc.cc      |   54 +
+ libcef_dll/ctocpp/browser_host_ctocpp.cc      |   52 +
+ libcef_dll/ctocpp/browser_host_ctocpp.h       |    4 +
+ patch/patch.cfg                               |    5 +
+ ...e_wayland_for_external_clients_usage.patch | 1936 +++++++++++++++++
+ tests/cefclient/browser/browser_window.cc     |    8 +
+ tests/cefclient/browser/browser_window.h      |    3 +
+ .../browser/browser_window_osr_gtk.cc         |   34 +-
+ .../browser/browser_window_std_gtk.cc         |  136 +-
+ .../browser/browser_window_std_gtk.h          |   18 -
+ .../browser/browser_window_std_gtk_wayland.cc |  101 +
+ .../browser/browser_window_std_gtk_wayland.h  |   42 +
+ .../browser/browser_window_std_gtk_x11.cc     |  160 ++
+ .../browser/browser_window_std_gtk_x11.h      |   44 +
+ .../main_message_loop_multithreaded_gtk.cc    |    2 +
+ tests/cefclient/browser/root_window_gtk.cc    |   87 +-
+ tests/cefclient/browser/root_window_gtk.h     |    9 +
+ tests/cefclient/browser/temp_window.h         |    4 +-
+ .../browser/temp_window_wrapper_linux.cc      |   43 +
+ .../browser/temp_window_wrapper_linux.h       |   43 +
+ tests/cefclient/browser/temp_window_x11.cc    |   10 +-
+ tests/cefclient/browser/temp_window_x11.h     |   15 +-
+ tests/cefclient/cefclient_gtk.cc              |   12 +
+ tools/make_config_header.py                   |   46 +-
+ 43 files changed, 3330 insertions(+), 227 deletions(-)
+ create mode 100644 libcef/browser/native/cef_window_factory_ozone.cc
+ create mode 100644 libcef/browser/native/cef_window_factory_ozone.h
+ create mode 100644 libcef/browser/native/window_wayland_ozone.cc
+ create mode 100644 libcef/browser/native/window_wayland_ozone.h
+ create mode 100644 patch/patches/extend_ozone_wayland_for_external_clients_usage.patch
+ create mode 100644 tests/cefclient/browser/browser_window_std_gtk_wayland.cc
+ create mode 100644 tests/cefclient/browser/browser_window_std_gtk_wayland.h
+ create mode 100644 tests/cefclient/browser/browser_window_std_gtk_x11.cc
+ create mode 100644 tests/cefclient/browser/browser_window_std_gtk_x11.h
+ create mode 100644 tests/cefclient/browser/temp_window_wrapper_linux.cc
+ create mode 100644 tests/cefclient/browser/temp_window_wrapper_linux.h
+
+diff --git a/BUILD.gn b/BUILD.gn
+index d68365fd..38ac308d 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -897,6 +897,13 @@ static_library("libcef_static") {
+       "libcef/browser/printing/print_dialog_linux.h",
+     ]
+
++    if (use_ozone) {
++      sources += [
++        "libcef/browser/native/cef_window_factory_ozone.cc",
++        "libcef/browser/native/cef_window_factory_ozone.h",
++      ]
++    }
++
+     if (use_x11 || ozone_platform_x11) {
+       sources += [
+         "libcef/browser/native/window_x11_base.cc",
+@@ -916,6 +923,15 @@ static_library("libcef_static") {
+       }
+     }
+
++    if (ozone_platform_wayland) {
++      sources += [
++        "libcef/browser/native/window_wayland_ozone.cc",
++        "libcef/browser/native/window_wayland_ozone.h",
++      ]
++      # Needed to reuse the same connection.
++      deps += [ "//ui/ozone/platform/wayland" ]
++    }
++
+     deps += [
+       "//build/config/freetype",
+       "//third_party/fontconfig",
+@@ -2179,15 +2195,35 @@ if (is_mac) {
+                  gypi_paths2.shared_sources_linux +
+                  gypi_paths2.cefclient_sources_linux
+
++      sources += [
++        "tests/cefclient/browser/temp_window_wrapper_linux.cc",
++        "tests/cefclient/browser/temp_window_wrapper_linux.h",
++      ]
++
+       deps += [
+         ":copy_cefclient_files",
+         ":copy_cefclient_files_extensions_set_page_color",
+       ]
+
+-      libs = [
+-        "X11",
+-        "GL",
+-      ]
++      libs = [ "GL" ]
++
++      if (use_x11 || ozone_platform_x11) {
++        sources += [
++          "tests/cefclient/browser/browser_window_std_gtk_x11.cc",
++          "tests/cefclient/browser/browser_window_std_gtk_x11.h",
++          "tests/cefclient/browser/temp_window_x11.cc",
++          "tests/cefclient/browser/temp_window_x11.h",
++        ]
++
++        libs += [ "X11" ]
++      }
++
++      if (ozone_platform_wayland) {
++        sources += [
++          "tests/cefclient/browser/browser_window_std_gtk_wayland.cc",
++          "tests/cefclient/browser/browser_window_std_gtk_wayland.h",
++        ]
++      }
+
+       if (cef_use_gtk) {
+         configs += [
+diff --git a/cef_paths2.gypi b/cef_paths2.gypi
+index e78648df..665d0263 100644
+--- a/cef_paths2.gypi
++++ b/cef_paths2.gypi
+@@ -404,8 +404,6 @@
+       'tests/cefclient/browser/root_window_gtk.h',
+       'tests/cefclient/browser/root_window_views.cc',
+       'tests/cefclient/browser/root_window_views.h',
+-      'tests/cefclient/browser/temp_window_x11.cc',
+-      'tests/cefclient/browser/temp_window_x11.h',
+       'tests/cefclient/browser/util_gtk.cc',
+       'tests/cefclient/browser/util_gtk.h',
+       'tests/cefclient/browser/views_menu_bar.cc',
+diff --git a/include/capi/cef_browser_capi.h b/include/capi/cef_browser_capi.h
+index 81182c42..8866898c 100644
+--- a/include/capi/cef_browser_capi.h
++++ b/include/capi/cef_browser_capi.h
+@@ -852,6 +852,29 @@ typedef struct _cef_browser_host_t {
+   // be called on the UI thread.
+   ///
+   int(CEF_CALLBACK* is_audio_muted)(struct _cef_browser_host_t* self);
++
++  ///
++  // Sets the size of the host browser window.
++  ///
++  void(CEF_CALLBACK* set_host_size)(struct _cef_browser_host_t* self,
++                                    const cef_size_t* size);
++
++  ///
++  // Reparents native window. See comment in CefBrowserHost.
++  ///
++  void(CEF_CALLBACK* reparent_window)(struct _cef_browser_host_t* self,
++                                     const cef_window_info_t* windowInfo);
++
++  ///
++  // Says if the native window has keyboard focus. Usable only for Wayland.
++  ///
++  bool(CEF_CALLBACK* has_keyboard_focus)(struct _cef_browser_host_t* self);
++
++  ///
++  // Sets keyboard focus for the native window. Usable only for Wayland.
++  ///
++  void(CEF_CALLBACK* set_keyboard_focus)(struct _cef_browser_host_t* self,
++                                         bool focus);
+ } cef_browser_host_t;
+
+ ///
+diff --git a/include/cef_browser.h b/include/cef_browser.h
+index 79c9259b..02b25543 100644
+--- a/include/cef_browser.h
++++ b/include/cef_browser.h
+@@ -883,6 +883,37 @@ class CefBrowserHost : public virtual CefBaseRefCounted {
+   ///
+   /*--cef()--*/
+   virtual bool IsAudioMuted() = 0;
++
++  ///
++  // Sets the size of the native browser window.
++  ///
++  /*--cef()--*/
++  virtual void SetHostSize(const CefSize& size) = 0;
++
++  ///
++  // Passes a new parent handle through |window_info|. The reason why this
++  // method doesn't has a handle argument, but instead uses the CefWindowInfo,
++  // is that Wayland requires a handle type to be "wl_surface", which is
++  // incompatible with X11, Windows and others.
++  ///
++  /*--cef()--*/
++  virtual void ReparentWindow(const CefWindowInfo& windowInfo) = 0;
++
++  ///
++  // Returns true if the native CEF browser window has keyboard focus. Works
++  // only on Linux/Wayland platforms at the moment.
++  //
++  ///
++  /*--cef()--*/
++  virtual bool HasKeyboardFocus() const = 0;
++
++  ///
++  // Sets keyboard focus for the native CEF browser window. Works only on
++  // Linux/Wayland platforms at the moment.
++  //
++  ///
++  /*--cef()--*/
++  virtual void SetKeyboardFocus(bool focus) = 0;
+ };
+
+ #endif  // CEF_INCLUDE_CEF_BROWSER_H_
+diff --git a/include/internal/cef_linux.h b/include/internal/cef_linux.h
+index a247d448..df88ff3f 100644
+--- a/include/internal/cef_linux.h
++++ b/include/internal/cef_linux.h
+@@ -39,6 +39,11 @@
+ #define CefEventHandle cef_event_handle_t
+ #define CefWindowHandle cef_window_handle_t
+
++#if defined(CEF_OZONE_WAYLAND)
++#define CefWaylandSurfaceHandle cef_wayland_surface_handle_t
++#define CefWaylandDisplayHandle cef_wayland_display_handle_t
++#endif
++
+ struct CefMainArgsTraits {
+   typedef cef_main_args_t struct_type;
+
+@@ -90,6 +95,11 @@ struct CefWindowInfoTraits {
+     target->shared_texture_enabled = src->shared_texture_enabled;
+     target->external_begin_frame_enabled = src->external_begin_frame_enabled;
+     target->window = src->window;
++
++#if defined(CEF_OZONE_WAYLAND)
++    target->parent_wayland_surface = src->parent_wayland_surface;
++    target->wayland_display_handle = src->wayland_display_handle;
++#endif
+   }
+ };
+
+@@ -107,12 +117,20 @@ class CefWindowInfo : public CefStructBase<CefWindowInfoTraits> {
+   ///
+   void SetAsChild(CefWindowHandle parent, const CefRect& windowRect) {
+     parent_window = parent;
+-    x = windowRect.x;
+-    y = windowRect.y;
+-    width = windowRect.width;
+-    height = windowRect.height;
++    SetRect(windowRect);
+   }
+
++#if defined(CEF_OZONE_WAYLAND)
++  void SetAsChild(CefWaylandSurfaceHandle parent, const CefRect& windowRect) {
++    parent_wayland_surface = parent;
++    SetRect(windowRect);
++  }
++
++  void SetWaylandDisplay(CefWaylandDisplayHandle handle) {
++    wayland_display_handle = handle;
++  }
++#endif
++
+   ///
+   // Create the browser using windowless (off-screen) rendering. No window
+   // will be created for the browser and all rendering will occur via the
+@@ -129,6 +147,21 @@ class CefWindowInfo : public CefStructBase<CefWindowInfoTraits> {
+     windowless_rendering_enabled = true;
+     parent_window = parent;
+   }
++
++#if defined(CEF_OZONE_WAYLAND)
++  void SetAsWindowless(CefWaylandSurfaceHandle parent) {
++    windowless_rendering_enabled = true;
++    parent_wayland_surface = parent;
++  }
++#endif
++
++  private:
++    void SetRect(const CefRect& windowRect) {
++      x = windowRect.x;
++      y = windowRect.y;
++      width = windowRect.width;
++      height = windowRect.height;
++    }
+ };
+
+ #endif  // CEF_INCLUDE_INTERNAL_CEF_LINUX_H_
+diff --git a/include/internal/cef_types_linux.h b/include/internal/cef_types_linux.h
+index ded7745b..78c8fca7 100644
+--- a/include/internal/cef_types_linux.h
++++ b/include/internal/cef_types_linux.h
+@@ -41,6 +41,11 @@ typedef union _XEvent XEvent;
+ typedef struct _XDisplay XDisplay;
+ #endif
+
++#if defined(CEF_OZONE_WAYLAND)
++typedef struct wl_surface wayland_surface;
++typedef struct wl_display wayland_display;
++#endif
++
+ #include "include/internal/cef_export.h"
+ #include "include/internal/cef_string.h"
+
+@@ -55,6 +60,11 @@ typedef struct _XDisplay XDisplay;
+
+ #define cef_window_handle_t unsigned long
+
++#if defined(CEF_OZONE_WAYLAND)
++#define cef_wayland_surface_handle_t wayland_surface*
++#define cef_wayland_display_handle_t wayland_display*
++#endif
++
+ #define kNullCursorHandle 0
+ #define kNullEventHandle NULL
+ #define kNullWindowHandle 0
+@@ -103,6 +113,11 @@ typedef struct _cef_window_info_t {
+   ///
+   cef_window_handle_t parent_window;
+
++ #if defined(CEF_OZONE_WAYLAND)
++  cef_wayland_surface_handle_t parent_wayland_surface;
++  cef_wayland_display_handle_t wayland_display_handle;
++#endif
++
+   ///
+   // Set to true (1) to create the browser using windowless (off-screen)
+   // rendering. No window will be created for the browser and all rendering will
+diff --git a/libcef/browser/browser_host_impl.cc b/libcef/browser/browser_host_impl.cc
+index b028e5d1..42318f30 100644
+--- a/libcef/browser/browser_host_impl.cc
++++ b/libcef/browser/browser_host_impl.cc
+@@ -1990,6 +1990,22 @@ bool CefBrowserHostImpl::IsAudioMuted() {
+   return web_contents()->IsAudioMuted();
+ }
+
++void CefBrowserHostImpl::SetHostSize(const CefSize& size) {
++  platform_delegate_->SizeTo(size.width, size.height);
++}
++
++void CefBrowserHostImpl::ReparentWindow(const CefWindowInfo& windowInfo) {
++  platform_delegate_->ReparentWindow(windowInfo);
++}
++
++bool CefBrowserHostImpl::HasKeyboardFocus() const {
++  return platform_delegate_->HasKeyboardFocus();
++}
++
++void CefBrowserHostImpl::SetKeyboardFocus(bool focus) {
++  platform_delegate_->SetKeyboardFocus(focus);
++}
++
+ // content::WebContentsDelegate methods.
+ // -----------------------------------------------------------------------------
+
+diff --git a/libcef/browser/browser_host_impl.h b/libcef/browser/browser_host_impl.h
+index dbc4cfc1..d2098e29 100644
+--- a/libcef/browser/browser_host_impl.h
++++ b/libcef/browser/browser_host_impl.h
+@@ -238,6 +238,10 @@ class CefBrowserHostImpl : public CefBrowserHost,
+   void DragSourceEndedAt(int x, int y, DragOperationsMask op) override;
+   void SetAudioMuted(bool mute) override;
+   bool IsAudioMuted() override;
++  void SetHostSize(const CefSize& size) override;
++  void ReparentWindow(const CefWindowInfo& windowInfo) override;
++  bool HasKeyboardFocus() const override;
++  void SetKeyboardFocus(bool focus) override;
+   CefRefPtr<CefNavigationEntry> GetVisibleNavigationEntry() override;
+   void SetAccessibilityState(cef_state_t accessibility_state) override;
+   void SetAutoResizeEnabled(bool enabled,
+diff --git a/libcef/browser/browser_platform_delegate.cc b/libcef/browser/browser_platform_delegate.cc
+index 5a779062..917e2305 100644
+--- a/libcef/browser/browser_platform_delegate.cc
++++ b/libcef/browser/browser_platform_delegate.cc
+@@ -137,6 +137,17 @@ void CefBrowserPlatformDelegate::SetWindowlessFrameRate(int frame_rate) {
+   NOTREACHED();
+ }
+
++void CefBrowserPlatformDelegate::ReparentWindow(const CefWindowInfo& windowInfo) {
++  // TODO: Ideally, this can be done for x11 as well.
++  NOTREACHED() << "This path is supported only by Wayland.";
++}
++
++bool CefBrowserPlatformDelegate::HasKeyboardFocus() {
++  return false;
++}
++
++void CefBrowserPlatformDelegate::SetKeyboardFocus(bool focu) {}
++
+ void CefBrowserPlatformDelegate::ImeSetComposition(
+     const CefString& text,
+     const std::vector<CefCompositionUnderline>& underlines,
+diff --git a/libcef/browser/browser_platform_delegate.h b/libcef/browser/browser_platform_delegate.h
+index a14c7ff4..cec3ad8a 100644
+--- a/libcef/browser/browser_platform_delegate.h
++++ b/libcef/browser/browser_platform_delegate.h
+@@ -229,6 +229,11 @@ class CefBrowserPlatformDelegate {
+   // Set the windowless frame rate. Only used with windowless rendering.
+   virtual void SetWindowlessFrameRate(int frame_rate);
+
++  virtual void ReparentWindow(const CefWindowInfo& windowInfo);
++
++  virtual bool HasKeyboardFocus();
++  virtual void SetKeyboardFocus(bool focus);
++
+   // IME-related callbacks. See documentation in CefBrowser and
+   // CefRenderHandler. Only used with windowless rendering.
+   virtual void ImeSetComposition(
+diff --git a/libcef/browser/native/browser_platform_delegate_native_linux.cc b/libcef/browser/native/browser_platform_delegate_native_linux.cc
+index c842c506..b570895c 100644
+--- a/libcef/browser/native/browser_platform_delegate_native_linux.cc
++++ b/libcef/browser/native/browser_platform_delegate_native_linux.cc
+@@ -31,9 +31,8 @@
+ #include "libcef/browser/native/window_x11.h"
+ #endif
+
+-#if defined(CEF_OZONE_X11)
+-#include "libcef/browser/native/window_x11_ozone.h"
+-#include "ui/ozone/public/ozone_platform.h"
++#if defined(USE_OZONE)
++#include "libcef/browser/native/cef_window_factory_ozone.h"
+ #endif
+
+ namespace {
+@@ -88,15 +87,9 @@ bool CefBrowserPlatformDelegateNativeLinux::CreateHostWindow() {
+       new CefWindowX11(browser_, window_info_.parent_window, rect,
+                        CefString(&window_info_.window_name).ToString());
+ #else
+-  const std::string platform_name = ui::OzonePlatform::GetPlatformName();
+-  if (platform_name == "x11") {
+-    native_window_ =
+-        new CefWindowX11Ozone(browser_, window_info_.parent_window, rect,
+-                              CefString(&window_info_.window_name).ToString());
+-  } else {
+-    NOTREACHED() << "Not supported platform: Ozone/"
+-                 << ui::OzonePlatform::GetPlatformName();
+-  }
++  native_window_ =
++    CefNativeWindowFactoryOzone::CreateCefNativeWindow(
++      browser_, window_info_, rect, CefString(&window_info_.window_name).ToString());
+ #endif
+   DCHECK(native_window_);
+   window_info_.window = native_window_->GetAcceleratedWidget();
+@@ -290,6 +283,19 @@ gfx::Size CefBrowserPlatformDelegateNativeLinux::GetMaximumDialogSize() {
+   return GetWindowWidget()->GetWindowBoundsInScreen().size();
+ }
+
++void CefBrowserPlatformDelegateNativeLinux::ReparentWindow(const CefWindowInfo& windowInfo) {
++  native_window_->ReparentWindow(windowInfo);
++}
++
++
++bool CefBrowserPlatformDelegateNativeLinux::HasKeyboardFocus() {
++  return native_window_->HasKeyboardFocus();
++}
++
++void CefBrowserPlatformDelegateNativeLinux::SetKeyboardFocus(bool focus) {
++  native_window_->SetKeyboardFocus(focus);
++}
++
+ ui::KeyEvent CefBrowserPlatformDelegateNativeLinux::TranslateUiKeyEvent(
+     const CefKeyEvent& key_event) const {
+   int flags = TranslateUiEventModifiers(key_event.modifiers);
+diff --git a/libcef/browser/native/browser_platform_delegate_native_linux.h b/libcef/browser/native/browser_platform_delegate_native_linux.h
+index 1fe8de39..03ffd713 100644
+--- a/libcef/browser/native/browser_platform_delegate_native_linux.h
++++ b/libcef/browser/native/browser_platform_delegate_native_linux.h
+@@ -35,6 +35,9 @@ class CefBrowserPlatformDelegateNativeLinux
+   std::unique_ptr<CefMenuRunner> CreateMenuRunner() override;
+   gfx::Point GetDialogPosition(const gfx::Size& size) override;
+   gfx::Size GetMaximumDialogSize() override;
++  void ReparentWindow(const CefWindowInfo& windowInfo) override;
++  bool HasKeyboardFocus() override;
++  void SetKeyboardFocus(bool focus) override;
+
+   // CefBrowserPlatformDelegateNativeAura methods:
+   ui::KeyEvent TranslateUiKeyEvent(const CefKeyEvent& key_event) const override;
+diff --git a/libcef/browser/native/cef_window_factory_ozone.cc b/libcef/browser/native/cef_window_factory_ozone.cc
+new file mode 100644
+index 00000000..565a7248
+--- /dev/null
++++ b/libcef/browser/native/cef_window_factory_ozone.cc
+@@ -0,0 +1,44 @@
++// Copyright 2020 The Chromium Embedded Framework Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#include "libcef/browser/native/cef_window_factory_ozone.h"
++
++#include <memory>
++
++#include "include/internal/cef_linux.h"
++
++#if defined(CEF_OZONE_X11)
++#include "libcef/browser/native/window_x11_ozone.h"
++#endif
++#if defined(CEF_OZONE_WAYLAND)
++#include "libcef/browser/native/window_wayland_ozone.h"
++#endif
++
++#include "base/memory/ptr_util.h"
++#include "ui/ozone/public/ozone_platform.h"
++
++// static
++CefNativeWindowLinux* CefNativeWindowFactoryOzone::CreateCefNativeWindow(
++    CefRefPtr<CefBrowserHostImpl> browser,
++    const CefWindowInfo& window_info,
++    const gfx::Rect& bounds,
++    const std::string& title) {
++  const std::string platform_name = ui::OzonePlatform::GetPlatformName();
++#if defined(CEF_OZONE_X11)
++  if (platform_name == "x11") {
++    return new CefWindowX11Ozone(browser, window_info.parent_window, bounds,
++                                 title);
++  }
++#endif
++#if defined(CEF_OZONE_WAYLAND)
++  if (platform_name == "wayland") {
++    return new CefWindowWaylandOzone(
++        browser, window_info.parent_wayland_surface,
++        window_info.wayland_display_handle, bounds, title);
++  }
++#endif
++  NOTREACHED() << "Not supported platform: Ozone/"
++               << ui::OzonePlatform::GetPlatformName();
++  return nullptr;
++}
+diff --git a/libcef/browser/native/cef_window_factory_ozone.h b/libcef/browser/native/cef_window_factory_ozone.h
+new file mode 100644
+index 00000000..d8577371
+--- /dev/null
++++ b/libcef/browser/native/cef_window_factory_ozone.h
+@@ -0,0 +1,24 @@
++// Copyright 2020 The Chromium Embedded Framework Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#ifndef CEF_LIBCEF_BROWSER_NATIVE_CEF_WINDOW_FACTORY_OZONE_H_
++#define CEF_LIBCEF_BROWSER_NATIVE_CEF_WINDOW_FACTORY_OZONE_H_
++
++#include "include/internal/cef_types_linux.h"
++#include "libcef/browser/browser_host_impl.h"
++
++class CefNativeWindowLinux;
++class CefWindowInfo;
++
++class CefNativeWindowFactoryOzone {
++ public:
++  // Creates CefNativeWindowLinux based on the chosen OzonePlatform.
++  static CefNativeWindowLinux* CreateCefNativeWindow(
++      CefRefPtr<CefBrowserHostImpl> browser,
++      const CefWindowInfo& window_info,
++      const gfx::Rect& bounds,
++      const std::string& title);
++};
++
++#endif  // CEF_LIBCEF_BROWSER_NATIVE_CEF_WINDOW_FACTORY_OZONE_H_
+diff --git a/libcef/browser/native/native_window_linux.h b/libcef/browser/native/native_window_linux.h
+index 350888e0..017d991e 100644
+--- a/libcef/browser/native/native_window_linux.h
++++ b/libcef/browser/native/native_window_linux.h
+@@ -39,6 +39,12 @@ class CefNativeWindowLinux {
+   virtual bool TopLevelAlwaysOnTop() const = 0;
+
+   virtual gfx::AcceleratedWidget GetAcceleratedWidget() const = 0;
++
++  virtual void ReparentWindow(const CefWindowInfo& windowInfo) = 0;
++
++  // Sets and returns whether the keyboard focus is set.
++  virtual bool HasKeyboardFocus() const = 0;
++  virtual void SetKeyboardFocus(bool focus) = 0;
+ };
+
+-#endif  // CEF_LIBCEF_BROWSER_NATIVE_NATIVE_WINDOW_LINUX_H_
+\ No newline at end of file
++#endif  // CEF_LIBCEF_BROWSER_NATIVE_NATIVE_WINDOW_LINUX_H_
+diff --git a/libcef/browser/native/window_wayland_ozone.cc b/libcef/browser/native/window_wayland_ozone.cc
+new file mode 100644
+index 00000000..3884f0b6
+--- /dev/null
++++ b/libcef/browser/native/window_wayland_ozone.cc
+@@ -0,0 +1,261 @@
++// Copyright 2020 The Chromium Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#include "cef/libcef/browser/native/window_wayland_ozone.h"
++
++#include "include/internal/cef_types_linux.h"
++#include "ui/events/platform/platform_event_source.h"
++#include "ui/gfx/geometry/rect.h"
++#include "ui/ozone/platform/wayland/host/wayland_connection.h"
++#include "ui/ozone/platform/wayland/host/wayland_shm_buffer.h"
++#include "ui/ozone/platform/wayland/host/wayland_window.h"
++#include "ui/ozone/platform/wayland/host/xdg_surface_wrapper_impl.h"
++#include "ui/ozone/public/ozone_platform.h"
++#include "ui/views/widget/desktop_aura/desktop_window_tree_host_linux.h"
++
++#include <wayland-client.h>
++
++CefWindowWaylandOzone::CefWindowWaylandOzone(
++    CefRefPtr<CefBrowserHostImpl> browser,
++    wl_surface* parent_wayland_surface,
++    wl_display* external_display,
++    const gfx::Rect& bounds,
++    const std::string& title)
++    : connection_(
++          ui::OzonePlatform::GetInstance()
++              ->MaybeInitializeWaylandWithExternalContext(external_display)),
++      bounds_(bounds),
++      title_(title),
++      browser_(browser),
++      parent_surface_(parent_wayland_surface),
++      surface_id_(connection_->GetNextIdForSurface()),
++      weak_ptr_factory_(this) {
++  if (!parent_surface_)
++    CreateWlSurface();
++
++  connection_->wayland_window_manager()->AddExternalWindow(surface_id_, this);
++}
++
++CefWindowWaylandOzone::~CefWindowWaylandOzone() {
++  connection_->wayland_window_manager()->RemoveExternalWindow(surface_id_);
++}
++
++void CefWindowWaylandOzone::Show() {
++  if (!parent_surface_) {
++    // TODO(msisov): use ShellObjectFactory once it can take delegate instead of
++    // WaylandWindow.
++    shell_surface_wrapper_ =
++        std::make_unique<ui::XDGSurfaceWrapperImpl>(this, connection_);
++    if (!shell_surface_wrapper_->Initialize(true /* with_top_level */))
++      LOG(FATAL) << "Failed to initialize xdg surface";
++
++    if (!title_.empty())
++      shell_surface_wrapper_->SetTitle(base::UTF8ToUTF16(title_));
++
++    connection_->ScheduleFlush();
++  }
++
++  auto* host = GetHost();
++  if (host) {
++    // We might need to propogate bounds so that they are properly set.
++    // Otherwise, the subsurface of the |host| can be shifted.
++    host->SetBoundsInPixels(bounds_);
++    host->ShowImpl();
++  }
++
++  connection_->ScheduleFlush();
++}
++
++void CefWindowWaylandOzone::Hide() {
++  auto* host = GetHost();
++  if (host)
++    host->Hide();
++
++  if (shell_surface_wrapper_) {
++    shell_surface_wrapper_.reset();
++    wl_surface_attach(surface_.get(), nullptr, 0, 0);
++    wl_surface_commit(surface_.get());
++    connection_->ScheduleFlush();
++  }
++}
++
++void CefWindowWaylandOzone::Close() {
++  auto host = GetHost();
++  if (host)
++    host->Close();
++
++  if (!browser_ || browser_->TryCloseBrowser()) {
++    if (browser_.get()) {
++      // Post task so that the reference is released properly. Otherwise, it
++      // results in a crash because it is released twice because of a race.
++      base::ThreadTaskRunnerHandle::Get()->PostTask(
++          FROM_HERE,
++          base::BindOnce(&CefBrowserHostImpl::WindowDestroyed, browser_.get()));
++    }
++    delete this;
++  }
++}
++
++void CefWindowWaylandOzone::Focus() {
++  if (pending_focus_)
++    return;
++
++  pending_focus_ = true;
++  CEF_POST_DELAYED_TASK(CEF_UIT,
++                        base::Bind(&CefWindowWaylandOzone::ContinueFocus,
++                                   weak_ptr_factory_.GetWeakPtr()),
++                        100);
++}
++
++void CefWindowWaylandOzone::SetBounds(const gfx::Rect& bounds) {
++  bounds_ = bounds;
++
++  auto* host = GetHost();
++  if (host)
++    host->SetBoundsInPixels(bounds_);
++}
++
++gfx::Rect CefWindowWaylandOzone::GetBounds() const {
++  return bounds_;
++}
++
++gfx::Rect CefWindowWaylandOzone::GetBoundsInScreen() {
++  // Wayland doesn't provide in screen bounds.
++  return GetBounds();
++}
++
++views::DesktopWindowTreeHostLinux* CefWindowWaylandOzone::GetHost() {
++  return child_wayland_window_
++             ? views::DesktopWindowTreeHostLinux::GetHostForWidget(
++                   child_wayland_window_->GetWidget())
++             : nullptr;
++}
++
++bool CefWindowWaylandOzone::TopLevelAlwaysOnTop() const {
++  // Not supported.
++  return true;
++}
++
++gfx::AcceleratedWidget CefWindowWaylandOzone::GetAcceleratedWidget() const {
++  return surface_id_;
++}
++
++void CefWindowWaylandOzone::ReparentWindow(const CefWindowInfo& windowInfo) {
++  // Hide/Destroy the subsurfaces including Chromium's one so that when the
++  // Show() is called, we assign a new role to the |surface_| and
++  // Ozone/Wayland's WaylandWindow creates a new subsurface with a new parent
++  // wl_surface.
++  Hide();
++
++  // Store our new parent.
++  parent_surface_ = windowInfo.parent_wayland_surface;
++
++  // This creates a subsurface and assigns a subsurface role to the |surface_|.
++  // Also, our child (Ozone/Wayland's WaylandWindow) recreates its subsurface
++  // and takes our |parent_surface_| as a parent.
++  Show();
++
++  // Update bounds so that the bounds of the subsurface is updated.
++  SetBounds({windowInfo.x, windowInfo.y, windowInfo.width, windowInfo.height});
++
++  connection_->ScheduleFlush();
++}
++
++bool CefWindowWaylandOzone::HasKeyboardFocus() const {
++  return child_wayland_window_->has_keyboard_focus();
++}
++
++void CefWindowWaylandOzone::SetKeyboardFocus(bool focus) {
++  child_wayland_window_->set_keyboard_focus(focus);
++}
++
++void CefWindowWaylandOzone::HandleSurfaceConfigure(int32_t width,
++                                                   int32_t height,
++                                                   bool is_maximized,
++                                                   bool is_fullscreen,
++                                                   bool is_activated) {
++  // TODO(msisov): handle bounds in dip.
++  auto bounds = GetBounds();
++  if (width > 1 && height > 1)
++    bounds.set_size({width, height});
++
++  shell_surface_wrapper_->SetWindowGeometry(bounds);
++  connection_->ScheduleFlush();
++}
++
++void CefWindowWaylandOzone::OnCloseRequest() {
++  if (!browser_ || browser_->TryCloseBrowser()) {
++    Hide();
++    if (browser_.get()) {
++      browser_->WindowDestroyed();
++    }
++    delete this;
++  }
++}
++
++void CefWindowWaylandOzone::OnAckConfigured() {
++  if (!configured_) {
++    // Wayland requires clients to attach at least a single buffer to activate
++    // the surface. Thus, create a dummy buffer and attach it so that the
++    // surface gets activated, and Chrome is able to draw frames and receive
++    // frame callbacks.
++    ui::WaylandShmBuffer buffer(connection_->shm(), bounds_.size());
++    wl_surface_damage(surface_.get(), 0, 0, bounds_.width(), bounds_.height());
++    wl_surface_attach(surface_.get(), buffer.get(), 0, 0);
++    wl_surface_commit(surface_.get());
++  }
++
++  configured_ = true;
++}
++
++void CefWindowWaylandOzone::ContinueFocus() {
++  if (browser_.get())
++    browser_->SetFocus(true);
++  pending_focus_ = false;
++}
++
++void CefWindowWaylandOzone::CreateWlSubsurface() {
++  wl_subcompositor* subcompositor = connection_->subcompositor();
++  DCHECK(subcompositor);
++  subsurface_.reset(wl_subcompositor_get_subsurface(
++      subcompositor, surface_.get(), parent_surface_));
++
++  // TODO(msisov): Convert position to DIP.
++  wl_subsurface_set_position(subsurface_.get(), bounds_.x(), bounds_.y());
++  wl_subsurface_set_desync(subsurface_.get());
++  wl_surface_commit(surface_.get());
++}
++
++void CefWindowWaylandOzone::CreateWlSurface() {
++  DCHECK(connection_->compositor());
++  surface_.reset(wl_compositor_create_surface(connection_->compositor()));
++  if (!surface_)
++    LOG(FATAL) << "Failed to create wl_surface";
++}
++
++wl_surface* CefWindowWaylandOzone::GetWlSurface() const {
++  // This call from the ShellSurfaceWrapper that expects our wl_surface.
++  return surface_.get();
++}
++
++void CefWindowWaylandOzone::SetChildWaylandWindow(
++    ui::WaylandWindow* child_wayland_window) {
++  DCHECK(!child_wayland_window_);
++  child_wayland_window_ = child_wayland_window;
++}
++
++wl_surface* CefWindowWaylandOzone::GetWaylandSurface() const {
++  if (parent_surface_)
++    return parent_surface_;
++  return surface_.get();
++}
++
++uint32_t CefWindowWaylandOzone::GetWindowId() const {
++  // This is the same as the AcceleratedWidget.
++  return GetAcceleratedWidget();
++}
++
++ui::WaylandWindow* CefWindowWaylandOzone::GetChilWaylandWindow() const {
++  return child_wayland_window_;
++}
+diff --git a/libcef/browser/native/window_wayland_ozone.h b/libcef/browser/native/window_wayland_ozone.h
+new file mode 100644
+index 00000000..22e46a0d
+--- /dev/null
++++ b/libcef/browser/native/window_wayland_ozone.h
+@@ -0,0 +1,109 @@
++// Copyright 2020 The Chromium Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#ifndef CEF_LIBCEF_BROWSER_NATIVE_WINDOW_WAYLAND_OZONE_H_
++#define CEF_LIBCEF_BROWSER_NATIVE_WINDOW_WAYLAND_OZONE_H_
++
++#include "include/internal/cef_types_linux.h"
++#include "libcef/browser/browser_host_impl.h"
++#include "libcef/browser/native/native_window_linux.h"
++
++#include "ui/ozone/platform/wayland/common/wayland_external_window.h"
++#include "ui/ozone/platform/wayland/common/wayland_object.h"
++#include "ui/ozone/platform/wayland/host/shell_surface_wrapper.h"
++
++namespace ui {
++class WaylandConnection;
++class WaylandWindow;
++}  // namespace ui
++
++// WaylandWindow for CEF that has either subsurface or xdg surface role.
++class CefWindowWaylandOzone : public CefNativeWindowLinux,
++                              public ui::ShellSurfaceWrapper::Delegate,
++                              public ui::WaylandExternalWindow {
++ public:
++  CefWindowWaylandOzone(CefRefPtr<CefBrowserHostImpl> browser,
++                        wl_surface* parent_wayland_surface,
++                        wl_display* external_display,
++                        const gfx::Rect& bounds,
++                        const std::string& title);
++  ~CefWindowWaylandOzone() override;
++
++  // CefNativeWindowLinux override:
++  void Close() override;
++  void Show() override;
++  void Hide() override;
++  void Focus() override;
++  void SetBounds(const gfx::Rect& bounds) override;
++  gfx::Rect GetBounds() const override;
++  gfx::Rect GetBoundsInScreen() override;
++  views::DesktopWindowTreeHostLinux* GetHost() override;
++  bool TopLevelAlwaysOnTop() const override;
++  gfx::AcceleratedWidget GetAcceleratedWidget() const override;
++  void ReparentWindow(const CefWindowInfo& windowInfo) override;
++  bool HasKeyboardFocus() const override;
++  void SetKeyboardFocus(bool focus) override;
++
++ private:
++  // ui::ShellSurfaceWrapper::Delegate;
++  void HandleSurfaceConfigure(int32_t width,
++                              int32_t height,
++                              bool is_maximized,
++                              bool is_fullscreen,
++                              bool is_activated) override;
++  void OnCloseRequest() override;
++  void OnAckConfigured() override;
++  wl_surface* GetWlSurface() const override;
++
++  void ContinueFocus();
++
++  void CreateWlSurface();
++  void CreateWlSubsurface();
++
++  // WaylandExternalWindow overrides:
++  wl_surface* GetWaylandSurface() const override;
++  void SetChildWaylandWindow(ui::WaylandWindow* child_wayland_window) override;
++  uint32_t GetWindowId() const override;
++  ui::WaylandWindow* GetChilWaylandWindow() const override;
++
++  // Ground surface that is assigned either a xdg surface or a subsurface role.
++  wl::Object<wl_surface> surface_;
++
++  // If the client provides us with a parent surface, our role is to be a
++  // subsurface.
++  wl::Object<wl_subsurface> subsurface_;
++
++  // If client doesn't provide a parent surface, we need to create a top level
++  // shell surface and parent it with Ozone/Wayland's subsurface.
++  std::unique_ptr<ui::ShellSurfaceWrapper> shell_surface_wrapper_;
++
++  // Ozone/Wayland's connection.
++  ui::WaylandConnection* const connection_;
++
++  ui::WaylandWindow* child_wayland_window_ = nullptr;
++
++  // Bounds of this window.
++  gfx::Rect bounds_;
++
++  // Title that is set only if this window has a xdg surface role.
++  std::string title_;
++
++  CefRefPtr<CefBrowserHostImpl> browser_;
++
++  // Parent surface. May be null.
++  wl_surface* parent_surface_ = nullptr;
++
++  bool pending_focus_ = false;
++
++  const uint32_t surface_id_ = 0;
++
++  bool configured_ = false;
++
++  // Must always be the last member.
++  base::WeakPtrFactory<CefWindowWaylandOzone> weak_ptr_factory_;
++
++  DISALLOW_COPY_AND_ASSIGN(CefWindowWaylandOzone);
++};
++
++#endif  // CEF_LIBCEF_BROWSER_NATIVE_WINDOW_WAYLAND_OZONE_H_
+diff --git a/libcef/browser/native/window_x11_base.cc b/libcef/browser/native/window_x11_base.cc
+index af84b909..046b2e92 100644
+--- a/libcef/browser/native/window_x11_base.cc
++++ b/libcef/browser/native/window_x11_base.cc
+@@ -440,3 +440,18 @@ gfx::AcceleratedWidget CefWindowX11Base::GetAcceleratedWidget() const {
+   // Copied from ui::X11Window.
+   return static_cast<gfx::AcceleratedWidget>(xwindow_);
+ }
++
++void CefWindowX11Base::ReparentWindow(const CefWindowInfo& windowInfo) {
++  // This could use XReparentWindow instead of clients doing so.
++  NOTREACHED();
++}
++
++bool CefWindowX11Base::HasKeyboardFocus() const {
++  NOTREACHED();
++  return false;
++}
++
++void CefWindowX11Base::SetKeyboardFocus(bool focus) {
++  NOTREACHED();
++}
++
+diff --git a/libcef/browser/native/window_x11_base.h b/libcef/browser/native/window_x11_base.h
+index b7d2fb8d..7d4eef87 100644
+--- a/libcef/browser/native/window_x11_base.h
++++ b/libcef/browser/native/window_x11_base.h
+@@ -42,6 +42,9 @@ class CefWindowX11Base : public CefNativeWindowLinux {
+   views::DesktopWindowTreeHostLinux* GetHost() override;
+   bool TopLevelAlwaysOnTop() const override;
+   gfx::AcceleratedWidget GetAcceleratedWidget() const override;
++  void ReparentWindow(const CefWindowInfo& windowInfo) override;
++  bool HasKeyboardFocus() const override;
++  void SetKeyboardFocus(bool focus) override;
+
+  protected:
+   void ProcessXEvent(XEvent* xev);
+diff --git a/libcef_dll/cpptoc/browser_host_cpptoc.cc b/libcef_dll/cpptoc/browser_host_cpptoc.cc
+index 1e2785e6..8e2a81a4 100644
+--- a/libcef_dll/cpptoc/browser_host_cpptoc.cc
++++ b/libcef_dll/cpptoc/browser_host_cpptoc.cc
+@@ -1259,6 +1259,56 @@ int CEF_CALLBACK browser_host_is_audio_muted(struct _cef_browser_host_t* self) {
+   return _retval;
+ }
+
++void CEF_CALLBACK browser_host_set_host_size(struct _cef_browser_host_t* self,
++                                             const cef_size_t* size) {
++  shutdown_checker::AssertNotShutdown();
++
++  DCHECK(self);
++  if (!self)
++    return;
++
++  // Execute
++  CefBrowserHostCppToC::Get(self)->SetHostSize(*size);
++}
++
++void CEF_CALLBACK browser_host_reparent_window(struct _cef_browser_host_t* self,
++                                               const cef_window_info_t* windowInfo) {
++  shutdown_checker::AssertNotShutdown();
++
++  DCHECK(self);
++  if (!self)
++    return;
++
++  CefWindowInfo windowInfoObj;
++  if (windowInfo)
++    windowInfoObj.Set(*windowInfo, false);
++
++  // Execute
++  CefBrowserHostCppToC::Get(self)->ReparentWindow(windowInfoObj);
++}
++
++bool CEF_CALLBACK browser_has_keyboard_focus(struct _cef_browser_host_t* self) {
++  shutdown_checker::AssertNotShutdown();
++
++  DCHECK(self);
++  if (!self)
++    return false;
++
++  // Execute
++  return CefBrowserHostCppToC::Get(self)->HasKeyboardFocus();
++}
++
++void CEF_CALLBACK browser_set_keyboard_focus(struct _cef_browser_host_t* self, bool focus) {
++  shutdown_checker::AssertNotShutdown();
++
++  DCHECK(self);
++  if (!self)
++    return;
++
++  // Execute
++  CefBrowserHostCppToC::Get(self)->SetKeyboardFocus(focus);
++}
++
+ }  // namespace
+
+ // CONSTRUCTOR - Do not edit by hand.
+@@ -1334,6 +1384,10 @@ CefBrowserHostCppToC::CefBrowserHostCppToC() {
+   GetStruct()->is_background_host = browser_host_is_background_host;
+   GetStruct()->set_audio_muted = browser_host_set_audio_muted;
+   GetStruct()->is_audio_muted = browser_host_is_audio_muted;
++  GetStruct()->set_host_size = browser_host_set_host_size;
++  GetStruct()->reparent_window = browser_host_reparent_window;
++  GetStruct()->has_keyboard_focus = browser_has_keyboard_focus;
++  GetStruct()->set_keyboard_focus = browser_set_keyboard_focus;
+ }
+
+ // DESTRUCTOR - Do not edit by hand.
+diff --git a/libcef_dll/ctocpp/browser_host_ctocpp.cc b/libcef_dll/ctocpp/browser_host_ctocpp.cc
+index 6fde71c8..82ce43a3 100644
+--- a/libcef_dll/ctocpp/browser_host_ctocpp.cc
++++ b/libcef_dll/ctocpp/browser_host_ctocpp.cc
+@@ -1080,6 +1080,58 @@ NO_SANITIZE("cfi-icall") bool CefBrowserHostCToCpp::IsAudioMuted() {
+   return _retval ? true : false;
+ }
+
++NO_SANITIZE("cfi-icall") void CefBrowserHostCToCpp::SetHostSize(const CefSize& size) {
++  shutdown_checker::AssertNotShutdown();
++
++  cef_browser_host_t* _struct = GetStruct();
++  if (CEF_MEMBER_MISSING(_struct, set_host_size))
++    return;
++
++  // AUTO-GENERATED CONTENT - DELETE THIS COMMENT BEFORE MODIFYING
++
++  // Execute
++  _struct->set_host_size(_struct, &size);
++}
++
++NO_SANITIZE("cfi-icall") void CefBrowserHostCToCpp::ReparentWindow(const CefWindowInfo& windowInfo) {
++  shutdown_checker::AssertNotShutdown();
++
++  cef_browser_host_t* _struct = GetStruct();
++  if (CEF_MEMBER_MISSING(_struct, reparent_window))
++    return;
++
++  // AUTO-GENERATED CONTENT - DELETE THIS COMMENT BEFORE MODIFYING
++
++  // Execute
++  _struct->reparent_window(_struct, &windowInfo);
++}
++
++NO_SANITIZE("cfi-icall") bool CefBrowserHostCToCpp::HasKeyboardFocus() const {
++  shutdown_checker::AssertNotShutdown();
++
++  cef_browser_host_t* _struct = GetStruct();
++  if (CEF_MEMBER_MISSING(_struct, has_keyboard_focus))
++    return false;
++
++  // AUTO-GENERATED CONTENT - DELETE THIS COMMENT BEFORE MODIFYING
++
++  // Execute
++  return _struct->has_keyboard_focus(_struct);
++}
++
++NO_SANITIZE("cfi-icall") void CefBrowserHostCToCpp::SetKeyboardFocus(bool focus) {
++  shutdown_checker::AssertNotShutdown();
++
++  cef_browser_host_t* _struct = GetStruct();
++  if (CEF_MEMBER_MISSING(_struct, set_keyboard_focus))
++    return;
++
++  // AUTO-GENERATED CONTENT - DELETE THIS COMMENT BEFORE MODIFYING
++
++  // Execute
++  _struct->set_keyboard_focus(_struct, focus);
++}
++
+ // CONSTRUCTOR - Do not edit by hand.
+
+ CefBrowserHostCToCpp::CefBrowserHostCToCpp() {}
+diff --git a/libcef_dll/ctocpp/browser_host_ctocpp.h b/libcef_dll/ctocpp/browser_host_ctocpp.h
+index dcf09ed2..73b11265 100644
+--- a/libcef_dll/ctocpp/browser_host_ctocpp.h
++++ b/libcef_dll/ctocpp/browser_host_ctocpp.h
+@@ -130,6 +130,10 @@ class CefBrowserHostCToCpp : public CefCToCppRefCounted<CefBrowserHostCToCpp,
+   bool IsBackgroundHost() OVERRIDE;
+   void SetAudioMuted(bool mute) OVERRIDE;
+   bool IsAudioMuted() OVERRIDE;
++  void SetHostSize(const CefSize& size) OVERRIDE;
++  void ReparentWindow(const CefWindowInfo& windowInfo) OVERRIDE;
++  bool HasKeyboardFocus() const OVERRIDE;
++  void SetKeyboardFocus(bool focus) OVERRIDE;
+ };
+
+ #endif  // CEF_LIBCEF_DLL_CTOCPP_BROWSER_HOST_CTOCPP_H_
+diff --git a/patch/patch.cfg b/patch/patch.cfg
+index 70245dc3..ebf98acc 100644
+--- a/patch/patch.cfg
++++ b/patch/patch.cfg
+@@ -515,4 +515,9 @@ patches = [
+     # Move external window support from DWTHX11 to DWTHLinux
+     'name': '0001-move-patches-from-DWTHX11-to-DWTHLinux-for-Ozone',
+   },
++  {
++    # Fix Ozone/Wayland to make it usable with external clients and allow
++    # embedding.
++    'name': 'extend_ozone_wayland_for_external_clients_usage',
++  },
+ ]
+diff --git a/patch/patches/extend_ozone_wayland_for_external_clients_usage.patch b/patch/patches/extend_ozone_wayland_for_external_clients_usage.patch
+new file mode 100644
+index 00000000..d596346f
+--- /dev/null
++++ b/patch/patches/extend_ozone_wayland_for_external_clients_usage.patch
+@@ -0,0 +1,1936 @@
++From 27baa884243e4e0af0a8f0cea65ea81187dfd6be Mon Sep 17 00:00:00 2001
++From: Maksim Sisov <msisov@igalia.com>
++Date: Mon, 3 Feb 2020 15:38:02 +0200
++Subject: [PATCH] wayland
++
++---
++ base/message_loop/message_pump_glib.cc        |  16 ++-
++ base/message_loop/message_pump_glib.h         |   6 +-
++ base/threading/thread.cc                      |   5 +-
++ ui/ozone/platform/wayland/BUILD.gn            |   8 +-
++ .../wayland/common/wayland_external_window.h  |  37 +++++
++ .../wayland/host/shell_object_factory.cc      |  11 +-
++ .../wayland/host/shell_surface_wrapper.h      |  24 ++++
++ .../host/wayland_buffer_manager_host.cc       |  14 +-
++ .../host/wayland_buffer_manager_host.h        |   7 +-
++ .../wayland/host/wayland_connection.cc        | 105 +++++++++++---
++ .../wayland/host/wayland_connection.h         |  38 ++++-
++ .../wayland/host/wayland_fd_watcher.cc        | 104 ++++++++++++++
++ .../wayland/host/wayland_fd_watcher.h         |  68 +++++++++
++ .../platform/wayland/host/wayland_keyboard.cc |  40 +++++-
++ .../platform/wayland/host/wayland_keyboard.h  |   2 +
++ .../wayland/host/wayland_output_manager.cc    |  20 ++-
++ .../wayland/host/wayland_output_manager.h     |   7 +-
++ .../platform/wayland/host/wayland_pointer.cc  |   8 +-
++ .../platform/wayland/host/wayland_popup.cc    |   6 +
++ .../wayland/host/wayland_subsurface.cc        | 134 ++++++++++++++++--
++ .../wayland/host/wayland_subsurface.h         |  11 ++
++ .../platform/wayland/host/wayland_touch.cc    |  12 +-
++ .../platform/wayland/host/wayland_window.cc   |  29 +++-
++ .../platform/wayland/host/wayland_window.h    |  37 +++--
++ .../wayland/host/wayland_window_factory.cc    |  28 +++-
++ .../wayland/host/wayland_window_manager.cc    |  57 +++++++-
++ .../wayland/host/wayland_window_manager.h     |  15 ++
++ .../wayland/host/xdg_surface_wrapper_impl.cc  |  29 ++--
++ .../wayland/host/xdg_surface_wrapper_impl.h   |   7 +-
++ .../wayland/ozone_platform_wayland.cc         |  31 +++-
++ ui/ozone/public/ozone_platform.cc             |   5 +
++ ui/ozone/public/ozone_platform.h              |   8 ++
++ 32 files changed, 819 insertions(+), 110 deletions(-)
++ create mode 100644 ui/ozone/platform/wayland/common/wayland_external_window.h
++ create mode 100644 ui/ozone/platform/wayland/host/wayland_fd_watcher.cc
++ create mode 100644 ui/ozone/platform/wayland/host/wayland_fd_watcher.h
++
++diff --git base/message_loop/message_pump_glib.cc base/message_loop/message_pump_glib.cc
++index 0429b4e0615f..d3fead672827 100644
++--- base/message_loop/message_pump_glib.cc
+++++ base/message_loop/message_pump_glib.cc
++@@ -217,9 +217,12 @@ struct MessagePumpGlib::RunState {
++   Delegate::NextWorkInfo next_work_info;
++ };
++
++-MessagePumpGlib::MessagePumpGlib()
+++MessagePumpGlib::MessagePumpGlib(bool use_custom_context)
++     : state_(nullptr),
++-      context_(g_main_context_default()),
+++      context_(use_custom_context ? g_main_context_new()
+++                                  : g_main_context_default()),
+++      main_loop_(use_custom_context ? g_main_loop_new(context_, TRUE)
+++                                    : nullptr),
++       wakeup_gpollfd_(new GPollFD) {
++   // Create our wakeup pipe, which is used to flag when work was scheduled.
++   int fds[2];
++@@ -235,7 +238,8 @@ MessagePumpGlib::MessagePumpGlib()
++   work_source_ = g_source_new(&WorkSourceFuncs, sizeof(WorkSource));
++   static_cast<WorkSource*>(work_source_)->pump = this;
++   g_source_add_poll(work_source_, wakeup_gpollfd_.get());
++-  g_source_set_priority(work_source_, kPriorityWork);
+++  g_source_set_priority(work_source_,
+++                        main_loop_ ? G_PRIORITY_DEFAULT : kPriorityWork);
++   // This is needed to allow Run calls inside Dispatch.
++   g_source_set_can_recurse(work_source_, TRUE);
++   g_source_attach(work_source_, context_);
++@@ -324,6 +328,9 @@ bool MessagePumpGlib::FdWatchController::Attach(MessagePumpGlib* pump) {
++   auto* source = static_cast<FdWatchSource*>(source_);
++   source->controller = this;
++   source->pump = pump;
+++  g_source_set_priority(source_, pump->has_custom_main_loop()
+++                                     ? G_PRIORITY_DEFAULT + 1
+++                                     : kPriorityFdWatch);
++   g_source_attach(source_, pump->context_);
++   return true;
++ }
++@@ -411,7 +418,8 @@ void MessagePumpGlib::HandleDispatch() {
++
++ void MessagePumpGlib::Run(Delegate* delegate) {
++ #ifndef NDEBUG
++-  CheckThread(this);
+++  if (!main_loop_)
+++    CheckThread(this);
++ #endif
++
++   RunState state;
++diff --git base/message_loop/message_pump_glib.h base/message_loop/message_pump_glib.h
++index 1b0083a00e47..2ffb2c0fb75e 100644
++--- base/message_loop/message_pump_glib.h
+++++ base/message_loop/message_pump_glib.h
++@@ -16,6 +16,7 @@
++ #include "base/time/time.h"
++
++ typedef struct _GMainContext GMainContext;
+++typedef struct _GMainLoop GMainLoop;
++ typedef struct _GPollFD GPollFD;
++ typedef struct _GSource GSource;
++
++@@ -70,7 +71,7 @@ class BASE_EXPORT MessagePumpGlib : public MessagePump,
++     DISALLOW_COPY_AND_ASSIGN(FdWatchController);
++   };
++
++-  MessagePumpGlib();
+++  MessagePumpGlib(bool use_custom_context = false);
++   ~MessagePumpGlib() override;
++
++   // Part of WatchableIOMessagePumpPosix interface.
++@@ -81,6 +82,8 @@ class BASE_EXPORT MessagePumpGlib : public MessagePump,
++                            FdWatchController* controller,
++                            FdWatcher* delegate);
++
+++  bool has_custom_main_loop() const { return !!main_loop_; }
+++
++   // Internal methods used for processing the pump callbacks. They are public
++   // for simplicity but should not be used directly. HandlePrepare is called
++   // during the prepare step of glib, and returns a timeout that will be passed
++@@ -116,6 +119,7 @@ class BASE_EXPORT MessagePumpGlib : public MessagePump,
++   // default GLib context, which is the one to which all GTK events are
++   // dispatched.
++   GMainContext* context_;
+++  GMainLoop* main_loop_;
++
++   // The work source.  It is shared by all calls to Run and destroyed when
++   // the message pump is destroyed.
++diff --git base/threading/thread.cc base/threading/thread.cc
++index d264c1d2602a..ff8588f68a5f 100644
++--- base/threading/thread.cc
+++++ base/threading/thread.cc
++@@ -163,8 +163,11 @@ bool Thread::StartWithOptions(const Options& options) {
++     DCHECK(!options.task_queue_time_domain);
++     delegate_ = WrapUnique(options.delegate);
++   } else if (options.message_pump_factory) {
+++    auto type = MessagePumpType::CUSTOM;
+++    if (options.message_pump_type == MessagePumpType::UI)
+++      type = MessagePumpType::UI;
++     delegate_ = std::make_unique<SequenceManagerThreadDelegate>(
++-        MessagePumpType::CUSTOM, options.message_pump_factory,
+++        type, options.message_pump_factory,
++         options.task_queue_time_domain);
++   } else {
++     delegate_ = std::make_unique<SequenceManagerThreadDelegate>(
++diff --git ui/ozone/platform/wayland/BUILD.gn ui/ozone/platform/wayland/BUILD.gn
++index 66783f3b3ab8..d3330239b0c9 100644
++--- ui/ozone/platform/wayland/BUILD.gn
+++++ ui/ozone/platform/wayland/BUILD.gn
++@@ -2,7 +2,10 @@
++ # Use of this source code is governed by a BSD-style license that can be
++ # found in the LICENSE file.
++
++-visibility = [ "//ui/ozone/*" ]
+++visibility = [
+++  "//ui/ozone/*",
+++  "//cef:libcef_static",
+++]
++
++ import("//build/config/linux/pkg_config.gni")
++ import("//testing/libfuzzer/fuzzer_test.gni")
++@@ -16,6 +19,7 @@ source_set("wayland") {
++   sources = [
++     "client_native_pixmap_factory_wayland.cc",
++     "client_native_pixmap_factory_wayland.h",
+++    "common/wayland_external_window.h",
++     "common/wayland_object.cc",
++     "common/wayland_object.h",
++     "common/wayland_util.cc",
++@@ -73,6 +77,8 @@ source_set("wayland") {
++     "host/wayland_data_source.h",
++     "host/wayland_drm.cc",
++     "host/wayland_drm.h",
+++    "host/wayland_fd_watcher.cc",
+++    "host/wayland_fd_watcher.h",
++     "host/wayland_input_method_context.cc",
++     "host/wayland_input_method_context.h",
++     "host/wayland_input_method_context_factory.cc",
++diff --git ui/ozone/platform/wayland/common/wayland_external_window.h ui/ozone/platform/wayland/common/wayland_external_window.h
++new file mode 100644
++index 000000000000..387af23b8141
++--- /dev/null
+++++ ui/ozone/platform/wayland/common/wayland_external_window.h
++@@ -0,0 +1,37 @@
+++// Copyright 2020 The Chromium Authors. All rights reserved.
+++// Use of this source code is governed by a BSD-style license that can be
+++// found in the LICENSE file.
+++
+++#ifndef UI_OZONE_PLATFORM_WAYLAND_COMMON_WAYLAND_EXTERNAL_WINDOW_H_
+++#define UI_OZONE_PLATFORM_WAYLAND_COMMON_WAYLAND_EXTERNAL_WINDOW_H_
+++
+++#include "ui/gfx/native_widget_types.h"
+++
+++struct wl_surface;
+++
+++namespace ui {
+++
+++class WaylandWindow;
+++
+++class WaylandExternalWindow {
+++ public:
+++  // Returns wl_surface of the external window.
+++  virtual wl_surface* GetWaylandSurface() const = 0;
+++
+++  // Sets WaylandWindow as a child of the external window.
+++  virtual void SetChildWaylandWindow(
+++      ui::WaylandWindow* child_wayland_window) = 0;
+++
+++  // Returns the id of the window. Same as wl_proxy id.
+++  virtual uint32_t GetWindowId() const = 0;
+++
+++  // Returns the child WaylandWindow. May be null.
+++  virtual WaylandWindow* GetChilWaylandWindow() const = 0;
+++
+++ protected:
+++  virtual ~WaylandExternalWindow() = default;
+++};
+++
+++}  // namespace ui
+++
+++#endif  // UI_OZONE_PLATFORM_WAYLAND_COMMON_WAYLAND_EXTERNAL_WINDOW_H_
++\ No newline at end of file
++diff --git ui/ozone/platform/wayland/host/shell_object_factory.cc ui/ozone/platform/wayland/host/shell_object_factory.cc
++index 57383be20da5..96e7a6072c9f 100644
++--- ui/ozone/platform/wayland/host/shell_object_factory.cc
+++++ ui/ozone/platform/wayland/host/shell_object_factory.cc
++@@ -5,6 +5,7 @@
++ #include "ui/ozone/platform/wayland/host/shell_object_factory.h"
++
++ #include "ui/ozone/platform/wayland/host/wayland_connection.h"
+++#include "ui/ozone/platform/wayland/host/wayland_window.h"
++ #include "ui/ozone/platform/wayland/host/xdg_popup_wrapper_impl.h"
++ #include "ui/ozone/platform/wayland/host/xdg_surface_wrapper_impl.h"
++
++@@ -17,8 +18,9 @@ std::unique_ptr<ShellSurfaceWrapper>
++ ShellObjectFactory::CreateShellSurfaceWrapper(WaylandConnection* connection,
++                                               WaylandWindow* wayland_window) {
++   if (connection->shell() || connection->shell_v6()) {
++-    auto surface =
++-        std::make_unique<XDGSurfaceWrapperImpl>(wayland_window, connection);
+++    auto surface = std::make_unique<XDGSurfaceWrapperImpl>(
+++        static_cast<ShellSurfaceWrapper::Delegate*>(wayland_window),
+++        connection);
++     return surface->Initialize(true /* with_top_level */) ? std::move(surface)
++                                                           : nullptr;
++   }
++@@ -31,8 +33,9 @@ std::unique_ptr<ShellPopupWrapper> ShellObjectFactory::CreateShellPopupWrapper(
++     WaylandWindow* wayland_window,
++     const gfx::Rect& bounds) {
++   if (connection->shell() || connection->shell_v6()) {
++-    auto surface =
++-        std::make_unique<XDGSurfaceWrapperImpl>(wayland_window, connection);
+++    auto surface = std::make_unique<XDGSurfaceWrapperImpl>(
+++        static_cast<ShellSurfaceWrapper::Delegate*>(wayland_window),
+++        connection);
++     if (!surface->Initialize(false /* with_top_level */))
++       return nullptr;
++
++diff --git ui/ozone/platform/wayland/host/shell_surface_wrapper.h ui/ozone/platform/wayland/host/shell_surface_wrapper.h
++index c75e87a627b4..dad34fe67df1 100644
++--- ui/ozone/platform/wayland/host/shell_surface_wrapper.h
+++++ ui/ozone/platform/wayland/host/shell_surface_wrapper.h
++@@ -8,6 +8,8 @@
++ #include "base/strings/string16.h"
++ #include "ui/ozone/platform/wayland/common/wayland_object.h"
++
+++struct wl_surface;
+++
++ namespace gfx {
++ class Rect;
++ }
++@@ -19,6 +21,28 @@ class WaylandConnection;
++ // Wrapper interface for different wayland shells shell versions.
++ class ShellSurfaceWrapper {
++  public:
+++  class Delegate {
+++   public:
+++    // Notifies about configure event for the XDGSurfaceWrapper.
+++    virtual void HandleSurfaceConfigure(int32_t width,
+++                                        int32_t height,
+++                                        bool is_maximized,
+++                                        bool is_fullscreen,
+++                                        bool is_activated) = 0;
+++
+++    // A close request comes from Wayland server.
+++    virtual void OnCloseRequest() = 0;
+++
+++    // Notifies the surface is ack configured.
+++    virtual void OnAckConfigured() = 0;
+++
+++    // Returns wl_surface of this delegate.
+++    virtual wl_surface* GetWlSurface() const = 0;
+++
+++   protected:
+++    virtual ~Delegate() {}
+++  };
+++
++   virtual ~ShellSurfaceWrapper() {}
++
++   // Initializes the ShellSurface. Some protocols may require to create shell
++diff --git ui/ozone/platform/wayland/host/wayland_buffer_manager_host.cc ui/ozone/platform/wayland/host/wayland_buffer_manager_host.cc
++index 44882cd2c0f4..7c07c83f47d0 100644
++--- ui/ozone/platform/wayland/host/wayland_buffer_manager_host.cc
+++++ ui/ozone/platform/wayland/host/wayland_buffer_manager_host.cc
++@@ -575,15 +575,19 @@ WaylandBuffer::WaylandBuffer(const gfx::Size& size, uint32_t buffer_id)
++     : size(size), buffer_id(buffer_id) {}
++ WaylandBuffer::~WaylandBuffer() = default;
++
++-WaylandBufferManagerHost::WaylandBufferManagerHost(
++-    WaylandConnection* connection)
++-    : connection_(connection), receiver_(this), weak_factory_(this) {
++-  connection_->wayland_window_manager()->AddObserver(this);
++-}
+++WaylandBufferManagerHost::WaylandBufferManagerHost()
+++    : receiver_(this), weak_factory_(this) {}
++
++ WaylandBufferManagerHost::~WaylandBufferManagerHost() {
++   DCHECK(surfaces_.empty());
++   DCHECK(anonymous_buffers_.empty());
+++  connection_->wayland_window_manager()->RemoveObserver(this);
+++}
+++
+++void WaylandBufferManagerHost::SetWaylandConnection(
+++    WaylandConnection* connection) {
+++  connection_ = connection;
+++  connection_->wayland_window_manager()->AddObserver(this);
++ }
++
++ void WaylandBufferManagerHost::OnWindowAdded(WaylandWindow* window) {
++diff --git ui/ozone/platform/wayland/host/wayland_buffer_manager_host.h ui/ozone/platform/wayland/host/wayland_buffer_manager_host.h
++index 1f455154f348..a262319aec1d 100644
++--- ui/ozone/platform/wayland/host/wayland_buffer_manager_host.h
+++++ ui/ozone/platform/wayland/host/wayland_buffer_manager_host.h
++@@ -83,9 +83,12 @@ struct WaylandBuffer {
++ class WaylandBufferManagerHost : public ozone::mojom::WaylandBufferManagerHost,
++                                  public WaylandWindowObserver {
++  public:
++-  explicit WaylandBufferManagerHost(WaylandConnection* connection);
+++  WaylandBufferManagerHost();
++   ~WaylandBufferManagerHost() override;
++
+++  // The connection can be set several times.
+++  void SetWaylandConnection(WaylandConnection* connection);
+++
++   // WaylandWindowObserver implements:
++   void OnWindowAdded(WaylandWindow* window) override;
++   void OnWindowRemoved(WaylandWindow* window) override;
++@@ -203,7 +206,7 @@ class WaylandBufferManagerHost : public ozone::mojom::WaylandBufferManagerHost,
++   std::string error_message_;
++
++   // Non-owned pointer to the main connection.
++-  WaylandConnection* const connection_;
+++  WaylandConnection* connection_ = nullptr;
++
++   mojo::AssociatedRemote<ozone::mojom::WaylandBufferManagerGpu>
++       buffer_manager_gpu_associated_;
++diff --git ui/ozone/platform/wayland/host/wayland_connection.cc ui/ozone/platform/wayland/host/wayland_connection.cc
++index aab873805749..bb806f43fb3c 100644
++--- ui/ozone/platform/wayland/host/wayland_connection.cc
+++++ ui/ozone/platform/wayland/host/wayland_connection.cc
++@@ -16,6 +16,7 @@
++ #include "base/memory/ptr_util.h"
++ #include "base/message_loop/message_loop_current.h"
++ #include "base/strings/string_util.h"
+++#include "base/threading/thread.h"
++ #include "base/threading/thread_task_runner_handle.h"
++ #include "mojo/public/cpp/system/platform_handle.h"
++ #include "ui/events/ozone/layout/keyboard_layout_engine_manager.h"
++@@ -23,6 +24,7 @@
++ #include "ui/ozone/platform/wayland/common/wayland_object.h"
++ #include "ui/ozone/platform/wayland/host/wayland_buffer_manager_host.h"
++ #include "ui/ozone/platform/wayland/host/wayland_drm.h"
+++#include "ui/ozone/platform/wayland/host/wayland_fd_watcher.h"
++ #include "ui/ozone/platform/wayland/host/wayland_input_method_context.h"
++ #include "ui/ozone/platform/wayland/host/wayland_output_manager.h"
++ #include "ui/ozone/platform/wayland/host/wayland_shm.h"
++@@ -47,33 +49,76 @@ constexpr uint32_t kMinWlOutputVersion = 2;
++
++ WaylandConnection::WaylandConnection() : controller_(FROM_HERE) {}
++
++-WaylandConnection::~WaylandConnection() = default;
+++WaylandConnection::~WaylandConnection() {
+++  if (external_registry_)
+++    wl_registry_destroy(external_registry_);
+++  if (ext_display_event_queue_)
+++    wl_event_queue_destroy(ext_display_event_queue_);
+++  if (wrapperd_external_display_)
+++    wl_proxy_wrapper_destroy(wrapperd_external_display_);
+++}
+++
+++std::unique_ptr<base::MessagePump> WaylandConnection::CreateMessagePump() {
+++  // We need to create a message pump with custom context. Otherwise, default
+++  // main context is used and it can be become blocked due to accessing it from
+++  // different threads.
+++  auto pump =
+++#if defined(USE_GLIB)
+++      std::make_unique<base::MessagePumpGlib>(true /* use_custom_context */);
+++#else
+++      std::make_unique<base::MessagePumpLibevent>();
+++#endif
+++  return std::move(pump);
+++}
++
++-bool WaylandConnection::Initialize() {
+++bool WaylandConnection::Initialize(WaylandBufferManagerHost* host,
+++                                   wl_display* display) {
++   static const wl_registry_listener registry_listener = {
++       &WaylandConnection::Global,
++       &WaylandConnection::GlobalRemove,
++   };
++
++-  display_.reset(wl_display_connect(nullptr));
++-  if (!display_) {
++-    LOG(ERROR) << "Failed to connect to Wayland display";
++-    return false;
++-  }
+++  buffer_manager_host_ = host;
++
++-  registry_.reset(wl_display_get_registry(display_.get()));
++-  if (!registry_) {
++-    LOG(ERROR) << "Failed to get Wayland registry";
++-    return false;
++-  }
+++  if (display) {
+++    DCHECK(!external_display_);
++
++-  wl_registry_add_listener(registry_.get(), &registry_listener, this);
++-  while (!wayland_output_manager_ ||
++-         !wayland_output_manager_->IsOutputReady()) {
++-    wl_display_roundtrip(display_.get());
++-  }
+++    external_display_ = display;
+++    wrapperd_external_display_ = reinterpret_cast<wl_display*>(
+++        wl_proxy_create_wrapper(external_display_));
+++
+++    // Create a non-default event queue so that we wouldn't flush messages for
+++    // client applications.
+++    ext_display_event_queue_ = wl_display_create_queue(external_display_);
+++    wl_proxy_set_queue(
+++        reinterpret_cast<struct wl_proxy*>(wrapperd_external_display_),
+++        ext_display_event_queue_);
+++    external_registry_ = wl_display_get_registry(wrapperd_external_display_);
+++
+++    wl_registry_add_listener(external_registry_, &registry_listener, this);
+++    while (!wayland_output_manager_ ||
+++           !wayland_output_manager_->IsOutputReady()) {
+++      wl_display_roundtrip_queue(external_display_, ext_display_event_queue_);
+++    }
+++  } else {
+++    display_.reset(wl_display_connect(nullptr));
+++    if (!display_) {
+++      LOG(ERROR) << "Failed to connect to Wayland display";
+++      return false;
+++    }
++
++-  buffer_manager_host_ = std::make_unique<WaylandBufferManagerHost>(this);
+++    registry_.reset(wl_display_get_registry(display_.get()));
+++    if (!registry_) {
+++      LOG(ERROR) << "Failed to get Wayland registry";
+++      return false;
+++    }
+++
+++    wl_registry_add_listener(registry_.get(), &registry_listener, this);
+++    while (!wayland_output_manager_ ||
+++           !wayland_output_manager_->IsOutputReady()) {
+++      wl_display_roundtrip(display_.get());
+++    }
+++  }
++
++   if (!compositor_) {
++     LOG(ERROR) << "No wl_compositor object";
++@@ -99,6 +144,20 @@ bool WaylandConnection::StartProcessingEvents() {
++   if (watching_)
++     return true;
++
+++  if (external_display_) {
+++    watching_ = true;
+++    threaded_fd_watcher_ =
+++        std::make_unique<WaylandFdWatcher>(ext_display_event_queue_, display());
+++
+++    base::Thread::Options thread_options;
+++    thread_options.message_pump_factory = base::BindRepeating(
+++        &WaylandConnection::CreateMessagePump, base::Unretained(this));
+++    thread_options.message_pump_type = base::MessagePumpType::UI;
+++    thread_options.priority = base::ThreadPriority::DISPLAY;
+++    threaded_fd_watcher_->StartWithOptions(std::move(thread_options));
+++    return true;
+++  }
+++
++   DCHECK(display_);
++
++   MaybePrepareReadQueue();
++@@ -182,12 +241,16 @@ void WaylandConnection::ResetPointerFlags() {
++     pointer_->ResetFlags();
++ }
++
+++uint32_t WaylandConnection::GetNextIdForSurface() {
+++  return ++next_surface_id_;
+++}
+++
++ void WaylandConnection::OnDispatcherListChanged() {
++   StartProcessingEvents();
++ }
++
++ void WaylandConnection::Flush() {
++-  wl_display_flush(display_.get());
+++  wl_display_flush(display());
++   scheduled_flush_ = false;
++ }
++
++@@ -196,6 +259,8 @@ void WaylandConnection::DispatchUiEvent(Event* event) {
++ }
++
++ void WaylandConnection::OnFileCanReadWithoutBlocking(int fd) {
+++  DCHECK(!ext_display_event_queue_);
+++
++   if (prepared_) {
++     prepared_ = false;
++     if (wl_display_read_events(display()) == -1)
++@@ -220,6 +285,8 @@ void WaylandConnection::OnFileCanReadWithoutBlocking(int fd) {
++ }
++
++ void WaylandConnection::OnFileCanWriteWithoutBlocking(int fd) {
+++  DCHECK(!ext_display_event_queue_);
+++
++   int ret = wl_display_flush(display_.get());
++   if (ret != -1 || errno != EAGAIN)
++     BeginWatchingFd(base::MessagePumpLibevent::WATCH_READ);
++diff --git ui/ozone/platform/wayland/host/wayland_connection.h ui/ozone/platform/wayland/host/wayland_connection.h
++index 9adc5be026a8..8c173bcc03c8 100644
++--- ui/ozone/platform/wayland/host/wayland_connection.h
+++++ ui/ozone/platform/wayland/host/wayland_connection.h
++@@ -29,6 +29,10 @@
++ #include "ui/ozone/platform/wayland/host/wayland_touch.h"
++ #include "ui/ozone/platform/wayland/host/wayland_window_manager.h"
++
+++namespace base {
+++class MessagePump;
+++}
+++
++ namespace ui {
++
++ class WaylandBufferManagerHost;
++@@ -37,6 +41,7 @@ class WaylandWindow;
++ class WaylandDrm;
++ class WaylandZwpLinuxDmabuf;
++ class WaylandShm;
+++class WaylandFdWatcher;
++
++ class WaylandConnection : public PlatformEventSource,
++                           public base::MessagePumpForUI::FdWatcher {
++@@ -44,13 +49,20 @@ class WaylandConnection : public PlatformEventSource,
++   WaylandConnection();
++   ~WaylandConnection() override;
++
++-  bool Initialize();
+++  // Initializes the WaylandConnection. |display| is either the external display
+++  // where we should connect to or nullptr, which means we create a new
+++  // connection.
+++  bool Initialize(WaylandBufferManagerHost* host, wl_display* display);
++   bool StartProcessingEvents();
++
++   // Schedules a flush of the Wayland connection.
++   void ScheduleFlush();
++
++-  wl_display* display() const { return display_.get(); }
+++  wl_event_queue* ext_display_event_queue() { return ext_display_event_queue_; }
+++
+++  wl_display* display() const {
+++    return display_ ? display_.get() : external_display_;
+++  }
++   wl_compositor* compositor() const { return compositor_.get(); }
++   uint32_t compositor_version() const { return compositor_version_; }
++   wl_subcompositor* subcompositor() const { return subcompositor_.get(); }
++@@ -66,6 +78,8 @@ class WaylandConnection : public PlatformEventSource,
++     return text_input_manager_v1_.get();
++   }
++
+++  std::unique_ptr<base::MessagePump> CreateMessagePump();
+++
++   void set_serial(uint32_t serial) { serial_ = serial; }
++   uint32_t serial() const { return serial_; }
++
++@@ -96,7 +110,7 @@ class WaylandConnection : public PlatformEventSource,
++   }
++
++   WaylandBufferManagerHost* buffer_manager_host() const {
++-    return buffer_manager_host_.get();
+++    return buffer_manager_host_;
++   }
++
++   WaylandZwpLinuxDmabuf* zwp_dmabuf() const { return zwp_dmabuf_.get(); }
++@@ -139,10 +153,15 @@ class WaylandConnection : public PlatformEventSource,
++   // not delivered.
++   void ResetPointerFlags();
++
+++  uint32_t GetNextIdForSurface();
+++
++  private:
++   // WaylandInputMethodContextFactory needs access to DispatchUiEvent
++   friend class WaylandInputMethodContextFactory;
++
+++  // Thread that watches the display fd on a separate thread.
+++  class WaylandWatcherThread;
+++
++   void Flush();
++   void DispatchUiEvent(Event* event);
++
++@@ -200,7 +219,8 @@ class WaylandConnection : public PlatformEventSource,
++   std::unique_ptr<WaylandZwpLinuxDmabuf> zwp_dmabuf_;
++   std::unique_ptr<WaylandDrm> drm_;
++   std::unique_ptr<WaylandShm> shm_;
++-  std::unique_ptr<WaylandBufferManagerHost> buffer_manager_host_;
+++
+++  WaylandBufferManagerHost* buffer_manager_host_ = nullptr;
++
++   std::unique_ptr<GtkPrimarySelectionDeviceManager>
++       primary_selection_device_manager_;
++@@ -216,6 +236,16 @@ class WaylandConnection : public PlatformEventSource,
++
++   uint32_t serial_ = 0;
++
+++  wl_display* external_display_ = nullptr;
+++  wl_display* wrapperd_external_display_ = nullptr;
+++  wl_registry* external_registry_ = nullptr;
+++  wl_event_queue* ext_display_event_queue_ = nullptr;
+++
+++  std::unique_ptr<WaylandFdWatcher> threaded_fd_watcher_;
+++
+++  // Available IDs for next surfaces. Must start from 1 as 0 is invalid id.
+++  uint32_t next_surface_id_ = 1;
+++
++   DISALLOW_COPY_AND_ASSIGN(WaylandConnection);
++ };
++
++diff --git ui/ozone/platform/wayland/host/wayland_fd_watcher.cc ui/ozone/platform/wayland/host/wayland_fd_watcher.cc
++new file mode 100644
++index 000000000000..affee221ee19
++--- /dev/null
+++++ ui/ozone/platform/wayland/host/wayland_fd_watcher.cc
++@@ -0,0 +1,104 @@
+++// Copyright 2020 The Chromium Authors. All rights reserved.
+++// Use of this source code is governed by a BSD-style license that can be
+++// found in the LICENSE file.
+++
+++#include "ui/ozone/platform/wayland/host/wayland_fd_watcher.h"
+++
+++#include <wayland-client-protocol.h>
+++
+++#include "base/bind.h"
+++#include "base/message_loop/message_loop_current.h"
+++#include "base/threading/thread_task_runner_handle.h"
+++
+++namespace ui {
+++
+++WaylandFdWatcher::WaylandFdWatcher(wl_event_queue* queue, wl_display* display)
+++    : base::Thread("wayland-polling"),
+++      event_queue_(queue),
+++      display_(display),
+++      ui_runner_(base::ThreadTaskRunnerHandle::Get()),
+++      controller_(FROM_HERE) {}
+++
+++WaylandFdWatcher::~WaylandFdWatcher() = default;
+++
+++void WaylandFdWatcher::Init() {
+++  thread_runner_ = base::ThreadTaskRunnerHandle::Get();
+++  BeginWatchingFd(base::WatchableIOMessagePumpPosix::Mode::WATCH_READ);
+++}
+++
+++void WaylandFdWatcher::OnFileCanReadWithoutBlocking(int fd) {
+++  DCHECK(thread_runner_->BelongsToCurrentThread());
+++  if (prepared_) {
+++    prepared_ = false;
+++    if (wl_display_read_events(display_) == -1)
+++      return;
+++    ui_runner_->PostTask(FROM_HERE,
+++                         base::BindOnce(&WaylandFdWatcher::DispatchPending,
+++                                        base::Unretained(this)));
+++  }
+++
+++  MaybePrepareReadQueue();
+++
+++  if (!prepared_)
+++    return;
+++
+++  // Automatic Flush.
+++  int ret = wl_display_flush(display_);
+++  if (ret != -1 || errno != EAGAIN)
+++    return;
+++
+++  // if all data could not be written, errno will be set to EAGAIN and -1
+++  // returned. In that case, use poll on the display file descriptor to wait
+++  // for it to become writable again.
+++  BeginWatchingFd(base::WatchableIOMessagePumpPosix::Mode::WATCH_WRITE);
+++}
+++
+++void WaylandFdWatcher::OnFileCanWriteWithoutBlocking(int fd) {
+++  DCHECK(thread_runner_->BelongsToCurrentThread());
+++
+++  int ret = wl_display_flush(display_);
+++  if (ret != -1 || errno != EAGAIN)
+++    BeginWatchingFd(base::WatchableIOMessagePumpPosix::Mode::WATCH_READ);
+++  else if (ret < 0 && errno != EPIPE && prepared_)
+++    wl_display_cancel_read(display_);
+++
+++  // Otherwise just continue watching in the same mode.
+++}
+++
+++void WaylandFdWatcher::BeginWatchingFd(
+++    base::WatchableIOMessagePumpPosix::Mode mode) {
+++  DCHECK(thread_runner_->BelongsToCurrentThread());
+++  if (watching_) {
+++    // Stop watching first.
+++    watching_ = !controller_.StopWatchingFileDescriptor();
+++    DCHECK(!watching_);
+++  }
+++
+++  MaybePrepareReadQueue();
+++
+++  DCHECK(base::MessageLoopCurrentForUI::IsSet());
+++  watching_ = base::MessageLoopCurrentForUI::Get()->WatchFileDescriptor(
+++      wl_display_get_fd(display_), true, mode, &controller_, this);
+++}
+++
+++void WaylandFdWatcher::DispatchPending() {
+++  DCHECK(ui_runner_->BelongsToCurrentThread());
+++  wl_display_dispatch_queue_pending(display_, event_queue_);
+++}
+++
+++void WaylandFdWatcher::MaybePrepareReadQueue() {
+++  DCHECK(thread_runner_->BelongsToCurrentThread());
+++  if (prepared_)
+++    return;
+++
+++  if (wl_display_prepare_read(display_) != -1) {
+++    prepared_ = true;
+++    return;
+++  }
+++  // Nothing to read, send events to the queue.
+++  ui_runner_->PostTask(FROM_HERE,
+++                       base::BindOnce(&WaylandFdWatcher::DispatchPending,
+++                                      base::Unretained(this)));
+++}
+++
+++}  // namespace ui
++\ No newline at end of file
++diff --git ui/ozone/platform/wayland/host/wayland_fd_watcher.h ui/ozone/platform/wayland/host/wayland_fd_watcher.h
++new file mode 100644
++index 000000000000..a71dfdf0ed69
++--- /dev/null
+++++ ui/ozone/platform/wayland/host/wayland_fd_watcher.h
++@@ -0,0 +1,68 @@
+++// Copyright 2020 The Chromium Authors. All rights reserved.
+++// Use of this source code is governed by a BSD-style license that can be
+++// found in the LICENSE file.
+++
+++#ifndef UI_OZONE_PLATFORM_WAYLAND_HOST_WAYLAND_FD_WATCHER_H_
+++#define UI_OZONE_PLATFORM_WAYLAND_HOST_WAYLAND_FD_WATCHER_H_
+++
+++#include "base/memory/scoped_refptr.h"
+++#include "base/message_loop/message_pump_for_ui.h"
+++#include "base/message_loop/watchable_io_message_pump_posix.h"
+++#include "base/single_thread_task_runner.h"
+++#include "base/threading/thread.h"
+++
+++struct wl_display;
+++struct wl_event_queue;
+++
+++namespace ui {
+++
+++// Wathces the wl_display's fd on a different thread.
+++class WaylandFdWatcher : public base::Thread,
+++                         public base::MessagePumpForUI::FdWatcher {
+++ public:
+++  WaylandFdWatcher(wl_event_queue* queue, wl_display* display);
+++  WaylandFdWatcher(const WaylandFdWatcher&) = delete;
+++  WaylandFdWatcher& operator=(const WaylandFdWatcher&) = delete;
+++  ~WaylandFdWatcher() override;
+++
+++ private:
+++  // base::Thread:
+++  void Init() override;
+++
+++  // base::MessagePumpForUI::FdWatcher:
+++  void OnFileCanReadWithoutBlocking(int fd) override;
+++  void OnFileCanWriteWithoutBlocking(int fd) override;
+++
+++  // Begins watching the display's fd.
+++  void BeginWatchingFd(base::WatchableIOMessagePumpPosix::Mode mode);
+++
+++  // Dispatches pending events on the |event_queue_|.
+++  void DispatchPending();
+++
+++  // Prepares the |event_queue_| for reading.
+++  void MaybePrepareReadQueue();
+++
+++  // Tells if the display fd is being watched.
+++  bool watching_ = false;
+++
+++  // Tells if the event queue is prepared to be read.
+++  bool prepared_ = false;
+++
+++  // Non-default event queue that we get messages from.
+++  wl_event_queue* const event_queue_;
+++  // External display that embeder client has given to us.
+++  wl_display* const display_;
+++
+++  // The task runner of original ui thread where all the events must eventually
+++  // go.
+++  scoped_refptr<base::SingleThreadTaskRunner> ui_runner_;
+++
+++  // The task runner the checks the thread where polling happens.
+++  scoped_refptr<base::SingleThreadTaskRunner> thread_runner_;
+++
+++  base::MessagePumpForUI::FdWatchController controller_;
+++};
+++
+++}  // namespace ui
+++
+++#endif  // UI_OZONE_PLATFORM_WAYLAND_HOST_WAYLAND_FD_WATCHER_H_
++\ No newline at end of file
++diff --git ui/ozone/platform/wayland/host/wayland_keyboard.cc ui/ozone/platform/wayland/host/wayland_keyboard.cc
++index fbadb0e3b1e2..231f48a52eb0 100644
++--- ui/ozone/platform/wayland/host/wayland_keyboard.cc
+++++ ui/ozone/platform/wayland/host/wayland_keyboard.cc
++@@ -18,6 +18,7 @@
++ #include "ui/events/ozone/evdev/keyboard_util_evdev.h"
++ #include "ui/events/ozone/layout/keyboard_layout_engine.h"
++ #include "ui/events/ozone/layout/keyboard_layout_engine_manager.h"
+++#include "ui/ozone/platform/wayland/common/wayland_external_window.h"
++ #include "ui/ozone/platform/wayland/host/wayland_connection.h"
++ #include "ui/ozone/platform/wayland/host/wayland_window.h"
++
++@@ -86,22 +87,33 @@ void WaylandKeyboard::Enter(void* data,
++                             uint32_t serial,
++                             wl_surface* surface,
++                             wl_array* keys) {
++-  // wl_surface might have been destroyed by this time.
++-  if (surface)
++-    WaylandWindow::FromSurface(surface)->set_keyboard_focus(true);
+++  WaylandKeyboard* keyboard = static_cast<WaylandKeyboard*>(data);
+++  DCHECK(keyboard);
+++
+++  // wl_surface might have been destroyed by this time
+++  // or the surface may belong to another application.
+++  auto* window = WaylandWindow::FromSurface(surface);
+++  if (window)
+++    window->set_keyboard_focus(true);
+++  else if (!window)
+++    keyboard->MaybeParentEvent(surface, true);
++ }
++
++ void WaylandKeyboard::Leave(void* data,
++                             wl_keyboard* obj,
++                             uint32_t serial,
++                             wl_surface* surface) {
++-  // wl_surface might have been destroyed by this time.
++-  if (surface)
++-    WaylandWindow::FromSurface(surface)->set_keyboard_focus(false);
++-
++   WaylandKeyboard* keyboard = static_cast<WaylandKeyboard*>(data);
++   DCHECK(keyboard);
++
+++  // wl_surface might have been destroyed by this time.
+++  // or the surface may belong to another application.
+++  auto* window = WaylandWindow::FromSurface(surface);
+++  if (window)
+++    window->set_keyboard_focus(false);
+++  else if (!window)
+++    keyboard->MaybeParentEvent(surface, false /* leave == !active */);
+++
++   // Upon window focus lose, reset the key repeat timers.
++   keyboard->auto_repeat_handler_.StopKeyRepeat();
++ }
++@@ -225,4 +237,18 @@ void WaylandKeyboard::UpdateModifier(int modifier, bool down) {
++   modifiers_ = down ? (modifiers_ | modifier) : (modifiers_ & ~modifier);
++ }
++
+++void WaylandKeyboard::MaybeParentEvent(wl_surface* external_surface,
+++                                       bool active) {
+++  // If it wasn't our window, it must have been external parent window.
+++  // Find it and notify our WaylandWindow (the child of that external
+++  // parent) that external parent was activated by getting keyboard enter
+++  auto* external_window =
+++      connection_->wayland_window_manager()->GetExternalWindowForSurface(
+++          external_surface);
+++  if (external_window) {
+++    auto* window = external_window->GetChilWaylandWindow();
+++    window->ExternalParentActivated(active);
+++  }
+++}
+++
++ }  // namespace ui
++diff --git ui/ozone/platform/wayland/host/wayland_keyboard.h ui/ozone/platform/wayland/host/wayland_keyboard.h
++index 1e5fd7a40383..ffde764186dd 100644
++--- ui/ozone/platform/wayland/host/wayland_keyboard.h
+++++ ui/ozone/platform/wayland/host/wayland_keyboard.h
++@@ -79,6 +79,8 @@ class WaylandKeyboard : public EventAutoRepeatHandler::Delegate {
++                    base::TimeTicks timestamp,
++                    int device_id) override;
++
+++  void MaybeParentEvent(wl_surface* external_surface, bool active);
+++
++   WaylandConnection* connection_ = nullptr;
++   wl::Object<wl_keyboard> obj_;
++   EventDispatchCallback callback_;
++diff --git ui/ozone/platform/wayland/host/wayland_output_manager.cc ui/ozone/platform/wayland/host/wayland_output_manager.cc
++index 1f403f4928a7..cd70163ffc6a 100644
++--- ui/ozone/platform/wayland/host/wayland_output_manager.cc
+++++ ui/ozone/platform/wayland/host/wayland_output_manager.cc
++@@ -54,8 +54,14 @@ void WaylandOutputManager::RemoveWaylandOutput(const uint32_t output_id) {
++ std::unique_ptr<WaylandScreen> WaylandOutputManager::CreateWaylandScreen(
++     WaylandConnection* connection) {
++   auto wayland_screen = std::make_unique<WaylandScreen>(connection);
++-  wayland_screen_ = wayland_screen->GetWeakPtr();
+++  SetWaylandScreen(wayland_screen->GetWeakPtr());
+++  return wayland_screen;
+++}
++
+++void WaylandOutputManager::SetWaylandScreen(
+++    base::WeakPtr<WaylandScreen> wayland_screen) {
+++  DCHECK(!wayland_screen_);
+++  wayland_screen_ = wayland_screen;
++   // As long as |wl_output| sends geometry and other events asynchronously (that
++   // is, the initial configuration is sent once the interface is bound), we'll
++   // have to tell each output to manually inform the delegate about available
++@@ -70,23 +76,23 @@ std::unique_ptr<WaylandScreen> WaylandOutputManager::CreateWaylandScreen(
++       output->TriggerDelegateNotification();
++     }
++   }
++-
++-  return wayland_screen;
++ }
++
++ uint32_t WaylandOutputManager::GetIdForOutput(wl_output* output) const {
++   auto output_it = std::find_if(
++       output_list_.begin(), output_list_.end(),
++       [output](const auto& item) { return item->has_output(output); });
++-  // This is unlikely to happen, but better to be explicit here.
++-  DCHECK(output_it != output_list_.end());
+++  // Unknown output that we got from another client.
+++  if (output_it == output_list_.end())
+++    return 0u;
++   return output_it->get()->output_id();
++ }
++
++ WaylandOutput* WaylandOutputManager::GetOutput(uint32_t id) const {
++   auto output_it = GetOutputItById(id);
++-  // This is unlikely to happen, but better to be explicit here.
++-  DCHECK(output_it != output_list_.end());
+++  // Unknown output that we got from another client.
+++  if (output_it == output_list_.end())
+++    return nullptr;
++   return output_it->get();
++ }
++
++diff --git ui/ozone/platform/wayland/host/wayland_output_manager.h ui/ozone/platform/wayland/host/wayland_output_manager.h
++index f05828a6d90b..a90d1950caeb 100644
++--- ui/ozone/platform/wayland/host/wayland_output_manager.h
+++++ ui/ozone/platform/wayland/host/wayland_output_manager.h
++@@ -38,10 +38,15 @@ class WaylandOutputManager : public WaylandOutput::Delegate {
++   std::unique_ptr<WaylandScreen> CreateWaylandScreen(
++       WaylandConnection* connection);
++
+++  // Stores the |wayland_screen| and feeds it with existing outputs.
+++  void SetWaylandScreen(base::WeakPtr<WaylandScreen> wayland_screen);
+++
++   uint32_t GetIdForOutput(wl_output* output) const;
++   WaylandOutput* GetOutput(uint32_t id) const;
++
++-  WaylandScreen* wayland_screen() const { return wayland_screen_.get(); }
+++  base::WeakPtr<WaylandScreen> wayland_screen() const {
+++    return wayland_screen_;
+++  }
++
++  private:
++   void OnWaylandOutputAdded(uint32_t output_id);
++diff --git ui/ozone/platform/wayland/host/wayland_pointer.cc ui/ozone/platform/wayland/host/wayland_pointer.cc
++index 4731b6845653..6c76764ca2c2 100644
++--- ui/ozone/platform/wayland/host/wayland_pointer.cc
+++++ ui/ozone/platform/wayland/host/wayland_pointer.cc
++@@ -214,16 +214,16 @@ void WaylandPointer::ResetFlags() {
++ }
++
++ void WaylandPointer::FocusWindow(wl_surface* surface) {
++-  if (surface) {
++-    WaylandWindow* window = WaylandWindow::FromSurface(surface);
+++  auto* window = WaylandWindow::FromSurface(surface);
+++  if (window) {
++     window->SetPointerFocus(true);
++     window_with_pointer_focus_ = window;
++   }
++ }
++
++ void WaylandPointer::UnfocusWindow(wl_surface* surface) {
++-  if (surface) {
++-    WaylandWindow* window = WaylandWindow::FromSurface(surface);
+++  auto* window = WaylandWindow::FromSurface(surface);
+++  if (window) {
++     window->SetPointerFocus(false);
++     window->set_has_implicit_grab(false);
++     window_with_pointer_focus_ = nullptr;
++diff --git ui/ozone/platform/wayland/host/wayland_popup.cc ui/ozone/platform/wayland/host/wayland_popup.cc
++index dd9e6c268abc..a48bbfbe607d 100644
++--- ui/ozone/platform/wayland/host/wayland_popup.cc
+++++ ui/ozone/platform/wayland/host/wayland_popup.cc
++@@ -144,6 +144,12 @@ bool WaylandPopup::OnInitialize(PlatformWindowInitProperties properties) {
++     LOG(ERROR) << "Failed to get a parent window for this popup";
++     return false;
++   }
+++  if (parent_window()->IsSubsurface()) {
+++    LOG(INFO) << "The parent window is a subsurface. The child must be of the "
+++                 "same type.";
+++    return false;
+++  }
+++
++   // If parent window is known in advanced, we may set the scale early.
++   SetBufferScale(parent_window()->buffer_scale(), false);
++   set_ui_scale(parent_window()->ui_scale());
++diff --git ui/ozone/platform/wayland/host/wayland_subsurface.cc ui/ozone/platform/wayland/host/wayland_subsurface.cc
++index 28f435f39deb..09dee85b9322 100644
++--- ui/ozone/platform/wayland/host/wayland_subsurface.cc
+++++ ui/ozone/platform/wayland/host/wayland_subsurface.cc
++@@ -4,6 +4,8 @@
++
++ #include "ui/ozone/platform/wayland/host/wayland_subsurface.h"
++
+++#include "ui/events/event.h"
+++#include "ui/ozone/platform/wayland/common/wayland_external_window.h"
++ #include "ui/ozone/platform/wayland/common/wayland_util.h"
++ #include "ui/ozone/platform/wayland/host/wayland_buffer_manager_host.h"
++ #include "ui/ozone/platform/wayland/host/wayland_connection.h"
++@@ -37,6 +39,10 @@ void WaylandSubsurface::Show(bool inactive) {
++     return;
++
++   CreateSubsurface();
+++
+++  if (parent_window())
+++    parent_window()->set_child_window(this);
+++
++   UpdateBufferScale(false);
++ }
++
++@@ -45,6 +51,10 @@ void WaylandSubsurface::Hide() {
++     return;
++
++   subsurface_.reset();
+++  delegate()->OnActivationChanged(false);
+++
+++  if (parent_window())
+++    parent_window()->set_child_window(nullptr);
++
++   // Detach buffer from surface in order to completely shutdown menus and
++   // tooltips, and release resources.
++@@ -59,27 +69,90 @@ void WaylandSubsurface::SetBounds(const gfx::Rect& bounds) {
++   auto old_bounds = GetBounds();
++   WaylandWindow::SetBounds(bounds);
++
++-  if (old_bounds == bounds || !parent_window())
+++  if (old_bounds == bounds || !subsurface_)
++     return;
++
++   // Translate location from screen to surface coordinates.
++-  auto bounds_px = AdjustSubsurfaceBounds(
++-      GetBounds(), parent_window()->GetBounds(), ui_scale(), buffer_scale());
+++  // We might have external window, and in that case, we have correct bounds
+++  // relative that window.
+++  auto bounds_px = GetBounds();
+++  if (parent_window()) {
+++    bounds_px = AdjustSubsurfaceBounds(
+++        GetBounds(), parent_window()->GetBounds(), ui_scale(), buffer_scale());
+++  }
++   wl_subsurface_set_position(subsurface_.get(), bounds_px.x() / buffer_scale(),
++                              bounds_px.y() / buffer_scale());
++   wl_surface_commit(surface());
++   connection()->ScheduleFlush();
++ }
++
+++bool WaylandSubsurface::HasCapture() const {
+++  // If subsurface exists, assume it has capture as well.
+++  if (parent_window())
+++    return !!subsurface_;
+++  return WaylandWindow::HasCapture();
+++}
+++
+++bool WaylandSubsurface::CanDispatchEvent(const PlatformEvent& event) {
+++  // We override CanDispatchEvent as in case of cef, we only use subsurfaces.
+++  // This means that it's hard to distinguish whether the surface is a popup
+++  // or normal one just using the type. Thus, add own logic that extends the
+++  // original one.
+++
+++  // This window is a nested menu window, all the events must be forwarded
+++  // to the main menu window.
+++  if ((!parent_window() && child_window()) ||
+++      (parent_window() && parent_window()->parent_window())) {
+++    return false;
+++  }
+++
+++  // If another window has capture, return early before checking focus.
+++  if (HasCapture())
+++    return true;
+++
+++  if (event->IsMouseEvent())
+++    return has_pointer_focus();
+++  if (event->IsKeyEvent())
+++    return has_keyboard_focus();
+++  if (event->IsTouchEvent())
+++    return has_touch_focus();
+++  return false;
+++}
+++
+++uint32_t WaylandSubsurface::DispatchEvent(const PlatformEvent& native_event) {
+++  Event* event = static_cast<Event*>(native_event);
+++  if (external_parent_window_ && event->IsMouseEvent()) {
+++    // If we have external parent window, we are the subsurface. Thus, listen to
+++    // mouse press events and set keyboard focus. The focus can be removed by
+++    // the external parent window.
+++    if (event->type() == ET_MOUSE_PRESSED) {
+++      set_keyboard_focus(true);
+++    }
+++  }
+++  return WaylandWindow::DispatchEvent(native_event);
+++}
+++
++ void WaylandSubsurface::CreateSubsurface() {
++-  auto* parent = parent_window();
++-  if (!parent) {
+++  // If we have external parent window, use its surface as our parent.
+++  // Otherwise, check if have a normal parent window.
+++  wl_surface* parent_surface = nullptr;
+++  if (external_parent_window_) {
+++    parent_surface = external_parent_window_->GetWaylandSurface();
+++  } else if (parent_window()) {
+++    parent_surface = parent_window()->surface();
+++    parent_window()->set_child_window(this);
+++  }
+++
+++  // If we don't have parent surface, it means this surface is a tooltip and
+++  // we must use currently focused window instead.
+++  if (!parent_surface) {
+++    DCHECK(!parent_window());
+++    WaylandWindow* parent = nullptr;
++     // wl_subsurface can be used for several purposes: tooltips and drag arrow
++     // windows. If we are in a drag process, use the entered window. Otherwise,
++     // it must be a tooltip.
++     if (connection()->IsDragInProgress()) {
++       parent = connection()->wayland_data_device()->entered_window();
++-      set_parent_window(parent);
++     } else {
++       // If Aura does not not provide a reference parent window, needed by
++       // Wayland, we get the current focused window to place and show the
++@@ -87,36 +160,60 @@ void WaylandSubsurface::CreateSubsurface() {
++       parent =
++           connection()->wayland_window_manager()->GetCurrentFocusedWindow();
++     }
+++
+++    if (!parent)
+++      return;
+++
+++    set_parent_window(parent);
+++    parent_surface = parent->surface();
++   }
++
++   // Tooltip and drag arrow creation is an async operation. By the time Aura
++   // actually creates them, it is possible that the user has already moved the
++   // mouse/pointer out of the window that triggered the tooltip, or user is no
++   // longer in a drag/drop process. In this case, parent is NULL.
++-  if (!parent)
+++  if (!parent_surface)
++     return;
++
++   wl_subcompositor* subcompositor = connection()->subcompositor();
++   DCHECK(subcompositor);
++   subsurface_.reset(wl_subcompositor_get_subsurface(subcompositor, surface(),
++-                                                    parent->surface()));
+++                                                    parent_surface));
++
++   // Chromium positions tooltip windows in screen coordinates, but Wayland
++   // requires them to be in local surface coordinates a.k.a relative to parent
++   // window.
++-  auto bounds_px = AdjustSubsurfaceBounds(GetBounds(), parent->GetBounds(),
++-                                          ui_scale(), buffer_scale());
+++  // If we have external parent, we already have bounds relative to it.
+++  auto bounds_px = GetBounds();
+++  if (parent_window()) {
+++    bounds_px = AdjustSubsurfaceBounds(bounds_px, parent_window()->GetBounds(),
+++                                       ui_scale(), buffer_scale());
+++  }
++
++   DCHECK(subsurface_);
++   // Convert position to DIP.
++   wl_subsurface_set_position(subsurface_.get(), bounds_px.x() / buffer_scale(),
++                              bounds_px.y() / buffer_scale());
++   wl_subsurface_set_desync(subsurface_.get());
++-  wl_surface_commit(parent->surface());
+++  wl_surface_commit(parent_surface);
+++  delegate()->OnActivationChanged(true);
++   connection()->ScheduleFlush();
++ }
++
++ bool WaylandSubsurface::OnInitialize(PlatformWindowInitProperties properties) {
+++  // Try external parent first. Otherwise, if we use GetParentWindow in the
+++  // beginning, it may return currently focused window, which is not correct
+++  // and we can crash.
+++  external_parent_window_ =
+++      connection()->wayland_window_manager()->GetExternalWindow(
+++          properties.parent_widget);
+++  if (external_parent_window_) {
+++    // We'll set |this| as our parent's user data so that it can easily
+++    // access this.
+++    external_parent_window_->SetChildWaylandWindow(this);
+++    return true;
+++  }
+++
++   // If we do not have parent window provided, we must always use a focused
++   // window or a window that entered drag whenever the subsurface is created.
++   if (properties.parent_widget == gfx::kNullAcceleratedWidget) {
++@@ -127,4 +224,19 @@ bool WaylandSubsurface::OnInitialize(PlatformWindowInitProperties properties) {
++   return true;
++ }
++
+++bool WaylandSubsurface::IsSubsurface() const {
+++  return true;
+++}
+++
+++void WaylandSubsurface::ExternalParentActivated(bool active) {
+++  DCHECK(external_parent_window_);
+++  // Disable/enable keyboard focus as the external window is {not} active aka
+++  // lost/gained keyboard focus. This is needed to properly set focus to
+++  // another window if created.
+++  set_keyboard_focus(active);
+++
+++  // Also, notify Aura about activation changes.
+++  delegate()->OnActivationChanged(active);
+++}
+++
++ }  // namespace ui
++diff --git ui/ozone/platform/wayland/host/wayland_subsurface.h ui/ozone/platform/wayland/host/wayland_subsurface.h
++index e5c8bed26f89..76b95d5d2e1b 100644
++--- ui/ozone/platform/wayland/host/wayland_subsurface.h
+++++ ui/ozone/platform/wayland/host/wayland_subsurface.h
++@@ -9,6 +9,8 @@
++
++ namespace ui {
++
+++class WaylandExternalWindow;
+++
++ class WaylandSubsurface : public WaylandWindow {
++  public:
++   WaylandSubsurface(PlatformWindowDelegate* delegate,
++@@ -20,16 +22,25 @@ class WaylandSubsurface : public WaylandWindow {
++   void Hide() override;
++   bool IsVisible() const override;
++   void SetBounds(const gfx::Rect& bounds) override;
+++  bool HasCapture() const override;
++
++  private:
+++  // PlatformEventDispatcher
+++  bool CanDispatchEvent(const PlatformEvent& event) override;
+++  uint32_t DispatchEvent(const PlatformEvent& native_event) override;
+++
++   // WaylandWindow overrides:
++   bool OnInitialize(PlatformWindowInitProperties properties) override;
+++  bool IsSubsurface() const override;
+++  void ExternalParentActivated(bool active) override;
++
++   // Creates (if necessary) and shows a subsurface window.
++   void CreateSubsurface();
++
++   wl::Object<wl_subsurface> subsurface_;
++
+++  WaylandExternalWindow* external_parent_window_ = nullptr;
+++
++   DISALLOW_COPY_AND_ASSIGN(WaylandSubsurface);
++ };
++
++diff --git ui/ozone/platform/wayland/host/wayland_touch.cc ui/ozone/platform/wayland/host/wayland_touch.cc
++index a3d0b25826a2..ba1c4770bd66 100644
++--- ui/ozone/platform/wayland/host/wayland_touch.cc
+++++ ui/ozone/platform/wayland/host/wayland_touch.cc
++@@ -64,7 +64,9 @@ void WaylandTouch::MaybeUnsetFocus(const WaylandTouch::TouchPoints& points,
++       return;
++   }
++   DCHECK(surface);
++-  WaylandWindow::FromSurface(surface)->set_touch_focus(false);
+++  auto* window = WaylandWindow::FromSurface(surface);
+++  if (window)
+++    window->set_touch_focus(false);
++ }
++
++ void WaylandTouch::OnWindowRemoved(WaylandWindow* window) {
++@@ -84,7 +86,9 @@ void WaylandTouch::Down(void* data,
++   WaylandTouch* touch = static_cast<WaylandTouch*>(data);
++   DCHECK(touch);
++   touch->connection_->set_serial(serial);
++-  WaylandWindow::FromSurface(surface)->set_touch_focus(true);
+++  auto* window = WaylandWindow::FromSurface(surface);
+++  if (window)
+++    window->set_touch_focus(true);
++
++   // Make sure this touch point wasn't present before.
++   if (touch->current_points_.find(id) != touch->current_points_.end()) {
++@@ -170,7 +174,9 @@ void WaylandTouch::Cancel(void* data, wl_touch* obj) {
++     TouchEvent event(type, gfx::Point(), time_stamp, pointer_details);
++     touch->callback_.Run(&event);
++
++-    WaylandWindow::FromSurface(point.second.surface)->set_touch_focus(false);
+++    auto* window = WaylandWindow::FromSurface(point.second.surface);
+++    if (window)
+++      window->set_touch_focus(false);
++   }
++   touch->current_points_.clear();
++ }
++diff --git ui/ozone/platform/wayland/host/wayland_window.cc ui/ozone/platform/wayland/host/wayland_window.cc
++index c752ad3c0048..c3c21a4c2b0e 100644
++--- ui/ozone/platform/wayland/host/wayland_window.cc
+++++ ui/ozone/platform/wayland/host/wayland_window.cc
++@@ -8,11 +8,13 @@
++ #include <memory>
++
++ #include "base/bind.h"
+++#include "base/single_thread_task_runner.h"
++ #include "ui/base/cursor/ozone/bitmap_cursor_factory_ozone.h"
++ #include "ui/events/event.h"
++ #include "ui/events/event_utils.h"
++ #include "ui/events/ozone/events_ozone.h"
++ #include "ui/gfx/geometry/point_f.h"
+++#include "ui/ozone/platform/wayland/common/wayland_external_window.h"
++ #include "ui/ozone/platform/wayland/common/wayland_util.h"
++ #include "ui/ozone/platform/wayland/host/wayland_buffer_manager_host.h"
++ #include "ui/ozone/platform/wayland/host/wayland_connection.h"
++@@ -24,7 +26,10 @@ namespace ui {
++
++ WaylandWindow::WaylandWindow(PlatformWindowDelegate* delegate,
++                              WaylandConnection* connection)
++-    : delegate_(delegate), connection_(connection) {}
+++    : delegate_(delegate),
+++      connection_(connection),
+++      ui_runner_(base::ThreadTaskRunnerHandle::Get()),
+++      surface_id_(connection_->GetNextIdForSurface()) {}
++
++ WaylandWindow::~WaylandWindow() {
++   PlatformEventSource::GetInstance()->RemovePlatformEventDispatcher(this);
++@@ -40,13 +45,15 @@ WaylandWindow::~WaylandWindow() {
++
++ // static
++ WaylandWindow* WaylandWindow::FromSurface(wl_surface* surface) {
+++  if (!WaylandWindowManager::Get()->SurfaceExists(surface))
+++    return nullptr;
++   return static_cast<WaylandWindow*>(
++       wl_proxy_get_user_data(reinterpret_cast<wl_proxy*>(surface)));
++ }
++
++ void WaylandWindow::UpdateBufferScale(bool update_bounds) {
++   DCHECK(connection_->wayland_output_manager());
++-  const auto* screen = connection_->wayland_output_manager()->wayland_screen();
+++  const auto screen = connection_->wayland_output_manager()->wayland_screen();
++   DCHECK(screen);
++   const auto widget = GetWidget();
++
++@@ -73,7 +80,7 @@ void WaylandWindow::UpdateBufferScale(bool update_bounds) {
++ gfx::AcceleratedWidget WaylandWindow::GetWidget() const {
++   if (!surface_)
++     return gfx::kNullAcceleratedWidget;
++-  return surface_.id();
+++  return surface_id_;
++ }
++ void WaylandWindow::SetPointerFocus(bool focus) {
++   has_pointer_focus_ = focus;
++@@ -241,6 +248,8 @@ bool WaylandWindow::CanDispatchEvent(const PlatformEvent& event) {
++ }
++
++ uint32_t WaylandWindow::DispatchEvent(const PlatformEvent& native_event) {
+++  DCHECK(ui_runner_->BelongsToCurrentThread());
+++
++   Event* event = static_cast<Event*>(native_event);
++   if (event->IsLocatedEvent()) {
++     // Wayland sends locations in DIP so they need to be translated to
++@@ -255,7 +264,7 @@ uint32_t WaylandWindow::DispatchEvent(const PlatformEvent& native_event) {
++   // means the window is a menu window with a child menu window. In this case,
++   // the location of the event must be converted from the nested menu to the
++   // main menu, which the menu controller needs to properly handle events.
++-  if (event->IsLocatedEvent() && wl::IsMenuType(type())) {
+++  if (event->IsLocatedEvent() && (wl::IsMenuType(type()) || IsSubsurface())) {
++     // Parent window of the main menu window is not a menu, but rather an
++     // xdg surface.
++     DCHECK(!wl::IsMenuType(parent_window_->type()) ||
++@@ -292,6 +301,12 @@ void WaylandWindow::OnCloseRequest() {
++   delegate_->OnCloseRequest();
++ }
++
+++void WaylandWindow::OnAckConfigured() {}
+++
+++wl_surface* WaylandWindow::GetWlSurface() const {
+++  return surface();
+++}
+++
++ void WaylandWindow::OnDragEnter(const gfx::PointF& point,
++                                 std::unique_ptr<OSExchangeData> data,
++                                 int operation) {}
++@@ -308,6 +323,8 @@ void WaylandWindow::OnDragLeave() {}
++
++ void WaylandWindow::OnDragSessionClose(uint32_t dnd_action) {}
++
+++void WaylandWindow::ExternalParentActivated(bool active) {}
+++
++ void WaylandWindow::SetBoundsDip(const gfx::Rect& bounds_dip) {
++   SetBounds(gfx::ScaleToRoundedRect(bounds_dip, buffer_scale_));
++ }
++@@ -362,6 +379,10 @@ void WaylandWindow::SetBufferScale(int32_t new_scale, bool update_bounds) {
++   connection_->ScheduleFlush();
++ }
++
+++bool WaylandWindow::IsSubsurface() const {
+++  return false;
+++}
+++
++ WaylandWindow* WaylandWindow::GetParentWindow(
++     gfx::AcceleratedWidget parent_widget) {
++   auto* parent_window =
++diff --git ui/ozone/platform/wayland/host/wayland_window.h ui/ozone/platform/wayland/host/wayland_window.h
++index 08658f1df87c..704d0c2a9d3c 100644
++--- ui/ozone/platform/wayland/host/wayland_window.h
+++++ ui/ozone/platform/wayland/host/wayland_window.h
++@@ -17,10 +17,15 @@
++ #include "ui/gfx/geometry/rect.h"
++ #include "ui/gfx/native_widget_types.h"
++ #include "ui/ozone/platform/wayland/common/wayland_object.h"
+++#include "ui/ozone/platform/wayland/host/shell_surface_wrapper.h"
++ #include "ui/platform_window/platform_window.h"
++ #include "ui/platform_window/platform_window_delegate.h"
++ #include "ui/platform_window/platform_window_init_properties.h"
++
+++namespace base {
+++class SingleThreadTaskRunner;
+++}
+++
++ namespace gfx {
++ class PointF;
++ }
++@@ -31,7 +36,9 @@ class BitmapCursorOzone;
++ class OSExchangeData;
++ class WaylandConnection;
++
++-class WaylandWindow : public PlatformWindow, public PlatformEventDispatcher {
+++class WaylandWindow : public PlatformWindow,
+++                      public PlatformEventDispatcher,
+++                      public ShellSurfaceWrapper::Delegate {
++  public:
++   ~WaylandWindow() override;
++
++@@ -132,15 +139,17 @@ class WaylandWindow : public PlatformWindow, public PlatformEventDispatcher {
++   // Handles the configuration events coming from the shell objects.
++   // The width and height come in DIP of the output that the surface is
++   // currently bound to.
++-  virtual void HandleSurfaceConfigure(int32_t widht,
++-                                      int32_t height,
++-                                      bool is_maximized,
++-                                      bool is_fullscreen,
++-                                      bool is_activated);
++   virtual void HandlePopupConfigure(const gfx::Rect& bounds);
++
++-  // Handles close requests.
++-  virtual void OnCloseRequest();
+++  // ShellSurfaceWrapper::Delegate:
+++  void HandleSurfaceConfigure(int32_t widht,
+++                              int32_t height,
+++                              bool is_maximized,
+++                              bool is_fullscreen,
+++                              bool is_activated) override;
+++  void OnCloseRequest() override;
+++  void OnAckConfigured() override;
+++  wl_surface* GetWlSurface() const override;
++
++   // Notifies about drag/drop session events.
++   virtual void OnDragEnter(const gfx::PointF& point,
++@@ -153,6 +162,12 @@ class WaylandWindow : public PlatformWindow, public PlatformEventDispatcher {
++   virtual void OnDragLeave();
++   virtual void OnDragSessionClose(uint32_t dnd_action);
++
+++  // Subsurfaces may want to listen to activations of their external parents.
+++  virtual void ExternalParentActivated(bool active);
+++
+++  // Tells if the window is a subsurface.
+++  virtual bool IsSubsurface() const;
+++
++  protected:
++   WaylandWindow(PlatformWindowDelegate* delegate,
++                 WaylandConnection* connection);
++@@ -248,6 +263,12 @@ class WaylandWindow : public PlatformWindow, public PlatformEventDispatcher {
++   // we ask its parent.
++   base::flat_set<uint32_t> entered_outputs_ids_;
++
+++  // Is used to check the events are sent on right sequence.
+++  scoped_refptr<base::SingleThreadTaskRunner> ui_runner_;
+++
+++  // Id of the surface (gfx::AcceleratedWidget, actually).
+++  uint32_t const surface_id_;
+++
++   // The type of the current WaylandWindow object.
++   ui::PlatformWindowType type_ = ui::PlatformWindowType::kWindow;
++
++diff --git ui/ozone/platform/wayland/host/wayland_window_factory.cc ui/ozone/platform/wayland/host/wayland_window_factory.cc
++index 183190af09dc..9d00624f36ef 100644
++--- ui/ozone/platform/wayland/host/wayland_window_factory.cc
+++++ ui/ozone/platform/wayland/host/wayland_window_factory.cc
++@@ -23,8 +23,11 @@ std::unique_ptr<WaylandWindow> WaylandWindow::Create(
++     case PlatformWindowType::kMenu:
++     case PlatformWindowType::kPopup:
++       // We are in the process of drag and requested a popup. Most probably, it
++-      // is an arrow window.
++-      if (connection->IsDragInProgress()) {
+++      // is an arrow window. Or if we have external parent window as a parent
+++      // set, use subsurface.
+++      if (connection->IsDragInProgress() ||
+++          connection->wayland_window_manager()->GetExternalWindow(
+++              properties.parent_widget)) {
++         window.reset(new WaylandSubsurface(delegate, connection));
++       } else {
++         window.reset(new WaylandPopup(delegate, connection));
++@@ -44,8 +47,25 @@ std::unique_ptr<WaylandWindow> WaylandWindow::Create(
++       NOTREACHED();
++       break;
++   }
++-  return window && window->Initialize(std::move(properties)) ? std::move(window)
++-                                                             : nullptr;
+++
+++  if (window->Initialize(std::move(properties)))
+++    return window;
+++
+++  // If the window couldn't be initialized and the type was either menu or
+++  // popup, it can mean that a wrong window type was chosen and we should try a
+++  // subsurface instead.
+++  if (properties.type == PlatformWindowType::kMenu ||
+++      properties.type == PlatformWindowType::kPopup) {
+++    window.reset(new WaylandSubsurface(delegate, connection));
+++    if (window->Initialize(std::move(properties)))
+++      return window;
+++    // Something is wrong there, create a normal window.
+++    window.reset(new WaylandSurface(delegate, connection));
+++    return window->Initialize(std::move(properties)) ? std::move(window)
+++                                                     : nullptr;
+++  }
+++
+++  return nullptr;
++ }
++
++ }  // namespace ui
++\ No newline at end of file
++diff --git ui/ozone/platform/wayland/host/wayland_window_manager.cc ui/ozone/platform/wayland/host/wayland_window_manager.cc
++index 5cd790149831..688736654649 100644
++--- ui/ozone/platform/wayland/host/wayland_window_manager.cc
+++++ ui/ozone/platform/wayland/host/wayland_window_manager.cc
++@@ -4,13 +4,29 @@
++
++ #include "ui/ozone/platform/wayland/host/wayland_window_manager.h"
++
+++#include "ui/ozone/platform/wayland/common/wayland_external_window.h"
++ #include "ui/ozone/platform/wayland/host/wayland_window.h"
++
++ namespace ui {
++
++-WaylandWindowManager::WaylandWindowManager() = default;
+++namespace {
+++WaylandWindowManager* g_instance = nullptr;
+++}
+++
+++// static
+++WaylandWindowManager* WaylandWindowManager::Get() {
+++  return g_instance;
+++}
+++
+++WaylandWindowManager::WaylandWindowManager() {
+++  DCHECK(!g_instance);
+++  g_instance = this;
+++}
++
++-WaylandWindowManager::~WaylandWindowManager() = default;
+++WaylandWindowManager::~WaylandWindowManager() {
+++  DCHECK(window_map_.empty());
+++  g_instance = nullptr;
+++}
++
++ void WaylandWindowManager::AddObserver(WaylandWindowObserver* observer) {
++   observers_.AddObserver(observer);
++@@ -86,6 +102,35 @@ void WaylandWindowManager::RemoveWindow(gfx::AcceleratedWidget widget) {
++     observer.OnWindowRemoved(window);
++ }
++
+++void WaylandWindowManager::AddExternalWindow(
+++    uint32_t id,
+++    WaylandExternalWindow* external_window) {
+++  external_windows_[id] = external_window;
+++}
+++
+++void WaylandWindowManager::RemoveExternalWindow(uint32_t id) {
+++  auto* external_window = external_windows_[id];
+++  DCHECK(external_window);
+++
+++  external_windows_.erase(id);
+++}
+++
+++WaylandExternalWindow* WaylandWindowManager::GetExternalWindow(
+++    uint32_t id) const {
+++  auto it = external_windows_.find(id);
+++  return it == external_windows_.end() ? nullptr : it->second;
+++}
+++
+++// TODO(msisov): it'd be better to fix the id and use real one.
+++WaylandExternalWindow* WaylandWindowManager::GetExternalWindowForSurface(
+++    wl_surface* surface) const {
+++  for (const auto& window : external_windows_) {
+++    if (window.second->GetWaylandSurface() == surface)
+++      return window.second;
+++  }
+++  return nullptr;
+++}
+++
++ std::vector<WaylandWindow*> WaylandWindowManager::GetAllWindows() const {
++   std::vector<WaylandWindow*> result;
++   for (auto entry : window_map_)
++@@ -93,4 +138,12 @@ std::vector<WaylandWindow*> WaylandWindowManager::GetAllWindows() const {
++   return result;
++ }
++
+++bool WaylandWindowManager::SurfaceExists(wl_surface* surface) const {
+++  for (const auto& entry : window_map_) {
+++    if (entry.second->surface() == surface)
+++      return true;
+++  }
+++  return false;
+++}
+++
++ }  // namespace ui
++diff --git ui/ozone/platform/wayland/host/wayland_window_manager.h ui/ozone/platform/wayland/host/wayland_window_manager.h
++index 258f768f91b7..84ae6e6f5956 100644
++--- ui/ozone/platform/wayland/host/wayland_window_manager.h
+++++ ui/ozone/platform/wayland/host/wayland_window_manager.h
++@@ -13,9 +13,12 @@
++ #include "ui/gfx/native_widget_types.h"
++ #include "ui/ozone/platform/wayland/host/wayland_window_observer.h"
++
+++struct wl_surface;
+++
++ namespace ui {
++
++ class WaylandWindow;
+++class WaylandExternalWindow;
++
++ // Stores and returns WaylandWindows. Clients that are interested in knowing
++ // when a new window is added or removed, but set self as an observer.
++@@ -24,6 +27,8 @@ class WaylandWindowManager {
++   WaylandWindowManager();
++   ~WaylandWindowManager();
++
+++  static WaylandWindowManager* Get();
+++
++   void AddObserver(WaylandWindowObserver* observer);
++   void RemoveObserver(WaylandWindowObserver* observer);
++
++@@ -46,14 +51,24 @@ class WaylandWindowManager {
++   // Returns all stored windows.
++   std::vector<WaylandWindow*> GetAllWindows() const;
++
+++  bool SurfaceExists(wl_surface* surface) const;
+++
++   void AddWindow(gfx::AcceleratedWidget widget, WaylandWindow* window);
++   void RemoveWindow(gfx::AcceleratedWidget widget);
++
+++  WaylandExternalWindow* GetExternalWindowForSurface(wl_surface* surface) const;
+++  void AddExternalWindow(uint32_t id, WaylandExternalWindow* external_window);
+++  void RemoveExternalWindow(uint32_t id);
+++  WaylandExternalWindow* GetExternalWindow(uint32_t id) const;
+++
++  private:
++   base::ObserverList<WaylandWindowObserver> observers_;
++
++   base::flat_map<gfx::AcceleratedWidget, WaylandWindow*> window_map_;
++
+++  // A list of external windows.
+++  base::flat_map<uint32_t, WaylandExternalWindow*> external_windows_;
+++
++   DISALLOW_COPY_AND_ASSIGN(WaylandWindowManager);
++ };
++
++diff --git ui/ozone/platform/wayland/host/xdg_surface_wrapper_impl.cc ui/ozone/platform/wayland/host/xdg_surface_wrapper_impl.cc
++index e7df772ae472..f8cfd3a31a22 100644
++--- ui/ozone/platform/wayland/host/xdg_surface_wrapper_impl.cc
+++++ ui/ozone/platform/wayland/host/xdg_surface_wrapper_impl.cc
++@@ -15,9 +15,10 @@
++
++ namespace ui {
++
++-XDGSurfaceWrapperImpl::XDGSurfaceWrapperImpl(WaylandWindow* wayland_window,
++-                                             WaylandConnection* connection)
++-    : wayland_window_(wayland_window), connection_(connection) {}
+++XDGSurfaceWrapperImpl::XDGSurfaceWrapperImpl(
+++    ShellSurfaceWrapper::Delegate* delegate,
+++    WaylandConnection* connection)
+++    : delegate_(delegate), connection_(connection) {}
++
++ XDGSurfaceWrapperImpl::~XDGSurfaceWrapperImpl() {}
++
++@@ -169,6 +170,7 @@ void XDGSurfaceWrapperImpl::ConfigureStable(void* data,
++   surface->pending_configure_serial_ = serial;
++
++   surface->AckConfigure();
+++  surface->delegate_->OnAckConfigured();
++ }
++
++ // static
++@@ -188,8 +190,8 @@ void XDGSurfaceWrapperImpl::ConfigureTopLevelStable(
++   bool is_activated =
++       CheckIfWlArrayHasValue(states, XDG_TOPLEVEL_STATE_ACTIVATED);
++
++-  surface->wayland_window_->HandleSurfaceConfigure(width, height, is_maximized,
++-                                                   is_fullscreen, is_activated);
+++  surface->delegate_->HandleSurfaceConfigure(width, height, is_maximized,
+++                                             is_fullscreen, is_activated);
++ }
++
++ // static
++@@ -198,7 +200,7 @@ void XDGSurfaceWrapperImpl::CloseTopLevelStable(
++     struct xdg_toplevel* xdg_toplevel) {
++   auto* surface = static_cast<XDGSurfaceWrapperImpl*>(data);
++   DCHECK(surface);
++-  surface->wayland_window_->OnCloseRequest();
+++  surface->delegate_->OnCloseRequest();
++ }
++
++ // static
++@@ -210,6 +212,7 @@ void XDGSurfaceWrapperImpl::ConfigureV6(void* data,
++   surface->pending_configure_serial_ = serial;
++
++   surface->AckConfigure();
+++  surface->delegate_->OnAckConfigured();
++ }
++
++ // static
++@@ -229,8 +232,8 @@ void XDGSurfaceWrapperImpl::ConfigureTopLevelV6(
++   bool is_activated =
++       CheckIfWlArrayHasValue(states, ZXDG_TOPLEVEL_V6_STATE_ACTIVATED);
++
++-  surface->wayland_window_->HandleSurfaceConfigure(width, height, is_maximized,
++-                                                   is_fullscreen, is_activated);
+++  surface->delegate_->HandleSurfaceConfigure(width, height, is_maximized,
+++                                             is_fullscreen, is_activated);
++ }
++
++ // static
++@@ -239,7 +242,7 @@ void XDGSurfaceWrapperImpl::CloseTopLevelV6(
++     struct zxdg_toplevel_v6* zxdg_toplevel_v6) {
++   auto* surface = static_cast<XDGSurfaceWrapperImpl*>(data);
++   DCHECK(surface);
++-  surface->wayland_window_->OnCloseRequest();
+++  surface->delegate_->OnCloseRequest();
++ }
++
++ zxdg_surface_v6* XDGSurfaceWrapperImpl::zxdg_surface() const {
++@@ -266,7 +269,7 @@ bool XDGSurfaceWrapperImpl::InitializeStable(bool with_toplevel) {
++   surface_for_popup_ = !with_toplevel;
++
++   xdg_surface_.reset(xdg_wm_base_get_xdg_surface(connection_->shell(),
++-                                                 wayland_window_->surface()));
+++                                                 delegate_->GetWlSurface()));
++   if (!xdg_surface_) {
++     LOG(ERROR) << "Failed to create xdg_surface";
++     return false;
++@@ -285,7 +288,7 @@ bool XDGSurfaceWrapperImpl::InitializeStable(bool with_toplevel) {
++     return false;
++   }
++   xdg_toplevel_add_listener(xdg_toplevel_.get(), &xdg_toplevel_listener, this);
++-  wl_surface_commit(wayland_window_->surface());
+++  wl_surface_commit(delegate_->GetWlSurface());
++
++   connection_->ScheduleFlush();
++   return true;
++@@ -305,7 +308,7 @@ bool XDGSurfaceWrapperImpl::InitializeV6(bool with_toplevel) {
++   surface_for_popup_ = !with_toplevel;
++
++   zxdg_surface_v6_.reset(zxdg_shell_v6_get_xdg_surface(
++-      connection_->shell_v6(), wayland_window_->surface()));
+++      connection_->shell_v6(), delegate_->GetWlSurface()));
++   if (!zxdg_surface_v6_) {
++     LOG(ERROR) << "Failed to create zxdg_surface";
++     return false;
++@@ -326,7 +329,7 @@ bool XDGSurfaceWrapperImpl::InitializeV6(bool with_toplevel) {
++   }
++   zxdg_toplevel_v6_add_listener(zxdg_toplevel_v6_.get(),
++                                 &zxdg_toplevel_v6_listener, this);
++-  wl_surface_commit(wayland_window_->surface());
+++  wl_surface_commit(delegate_->GetWlSurface());
++
++   connection_->ScheduleFlush();
++   return true;
++diff --git ui/ozone/platform/wayland/host/xdg_surface_wrapper_impl.h ui/ozone/platform/wayland/host/xdg_surface_wrapper_impl.h
++index b34f4b2281ec..46add925bab6 100644
++--- ui/ozone/platform/wayland/host/xdg_surface_wrapper_impl.h
+++++ ui/ozone/platform/wayland/host/xdg_surface_wrapper_impl.h
++@@ -18,12 +18,11 @@ class Rect;
++ namespace ui {
++
++ class WaylandConnection;
++-class WaylandWindow;
++
++ // Surface wrapper for xdg-shell stable and xdg-shell-unstable-v6
++ class XDGSurfaceWrapperImpl : public ShellSurfaceWrapper {
++  public:
++-  XDGSurfaceWrapperImpl(WaylandWindow* wayland_window,
+++  XDGSurfaceWrapperImpl(ShellSurfaceWrapper::Delegate* delegate,
++                         WaylandConnection* connection);
++   ~XDGSurfaceWrapperImpl() override;
++
++@@ -77,8 +76,8 @@ class XDGSurfaceWrapperImpl : public ShellSurfaceWrapper {
++   // Initializes using XDG Shell V6 protocol.
++   bool InitializeV6(bool with_toplevel);
++
++-  // Non-owing WaylandWindow that uses this surface wrapper.
++-  WaylandWindow* const wayland_window_;
+++  // Non-owing ShellSurfaceWrapper::Delegate that uses this surface wrapper.
+++  ShellSurfaceWrapper::Delegate* delegate_;
++   WaylandConnection* const connection_;
++
++   uint32_t pending_configure_serial_ = 0;
++diff --git ui/ozone/platform/wayland/ozone_platform_wayland.cc ui/ozone/platform/wayland/ozone_platform_wayland.cc
++index 60f9d6e025a6..19a4c13055f4 100644
++--- ui/ozone/platform/wayland/ozone_platform_wayland.cc
+++++ ui/ozone/platform/wayland/ozone_platform_wayland.cc
++@@ -136,6 +136,32 @@ class OzonePlatformWayland : public OzonePlatform {
++     return std::make_unique<InputMethodAuraLinux>(delegate);
++   }
++
+++  WaylandConnection* MaybeInitializeWaylandWithExternalContext(
+++      wl_display* external_display) override {
+++    DCHECK(connection_);
+++    // connection_->IninitalizeWithExternalContext(external_display);
+++    // return connection_.get();
+++    if (external_display && connection_->display() != external_display) {
+++      // Store old screen if exists.
+++      base::WeakPtr<WaylandScreen> old_screen;
+++      if (connection_->wayland_output_manager())
+++        old_screen = connection_->wayland_output_manager()->wayland_screen();
+++
+++      connection_.reset();
+++
+++      connection_ = std::make_unique<WaylandConnection>();
+++      if (!connection_->Initialize(buffer_manager_host_.get(),
+++                                   external_display)) {
+++        LOG(FATAL)
+++            << "Failed to initialize Wayland platform with external display.";
+++      }
+++      if (connection_->wayland_output_manager())
+++        connection_->wayland_output_manager()->SetWaylandScreen(old_screen);
+++      buffer_manager_host_->SetWaylandConnection(connection_.get());
+++    }
+++    return connection_.get();
+++  }
+++
++   bool IsNativePixmapConfigSupported(gfx::BufferFormat format,
++                                      gfx::BufferUsage usage) const override {
++     // If there is no drm render node device available, native pixmaps are not
++@@ -162,9 +188,11 @@ class OzonePlatformWayland : public OzonePlatform {
++     KeyboardLayoutEngineManager::SetKeyboardLayoutEngine(
++         keyboard_layout_engine_.get());
++     connection_ = std::make_unique<WaylandConnection>();
++-    if (!connection_->Initialize())
+++    buffer_manager_host_ = std::make_unique<WaylandBufferManagerHost>();
+++    if (!connection_->Initialize(buffer_manager_host_.get(), nullptr))
++       LOG(FATAL) << "Failed to initialize Wayland platform";
++
+++    buffer_manager_host_->SetWaylandConnection(connection_.get());
++     buffer_manager_connector_ = std::make_unique<WaylandBufferManagerConnector>(
++         connection_->buffer_manager_host());
++     cursor_factory_ = std::make_unique<BitmapCursorFactoryOzone>();
++@@ -240,6 +268,7 @@ class OzonePlatformWayland : public OzonePlatform {
++   std::unique_ptr<WaylandInputMethodContextFactory>
++       input_method_context_factory_;
++   std::unique_ptr<WaylandBufferManagerConnector> buffer_manager_connector_;
+++  std::unique_ptr<WaylandBufferManagerHost> buffer_manager_host_;
++
++   // Objects, which solely live in the GPU process.
++   std::unique_ptr<WaylandBufferManagerGpu> buffer_manager_;
++diff --git ui/ozone/public/ozone_platform.cc ui/ozone/public/ozone_platform.cc
++index 35bae772a452..da83cae0b948 100644
++--- ui/ozone/public/ozone_platform.cc
+++++ ui/ozone/public/ozone_platform.cc
++@@ -87,6 +87,11 @@ PlatformClipboard* OzonePlatform::GetPlatformClipboard() {
++   return nullptr;
++ }
++
+++WaylandConnection* OzonePlatform::MaybeInitializeWaylandWithExternalContext(
+++    wl_display* external_display) {
+++  return nullptr;
+++}
+++
++ bool OzonePlatform::IsNativePixmapConfigSupported(
++     gfx::BufferFormat format,
++     gfx::BufferUsage usage) const {
++diff --git ui/ozone/public/ozone_platform.h ui/ozone/public/ozone_platform.h
++index c1d82b8ba5cc..adb292926ffa 100644
++--- ui/ozone/public/ozone_platform.h
+++++ ui/ozone/public/ozone_platform.h
++@@ -18,6 +18,8 @@
++ #include "ui/platform_window/platform_window.h"
++ #include "ui/platform_window/platform_window_delegate.h"
++
+++struct wl_display;
+++
++ namespace display {
++ class NativeDisplayDelegate;
++ }
++@@ -37,6 +39,9 @@ class SurfaceFactoryOzone;
++ class SystemInputInjector;
++ class PlatformClipboard;
++
+++// CEF: leak WaylandConnection object to use the same connection with Wayland.
+++class WaylandConnection;
+++
++ namespace internal {
++ class InputMethodDelegate;
++ }  // namespace internal
++@@ -153,6 +158,9 @@ class COMPONENT_EXPORT(OZONE) OzonePlatform {
++       internal::InputMethodDelegate* delegate,
++       gfx::AcceleratedWidget widget) = 0;
++
+++  virtual WaylandConnection* MaybeInitializeWaylandWithExternalContext(
+++      wl_display* external_display);
+++
++   // Returns true if the specified buffer format is supported.
++   virtual bool IsNativePixmapConfigSupported(gfx::BufferFormat format,
++                                              gfx::BufferUsage usage) const;
++--
++2.25.1
++
+diff --git a/tests/cefclient/browser/browser_window.cc b/tests/cefclient/browser/browser_window.cc
+index ffe67edb..2ec1837f 100644
+--- a/tests/cefclient/browser/browser_window.cc
++++ b/tests/cefclient/browser/browser_window.cc
+@@ -14,6 +14,14 @@ BrowserWindow::BrowserWindow(Delegate* delegate)
+   DCHECK(delegate_);
+ }
+
++bool BrowserWindow::HasKeyboardFocus() const {
++  return false;
++}
++
++void BrowserWindow::SetKeyboardFocus(bool focus) {
++  NOTREACHED();
++}
++
+ void BrowserWindow::SetDeviceScaleFactor(float device_scale_factor) {}
+
+ float BrowserWindow::GetDeviceScaleFactor() const {
+diff --git a/tests/cefclient/browser/browser_window.h b/tests/cefclient/browser/browser_window.h
+index a003ede5..c5fed513 100644
+--- a/tests/cefclient/browser/browser_window.h
++++ b/tests/cefclient/browser/browser_window.h
+@@ -92,6 +92,9 @@ class BrowserWindow : public ClientHandler::Delegate {
+   // Set focus to the window.
+   virtual void SetFocus(bool focus) = 0;
+
++  virtual bool HasKeyboardFocus() const;
++  virtual void SetKeyboardFocus(bool focus);
++
+   // Set the device scale factor. Only used in combination with off-screen
+   // rendering.
+   virtual void SetDeviceScaleFactor(float device_scale_factor);
+diff --git a/tests/cefclient/browser/browser_window_osr_gtk.cc b/tests/cefclient/browser/browser_window_osr_gtk.cc
+index 935afef8..f5b9858f 100644
+--- a/tests/cefclient/browser/browser_window_osr_gtk.cc
++++ b/tests/cefclient/browser/browser_window_osr_gtk.cc
+@@ -16,6 +16,10 @@
+ #include <X11/Xcursor/Xcursor.h>
+ #include <X11/keysym.h>
+
++#if defined(CEF_OZONE_WAYLAND)
++#include <gdk/gdkwayland.h>
++#endif
++
+ #include "include/base/cef_logging.h"
+ #include "include/base/cef_macros.h"
+ #include "include/wrapper/cef_closure_task.h"
+@@ -984,14 +988,30 @@ void BrowserWindowOsrGtk::CreateBrowser(
+
+   ScopedGdkThreadsEnter scoped_gdk_threads;
+
+-  // Retrieve the X11 Window ID for the GTK parent window.
+-  GtkWidget* window =
+-    gtk_widget_get_ancestor(GTK_WIDGET(parent_handle), GTK_TYPE_WINDOW);
+-  CefWindowHandle handle = GDK_WINDOW_XID(gtk_widget_get_window(window));
+-  DCHECK(handle);
+-
++  // Retrieve the Window ID for the GTK parent window.
+   CefWindowInfo window_info;
+-  window_info.SetAsWindowless(handle);
++#if defined CEF_OZONE_WAYLAND
++  if (GDK_IS_WAYLAND_DISPLAY (gdk_display_get_default())) {
++    auto* gdk_window = gtk_widget_get_window(parent_handle);
++    DCHECK(gdk_window);
++    CefWaylandSurfaceHandle handle = gdk_wayland_window_get_wl_surface(gdk_window);
++    CefWaylandDisplayHandle display_handle =
++        gdk_wayland_display_get_wl_display(gdk_window_get_display(gdk_window));
++    DCHECK(handle && display_handle);
++    window_info.SetAsWindowless(handle);
++    window_info.SetWaylandDisplay(display_handle);
++  } else
++#endif
++#if defined (CEF_OZONE_X11) || defined(CEF_X11)
++  if (GDK_IS_X11_DISPLAY (gdk_display_get_default())) {
++    GtkWidget* window =
++      gtk_widget_get_ancestor(GTK_WIDGET(parent_handle), GTK_TYPE_WINDOW);
++    CefWindowHandle handle = GDK_WINDOW_XID(gtk_widget_get_window(window));
++    DCHECK(handle);
++    window_info.SetAsWindowless(handle);
++  } else
++#endif
++  NOTREACHED() << "Unknown or unsupported platform.";
+
+   // Create the browser asynchronously.
+   CefBrowserHost::CreateBrowser(window_info, client_handler_,
+diff --git a/tests/cefclient/browser/browser_window_std_gtk.cc b/tests/cefclient/browser/browser_window_std_gtk.cc
+index 4810f527..1f9842a3 100644
+--- a/tests/cefclient/browser/browser_window_std_gtk.cc
++++ b/tests/cefclient/browser/browser_window_std_gtk.cc
+@@ -19,96 +19,12 @@
+
+ namespace client {
+
+-namespace {
+-
+-::Window GetXWindowForWidget(GtkWidget* widget) {
+-  ScopedGdkThreadsEnter scoped_gdk_threads;
+-
+-  // The GTK window must be visible before we can retrieve the XID.
+-  ::Window xwindow = GDK_WINDOW_XID(gtk_widget_get_window(widget));
+-  DCHECK(xwindow);
+-  return xwindow;
+-}
+-
+-void SetXWindowVisible(XDisplay* xdisplay, ::Window xwindow, bool visible) {
+-  CHECK(xdisplay != 0);
+-
+-  // Retrieve the atoms required by the below XChangeProperty call.
+-  const char* kAtoms[] = {"_NET_WM_STATE", "ATOM", "_NET_WM_STATE_HIDDEN"};
+-  Atom atoms[3];
+-  int result =
+-      XInternAtoms(xdisplay, const_cast<char**>(kAtoms), 3, false, atoms);
+-  if (!result)
+-    NOTREACHED();
+-
+-  if (!visible) {
+-    // Set the hidden property state value.
+-    scoped_ptr<Atom[]> data(new Atom[1]);
+-    data[0] = atoms[2];
+-
+-    XChangeProperty(xdisplay, xwindow,
+-                    atoms[0],  // name
+-                    atoms[1],  // type
+-                    32,        // size in bits of items in 'value'
+-                    PropModeReplace,
+-                    reinterpret_cast<const unsigned char*>(data.get()),
+-                    1);  // num items
+-  } else {
+-    // Set an empty array of property state values.
+-    XChangeProperty(xdisplay, xwindow,
+-                    atoms[0],  // name
+-                    atoms[1],  // type
+-                    32,        // size in bits of items in 'value'
+-                    PropModeReplace, NULL,
+-                    0);  // num items
+-  }
+-}
+-
+-void SetXWindowBounds(XDisplay* xdisplay,
+-                      ::Window xwindow,
+-                      int x,
+-                      int y,
+-                      size_t width,
+-                      size_t height) {
+-  CHECK(xdisplay != 0);
+-  XWindowChanges changes = {0};
+-  changes.x = x;
+-  changes.y = y;
+-  changes.width = static_cast<int>(width);
+-  changes.height = static_cast<int>(height);
+-  XConfigureWindow(xdisplay, xwindow, CWX | CWY | CWHeight | CWWidth, &changes);
+-}
+-
+-}  // namespace
+-
+ BrowserWindowStdGtk::BrowserWindowStdGtk(Delegate* delegate,
+                                          const std::string& startup_url)
+-    : BrowserWindow(delegate), xdisplay_(nullptr) {
++    : BrowserWindow(delegate) {
+   client_handler_ = new ClientHandlerStd(this, startup_url);
+ }
+
+-void BrowserWindowStdGtk::set_xdisplay(XDisplay* xdisplay) {
+-  REQUIRE_MAIN_THREAD();
+-  DCHECK(!xdisplay_);
+-  xdisplay_ = xdisplay;
+-}
+-
+-void BrowserWindowStdGtk::CreateBrowser(
+-    ClientWindowHandle parent_handle,
+-    const CefRect& rect,
+-    const CefBrowserSettings& settings,
+-    CefRefPtr<CefDictionaryValue> extra_info,
+-    CefRefPtr<CefRequestContext> request_context) {
+-  REQUIRE_MAIN_THREAD();
+-
+-  CefWindowInfo window_info;
+-  window_info.SetAsChild(GetXWindowForWidget(parent_handle), rect);
+-
+-  CefBrowserHost::CreateBrowser(window_info, client_handler_,
+-                                client_handler_->startup_url(), settings,
+-                                extra_info, request_context);
+-}
+-
+ void BrowserWindowStdGtk::GetPopupConfig(CefWindowHandle temp_handle,
+                                          CefWindowInfo& windowInfo,
+                                          CefRefPtr<CefClient>& client,
+@@ -120,56 +36,6 @@ void BrowserWindowStdGtk::GetPopupConfig(CefWindowHandle temp_handle,
+   client = client_handler_;
+ }
+
+-void BrowserWindowStdGtk::ShowPopup(ClientWindowHandle parent_handle,
+-                                    int x,
+-                                    int y,
+-                                    size_t width,
+-                                    size_t height) {
+-  REQUIRE_MAIN_THREAD();
+-
+-  if (browser_) {
+-    ::Window parent_xwindow = GetXWindowForWidget(parent_handle);
+-    CHECK(xdisplay_ != 0);
+-    ::Window xwindow = browser_->GetHost()->GetWindowHandle();
+-    DCHECK(xwindow);
+-
+-    XReparentWindow(xdisplay_, xwindow, parent_xwindow, x, y);
+-
+-    SetXWindowBounds(xdisplay_, xwindow, x, y, width, height);
+-    SetXWindowVisible(xdisplay_, xwindow, true);
+-  }
+-}
+-
+-void BrowserWindowStdGtk::Show() {
+-  REQUIRE_MAIN_THREAD();
+-
+-  if (browser_) {
+-    ::Window xwindow = browser_->GetHost()->GetWindowHandle();
+-    DCHECK(xwindow);
+-    SetXWindowVisible(xdisplay_, xwindow, true);
+-  }
+-}
+-
+-void BrowserWindowStdGtk::Hide() {
+-  REQUIRE_MAIN_THREAD();
+-
+-  if (browser_) {
+-    ::Window xwindow = browser_->GetHost()->GetWindowHandle();
+-    DCHECK(xwindow);
+-    SetXWindowVisible(xdisplay_, xwindow, false);
+-  }
+-}
+-
+-void BrowserWindowStdGtk::SetBounds(int x, int y, size_t width, size_t height) {
+-  REQUIRE_MAIN_THREAD();
+-
+-  if (xdisplay_ && browser_) {
+-    ::Window xwindow = browser_->GetHost()->GetWindowHandle();
+-    DCHECK(xwindow);
+-    SetXWindowBounds(xdisplay_, xwindow, x, y, width, height);
+-  }
+-}
+-
+ void BrowserWindowStdGtk::SetFocus(bool focus) {
+   REQUIRE_MAIN_THREAD();
+
+diff --git a/tests/cefclient/browser/browser_window_std_gtk.h b/tests/cefclient/browser/browser_window_std_gtk.h
+index 300f37fd..473afd7a 100644
+--- a/tests/cefclient/browser/browser_window_std_gtk.h
++++ b/tests/cefclient/browser/browser_window_std_gtk.h
+@@ -19,33 +19,15 @@ class BrowserWindowStdGtk : public BrowserWindow {
+   // |delegate| must outlive this object.
+   BrowserWindowStdGtk(Delegate* delegate, const std::string& startup_url);
+
+-  // Called from RootWindowGtk::CreateRootWindow before CreateBrowser.
+-  void set_xdisplay(XDisplay* xdisplay);
+-
+   // BrowserWindow methods.
+-  void CreateBrowser(ClientWindowHandle parent_handle,
+-                     const CefRect& rect,
+-                     const CefBrowserSettings& settings,
+-                     CefRefPtr<CefDictionaryValue> extra_info,
+-                     CefRefPtr<CefRequestContext> request_context) OVERRIDE;
+   void GetPopupConfig(CefWindowHandle temp_handle,
+                       CefWindowInfo& windowInfo,
+                       CefRefPtr<CefClient>& client,
+                       CefBrowserSettings& settings) OVERRIDE;
+-  void ShowPopup(ClientWindowHandle parent_handle,
+-                 int x,
+-                 int y,
+-                 size_t width,
+-                 size_t height) OVERRIDE;
+-  void Show() OVERRIDE;
+-  void Hide() OVERRIDE;
+-  void SetBounds(int x, int y, size_t width, size_t height) OVERRIDE;
+   void SetFocus(bool focus) OVERRIDE;
+   ClientWindowHandle GetWindowHandle() const OVERRIDE;
+
+  private:
+-  XDisplay* xdisplay_;
+-
+   DISALLOW_COPY_AND_ASSIGN(BrowserWindowStdGtk);
+ };
+
+diff --git a/tests/cefclient/browser/browser_window_std_gtk_wayland.cc b/tests/cefclient/browser/browser_window_std_gtk_wayland.cc
+new file mode 100644
+index 00000000..8edef549
+--- /dev/null
++++ b/tests/cefclient/browser/browser_window_std_gtk_wayland.cc
+@@ -0,0 +1,101 @@
++// Copyright 2020 The Chromium Embedded Framework Authors. All rights
++// reserved. Use of this source code is governed by a BSD-style license that
++// can be found in the LICENSE file.
++
++#include "tests/cefclient/browser/browser_window_std_gtk_wayland.h"
++
++#include <string>
++
++#include <gdk/gdk.h>
++#include <gdk/gdkwayland.h>
++#include <gtk/gtk.h>
++
++#include "include/base/cef_logging.h"
++#include "tests/cefclient/browser/client_handler_std.h"
++#include "tests/cefclient/browser/util_gtk.h"
++#include "tests/shared/browser/main_message_loop.h"
++
++namespace client {
++
++BrowserWindowStdGtkWayland::BrowserWindowStdGtkWayland(
++    Delegate* delegate,
++    const std::string& startup_url)
++    : BrowserWindowStdGtk(delegate, startup_url) {}
++
++void BrowserWindowStdGtkWayland::CreateBrowser(
++    ClientWindowHandle parent_handle,
++    const CefRect& rect,
++    const CefBrowserSettings& settings,
++    CefRefPtr<CefDictionaryValue> extra_info,
++    CefRefPtr<CefRequestContext> request_context) {
++  REQUIRE_MAIN_THREAD();
++
++  CefWindowInfo window_info;
++  auto* gdk_window = gtk_widget_get_window(parent_handle);
++  auto* display = gdk_wayland_display_get_wl_display(gdk_window_get_display(gdk_window));
++
++  window_info.SetAsChild(gdk_wayland_window_get_wl_surface(gdk_window), rect);
++  window_info.wayland_display_handle = display;
++
++  CefBrowserHost::CreateBrowser(window_info, client_handler_,
++                                client_handler_->startup_url(), settings,
++                                extra_info, request_context);
++}
++
++void BrowserWindowStdGtkWayland::ShowPopup(ClientWindowHandle parent_handle,
++                                           int x,
++                                           int y,
++                                           size_t width,
++                                           size_t height) {
++  REQUIRE_MAIN_THREAD();
++
++  if (browser_) {
++    auto host = browser_->GetHost();
++    CefWindowInfo window_info;
++    auto* gdk_window = gtk_widget_get_window(parent_handle);
++    window_info.SetAsChild(gdk_wayland_window_get_wl_surface(gdk_window), {x, y, width, height});
++    host->ReparentWindow(window_info);
++  }
++}
++
++void BrowserWindowStdGtkWayland::Show() {
++  REQUIRE_MAIN_THREAD();
++  // Nothing to do. The show/hide top level window's states is automatically
++  // applied to children subsurface windows.
++}
++
++void BrowserWindowStdGtkWayland::Hide() {
++  REQUIRE_MAIN_THREAD();
++  // Nothing to do. The show/hide top level window's states is automatically
++  // applied to children subsurface windows.
++}
++
++void BrowserWindowStdGtkWayland::SetBounds(int x,
++                                           int y,
++                                           size_t width,
++                                           size_t height) {
++  REQUIRE_MAIN_THREAD();
++  if (browser_) {
++    auto host = browser_->GetHost();
++    host->SetHostSize({width, height});
++  }
++}
++
++bool BrowserWindowStdGtkWayland::HasKeyboardFocus() const {
++  REQUIRE_MAIN_THREAD();
++  if (browser_) {
++    auto host = browser_->GetHost();
++    return host->HasKeyboardFocus();
++  }
++  return false;
++}
++
++void BrowserWindowStdGtkWayland::SetKeyboardFocus(bool focus) {
++  REQUIRE_MAIN_THREAD();
++  if (browser_) {
++    auto host = browser_->GetHost();
++    host->SetKeyboardFocus(focus);
++  }
++}
++
++}  // namespace client
+diff --git a/tests/cefclient/browser/browser_window_std_gtk_wayland.h b/tests/cefclient/browser/browser_window_std_gtk_wayland.h
+new file mode 100644
+index 00000000..f9086bcb
+--- /dev/null
++++ b/tests/cefclient/browser/browser_window_std_gtk_wayland.h
+@@ -0,0 +1,42 @@
++// Copyright 2020 The Chromium Embedded Framework Authors. All rights
++// reserved. Use of this source code is governed by a BSD-style license that
++// can be found in the LICENSE file.
++
++#ifndef CEF_TESTS_CEFCLIENT_BROWSER_BROWSER_WINDOW_STD_GTK_WAYLAND_H_
++#define CEF_TESTS_CEFCLIENT_BROWSER_BROWSER_WINDOW_STD_GTK_WAYLAND_H_
++#pragma once
++
++#include "tests/cefclient/browser/browser_window_std_gtk.h"
++
++namespace client {
++
++// Represents a native child X11 window.
++class BrowserWindowStdGtkWayland : public BrowserWindowStdGtk {
++ public:
++  BrowserWindowStdGtkWayland(Delegate* delegate,
++                             const std::string& startup_url);
++
++  // BrowserWindow methods.
++  void CreateBrowser(ClientWindowHandle parent_handle,
++                     const CefRect& rect,
++                     const CefBrowserSettings& settings,
++                     CefRefPtr<CefDictionaryValue> extra_info,
++                     CefRefPtr<CefRequestContext> request_context) override;
++  void ShowPopup(ClientWindowHandle parent_handle,
++                 int x,
++                 int y,
++                 size_t width,
++                 size_t height) override;
++  void Show() override;
++  void Hide() override;
++  void SetBounds(int x, int y, size_t width, size_t height) override;
++  bool HasKeyboardFocus() const override;
++  void SetKeyboardFocus(bool focus) override;
++
++ private:
++  DISALLOW_COPY_AND_ASSIGN(BrowserWindowStdGtkWayland);
++};
++
++}  // namespace client
++
++#endif  // CEF_TESTS_CEFCLIENT_BROWSER_BROWSER_WINDOW_STD_GTK_WAYLAND_H_
+diff --git a/tests/cefclient/browser/browser_window_std_gtk_x11.cc b/tests/cefclient/browser/browser_window_std_gtk_x11.cc
+new file mode 100644
+index 00000000..158724d7
+--- /dev/null
++++ b/tests/cefclient/browser/browser_window_std_gtk_x11.cc
+@@ -0,0 +1,160 @@
++// Copyright 2020 The Chromium Embedded Framework Authors. All rights
++// reserved. Use of this source code is governed by a BSD-style license that
++// can be found in the LICENSE file.
++
++#include "tests/cefclient/browser/browser_window_std_gtk_x11.h"
++
++#include <gdk/gdk.h>
++#include <gdk/gdkx.h>
++#include <gtk/gtk.h>
++
++#include <X11/Xlib.h>
++#undef Success     // Definition conflicts with cef_message_router.h
++#undef RootWindow  // Definition conflicts with root_window.h
++
++#include "include/base/cef_logging.h"
++#include "tests/cefclient/browser/client_handler_std.h"
++#include "tests/cefclient/browser/util_gtk.h"
++#include "tests/shared/browser/main_message_loop.h"
++
++namespace client {
++
++namespace {
++
++::Window GetXWindowForWidget(GtkWidget* widget) {
++  ScopedGdkThreadsEnter scoped_gdk_threads;
++
++  // The GTK window must be visible before we can retrieve the XID.
++  ::Window xwindow = GDK_WINDOW_XID(gtk_widget_get_window(widget));
++  DCHECK(xwindow);
++  return xwindow;
++}
++
++void SetXWindowVisible(XDisplay* xdisplay, ::Window xwindow, bool visible) {
++  CHECK(xdisplay != 0);
++
++  // Retrieve the atoms required by the below XChangeProperty call.
++  const char* kAtoms[] = {"_NET_WM_STATE", "ATOM", "_NET_WM_STATE_HIDDEN"};
++  Atom atoms[3];
++  int result =
++      XInternAtoms(xdisplay, const_cast<char**>(kAtoms), 3, false, atoms);
++  if (!result)
++    NOTREACHED();
++
++  if (!visible) {
++    // Set the hidden property state value.
++    scoped_ptr<Atom[]> data(new Atom[1]);
++    data[0] = atoms[2];
++
++    XChangeProperty(xdisplay, xwindow,
++                    atoms[0],  // name
++                    atoms[1],  // type
++                    32,        // size in bits of items in 'value'
++                    PropModeReplace,
++                    reinterpret_cast<const unsigned char*>(data.get()),
++                    1);  // num items
++  } else {
++    // Set an empty array of property state values.
++    XChangeProperty(xdisplay, xwindow,
++                    atoms[0],  // name
++                    atoms[1],  // type
++                    32,        // size in bits of items in 'value'
++                    PropModeReplace, NULL,
++                    0);  // num items
++  }
++}
++
++void SetXWindowBounds(XDisplay* xdisplay,
++                      ::Window xwindow,
++                      int x,
++                      int y,
++                      size_t width,
++                      size_t height) {
++  CHECK(xdisplay != 0);
++  XWindowChanges changes = {0};
++  changes.x = x;
++  changes.y = y;
++  changes.width = static_cast<int>(width);
++  changes.height = static_cast<int>(height);
++  XConfigureWindow(xdisplay, xwindow, CWX | CWY | CWHeight | CWWidth, &changes);
++}
++
++}  // namespace
++
++BrowserWindowStdGtkX11::BrowserWindowStdGtkX11(Delegate* delegate,
++                                         const std::string& startup_url)
++                                         : BrowserWindowStdGtk(delegate, startup_url), xdisplay_(nullptr) {}
++
++void BrowserWindowStdGtkX11::set_xdisplay(XDisplay* xdisplay) {
++  REQUIRE_MAIN_THREAD();
++  DCHECK(!xdisplay_);
++  xdisplay_ = xdisplay;
++}
++
++void BrowserWindowStdGtkX11::CreateBrowser(
++    ClientWindowHandle parent_handle,
++    const CefRect& rect,
++    const CefBrowserSettings& settings,
++    CefRefPtr<CefDictionaryValue> extra_info,
++    CefRefPtr<CefRequestContext> request_context) {
++  REQUIRE_MAIN_THREAD();
++
++  CefWindowInfo window_info;
++  window_info.SetAsChild(GetXWindowForWidget(parent_handle), rect);
++
++  CefBrowserHost::CreateBrowser(window_info, client_handler_,
++                                client_handler_->startup_url(), settings,
++                                extra_info, request_context);
++}
++
++void BrowserWindowStdGtkX11::ShowPopup(ClientWindowHandle parent_handle,
++                                    int x,
++                                    int y,
++                                    size_t width,
++                                    size_t height) {
++  REQUIRE_MAIN_THREAD();
++
++  if (browser_) {
++    ::Window parent_xwindow = GetXWindowForWidget(parent_handle);
++    CHECK(xdisplay_ != 0);
++    ::Window xwindow = browser_->GetHost()->GetWindowHandle();
++    DCHECK(xwindow);
++
++    XReparentWindow(xdisplay_, xwindow, parent_xwindow, x, y);
++
++    SetXWindowBounds(xdisplay_, xwindow, x, y, width, height);
++    SetXWindowVisible(xdisplay_, xwindow, true);
++  }
++}
++
++void BrowserWindowStdGtkX11::Show() {
++  REQUIRE_MAIN_THREAD();
++
++  if (browser_) {
++    ::Window xwindow = browser_->GetHost()->GetWindowHandle();
++    DCHECK(xwindow);
++    SetXWindowVisible(xdisplay_, xwindow, true);
++  }
++}
++
++void BrowserWindowStdGtkX11::Hide() {
++  REQUIRE_MAIN_THREAD();
++
++  if (browser_) {
++    ::Window xwindow = browser_->GetHost()->GetWindowHandle();
++    DCHECK(xwindow);
++    SetXWindowVisible(xdisplay_, xwindow, false);
++  }
++}
++
++void BrowserWindowStdGtkX11::SetBounds(int x, int y, size_t width, size_t height) {
++  REQUIRE_MAIN_THREAD();
++
++  if (xdisplay_ && browser_) {
++    ::Window xwindow = browser_->GetHost()->GetWindowHandle();
++    DCHECK(xwindow);
++    SetXWindowBounds(xdisplay_, xwindow, x, y, width, height);
++  }
++}
++
++}  // namespace client
+diff --git a/tests/cefclient/browser/browser_window_std_gtk_x11.h b/tests/cefclient/browser/browser_window_std_gtk_x11.h
+new file mode 100644
+index 00000000..f1e9b351
+--- /dev/null
++++ b/tests/cefclient/browser/browser_window_std_gtk_x11.h
+@@ -0,0 +1,44 @@
++// Copyright 2020 The Chromium Embedded Framework Authors. All rights
++// reserved. Use of this source code is governed by a BSD-style license that
++// can be found in the LICENSE file.
++
++#ifndef CEF_TESTS_CEFCLIENT_BROWSER_BROWSER_WINDOW_STD_GTK_X11_H_
++#define CEF_TESTS_CEFCLIENT_BROWSER_BROWSER_WINDOW_STD_GTK_X11_H_
++#pragma once
++
++#include "tests/cefclient/browser/browser_window_std_gtk.h"
++
++namespace client {
++
++// Represents a native child X11 window.
++class BrowserWindowStdGtkX11 : public BrowserWindowStdGtk {
++ public:
++  BrowserWindowStdGtkX11(Delegate* delegate, const std::string& startup_url);
++
++  // Called from RootWindowGtk::CreateRootWindow before CreateBrowser.
++  void set_xdisplay(XDisplay* xdisplay);
++
++  // BrowserWindow methods.
++  void CreateBrowser(ClientWindowHandle parent_handle,
++                     const CefRect& rect,
++                     const CefBrowserSettings& settings,
++                     CefRefPtr<CefDictionaryValue> extra_info,
++                     CefRefPtr<CefRequestContext> request_context) override;
++  void ShowPopup(ClientWindowHandle parent_handle,
++                 int x,
++                 int y,
++                 size_t width,
++                 size_t height) override;
++  void Show() override;
++  void Hide() override;
++  void SetBounds(int x, int y, size_t width, size_t height) override;
++
++ private:
++  XDisplay* xdisplay_;
++
++  DISALLOW_COPY_AND_ASSIGN(BrowserWindowStdGtkX11);
++};
++
++}  // namespace client
++
++#endif  // CEF_TESTS_CEFCLIENT_BROWSER_BROWSER_WINDOW_STD_GTK_X11_H_
+diff --git a/tests/cefclient/browser/main_message_loop_multithreaded_gtk.cc b/tests/cefclient/browser/main_message_loop_multithreaded_gtk.cc
+index 33ad0e7e..c2a956c5 100644
+--- a/tests/cefclient/browser/main_message_loop_multithreaded_gtk.cc
++++ b/tests/cefclient/browser/main_message_loop_multithreaded_gtk.cc
+@@ -60,10 +60,12 @@ guint timeout_add(GMainContext* main_context,
+
+ MainMessageLoopMultithreadedGtk::MainMessageLoopMultithreadedGtk()
+     : thread_id_(base::PlatformThread::CurrentId()) {
++#if defined(CEF_X11) || (CEF_OZONE_X11)
+   // Initialize Xlib support for concurrent threads. This function must be the
+   // first Xlib function a multi-threaded program calls, and it must complete
+   // before any other Xlib call is made.
+   CHECK(XInitThreads() != 0);
++#endif
+
+   // Initialize GDK thread support. See comments on ScopedGdkThreadsEnter.
+   gdk_threads_set_lock_functions(lock_enter, lock_leave);
+diff --git a/tests/cefclient/browser/root_window_gtk.cc b/tests/cefclient/browser/root_window_gtk.cc
+index 2f65cee0..6427de15 100644
+--- a/tests/cefclient/browser/root_window_gtk.cc
++++ b/tests/cefclient/browser/root_window_gtk.cc
+@@ -4,6 +4,7 @@
+
+ #include "tests/cefclient/browser/root_window_gtk.h"
+
++#include <gdk/gdkwayland.h>
+ #include <gdk/gdk.h>
+ #include <gdk/gdkx.h>
+
+@@ -14,7 +15,6 @@
+ #include "include/base/cef_bind.h"
+ #include "include/cef_app.h"
+ #include "tests/cefclient/browser/browser_window_osr_gtk.h"
+-#include "tests/cefclient/browser/browser_window_std_gtk.h"
+ #include "tests/cefclient/browser/main_context.h"
+ #include "tests/cefclient/browser/resource.h"
+ #include "tests/cefclient/browser/temp_window.h"
+@@ -23,13 +23,29 @@
+ #include "tests/shared/browser/main_message_loop.h"
+ #include "tests/shared/common/client_switches.h"
+
++#if defined(CEF_OZONE_WAYLAND)
++#include "tests/cefclient/browser/browser_window_std_gtk_wayland.h"
++#endif
++#if defined(CEF_OZONE_X11) || defined(CEF_X11)
++#include "tests/cefclient/browser/browser_window_std_gtk_x11.h"
++#endif
++
+ namespace client {
+
+ namespace {
+
++bool IsWaylandBackend() {
++#if defined(CEF_OZONE_WAYLAND)
++  return GDK_IS_WAYLAND_DISPLAY (gdk_display_get_default());
++#endif
++  return false;
++}
++
+ const char kMenuIdKey[] = "menu_id";
+
+ void UseDefaultX11VisualForGtk(GtkWidget* widget) {
++  if (IsWaylandBackend())
++    return;
+ #if GTK_CHECK_VERSION(3,15,1)
+   // GTK+ > 3.15.1 uses an X11 visual optimized for GTK+'s OpenGL stuff
+   // since revid dae447728d: https://github.com/GNOME/gtk/commit/dae447728d
+@@ -278,9 +294,9 @@ void RootWindowGtk::CreateBrowserWindow(const std::string& startup_url) {
+   if (with_osr_) {
+     OsrRendererSettings settings = {};
+     MainContext::Get()->PopulateOsrSettings(&settings);
+-    browser_window_.reset(new BrowserWindowOsrGtk(this, startup_url, settings));
++    CreateOsrWindow(startup_url, settings);
+   } else {
+-    browser_window_.reset(new BrowserWindowStdGtk(this, startup_url));
++    CreateStdWindow(startup_url);
+   }
+ }
+
+@@ -383,6 +399,10 @@ void RootWindowGtk::CreateRootWindow(const CefBrowserSettings& settings,
+     gtk_box_pack_start(GTK_BOX(vbox), toolbar, FALSE, FALSE, 0);
+   }
+
++  gtk_widget_add_events(window_, GDK_KEY_PRESS_MASK);
++  g_signal_connect(window_, "key_press_event",
++      G_CALLBACK(G_CALLBACK(&RootWindowGtk::OnKeyboardEvent)), this);
++
+   // Realize (show) the GTK widget. This must be done before the browser is
+   // created because the underlying X11 Window is required. |browser_bounds_|
+   // will be set at this point based on the GTK *SizeAllocated signal callbacks.
+@@ -398,16 +418,20 @@ void RootWindowGtk::CreateRootWindow(const CefBrowserSettings& settings,
+   // added to the Vbox container for automatic layout-based sizing.
+   GtkWidget* parent = with_osr_ ? vbox : window_;
+
+-  // Set the Display associated with the browser.
+-  ::Display* xdisplay = GDK_WINDOW_XDISPLAY(gtk_widget_get_window(window_));
+-  CHECK(xdisplay);
+-  if (with_osr_) {
+-    static_cast<BrowserWindowOsrGtk*>(browser_window_.get())
+-        ->set_xdisplay(xdisplay);
+-  } else {
+-    static_cast<BrowserWindowStdGtk*>(browser_window_.get())
+-        ->set_xdisplay(xdisplay);
++#if defined(CEF_OZONE_X11) || defined(CEF_X11)
++  if (!IsWaylandBackend()) {
++    // Set the Display associated with the browser.
++    ::Display* xdisplay = GDK_WINDOW_XDISPLAY(gtk_widget_get_window(window_));
++    CHECK(xdisplay);
++    if (with_osr_) {
++      static_cast<BrowserWindowOsrGtk*>(browser_window_.get())
++          ->set_xdisplay(xdisplay);
++    } else {
++      static_cast<BrowserWindowStdGtkX11*>(browser_window_.get())
++          ->set_xdisplay(xdisplay);
++    }
+   }
++#endif
+
+   if (!is_popup_) {
+     // Create the browser window.
+@@ -738,7 +762,7 @@ gboolean RootWindowGtk::WindowState(GtkWidget* widget,
+         !(event->new_window_state & GDK_WINDOW_STATE_ICONIFIED));
+   }
+
+-  return TRUE;
++  return FALSE; // Don't stop this message.
+ }
+
+ // static
+@@ -855,6 +879,14 @@ gboolean RootWindowGtk::URLEntryButtonPress(GtkWidget* widget,
+                                             RootWindowGtk* self) {
+   CEF_REQUIRE_UI_THREAD();
+
++  if (IsWaylandBackend()) {
++    // Disable keyboard input for CEF window so that broadcasted kbd events
++    // are not handled by the browser.
++    self->browser_window_->SetKeyboardFocus(false);
++    return FALSE;
++  }
++
++#if defined(CEF_X11) || defined(CEF_OZONE_X11)
+   // Give focus to the GTK window. This is a work-around for bad focus-related
+   // interaction between the root window managed by GTK and the browser managed
+   // by X11.
+@@ -884,10 +916,22 @@ gboolean RootWindowGtk::URLEntryButtonPress(GtkWidget* widget,
+   e.xclient.data.l[4] = 0;
+
+   XSendEvent(xdisplay, xwindow, false, 0, &e);
++#endif
+
+   return FALSE;
+ }
+
++// static
++gboolean RootWindowGtk::OnKeyboardEvent(GtkWidget* widget,
++                                        GdkEventKey* event,
++                                        RootWindowGtk* self) {
++  // Send the event to the browser first and see if it can handle it. If not,
++  // it's our event and gtk should handle that instead.
++  if (IsWaylandBackend() && self->browser_window_->HasKeyboardFocus())
++    return TRUE;
++  return FALSE;
++}
++
+ GtkWidget* RootWindowGtk::CreateMenuBar() {
+   GtkWidget* menu_bar = gtk_menu_bar_new();
+
+@@ -939,4 +983,21 @@ GtkWidget* RootWindowGtk::AddMenuEntry(GtkWidget* menu_widget,
+   return entry;
+ }
+
++void RootWindowGtk::CreateOsrWindow(const std::string& startup_url, const OsrRendererSettings& settings) {
++  browser_window_.reset(new BrowserWindowOsrGtk(this, startup_url, settings));
++}
++
++void RootWindowGtk::CreateStdWindow(const std::string& startup_url) {
++#if defined(CEF_OZONE_WAYLAND)
++    if (IsWaylandBackend()) {
++      browser_window_.reset(new BrowserWindowStdGtkWayland(this, startup_url));
++      return;
++    }
++#endif
++#if defined (CEF_X11) || (CEF_OZONE_X11)
++    browser_window_.reset(new BrowserWindowStdGtkX11(this, startup_url));
++#endif
++  NOTREACHED();
++}
++
+ }  // namespace client
+diff --git a/tests/cefclient/browser/root_window_gtk.h b/tests/cefclient/browser/root_window_gtk.h
+index 9982c147..a1fddb59 100644
+--- a/tests/cefclient/browser/root_window_gtk.h
++++ b/tests/cefclient/browser/root_window_gtk.h
+@@ -9,6 +9,7 @@
+ #include <gtk/gtk.h>
+ #include <string>
+
++#include "cef/tests/cefclient/browser/osr_renderer_settings.h"
+ #include "include/base/cef_scoped_ptr.h"
+ #include "tests/cefclient/browser/browser_window.h"
+ #include "tests/cefclient/browser/root_window.h"
+@@ -81,6 +82,9 @@ class RootWindowGtk : public RootWindow, public BrowserWindow::Delegate {
+   GtkWidget* CreateMenu(GtkWidget* menu_bar, const char* text);
+   GtkWidget* AddMenuEntry(GtkWidget* menu_widget, const char* text, int id);
+
++  void CreateOsrWindow(const std::string& startup_url, const OsrRendererSettings& settings);
++  void CreateStdWindow(const std::string& startup_url);
++
+   // Signal handlers for the top-level GTK window.
+   static gboolean WindowFocusIn(GtkWidget* widget,
+                                 GdkEventFocus* event,
+@@ -122,6 +126,11 @@ class RootWindowGtk : public RootWindow, public BrowserWindow::Delegate {
+                                       GdkEventButton* event,
+                                       RootWindowGtk* self);
+
++  // Signal handles for the keyboard events.
++  static gboolean OnKeyboardEvent(GtkWidget* widget,
++                                  GdkEventKey* event,
++                                  RootWindowGtk* self);
++
+   // After initialization all members are only accessed on the main thread.
+   // Members set during initialization.
+   bool with_controls_;
+diff --git a/tests/cefclient/browser/temp_window.h b/tests/cefclient/browser/temp_window.h
+index 499c80af..f0462020 100644
+--- a/tests/cefclient/browser/temp_window.h
++++ b/tests/cefclient/browser/temp_window.h
+@@ -11,7 +11,7 @@
+ #if defined(OS_WIN)
+ #include "tests/cefclient/browser/temp_window_win.h"
+ #elif defined(OS_LINUX)
+-#include "tests/cefclient/browser/temp_window_x11.h"
++#include "tests/cefclient/browser/temp_window_wrapper_linux.h"
+ #elif defined(OS_MACOSX)
+ #include "tests/cefclient/browser/temp_window_mac.h"
+ #endif
+@@ -21,7 +21,7 @@ namespace client {
+ #if defined(OS_WIN)
+ typedef TempWindowWin TempWindow;
+ #elif defined(OS_LINUX)
+-typedef TempWindowX11 TempWindow;
++typedef TempWindowWrapperLinux TempWindow;
+ #elif defined(OS_MACOSX)
+ typedef TempWindowMac TempWindow;
+ #endif
+diff --git a/tests/cefclient/browser/temp_window_wrapper_linux.cc b/tests/cefclient/browser/temp_window_wrapper_linux.cc
+new file mode 100644
+index 00000000..be3e901b
+--- /dev/null
++++ b/tests/cefclient/browser/temp_window_wrapper_linux.cc
+@@ -0,0 +1,43 @@
++// Copyright 2020 The Chromium Embedded Framework Authors. All rights
++// reserved. Use of this source code is governed by a BSD-style license that
++// can be found in the LICENSE file.
++
++#include "cef/tests/cefclient/browser/temp_window_wrapper_linux.h"
++
++#include "cef/include/cef_command_line.h"
++
++namespace client {
++
++namespace {
++
++TempWindowWrapperLinux* g_temp_window = nullptr;
++
++}  // namespace
++
++TempWindowWrapperLinux::TempWindowWrapperLinux() {
++  DCHECK(!g_temp_window);
++  g_temp_window = this;
++}
++
++TempWindowWrapperLinux::~TempWindowWrapperLinux() {
++  g_temp_window = nullptr;
++}
++
++// static
++CefWindowHandle TempWindowWrapperLinux::GetWindowHandle() {
++  DCHECK(g_temp_window);
++#if defined(USE_OZONE)
++  const std::string platform_name = CefCommandLine::GetGlobalCommandLine()->GetSwitchValue("ozone-platform");
++  if (platform_name == "wayland")
++    return 0;
++#endif
++
++#if defined(CEF_X11) || (CEF_OZONE_X11)
++  LOG(ERROR) << "Get WIndow handle";
++  return g_temp_window->temp_window_x11_.GetWindowHandle();
++#endif
++  NOTREACHED();
++  return 0;
++}
++
++}  // namespace client
+diff --git a/tests/cefclient/browser/temp_window_wrapper_linux.h b/tests/cefclient/browser/temp_window_wrapper_linux.h
+new file mode 100644
+index 00000000..027a69a9
+--- /dev/null
++++ b/tests/cefclient/browser/temp_window_wrapper_linux.h
+@@ -0,0 +1,43 @@
++// Copyright 2020 The Chromium Embedded Framework Authors. All rights
++// reserved. Use of this source code is governed by a BSD-style license that
++// can be found in the LICENSE file.
++
++#ifndef CEF_TESTS_CEFCLIENT_BROWSER_TEMP_WINDOW_WRAPPER_LINUX_H_
++#define CEF_TESTS_CEFCLIENT_BROWSER_TEMP_WINDOW_WRAPPER_LINUX_H_
++#pragma once
++
++#include "include/cef_base.h"
++
++#if defined(CEF_X11) || (CEF_OZONE_X11)
++#include "cef/tests/cefclient/browser/temp_window_x11.h"
++#endif
++
++namespace client {
++
++// Represents a singleton wrapper  window that acts as a temporary parent for
++// popup browsers. Only accessed on the UI thread. Returns no handle for
++// Wayland.
++class TempWindowWrapperLinux {
++ public:
++  // Returns the singleton window handle.
++  static CefWindowHandle GetWindowHandle();
++
++ private:
++  // A single instance will be created/owned by RootWindowManager.
++  friend class RootWindowManager;
++  // Allow deletion via scoped_ptr only.
++  friend struct base::DefaultDeleter<TempWindowWrapperLinux>;
++
++  TempWindowWrapperLinux();
++  ~TempWindowWrapperLinux();
++
++#if defined(CEF_X11) || (CEF_OZONE_X11)
++  TempWindowX11 temp_window_x11_;
++#endif
++
++  DISALLOW_COPY_AND_ASSIGN(TempWindowWrapperLinux);
++};
++
++}  // namespace client
++
++#endif  // CEF_TESTS_CEFCLIENT_BROWSER_TEMP_WINDOW_WRAPPER_LINUX_H_
+diff --git a/tests/cefclient/browser/temp_window_x11.cc b/tests/cefclient/browser/temp_window_x11.cc
+index de9f45d1..10e6156c 100644
+--- a/tests/cefclient/browser/temp_window_x11.cc
++++ b/tests/cefclient/browser/temp_window_x11.cc
+@@ -38,29 +38,21 @@ void CloseTempWindow(::Window xwindow) {
+   XDestroyWindow(xdisplay, xwindow);
+ }
+
+-TempWindowX11* g_temp_window = nullptr;
+-
+ }  // namespace
+
+ TempWindowX11::TempWindowX11() : xwindow_(kNullWindowHandle) {
+-  DCHECK(!g_temp_window);
+-  g_temp_window = this;
+-
+   xwindow_ = CreateTempWindow();
+   CHECK(xwindow_);
+ }
+
+ TempWindowX11::~TempWindowX11() {
+-  g_temp_window = nullptr;
+   DCHECK(xwindow_);
+
+   CloseTempWindow(xwindow_);
+ }
+
+-// static
+ CefWindowHandle TempWindowX11::GetWindowHandle() {
+-  DCHECK(g_temp_window);
+-  return g_temp_window->xwindow_;
++  return xwindow_;
+ }
+
+ }  // namespace client
+diff --git a/tests/cefclient/browser/temp_window_x11.h b/tests/cefclient/browser/temp_window_x11.h
+index 08e452e6..461b1e80 100644
+--- a/tests/cefclient/browser/temp_window_x11.h
++++ b/tests/cefclient/browser/temp_window_x11.h
+@@ -10,22 +10,17 @@
+
+ namespace client {
+
+-// Represents a singleton hidden window that acts as a temporary parent for
++// Represents a hidden window that acts as a temporary parent for
+ // popup browsers. Only accessed on the UI thread.
+ class TempWindowX11 {
+  public:
+-  // Returns the singleton window handle.
+-  static CefWindowHandle GetWindowHandle();
+-
+- private:
+-  // A single instance will be created/owned by RootWindowManager.
+-  friend class RootWindowManager;
+-  // Allow deletion via scoped_ptr only.
+-  friend struct base::DefaultDeleter<TempWindowX11>;
+-
+   TempWindowX11();
+   ~TempWindowX11();
+
++  // Returns the window handle.
++  CefWindowHandle GetWindowHandle();
++
++ private:
+   CefWindowHandle xwindow_;
+
+   DISALLOW_COPY_AND_ASSIGN(TempWindowX11);
+diff --git a/tests/cefclient/cefclient_gtk.cc b/tests/cefclient/cefclient_gtk.cc
+index b79f24ef..4c8b7cb9 100644
+--- a/tests/cefclient/cefclient_gtk.cc
++++ b/tests/cefclient/cefclient_gtk.cc
+@@ -3,6 +3,7 @@
+ // can be found in the LICENSE file.
+
+ #include <gtk/gtk.h>
++#include <gdk/gdk.h>
+
+ #include <X11/Xlib.h>
+ #undef Success     // Definition conflicts with cef_message_router.h
+@@ -30,6 +31,7 @@
+ namespace client {
+ namespace {
+
++#if defined(CEF_X11) || defined(CEF_OZONE_X11)
+ int XErrorHandlerImpl(Display* display, XErrorEvent* event) {
+   LOG(WARNING) << "X error received: "
+                << "type " << event->type << ", "
+@@ -49,6 +51,7 @@ void TerminationSignalHandler(int signatl) {
+   LOG(ERROR) << "Received termination signal: " << signatl;
+   MainContext::Get()->GetRootWindowManager()->CloseAllWindows(true);
+ }
++#endif
+
+ int RunMain(int argc, char* argv[]) {
+   // Create a copy of |argv| on Linux because Chromium mangles the value
+@@ -109,8 +112,15 @@ int RunMain(int argc, char* argv[]) {
+   // Initialize CEF.
+   context->Initialize(main_args, settings, app, nullptr);
+
++#if defined(USE_OZONE)
++  DCHECK(command_line->HasSwitch("ozone-platform"));
++  auto ozone_platform = command_line->GetSwitchValue("ozone-platform");
++  if (ozone_platform == "x11" || ozone_platform == "wayland")
++    gdk_set_allowed_backends(ozone_platform.ToString().c_str());
++#else
+   // Force Gtk to use Xwayland (in case a Wayland compositor is being used).
+   gdk_set_allowed_backends("x11");
++#endif
+
+   // The Chromium sandbox requires that there only be a single thread during
+   // initialization. Therefore initialize GTK after CEF.
+@@ -118,12 +128,14 @@ int RunMain(int argc, char* argv[]) {
+
+   // Install xlib error handlers so that the application won't be terminated
+   // on non-fatal errors. Must be done after initializing GTK.
++#if defined(CEF_X11) || defined(CEF_OZONE_X11)
+   XSetErrorHandler(XErrorHandlerImpl);
+   XSetIOErrorHandler(XIOErrorHandlerImpl);
+
+   // Install a signal handler so we clean up after ourselves.
+   signal(SIGINT, TerminationSignalHandler);
+   signal(SIGTERM, TerminationSignalHandler);
++#endif
+
+   // Register scheme handlers.
+   test_runner::RegisterSchemeHandlers();
+diff --git a/tools/make_config_header.py b/tools/make_config_header.py
+index dbccff66..64f62c1e 100644
+--- a/tools/make_config_header.py
++++ b/tools/make_config_header.py
+@@ -43,17 +43,20 @@ if options.header is None or options.cef_gn_config is None:
+   sys.exit()
+
+
+-def check_x11_build(gn_config):
+-  """ Scan gn configuration file and decide whether it's x11 build or not """
++def check_gn_build(gn_config, gn_arg):
++  """ Scan gn configuration file and decide whether gn_arg
++        is set to true. Returns a tuple of values, where [0]
++        indicates if the value was found, and [1] if the value
++        is set to true or false. """
+   lines = read_file(gn_config).split("\n")
+   for line in lines:
+     parts = line.split('=', 1)
+-    if (parts[0] == "use_x11" and
+-        parts[1] == "false") or (parts[0] == "use_ozone" and
+-                                 parts[1] == "true"):
+-      return False
+-
+-  return True
++    if parts[0] == gn_arg:
++      if parts[1] == "true":
++        return True, True  # found, value
++      else:
++        return True, False # found, value
++  return False, False # found, value
+
+
+ def write_config_header(header, cef_gn_config):
+@@ -70,8 +73,29 @@ def write_config_header(header, cef_gn_config):
+
+   year = get_year()
+
+-  cef_x11_defines = "#define CEF_X11 1" if check_x11_build(
+-      cef_gn_config) else "#define CEF_OZONE_X11 1"
++  cef_x11_defines = ""
++  cef_ozone_x11_defines = ""
++  cef_ozone_wayland_defines = ""
++
++  use_x11 = check_gn_build(cef_gn_config, "use_x11");
++  if use_x11[1] is True:
++   cef_x11_defines = "#define USE_X11 1"
++
++  use_ozone = check_gn_build(cef_gn_config, "use_ozone")
++  if use_ozone[1] is True:
++   assert(cef_x11_defines == "")
++   cef_ozone_x11_defines = "#define CEF_OZONE_X11 1"
++   cef_ozone_wayland_defines = "#define CEF_OZONE_WAYLAND 1"
++   # If ozone_auto_platforms is disabled, check explicitly for
++   # ozone/x11 and ozone/wayland.
++   auto_platforms = check_gn_build(cef_gn_config, "ozone_auto_platforms")
++   # [0] if the gn arg is found, and [1] - if it is set to false.
++   if auto_platforms[0] is True and auto_platforms[1] is False:
++     if check_gn_build(cef_gn_config, "ozone_platform_wayland")[1] is False:
++       cef_ozone_wayland_defines = ""
++     if check_gn_build(cef_gn_config, "ozone_platform_x11")[1] is False:
++       cef_ozone_x11_defines = ""
++
+
+   newcontents = '// Copyright (c) '+year+' Marshall A. Greenblatt. All rights reserved.\n'+\
+                 '//\n'+\
+@@ -109,6 +133,8 @@ def write_config_header(header, cef_gn_config):
+                 '#ifndef CEF_INCLUDE_CEF_CONFIG_H_\n'+\
+                 '#define CEF_INCLUDE_CEF_CONFIG_H_\n\n'+\
+                 '' + cef_x11_defines + '\n'+\
++                '' + cef_ozone_x11_defines + '\n'+\
++                '' + cef_ozone_wayland_defines + '\n'+\
+                 '#endif  // CEF_INCLUDE_CEF_CONFIG_H_\n'
+   if newcontents != oldcontents:
+     write_file(header, newcontents)
+--
+2.42.0
