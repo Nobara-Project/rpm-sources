@@ -1,0 +1,58 @@
+HOW TO BUILD NVIDIA DRIVERS:  
+
+1. Copy a pre-existing version folder and rename it to the new version. CD into the new version folder:  
+
+Ex:  
+```
+cp 535.146.02 545.29.06
+cd 545.29.06
+```
+2. Make any spec sheet changes within any of the subfolders (usually not needed unless Nvidia changes something in their build).  
+
+Ex:  
+```
+cd driver
+vim nvidia-driver.spec
+<some custom changes>
+cd ..
+```
+3. Within the new verison folder, run the nvidia-rpm-build.sh:  
+
+Syntax:  
+```
+./nvidia-rpm-build.sh <release> <nvidia driver version>
+```
+Ex:  
+```
+./nvidia-rpm-build.sh 39 545.29.06
+```
+DONE! Resulting .rpm packages will be in RELEASE/39/   
+
+For usage with repositories:  
+
+Add production branch builds to ~/nobara/appstream/39/x86_64/nvidia-drivers/production/ then run appstream-sync.sh  
+Add non-production branch builds to ~/nobara/nvidia/39/<either 'new-feature' or 'beta'> then run nvidia-sync.sh  
+
+Ex:  
+```
+cd RELEASE
+mv 39 ~/nobara/appstream/39/x86_64/nvidia-drivers/production/545.29.06
+```
+or
+```
+mv 39 ~/nobara/nvidia/39/new-feature/545.29.06
+```
+or
+```
+mv 39 ~/nobara/nvidia/39/beta/545.29.06
+```
+then:
+```
+cd ~/nobara
+./appstream-sync.sh 39
+```
+or
+```
+./nvidia-sync.sh 39
+```
+
