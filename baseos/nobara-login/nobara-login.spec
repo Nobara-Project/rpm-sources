@@ -88,12 +88,15 @@ sysctl -p
 %{_bindir}/nobara-firstrun
 %{_bindir}/hwcheck
 %{_bindir}/updatecheck
+%{_libexecdir}/nobara-automount
+%{_sysconfdir}/xdg/autostart/nobara-automount.desktop
 %{_sysconfdir}/xdg/autostart/nobara-firstrun.desktop
 %{_sysconfdir}/modprobe.d/v4l2loopback.conf
 %{_sysconfdir}/dnf/protected.d/nobara.conf
 %{_sysconfdir}/udev/rules.d/40-hpet-permissions.rules
 %{_sysconfdir}/udev/rules.d/60-ioschedulers.rules
 %{_sysconfdir}/polkit-1/rules.d/90-corectrl.rules
+%{_sysconfdir}/polkit-1/actions/org.nobaraproject.automount.policy
 %{_sysconfdir}/login.conf.d/00-handheld-power.conf
 %{_datadir}/pipewire/pipewire-pulse.conf.d/wine_gaming.conf
 
