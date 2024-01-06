@@ -1,7 +1,7 @@
 Summary: A set of scripts to run upon first user login
 Name: nobara-login
 Version: 1.1
-Release: 45%{?dist}
+Release: 46%{?dist}
 License: Public Domain
 Group: System Environment/Base
 Source0: hwcheck.sh
