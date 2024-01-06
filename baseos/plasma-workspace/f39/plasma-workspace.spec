@@ -27,15 +27,13 @@
 
 Name:    plasma-workspace
 Summary: Plasma workspace, applications and applets
-Version: 5.27.9.1
-Release: 4%{?dist}
+Version: 5.27.10
+Release: 1%{?dist}
 
 License: GPLv2+
 URL:     https://invent.kde.org/plasma/%{name}
 
-# Temporary commenting out as there is a re-release
-#Source0: http://download.kde.org/%{stable_kf5}/plasma/%{version}/%{name}-%{version}.tar.xz
-Source0: http://download.kde.org/%{stable_kf5}/plasma/5.27.9/%{name}-%{version}.tar.xz
+Source0: http://download.kde.org/%{stable_kf5}/plasma/%{version}/%{name}-%{version}.tar.xz
 
 # filter qml/plugins provides
 %global __provides_exclude_from ^(%{_kf5_qmldir}/.*\\.so|%{_kf5_qtplugindir}/.*\\.so)$
@@ -50,6 +48,8 @@ Source11:       startkderc
 ## in the repective pkgs themselves? -- rdieter)
 Source40:       ssh-agent.conf
 Source41:       spice-vdagent.conf
+
+# upstream patches
 
 ## upstreamable Patches
 
@@ -402,13 +402,8 @@ Recommends:     qt5-qtvirtualkeyboard
 # org.kde.plasma.workspace.keyboardlayout
 Requires:       %{name} = %{version}-%{release}
 # /usr/share/backgrounds/default.png
-%if 0%{?fedora}
 BuildRequires:  desktop-backgrounds-compat
 Requires:       desktop-backgrounds-compat
-%endif
-%if 0%{?rhel}
-Requires:       system-logos
-%endif
 BuildArch: noarch
 %description -n sddm-breeze
 %{summary}.
@@ -585,6 +580,7 @@ fi
 %{_datadir}/kxmlgui5/kfontview/kfontviewui.rc
 %{_kf5_datadir}/kservices5/ServiceMenus/installfont.desktop
 %{_kf5_datadir}/kio/servicemenus/setaswallpaper.desktop
+%{_kf5_datadir}/kservices5/*.desktop
 %{_kf5_datadir}/kservicetypes5/*.desktop
 %{_kf5_datadir}/knotifications5/*.notifyrc
 %{_kf5_datadir}/config.kcfg/*
@@ -741,6 +737,12 @@ fi
 %endif
 
 %changelog
+* Sat Dec 16 2023 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 5.27.10-1
+- 5.27.10
+
+* Sat Nov 25 2023 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 5.27.9.1-3
+- Add upstream patch #2250757
+
 * Fri Nov 03 2023 Neal Gompa <ngompa@fedoraproject.org> - 5.27.9.1-2
 - Mark plasma-workspace-x11 as deprecated
 
