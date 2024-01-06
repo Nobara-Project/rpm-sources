@@ -12,7 +12,7 @@ Next, open a terminal and navigate to the folder containing the spec sheet of th
 
 Download the sources listed in the spec sheet:
 
-`spectool -gR *.spec`
+`spectool -g *.spec`
 
 Make any modifications you want here. New patches, spec sheet modifications, etc.
 
