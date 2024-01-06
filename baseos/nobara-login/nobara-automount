@@ -15,7 +15,15 @@ if [[ $EUID != 0 ]]; then
   exit 0
 fi
 
-
+# Cleanup any previous mount points
+while IFS= read -r mountpoint; do
+  if [[ -z $(lsblk | awk '{ print $7 }' | grep $mountpoint) ]]; then
+    # Make sure directory is empty (it should be if nothing is mounted to it)
+    if [ -z "$(ls -A /run/media/$2/$mountpoint)" ]; then
+      rm -Rf /run/media/$2/$mountpoint
+    fi
+  fi
+done < <( ls /run/media/$2/ ) # list all partitions with lsblk
 
 while IFS= read -r partition; do
     # get all partitions that are not mounted. column 7 lists active mountpoints

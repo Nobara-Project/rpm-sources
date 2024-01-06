@@ -60,7 +60,7 @@ install -d $RPM_BUILD_ROOT%{_sysconfdir}/dnf/protected.d/
 install -d $RPM_BUILD_ROOT%{_prefix}/lib/sysctl.d/
 install -d $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/
 install -d $RPM_BUILD_ROOT%{_sysconfdir}/polkit-1/rules.d/
-install -d $RPM_BUILD_ROOT%{_sysconfdir}/polkit-1/actions/
+install -d $RPM_BUILD_ROOT%{_datadir}/polkit-1/actions/
 install -d $RPM_BUILD_ROOT%{_sysconfdir}/login.conf.d/
 install -d $RPM_BUILD_ROOT%{_datadir}/pipewire/pipewire-pulse.conf.d/
 install -m 0755 %{SOURCE0} $RPM_BUILD_ROOT%{_bindir}/hwcheck
@@ -77,9 +77,9 @@ install -m 0755 %{SOURCE13} $RPM_BUILD_ROOT%{_bindir}/updatecheck
 install -m 0755 %{SOURCE14} $RPM_BUILD_ROOT%{_sysconfdir}/polkit-1/rules.d/90-corectrl.rules
 install -m 0755 %{SOURCE15} $RPM_BUILD_ROOT%{_sysconfdir}/login.conf.d/00-handheld-power.conf
 install -m 0755 %{SOURCE16} $RPM_BUILD_ROOT%{_datadir}/pipewire/pipewire-pulse.conf.d/wine_gaming.conf
-install -m 0755 %{SOURCE17} $RPM_BUILD_ROOT%{_libexecdir}
-install -m 0755 %{SOURCE18} $RPM_BUILD_ROOT%{_sysconfdir}/xdg/autostart/
-install -m 0755 %{SOURCE19} $RPM_BUILD_ROOT%{_sysconfdir}/polkit-1/actions/
+install -m 0755 %{SOURCE17} $RPM_BUILD_ROOT%{_libexecdir}/nobara-automount
+install -m 0755 %{SOURCE18} $RPM_BUILD_ROOT%{_sysconfdir}/xdg/autostart/nobara-automount.desktop
+install -m 0755 %{SOURCE19} $RPM_BUILD_ROOT%{_datadir}/polkit-1/actions/org.nobaraproject.automount.policy
 
 %post sysctl
 sysctl -p
@@ -96,8 +96,8 @@ sysctl -p
 %{_sysconfdir}/udev/rules.d/40-hpet-permissions.rules
 %{_sysconfdir}/udev/rules.d/60-ioschedulers.rules
 %{_sysconfdir}/polkit-1/rules.d/90-corectrl.rules
-%{_sysconfdir}/polkit-1/actions/org.nobaraproject.automount.policy
 %{_sysconfdir}/login.conf.d/00-handheld-power.conf
+%{_datadir}/polkit-1/actions/org.nobaraproject.automount.policy
 %{_datadir}/pipewire/pipewire-pulse.conf.d/wine_gaming.conf
 
 %files sysctl
