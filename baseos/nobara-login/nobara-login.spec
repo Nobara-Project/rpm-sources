@@ -1,7 +1,7 @@
 Summary: A set of scripts to run upon first user login
 Name: nobara-login
 Version: 1.1
-Release: 46%{?dist}
+Release: 47%{?dist}
 License: Public Domain
 Group: System Environment/Base
 Source0: hwcheck.sh
@@ -77,8 +77,8 @@ install -m 0755 %{SOURCE13} $RPM_BUILD_ROOT%{_bindir}/updatecheck
 install -m 0755 %{SOURCE14} $RPM_BUILD_ROOT%{_sysconfdir}/polkit-1/rules.d/90-corectrl.rules
 install -m 0755 %{SOURCE15} $RPM_BUILD_ROOT%{_sysconfdir}/login.conf.d/00-handheld-power.conf
 install -m 0755 %{SOURCE16} $RPM_BUILD_ROOT%{_datadir}/pipewire/pipewire-pulse.conf.d/wine_gaming.conf
-install -m 0755 %{SOURCE17} $RPM_BUILD_ROOT%{_libexecdir}/nobara-automount
-install -m 0755 %{SOURCE18} $RPM_BUILD_ROOT%{_sysconfdir}/xdg/autostart/nobara-automount.desktop
+install -m 0755 %{SOURCE17} $RPM_BUILD_ROOT%{_sysconfdir}/xdg/autostart/nobara-automount.desktop
+install -m 0755 %{SOURCE18} $RPM_BUILD_ROOT%{_libexecdir}/nobara-automount
 install -m 0755 %{SOURCE19} $RPM_BUILD_ROOT%{_datadir}/polkit-1/actions/org.nobaraproject.automount.policy
 
 %post sysctl
