@@ -580,7 +580,6 @@ fi
 %{_datadir}/kxmlgui5/kfontview/kfontviewui.rc
 %{_kf5_datadir}/kservices5/ServiceMenus/installfont.desktop
 %{_kf5_datadir}/kio/servicemenus/setaswallpaper.desktop
-%{_kf5_datadir}/kservices5/*.desktop
 %{_kf5_datadir}/kservicetypes5/*.desktop
 %{_kf5_datadir}/knotifications5/*.notifyrc
 %{_kf5_datadir}/config.kcfg/*
