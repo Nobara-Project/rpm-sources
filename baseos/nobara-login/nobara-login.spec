@@ -1,7 +1,7 @@
 Summary: A set of scripts to run upon first user login
 Name: nobara-login
 Version: 1.1
-Release: 44%{?dist}
+Release: 45%{?dist}
 License: Public Domain
 Group: System Environment/Base
 Source0: hwcheck.sh
@@ -18,6 +18,9 @@ Source13: updatecheck.sh
 Source14: 90-corectrl.rules
 Source15: 00-handheld-power.conf
 Source16: wine_gaming.conf
+Source17: nobara-automount.desktop
+Source18: nobara-automount
+Source19: org.nobaraproject.automount.policy
 
 BuildArch: noarch
 BuildRequires: filesystem
@@ -50,12 +53,14 @@ nobara sysctl game modifications
 %install
 rm -rf $RPM_BUILD_ROOT
 install -d $RPM_BUILD_ROOT%{_bindir}/
+install -d $RPM_BUILD_ROOT%{_libexecdir}
 install -d $RPM_BUILD_ROOT%{_sysconfdir}/xdg/autostart/
 install -d $RPM_BUILD_ROOT%{_sysconfdir}/modprobe.d/
 install -d $RPM_BUILD_ROOT%{_sysconfdir}/dnf/protected.d/
 install -d $RPM_BUILD_ROOT%{_prefix}/lib/sysctl.d/
 install -d $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/
 install -d $RPM_BUILD_ROOT%{_sysconfdir}/polkit-1/rules.d/
+install -d $RPM_BUILD_ROOT%{_sysconfdir}/polkit-1/actions/
 install -d $RPM_BUILD_ROOT%{_sysconfdir}/login.conf.d/
 install -d $RPM_BUILD_ROOT%{_datadir}/pipewire/pipewire-pulse.conf.d/
 install -m 0755 %{SOURCE0} $RPM_BUILD_ROOT%{_bindir}/hwcheck
@@ -72,6 +77,9 @@ install -m 0755 %{SOURCE13} $RPM_BUILD_ROOT%{_bindir}/updatecheck
 install -m 0755 %{SOURCE14} $RPM_BUILD_ROOT%{_sysconfdir}/polkit-1/rules.d/90-corectrl.rules
 install -m 0755 %{SOURCE15} $RPM_BUILD_ROOT%{_sysconfdir}/login.conf.d/00-handheld-power.conf
 install -m 0755 %{SOURCE16} $RPM_BUILD_ROOT%{_datadir}/pipewire/pipewire-pulse.conf.d/wine_gaming.conf
+install -m 0755 %{SOURCE17} $RPM_BUILD_ROOT%{_libexecdir}
+install -m 0755 %{SOURCE18} $RPM_BUILD_ROOT%{_sysconfdir}/xdg/autostart/
+install -m 0755 %{SOURCE19} $RPM_BUILD_ROOT%{_sysconfdir}/polkit-1/actions/
 
 %post sysctl
 sysctl -p
