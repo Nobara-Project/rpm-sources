@@ -45,7 +45,7 @@ while IFS= read -r partition; do
 		  # partitions on non-booted OS disks from being mounted
 		  # most people just want their main parititions to be mounted 
 		  # for game or content access.
-		  if [[ "$partsize" == "*M*" ]] | [[ "$partsize" != "1G" ]] ; then
+		  if [[ "$partsize" != *"M"* ]] && [[ "$partsize" != "1G" ]] ; then
 		    sudo mkdir -p /run/media/$rwuser/$partition_name
 		    if [[ "$filesystem" == "btrfs" ]] || [[ "$filesystem" == "ext4" ]] || [[ "$filesystem" == "ext3" ]] || [[ "$filesystem" == "ext2" ]] || [[ "$filesystem" == "xfs" ]]; then
                       ownershipcomm="sudo chown $rwuser:$rwuser --recursive /run/media/$rwuser/$partition_name"
@@ -56,8 +56,8 @@ while IFS= read -r partition; do
 		    if [[ "$filesystem" == "ntfs" ]]; then
 			    sudo ntfsfix $tomount &>/dev/null
 		    fi
-		    $ownershipcomm
 		    sudo mount -t $filesystem $mountopts $tomount /run/media/$rwuser/$partition_name
+		    $ownershipcomm
 		    # We only need to echo the command for debugging purposes.
 		    # echo "sudo mount -t $filesystem $mountopts $tomount /run/media/$rwuser/$partition_name"
 		  fi
