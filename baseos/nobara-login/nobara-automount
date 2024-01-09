@@ -48,7 +48,7 @@ while IFS= read -r partition; do
 		  if [[ "$partsize" != *"M"* ]] && [[ "$partsize" != "1G" ]] ; then
 		    sudo mkdir -p /run/media/$rwuser/$partition_name
 		    if [[ "$filesystem" == "btrfs" ]] || [[ "$filesystem" == "ext4" ]] || [[ "$filesystem" == "ext3" ]] || [[ "$filesystem" == "ext2" ]] || [[ "$filesystem" == "xfs" ]]; then
-                      ownershipcomm="sudo chown $rwuser:$rwuser --recursive /run/media/$rwuser/$partition_name"
+                      ownershipcomm="sudo chown $rwuser:$rwuser /run/media/$rwuser/$partition_name"
 	            else
 		      mountopts="-o umask=000"
 		    fi
