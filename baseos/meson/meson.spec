@@ -16,13 +16,16 @@
 %bcond_with check
 
 Name:           meson
-Version:        1.3.0
+Version:        1.3.1
 Release:        %autorelease
 Summary:        High productivity build system
 
 License:        ASL 2.0
 URL:            https://mesonbuild.com/
 Source:         https://github.com/mesonbuild/meson/releases/download/%{version_no_tilde .}/meson-%{version_no_tilde %{quote:}}.tar.gz
+
+# Don't use the removed importlib.resources.path with Python 3.13+
+Patch:          https://github.com/mesonbuild/meson/pull/12402.patch
 
 BuildArch:      noarch
 
@@ -126,6 +129,21 @@ export MESON_PRINT_TEST_OUTPUT=1
 %{_datadir}/zsh/site-functions/_meson
 
 %changelog
+* Tue Dec 26 2023 Kalev Lember <klember@redhat.com> - 1.3.1-1
+- Update to 1.3.1
+
+* Wed Dec 20 2023 Miroslav Suchý <msuchy@redhat.com> - 1.3.0-4
+- add packit automation for pull_from_upstream
+
+* Wed Dec 13 2023 Karolina Surma <ksurma@redhat.com> - 1.3.0-3
+- Rebase the patch to apply cleanly
+
+* Wed Dec 13 2023 Karolina Surma <ksurma@redhat.com> - 1.3.0-2
+- Don't use the removed importlib.resources.path with Python 3.13+
+
+* Sun Nov 19 2023 Kalev Lember <klember@redhat.com> - 1.3.0-1
+- Update to 1.3.0 (rhbz#2246772)
+
 * Sat Oct 21 2023 Kalev Lember <klember@redhat.com> - 1.2.3-1
 - Update to 1.2.3 (rhbz#2245374)
 
