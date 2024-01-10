@@ -1541,3 +1541,18 @@ index 72ff193d30a..996fc230673 100644
 --
 2.42.0
 
+diff --git a/src/vulkan/wsi/wsi_common_wayland.c b/src/vulkan/wsi/wsi_common_wayland.c
+index 36d4fec..12dacbe 100644
+--- a/src/vulkan/wsi/wsi_common_wayland.c
++++ b/src/vulkan/wsi/wsi_common_wayland.c
+@@ -2311,8 +2311,8 @@ wsi_wl_swapchain_chain_free(struct wsi_wl_swapchain *chain,
+       pthread_mutex_destroy(&chain->present_ids.lock);
+    }
+ 
+-   if (chain->present_ids.queue)
+-      wl_event_queue_destroy(chain->present_ids.queue);
++   if (chain->queue)
++      wl_event_queue_destroy(chain->queue);
+ 
+    vk_free(pAllocator, (void *)chain->drm_modifiers);
+ 
