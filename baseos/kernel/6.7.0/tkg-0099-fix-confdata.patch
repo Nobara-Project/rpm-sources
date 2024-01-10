@@ -1,0 +1,11 @@
+--- a/scripts/kconfig/confdata.c.org	2023-01-20 22:51:31.117337066 +0900
++++ b/scripts/kconfig/confdata.c	2023-01-20 22:53:56.503285192 +0900
+@@ -1068,7 +1068,7 @@
+ 	if (depfile_prefix_len + 1 > sizeof(depfile_path))
+ 		return -1;
+ 
+-	strncpy(depfile_path, name, depfile_prefix_len);
++	memcpy(depfile_path, name, depfile_prefix_len);
+ 	depfile_path[depfile_prefix_len] = 0;
+ 
+ 	conf_read_simple(name, S_DEF_AUTO);
