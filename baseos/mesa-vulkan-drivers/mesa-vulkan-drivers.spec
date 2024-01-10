@@ -1,6 +1,6 @@
 %global _default_patch_fuzz 2
 
-%global commit 377c6b2d45ee73da3e5431846a3b4bfdd7ae2b83
+%global commit 8467b7f44abd0aa130fdfe1f803e0864899c2914
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build git.%{build_timestamp}.%{shortcommit}%{?dist}
@@ -65,7 +65,7 @@
 
 Name:           mesa-vulkan-drivers
 Summary:        The mesa graphics vulkan driver stack.
-%global ver 23.3.0
+%global ver 24.0.0
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %{rel_build}
 License:        MIT
