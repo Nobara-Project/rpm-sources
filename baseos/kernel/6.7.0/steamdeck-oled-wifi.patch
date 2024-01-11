@@ -774,3 +774,37 @@ index 77daa0882..765b91e8d 100644
 -- 
 2.43.0
 
+From d9790ec9e288931bd83c14dd24620c541945fbea Mon Sep 17 00:00:00 2001
+From: cnssbldsw <cnssbldsw@qualcomm.com>
+Date: Wed, 20 Dec 2023 14:55:54 +0800
+Subject: [PATCH] wifi: ath11k: fix firmware crash due to invalid nss
+
+Signed-off-by: cnssbldsw <cnssbldsw@qualcomm.com>
+(cherry picked from commit 1c2b795d3e39b17476a3fb5b028fec1375d5a323)
+---
+ drivers/net/wireless/ath/ath11k/mac.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/ath/ath11k/mac.c b/drivers/net/wireless/ath/ath11k/mac.c
+index e7b3b0dfe8f39..6bc6f4e9b03c7 100644
+--- a/drivers/net/wireless/ath/ath11k/mac.c
++++ b/drivers/net/wireless/ath/ath11k/mac.c
+@@ -2304,7 +2304,7 @@ static void ath11k_peer_assoc_h_he(struct ath11k *ar,
+ 		    he_mcs_mask[i])
+ 			max_nss = i + 1;
+ 	}
+-	arg->peer_nss = min(sta->deflink.rx_nss, max_nss);
++	arg->peer_nss = min(arg->peer_nss, (u32)max_nss);
+
+ 	if (arg->peer_phymode == MODE_11AX_HE160 ||
+ 	    arg->peer_phymode == MODE_11AX_HE80_80) {
+@@ -4443,6 +4443,7 @@ static void ath11k_sta_rc_update_wk(struct work_struct *wk)
+ 	nss = min(nss, max(max(ath11k_mac_max_ht_nss(ht_mcs_mask),
+ 			       ath11k_mac_max_vht_nss(vht_mcs_mask)),
+ 			   ath11k_mac_max_he_nss(he_mcs_mask)));
++	nss = min(nss, (u32)ar->num_tx_chains);
+
+ 	if (changed & IEEE80211_RC_BW_CHANGED) {
+ 		/* Get the peer phymode */
+--
+GitLab
