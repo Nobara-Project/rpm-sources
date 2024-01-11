@@ -164,13 +164,13 @@ Summary: The Linux kernel
 %define specrpmversion 6.7.0
 %define specversion 6.7.0
 %define patchversion 6.7
-%define pkgrelease 200
+%define pkgrelease 201
 %define kversion 6
 %define tarfile_release 6.7
 # This is needed to do merge window version magic
 %define patchlevel 7
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease 200%{?buildid}%{?dist}
+%define specrelease 201%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 6.7.0
 
@@ -1015,10 +1015,6 @@ Patch305: 0001-amd-hdr.patch
 Patch306: 0001-add-acpi_call.patch
 Patch307: uinput.patch
 
-# don't enable some features on vega and older
-# fixes gamescope on vega
-Patch308: 0001-drm-amd-display-Don-t-create-color-properties-on-asi.patch
-
 # fixes framerate control in gamescope
 # also fixes https://gitlab.freedesktop.org/drm/amd/-/issues/2733
 Patch309: valve-gamescope-framerate-control-fixups.patch
@@ -1061,8 +1057,6 @@ Patch909: 0001-Set-amdgpu.ppfeaturemask-0xffffffff-as-default.patch
 
 # steamdeck oled patches
 Patch1001: steamdeck-oled-wifi.patch
-# may be added in 6.7, double check needed
-#Patch1002: steamdeck-oled-bt.patch
 Patch1003: steamdeck-oled-audio.patch
 Patch1004: steamdeck-oled-hw-quirks.patch
 
@@ -1861,10 +1855,6 @@ ApplyOptionalPatch 0001-amd-hdr.patch
 ApplyOptionalPatch 0001-add-acpi_call.patch
 ApplyOptionalPatch uinput.patch
 
-# don't enable some features on vega and older
-# fixes gamescope on vega
-ApplyOptionalPatch 0001-drm-amd-display-Don-t-create-color-properties-on-asi.patch
-
 # fixes framerate control in gamescope
 ApplyOptionalPatch valve-gamescope-framerate-control-fixups.patch
 
@@ -1905,8 +1895,6 @@ ApplyOptionalPatch 0001-Set-amdgpu.ppfeaturemask-0xffffffff-as-default.patch
 
 # steam deck oled patchs
 ApplyOptionalPatch steamdeck-oled-wifi.patch
-# may be added in 6.7, double check needed
-#ApplyOptionalPatch steamdeck-oled-bt.patch
 ApplyOptionalPatch steamdeck-oled-audio.patch
 ApplyOptionalPatch steamdeck-oled-hw-quirks.patch
 
