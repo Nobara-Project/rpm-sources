@@ -73,20 +73,18 @@
 
 Name:           mesa
 Summary:        Mesa graphics libraries
-%global ver 23.3.1
+%global ver 23.3.3
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
 URL:            http://www.mesa3d.org
-
-Source0:        https://gitlab.freedesktop.org/mesa/mesa/-/archive/mesa-%{ver}/mesa-%{ver}.tar.xz
+Source0:        https://gitlab.freedesktop.org/mesa/mesa/-/archive/mesa-%{ver}/mesa-mesa-%{ver}.tar.gz
 # src/gallium/auxiliary/postprocess/pp_mlaa* have an ... interestingly worded license.
 # Source1 contains email correspondence clarifying the license terms.
 # Fedora opts to ignore the optional part of clause 2 and treat that code as 2 clause BSD.
 Source1:        Mesa-MLAA-License-Clarification-Email.txt
 
 Patch10:        gnome-shell-glthread-disable.patch
-Patch11:        0001-intel-compiler-move-gen5-final-pass-to-actually-be-f.patch
 
 # Performance bump
 # Original:
@@ -377,7 +375,7 @@ Requires:       %{name}-libd3d%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release
 %endif
 
 %prep
-%autosetup -n %{name}-%{ver} -p1
+%autosetup -n %{name}-%{name}-%{ver} -p1
 cp %{SOURCE1} docs/
 
 %build

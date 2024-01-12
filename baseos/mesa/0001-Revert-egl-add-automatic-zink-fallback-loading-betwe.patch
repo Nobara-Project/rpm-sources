@@ -10,14 +10,14 @@ This reverts commit 8cd44b8843877a2f7d559d123eb3694841f16fdc.
  1 file changed, 4 insertions(+), 11 deletions(-)
 
 diff --git a/src/egl/main/eglapi.c b/src/egl/main/eglapi.c
-index b9f179c2ce3..b1a48668b76 100644
+index d50be23..febc571 100644
 --- a/src/egl/main/eglapi.c
 +++ b/src/egl/main/eglapi.c
-@@ -695,17 +695,10 @@ eglInitialize(EGLDisplay dpy, EGLint *major, EGLint *minor)
+@@ -695,16 +695,10 @@ eglInitialize(EGLDisplay dpy, EGLint *major, EGLint *minor)
           if (disp->Options.ForceSoftware)
              RETURN_EGL_ERROR(disp, EGL_NOT_INITIALIZED, EGL_FALSE);
           else {
--            bool success = disp->Options.Zink;
+-            bool success = false;
 -            if (!disp->Options.Zink && !getenv("GALLIUM_DRIVER")) {
 -               disp->Options.Zink = EGL_TRUE;
 -               success = _eglDriver.Initialize(disp);
@@ -27,14 +27,13 @@ index b9f179c2ce3..b1a48668b76 100644
 -               disp->Options.ForceSoftware = EGL_TRUE;
 -               if (!_eglDriver.Initialize(disp))
 -                  RETURN_EGL_ERROR(disp, EGL_NOT_INITIALIZED, EGL_FALSE);
--            }
 +            disp->Options.Zink = EGL_FALSE;
 +            disp->Options.ForceSoftware = EGL_TRUE;
 +            if (!_eglDriver.Initialize(disp))
 +               RETURN_EGL_ERROR(disp, EGL_NOT_INITIALIZED, EGL_FALSE);
+             }
           }
        }
- 
 -- 
 2.40.1
 
