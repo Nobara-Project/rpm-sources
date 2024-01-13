@@ -46,20 +46,42 @@ while IFS= read -r partition; do
 		  # most people just want their main parititions to be mounted 
 		  # for game or content access.
 		  if [[ "$partsize" != *"M"* ]] && [[ "$partsize" != "1G" ]] ; then
-		    sudo mkdir -p /run/media/$rwuser/$partition_name
 		    if [[ "$filesystem" == "btrfs" ]] || [[ "$filesystem" == "ext4" ]] || [[ "$filesystem" == "ext3" ]] || [[ "$filesystem" == "ext2" ]] || [[ "$filesystem" == "xfs" ]]; then
                       ownershipcomm="sudo chown $rwuser:$rwuser /run/media/$rwuser/$partition_name"
 	            else
 		      mountopts="-o umask=000"
 		    fi
-		    # Prevent ntfs metadata mount failure
-		    if [[ "$filesystem" == "ntfs" ]]; then
-			    sudo ntfsfix $tomount &>/dev/null
+
+		    # Make sure partition has not been manually disabled
+		    if [[ -f /etc/nobara/automount/disabled.conf ]]; then
+			  if [[ -z $(grep $partition_name /etc/nobara/automount/disabled.conf) ]]; then
+			    # Make the directory to mount to
+		        sudo mkdir -p /run/media/$rwuser/$partition_name
+		        # Prevent ntfs metadata mount failure
+		        if [[ "$filesystem" == "ntfs" ]]; then
+			        sudo ntfsfix $tomount &>/dev/null
+		        fi
+		        # Mount the partition to the directory
+		        sudo mount -t $filesystem $mountopts $tomount /run/media/$rwuser/$partition_name
+		        # Set ownership if needed
+		        $ownershipcomm
+		        # We only need to echo the command for debugging purposes.
+		        # echo "sudo mount -t $filesystem $mountopts $tomount /run/media/$rwuser/$partition_name"
+			  fi
+		    else
+			  # Make the directory to mount to
+		      sudo mkdir -p /run/media/$rwuser/$partition_name
+		      # Prevent ntfs metadata mount failure
+		      if [[ "$filesystem" == "ntfs" ]]; then
+			      sudo ntfsfix $tomount &>/dev/null
+		      fi
+		      # Mount the partition to the directory
+		      sudo mount -t $filesystem $mountopts $tomount /run/media/$rwuser/$partition_name
+		      # Set ownership if needed
+		      $ownershipcomm
+		      # We only need to echo the command for debugging purposes.
+		      # echo "sudo mount -t $filesystem $mountopts $tomount /run/media/$rwuser/$partition_name"
 		    fi
-		    sudo mount -t $filesystem $mountopts $tomount /run/media/$rwuser/$partition_name
-		    $ownershipcomm
-		    # We only need to echo the command for debugging purposes.
-		    # echo "sudo mount -t $filesystem $mountopts $tomount /run/media/$rwuser/$partition_name"
 		  fi
 		fi
 	    fi

@@ -1,7 +1,7 @@
 Summary: A set of scripts to run upon first user login
 Name: nobara-login
 Version: 1.1
-Release: 48%{?dist}
+Release: 49%{?dist}
 License: Public Domain
 Group: System Environment/Base
 Source0: hwcheck.sh
@@ -59,6 +59,7 @@ install -d $RPM_BUILD_ROOT%{_sysconfdir}/modprobe.d/
 install -d $RPM_BUILD_ROOT%{_sysconfdir}/dnf/protected.d/
 install -d $RPM_BUILD_ROOT%{_prefix}/lib/sysctl.d/
 install -d $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/
+install -d $RPM_BUILD_ROOT%{_sysconfdir}/nobara/automount/
 install -d $RPM_BUILD_ROOT%{_sysconfdir}/polkit-1/rules.d/
 install -d $RPM_BUILD_ROOT%{_datadir}/polkit-1/actions/
 install -d $RPM_BUILD_ROOT%{_sysconfdir}/login.conf.d/
@@ -80,7 +81,8 @@ install -m 0755 %{SOURCE16} $RPM_BUILD_ROOT%{_datadir}/pipewire/pipewire-pulse.c
 install -m 0755 %{SOURCE17} $RPM_BUILD_ROOT%{_sysconfdir}/xdg/autostart/nobara-automount.desktop
 install -m 0755 %{SOURCE18} $RPM_BUILD_ROOT%{_libexecdir}/nobara-automount
 install -m 0755 %{SOURCE19} $RPM_BUILD_ROOT%{_datadir}/polkit-1/actions/org.nobaraproject.automount.policy
-
+echo '# list of disabled automount partitions' > disabled.conf
+install -m 0755 disabled.conf $RPM_BUILD_ROOT%{_sysconfdir}/nobara/automount/disabled.conf
 %post sysctl
 sysctl -p
 
@@ -97,6 +99,7 @@ sysctl -p
 %{_sysconfdir}/udev/rules.d/60-ioschedulers.rules
 %{_sysconfdir}/polkit-1/rules.d/90-corectrl.rules
 %{_sysconfdir}/login.conf.d/00-handheld-power.conf
+%config(noreplace) %{_sysconfdir}/nobara/automount/disabled.conf
 %{_datadir}/polkit-1/actions/org.nobaraproject.automount.policy
 %{_datadir}/pipewire/pipewire-pulse.conf.d/wine_gaming.conf
 
