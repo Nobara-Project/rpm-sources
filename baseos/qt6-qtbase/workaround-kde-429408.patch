@@ -1,0 +1,24 @@
+diff --git a/src/corelib/io/qurlidna.cpp b/src/corelib/io/qurlidna.cpp
+index bb14e1cd..1c560975 100644
+--- a/src/corelib/io/qurlidna.cpp
++++ b/src/corelib/io/qurlidna.cpp
+@@ -892,8 +892,19 @@ QString qt_ACE_do(const QString &domain, AceOperation op, AceLeadingDot dot,
+     if (domain.isEmpty())
+         return {};
+ 
++    /* Check for url quirk such as slack or thunderlink.
++    We do this before mapDomainName because mapDomainName will
++    cast it to lowercase, and some urls are case sensitive.
++    If that is resolved in the future then we need to call before
++    mappedToAscii, because that strips the : from the url. */
++    QString quirkcheck = "://";
++    if (domain.toStdString().find(quirkcheck.toStdString()) >= 0){
++        return domain;
++    }
++
+     bool mappedToAscii;
+     const QString mapped = mapDomainName(domain, options, &mappedToAscii);
++
+     const QString normalized =
+             mappedToAscii ? mapped : mapped.normalized(QString::NormalizationForm_C);
+ 

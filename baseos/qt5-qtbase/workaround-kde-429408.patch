@@ -1,0 +1,27 @@
+diff --git a/src/corelib/io/qurlidna.cpp b/src/corelib/io/qurlidna.cpp
+index a2f0caa6..88748cb3 100644
+--- a/src/corelib/io/qurlidna.cpp
++++ b/src/corelib/io/qurlidna.cpp
+@@ -2532,10 +2532,10 @@ QString qt_ACE_do(const QString &domain, AceOperation op, AceLeadingDot dot)
+                 ushort uc = in->unicode();
+                 if (uc > 0x7f)
+                     simple = false;
+-                if (uc >= 'A' && uc <= 'Z')
+-                    *out = QChar(uc | 0x20);
+-                else
+-                    *out = *in;
++                /*if (uc >= 'A' && uc <= 'Z')
++                    *out = QChar(uc | 0x20);*/
++                /*else*/
++                *out = *in;
+             }
+         }
+ 
+@@ -2594,6 +2594,7 @@ QString qt_ACE_do(const QString &domain, AceOperation op, AceLeadingDot dot)
+         else
+             break;
+     }
++
+     return result;
+ }
+ 
