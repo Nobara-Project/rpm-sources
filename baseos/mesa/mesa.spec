@@ -98,9 +98,6 @@ Patch2: 25352.patch
 # https://gitlab.com/evlaV/mesa/
 Patch3: valve.patch
 
-Patch4: 0001-Revert-egl-add-automatic-zink-fallback-loading-betwe.patch
-Patch5: 0002-Revert-glx-add-automatic-zink-fallback-loading-betwe.patch
-
 BuildRequires:  meson >= 1.2.0
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
