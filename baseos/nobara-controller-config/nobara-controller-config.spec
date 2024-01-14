@@ -1,7 +1,7 @@
 Summary: A set of scripts to run upon first user login
 Name: nobara-controller-config
 Version: 1.0
-Release: 10%{?dist}
+Release: 11%{?dist}
 License: Public Domain
 Source0: controllercheck.sh
 Source1: 50-generic-xbox360-controller.rules
