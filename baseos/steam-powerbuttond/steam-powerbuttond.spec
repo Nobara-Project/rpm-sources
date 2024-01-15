@@ -1,6 +1,6 @@
 Name:           steam-powerbuttond
 Version:        0.0.git.1792.086c17c1
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Steam Deck power button daemon
 
 License:        BSD
@@ -27,7 +27,7 @@ Steam Deck power button daemon
 %prep
 cd %{_builddir}
 
-cat << EOF >> %{_builddir}/99-steam-powerbuttond.preset
+cat << EOF >> %{_builddir}/98-steam-powerbuttond.preset
 enable steam-powerbuttond.service
 EOF
 
@@ -42,7 +42,7 @@ mkdir -p %{buildroot}%{_bindir}/
 mkdir -p %{buildroot}%{_unitdir}/
 mkdir -p %{buildroot}%{_presetdir}/
 install -D -m 755 %{_builddir}/powerbuttond/steam-powerbuttond %{buildroot}%{_bindir}/steam-powerbuttond
-install -m 644 %{_builddir}/99-steam-powerbuttond.preset %{buildroot}%{_presetdir}/
+install -m 644 %{_builddir}/98-steam-powerbuttond.preset %{buildroot}%{_presetdir}/
 install -m 644 %{_builddir}/powerbuttond/steam-powerbuttond.service %{buildroot}%{_unitdir}/steam-powerbuttond.service
 
 %post
@@ -56,7 +56,7 @@ udevadm trigger
 %files
 %{_bindir}/steam-powerbuttond
 %{_unitdir}/steam-powerbuttond.service
-%{_presetdir}/99-steam-powerbuttond.preset
+%{_presetdir}/98-steam-powerbuttond.preset
 
 %changelog
 %autochangelog

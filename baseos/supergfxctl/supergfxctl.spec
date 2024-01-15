@@ -23,18 +23,17 @@
 # Use hardening ldflags.
 %global rustflags -Clink-arg=-Wl,-z,relro,-z,now
 Name:           supergfxctl
-Version:        5.0.1
-Release:        3
+Version:        5.1.1
+Release:        4
 Summary:        Super graphics mode controller
 License:        MPLv2
 
 Group:          System Environment/Kernel
 
 URL:            https://gitlab.com/asus-linux/supergfxctl
-Source:         https://gitlab.com/asus-linux/supergfxctl/-/archive/%version/%{name}-%{version}.tar.gz
-Source1:        vendor-%{version}.tar.xz
+Source:         %URL/-/archive/%version/%{name}-%{version}.tar.gz
+Source1:        %URL/uploads/65d12bc0197c6af78df425f545ec6d7d/vendor-%{version}.tar.xz
 Source2:	supergfxd-battery-check.sh
-
 BuildRequires:  cargo
 
 BuildRequires:  systemd-rpm-macros
@@ -73,7 +72,7 @@ install -D -m 0755 target/release/supergfxctl %{buildroot}%{_bindir}/supergfxctl
 install -D -m 0644 data/90-supergfxd-nvidia-pm.rules %{buildroot}%{_udevrulesdir}/90-supergfxd-nvidia-pm.rules
 install -D -m 0644 data/org.supergfxctl.Daemon.conf  %{buildroot}%{_sysconfdir}/dbus-1/system.d/org.supergfxctl.Daemon.conf
 install -D -m 0644 data/supergfxd.service %{buildroot}%{_unitdir}/supergfxd.service
-install -D -m 0644 data/supergfxd.preset %{buildroot}%{_presetdir}/99-supergfxd.preset
+install -D -m 0644 data/supergfxd.preset %{buildroot}%{_presetdir}/98-supergfxd.preset
 
 sed -i 's|/usr/bin/supergfxd|/usr/bin/supergfxd-battery-check.sh|g' %{buildroot}%{_unitdir}/supergfxd.service
 
@@ -95,7 +94,7 @@ install -D -m 0644 README.md %{buildroot}%{_datadir}/doc/%{name}/README.md
 %{_bindir}/supergfxd-battery-check.sh
 %{_bindir}/supergfxctl
 %{_unitdir}/supergfxd.service
-%{_presetdir}/99-supergfxd.preset
+%{_presetdir}/98-supergfxd.preset
 %{_udevrulesdir}/90-supergfxd-nvidia-pm.rules
 %{_sysconfdir}/dbus-1/system.d/org.supergfxctl.Daemon.conf
 %dir %{_datadir}/doc
