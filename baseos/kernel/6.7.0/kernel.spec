@@ -164,13 +164,13 @@ Summary: The Linux kernel
 %define specrpmversion 6.7.0
 %define specversion 6.7.0
 %define patchversion 6.7
-%define pkgrelease 201
+%define pkgrelease 202
 %define kversion 6
 %define tarfile_release 6.7
 # This is needed to do merge window version magic
 %define patchlevel 7
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease 201%{?buildid}%{?dist}
+%define specrelease 202%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 6.7.0
 
@@ -1049,8 +1049,8 @@ Patch606: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
 # Also set the PS controller bluetooth polling rate to 1000Hz
 Patch707: set-ps4-bt-poll-rate-1000hz.patch
 
-# mediatek fixups
-Patch808: mt76:-mt7921:-Disable-powersave-features-by-default.patch
+## mediatek fixups
+#Patch808: mt76:-mt7921:-Disable-powersave-features-by-default.patch
 
 # enable full amd power control by default
 Patch909: 0001-Set-amdgpu.ppfeaturemask-0xffffffff-as-default.patch
@@ -1060,8 +1060,12 @@ Patch1001: steamdeck-oled-wifi.patch
 Patch1003: steamdeck-oled-audio.patch
 Patch1004: steamdeck-oled-hw-quirks.patch
 
+# t2 macbook patches
+Patch1005: t2linux.patch
+
 # empty final patch to facilitate testing of kernel patches
 Patch999999: linux-kernel-test.patch
+
 
 # END OF PATCH DEFINITIONS
 
@@ -1888,7 +1892,7 @@ ApplyOptionalPatch 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.pat
 ApplyOptionalPatch set-ps4-bt-poll-rate-1000hz.patch
 
 # mediatek fixups
-ApplyOptionalPatch mt76:-mt7921:-Disable-powersave-features-by-default.patch
+# ApplyOptionalPatch mt76:-mt7921:-Disable-powersave-features-by-default.patch
 
 # enable full amd power control by default
 ApplyOptionalPatch 0001-Set-amdgpu.ppfeaturemask-0xffffffff-as-default.patch
@@ -1897,6 +1901,9 @@ ApplyOptionalPatch 0001-Set-amdgpu.ppfeaturemask-0xffffffff-as-default.patch
 ApplyOptionalPatch steamdeck-oled-wifi.patch
 ApplyOptionalPatch steamdeck-oled-audio.patch
 ApplyOptionalPatch steamdeck-oled-hw-quirks.patch
+
+# t2 macbook patches
+ApplyOptionalPatch t2linux.patch
 
 ApplyOptionalPatch linux-kernel-test.patch
 
