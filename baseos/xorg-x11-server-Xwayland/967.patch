@@ -1,4 +1,4 @@
-From 2547f6a921ebd25eba0688268f193841e3e2e506 Mon Sep 17 00:00:00 2001
+From 22f85b70ba383e160af50e5a14eb44a37ce1d0fa Mon Sep 17 00:00:00 2001
 From: Erik Kurzinger <ekurzinger@nvidia.com>
 Date: Tue, 24 Oct 2023 16:14:17 -0700
 Subject: [PATCH 1/5] DRI3: provide stub implementation of
@@ -104,7 +104,7 @@ index bb2b81b8f9..951cc6357e 100644
 GitLab
 
 
-From e3ec4503d01996a7784217f023fdf4eda3579f0d Mon Sep 17 00:00:00 2001
+From 6cff285583bd05e3ef1d932c3592cce07633c9b6 Mon Sep 17 00:00:00 2001
 From: Erik Kurzinger <ekurzinger@nvidia.com>
 Date: Tue, 16 Aug 2022 11:57:40 -0700
 Subject: [PATCH 2/5] DRI3: add DRI3ImportSyncobj and DRI3FreeSyncobj
@@ -436,7 +436,7 @@ index 951cc6357e..2b0f85e392 100644
 GitLab
 
 
-From 1f94ac176762ecf5d62ff9ab1e0159278f442522 Mon Sep 17 00:00:00 2001
+From ce7301f622a5b671d05d626a65d6ba7cbea2f67e Mon Sep 17 00:00:00 2001
 From: Erik Kurzinger <ekurzinger@nvidia.com>
 Date: Tue, 16 Aug 2022 11:59:14 -0700
 Subject: [PATCH 3/5] xwayland: implement support for DRI3 syncobjs
@@ -693,7 +693,7 @@ index 9442aee024..c1d9ddd37f 100644
 GitLab
 
 
-From d77d4f14e61da596c624628a42ac49b5b87833cb Mon Sep 17 00:00:00 2001
+From 7381542b61aeec02f5f37fbe1967a87dcc56710d Mon Sep 17 00:00:00 2001
 From: Erik Kurzinger <ekurzinger@nvidia.com>
 Date: Tue, 16 Aug 2022 12:03:59 -0700
 Subject: [PATCH 4/5] Present: implement PresentPixmapSynced
@@ -1056,17 +1056,17 @@ index 4fd1e579ff..8a6f11ec4e 100644
  
  Bool xwl_present_entered_for_each_frame_callback(void);
 diff --git a/hw/xwayland/xwayland-screen.h b/hw/xwayland/xwayland-screen.h
-index 9eaac16dba..9269e2b80b 100644
+index 92688a7e00..89d105e7fe 100644
 --- a/hw/xwayland/xwayland-screen.h
 +++ b/hw/xwayland/xwayland-screen.h
-@@ -145,6 +145,8 @@ struct xwl_screen {
+@@ -145,6 +146,8 @@ struct xwl_screen {
      int libdecor_fd;
      struct libdecor *libdecor_context;
  #endif
 +
 +    uint32_t present_capabilities;
  };
- 
+
  /* Apps which use randr/vidmode to change the mode when going fullscreen,
 diff --git a/include/protocol-versions.h b/include/protocol-versions.h
 index 2b0f85e392..aa3ba41fe1 100644
@@ -1642,7 +1642,7 @@ index 4f94f16e44..2eb57abfff 100644
 GitLab
 
 
-From 4192c5881c1b342122c6ee7f6d747e6f9167249a Mon Sep 17 00:00:00 2001
+From 3def7fbff930f94ae1e1d31a55520988c1ec153e Mon Sep 17 00:00:00 2001
 From: Erik Kurzinger <ekurzinger@nvidia.com>
 Date: Tue, 15 Aug 2023 15:32:47 -0700
 Subject: [PATCH 5/5] xwayland: add support for wp_linux_drm_syncobj_v1
@@ -2315,7 +2315,7 @@ index 8a6f11ec4e..ffc16f52e6 100644
      uint64_t divisor;
      uint64_t remainder;
 diff --git a/hw/xwayland/xwayland-screen.c b/hw/xwayland/xwayland-screen.c
-index 0992078551..cc3bd68fe2 100644
+index 22afd4e948..092b3768f1 100644
 --- a/hw/xwayland/xwayland-screen.c
 +++ b/hw/xwayland/xwayland-screen.c
 @@ -68,6 +68,7 @@
@@ -2327,7 +2327,7 @@ index 0992078551..cc3bd68fe2 100644
  static DevPrivateKeyRec xwl_screen_private_key;
  static DevPrivateKeyRec xwl_client_private_key;
 diff --git a/hw/xwayland/xwayland-screen.h b/hw/xwayland/xwayland-screen.h
-index 9269e2b80b..ea544bc6d6 100644
+index 89d105e7fe..54dc64ae40 100644
 --- a/hw/xwayland/xwayland-screen.h
 +++ b/hw/xwayland/xwayland-screen.h
 @@ -111,6 +111,7 @@ struct xwl_screen {
@@ -2339,7 +2339,7 @@ index 9269e2b80b..ea544bc6d6 100644
      struct xorg_list queued_drm_lease_devices;
      struct xorg_list drm_leases;
 diff --git a/hw/xwayland/xwayland-window-buffers.c b/hw/xwayland/xwayland-window-buffers.c
-index 658ec21990..d65b7a2b92 100644
+index 599ad53707..c5aa348ed4 100644
 --- a/hw/xwayland/xwayland-window-buffers.c
 +++ b/hw/xwayland/xwayland-window-buffers.c
 @@ -32,6 +32,14 @@
@@ -2357,7 +2357,7 @@ index 658ec21990..d65b7a2b92 100644
  
  #define BUFFER_TIMEOUT 1 * 1000 /* ms */
  
-@@ -47,6 +55,9 @@ struct xwl_window_buffer {
+@@ -39,6 +47,9 @@ struct xwl_window_buffer {
      struct xwl_window *xwl_window;
      PixmapPtr pixmap;
      RegionPtr damage_region;
@@ -2409,8 +2409,8 @@ index 658ec21990..d65b7a2b92 100644
  void
  xwl_window_buffers_init(struct xwl_window *xwl_window)
  {
-@@ -326,6 +358,46 @@ xwl_window_recycle_pixmap(struct xwl_window *xwl_window)
-     xwl_window_set_pixmap(xwl_window->window, new_window_pixmap);
+@@ -327,6 +359,46 @@ xwl_window_recycle_pixmap(struct xwl_window *xwl_window)
+     screen->DestroyPixmap(window_pixmap);
  }
  
 +#ifdef XWL_HAS_GLAMOR
@@ -2461,19 +2461,19 @@ index 658ec21990..d65b7a2b92 100644
      full_damage = xwl_window_buffer->damage_region;
 
 +#ifdef XWL_HAS_GLAMOR
-+    if (xwl_window_buffer->syncobj) {
-+        int fence_fd =
-+            xwl_window_buffer->syncobj->export_fence(xwl_window_buffer->syncobj,
-+                                                     xwl_window_buffer->timeline_point);
-+        xwl_glamor_wait_fence(xwl_screen, fence_fd);
-+        close(fence_fd);
-+    }
++        if (xwl_window_buffer->syncobj) {
++            int fence_fd =
++                xwl_window_buffer->syncobj->export_fence(xwl_window_buffer->syncobj,
++                                                         xwl_window_buffer->timeline_point);
++            xwl_glamor_wait_fence(xwl_screen, fence_fd);
++            close(fence_fd);
++        }
 +#endif /* XWL_HAS_GLAMOR */
 +
      if (xwl_window_buffer->pixmap) {
          BoxPtr pBox = RegionRects(full_damage);
          int nBox = RegionNumRects(full_damage);
-@@ -383,9 +466,30 @@ xwl_window_buffers_get_pixmap(struct xwl_window *xwl_window,
+@@ -384,9 +467,30 @@ xwl_window_buffers_get_pixmap(struct xwl_window *xwl_window,
  
      /* Hold a reference on the buffer until it's released by the compositor */
      xwl_window_buffer->refcnt++;
@@ -2508,7 +2508,7 @@ index 658ec21990..d65b7a2b92 100644
      xorg_list_del(&xwl_window_buffer->link_buffer);
      xorg_list_append(&xwl_window_buffer->link_buffer,
 diff --git a/hw/xwayland/xwayland-window.c b/hw/xwayland/xwayland-window.c
-index a6a4cf8f5a..f85344913c 100644
+index aaeeace684..ec81b5027e 100644
 --- a/hw/xwayland/xwayland-window.c
 +++ b/hw/xwayland/xwayland-window.c
 @@ -50,6 +50,7 @@
@@ -2519,7 +2519,7 @@ index a6a4cf8f5a..f85344913c 100644
  
  #define DELAYED_WL_SURFACE_DESTROY 1000 /* ms */
  
-@@ -1185,6 +1186,9 @@ xwl_unrealize_window(WindowPtr window)
+@@ -1188,6 +1189,9 @@ xwl_unrealize_window(WindowPtr window)
      if (xwl_window->tearing_control)
          wp_tearing_control_v1_destroy(xwl_window->tearing_control);
  
@@ -2529,7 +2529,7 @@ index a6a4cf8f5a..f85344913c 100644
      release_wl_surface_for_window(xwl_window);
      xorg_list_del(&xwl_window->link_damage);
      xorg_list_del(&xwl_window->link_window);
-@@ -1393,6 +1397,12 @@ xwl_window_attach_buffer(struct xwl_window *xwl_window)
+@@ -1396,6 +1400,12 @@ xwl_window_attach_buffer(struct xwl_window *xwl_window)
      pixmap = xwl_window_buffers_get_pixmap(xwl_window, region);
  
  #ifdef XWL_HAS_GLAMOR
