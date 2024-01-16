@@ -2,8 +2,8 @@
 %global appid net.lutris.Lutris
 
 Name:           lutris
-Version:        0.5.14
-Release:        2%{?dist}
+Version:        0.5.16
+Release:        1%{?dist}
 Summary:        Video game preservation platform
 
 License:        GPL-3.0+
