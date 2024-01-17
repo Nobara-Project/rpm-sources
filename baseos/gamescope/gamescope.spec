@@ -5,18 +5,23 @@
 
 %global build_timestamp %(date +"%Y%m%d")
 
-%global rel_build 6.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 8.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           gamescope
-Version:        3.13.16
+Version:        3.13.19
 Release:        %{rel_build}
 Summary:        Micro-compositor for video games on Wayland
 
 License:        BSD
-URL:            https://github.com/ChimeraOS/gamescope
+URL:            https://github.com/ValveSoftware/gamescope
 
 # Create stb.pc to satisfy dependency('stb')
 Source1:        stb.pc
+
+# Disabled in patching for now, needs rebase
+Source2:        chimeraos.patch
+
+Source3: remove-720p-restrict.patch
 
 BuildRequires:  meson >= 0.54.0
 BuildRequires:  ninja-build
@@ -50,6 +55,7 @@ BuildRequires:  (pkgconfig(libliftoff) >= 0.4.1 with pkgconfig(libliftoff) < 0.5
 BuildRequires:  pkgconfig(libcap)
 BuildRequires:  pkgconfig(hwdata)
 BuildRequires:  pkgconfig(xwayland)
+BuildRequires:  pkgconfig(libavif)
 BuildRequires:  vkroots-devel
 BuildRequires:  /usr/bin/glslangValidator
 BuildRequires:  git
@@ -74,11 +80,13 @@ Summary:	libs for %{name}
 %summary
 
 %prep
-git clone --branch gamescope-plus https://github.com/ChimeraOS/gamescope.git
+git clone --single-branch --branch master https://github.com/ValveSoftware/gamescope.git
 cd gamescope
 git submodule update --init --recursive
 mkdir -p pkgconfig
 cp %{SOURCE1} pkgconfig/stb.pc
+#patch -Np1 < %{SOURCE2}
+patch -Np1 < %{SOURCE3}
 
 %build
 cd gamescope
