@@ -164,13 +164,13 @@ Summary: The Linux kernel
 %define specrpmversion 6.7.0
 %define specversion 6.7.0
 %define patchversion 6.7
-%define pkgrelease 203
+%define pkgrelease 204
 %define kversion 6
 %define tarfile_release 6.7
 # This is needed to do merge window version magic
 %define patchlevel 7
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease 203%{?buildid}%{?dist}
+%define specrelease 204%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 6.7.0
 
@@ -981,6 +981,9 @@ Source4002: gating.yaml
 
 Patch1: patch-%{patchversion}-redhat.patch
 %endif
+
+# fix https://gitlab.freedesktop.org/drm/amd/-/issues/3062
+Patch100: 0001-revert-5f38ac54e60562323ea4abb1bfb37d043ee23357-to-f.patch
 
 # graysky
 # https://github.com/graysky2/kernel_compiler_patch
@@ -1822,9 +1825,11 @@ cd linux-%{KVERREL}
 cp -a %{SOURCE1} .
 
 %if !%{nopatches}
-
 ApplyOptionalPatch patch-%{patchversion}-redhat.patch
 %endif
+
+# fix https://gitlab.freedesktop.org/drm/amd/-/issues/3062
+ApplyOptionalPatch 0001-revert-5f38ac54e60562323ea4abb1bfb37d043ee23357-to-f.patch
 
 # graysky
 # https://github.com/graysky2/kernel_compiler_patch
