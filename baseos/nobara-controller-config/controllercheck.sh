@@ -17,7 +17,7 @@ install_drivers() {
       	echo "# Installing xone and xpadneo packages..."
         echo "20"; sleep 1
         echo "# Installing dnf5 fixes."
-        dnf install -y "dnf5-command(builddep)"
+        pkexec bash -c 'dnf install -y "dnf5-command(builddep)"'
         echo "50"; sleep 1
         pkexec bash -c 'usermod -aG pkg-build $USER && dnf4 install -y lpf-xone-firmware xone xpadneo && dnf4 remove -y xone-firmware'
         echo "# Packages installed, press OK to begin firmware installation."
