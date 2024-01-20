@@ -1,11 +1,11 @@
 %global libliftoff_minver 0.4.1
 
-%define commit 069590719e9f8baf7f630cecd02a3162db60dffe
+%define commit bca7990e61a1eb8198e54d86a4a9a44d41d9b07e
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 %global build_timestamp %(date +"%Y%m%d")
 
-%global rel_build 8.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 10.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           gamescope
 Version:        3.13.19
