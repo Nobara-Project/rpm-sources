@@ -1,6 +1,6 @@
 Name:           steam-powerbuttond
 Version:        0.0.git.1792.086c17c1
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Steam Deck power button daemon
 
 License:        BSD
@@ -29,6 +29,7 @@ cd %{_builddir}
 
 cat << EOF >> %{_builddir}/98-steam-powerbuttond.preset
 enable steam-powerbuttond.service
+start steam-powerbuttond.service
 EOF
 
 git clone %{url} %{_builddir}/powerbuttond
