@@ -50,6 +50,8 @@ install -m 644 %{_builddir}/powerbuttond/steam-powerbuttond.service %{buildroot}
 udevadm control --reload-rules
 udevadm trigger
 %systemd_post steam-powerbuttond.service
+systemctl start steam-powerbuttond.service
+
 
 %preun
 %systemd_preun steam-powerbuttond.service
