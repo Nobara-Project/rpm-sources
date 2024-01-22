@@ -48,6 +48,8 @@ cp -v usr/lib/systemd/system/jupiter-fan-control.service %{buildroot}%{_unitdir}
 udevadm control --reload-rules
 udevadm trigger
 %systemd_post jupiter-fan-control.service
+systemctl start steam-powerbuttond.service
+
 
 # Do before uninstallation
 %preun
