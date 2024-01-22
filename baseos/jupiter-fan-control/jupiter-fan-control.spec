@@ -30,7 +30,6 @@ SteamOS 3.0 Steam Deck Fan Controller
 
 cat << EOF >> %{_builddir}/96-jupiter-fan-control.preset
 enable jupiter-fan-control.service
-start jupiter-fan-control.service
 EOF
 
 %build
