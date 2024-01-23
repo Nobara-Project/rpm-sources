@@ -1,5 +1,5 @@
 Name:           ds-inhibit
-Version:        {{{ git_dir_version }}}
+Version:        0.1.1
 Release:        1%{?dist}
 Summary:        DualShock 4/DualSense mouse inhibitor
 License:        BSD-2-Clause
