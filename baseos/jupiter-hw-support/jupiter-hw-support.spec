@@ -66,6 +66,13 @@ cp -rv etc/* %{buildroot}%{_sysconfdir}
 sed -i 's@steamos-cursor.png@usr/share/steamos/steamos-cursor.png@g' usr/share/steamos/steamos-cursor-config
 xcursorgen usr/share/steamos/steamos-cursor-config %{buildroot}%{_datadir}/icons/steam/cursors/default
 
+#Do pre-installation
+%pre
+# Check if the file exists and remove it
+if [ -f /usr/bin/steamos-polkit-helpers/steamos-retrigger-automounts ]; then
+    rm -f /usr/bin/steamos-polkit-helpers/steamos-retrigger-automounts
+fi
+
 # Do post-installation
 %post
 %systemd_post jupiter-biosupdate.service
