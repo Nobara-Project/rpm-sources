@@ -8,7 +8,7 @@
 %global rel_build 10.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           gamescope
-Version:        3.13.19
+Version:        3.13.20
 Release:        %{rel_build}
 Summary:        Micro-compositor for video games on Wayland
 
