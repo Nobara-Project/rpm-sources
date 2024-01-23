@@ -1,6 +1,6 @@
 Name:           jupiter-hw-support
 Version:        0.0.git.1256.484fa801
-Release:        22%{?dist}
+Release:        23%{?dist}
 Summary:        Steam Deck Hardware Support Package
 License:        MIT
 URL:            https://github.com/nobara-project/steamdeck-edition-packages
@@ -34,6 +34,11 @@ SteamOS 3.0 Steam Deck Hardware Support Package
 
 %prep
 %autosetup -p1 -n %{name}
+cd %{_builddir}
+cat << EOF >> %{_builddir}/96-jupiter-hw-support.preset
+enable jupiter-biosupdate.service
+enable jupiter-controller-update.service
+EOF
 
 %build
 
@@ -41,10 +46,12 @@ SteamOS 3.0 Steam Deck Hardware Support Package
 export QA_RPATHS=0x0003
 mkdir -p %{buildroot}%{_datadir}/
 mkdir -p %{buildroot}%{_unitdir}/
+mkdir -p %{buildroot}%{_presetdir}/
 mkdir -p %{buildroot}%{_bindir}/
 mkdir -p %{buildroot}%{_libexecdir}/
 mkdir -p %{buildroot}%{_sysconfdir}/
 mkdir -p %{buildroot}%{_prefix}/lib/hwsupport/
+install -m 644 %{_builddir}/96-jupiter-hw-support.preset %{buildroot}%{_presetdir}/
 cp -rv usr/share/* %{buildroot}%{_datadir}
 cp -rv usr/lib/systemd/system/* %{buildroot}%{_unitdir}/
 cp usr/lib/hwsupport/power-button-handler.py %{buildroot}%{_prefix}/lib/hwsupport/power-button-handler.py
@@ -109,6 +116,7 @@ grub2-mkconfig -o /boot/grub2/grub.cfg
 %{_datadir}/polkit-1/rules.d/org.valve.steamos.rules
 %{_datadir}/steamos/steamos-cursor-config
 %{_datadir}/steamos/steamos-cursor.png
+%{_presetdir}/96-jupiter-hw-support.preset
 
 # Finally, changes from the latest release of your application are generated from
 # your project's Git history. It will be empty until you make first annotated Git tag.
