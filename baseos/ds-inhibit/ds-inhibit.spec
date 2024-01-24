@@ -38,7 +38,7 @@ mkdir -p %{buildroot}%{_unitdir}/
 mkdir -p %{buildroot}%{_presetdir}/
 install -D -m 755 ds_inhibit.py %{buildroot}%{_bindir}/ds-inhibit
 install -m 644 systemd.service %{buildroot}%{_unitdir}/ds-inhibit.service
-install -m 644 98-ds-inhibit.preset %{buildroot}%{_presetdir}/
+install -m 644 %{_builddir}/98-ds-inhibit.preset %{buildroot}%{_presetdir}/
 
 # Do post-installation
 %post
