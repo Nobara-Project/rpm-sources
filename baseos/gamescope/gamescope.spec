@@ -1,11 +1,11 @@
 %global libliftoff_minver 0.4.1
 
-%define commit bca7990e61a1eb8198e54d86a4a9a44d41d9b07e
+%define commit 7f112d556430e1f814c4646b427bf71ae5b0de77
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 %global build_timestamp %(date +"%Y%m%d")
 
-%global rel_build 10.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 11.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           gamescope
 Version:        3.13.20
@@ -13,15 +13,11 @@ Release:        %{rel_build}
 Summary:        Micro-compositor for video games on Wayland
 
 License:        BSD
-URL:            https://github.com/ValveSoftware/gamescope
+URL:            https://github.com/ChimeraOS/gamescope
 
 # Create stb.pc to satisfy dependency('stb')
 Source1:        stb.pc
 
-# Disabled in patching for now, needs rebase
-Source2:        chimeraos.patch
-
-Source3: remove-720p-restrict.patch
 
 BuildRequires:  meson >= 0.54.0
 BuildRequires:  ninja-build
@@ -80,13 +76,12 @@ Summary:	libs for %{name}
 %summary
 
 %prep
-git clone --single-branch --branch master https://github.com/ValveSoftware/gamescope.git
+git clone --single-branch --branch gamescope-plus https://github.com/ChimeraOS/gamescope.git
 cd gamescope
 git submodule update --init --recursive
 mkdir -p pkgconfig
 cp %{SOURCE1} pkgconfig/stb.pc
-#patch -Np1 < %{SOURCE2}
-patch -Np1 < %{SOURCE3}
+
 
 %build
 cd gamescope
