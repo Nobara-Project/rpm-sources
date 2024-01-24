@@ -1,6 +1,6 @@
 Name:           ds-inhibit
 Version:        0.1.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        DualShock 4/DualSense mouse inhibitor
 License:        BSD-2-Clause
 URL:            https://github.com/ublue-os/bazzite
@@ -26,13 +26,19 @@ DualShock 4/DualSense mouse inhibitor
 %patch 0
 chmod +x ds_inhibit.py
 
+cat << EOF >> %{_builddir}/98-ds-inhibit.preset
+enable ds-inhibit.service
+EOF
+
 %build
 
 %install
 mkdir -p %{buildroot}%{_bindir}/
 mkdir -p %{buildroot}%{_unitdir}/
-cp -v ds_inhibit.py %{buildroot}%{_bindir}/ds-inhibit
-cp -v systemd.service %{buildroot}%{_unitdir}/ds-inhibit.service
+mkdir -p %{buildroot}%{_presetdir}/
+install -D -m 755 ds_inhibit.py %{buildroot}%{_bindir}/ds-inhibit
+install -m 644 systemd.service %{buildroot}%{_unitdir}/ds-inhibit.service
+install -m 644 98-ds-inhibit.preset %{buildroot}%{_presetdir}/
 
 # Do post-installation
 %post
@@ -52,6 +58,7 @@ cp -v systemd.service %{buildroot}%{_unitdir}/ds-inhibit.service
 %license LICENSE
 %{_bindir}/ds-inhibit
 %{_unitdir}/ds-inhibit.service
+%{_presetdir}/98-ds-inhibit.preset
 
 # Finally, changes from the latest release of your application are generated from
 # your project's Git history. It will be empty until you make first annotated Git tag.
