@@ -1,9 +1,9 @@
-%global commit 160502771054d31d2f4c2fa46ad42c96336f3a74
-%global shortcommit 1605027
+%global commit dac383e1cd23aa9b631e20dba6d26f1fdf223164
+%global shortcommit dac383e
 
 Name:           ryzenadj
-Version:        0.13.0
-Release:        2.%{shortcommit}%{?dist}
+Version:        0.14.0
+Release:        1.%{shortcommit}%{?dist}
 Summary:        Power management settings for Ryzen APU
 
 License:        LGPL
