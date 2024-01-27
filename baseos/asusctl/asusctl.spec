@@ -26,7 +26,7 @@
 # Use hardening ldflags.
 %global rustflags -Clink-arg=-Wl,-z,relro,-z,now
 Name:           asusctl
-Version:        4.7.2
+Version:        5.0.7
 Release: %{pkg_release}
 Summary:        Control fan speeds, LEDs, graphics modes, and charge levels for ASUS notebooks
 License:        MPLv2
@@ -51,7 +51,6 @@ BuildRequires:  pkgconfig(gtk+-3.0)
 BuildRequires:  pkgconfig(gdk-3.0)
 BuildRequires:  desktop-file-utils
 Requires: libappindicator-gtk3
-Requires: asusctl-rog-gui
 
 %description
 asus-nb-ctrl is a utility for Linux to control many aspects of various
@@ -95,8 +94,6 @@ install -D -m 0644 rog-anime/README.md %{buildroot}/%{_docdir}/%{name}/README-an
 install -D -m 0644 rog-anime/data/diagonal-template.png %{buildroot}/%{_docdir}/%{name}/diagonal-template.png
 
 desktop-file-validate %{buildroot}/%{_datadir}/applications/rog-control-center.desktop
-mkdir -p %{buildroot}%{_sysconfdir}/xdg/autostart/
-cp %{buildroot}%{_datadir}/applications/rog-control-center.desktop %{buildroot}%{_sysconfdir}/xdg/autostart/rog-control-center.desktop
 
 %files
 %license LICENSE
@@ -127,7 +124,6 @@ cp %{buildroot}%{_datadir}/applications/rog-control-center.desktop %{buildroot}%
 %files rog-gui
 %{_bindir}/rog-control-center
 %{_datadir}/applications/rog-control-center.desktop
-%{_sysconfdir}/xdg/autostart/rog-control-center.desktop
 %{_datadir}/icons/hicolor/512x512/apps/rog-control-center.png
 %{_datadir}/rog-gui
 
