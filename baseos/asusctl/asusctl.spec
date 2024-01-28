@@ -22,6 +22,7 @@
 
 %define specrelease %{?dist}
 %define pkg_release 2%{specrelease}
+%define vendor_upload_hash a9d6f34620f707a7d785daa4c619c147
 
 # Use hardening ldflags.
 %global rustflags -Clink-arg=-Wl,-z,relro,-z,now
@@ -34,8 +35,8 @@ License:        MPLv2
 Group:          System Environment/Kernel
 
 URL:            https://gitlab.com/asus-linux/asusctl
-Source:         %{name}-%{version}.tar.gz
-Source1:        vendor_%{name}_%{version}.tar.xz
+Source:         %{URL}/-/archive/%{version}/%{name}-%{version}.tar.gz
+Source1:        %{URL}/uploads/%{vendor_upload_hash}/vendor_%{name}_%{version}.tar.xz
 Source2:        cargo_config
 
 BuildRequires:  cargo
