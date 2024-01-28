@@ -1,13 +1,13 @@
 %global srcname obs-vkcapture
 
 Name:           obs-studio-plugin-vkcapture
-Version:        1.4.7
+Version:        1.4.8
 Release:        1%{?dist}
 Summary:        OBS plugin for Vulkan/OpenGL game capture
 
 License:        GPL-2.0-or-later and Zlib
 URL:            https://github.com/nowrep/obs-vkcapture
-Source0:        %{url}/archive/v%{version}/%{srcname}-master.tar.gz
+Source0:        %{url}/archive/v%{version}/%{srcname}-%{version}.tar.gz
 
 # elfhacks FTBFS on IBM Z
 ExcludeArch:    s390x
@@ -47,11 +47,11 @@ Provides:       obs-studio-plugin-gamecapture%{?_isa} = %{version}-%{release}
 %{name}.
 
 %prep
-%autosetup -n %{srcname}-master -p1
+%autosetup -n %{srcname}-%{version} -p1
 
 
 %build
-%cmake
+%cmake -DCMAKE_BUILD_TYPE=Release
 %cmake_build
 
 
@@ -67,7 +67,7 @@ Provides:       obs-studio-plugin-gamecapture%{?_isa} = %{version}-%{release}
 %{_bindir}/obs-glcapture
 %{_bindir}/obs-vkcapture
 # Preload libraries
-%{_libdir}/libobs_glcapture.so
+%{_libdir}/obs_glcapture/libobs_glcapture.so
 %{_libdir}/libVkLayer_obs_vkcapture.so
 %{_datadir}/vulkan/implicit_layer.d/obs_vkcapture_%{__isa_bits}.json
 # OBS plugin
