@@ -4,12 +4,12 @@
 %endif
 
 Name:     xone
-Version:  0.2
-Release:  5%{?dist}
-Summary:  Linux kernel driver for Xbox One and Xbox Series X|S accessories 
+Version:  0.3
+Release:  2%{?dist}
+Summary:  Linux kernel driver for Xbox One and Xbox Series X|S accessories
 License:  GPLv2
 URL:      https://github.com/medusalix/xone
-Source0:  %{url}/archive/refs/heads/%{name}-master.tar.gz
+Source0:  %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
 Source1:  modules-load-d-%{name}.conf
 
 BuildRequires:  gcc
@@ -49,12 +49,12 @@ kmod package for %{name}
 # print kmodtool output for debugging purposes:
 kmodtool --target %{_target_cpu} --kmodname %{name} %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null
 
-%setup -q -c %{name}-master
+%setup -q -c %{name}-%{version}
 
 find . -type f -name '*.c' -exec sed -i "s/#VERSION#/%{version}/" {} \+
 
 for kernel_version  in %{?kernel_versions} ; do
-  cp -a %{name}-master _kmod_build_${kernel_version%%___*}
+  cp -a %{name}-%{version} _kmod_build_${kernel_version%%___*}
 done
 
 %build
@@ -70,16 +70,22 @@ for kernel_version in %{?kernel_versions}; do
 done
 %{?akmod_install}
 
-install -D -m 0644 %{name}-master/install/modprobe.conf %{buildroot}%{_modprobedir}/60-%{name}.conf
+install -D -m 0644 %{name}-%{version}/install/modprobe.conf %{buildroot}%{_modprobedir}/60-%{name}.conf
 install -D -m 0644 %{SOURCE1} %{buildroot}%{_modulesloaddir}/%{name}.conf
 
 %files
-%doc %{name}-master/README.md
-%license %{name}-master/LICENSE
+%doc %{name}-%{version}/README.md
+%license %{name}-%{version}/LICENSE
 %{_modprobedir}/60-%{name}.conf
 %{_modulesloaddir}/%{name}.conf
 
 %changelog
+* Sun Nov 13 2022 Jan Drögehoff <sentrycraft123@gmail.com> - 0.3-2
+- correct modules
+
+* Thu Jun 23 2022 Jan Drögehoff <sentrycraft123@gmail.com> - 0.3-1
+- Update to 0.3
+
 * Sat Mar 19 2022 Jan Drögehoff <sentrycraft123@gmail.com> - 0.2-2
 - Obsolete xow and require firmware
 
