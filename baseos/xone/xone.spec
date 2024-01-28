@@ -4,12 +4,12 @@
 %endif
 
 Name:     xone
-Version:  0.2
-Release:  5%{?dist}
+Version:  0.3
+Release:  1%{?dist}
 Summary:  Linux kernel driver for Xbox One and Xbox Series X|S accessories 
 License:  GPLv2
 URL:      https://github.com/medusalix/xone
-Source0:  %{url}/archive/refs/heads/%{name}-master.tar.gz
+Source0:  %{url}/archive/refs/heads/master.tar.gz
 Source1:  modules-load-d-%{name}.conf
 
 BuildRequires:  gcc
