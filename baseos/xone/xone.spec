@@ -5,12 +5,15 @@
 
 Name:     xone
 Version:  0.3
-Release:  2%{?dist}
+Release:  3%{?dist}
 Summary:  Linux kernel driver for Xbox One and Xbox Series X|S accessories
 License:  GPLv2
 URL:      https://github.com/medusalix/xone
 Source0:  %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
 Source1:  modules-load-d-%{name}.conf
+Patch0:   https://github.com/medusalix/xone/pull/21.patch#/%{name}-%{version}-kernel-6.3.patch
+Patch1:   https://github.com/medusalix/xone/pull/22.patch#/%{name}-%{version}-higher-power.patch
+Patch2:   https://github.com/medusalix/xone/pull/20.patch#/%{name}-%{version}-share-button.patch
 
 BuildRequires:  gcc
 BuildRequires:  make
@@ -80,6 +83,9 @@ install -D -m 0644 %{SOURCE1} %{buildroot}%{_modulesloaddir}/%{name}.conf
 %{_modulesloaddir}/%{name}.conf
 
 %changelog
+* Tue Jun 06 2023 Jan Drögehoff <sentrycraft123@gmail.com> - 0.3-3
+- Fix Linux 6.3 compilation, add some patches
+
 * Sun Nov 13 2022 Jan Drögehoff <sentrycraft123@gmail.com> - 0.3-2
 - correct modules
 
