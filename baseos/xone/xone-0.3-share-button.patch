@@ -1,0 +1,41 @@
+From d342f3954881d5e92903201805e0700770e764ea Mon Sep 17 00:00:00 2001
+From: "Matthias S. Benkmann" <matthias@winterdrache.de>
+Date: Wed, 15 Mar 2023 21:48:35 +0100
+Subject: [PATCH] Report Share button as a BTN_, instead of KEY_RECORD
+ KEY_RECORD is a multi-media keyboard key that starts audio recording. This is
+ not the meaning of the Share button. Having the Share button report
+ KEY_RECORD has side-effects: - software gets confused (see e.g.
+ https://github.com/libsdl-org/SDL/issues/6296) - The Xorg server opens the
+ controller device, keeps it permanently open and   reads its buttons and
+ reports share button presses as XF86AudioRecord to   applications. Users do
+ not expect this. I grepped the Linux kernel's drivers/input/joystick and
+ there exists NO OTHER joystick type controller that reports a KEY_ type
+ event. They all use BTN_* events. I'm sure the person who added the Share
+ button originally just grabbed some event without giving it much thought.
+
+---
+ driver/gamepad.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/driver/gamepad.c b/driver/gamepad.c
+index 104e5aa..6711654 100644
+--- a/driver/gamepad.c
++++ b/driver/gamepad.c
+@@ -175,7 +175,7 @@ static int gip_gamepad_init_input(struct gip_gamepad *gamepad)
+ 
+ 	gamepad->series_xs = gip_gamepad_is_series_xs(gamepad->client);
+ 	if (gamepad->series_xs)
+-		input_set_capability(dev, EV_KEY, KEY_RECORD);
++		input_set_capability(dev, EV_KEY, BTN_TRIGGER_HAPPY11);
+ 
+ 	input_set_capability(dev, EV_KEY, BTN_MODE);
+ 	input_set_capability(dev, EV_KEY, BTN_START);
+@@ -255,7 +255,7 @@ static int gip_gamepad_op_input(struct gip_client *client, void *data, u32 len)
+ 		if (len < sizeof(*pkt) + sizeof(*pkt_xs))
+ 			return -EINVAL;
+ 
+-		input_report_key(dev, KEY_RECORD, !!pkt_xs->share_button);
++		input_report_key(dev, BTN_TRIGGER_HAPPY11, !!pkt_xs->share_button);
+ 	}
+ 
+ 	input_report_key(dev, BTN_START, buttons & GIP_GP_BTN_MENU);
