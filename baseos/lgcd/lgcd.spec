@@ -23,6 +23,7 @@ Recommends:     steam gamescope-session
 Provides:       lgcd
 Conflicts:      rogue-enemy
 Conflicts:      HandyGCCS
+Conflicts:      hhd
 
 %description
 Convert Lenovo Legion GO input to DualShock4 and allows mode switching with a long CC press
