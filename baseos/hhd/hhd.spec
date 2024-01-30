@@ -29,7 +29,7 @@ Handheld Daemon is a project that aims to provide utilities for managing handhel
 %prep
 %autosetup -n %{name}-%{version}
 
-cat << EOF >> %{_builddir}/99-hhd.preset
+cat << EOF >> %{_builddir}/97-hhd@.preset
 enable hhd@.service
 EOF
 
@@ -43,6 +43,15 @@ mkdir -p %{buildroot}%{_udevrulesdir}
 install -m644 usr/lib/udev/rules.d/83-%{name}.rules %{buildroot}%{_udevrulesdir}/83-%{name}.rules
 mkdir -p %{buildroot}%{_unitdir}
 install -m644 usr/lib/systemd/system/%{name}@.service %{buildroot}%{_unitdir}/%{name}@.service
+install -m 644 %{_builddir}/97-hhd@.preset %{buildroot}%{_presetdir}/
+
+%post
+udevadm control --reload-rules
+udevadm trigger
+%systemd_post hhd@.service
+
+%preun
+%systemd_preun hhd@.service
 
 %files
 %doc readme.md
@@ -51,5 +60,5 @@ install -m644 usr/lib/systemd/system/%{name}@.service %{buildroot}%{_unitdir}/%{
 %{python3_sitelib}/%{name}*
 %{_udevrulesdir}/83-%{name}.rules
 %{_unitdir}/%{name}@.service
-%{_presetdir}/99-hhd@.preset
+%{_presetdir}/97-hhd@.preset
 
