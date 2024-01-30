@@ -38,6 +38,7 @@ EOF
 
 %install
 %{python3} -m installer --destdir="%{buildroot}" dist/*.whl
+mkdir -p %{buildroot}%{_presetdir}/
 mkdir -p %{buildroot}%{_udevrulesdir}
 install -m644 usr/lib/udev/rules.d/83-%{name}.rules %{buildroot}%{_udevrulesdir}/83-%{name}.rules
 mkdir -p %{buildroot}%{_unitdir}
@@ -50,3 +51,5 @@ install -m644 usr/lib/systemd/system/%{name}@.service %{buildroot}%{_unitdir}/%{
 %{python3_sitelib}/%{name}*
 %{_udevrulesdir}/83-%{name}.rules
 %{_unitdir}/%{name}@.service
+%{_presetdir}/99-hhd@.preset
+
