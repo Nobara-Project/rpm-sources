@@ -29,6 +29,10 @@ Handheld Daemon is a project that aims to provide utilities for managing handhel
 %prep
 %autosetup -n %{name}-%{version}
 
+cat << EOF >> %{_builddir}/99-hhd.preset
+enable hhd@.service
+EOF
+
 %build
 %{python3} -m build --wheel --no-isolation
 
