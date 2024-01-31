@@ -19,6 +19,7 @@ Requires:       python3
 Requires:       python3-evdev
 Requires:       python3-rich
 Requires:       python3-yaml
+Requires:       python3-setuptools
 Conflicts:      HandyGCCS
 Conflicts:      lgcd
 Conflicts:      rogue-enemy
