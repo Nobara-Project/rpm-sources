@@ -1,6 +1,6 @@
 Name:           hhd
 Version:        1.1.4
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Handheld Daemon, a tool for configuring handheld devices.
 
 License:        MIT
@@ -30,8 +30,8 @@ Handheld Daemon is a project that aims to provide utilities for managing handhel
 %prep
 %autosetup -n %{name}-%{version}
 
-cat << EOF >> %{_builddir}/97-hhd@.preset
-enable hhd@.service
+cat << EOF >> %{_builddir}/94-%{name}@.preset
+enable %{name}@.service
 EOF
 
 %build
@@ -41,18 +41,18 @@ EOF
 %{python3} -m installer --destdir="%{buildroot}" dist/*.whl
 mkdir -p %{buildroot}%{_presetdir}/
 mkdir -p %{buildroot}%{_udevrulesdir}
-install -m644 usr/lib/udev/rules.d/83-%{name}.rules %{buildroot}%{_udevrulesdir}/83-%{name}.rules
 mkdir -p %{buildroot}%{_unitdir}
+install -m644 usr/lib/udev/rules.d/83-%{name}.rules %{buildroot}%{_udevrulesdir}/83-%{name}.rules
+install -m 644 %{_builddir}/94-%{name}@.preset %{buildroot}%{_presetdir}/
 install -m644 usr/lib/systemd/system/%{name}@.service %{buildroot}%{_unitdir}/%{name}@.service
-install -m 644 %{_builddir}/97-hhd@.preset %{buildroot}%{_presetdir}/
 
 %post
 udevadm control --reload-rules
 udevadm trigger
-%systemd_post hhd@.service
+%systemd_post %{name}@.service
 
 %preun
-%systemd_preun hhd@.service
+%systemd_preun %{name}@.service
 
 %files
 %doc readme.md
@@ -61,5 +61,5 @@ udevadm trigger
 %{python3_sitelib}/%{name}*
 %{_udevrulesdir}/83-%{name}.rules
 %{_unitdir}/%{name}@.service
-%{_presetdir}/97-hhd@.preset
+%{_presetdir}/94-%{name}@.preset
 
