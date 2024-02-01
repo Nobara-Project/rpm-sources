@@ -8,8 +8,8 @@
 
 Summary:   Xwayland
 Name:      xorg-x11-server-Xwayland
-Version:   23.2.3
-Release:   9%{?gitdate:.%{gitdate}git%{shortcommit}}%{?dist}
+Version:   23.2.4
+Release:   2%{?gitdate:.%{gitdate}git%{shortcommit}}%{?dist}
 
 URL:       http://www.x.org
 %if 0%{?gitdate}
@@ -17,11 +17,6 @@ Source0:   https://gitlab.freedesktop.org/xorg/%{pkgname}/-/archive/%{commit}/%{
 %else
 Source0:   https://www.x.org/pub/individual/xserver/%{pkgname}-%{version}.tar.xz
 %endif
-
-Source1:   https://gitlab.freedesktop.org/xorg/xserver/-/raw/24c5d8f17e2afd7d4e9626ba7cdcfbab53b2fdc0/hw/xfree86/common/xf86Module.h
-# needed for nvidia on wayland
-# https://gitlab.freedesktop.org/xorg/xserver/-/merge_requests/967
-Source2:   967.patch
 
 Patch1:    xwayland-pointer-warp-fix.patch
 
@@ -107,11 +102,6 @@ necessary for developing Wayland compositors using Xwayland.
 
 %prep
 %autosetup -S git_am -n %{pkgname}-%{?gitdate:%{commit}}%{!?gitdate:%{version}}
-
-# We can't autopatch this because we have to add the header first:
-mkdir -p hw/xfree86/common
-cp %{SOURCE1} hw/xfree86/common/
-patch -Np1 < %{SOURCE2}
 
 %build
 %meson \
