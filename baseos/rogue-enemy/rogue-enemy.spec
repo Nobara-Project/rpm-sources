@@ -2,7 +2,7 @@
 
 Name:           rogue-enemy
 Version:        1.5.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Convert ROG Ally input to DualShock4 and allows mode switching with a long CC press
 
 License:        GPL3
@@ -16,6 +16,7 @@ BuildRequires:  python-devel
 BuildRequires:  libevdev-devel
 BuildRequires:  libudev-devel
 BuildRequires:  systemd-rpm-macros
+BuildRequires:	zlib-devel
 Requires:       libevdev libconfig
 Recommends:     steam gamescope-session
 Provides:       rogue-enemy
