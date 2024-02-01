@@ -13,6 +13,7 @@ BuildArch:      noarch
 BuildRequires:  python3-devel
 BuildRequires:  python3-pip
 BuildRequires:  python3-setuptools
+Conflicts:      hhd
 
 %description
 Handheld Game Console Controller Support (Handy Geeks) for Linux

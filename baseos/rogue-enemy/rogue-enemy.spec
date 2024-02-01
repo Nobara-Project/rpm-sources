@@ -21,6 +21,7 @@ Recommends:     steam gamescope-session
 Provides:       rogue-enemy
 Conflicts:      lgcd
 Conflicts:      HandyGCCS
+Conflicts:      hhd
 
 %description
 Convert ROG Ally input to DualShock4 and allows mode switching with a long CC press
