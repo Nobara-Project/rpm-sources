@@ -1,6 +1,6 @@
 %global _default_patch_fuzz 2
 
-%global commit 8467b7f44abd0aa130fdfe1f803e0864899c2914
+%global commit e3c2dc2324a7a360a279d44562fcc78cdecfb6d9
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build git.%{build_timestamp}.%{shortcommit}%{?dist}
@@ -71,7 +71,7 @@ Release:        %{rel_build}
 License:        MIT
 URL:            http://www.mesa3d.org
 
-Source0:        https://gitlab.freedesktop.org/mesa/mesa/archive/%{commit}/mesa-%{commit}.tar.gz
+Source0:        https://gitlab.freedesktop.org/mesa/mesa/-/archive/%{commit}/mesa-%{commit}.tar.gz
 # src/gallium/auxiliary/postprocess/pp_mlaa* have an ... interestingly worded license.
 # Source1 contains email correspondence clarifying the license terms.
 # Fedora opts to ignore the optional part of clause 2 and treat that code as 2 clause BSD.
