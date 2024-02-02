@@ -164,13 +164,13 @@ Summary: The Linux kernel
 %define specrpmversion 6.7.0
 %define specversion 6.7.0
 %define patchversion 6.7
-%define pkgrelease 204
+%define pkgrelease 205
 %define kversion 6
 %define tarfile_release 6.7
 # This is needed to do merge window version magic
 %define patchlevel 7
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease 204%{?buildid}%{?dist}
+%define specrelease 205%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 6.7.0
 
@@ -1029,10 +1029,10 @@ Patch310: amdgpu-HAINAN-variant-fixup.patch
 # ROG Ally shit
 Patch400: rog-ally-audio-fix.patch
 Patch402: ROG-ALLY-NCT6775-PLATFORM.patch
-Patch403: v10-0001-HID-asus-fix-more-n-key-report-descriptors-if-n-.patch
-Patch404: v10-0002-HID-asus-make-asus_kbd_init-generic-remove-rog_n.patch
-Patch405: v10-0003-HID-asus-add-ROG-Ally-N-Key-ID-and-keycodes.patch
-Patch406: v10-0004-HID-asus-add-ROG-Ally-xpad-settings.patch
+Patch403: v14.8-0001-HID-asus-fix-more-n-key-report-descriptors-if-.patch
+Patch404: v14.8-0002-HID-asus-make-asus_kbd_init-generic-remove-rog.patch
+Patch405: v14.8-0003-HID-asus-add-ROG-Ally-N-Key-ID-and-keycodes.patch
+Patch406: v14.8-0004-HID-asus-add-ROG-Ally-xpad-settings.patch
 Patch407: rog-ally-gyro-fix.patch
 
 # temporary patches
@@ -1874,10 +1874,10 @@ ApplyOptionalPatch amdgpu-HAINAN-variant-fixup.patch
 # ROG Ally shit
 ApplyOptionalPatch rog-ally-audio-fix.patch
 ApplyOptionalPatch ROG-ALLY-NCT6775-PLATFORM.patch
-ApplyOptionalPatch v10-0001-HID-asus-fix-more-n-key-report-descriptors-if-n-.patch
-ApplyOptionalPatch v10-0002-HID-asus-make-asus_kbd_init-generic-remove-rog_n.patch
-ApplyOptionalPatch v10-0003-HID-asus-add-ROG-Ally-N-Key-ID-and-keycodes.patch
-ApplyOptionalPatch v10-0004-HID-asus-add-ROG-Ally-xpad-settings.patch
+ApplyOptionalPatch v14.8-0001-HID-asus-fix-more-n-key-report-descriptors-if-.patch
+ApplyOptionalPatch v14.8-0002-HID-asus-make-asus_kbd_init-generic-remove-rog.patch
+ApplyOptionalPatch v14.8-0003-HID-asus-add-ROG-Ally-N-Key-ID-and-keycodes.patch
+ApplyOptionalPatch v14.8-0004-HID-asus-add-ROG-Ally-xpad-settings.patch
 ApplyOptionalPatch rog-ally-gyro-fix.patch
 
 # temporary patches
