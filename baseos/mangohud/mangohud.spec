@@ -2,7 +2,7 @@
 ## (rpmautospec version 0.3.5)
 ## RPMAUTOSPEC: autorelease, autochangelog
 %define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
-    release_number = 12;
+    release_number = 13;
     base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
     print(release_number + base_release_number - 1);
 }%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
@@ -13,14 +13,14 @@
 %global imgui_ver 1.81
 %global imgui_wrap_ver  1
 
-%global tarball_version %%(echo %{version} | tr '~' '-')
+%global tarball_version master
 
 # Tests requires bundled stuff. Disable for now.
 %bcond_with tests
 
 # NOBARA INTERNAL NOTE:
 # We are currently using upstream commit: 
-# 971791d5daf383d31d04603151336e66891e1941
+# fc54f48257e011a629487e2f4b965c90355d9c9d
 
 Name:           mangohud
 Version:        0.7.0
@@ -29,7 +29,7 @@ Summary:        Vulkan and OpenGL overlay for monitoring FPS, temperatures, CPU/
 
 License:        MIT
 URL:            https://github.com/flightlessmango/MangoHud
-Source0:        %{url}/archive/v%{tarball_version}/%{appname}-master.tar.gz
+Source0:        %{url}/archive/refs/heads/master.tar.gz
 Source1:        https://github.com/ocornut/imgui/archive/v%{imgui_ver}/imgui-%{imgui_ver}.tar.gz
 Source2:        https://wrapdb.mesonbuild.com/v1/projects/imgui/%{imgui_ver}/%{imgui_wrap_ver}/get_zip#/imgui-%{imgui_ver}-%{imgui_wrap_ver}-wrap.zip
 Patch0:		mangoplot_python_fedora_fixup.patch
