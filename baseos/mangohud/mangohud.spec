@@ -14,7 +14,6 @@
 %global imgui_wrap_ver  1
 
 %global tarball_version master
-#%global tarball_version %%(echo %{version} | tr '~' '-')
 
 # Tests requires bundled stuff. Disable for now.
 %bcond_with tests
@@ -30,7 +29,7 @@ Summary:        Vulkan and OpenGL overlay for monitoring FPS, temperatures, CPU/
 
 License:        MIT
 URL:            https://github.com/flightlessmango/MangoHud
-Source0:        %{url}/archive/v%{tarball_version}/%{appname}-master.tar.gz
+Source0:        %{url}/archive/refs/heads/master.tar.gz
 Source1:        https://github.com/ocornut/imgui/archive/v%{imgui_ver}/imgui-%{imgui_ver}.tar.gz
 Source2:        https://wrapdb.mesonbuild.com/v1/projects/imgui/%{imgui_ver}/%{imgui_wrap_ver}/get_zip#/imgui-%{imgui_ver}-%{imgui_wrap_ver}-wrap.zip
 Patch0:		mangoplot_python_fedora_fixup.patch
