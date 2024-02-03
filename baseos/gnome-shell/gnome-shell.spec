@@ -11,7 +11,7 @@
 %global tarball_version %%(echo %{version} | tr '~' '.')
 
 Name:           gnome-shell
-Version:        45.2
+Version:        45.3
 Release:        %autorelease
 Summary:        Window management and application launching for GNOME
 
