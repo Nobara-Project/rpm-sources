@@ -22,9 +22,9 @@ index 04c98b9..9257060 100755
  # Use wayland compatible libextest
 -export LD_PRELOAD=/usr/lib/steam/libextest.so
 +if [[ "$XDG_SESSION_TYPE" == "wayland" ]]; then
-+  if [[ ! -z $(lsusb | grep '28de' | grep '1205') ]]; then
-+    export LD_PRELOAD=/usr/lib/steam/libextest.so
-+  fi
++
++  export LD_PRELOAD=/usr/lib/steam/libextest.so
++
 +fi
 
  function show_message()

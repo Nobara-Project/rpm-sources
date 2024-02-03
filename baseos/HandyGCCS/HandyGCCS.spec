@@ -1,18 +1,19 @@
 Name:           HandyGCCS
 %global _servicename handycon
 Version:        2.0.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Handheld Game Console Controller Support (Handy Geeks) for Linux
 
 License:        GPL-v3
-URL:            https://github.com/ShadowBlip/%{name}
-Source:         %{url}/archive/refs/heads/%{name}-main.zip
+URL:            https://www.github.com/ShadowBlip/%{name}
+Source:         %{url}/archive/refs/heads/main.zip
 Patch0:         0001-fedora.patch
 
 BuildArch:      noarch
 BuildRequires:  python3-devel
 BuildRequires:  python3-pip
 BuildRequires:  python3-setuptools
+Conflicts:      hhd
 
 %description
 Handheld Game Console Controller Support (Handy Geeks) for Linux

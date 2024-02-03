@@ -1,7 +1,7 @@
 ## START: Set by rpmautospec
 ## (rpmautospec version 0.3.0)
 %define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
-    release_number = 6;
+    release_number = 7;
     base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
     print(release_number + base_release_number - 1);
 }%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
@@ -19,6 +19,7 @@ URL:            https://github.com/benjamimgois/goverlay
 Source0:        %{url}/archive/%{version}/%{name}-main.tar.gz
 
 Patch0:         goverlay-enable-debuginfo-generation.patch
+Patch1:         0001-Fix-broken-gpu-model-checkbox.patch
 
 BuildRequires:  desktop-file-utils
 BuildRequires:  fpc-srpm-macros
@@ -52,7 +53,7 @@ really likes Linux and Gaming.
 
 
 %prep
-%autosetup -p1 -n %{name}-main
+%autosetup -n %{name}-%{version}
 
 
 %build
