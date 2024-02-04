@@ -1,6 +1,6 @@
 Name:           hhd
-Version:        1.1.4
-Release:        7%{?dist}
+Version:        1.2
+Release:        1%{?dist}
 Summary:        Handheld Daemon, a tool for configuring handheld devices.
 
 License:        MIT
@@ -48,6 +48,7 @@ install -m644 usr/lib/systemd/system/%{name}@.service %{buildroot}%{_unitdir}/%{
 install -m775 usr/libexec/enable-hhd %{buildroot}%{_libexecdir}/enable-hhd
 install -m775 etc/xdg/autostart/hhd.desktop %{buildroot}%{_sysconfdir}/xdg/autostart/hhd.desktop
 install -m644 usr/share/polkit-1/actions/org.hhd.start.policy %{buildroot}%{_datadir}/polkit-1/actions/org.hhd.start.policy
+install -m644 usr/lib/udev/hwdb.d/83-%{name}.hwdb %{buildroot}%{_sysconfdir}/udev/hwdb.d/83-%{name}.hwdb
 
 %post
 udevadm control --reload-rules
@@ -62,4 +63,9 @@ udevadm trigger
 %{_unitdir}/%{name}@.service
 %{_libexecdir}/enable-hhd
 %{_sysconfdir}/xdg/autostart/hhd.desktop
+%{_sysconfdir}/udev/hwdb.d/83-%{name}.hwdb
 %{_datadir}/polkit-1/actions/org.hhd.start.policy
+
+%changelog
+* Sat Feb 3 2024 Matthew Schwartz <njtransit215@gmail.com> 1.2-1
+- upgrades to new v1.2 release, which includes support for new devices from AOKZOE and Ayaneo.
