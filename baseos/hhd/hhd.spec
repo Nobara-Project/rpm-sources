@@ -1,5 +1,5 @@
 Name:           hhd
-Version:        1.2
+Version:        1.2.1
 Release:        1%{?dist}
 Summary:        Handheld Daemon, a tool for configuring handheld devices.
 
@@ -67,5 +67,5 @@ udevadm trigger
 %{_datadir}/polkit-1/actions/org.hhd.start.policy
 
 %changelog
-* Sat Feb 3 2024 Matthew Schwartz <njtransit215@gmail.com> 1.2-1
-- upgrades to new v1.2 release, which includes support for new devices from AOKZOE and Ayaneo.
+* Sat Feb 3 2024 Matthew Schwartz <njtransit215@gmail.com> 1.2.1-1
+- upgrades to new v1.2.1 release, which includes support for new devices from AOKZOE and Ayaneo.
