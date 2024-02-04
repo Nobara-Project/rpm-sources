@@ -42,6 +42,7 @@ mkdir -p %{buildroot}%{_udevrulesdir}
 mkdir -p %{buildroot}%{_unitdir}
 mkdir -p %{buildroot}%{_libexecdir}/
 mkdir -p %{buildroot}%{_sysconfdir}/xdg/autostart
+mkdir -p %{buildroot}%{_sysconfdir}/udev/hwdb.d/
 mkdir -p %{buildroot}%{_datadir}/polkit-1/actions/
 install -m644 usr/lib/udev/rules.d/83-%{name}.rules %{buildroot}%{_udevrulesdir}/83-%{name}.rules
 install -m644 usr/lib/systemd/system/%{name}@.service %{buildroot}%{_unitdir}/%{name}@.service
