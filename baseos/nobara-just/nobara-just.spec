@@ -9,16 +9,15 @@ BuildArch:      noarch
 Requires:       just
 
 Source0:        nobara-just.sh
-Source1:        00-default.just
-Source7:        60-custom.just
-Source8:        85-nobara-image.just
-Source9:        njust
-Source10:       ngum
-Source11:       header.just
-Source12:       njust.sh
-Source13:       libcolors.sh
-Source14:       libformatting.sh
-Source15:       libfunctions.sh
+Source1:        00-nobara-base.just
+Source2:        85-nobara-deck.just
+Source3:        njust
+Source4:        ngum
+Source5:        header.just
+Source6:        njust.sh
+Source7:        libcolors.sh
+Source8:        libformatting.sh
+Source9:        libfunctions.sh
 
 %description
 Adds nobara just integration for easier setup
@@ -28,26 +27,26 @@ Adds nobara just integration for easier setup
 
 %build
 install -Dm755 %{SOURCE0}  %{buildroot}%{_sysconfdir}/profile.d/nobara-just.sh
-cp %{SOURCE1} %{SOURCE7} %{SOURCE8} %{buildroot}%{_datadir}
+cp %{SOURCE1} %{SOURCE7} %{SOURCE2} %{buildroot}%{_datadir}
 
 # Create justfile which contains all .just files included in this package
 # Apply header first due to default not working in included justfiles
-cp %{SOURCE11} "%{buildroot}%{_datadir}/justfile"
+cp %{SOURCE5} "%{buildroot}%{_datadir}/justfile"
 for justfile in %{buildroot}%{_datadir}/*.just; do
 	echo "import \"%{_datadir}/$(basename ${justfile})\"" >> "%{buildroot}%{_datadir}/justfile"
 done
 
 # Add global "njust" script to run just with --unstable
 mkdir -p -m0755  %{buildroot}%{_bindir}
-install -Dm755 %{SOURCE9} %{buildroot}%{_bindir}/njust
-install -Dm755 %{SOURCE10} %{buildroot}%{_bindir}/ngum
+install -Dm755 %{SOURCE3} %{buildroot}%{_bindir}/njust
+install -Dm755 %{SOURCE4} %{buildroot}%{_bindir}/ngum
 
 # Add bash library for use in just
 mkdir -p -m0755 %{buildroot}/%{_exec_prefix}/lib/njust/
-install -Dm644 %{SOURCE12} %{buildroot}/%{_exec_prefix}/lib/njust
-install -Dm644 %{SOURCE13} %{buildroot}/%{_exec_prefix}/lib/njust
-install -Dm644 %{SOURCE14} %{buildroot}/%{_exec_prefix}/lib/njust
-install -Dm644 %{SOURCE15} %{buildroot}/%{_exec_prefix}/lib/njust
+install -Dm644 %{SOURCE6} %{buildroot}/%{_exec_prefix}/lib/njust
+install -Dm644 %{SOURCE7} %{buildroot}/%{_exec_prefix}/lib/njust
+install -Dm644 %{SOURCE8} %{buildroot}/%{_exec_prefix}/lib/njust
+install -Dm644 %{SOURCE9} %{buildroot}/%{_exec_prefix}/lib/njust
 
 
 %files
