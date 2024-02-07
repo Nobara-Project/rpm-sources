@@ -4,7 +4,6 @@ get-decky:
     #!/usr/bin/bash
     export HOME=$(getent passwd ${SUDO_USER:-$USER} | cut -d: -f6)
     curl -L https://github.com/SteamDeckHomebrew/decky-installer/releases/latest/download/install_release.sh | sh
-    sudo chcon -R -t bin_t $HOME/homebrew/services/PluginLoader
 
 # Install SimpleDeckyTDP, a simple TDP plugin for alternative PC handhelds
 get-simpledeckytdp:
@@ -63,19 +62,12 @@ install-hhd-xbox-glyph-theme:
         echo 'Please install Decky Loader & CSS Loader first'
     fi
 
-
-
 # Enable BIOS & Firmware update services for the Steam Deck
 enable-deck-bios-firmware-updates:
     #!/usr/bin/bash
     SYS_ID="$(cat /sys/devices/virtual/dmi/id/product_name)"
     if [[ ":Jupiter:" =~ ":$SYS_ID:" || ":Galileo:" =~ ":$SYS_ID:" ]]; then
       RESOLUTION=$(sudo lshw -json -c display | jq -r .[]."configuration"."resolution")
-      if [[ "${RESOLUTION}" = "1200,1920" ]]; then
-        echo "DeckHD detected. Firmware updates enabled. BIOS updates not enabled."
-      elif [[ "$(awk '/MemTotal/{print $(NF-1)}' /proc/meminfo)" == "31664740" ]]; then
-        echo "32GB RAM modded Deck detected. Firmware updates enabled. BIOS updates not enabled."
-      else
         sudo systemctl enable jupiter-biosupdate.service
       fi
       sudo systemctl enable jupiter-controller-update.service
@@ -98,17 +90,4 @@ disable-sdgyrodsu:
     #!/usr/bin/bash
     sudo systemctl mask --user sdgyrodsu.service
 
-# Re-enable input remapper feature on non-desktop images
-restore-input-remapper:
-    systemctl enable --now input-remapper.service && \
-    cp /usr/share/applications/input-remapper-gtk.desktop ~/.local/share/applications/input-remapper-gtk.desktop && \
-    sed -i '/NoDisplay=true/d' ~/.local/share/applications/input-remapper-gtk.desktop
 
-_toggle_wayland:
-    #!/usr/bin/bash
-    source /etc/default/desktop-wayland
-    if ${DESKTOP_WAYLAND}; then
-      sudo sed -i 's/true/false/g' /etc/default/desktop-wayland
-    else
-      sudo sed -i 's/false/true/g' /etc/default/desktop-wayland
-    fi
