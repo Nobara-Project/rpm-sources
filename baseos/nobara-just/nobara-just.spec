@@ -26,6 +26,7 @@ Adds nobara just integration for easier setup
 %setup -q -c -T
 
 %build
+mkdir -p -m0755  %{buildroot}%{_datadir}
 install -Dm755 %{SOURCE0}  %{buildroot}%{_sysconfdir}/profile.d/nobara-just.sh
 cp %{SOURCE1} %{SOURCE7} %{SOURCE2} %{buildroot}%{_datadir}
 
