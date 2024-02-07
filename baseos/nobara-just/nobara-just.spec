@@ -27,8 +27,8 @@ Adds nobara just integration for easier setup
 
 %build
 mkdir -p -m0755  %{buildroot}%{_datadir}
-install -Dm755 %{SOURCE0}  %{buildroot}%{_sysconfdir}/profile.d/nobara-just.sh
-cp %{SOURCE1} %{SOURCE7} %{SOURCE2} %{buildroot}%{_datadir}
+install -Dm755 %{SOURCE0} %{buildroot}%{_sysconfdir}/profile.d/nobara-just.sh
+cp %{SOURCE1} %{SOURCE2} %{buildroot}%{_datadir}
 
 # Create justfile which contains all .just files included in this package
 # Apply header first due to default not working in included justfiles
@@ -66,7 +66,7 @@ just --completions bash | sed -E 's/([\(_" ])just/\1njust/g' > %{_datadir}/bash-
 chmod 644 %{_datadir}/bash-completion/completions/njust
 
 %changelog
-* Tue Fed 6 2024 Matthew Schwartz <njtransit215@gmail.com> - 0.2
+* Tue Feb 6 2024 Matthew Schwartz <njtransit215@gmail.com> - 0.2
 - migrate from ujust to njust
 
 * Mon Jan 29 2024 Matthew Schwartz <njtransit215@gmail.com> - 0.1
