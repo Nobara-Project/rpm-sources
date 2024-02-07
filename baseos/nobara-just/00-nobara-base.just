@@ -24,9 +24,7 @@ regenerate-grub:
       sudo grub2-mkconfig -o /etc/grub2.cfg
     fi
 
-
-# Removes homebrew from system
-remove-brew:
-    echo "Removing homebrew ..."
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh)"
-
+# Upload Nobara update log (.nobara-sync.log) to pastebin via fpaste
+upload-nsync-logs:
+    cat ~/.nobara-sync.log | fpaste
+    echo 'Log uploaded. Please copy and paste the link by right clicking or by highlighting the link and using Ctrl + Shift + C.'
