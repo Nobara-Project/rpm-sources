@@ -24,7 +24,7 @@
 %global rustflags -Clink-arg=-Wl,-z,relro,-z,now
 Name:           supergfxctl
 Version:        5.1.1
-Release:        4
+Release:        5
 Summary:        Super graphics mode controller
 License:        MPLv2
 
@@ -34,6 +34,7 @@ URL:            https://gitlab.com/asus-linux/supergfxctl
 Source:         %URL/-/archive/%version/%{name}-%{version}.tar.gz
 Source1:        %URL/uploads/65d12bc0197c6af78df425f545ec6d7d/vendor-%{version}.tar.xz
 Source2:	supergfxd-battery-check.sh
+Patch0:		0001-Don-t-let-supergfxd-mess-with-nvidia-modprobe-settin.patch
 BuildRequires:  cargo
 
 BuildRequires:  systemd-rpm-macros
@@ -47,8 +48,9 @@ BuildRequires:  pkgconfig(dbus-1)
 supergfxctl is a super graphics mode controller for laptops with hybrid nvidia.
 
 %prep
-%autosetup
+%autosetup -p1
 %setup -D -T -a 1
+
 
 mkdir .cargo
 cat >.cargo/config <<EOF
