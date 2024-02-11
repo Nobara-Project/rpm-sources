@@ -1,0 +1,99 @@
+
+# Install Decky Loader (https://github.com/SteamDeckHomebrew/decky-loader)
+get-decky:
+    #!/usr/bin/bash
+    export HOME=$(getent passwd ${SUDO_USER:-$USER} | cut -d: -f6)
+    curl -L https://github.com/SteamDeckHomebrew/decky-installer/releases/latest/download/install_release.sh | sh
+
+# Install SimpleDeckyTDP, a simple TDP plugin for alternative PC handhelds
+get-simpledeckytdp:
+    #!/usr/bin/bash
+    if [[ -d $HOME/homebrew/plugins ]]; then
+      sudo rm -rf $HOME/homebrew/plugins/SimpleDeckyTDP
+      curl -L $(curl -s https://api.github.com/repos/aarron-lee/SimpleDeckyTDP/releases/latest | grep "browser_download_url" | cut -d '"' -f 4) -o /tmp/SimpleDeckyTDP.tar.gz
+      sudo tar -xzf /tmp/SimpleDeckyTDP.tar.gz -C $HOME/homebrew/plugins
+      rm /tmp/SimpleDeckyTDP.tar.gz
+      sudo sed -i 's/ENABLE_HARDWARE_CONTROL_ON_NON_DECK_HARDWARE=0/ENABLE_HARDWARE_CONTROL_ON_NON_DECK_HARDWARE=1/g' /etc/default/steam-hardware-control
+      echo 'Installed. Please reboot to apply needed changes.'
+    else
+      echo 'Please install Decky Loader by running ujust get-decky first.'
+    fi
+
+# Install HHD Decky Plugin for controlling input on the Lenovo Legion Go and ASUS Ally
+get-hhd-decky:
+    #!/usr/bin/bash
+    if [[ -d $HOME/homebrew/plugins ]]; then
+      sudo rm -rf $HOME/homebrew/plugins/hhd-decky
+      curl -L $(curl -s https://api.github.com/repos/hhd-dev/hhd-decky/releases/latest | grep "browser_download_url" | cut -d '"' -f 4) -o /tmp/hhd-decky.tar.gz
+      sudo tar -xzf /tmp/hhd-decky.tar.gz -C $HOME/homebrew/plugins
+      rm /tmp/hhd-decky.tar.gz
+      echo 'Installed.'
+    else
+      echo 'Please install Decky Loader by running ujust get-decky first.'
+    fi
+
+# Install ROG Ally Theme for CSS Loader (https://github.com/semakusut/SBP-ROG-Ally)
+install-rog-ally-theme:
+    #!/usr/bin/bash
+    if [ -d "$HOME/homebrew/themes" ]; then
+        rm -rf "$HOME/homebrew/themes/SBP-ROG-Ally"
+        git clone https://github.com/semakusut/SBP-ROG-Ally.git --single-branch "$HOME/homebrew/themes/SBP-ROG-Ally"
+    else
+        echo 'Please install Decky Loader & CSS Loader first'
+    fi
+
+# Install Lenovo Legion Go for CSS Loader (https://github.com/frazse/SBP-Legion-Go-Theme)
+install-legion-go-theme:
+    #!/usr/bin/bash
+    if [ -d "$HOME/homebrew/themes" ]; then
+        rm -rf "$HOME/homebrew/themes/SBP-Legion-Go-Theme"
+        git clone https://github.com/frazse/SBP-Legion-Go-Theme.git --single-branch "$HOME/homebrew/themes/SBP-Legion-Go-Theme"
+    else
+        echo 'Please install Decky Loader & CSS Loader first'
+    fi
+
+# Install PS5-to-Xbox glyph theme for hhd & CSS Loader (https://github.com/frazse/PS5-to-Xbox-glyphs)
+install-hhd-xbox-glyph-theme:
+    #!/usr/bin/bash
+    if [ -d "$HOME/homebrew/themes" ]; then
+        rm -rf "$HOME/homebrew/themes/PS5-to-Xbox-glyphs"
+        git clone https://github.com/frazse/PS5-to-Xbox-glyphs.git --single-branch "$HOME/homebrew/themes/PS5-to-Xbox-glyphs"
+    else
+        echo 'Please install Decky Loader & CSS Loader first'
+    fi
+
+# Enable BIOS & Firmware update services for the Steam Deck
+enable-deck-bios-firmware-updates:
+    #!/usr/bin/bash
+    SYS_ID="$(cat /sys/devices/virtual/dmi/id/product_name)"
+    if [[ ":Jupiter:" =~ ":$SYS_ID:" || ":Galileo:" =~ ":$SYS_ID:" ]]; then
+      RESOLUTION=$(sudo lshw -json -c display | jq -r .[]."configuration"."resolution")
+        sudo systemctl enable jupiter-biosupdate.service
+      fi
+      sudo systemctl enable jupiter-controller-update.service
+    else
+      echo "This is only applicable to Valve's Steam Deck. Aborting..."
+    fi
+
+# Disable Steam Deck BIOS updates
+disable-bios-updates:
+    #!/usr/bin/bash
+    sudo systemctl mask --now jupiter-biosupdate.service
+
+# Disable Steam Deck controller firmware updates
+disable-firmware-updates:
+    #!/usr/bin/bash
+    sudo systemctl mask --now jupiter-controller-update.service
+
+# Disable SDGyroDSU
+disable-sdgyrodsu:
+    #!/usr/bin/bash
+    sudo systemctl mask --user sdgyrodsu.service
+
+# Upload Deck edition's Game Mode (gamescope-session) logs to pastebin via fpaste
+upload-deck-logs:
+    (echo "===== GAMESCOPE CMD LOG ====="; cat $HOME/.gamescope-cmd.log; \
+    echo "===== GAMESCOPE STDOUT LOG ====="; cat $HOME/.gamescope-stdout.log) | fpaste
+    echo 'Logs uploaded. Please copy and paste the link by right clicking it or by highlighting the link and using Ctrl + Shift + C.'
+
+

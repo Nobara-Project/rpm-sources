@@ -1,11 +1,12 @@
 Name:           hhd
 Version:        1.1.4
-Release:        2%{?dist}
+Release:        7%{?dist}
 Summary:        Handheld Daemon, a tool for configuring handheld devices.
 
 License:        MIT
 URL:            https://github.com/hhd-dev/hhd
-Source:        	https://pypi.python.org/packages/source/h/%{name}/%{name}-%{version}.tar.gz   
+Source:        	https://pypi.python.org/packages/source/h/%{name}/%{name}-%{version}.tar.gz
+Patch0:         0001-add-files-for-autostart.patch
 
 BuildArch:      noarch
 BuildRequires:  systemd-rpm-macros
@@ -23,36 +24,34 @@ Requires:       python3-setuptools
 Conflicts:      HandyGCCS
 Conflicts:      lgcd
 Conflicts:      rogue-enemy
+Provides:	steam-powerbuttond
+Obsoletes:	steam-powerbuttond
 
 %description
 Handheld Daemon is a project that aims to provide utilities for managing handheld devices. With features ranging from TDP controls, to controller remappings, and gamescope session management. This will be done through a plugin system and an HTTP(/d-bus?) daemon, which will expose the settings of the plugins in a UI agnostic way.
 
 %prep
-%autosetup -n %{name}-%{version}
-
-cat << EOF >> %{_builddir}/94-%{name}@.preset
-enable %{name}@.service
-EOF
+%autosetup -p1 -n %{name}-%{version}
 
 %build
 %{python3} -m build --wheel --no-isolation
 
 %install
 %{python3} -m installer --destdir="%{buildroot}" dist/*.whl
-mkdir -p %{buildroot}%{_presetdir}/
 mkdir -p %{buildroot}%{_udevrulesdir}
 mkdir -p %{buildroot}%{_unitdir}
+mkdir -p %{buildroot}%{_libexecdir}/
+mkdir -p %{buildroot}%{_sysconfdir}/xdg/autostart
+mkdir -p %{buildroot}%{_datadir}/polkit-1/actions/
 install -m644 usr/lib/udev/rules.d/83-%{name}.rules %{buildroot}%{_udevrulesdir}/83-%{name}.rules
-install -m 644 %{_builddir}/94-%{name}@.preset %{buildroot}%{_presetdir}/
 install -m644 usr/lib/systemd/system/%{name}@.service %{buildroot}%{_unitdir}/%{name}@.service
+install -m775 usr/libexec/enable-hhd %{buildroot}%{_libexecdir}/enable-hhd
+install -m775 etc/xdg/autostart/hhd.desktop %{buildroot}%{_sysconfdir}/xdg/autostart/hhd.desktop
+install -m644 usr/share/polkit-1/actions/org.hhd.start.policy %{buildroot}%{_datadir}/polkit-1/actions/org.hhd.start.policy
 
 %post
 udevadm control --reload-rules
 udevadm trigger
-%systemd_post %{name}@.service
-
-%preun
-%systemd_preun %{name}@.service
 
 %files
 %doc readme.md
@@ -61,5 +60,6 @@ udevadm trigger
 %{python3_sitelib}/%{name}*
 %{_udevrulesdir}/83-%{name}.rules
 %{_unitdir}/%{name}@.service
-%{_presetdir}/94-%{name}@.preset
-
+%{_libexecdir}/enable-hhd
+%{_sysconfdir}/xdg/autostart/hhd.desktop
+%{_datadir}/polkit-1/actions/org.hhd.start.policy

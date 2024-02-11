@@ -1,6 +1,6 @@
 %global majorversion 1
 %global minorversion 0
-%global microversion 1
+%global microversion 3
 
 %global apiversion   0.3
 %global spaversion   0.2
@@ -9,7 +9,7 @@
 %global ms_version   0.4.2
 
 # For rpmdev-bumpspec and releng automation
-%global baserelease 2
+%global baserelease 1
 
 #global snapdate   20210107
 #global gitcommit  b17db2cebc1a5ab2c01851d29c05f79cd2f262bb
@@ -84,6 +84,9 @@ Patch0:         bc435841c141ad38768b6cb1a7ad45e8bb13c7d2.patch
 Patch1:         acf7c0af0bf31b937c41e916a73c67ae0a253632.patch
 # Holo: upstream MR 1792
 Patch2:         0001-Bluez5-backend-native-HSP-AG-release-SCO-link-on-AT-.patch
+
+Patch3:         0001-Revert-spa-libcamera-bump-minimum-supported-version-.patch
+Patch4:         0002-Revert-spa-libcamera-use-CameraConfiguration-orienta.patch
 
 ## upstreamable patches
 
@@ -818,6 +821,13 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 %endif
 
 %changelog
+* Fri Feb 02 2024 Wim Taymans <wtaymans@redhat.com> - 1.0.3-1
+- Update version to 1.0.3
+
+* Wed Jan 31 2024 Wim Taymans <wtaymans@redhat.com> - 1.0.2-1
+- Update version to 1.0.2
+- Revert libcamera 0.2 patches until we upgrade
+
 * Thu Jan 11 2024 Wim Taymans <wtaymans@redhat.com> - 1.0.1-1
 - Update version to 1.0.1
 

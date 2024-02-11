@@ -1,0 +1,69 @@
+From 1606735643d39e4e4697c445f7f0f3697de2d4e4 Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Thu, 1 Feb 2024 01:12:14 -0700
+Subject: [PATCH] add files for autostart
+
+---
+ etc/xdg/autostart/hhd.desktop                 |  7 +++++++
+ usr/libexec/enable-hhd                        |  7 +++++++
+ .../polkit-1/actions/org.hhd.start.policy     | 20 +++++++++++++++++++
+ 3 files changed, 34 insertions(+)
+ create mode 100644 etc/xdg/autostart/hhd.desktop
+ create mode 100755 usr/libexec/enable-hhd
+ create mode 100644 usr/share/polkit-1/actions/org.hhd.start.policy
+
+diff --git a/etc/xdg/autostart/hhd.desktop b/etc/xdg/autostart/hhd.desktop
+new file mode 100644
+index 0000000..428747a
+--- /dev/null
++++ b/etc/xdg/autostart/hhd.desktop
+@@ -0,0 +1,7 @@
++[Desktop Entry]
++Type=Application
++Name=Handheld Daemon Autostart
++Exec=/usr/libexec/enable-hhd
++Comment=Run HHD on user login
++X-GNOME-Autostart-enabled=true
++X-KDE-autostart-phase=0
+diff --git a/usr/libexec/enable-hhd b/usr/libexec/enable-hhd
+new file mode 100755
+index 0000000..245d81a
+--- /dev/null
++++ b/usr/libexec/enable-hhd
+@@ -0,0 +1,7 @@
++#!/bin/bash
++if [[ $EUID != 0 ]]; then
++  exec pkexec "$(realpath $0)" "$USER"
++  exit 1
++else
++  systemctl start hhd@$1.service
++fi
+diff --git a/usr/share/polkit-1/actions/org.hhd.start.policy b/usr/share/polkit-1/actions/org.hhd.start.policy
+new file mode 100644
+index 0000000..91f684e
+--- /dev/null
++++ b/usr/share/polkit-1/actions/org.hhd.start.policy
+@@ -0,0 +1,20 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<!DOCTYPE policyconfig PUBLIC
++ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
++ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
++<policyconfig>
++
++  <vendor>Handheld Daemon</vendor>
++  <vendor_url>https://github.com/hhd-dev/hhd</vendor_url>
++
++  <action id="org.hhd.policykit.steamos.pkexec.run-hhd-start">
++    <description>Helper to start handheld daemon</description>
++    <icon_name>package-x-generic</icon_name>
++    <defaults>
++      <allow_any>yes</allow_any>
++      <allow_inactive>yes</allow_inactive>
++      <allow_active>yes</allow_active>
++    </defaults>
++    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/enable-hhd</annotate>
++  </action>
++</policyconfig>
+-- 
+2.43.0
+
