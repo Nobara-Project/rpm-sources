@@ -5,7 +5,7 @@
 
 %global build_timestamp %(date +"%Y%m%d")
 
-%global rel_build 11.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 12.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           gamescope
 Version:        3.13.20
@@ -17,7 +17,7 @@ URL:            https://github.com/ChimeraOS/gamescope
 
 # Create stb.pc to satisfy dependency('stb')
 Source1:        stb.pc
-
+Patch0:         8.patch
 
 BuildRequires:  meson >= 0.54.0
 BuildRequires:  ninja-build
@@ -81,6 +81,7 @@ cd gamescope
 git submodule update --init --recursive
 mkdir -p pkgconfig
 cp %{SOURCE1} pkgconfig/stb.pc
+patch -Np1 < %{PATCH0}
 
 
 %build
