@@ -1,0 +1,48 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jan200101 <sentrycraft123@gmail.com>
+Date: Mon, 14 Nov 2022 20:13:53 +0100
+Subject: [PATCH] drm/i915/quirks: disable async flipping on specific devices
+
+Signed-off-by: Jan200101 <sentrycraft123@gmail.com>
+---
+ drivers/gpu/drm/i915/display/intel_quirks.c | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/drivers/gpu/drm/i915/display/intel_quirks.c b/drivers/gpu/drm/i915/display/intel_quirks.c
+index a280448df771..1596114dd9ae 100644
+--- a/drivers/gpu/drm/i915/display/intel_quirks.c
++++ b/drivers/gpu/drm/i915/display/intel_quirks.c
+@@ -14,6 +14,12 @@ static void intel_set_quirk(struct drm_i915_private *i915, enum intel_quirk_id q
+ 	i915->display.quirks.mask |= BIT(quirk);
+ }
+ 
++static void quirk_async_page_flips_force_disable(struct drm_i915_private *i915)
++{
++	i915->drm.mode_config.async_page_flip = false;
++	drm_info(&i915->drm, "applying async flip disable quirk\n");
++}
++
+ /*
+  * Some machines (Lenovo U160) do not work with SSC on LVDS for some reason
+  */
+@@ -136,6 +142,20 @@ static const struct intel_dmi_quirk intel_dmi_quirks[] = {
+ 		},
+ 		.hook = quirk_no_pps_backlight_power_hook,
+ 	},
++	{
++		.dmi_id_list = &(const struct dmi_system_id[]) {
++			{
++				.callback = NULL,
++				.ident = "ASUS TUF DASH F15",
++				.matches = {
++					DMI_MATCH(DMI_SYS_VENDOR, "ASUSTeK COMPUTER INC."),
++					DMI_MATCH(DMI_PRODUCT_NAME, "ASUS TUF Dash F15 FX516PC_FX516PC"),
++				},
++			},
++			{ }
++		},
++		.hook = quirk_async_page_flips_force_disable,
++	},
+ };
+ 
+ static struct intel_quirk intel_quirks[] = {
