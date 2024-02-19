@@ -1000,6 +1000,9 @@ Patch1: patch-%{patchversion}-redhat.patch
 # fix https://gitlab.freedesktop.org/drm/amd/-/issues/3062
 Patch100: 0001-revert-5f38ac54e60562323ea4abb1bfb37d043ee23357-to-f.patch
 
+# fix https://gitlab.freedesktop.org/drm/amd/-/issues/3183
+Patch101: amdgpu-ignore-min-pcap.patch
+
 # graysky
 # https://github.com/graysky2/kernel_compiler_patch
 Patch200: graysky-more-uarches-for-kernel-5.17p.patch
@@ -1846,6 +1849,9 @@ ApplyOptionalPatch patch-%{patchversion}-redhat.patch
 
 # fix https://gitlab.freedesktop.org/drm/amd/-/issues/3062
 ApplyOptionalPatch 0001-revert-5f38ac54e60562323ea4abb1bfb37d043ee23357-to-f.patch
+
+# fix https://gitlab.freedesktop.org/drm/amd/-/issues/3183
+ApplyOptionalPatch amdgpu-ignore-min-pcap.patch
 
 # graysky
 # https://github.com/graysky2/kernel_compiler_patch
