@@ -2,14 +2,14 @@
 #define  prever_dot .rc3
 #define  postver    a
 
-%define version_alsa_lib  1.2.10
-%define version_alsa_ucm  1.2.10
+%define version_alsa_lib  1.2.11
+%define version_alsa_ucm  1.2.11
 %define version_alsa_tplg 1.2.5
 
 Summary:  The Advanced Linux Sound Architecture (ALSA) library
 Name:     alsa-lib
 Version:  %{version_alsa_lib}
-Release:  7%{?prever_dot}%{?dist}
+Release:  2%{?prever_dot}%{?dist}
 License:  LGPL-2.1-or-later
 URL:      http://www.alsa-project.org/
 
@@ -171,6 +171,9 @@ rm %{buildroot}/%{_datadir}/alsa/ucm2/conf.d/acp5x/Valve-Jupiter-1.conf
 %{_datadir}/alsa/topology
 
 %changelog
+* Mon Jan 29 2024 Jaroslav Kysela <perex@perex.cz> - 1.2.11-2
+- update to 1.2.11
+
 * Mon Sep  4 2023 Jaroslav Kysela <perex@perex.cz> - 1.2.10-3
 - fix control.h header file (ump)
 - fix SplitPCM (alsa-ucm)

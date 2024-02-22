@@ -1,0 +1,94 @@
+From 1fa0188390398fd189eb4438d76dfaed1ef25ef7 Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Sun, 4 Feb 2024 08:55:41 -0700
+Subject: [PATCH] Add support for using ULWGL as wine_home
+
+---
+ .../models/wineprefix_configuration_model.py  |  3 ++
+ .../wine/wineprefix_core_control.py           | 32 ++++++++++++++-----
+ 2 files changed, 27 insertions(+), 8 deletions(-)
+
+diff --git a/src/grapejuice_common/models/wineprefix_configuration_model.py b/src/grapejuice_common/models/wineprefix_configuration_model.py
+index 1930902..ad00540 100644
+--- a/src/grapejuice_common/models/wineprefix_configuration_model.py
++++ b/src/grapejuice_common/models/wineprefix_configuration_model.py
+@@ -26,6 +26,9 @@ DEFAULT_ENV_PASSTHROUGH = [
+     "XDG_DATA_HOME",  # Required for MangoHud to function
+     "LD_LIBRARY_PATH",  # Additional system libraries
+     "LD_PRELOAD",  # Preloaded libraries, often used for hotfixes
++    "GAMEID", # Required for ULWGL, auto-set to ulwgl-roblox when ULWGL is used
++    "STORE", # Required for ULWGL, auto-set to none when ULWGL is used
++    "PROTONPATH", # Required for ULWGL, ULWGL sets its own proton version if not defined.
+     "MANGOHUD"  # Commonly used performance monitoring app
+ ]
+ 
+diff --git a/src/grapejuice_common/wine/wineprefix_core_control.py b/src/grapejuice_common/wine/wineprefix_core_control.py
+index c3afa98..b40c522 100644
+--- a/src/grapejuice_common/wine/wineprefix_core_control.py
++++ b/src/grapejuice_common/wine/wineprefix_core_control.py
+@@ -217,13 +217,14 @@ def _validate_wine_home(home_path: Path):
+ 
+         raise WineHomeInvalid(home_path, "The Wine home must be a directory")
+ 
+-    wine_bin = home_path / "bin"
++    if "ulwgl" not in str(home_path).lower():
++        wine_bin = home_path / "bin"
+ 
+-    if not wine_bin.exists():
+-        raise WineHomeInvalid(home_path, f"The Wine home must contain a 'bin' directory at '{wine_bin}'")
++        if not wine_bin.exists():
++            raise WineHomeInvalid(home_path, f"The Wine home must contain a 'bin' directory at '{wine_bin}'")
+ 
+-    if not wine_bin.is_dir():
+-        raise WineHomeInvalid(home_path, f"'{wine_bin}' must be a directory")
++        if not wine_bin.is_dir():
++            raise WineHomeInvalid(home_path, f"'{wine_bin}' must be a directory")
+ 
+ 
+ class WineprefixCoreControl:
+@@ -292,10 +293,14 @@ class WineprefixCoreControl:
+     def wine_binary(self, arch="") -> Path:
+         log.info(f"Resolving wine binary for prefix {self._prefix_paths.base_directory}")
+ 
+-        wine_binary = self.wine_bin / f"wine{arch}"
+-        log.info(f"Resolved wine binary path: {wine_binary}")
++        if "ulwgl" in str(self.wine_home).lower():
++            wine_binary = self.wine_home/"gamelauncher.sh"
++        else:
++            wine_binary = self.wine_bin / f"wine{arch}"
++
++        assert wine_binary.exists() and wine_binary.is_file(), f"Invalid wine binary: {wine_binary}"
+ 
+-        assert wine_binary.exists() and wine_binary.is_file(), f"Invalid wine binary: {wine_binary}"
++        log.info(f"Resolved wine binary path: {wine_binary}")
+ 
+         return wine_binary
+ 
+@@ -354,6 +359,16 @@ class WineprefixCoreControl:
+         if self.dxvk_enabled:
+             dll_overrides.extend(self.dxvk_dll_overrides)
+ 
++        ulwgl_env = dict()
++
++        if "ulwgl" in str(self.wine_home).lower():
++            ulwgl_env = {
++                **ulwgl_env,
++                "GAMEID": "ulwgl-roblox",
++                "STORE": "none"
++            }
++            log.info(f"ULWGL environment variables: {json.dumps(ulwgl_env)}")
++
+         # Inherit system environment
+         if sanitize_environment:
+             process_environment = {}
+@@ -367,6 +382,7 @@ class WineprefixCoreControl:
+             **user_env,
+             "WINEPREFIX": str(self._prefix_paths.base_directory),
+             "WINEARCH": "win64",
++            **(ulwgl_env if "ulwgl" in str(self.wine_home).lower() else dict()),
+             **(self._dri_prime_variables() if accelerate_graphics else dict()),
+             **_legacy_hardware_variables(self._configuration)
+         }
+-- 
+2.43.0
+

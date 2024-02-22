@@ -1,0 +1,29 @@
+From b70a54b8f0d0159777e37102dba90b258e8dc971 Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Sat, 3 Feb 2024 01:58:27 -0700
+Subject: [PATCH] Fix broken gpu model checkbox.
+
+I checked mangohud to verifu gpu_name was working when added manually.
+I then checked the code here and found the gpu model checkbox had
+incorrect value set (GPUTHRG) so it wasn't working. This correctly
+sets it to GPUMODEL
+---
+ overlayunit.pas | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/overlayunit.pas b/overlayunit.pas
+index 6749af1..eaf5ac5 100755
+--- a/overlayunit.pas
++++ b/overlayunit.pas
+@@ -1874,7 +1874,7 @@ var
+         Savecheckbox (gputhrottlinggraphCheckbox, GPUTHRG, 'throttling_status_graph');
+ 
+         //GPU MODEL   - Config Variable
+-        Savecheckbox (gpumodelCheckbox, GPUTHRG, 'gpu_name');
++        Savecheckbox (gpumodelCheckbox, GPUMODEL, 'gpu_name');
+ 
+         //VULKAN DRIVER   - Config Variable
+         Savecheckbox (vulkandriverCheckbox, VULKANDRIVER, 'vulkan_driver');
+-- 
+2.43.0
+

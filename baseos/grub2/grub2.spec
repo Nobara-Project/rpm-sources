@@ -17,7 +17,7 @@
 Name:		grub2
 Epoch:		1
 Version:	2.06
-Release:	113%{?dist}
+Release:	116%{?dist}
 Summary:	Bootloader with support for Linux, Multiboot and more
 License:	GPLv3+
 URL:		http://www.gnu.org/software/grub/
@@ -135,7 +135,6 @@ This subpackage provides tools for support of EFI platforms.
 Summary:	Support tools for GRUB.
 Requires:	gettext-runtime
 Requires:	grub2-common = %{epoch}:%{version}-%{release}
-Obsoletes:	grub2-tools < %{evr}
 
 %description tools-minimal
 %{desc}
@@ -377,7 +376,7 @@ BOOT_UUID=$(grub2-probe --target=fs_uuid ${GRUB_HOME})
 GRUB_DIR=$(grub2-mkrelpath ${GRUB_HOME})
 
 cat << EOF > ${EFI_HOME}/grub.cfg.stb
-search --no-floppy --fs-uuid --set=dev ${BOOT_UUID}
+search --no-floppy --root-dev-only --fs-uuid --set=dev ${BOOT_UUID}
 set prefix=(\$dev)${GRUB_DIR}
 export \$prefix
 configfile \$prefix/grub.cfg
@@ -565,6 +564,32 @@ mv ${EFI_HOME}/grub.cfg.stb ${EFI_HOME}/grub.cfg
 %endif
 
 %changelog
+* Mon Jan 15 2024 Nicolas Frayer <nfrayer@redhat.com> - 2.06-116
+- grub-core/commands: add flag to only search root dev
+- Resolves: #2223437
+- Resolves: #2224951
+- Resolves: #2258096 
+- Resolves: CVE-2023-4001
+
+* Sat Jan 13 2024 Hector Martin <marcan@fedoraproject.org> - 2.06-115
+- Switch memdisk compression to lzop
+
+* Thu Jan 11 2024 Daan De Meyer <daan.j.demeyer@gmail.com> - 2.06-114
+-  Don't obsolete the tools package with minimal
+
+* Mon Jan 8 2024 Nicolas Frayer <nfrayer@redhat.com> - 2.06-113
+- xfs: some bios systems with /boot partition created with
+  xfsprog < 6.5.0 can't boot with one of the xfs upstream patches
+- Resolves: #2254370
+
+* Tue Dec 19 2023 Nicolas Frayer <nfrayer@redhat.com> - 2.06-112
+- normal: fix prefix when loading modules
+- Resolves: #2209435
+- Resolves: #2173015
+
+* Tue Dec 12 2023 leo sandoval <lsandova@redhat.com> - 2.06-111
+- chainloader: remove device path debug message
+
 * Fri Dec 1 2023 Nicolas Frayer <nfrayer@redhat.com> - 2.06-110
 - fs/xfs: Add several fixes/improvements to xfs fs from upstream
 - Resolves: #2247926
