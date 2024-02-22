@@ -13,10 +13,10 @@ Source0:        nobara-just.sh
 Source1:        00-nobara-base.just
 Source2:        85-nobara-deck.just
 Source3:        njust
-Source5:        header.just
-Source6:        njust.sh
-Source7:        libcolors.sh
-Source8:        libformatting.sh
+Source4:        header.just
+Source5:        njust.sh
+Source6:        libcolors.sh
+Source7:        libformatting.sh
 
 %global sub_name %{lua:t=string.gsub(rpm.expand("%{NAME}"), "^nobara%-", ""); print(t)}
 
@@ -33,7 +33,7 @@ cp %{SOURCE1} %{SOURCE2} %{buildroot}%{_datadir}/%{VENDOR}/%{sub_name}
 
 # Create justfile which contains all .just files included in this package
 # Apply header first due to default not working in included justfiles
-cp %{SOURCE5} "%{buildroot}%{_datadir}/%{VENDOR}/justfile"
+cp %{SOURCE4} "%{buildroot}%{_datadir}/%{VENDOR}/justfile"
 for justfile in %{buildroot}%{_datadir}/%{VENDOR}/%{sub_name}/*.just; do
 	echo "import \"%{_datadir}/%{VENDOR}/%{sub_name}/$(basename ${justfile})\"" >> "%{buildroot}%{_datadir}/%{VENDOR}/justfile"
 done
@@ -44,9 +44,9 @@ install -Dm755 %{SOURCE3} %{buildroot}%{_bindir}/njust
 
 # Add bash library for use in just
 mkdir -p -m0755 %{buildroot}/%{_exec_prefix}/lib/njust/
+install -Dm644 %{SOURCE5} %{buildroot}/%{_exec_prefix}/lib/njust
 install -Dm644 %{SOURCE6} %{buildroot}/%{_exec_prefix}/lib/njust
 install -Dm644 %{SOURCE7} %{buildroot}/%{_exec_prefix}/lib/njust
-install -Dm644 %{SOURCE8} %{buildroot}/%{_exec_prefix}/lib/njust
 
 
 %files
