@@ -1,12 +1,12 @@
 
 # Install Decky Loader (https://github.com/SteamDeckHomebrew/decky-loader)
-get-decky:
+install-decky:
     #!/usr/bin/bash
     export HOME=$(getent passwd ${SUDO_USER:-$USER} | cut -d: -f6)
     curl -L https://github.com/SteamDeckHomebrew/decky-installer/releases/latest/download/install_release.sh | sh
 
 # Install SimpleDeckyTDP, a simple TDP plugin for alternative PC handhelds
-get-simpledeckytdp:
+install-simpledeckytdp:
     #!/usr/bin/bash
     if [[ -d $HOME/homebrew/plugins ]]; then
       sudo rm -rf $HOME/homebrew/plugins/SimpleDeckyTDP
@@ -19,8 +19,8 @@ get-simpledeckytdp:
       echo 'Please install Decky Loader by running ujust get-decky first.'
     fi
 
-# Install HHD Decky Plugin for controlling input on the Lenovo Legion Go and ASUS Ally
-get-hhd-decky:
+# Install HHD Decky Plugin for customizing input on the Lenovo Legion Go, ROG Ally, and alternative handhelds
+install-hhd-decky:
     #!/usr/bin/bash
     if [[ -d $HOME/homebrew/plugins ]]; then
       sudo rm -rf $HOME/homebrew/plugins/hhd-decky
@@ -60,6 +60,60 @@ install-hhd-xbox-glyph-theme:
         git clone https://github.com/frazse/PS5-to-Xbox-glyphs.git --single-branch "$HOME/homebrew/themes/PS5-to-Xbox-glyphs"
     else
         echo 'Please install Decky Loader & CSS Loader first'
+    fi
+
+# Remove Decky Loader (note: this will also remove all installed plugins)
+remove-decky:
+    #!/usr/bin/bash
+    export HOME=$(getent passwd ${SUDO_USER:-$USER} | cut -d: -f6)
+    curl -L https://github.com/SteamDeckHomebrew/decky-installer/releases/latest/download/uninstall.sh
+
+# Remove SimpleDeckyTDP
+remove-simpledeckytdp:
+    #!/usr/bin/bash
+    if [[ -d $HOME/homebrew/plugins/SimpleDeckyTDP ]]; then
+      sudo rm -rf $HOME/homebrew/plugins/SimpleDeckyTDP
+      sudo sed -i 's/ENABLE_HARDWARE_CONTROL_ON_NON_DECK_HARDWARE=1/ENABLE_HARDWARE_CONTROL_ON_NON_DECK_HARDWARE=0/g' /etc/default/steam-hardware-control
+      echo 'Removed. Please reboot to apply needed changes.'
+    else
+      echo 'SimpleDeckyTDP is not installed.'
+    fi
+
+# Remove HHD Decky Plugin
+remove-hhd-decky:
+    #!/usr/bin/bash
+    if [[ -d $HOME/homebrew/plugins/hhd-decky ]]; then
+      sudo rm -rf $HOME/homebrew/plugins/hhd-decky
+      echo 'Removed.'
+    else
+      echo 'HHD Decky Plugin is not installed.'
+    fi
+
+# Remove ROG Ally Theme
+remove-rog-ally-theme:
+    #!/usr/bin/bash
+    if [ -d "$HOME/homebrew/themes/SBP-ROG-Ally" ]; then
+        rm -rf "$HOME/homebrew/themes/SBP-ROG-Ally"
+    else
+        echo 'ROG Ally Theme is not installed.'
+    fi
+
+# Remove Lenovo Legion Go Theme
+remove-legion-go-theme:
+    #!/usr/bin/bash
+    if [ -d "$HOME/homebrew/themes/SBP-Legion-Go-Theme" ]; then
+        rm -rf "$HOME/homebrew/themes/SBP-Legion-Go-Theme"
+    else
+        echo 'Lenovo Legion Go Theme is not installed.'
+    fi
+
+# Remove PS5-to-Xbox glyph theme for hhd & CSS Loader
+remove-hhd-xbox-glyph-theme:
+    #!/usr/bin/bash
+    if [ -d "$HOME/homebrew/themes/PS5-to-Xbox-glyphs" ]; then
+        rm -rf "$HOME/homebrew/themes/PS5-to-Xbox-glyphs"
+    else
+        echo 'PS5-to-Xbox glyph theme is not installed.'
     fi
 
 # Enable BIOS & Firmware update services for the Steam Deck

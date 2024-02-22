@@ -3,8 +3,8 @@ set ignore-comments := true
 
 _default:
     #!/usr/bin/bash
-    source /usr/lib/ujust/libformatting.sh
-    echo "$(Urllink "https://nobaraproject.org/docs/faq/faq/" "Click here to view the Nobara Steamdeck Edition just documentation")"
-    /usr/bin/ujust --list --list-heading $'Available commands:\n' --list-prefix $' - '
+    source /usr/lib/njust/libformatting.sh
+    echo "Welcome to Nobara's njust shortcut system! All just files are sourced from here: /usr/share/nobara/just. If you have any suggestions, drop them in the Discord server's #nobara channel!
+    /usr/bin/njust --list --list-heading $'Available commands:\n' --list-prefix $' - '
 
 # Imports

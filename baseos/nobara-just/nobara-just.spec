@@ -1,4 +1,5 @@
 Name:           nobara-just
+Vendor:         nobara
 Version:        0.2
 Release:        1%{?dist}
 Summary:        nobara just integration
@@ -19,6 +20,8 @@ Source7:        libcolors.sh
 Source8:        libformatting.sh
 Source9:        libfunctions.sh
 
+%global sub_name %{lua:t=string.gsub(rpm.expand("%{NAME}"), "^nobara%-", ""); print(t)}
+
 %description
 Adds nobara just integration for easier setup
 
@@ -26,15 +29,15 @@ Adds nobara just integration for easier setup
 %setup -q -c -T
 
 %build
-mkdir -p -m0755  %{buildroot}%{_datadir}
+mkdir -p -m0755  %{buildroot}%{_datadir}/%{VENDOR}/%{sub_name}
 install -Dm755 %{SOURCE0} %{buildroot}%{_sysconfdir}/profile.d/nobara-just.sh
-cp %{SOURCE1} %{SOURCE2} %{buildroot}%{_datadir}
+cp %{SOURCE1} %{SOURCE2} %{buildroot}%{_datadir}/%{VENDOR}/%{sub_name}
 
 # Create justfile which contains all .just files included in this package
 # Apply header first due to default not working in included justfiles
-cp %{SOURCE5} "%{buildroot}%{_datadir}/justfile"
-for justfile in %{buildroot}%{_datadir}/*.just; do
-	echo "import \"%{_datadir}/$(basename ${justfile})\"" >> "%{buildroot}%{_datadir}/justfile"
+cp %{SOURCE5} "%{buildroot}%{_datadir}/%{VENDOR}/justfile"
+for justfile in %{buildroot}%{_datadir}/%{VENDOR}/%{sub_name}/*.just; do
+	echo "import \"%{_datadir}/%{VENDOR}/%{sub_name}/$(basename ${justfile})\"" >> "%{buildroot}%{_datadir}/%{VENDOR}/justfile"
 done
 
 # Add global "njust" script to run just with --unstable
@@ -51,10 +54,10 @@ install -Dm644 %{SOURCE9} %{buildroot}/%{_exec_prefix}/lib/njust
 
 
 %files
-%dir %attr(0755,root,root) %{_datadir}
+%dir %attr(0755,root,root) %{_datadir}/%{VENDOR}/%{sub_name}
 %attr(0755,root,root) %{_sysconfdir}/profile.d/nobara-just.sh
-%attr(0644,root,root) %{_datadir}/*.just
-%attr(0644,root,root) %{_datadir}/justfile
+%attr(0644,root,root) %{_datadir}/%{VENDOR}/%{sub_name}/*.just
+%attr(0644,root,root) %{_datadir}/%{VENDOR}/justfile
 %attr(0755,root,root) %{_bindir}/njust
 %attr(0755,root,root) %{_bindir}/ngum
 %attr(0644,root,root) %{_exec_prefix}/lib/njust/njust.sh
