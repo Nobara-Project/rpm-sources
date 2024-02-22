@@ -150,4 +150,8 @@ upload-deck-logs:
     echo "===== GAMESCOPE STDOUT LOG ====="; cat $HOME/.gamescope-stdout.log) | fpaste
     echo 'Logs uploaded. Please copy the link by right clicking it or by highlighting the link and using Ctrl + Shift + C.'
 
+# Upload hhd logs to pastebin via fpaste
+upload-hhd-logs:
+    (echo "===== HHD LOG ====="; cat $HOME/.config/hhd/log/hhd.log) | fpaste
+    echo 'Logs uploaded. Please copy the link by right clicking it or by highlighting the link and using Ctrl + Shift + C.'
 
