@@ -40,8 +40,8 @@ declare -r darkorange=$'\033[38;2;255;129;3m'
 
 ## Function to generate background color from foreground color
 ## NOTE: doublequote the color or future calls to bg will error out!
-# bgblue=$(Bg "$blue")
-# echo "${bgblue}text now has blue background${normal} this text has no background color"
+# bgdarkorange=$(Bg "$darkorange")
+# echo "${bgdarkorange}text now has blue background${normal} this text has no background color"
 function Bg (){
     COLOR="$1"
     

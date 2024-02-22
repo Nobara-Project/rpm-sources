@@ -148,6 +148,6 @@ disable-sdgyrodsu:
 upload-deck-logs:
     (echo "===== GAMESCOPE CMD LOG ====="; cat $HOME/.gamescope-cmd.log; \
     echo "===== GAMESCOPE STDOUT LOG ====="; cat $HOME/.gamescope-stdout.log) | fpaste
-    echo 'Logs uploaded. Please copy and paste the link by right clicking it or by highlighting the link and using Ctrl + Shift + C.'
+    echo 'Logs uploaded. Please copy the link by right clicking it or by highlighting the link and using Ctrl + Shift + C.'
 
 

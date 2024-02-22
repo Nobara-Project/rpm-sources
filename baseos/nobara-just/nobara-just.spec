@@ -13,17 +13,15 @@ Source0:        nobara-just.sh
 Source1:        00-nobara-base.just
 Source2:        85-nobara-deck.just
 Source3:        njust
-Source4:        ngum
 Source5:        header.just
 Source6:        njust.sh
 Source7:        libcolors.sh
 Source8:        libformatting.sh
-Source9:        libfunctions.sh
 
 %global sub_name %{lua:t=string.gsub(rpm.expand("%{NAME}"), "^nobara%-", ""); print(t)}
 
 %description
-Adds nobara just integration for easier setup
+Nobara-just is intended to be a collection of justfiles to simplify actions the average Nobara User may need to take at some point with the most simplified terminal commands possible.
 
 %prep
 %setup -q -c -T
@@ -43,14 +41,12 @@ done
 # Add global "njust" script to run just with --unstable
 mkdir -p -m0755  %{buildroot}%{_bindir}
 install -Dm755 %{SOURCE3} %{buildroot}%{_bindir}/njust
-install -Dm755 %{SOURCE4} %{buildroot}%{_bindir}/ngum
 
 # Add bash library for use in just
 mkdir -p -m0755 %{buildroot}/%{_exec_prefix}/lib/njust/
 install -Dm644 %{SOURCE6} %{buildroot}/%{_exec_prefix}/lib/njust
 install -Dm644 %{SOURCE7} %{buildroot}/%{_exec_prefix}/lib/njust
 install -Dm644 %{SOURCE8} %{buildroot}/%{_exec_prefix}/lib/njust
-install -Dm644 %{SOURCE9} %{buildroot}/%{_exec_prefix}/lib/njust
 
 
 %files
@@ -59,7 +55,6 @@ install -Dm644 %{SOURCE9} %{buildroot}/%{_exec_prefix}/lib/njust
 %attr(0644,root,root) %{_datadir}/%{VENDOR}/%{sub_name}/*.just
 %attr(0644,root,root) %{_datadir}/%{VENDOR}/justfile
 %attr(0755,root,root) %{_bindir}/njust
-%attr(0755,root,root) %{_bindir}/ngum
 %attr(0644,root,root) %{_exec_prefix}/lib/njust/njust.sh
 %attr(0644,root,root) %{_exec_prefix}/lib/njust/lib*.sh
 
