@@ -13,7 +13,6 @@ install-simpledeckytdp:
       curl -L $(curl -s https://api.github.com/repos/aarron-lee/SimpleDeckyTDP/releases/latest | grep "browser_download_url" | cut -d '"' -f 4) -o /tmp/SimpleDeckyTDP.tar.gz
       sudo tar -xzf /tmp/SimpleDeckyTDP.tar.gz -C $HOME/homebrew/plugins
       rm /tmp/SimpleDeckyTDP.tar.gz
-      sudo sed -i 's/ENABLE_HARDWARE_CONTROL_ON_NON_DECK_HARDWARE=0/ENABLE_HARDWARE_CONTROL_ON_NON_DECK_HARDWARE=1/g' /etc/default/steam-hardware-control
       echo 'Installed. Please reboot to apply needed changes.'
     else
       echo 'Please install Decky Loader by running ujust get-decky first.'
@@ -62,18 +61,30 @@ install-hhd-xbox-glyph-theme:
         echo 'Please install Decky Loader & CSS Loader first'
     fi
 
-# Remove Decky Loader (note: this will also remove all installed plugins)
+# Remove Decky Loader (note: this will leave plugins and themes behind)
 remove-decky:
     #!/usr/bin/bash
     export HOME=$(getent passwd ${SUDO_USER:-$USER} | cut -d: -f6)
-    curl -L https://github.com/SteamDeckHomebrew/decky-installer/releases/latest/download/uninstall.sh
+    curl -L https://github.com/SteamDeckHomebrew/decky-installer/releases/latest/download/uninstall.sh | sh > /dev/null
+    echo 'Decky Loader removed'
+
+# Wipe Decky Loader and the *entire* /homebrew folder it creates, including plugins and themes.
+wipe-decky:
+    #!/usr/bin/bash
+    export HOME=$(getent passwd ${SUDO_USER:-$USER} | cut -d: -f6)
+    curl -L https://github.com/SteamDeckHomebrew/decky-installer/releases/latest/download/uninstall.sh | sh > /dev/null
+    sudo rm -rf $HOME/homebrew
+    echo 'Decky Loader and /homebrew folder removed.'
+
 
 # Remove SimpleDeckyTDP
 remove-simpledeckytdp:
     #!/usr/bin/bash
     if [[ -d $HOME/homebrew/plugins/SimpleDeckyTDP ]]; then
       sudo rm -rf $HOME/homebrew/plugins/SimpleDeckyTDP
-      sudo sed -i 's/ENABLE_HARDWARE_CONTROL_ON_NON_DECK_HARDWARE=1/ENABLE_HARDWARE_CONTROL_ON_NON_DECK_HARDWARE=0/g' /etc/default/steam-hardware-control
+      sudo rm -rf $HOME/homebrew/data/SimpleDeckyTDP
+      sudo rm -rf $HOME/homebrew/settings/SimpleDeckyTDP
+      sudo rm -rf $HOME/homebrew/logs/SimpleDeckyTDP
       echo 'Removed. Please reboot to apply needed changes.'
     else
       echo 'SimpleDeckyTDP is not installed.'
