@@ -1,6 +1,6 @@
 Name:           switcheroo-control
 Version:        2.6
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        D-Bus service to check the availability of dual-GPU
 
 License:        GPLv3
@@ -8,6 +8,8 @@ URL:            https://gitlab.freedesktop.org/hadess/switcheroo-control/
 # URL from https://gitlab.freedesktop.org/hadess/switcheroo-control/-/releases
 Source0:        https://gitlab.freedesktop.org/hadess/switcheroo-control/uploads/86ea54ac7ddb901b6bf6e915209151f8/switcheroo-control-2.6.tar.xz
 Patch0:		libva-nvidia.diff
+# https://gitlab.freedesktop.org/hadess/switcheroo-control/-/merge_requests/69
+Patch1:		69.patch
 
 BuildRequires:  gcc
 BuildRequires:  pkgconfig(gudev-1.0)
