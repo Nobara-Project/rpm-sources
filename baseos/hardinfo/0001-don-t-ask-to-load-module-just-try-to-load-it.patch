@@ -1,0 +1,56 @@
+From 4364e0d8442d422d282d5066fbc20e1b1a4131ff Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Sun, 25 Feb 2024 09:40:56 -0700
+Subject: [PATCH] don't ask to load module, just try to load it
+
+---
+ hardinfo/util.c | 32 ++++++++------------------------
+ 1 file changed, 8 insertions(+), 24 deletions(-)
+
+diff --git a/hardinfo/util.c b/hardinfo/util.c
+index 38c7bce..14eb58b 100644
+--- a/hardinfo/util.c
++++ b/hardinfo/util.c
+@@ -907,31 +907,15 @@ static GSList *modules_check_deps(GSList * modules)
+ 		    if (params.gui_running) {
+ 			GtkWidget *dialog;
+ 
+-			dialog = gtk_message_dialog_new(NULL,
+-							GTK_DIALOG_DESTROY_WITH_PARENT,
+-							GTK_MESSAGE_QUESTION,
+-							GTK_BUTTONS_NONE,
+-							_("Module \"%s\" depends on module \"%s\", load it?"),
+-							module->name,
+-							deps[i]);
+-			gtk_dialog_add_buttons(GTK_DIALOG(dialog),
+-					       "_No",
+-					       GTK_RESPONSE_REJECT,
+-					       "_Open",
+-					       GTK_RESPONSE_ACCEPT, NULL);
+-
+-			if (gtk_dialog_run(GTK_DIALOG(dialog)) ==
+-			    GTK_RESPONSE_ACCEPT) {
+-			    ShellModule *mod = module_load(deps[i]);
+-
+-			    if (mod)
+-				modules = g_slist_prepend(modules, mod);
+-			    modules = modules_check_deps(modules);	/* re-check dependencies */
+-			} else {
+-			    g_error("HardInfo cannot run without loading the additional module.");
+-			    exit(1);
+-			}
++			ShellModule *mod = module_load(deps[i]);
+ 
++			if (mod) {
++				modules = g_slist_prepend(modules, mod);
++				modules = modules_check_deps(modules);	/* re-check dependencies */
++		    	} else {
++		        	g_error("HardInfo cannot run without loading the additional module.");
++				exit(1);
++		    	}
+ 			gtk_widget_destroy(dialog);
+ 		    } else {
+ 			g_error(_("Module \"%s\" depends on module \"%s\"."),
+-- 
+2.43.2
+

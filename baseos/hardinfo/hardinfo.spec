@@ -1,10 +1,11 @@
 Name:     hardinfo
 Version:  0.6
-Release:  1%{?dist}
+Release:  3%{?dist}
 Summary:  Hardinfo mostra todas as informações de hardware
 License:  GPLv2
 URL:      https://github.com/lpereira/hardinfo
 Source0:  https://github.com/lpereira/hardinfo/archive/refs/heads/master.tar.gz
+Patch0:   0001-don-t-ask-to-load-module-just-try-to-load-it.patch
 
 BuildRequires: cmake
 BuildRequires: gcc-c++
@@ -23,7 +24,7 @@ Requires: dmidecode
 Software para mostrar informações sobre o hardware disponível no sistema.
 
 %prep
-%setup -q -n %{name}-master
+%autosetup -p1 -n %{name}-master
 
 %build
 mkdir build
