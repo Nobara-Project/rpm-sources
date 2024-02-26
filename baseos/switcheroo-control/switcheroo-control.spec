@@ -19,6 +19,7 @@ BuildRequires:  meson
 BuildRequires:  systemd
 BuildRequires:  python3-dbusmock
 BuildRequires:  umockdev
+BuildRequires:  libdrm-devel
 
 %{?systemd_requires}
 
@@ -66,8 +67,11 @@ fi
 %{_datadir}/dbus-1/system.d/net.hadess.SwitcherooControl.conf
 %{_unitdir}/switcheroo-control.service
 %{_libexecdir}/switcheroo-control
+%{_libexecdir}/check-discrete-amdgpu
+%{_libexecdir}/check-discrete-nouveau
 %{_udevhwdbdir}/30-pci-intel-gpu.hwdb
 %{_mandir}/man1/switcherooctl.1*
+%{_udevrulesdir}/30-discrete-gpu.rules
 
 %files docs
 %dir %{_datadir}/gtk-doc/
