@@ -1,0 +1,152 @@
+#!/bin/sh
+
+CMDLINE_ARGS_ADD="_dracutopts_in"
+CMDLINE_ARGS_REMOVE="_dracutopts_rm"
+
+print_usage() {
+cat <<EOF
+Tool to add or remove kernel command line options required for proper operation of the Nvidia driver.
+Its main use is to be called from the %post/%preun scripts of the Nvidia driver packages, but it can also be used in other contexts, for example in a kickstart file after the drivers have been already installed.
+
+Boot loaders supported:
+  - grub 2 (el7)
+  - grub 2 with BootLoaderSpec patches (el8, el9)
+  - systemd-boot (fedora)
+
+Usage: nvidia-update-boot post|preun
+    post        Adjust necessary kernel command line options
+    preun       Remove all kernel command line options
+
+EOF
+}
+
+# Check for files, not packages. grubby is provided as well by sdubby
+check_bootloader() {
+  # /etc/default/grub is available only after Anaconda has created it:
+  if [ ! -f /run/ostree-booted ] && [ -f /etc/default/grub ]; then
+    BOOTLOADER=grub
+  elif [ ! -f /run/ostree-booted ] && [ -f /usr/lib/systemd/boot/efi/systemd-bootx64.efi ]; then
+    BOOTLOADER=sdboot
+  else
+    BOOTLOADER=none
+    echo "Nvidia driver setup: no bootloader detected. Please run 'nvidia-boot-update post' manually."
+  fi
+}
+
+# grubby notes:
+# EL7: /etc/default/grub is not updated, /boot/grub2/grub.cfg is updated
+# EL8+: /etc/default/grub updated, BootLoaderSpec entries are updated, /boot/grub2/grub.cfg is not updated
+
+post_grub() {
+  GRUBLINE="grubby --update-kernel=ALL "
+  if [[ "$CMDLINE_ARGS_ADD" != "none" ]]; then
+    GRUBLINE+="--args=\"$CMDLINE_ARGS_ADD\" "
+  fi
+  if [[ "$CMDLINE_ARGS_REMOVE" != "none" ]]; then
+    GRUBLINE+="--remove-args=\"$CMDLINE_ARGS_REMOVE\" "
+  fi
+  if [[ $GRUBLINE == *"-args="* ]]; then
+    eval "$GRUBLINE" &>/dev/null
+  fi
+  . /etc/default/grub
+  if [[ -z $(cat /etc/default/grub | grep "GRUB_CMDLINE_LINUX=") ]]; then
+    if [[ "$CMDLINE_ARGS_ADD" != "none" ]]; then
+      echo GRUB_CMDLINE_LINUX=\""$CMDLINE_ARGS_ADD"\" >> /etc/default/grub
+    fi
+  else
+    if [[ "$CMDLINE_ARGS_ADD" != "none" ]]; then
+      for param in $CMDLINE_ARGS_ADD; do
+        echo ${GRUB_CMDLINE_LINUX} | grep -q $param
+        [ $? -eq 1 ] && GRUB_CMDLINE_LINUX="${GRUB_CMDLINE_LINUX} ${param}"
+      done
+    fi
+    if [[ "$CMDLINE_ARGS_REMOVE" != "none" ]]; then
+      for param in $CMDLINE_ARGS_REMOVE; do
+        echo ${GRUB_CMDLINE_LINUX} | grep -q $param
+        [ $? -eq 0 ] && GRUB_CMDLINE_LINUX="$(echo ${GRUB_CMDLINE_LINUX} | sed -e "s/ $param//g")"
+      done
+    fi
+    if [[ "${GRUB_CMDLINE_LINUX}" != "" ]]; then
+      sed -i -e "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"${GRUB_CMDLINE_LINUX}\"|g" /etc/default/grub
+    else
+      sed -i -e "s|^GRUB_CMDLINE_LINUX=.*||g" /etc/default/grub
+      sed -i '/^$/d' /etc/default/grub
+    fi
+  fi
+  if [[ -z $(cat /etc/default/grub | grep "GRUB_CMDLINE_LINUX_DEFAULT=") ]]; then
+    echo GRUB_CMDLINE_LINUX_DEFAULT=\"quiet splash\" >> /etc/default/grub
+  fi
+}
+
+preun_grub() {
+  GRUBLINE="grubby --update-kernel=ALL "
+  if [[ "$CMDLINE_ARGS_ADD" != "none" ]]; then
+    GRUBLINE+="--remove-args=\"$CMDLINE_ARGS_ADD\" "
+  fi
+
+  eval "$GRUBLINE" &>/dev/null
+
+  if [ ! -f /run/ostree-booted ]; then
+    . /etc/default/grub
+    if [[ "$CMDLINE_ARGS_ADD" != "none" ]]; then
+      for param in $CMDLINE_ARGS_ADD; do
+        echo ${GRUB_CMDLINE_LINUX} | grep -q $param
+        [ $? -eq 0 ] && GRUB_CMDLINE_LINUX="$(echo ${GRUB_CMDLINE_LINUX} | sed -e "s/ $param//g")"
+      done
+    fi
+    if [[ "${GRUB_CMDLINE_LINUX}" != "" ]]; then
+      sed -i -e "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"${GRUB_CMDLINE_LINUX}\"|g" /etc/default/grub
+    else
+      sed -i -e "s|^GRUB_CMDLINE_LINUX=.*||g" /etc/default/grub
+      sed -i '/^$/d' /etc/default/grub
+    fi
+  fi
+  if [[ -z $(cat /etc/default/grub | grep "GRUB_CMDLINE_LINUX_DEFAULT=") ]]; then
+    echo GRUB_CMDLINE_LINUX_DEFAULT=\"quiet splash\" >> /etc/default/grub
+  fi
+}
+
+post_sdboot() {
+  # Do not call updateloaderentries with the grubby alias as it does not work properly with multiple parameters:
+  config_file=`bootctl list |grep -B7 -A2 ".*linux:.*${info_kernel}"|grep "^.*source:" |cut -d: -f2- `
+  if [[ "$CMDLINE_ARGS_ADD" != "none" ]]; then
+    for param in $CMDLINE_ARGS_ADD; do
+      grep -q $param $config_file
+      [ $? -eq 1 ] && sed -i -e "s|^options.*|& $param|" $config_file
+    done
+  fi
+  if [[ "$CMDLINE_ARGS_REMOVE" != "none" ]]; then
+    for param in $CMDLINE_ARGS_REMOVE; do
+      grep -q $param $config_file
+      [ $? -eq 0 ] && sed -i -e "s| $param||" $config_file
+    done
+  fi
+}
+
+preun_sdboot() {
+  # Do not call updateloaderentries with the grubby alias as it does not work properly with multiple parameters:
+  config_file=`bootctl list |grep -B7 -A2 ".*linux:.*${info_kernel}"|grep "^.*source:" |cut -d: -f2- `
+  if [[ "$CMDLINE_ARGS_ADD" != "none" ]]; then
+    for param in $CMDLINE_ARGS_ADD; do
+      grep -q $param $config_file
+      [ $? -eq 0 ] && sed -i -e "s| $param||" $config_file
+    done
+  fi
+}
+
+case "$1" in
+  post)
+    check_bootloader
+    post_${BOOTLOADER}
+    exit 0
+    ;;
+  preun)
+    check_bootloader
+    preun_${BOOTLOADER}
+    exit 0
+    ;;
+  *)
+    print_usage
+    exit 0
+    ;;
+esac
