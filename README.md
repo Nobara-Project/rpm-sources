@@ -145,3 +145,6 @@ https://asamalik.fedorapeople.org/tmp-docs-preview/quick-docs/creating-rpm-packa
 
 https://docs.pagure.org/copr.copr/user_documentation.html
 
+`fedpkg` documentation:
+
+https://docs.fedoraproject.org/en-US/package-maintainers/Package_Maintenance_Guide/
