@@ -137,9 +137,9 @@ https://rpm-software-management.github.io/mock/
 
 `rpm` documentation: 
 
-https://docs.fedoraproject.org/en-US/package-maintainers/Packaging_Tutorial_GNU_Hello/
-
 https://asamalik.fedorapeople.org/tmp-docs-preview/quick-docs/creating-rpm-packages/
+
+https://rpm-packaging-guide.github.io/
 
 `copr` documentation:
 
@@ -148,3 +148,5 @@ https://docs.pagure.org/copr.copr/user_documentation.html
 `fedpkg` documentation:
 
 https://docs.fedoraproject.org/en-US/package-maintainers/Package_Maintenance_Guide/
+
+https://docs.fedoraproject.org/en-US/package-maintainers/Packaging_Tutorial_GNU_Hello/
