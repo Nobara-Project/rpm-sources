@@ -25,6 +25,22 @@ update-grub:
     fi
 
 # Upload Nobara update log (.nobara-sync.log) to pastebin via fpaste
-upload-nsync-logs:
-    cat ~/.nobara-sync.log | fpaste
-    echo 'Log uploaded. Please copy the link by right clicking or by highlighting the link and using Ctrl + Shift + C.'
+share-update-logs:
+    #!/usr/bin/bash
+    link=$(cat ~/.nobara-sync.log | fpaste)
+    echo "Log uploaded to: $link"
+    # Prompt the user after uploading
+    read -p "Do you want to copy the link to the clipboard? [y/n] " choice
+    if [[ "$choice" =~ ^[Yy]$ ]]; then
+        if [[ "$XDG_SESSION_TYPE" == "wayland" ]]; then
+            echo "$link" | wl-copy
+            echo "Link copied to clipboard using wl-clipboard."
+        elif [[ "$XDG_SESSION_TYPE" == "x11" ]]; then
+            echo "$link" | xclip -selection clipboard
+            echo "Link copied to clipboard using xclip."
+        else
+            echo "Unable to determine desktop session. Please copy the link manually."
+        fi
+    else
+        echo "Please copy and paste the link manually."
+    fi

@@ -1,3 +1,4 @@
+#!/bin/bash
 # Add Nobara's justfiles to users with home directories which lack a justfile.
 
 if [ ! -z "$HOME" ] && [ -d "$HOME" ] && [ ! -f "${HOME}/.justfile" ]; then
