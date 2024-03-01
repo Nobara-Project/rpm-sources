@@ -1,0 +1,78 @@
+From 8fc5105fec06e80cd2e6d1a3541bf0d8211d9c9f Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Niccol=C3=B2=20Venerandi?= <niccolo@venerandi.com>
+Date: Tue, 27 Feb 2024 16:23:43 +0000
+Subject: [PATCH] Show panels on entering edit mode and "add widgets"
+
+This will show all hidden panels when you enter edit mode; also, when
+you click on "add widgets" edit mode will get triggered.
+
+BUG: 448393
+FIXED-IN: 6.0.1
+
+
+(cherry picked from commit 461a7527f88487ccc75d24c4ad8b6e60632eaca5)
+---
+ shell/panelview.cpp   |  4 +++-
+ shell/shellcorona.cpp | 10 +++++++++-
+ 2 files changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/shell/panelview.cpp b/shell/panelview.cpp
+index 16b494d8778..06a45e48bbe 100644
+--- a/shell/panelview.cpp
++++ b/shell/panelview.cpp
+@@ -91,6 +91,8 @@ PanelView::PanelView(ShellCorona *corona, QScreen *targetScreen, QWindow *parent
+     m_unhideTimer.setInterval(500ms);
+     connect(&m_unhideTimer, &QTimer::timeout, this, &PanelView::restoreAutoHide);
+ 
++    connect(m_corona, &Plasma::Corona::editModeChanged, this, &PanelView::restoreAutoHide);
++
+     m_lastScreen = targetScreen;
+     connect(this, &PanelView::locationChanged, this, &PanelView::restore);
+     connect(this, &PanelView::containmentChanged, this, &PanelView::refreshContainment);
+@@ -888,7 +890,7 @@ void PanelView::restoreAutoHide()
+         autoHide = false;
+     } else if (m_containsMouse) {
+         autoHide = false;
+-    } else if (containment() && containment()->isUserConfiguring()) {
++    } else if (m_corona->isEditMode()) {
+         autoHide = false;
+     } else if (containment() && containment()->status() >= Plasma::Types::NeedsAttentionStatus && containment()->status() != Plasma::Types::HiddenStatus) {
+         autoHide = false;
+diff --git a/shell/shellcorona.cpp b/shell/shellcorona.cpp
+index 85d8354b526..c5c2a9e1751 100644
+--- a/shell/shellcorona.cpp
++++ b/shell/shellcorona.cpp
+@@ -153,6 +153,13 @@ void ShellCorona::init()
+ #endif
+ 
+     connect(this, &Plasma::Corona::availableScreenRectChanged, this, &Plasma::Corona::availableScreenRegionChanged);
++    connect(this, &Plasma::Corona::editModeChanged, this, [this]() {
++        QMapIterator<const Plasma::Containment *, PanelView *> i(m_panelViews);
++        while (i.hasNext()) {
++            i.next();
++            Q_EMIT availableScreenRectChanged(i.key()->screen());
++        }
++    });
+ 
+     m_appConfigSyncTimer.setSingleShot(true);
+     m_appConfigSyncTimer.setInterval(s_configSyncDelay);
+@@ -1173,7 +1180,7 @@ QRect ShellCorona::_availableScreenRect(int id) const
+     int topThickness, leftThickness, rightThickness, bottomThickness;
+     topThickness = leftThickness = rightThickness = bottomThickness = 0;
+     for (PanelView *v : m_panelViews) {
+-        if (v->isVisible() && v->screen() == screen && v->visibilityMode() != PanelView::AutoHide) {
++        if (v->isVisible() && v->screen() == screen && (v->visibilityMode() != PanelView::AutoHide || isEditMode())) {
+             switch (v->location()) {
+             case Plasma::Types::LeftEdge:
+                 leftThickness = qMax(leftThickness, v->totalThickness());
+@@ -1610,6 +1617,7 @@ void ShellCorona::executeSetupPlasmoidScript(Plasma::Containment *containment, P
+ 
+ void ShellCorona::toggleWidgetExplorer()
+ {
++    setEditMode(true);
+     // FIXME: This does not work on wayland
+     const QPoint cursorPos = QCursor::pos();
+     for (DesktopView *view : std::as_const(m_desktopViewForScreen)) {
+-- 
+GitLab
+

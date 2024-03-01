@@ -1,0 +1,128 @@
+From e306c63ddbeaccea72a03fbb2c3dbd8245addef5 Mon Sep 17 00:00:00 2001
+From: Marco Martin <notmart@gmail.com>
+Date: Wed, 28 Feb 2024 08:49:30 +0000
+Subject: [PATCH] FolderView Positioner: fix rows insert and remove
+
+The positioner "proxy" model had problems both in rows insertion and
+removal.
+
+when an icon is dropped in an empty desktop area as the new "last"
+position, the positioner model creates new empty items for the GridView
+until it reaches the cell of the drop position.
+
+This broke because of connection slot invocation order: the connection
+to QAbstractItemModel::rowsInserted in FolderModel constructor was
+executed before the connection in positioner.
+In turn that connection emitted move, which invoked move on Positioner,
+which at this point thinks its still in the first rows insertion
+transaction, because its slot has not been executed yet,
+and m_beginInsertRowsCalled is still true, so there won't be a "correct"
+new beginInsertRows called.
+Make it a Queued connection to push it back.
+
+In the same way, when dragging from a "last" position, the Positioner model
+will remove all the trailing empty items. But it modified m_proxyToSource
+(from which rowCount() depends) before calling beginRemoveRows, sending
+the model into an inconsitent state and causing an assert. Make sure
+that m_proxyToSource is touched only after beginRemoveRows.
+
+BUG:481254
+BUG:466337
+---
+ .../desktop/plugins/folder/foldermodel.cpp    | 29 ++++++++++++-------
+ .../desktop/plugins/folder/positioner.cpp     | 17 +++++++----
+ 2 files changed, 29 insertions(+), 17 deletions(-)
+
+diff --git a/containments/desktop/plugins/folder/foldermodel.cpp b/containments/desktop/plugins/folder/foldermodel.cpp
+index 7145255bfb..d3b2d29231 100644
+--- a/containments/desktop/plugins/folder/foldermodel.cpp
++++ b/containments/desktop/plugins/folder/foldermodel.cpp
+@@ -205,18 +205,25 @@ FolderModel::FolderModel(QObject *parent)
+     });
+ 
+     // Position dropped items at the desired target position.
+-    connect(this, &QAbstractItemModel::rowsInserted, this, [this](const QModelIndex &parent, int first, int last) {
+-        for (int i = first; i <= last; ++i) {
+-            const auto idx = index(i, 0, parent);
+-            const auto url = itemForIndex(idx).url();
+-            auto it = m_dropTargetPositions.find(url.fileName());
+-            if (it != m_dropTargetPositions.end()) {
+-                const auto pos = it.value();
+-                m_dropTargetPositions.erase(it);
+-                Q_EMIT move(pos.x(), pos.y(), {url});
++    // It's queued because we need it to be executed after any connection to rowsInserted by proxy models
++    // See BUG:481254
++    connect(
++        this,
++        &QAbstractItemModel::rowsInserted,
++        this,
++        [this](const QModelIndex &parent, int first, int last) {
++            for (int i = first; i <= last; ++i) {
++                const auto idx = index(i, 0, parent);
++                const auto url = itemForIndex(idx).url();
++                auto it = m_dropTargetPositions.find(url.fileName());
++                if (it != m_dropTargetPositions.end()) {
++                    const auto pos = it.value();
++                    m_dropTargetPositions.erase(it);
++                    Q_EMIT move(pos.x(), pos.y(), {url});
++                }
+             }
+-        }
+-    });
++        },
++        Qt::QueuedConnection);
+ 
+     /*
+      * Dropped files may not actually show up as new files, e.g. when we overwrite
+diff --git a/containments/desktop/plugins/folder/positioner.cpp b/containments/desktop/plugins/folder/positioner.cpp
+index 64e7f03100..9ba18d01d0 100644
+--- a/containments/desktop/plugins/folder/positioner.cpp
++++ b/containments/desktop/plugins/folder/positioner.cpp
+@@ -599,7 +599,6 @@ void Positioner::sourceRowsAboutToBeInserted(const QModelIndex &parent, int star
+             m_ignoreNextTransaction = true;
+         }
+     } else {
+-        beginInsertRows(parent, start, end);
+         beginInsertRows(parent, start, end);
+         m_beginInsertRowsCalled = true;
+     }
+@@ -621,7 +620,7 @@ void Positioner::sourceRowsAboutToBeRemoved(const QModelIndex &parent, int first
+ 
+         for (int i = first; i <= last; ++i) {
+             int proxyRow = m_sourceToProxy.take(i);
+-            m_proxyToSource.remove(proxyRow);
++            // Don't touch m_proxyToSource yet, as beginRemoveRows was not emitted yet
+             m_pendingChanges << createIndex(proxyRow, 0);
+         }
+ 
+@@ -642,10 +641,13 @@ void Positioner::sourceRowsAboutToBeRemoved(const QModelIndex &parent, int first
+             }
+         }
+ 
+-        m_proxyToSource = newProxyToSource;
+-        m_sourceToProxy = newSourceToProxy;
+-
+-        int newLast = lastRow();
++        int newLast = 0;
++        // Duplicate lastRow instead of assigning m_proxyToSource now as rowCount() can't be changed before beginRemoveRows
++        if (!newProxyToSource.isEmpty()) {
++            QList<int> keys(newProxyToSource.keys());
++            std::sort(keys.begin(), keys.end());
++            newLast = keys.last();
++        }
+ 
+         if (oldLast > newLast) {
+             int diff = oldLast - newLast;
+@@ -653,6 +655,9 @@ void Positioner::sourceRowsAboutToBeRemoved(const QModelIndex &parent, int first
+         } else {
+             m_ignoreNextTransaction = true;
+         }
++
++        m_proxyToSource = newProxyToSource;
++        m_sourceToProxy = newSourceToProxy;
+     } else {
+         beginRemoveRows(parent, first, last);
+     }
+-- 
+GitLab
+

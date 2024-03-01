@@ -1,0 +1,45 @@
+From d09d50c3664efacf3bf8c7f2effe338a05cb816c Mon Sep 17 00:00:00 2001
+From: David Edmundson <kde@davidedmundson.co.uk>
+Date: Sun, 25 Feb 2024 17:22:13 +0000
+Subject: [PATCH] Revert "panelview: Take focus from other Plasma windows when
+ clicked"
+
+Panel has additional requirements, we do not want to close popups when
+moving between system tray items.
+
+This reverts commit 5f7fd94fccbce316bdb6f723a3b0f332a39f2d3f.
+
+BUG: 481671
+CCBUG: 367815
+
+
+(cherry picked from commit ec9daf96220022d99a310ef0bb39723c472f6fe5)
+---
+ shell/panelview.cpp | 11 -----------
+ 1 file changed, 11 deletions(-)
+
+diff --git a/shell/panelview.cpp b/shell/panelview.cpp
+index a3b122e6bf6..16b494d8778 100644
+--- a/shell/panelview.cpp
++++ b/shell/panelview.cpp
+@@ -1189,17 +1189,6 @@ bool PanelView::event(QEvent *e)
+         break;
+     }
+ 
+-    // PanelView does not take focus, but we want any users tracking focus
+-    // to act like they've lost focus when the panel is clicked
+-    if (e->type() == QEvent::MouseButtonPress) {
+-        QWindow *focusWindow = qGuiApp->focusWindow();
+-        if (focusWindow && focusWindow != this && focusWindow->flags().testFlag(Qt::FramelessWindowHint)) {
+-            // postEvent takes ownership of the event
+-            QFocusEvent *fe = new QFocusEvent(QEvent::FocusOut);
+-            qGuiApp->postEvent(focusWindow, fe);
+-        }
+-    }
+-
+     return ContainmentView::event(e);
+ }
+ 
+-- 
+GitLab
+
