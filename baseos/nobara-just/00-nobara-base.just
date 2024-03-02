@@ -27,7 +27,7 @@ update-grub:
 # Upload Nobara update log (.nobara-sync.log) to pastebin via fpaste
 share-update-logs:
     #!/usr/bin/bash
-    link=$(cat ~/.nobara-sync.log | fpaste)
+    link=$(cat ~/.nobara-sync.log | pbcli)
     echo "Log uploaded to: $link"
     # Prompt the user after uploading
     read -p "Do you want to copy the link to the clipboard? [y/n] " choice

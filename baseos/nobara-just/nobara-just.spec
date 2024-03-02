@@ -7,9 +7,12 @@ Release:        2%{?dist}
 Summary:        nobara just integration
 License:        MIT
 URL:            https://github.com/ublue-os/config
-ExclusiveArch:	x86_64
+
+BuildArch:		noarch
 
 Requires:       just
+Requires:		wl-clipboard
+Requires:		xclip
 
 Source0:        nobara-just.sh
 Source1:        00-nobara-base.just
@@ -19,7 +22,6 @@ Source4:        header.just
 Source5:        njust.sh
 Source6:        libcolors.sh
 Source7:        libformatting.sh
-Source8:		pbcli
 
 %global sub_name %{lua:t=string.gsub(rpm.expand("%{NAME}"), "^nobara%-", ""); print(t)}
 
@@ -37,14 +39,6 @@ mkdir -p %{buildroot}%{_sysconfdir}
 
 install -Dm755 %{SOURCE0} %{buildroot}%{_sysconfdir}/profile.d/nobara-just.sh
 cp %{SOURCE1} %{SOURCE2} %{buildroot}%{_datadir}/%{VENDOR}/%{sub_name}
-
-install -Dm755 %{SOURCE8} %{buildroot}%{_bindir}/pbcli
-
-echo "--host=https://paste.gloriouseggroll.tv" > %{buildroot}%{_sysconfdir}/pbcli.conf
-echo "--expire=1week" >> %{buildroot}%{_sysconfdir}/pbcli.conf
-echo '#!/bin/bash' > %{buildroot}%{_sysconfdir}/profile.d/pbcli.sh
-echo 'export PBCLI_CONFIG_PATH=%{_sysconfdir}/pbcli.conf' >> %{buildroot}%{_sysconfdir}/profile.d/pbcli.sh
-chmod +x %{buildroot}%{_sysconfdir}/profile.d/pbcli.sh
 
 
 # Create justfile which contains all .just files included in this package
@@ -73,9 +67,6 @@ install -Dm644 %{SOURCE7} %{buildroot}/%{_exec_prefix}/lib/njust
 %attr(0755,root,root) %{_bindir}/njust
 %attr(0644,root,root) %{_exec_prefix}/lib/njust/njust.sh
 %attr(0644,root,root) %{_exec_prefix}/lib/njust/lib*.sh
-%attr(0755,root,root) %{_bindir}/pbcli
-%attr(0644,root,root) %{_sysconfdir}/pbcli.conf
-%attr(0755,root,root) %{_sysconfdir}/profile.d/pbcli.sh
 
 %post
 # Generate njust bash completion

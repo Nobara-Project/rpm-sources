@@ -155,14 +155,47 @@ disable-sdgyrodsu:
     #!/usr/bin/bash
     sudo systemctl mask --user sdgyrodsu.service
 
-# Upload Deck edition's Game Mode (gamescope-session) logs to pastebin via fpaste
-upload-deck-logs:
-    (echo "===== GAMESCOPE CMD LOG ====="; cat $HOME/.gamescope-cmd.log; \
-    echo "===== GAMESCOPE STDOUT LOG ====="; cat $HOME/.gamescope-stdout.log) | fpaste
-    echo 'Logs uploaded. Please copy the link by right clicking it or by highlighting the link and using Ctrl + Shift + C.'
+# Upload Deck edition's Game Mode (gamescope-session) logs to pastebin via pbcli
+share-deck-logs:
+    #!/usr/bin/bash
+    combined_log=$(echo "===== GAMESCOPE CMD LOG ====="; cat $HOME/.gamescope-cmd.log; \
+    echo; echo "===== GAMESCOPE STDOUT LOG ====="; cat $HOME/.gamescope-stdout.log)
+    link=$(echo "$combined_log" | pbcli)
+    echo "Logs uploaded to: $link"
+    # Prompt the user after uploading
+    read -p "Do you want to copy the link to the clipboard? [y/n] " choice
+    if [[ "$choice" =~ ^[Yy]$ ]]; then
+        if [[ "$XDG_SESSION_TYPE" == "wayland" ]]; then
+            echo "$link" | wl-copy
+            echo "Link copied to clipboard using wl-clipboard."
+        elif [[ "$XDG_SESSION_TYPE" == "x11" ]]; then
+            echo "$link" | xclip -selection clipboard
+            echo "Link copied to clipboard using xclip."
+        else
+            echo "Unable to determine desktop session. Please copy the link manually."
+        fi
+    else
+        echo "Please copy and paste the link manually."
+    fi
 
 # Upload hhd logs to pastebin via fpaste
-upload-hhd-logs:
-    (echo "===== HHD LOG ====="; cat $HOME/.config/hhd/log/hhd.log) | fpaste
-    echo 'Logs uploaded. Please copy the link by right clicking it or by highlighting the link and using Ctrl + Shift + C.'
-
+share-hhd-logs:
+    #!/usr/bin/bash
+    combined_log=$(echo "===== HHD LOG ====="; cat $HOME/.config/hhd/log/hhd.log)
+    link=$(echo "$combined_log" | pbcli)
+    echo "Log uploaded to: $link"
+    # Prompt the user after uploading
+    read -p "Do you want to copy the link to the clipboard? [y/n] " choice
+    if [[ "$choice" =~ ^[Yy]$ ]]; then
+        if [[ "$XDG_SESSION_TYPE" == "wayland" ]]; then
+            echo "$link" | wl-copy
+            echo "Link copied to clipboard using wl-clipboard."
+        elif [[ "$XDG_SESSION_TYPE" == "x11" ]]; then
+            echo "$link" | xclip -selection clipboard
+            echo "Link copied to clipboard using xclip."
+        else
+            echo "Unable to determine desktop session. Please copy the link manually."
+        fi
+    else
+        echo "Please copy and paste the link manually."
+    fi

@@ -18,7 +18,7 @@ pbcli is a command-line interface for XYZ.
 %setup -q -n pbcli-v%{version}-linux
 
 %install
-# Create necessary directories
+# Create necessary dire/ctories
 mkdir -p %{buildroot}%{_bindir}
 
 # Extract the tarball and copy the pbcli binary to the buildroot
