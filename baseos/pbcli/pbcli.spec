@@ -2,7 +2,7 @@ Name:           pbcli
 Version:        2.2.1
 Release:        1%{?dist}
 
-Summary:        pbcli - Command-line interface for XYZ
+Summary:        pbcli - Command-line interface for pastebin uploads and downloads
 License:        MIT
 URL:            https://github.com/Mydayyy/pbcli
 
@@ -12,13 +12,13 @@ Source1:        pbcli.conf
 BuildRequires:  tar
 
 %description
-pbcli is a command-line interface for XYZ.
+Command-line interface for pastebin uploads and downloads
 
 %prep
 %setup -q -n pbcli-v%{version}-linux
 
 %install
-# Create necessary dire/ctories
+# Create necessary directories
 mkdir -p %{buildroot}%{_bindir}
 
 # Extract the tarball and copy the pbcli binary to the buildroot
