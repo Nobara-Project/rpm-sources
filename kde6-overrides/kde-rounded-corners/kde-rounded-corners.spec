@@ -1,6 +1,6 @@
 Name:           kde-rounded-corners
 Version:        0.6.1
-Release:        2%{?dist}
+Release:        4%{?dist}
 Summary:        Rounds the corners of your windows in KDE Plasma
 
 License:        GPL-3.0-only
@@ -33,10 +33,7 @@ BuildRequires:  cmake(KWin)
 BuildRequires:  cmake(KWinDBusInterface)
 BuildRequires:  pkgconfig(epoxy)
 BuildRequires:  pkgconfig(xcb)
-
-Provides: kde-rounded-corners
-Provides: plasma-rounded-corners
-Obsoletes: plasma-rounded-corners
+Obsoletes:  plasma-rounded-corners
 
 %description
 %{summary}.
