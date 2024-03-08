@@ -1,14 +1,11 @@
 Name:    plasma-desktop
 Summary: Plasma Desktop shell
-Version: 6.0.0
+Version: 6.0.1
 Release: 1%{?dist}
 
 License: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LicenseRef-KDE-Accepted-GPL AND LicenseRef-KDE-Accepted-LGPL
 URL:     https://invent.kde.org/plasma/%{name}
 Source0: https://download.kde.org/%{stable_kf6}/plasma/%{version}/%{name}-%{version}.tar.xz
-Patch:   https://invent.kde.org/plasma/plasma-desktop/-/commit/459ade071534de37f29bb1eedbacdb7b59f05f82.patch
-Patch:   https://invent.kde.org/plasma/plasma-desktop/-/commit/a2c763a16916dd154216174d9bf459c743f5e5d9.patch
-Patch:   https://invent.kde.org/plasma/plasma-desktop/-/commit/e306c63ddbeaccea72a03fbb2c3dbd8245addef5.patch
 
 ## downstream patches
 # default kickoff/kicker favorites: +kwrite +konsole
