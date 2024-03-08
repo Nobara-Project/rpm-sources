@@ -1,0 +1,26 @@
+From 519cfee1bb6c1477a2cc5efdb2c9997904ddcbed Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Thu, 7 Mar 2024 01:28:08 -0700
+Subject: [PATCH] fix underlined text in dock widget titles rendering as
+ ampersands
+
+---
+ src/widgets/styles/qstylesheetstyle.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/widgets/styles/qstylesheetstyle.cpp b/src/widgets/styles/qstylesheetstyle.cpp
+index 1ba8aa7c..37685b5f 100644
+--- a/src/widgets/styles/qstylesheetstyle.cpp
++++ b/src/widgets/styles/qstylesheetstyle.cpp
+@@ -4484,7 +4484,7 @@ void QStyleSheetStyle::drawControl(ControlElement ce, const QStyleOption *opt, Q
+ 
+                 QString titleText = p->fontMetrics().elidedText(dwOpt->title, Qt::ElideRight, r.width());
+                 drawItemText(p, r,
+-                             alignment, dwOpt->palette,
++                             alignment | Qt::TextHideMnemonic, dwOpt->palette,
+                              dwOpt->state & State_Enabled, titleText,
+                              QPalette::WindowText);
+ 
+-- 
+2.44.0
+
