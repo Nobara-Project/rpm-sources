@@ -3,7 +3,7 @@
 
 Name:           sddm
 Version:        0.21.0
-Release:        1%{?dist}
+Release:        3%{?dist}
 License:        GPL-2.0-or-later
 Summary:        QML based desktop and login manager
 
@@ -33,6 +33,9 @@ Patch104:       sddm-rpmostree-tmpfiles-hack.patch
 
 # Workaround lack of Qt 5 greeter build
 Patch105:       sddm-0.21.0-qt6greeter.patch
+
+# Workaround to fix black screen on first boot for 7840U
+Patch106:       0001-add-5-second-sleep-to-ExecStartPre-because-sddm-wayl.patch
 
 # Shamelessly stolen from gdm
 Source11:       sddm.pam
@@ -80,6 +83,10 @@ BuildRequires:  systemd
 BuildRequires:  systemd-rpm-macros
 
 Obsoletes: kde-settings-sddm < 20-5
+
+Requires: sddm-breeze
+Requires: sddm-kcm
+
 
 %if 0%{?fedora}
 # for /usr/share/backgrounds/default.png
@@ -212,10 +219,8 @@ ln -sr %{buildroot}%{_bindir}/sddm-greeter-qt6 %{buildroot}%{_bindir}/sddm-greet
 %preun
 %systemd_preun sddm.service
 
-
 %postun
 %systemd_postun sddm.service
-
 
 %files
 %license LICENSE
@@ -223,11 +228,11 @@ ln -sr %{buildroot}%{_bindir}/sddm-greeter-qt6 %{buildroot}%{_bindir}/sddm-greet
 %dir %{_sysconfdir}/sddm/
 %dir %{_sysconfdir}/sddm.conf.d
 %dir %{_prefix}/lib/sddm/sddm.conf.d
-%config(noreplace)   %{_sysconfdir}/sddm/*
-%config(noreplace)   %{_sysconfdir}/sddm.conf
-%config(noreplace)   %{_sysconfdir}/pam.d/sddm
-%config(noreplace)   %{_sysconfdir}/pam.d/sddm-autologin
-%config(noreplace)   %{_sysconfdir}/pam.d/sddm-greeter
+%config(noreplace) %{_sysconfdir}/sddm/*
+%config(noreplace) %{_sysconfdir}/sddm.conf
+%config(noreplace) %{_sysconfdir}/pam.d/sddm
+%config(noreplace) %{_sysconfdir}/pam.d/sddm-autologin
+%config(noreplace) %{_sysconfdir}/pam.d/sddm-greeter
 %config(noreplace) %{_sysconfdir}/sysconfig/sddm
 %{_datadir}/dbus-1/system.d/org.freedesktop.DisplayManager.conf
 %{_bindir}/sddm
