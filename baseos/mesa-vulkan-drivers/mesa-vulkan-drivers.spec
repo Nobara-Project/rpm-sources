@@ -1,6 +1,6 @@
 %global _default_patch_fuzz 2
 
-%global commit 5a852bd24cc10e08e42703751e7d1ba384b76e31
+%global commit e1afffe7fa7bd8e1cd1f7e58cfa2f33faf889628
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build git.%{build_timestamp}.%{shortcommit}%{?dist}
@@ -93,6 +93,7 @@ Patch2: 25352.patch
 # https://gitlab.com/evlaV/mesa/
 Patch3: valve.patch
 
+Patch4: helldivers-2-gpu-hang-workaround-radv.patch
 
 Patch10:        gnome-shell-glthread-disable.patch
 
