@@ -40,7 +40,7 @@ Use mock to build the rpm. Mock config files are in the mock folder. Most packag
 `mock -r /path/to/mock/folder/nobara-39-x86_64.cfg --rebuild --enable-network *.src.rpm`
 
 32 bit package:
-`mock -r /path/to/mock/folder/nobara-39-i386.cfg --rebuild --enable-network *.src.rpm`
+`mock -r /path/to/mock/folder/nobara-39-i686.cfg --rebuild --enable-network *.src.rpm`
 
 Move the results folder to the current directory:
 
@@ -48,7 +48,7 @@ Move the results folder to the current directory:
 `mv /var/lib/mock/nobara-39-x86_64/result .`
 
 32 bit package:
-`mv /var/lib/mock/nobara-39-i386/result .`
+`mv /var/lib/mock/nobara-39-i686/result .`
 
 Optionally install or upgrade using the new rpms in the result folder:
 

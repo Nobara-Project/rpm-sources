@@ -9,9 +9,9 @@
 # check buildresult after a while
 
 %define _lto_cflags %{nil}
-%define realver     8.20
-%define stagingver  8.20
-%define packagever  8.20
+%define realver     9.4
+%define stagingver  9.4
+%define packagever  9.4
 
 %global flavor %nil
 
@@ -30,7 +30,7 @@
 
 Name:       %pkg
 Version:    %ver
-Release:    1.2
+Release:    1.0
 Epoch:      1
 Summary:    WINE Is Not An Emulator - runs MS Windows programs
 License:    LGPLv2+
@@ -45,10 +45,10 @@ URL:        https://www.winehq.org/
 %define mark64  %{nil}
 %endif
 
-Source0:	https://dl.winehq.org/wine/source/8.x/wine-%{realver}.tar.xz
-Source1:	https://dl.winehq.org/wine/source/8.x/wine-%{realver}.tar.xz.sign
+Source0:	https://dl.winehq.org/wine/source/9.x/wine-%{realver}.tar.xz
+Source1:	https://dl.winehq.org/wine/source/9.x/wine-%{realver}.tar.xz.sign
 
-Source100:	https://github.com/wine-staging/wine-staging/archive/v%{realver}.tar.gz#/wine-staging-%{stagingver}.tar.xz
+Source100:	https://github.com/wine-staging/wine-staging/archive/refs/tags/v%{realver}.tar.gz#/wine-staging-%{stagingver}.tar.xz
 
 # Alexandres key
 Source99:	wine.keyring
@@ -318,7 +318,7 @@ install -p -m 0644 loader/wine.pl.UTF-8.man "%{buildroot}/usr/share/man/pl.UTF-8
 %endif
 
 %files -n %{wine}
-%doc ANNOUNCE AUTHORS README
+%doc ANNOUNCE.md AUTHORS README.md
 %ifarch x86_64
 %{_bindir}/wine64
 %{_bindir}/wine64-preloader
