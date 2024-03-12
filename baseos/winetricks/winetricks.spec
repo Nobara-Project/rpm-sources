@@ -1,9 +1,9 @@
 # Uncomment these, set snapshot to 0.
 %global snapshot 1
-%global commit0  07c6d38913433c6318c4d5358ea75987b9a419f1
+%global commit0  f87bf9e6a7c67a06487a1ef710c0d9c548ae6f01
 
 Name:           winetricks
-Version:        20231123
+Version:        20240105
 Release:        1%{?dist}
 
 Summary:        Work around common problems in Wine
