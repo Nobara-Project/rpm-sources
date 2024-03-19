@@ -10,8 +10,8 @@
 
 %define _lto_cflags %{nil}
 %define realver     9.4
-%define stagingver  9.4
-%define packagever  9.4
+%define stagingver  9.4.1
+%define packagever  9.4.1
 
 %global flavor %nil
 
@@ -30,7 +30,7 @@
 
 Name:       %pkg
 Version:    %ver
-Release:    1.0
+Release:    1.1
 Epoch:      1
 Summary:    WINE Is Not An Emulator - runs MS Windows programs
 License:    LGPLv2+
@@ -48,7 +48,7 @@ URL:        https://www.winehq.org/
 Source0:	https://dl.winehq.org/wine/source/9.x/wine-%{realver}.tar.xz
 Source1:	https://dl.winehq.org/wine/source/9.x/wine-%{realver}.tar.xz.sign
 
-Source100:	https://github.com/wine-staging/wine-staging/archive/refs/tags/v%{realver}.tar.gz#/wine-staging-%{stagingver}.tar.xz
+Source100:	https://github.com/wine-staging/wine-staging/archive/refs/tags/v%{stagingver}.tar.gz#/wine-staging-%{stagingver}.tar.xz
 
 # Alexandres key
 Source99:	wine.keyring
