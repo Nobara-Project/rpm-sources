@@ -3,7 +3,7 @@
 Name:    plasma-workspace
 Summary: Plasma workspace, applications and applets
 Version: 6.0.2
-Release: 1%{?dist}
+Release: 2%{?dist}
 
 License: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND LicenseRef-KDE-Accepted-GPL AND LicenseRef-KDE-Accepted-LGPL AND MIT
 URL:     https://invent.kde.org/plasma/%{name}
@@ -353,7 +353,7 @@ Requires:       kde-settings-sddm
 Obsoletes: plasma-workspace < 5.3.2-8
 Requires:       kf6-plasma
 # on-screen keyboard
-Recommends:     qt6-qtvirtualkeyboard
+Requires:       qt6-qtvirtualkeyboard
 # QML imports:
 # org.kde.plasma.workspace.components
 # org.kde.plasma.workspace.keyboardlayout
@@ -397,6 +397,7 @@ Requires:       qt6-qttools
 Requires:       xdg-desktop-portal-kde
 %if ! %{with x11}
 Obsoletes:      %{name}-x11 < %{version}-%{release}
+Conflicts:      %{name}-x11 < %{version}-%{release}
 %endif
 %description wayland
 %{summary}.
@@ -414,6 +415,8 @@ Requires:       %{name} = %{version}-%{release}
 Requires:       kwin-x11
 Requires:       xorg-x11-server-Xorg
 Requires:       xsetroot
+# Plasma X11 is deprecated and will be removed with Plasma 6.0
+Provides:       deprecated()
 %description x11
 %{summary}.
 %endif
@@ -668,6 +671,24 @@ fi
 %endif
 
 %changelog
+* Wed Mar 20 2024 Pavel Solovev <daron439@gmail.com> - 6.0.2-2
+- qmlcache rebuild
+
+* Sat Dec 23 2023 Neal Gompa <ngompa@fedoraproject.org> - 5.91.0-2
+- Clean up uneeded conditionals in packaging
+
+* Thu Dec 21 2023 Marc Deop i ArgemÃ­ <marcdeop@fedoraproject.org> - 5.91.0-1
+- 5.91.0
+
+* Mon Dec 04 2023 Alessandro Astone <ales.astone@gmail.com> - 5.90.0-2
+- Update breeze-fedora sddm theme
+
+* Sun Dec 03 2023 Justin Zobel <justin.zobel@gmail.com> - 5.90.0-1
+- Update to 5.90.0
+
+* Wed Nov 29 2023 Jan Grulich <jgrulich@redhat.com> - 5.27.80-15
+- Rebuild (qt6)
+
 * Sat Nov 25 2023 Alessandro Astone <ales.astone@gmail.com> - 5.27.80-14
 - Re-enable downstream patches
 
@@ -717,7 +738,7 @@ fi
 * Fri Nov 03 2023 Neal Gompa <ngompa@fedoraproject.org> - 5.27.9.1-2
 - Mark plasma-workspace-x11 as deprecated
 
-* Wed Oct 25 2023 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 5.27.9.1-1
+* Wed Oct 25 2023 Marc Deop i ArgemÃ­ <marcdeop@fedoraproject.org> - 5.27.9.1-1
 - 5.27.9.1
 - Replace old %%stable macro
 
@@ -730,58 +751,58 @@ fi
 * Tue Sep 12 2023 justin.zobel@gmail.com - 5.27.8-1
 - 5.27.8
 
-* Sat Aug 12 2023 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 5.27.7-2
+* Sat Aug 12 2023 Marc Deop i ArgemÃ­ <marcdeop@fedoraproject.org> - 5.27.7-2
 - Add upstream patch
 
-* Tue Aug 01 2023 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 5.27.7-1
+* Tue Aug 01 2023 Marc Deop i ArgemÃ­ <marcdeop@fedoraproject.org> - 5.27.7-1
 - 5.27.7
 
 * Fri Jul 21 2023 Fedora Release Engineering <releng@fedoraproject.org> - 5.27.6-3
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_39_Mass_Rebuild
 
-* Tue Jul 11 2023 František Zatloukal <fzatlouk@redhat.com> - 5.27.6-2
+* Tue Jul 11 2023 FrantiÅ¡ek Zatloukal <fzatlouk@redhat.com> - 5.27.6-2
 - Rebuilt for ICU 73.2
 
-* Sun Jun 25 2023 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 5.27.6-1
+* Sun Jun 25 2023 Marc Deop i ArgemÃ­ <marcdeop@fedoraproject.org> - 5.27.6-1
 - 5.27.6
 
-* Mon Jun 12 2023 Timothée Ravier <tim@siosm.fr> - 5.27.5-2
+* Mon Jun 12 2023 TimothÃ©e Ravier <tim@siosm.fr> - 5.27.5-2
 - Recommend kde-inotify-survey & kf5-audiocd-kio
 
-* Wed May 10 2023 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 5.27.5-1
+* Wed May 10 2023 Marc Deop i ArgemÃ­ <marcdeop@fedoraproject.org> - 5.27.5-1
 - 5.27.5
 
 * Wed Apr 05 2023 Neal Gompa <ngompa@fedoraproject.org> - 5.27.4.1-2
 - Bump sddm Obsoletes for F38+
 
-* Tue Apr 04 2023 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 5.27.4.1-1
+* Tue Apr 04 2023 Marc Deop i ArgemÃ­ <marcdeop@fedoraproject.org> - 5.27.4.1-1
 - 5.27.4.1
 
-* Tue Apr 04 2023 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 5.27.4-1
+* Tue Apr 04 2023 Marc Deop i ArgemÃ­ <marcdeop@fedoraproject.org> - 5.27.4-1
 - 5.27.4
 
 * Mon Apr 03 2023 Neal Gompa <ngompa@fedoraproject.org> - 5.27.3-4
 - Add Obsoletes sddm-x11 for sddm-wayland transition in F38+
 
-* Mon Mar 27 2023 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 5.27.3-3
+* Mon Mar 27 2023 Marc Deop i ArgemÃ­ <marcdeop@fedoraproject.org> - 5.27.3-3
 - Add patch to hide the virtual keyboard indicator from sddm
 
 * Wed Mar 22 2023 Adam Williamson <awilliam@redhat.com> - 5.27.3-2
 - Backport MR #2767 to fix slow startup issue (#2179998)
 
-* Tue Mar 14 2023 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 5.27.3-1
+* Tue Mar 14 2023 Marc Deop i ArgemÃ­ <marcdeop@fedoraproject.org> - 5.27.3-1
 - 5.27.3
 
 * Mon Mar 13 2023 Adam Williamson <awilliam@redhat.com> - 5.27.2-3
 - Rebuild with no changes for F38 Bodhi purposes
 
-* Mon Mar 13 2023 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 5.27.2-2
+* Mon Mar 13 2023 Marc Deop i ArgemÃ­ <marcdeop@fedoraproject.org> - 5.27.2-2
 - Add Requires: kde-settings-sddm to sddm-breeze subpackage
 
-* Tue Feb 28 2023 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 5.27.2-1
+* Tue Feb 28 2023 Marc Deop i ArgemÃ­ <marcdeop@fedoraproject.org> - 5.27.2-1
 - 5.27.2
 
-* Tue Feb 21 2023 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 5.27.1-1
+* Tue Feb 21 2023 Marc Deop i ArgemÃ­ <marcdeop@fedoraproject.org> - 5.27.1-1
 - 5.27.1
 - Recommends plasma-welcome on Fedora
 
@@ -986,7 +1007,7 @@ fi
 * Tue Aug 31 2021 Jan Grulich <jgrulich@redhat.com> - 5.22.5-1
 - 5.22.5
 
-* Wed Aug 11 2021 Björn Esser <besser82@fedoraproject.org> - 5.22.4-6
+* Wed Aug 11 2021 BjÃ¶rn Esser <besser82@fedoraproject.org> - 5.22.4-6
 - Rebuild (gpsd)
 
 * Sun Aug 08 2021 Mukundan Ragavan <nonamedotc@gmail.com> - 5.22.4-5
@@ -1176,7 +1197,7 @@ fi
 * Tue Jun 23 2020 Jan Grulich <jgrulich@redhat.com> - 5.19.2-1
 - 5.19.2
 
-* Thu Jun 18 2020 Björn Esser <besser82@fedoraproject.org> - 5.19.1-2
+* Thu Jun 18 2020 BjÃ¶rn Esser <besser82@fedoraproject.org> - 5.19.1-2
 - Rebuild (gpsd)
 
 * Wed Jun 17 2020 Martin Kyral <martin.kyral@gmail.com> - 5.19.1-1
@@ -1272,7 +1293,7 @@ fi
 * Wed Jul 10 2019 Martin Kyral <martin.kyral@gmail.com> - 5.16.3-1
 - 5.16.3
 
-* Wed Jul 03 2019 Björn Esser <besser82@fedoraproject.org> - 5.16.2-2
+* Wed Jul 03 2019 BjÃ¶rn Esser <besser82@fedoraproject.org> - 5.16.2-2
 - Rebuild (gpsd)
 
 * Wed Jun 26 2019 Martin Kyral <martin.kyral@gmail.com> - 5.16.2-1
@@ -1729,10 +1750,10 @@ fi
 * Mon Mar 07 2016 Rex Dieter <rdieter@fedoraproject.org> 5.5.5-3
 - backport "Avoid blocking DBus calls in SNI startup" (kde#359611)
 
-* Thu Mar 03 2016 Daniel Vrátil <dvratil@fedoraproject.org> - 5.5.5-2
+* Thu Mar 03 2016 Daniel VrÃ¡til <dvratil@fedoraproject.org> - 5.5.5-2
 - Upstream respun tarball
 
-* Wed Mar 02 2016 Daniel Vrátil <dvratil@fedoraproject.org> - 5.5.5-1
+* Wed Mar 02 2016 Daniel VrÃ¡til <dvratil@fedoraproject.org> - 5.5.5-1
 - Plasma 5.5.5
 
 * Mon Feb 29 2016 Rex Dieter <rdieter@fedoraproject.org> 5.5.4-6
@@ -1750,7 +1771,7 @@ fi
 * Thu Feb 04 2016 Rex Dieter <rdieter@fedoraproject.org> 5.5.4-2
 - backport systray applets not shown workaround (kde#352055)
 
-* Wed Jan 27 2016 Daniel Vrátil <dvratil@fedoraproject.org> - 5.5.4-1
+* Wed Jan 27 2016 Daniel VrÃ¡til <dvratil@fedoraproject.org> - 5.5.4-1
 - Plasma 5.5.4
 
 * Mon Jan 25 2016 Rex Dieter <rdieter@fedoraproject.org> 5.5.3-6
@@ -1769,7 +1790,7 @@ fi
 * Sat Jan 09 2016 Rex Dieter <rdieter@fedoraproject.org> 5.5.3-2
 - pull in upstream fixes (notifications,xembedsniproxy)
 
-* Thu Jan 07 2016 Daniel Vrátil <dvratil@fedoraproject.org> - 5.5.3-1
+* Thu Jan 07 2016 Daniel VrÃ¡til <dvratil@fedoraproject.org> - 5.5.3-1
 - Plasma 5.5.3
 
 * Thu Dec 31 2015 Rex Dieter <rdieter@fedoraproject.org> - 5.5.2-2
@@ -1780,13 +1801,13 @@ fi
 * Thu Dec 31 2015 Rex Dieter <rdieter@fedoraproject.org> - 5.5.2-1
 - 5.5.2
 
-* Fri Dec 18 2015 Daniel Vrátil <dvratil@fedoraproject.org> - 5.5.1-1
+* Fri Dec 18 2015 Daniel VrÃ¡til <dvratil@fedoraproject.org> - 5.5.1-1
 - Plasma 5.5.1
 
 * Tue Dec 15 2015 Than Ngo <than@redhat.com> - 5.5.0-5
 - enable bootstrap for secondary arch
 
-* Mon Dec 14 2015 Daniel Vrátil <dvratil@fedoraproject.org> - 5.5.0-4
+* Mon Dec 14 2015 Daniel VrÃ¡til <dvratil@fedoraproject.org> - 5.5.0-4
 - proper upstream fix for #356415 (review #126331)
 
 * Sun Dec 13 2015 Rex Dieter <rdieter@fedoraproject.org> - 5.5.0-3
@@ -1794,13 +1815,13 @@ fi
 - revert commit causing regression'ish kde #356415
 - drop kwayland-integration from main pkg (only in -wayland subpkg)
 
-* Sat Dec 05 2015 Daniel Vrátil <dvraitl@fedoraproject.org> - 5.5.0-2
+* Sat Dec 05 2015 Daniel VrÃ¡til <dvraitl@fedoraproject.org> - 5.5.0-2
 - remove version dependency on oxygen-fonts, because it's not being released anymore
 
-* Thu Dec 03 2015 Daniel Vrátil <dvratil@fedoraproject.org> - 5.5.0-1
+* Thu Dec 03 2015 Daniel VrÃ¡til <dvratil@fedoraproject.org> - 5.5.0-1
 - Plasma 5.5.0
 
-* Wed Nov 25 2015 Daniel Vrátil <dvratil@fedoraproject.org> - 5.4.95-1
+* Wed Nov 25 2015 Daniel VrÃ¡til <dvratil@fedoraproject.org> - 5.4.95-1
 - Plasma 5.4.95
 
 * Tue Nov 17 2015 Rex Dieter <rdieter@fedoraproject.org> 5.4.3-4
@@ -1813,7 +1834,7 @@ fi
 * Wed Nov 11 2015 Rex Dieter <rdieter@fedoraproject.org> 5.4.3-2
 - refresh xembedsniproxy support (#1280457)
 
-* Thu Nov 05 2015 Daniel Vrátil <dvratil@fedoraproject.org> - 5.4.3-1
+* Thu Nov 05 2015 Daniel VrÃ¡til <dvratil@fedoraproject.org> - 5.4.3-1
 - Plasma 5.4.3
 
 * Tue Nov 03 2015 Rex Dieter <rdieter@fedoraproject.org> - 5.4.2-8
@@ -1871,28 +1892,28 @@ fi
 * Wed Sep 02 2015 Rex Dieter <rdieter@fedoraproject.org> 5.4.0-6.1
 - make plasma-pa f23+ only
 
-* Tue Sep 01 2015 Daniel Vrátil <dvratil@redhat.com> - 5.4.0-6
+* Tue Sep 01 2015 Daniel VrÃ¡til <dvratil@redhat.com> - 5.4.0-6
 - Try rebuilding against new baloo
 
 * Wed Aug 26 2015 Rex Dieter <rdieter@fedoraproject.org> 5.4.0-5
 - versioned kf5-related build deps
 
-* Tue Aug 25 2015 Daniel Vrátil <dvratil@redhat.com> - 5.4.0-4
+* Tue Aug 25 2015 Daniel VrÃ¡til <dvratil@redhat.com> - 5.4.0-4
 - Disable bootstrap
 
-* Tue Aug 25 2015 Daniel Vrátil <dvratil@redhat.com> - 5.4.0-3
+* Tue Aug 25 2015 Daniel VrÃ¡til <dvratil@redhat.com> - 5.4.0-3
 - Re-enable plasma-pa and kwayland-integration dependencies
 
-* Sat Aug 22 2015 Daniel Vrátil <dvratil@redhat.com> - 5.4.0-2
+* Sat Aug 22 2015 Daniel VrÃ¡til <dvratil@redhat.com> - 5.4.0-2
 - Temporarily disable plasma-pa and kwayland-integration until the packages are reviewed
 
-* Fri Aug 21 2015 Daniel Vrátil <dvratil@redhat.com> - 5.4.0-1
+* Fri Aug 21 2015 Daniel VrÃ¡til <dvratil@redhat.com> - 5.4.0-1
 - Plasma 5.4.0
 
-* Thu Aug 20 2015 Daniel Vrátil <dvratil@redhat.com> - 5.3.95-4
+* Thu Aug 20 2015 Daniel VrÃ¡til <dvratil@redhat.com> - 5.3.95-4
 - use patch for startkde.cmake, remove redundant prison dependency
 
-* Thu Aug 13 2015 Daniel Vrátil <dvratil@redhat.com> - 5.3.95-1
+* Thu Aug 13 2015 Daniel VrÃ¡til <dvratil@redhat.com> - 5.3.95-1
 - Plasma 5.3.95
 
 * Tue Aug 11 2015 Rex Dieter <rdieter@fedoraproject.org> - 5.3.2-11
@@ -1926,10 +1947,10 @@ fi
 - own /usr/share/drkonqi/
 - %%config(noreplace) pam
 
-* Fri Jun 26 2015 Daniel Vrátil <dvratil@redhat.com> - 5.3.2-2
+* Fri Jun 26 2015 Daniel VrÃ¡til <dvratil@redhat.com> - 5.3.2-2
 - Make the Requires: plasmashell unversioned to break circular dependency during update
 
-* Thu Jun 25 2015 Daniel Vrátil <dvratil@redhat.com> - 5.3.2-1
+* Thu Jun 25 2015 Daniel VrÃ¡til <dvratil@redhat.com> - 5.3.2-1
 - Plasma 5.3.2
 
 * Sat Jun 20 2015 Rex Dieter <rdieter@fedoraproject.org> 5.3.1-5
@@ -1946,7 +1967,7 @@ fi
 - Requires: kf5-kactivities
 - doc: make noarch, %%lang'ify
 
-* Tue May 26 2015 Daniel Vrátil <dvratil@redhat.com> - 5.3.1-1
+* Tue May 26 2015 Daniel VrÃ¡til <dvratil@redhat.com> - 5.3.1-1
 - Plasma 5.3.1
 
 * Wed May 20 2015 Jan Grulich <jgrulich@redhat.com> - 5.3.0-8
@@ -1961,20 +1982,20 @@ fi
 * Mon May 18 2015 Jan Grulich <jgrulich@redhat.com> - 5.3.0-5
 - set default look and feel theme to Fedora Twenty Two
 
-* Tue May 05 2015 Daniel Vrátil <dvratil@redhat.com> - 5.3.0-4
+* Tue May 05 2015 Daniel VrÃ¡til <dvratil@redhat.com> - 5.3.0-4
 - backport patch form kde-workspace to add Konsole into shell context menu
 - re-enable fix-update-scripts.patch
 
-* Wed Apr 29 2015 Daniel Vrátil <dvratil@redhat.com> - 5.3.0-3
+* Wed Apr 29 2015 Daniel VrÃ¡til <dvratil@redhat.com> - 5.3.0-3
 - Disable bootstrap
 
-* Wed Apr 29 2015 Daniel Vrátil <dvratil@redhat.com> - 5.3.0-2
+* Wed Apr 29 2015 Daniel VrÃ¡til <dvratil@redhat.com> - 5.3.0-2
 - Requires plasmashell (virtual provides for packages that provide Plasma shells, like plasma-desktop)
 
-* Mon Apr 27 2015 Daniel Vrátil <dvratil@redhat.com> - 5.3.0-1
+* Mon Apr 27 2015 Daniel VrÃ¡til <dvratil@redhat.com> - 5.3.0-1
 - Plasma 5.3.0
 
-* Wed Apr 22 2015 Daniel Vrátil <dvratil@redhat.com> - 5.2.95-1
+* Wed Apr 22 2015 Daniel VrÃ¡til <dvratil@redhat.com> - 5.2.95-1
 - Plasma 5.2.95
 
 * Wed Apr 15 2015 Rex Dieter <rdieter@fedoraproject.org> 5.2.2-6
@@ -1992,7 +2013,7 @@ fi
 * Wed Mar 25 2015 Rex Dieter <rdieter@fedoraproject.org> 5.2.2-2
 - Lockscreen: Password field does not have focus (kde#344823)
 
-* Fri Mar 20 2015 Daniel Vrátil <dvratil@redhat.com> - 5.2.2-1
+* Fri Mar 20 2015 Daniel VrÃ¡til <dvratil@redhat.com> - 5.2.2-1
 - Plasma 5.2.2
 
 * Mon Mar 16 2015 Rex Dieter <rdieter@fedoraproject.org> - 5.2.1-6
@@ -2009,10 +2030,10 @@ fi
 * Tue Mar 03 2015 Rex Dieter <rdieter@fedoraproject.org> 5.2.1-3
 - use our own startkde.cmake
 
-* Fri Feb 27 2015 Daniel Vrátil <dvratil@redhat.com> - 5.2.1-2
+* Fri Feb 27 2015 Daniel VrÃ¡til <dvratil@redhat.com> - 5.2.1-2
 - Rebuild (GCC 5)
 
-* Tue Feb 24 2015 Daniel Vrátil <dvratil@redhat.com> - 5.2.1-1
+* Tue Feb 24 2015 Daniel VrÃ¡til <dvratil@redhat.com> - 5.2.1-1
 - Plasma 5.2.1
 
 * Wed Feb 18 2015 Rex Dieter <rdieter@fedoraproject.org> - 5.2.0-8
@@ -2023,37 +2044,37 @@ fi
 * Wed Feb 11 2015 Rex Dieter <rdieter@fedoraproject.org> 5.2.0-7
 - "Could not sync environment to dbus." (startkde) (#1191171)
 
-* Mon Feb 09 2015 Daniel Vrátil <dvratil@redhat.com> - 5.2.0-6
+* Mon Feb 09 2015 Daniel VrÃ¡til <dvratil@redhat.com> - 5.2.0-6
 - Revert the previous change
 
-* Mon Feb 09 2015 Daniel Vrátil <dvratil@redhat.com> - 5.2.0-5
+* Mon Feb 09 2015 Daniel VrÃ¡til <dvratil@redhat.com> - 5.2.0-5
 - Provides/Obsoletes: kdeclassic-cursor-theme
 
-* Sun Feb 08 2015 Daniel Vrátil <dvratil@redhat.com> - 5.2.0-4
+* Sun Feb 08 2015 Daniel VrÃ¡til <dvratil@redhat.com> - 5.2.0-4
 - Requires: powerdevil, oxygen-sound-theme
 
-* Thu Jan 29 2015 Daniel Vrátil <dvratil@redhat.com> - 5.2.0-3
+* Thu Jan 29 2015 Daniel VrÃ¡til <dvratil@redhat.com> - 5.2.0-3
 - Requires: plasma-milou (for krunner)
 
-* Thu Jan 29 2015 Dan Horák <dan[at]danny.cz> - 5.2.0-2
+* Thu Jan 29 2015 Dan HorÃ¡k <dan[at]danny.cz> - 5.2.0-2
 - no FireWire on s390(x)
 
-* Mon Jan 26 2015 Daniel Vrátil <dvratil@redhat.com> - 5.2.0-1
+* Mon Jan 26 2015 Daniel VrÃ¡til <dvratil@redhat.com> - 5.2.0-1
 - Plasma 5.2.0
 
-* Wed Jan 14 2015 Daniel Vrátil <dvratil@redhat.com> - 5.1.95-3.beta
+* Wed Jan 14 2015 Daniel VrÃ¡til <dvratil@redhat.com> - 5.1.95-3.beta
 - Requires: kf5-frameworkintegration (provides platformtheme plugin)
 
-* Wed Jan 14 2015 Daniel Vrátil <dvratil@redhat.com> - 5.1.95-2.beta
+* Wed Jan 14 2015 Daniel VrÃ¡til <dvratil@redhat.com> - 5.1.95-2.beta
 - BR: kf5-kscreen-devel (renamed)
 
-* Tue Jan 13 2015 Daniel Vrátil <dvratil@redhat.com> - 5.1.95-1.beta
+* Tue Jan 13 2015 Daniel VrÃ¡til <dvratil@redhat.com> - 5.1.95-1.beta
 - Plasma 5.1.95 Beta
 
-* Mon Jan 12 2015 Daniel Vrátil <dvratil@redhat.com> - 5.1.2-5
+* Mon Jan 12 2015 Daniel VrÃ¡til <dvratil@redhat.com> - 5.1.2-5
 - Add upstream patch to make ksyncdbusenv work with dbus-1.8.14
 
-* Fri Jan 09 2015 Daniel Vrátil <dvratil@redhat.com> - 5.1.2-4
+* Fri Jan 09 2015 Daniel VrÃ¡til <dvratil@redhat.com> - 5.1.2-4
 - Requires: qt5-qttools (for dbus-qt5)
 
 * Wed Jan 07 2015 Jan Grulich <jgrulich@redhat.com> - 5.1.2-3
@@ -2063,61 +2084,61 @@ fi
   Validate .desktop files
   look for qdbus-qt5 in startkde instead of qdbus
 
-* Mon Jan 05 2015 Daniel Vrátil <dvratil@redhat.com> - 5.1.2-2
+* Mon Jan 05 2015 Daniel VrÃ¡til <dvratil@redhat.com> - 5.1.2-2
 - add upstream patch to fix black screen on start
 
-* Wed Dec 17 2014 Daniel Vrátil <dvratil@redhat.com> - 5.1.2-1
+* Wed Dec 17 2014 Daniel VrÃ¡til <dvratil@redhat.com> - 5.1.2-1
 - Plasma 5.1.2
 
-* Fri Nov 28 2014 Daniel Vrátil <dvratil@redhat.com> - 5.1.1-2
+* Fri Nov 28 2014 Daniel VrÃ¡til <dvratil@redhat.com> - 5.1.1-2
 - Apply upstream patch to build against new version of KScreen
 
-* Fri Nov 07 2014 Daniel Vrátil <dvratil@redhat.com> - 5.1.1-1
+* Fri Nov 07 2014 Daniel VrÃ¡til <dvratil@redhat.com> - 5.1.1-1
 - Plasma 5.1.1
 
-* Tue Oct 14 2014 Daniel Vrátil <dvratil@redhat.com> - 5.1.0.1-1
+* Tue Oct 14 2014 Daniel VrÃ¡til <dvratil@redhat.com> - 5.1.0.1-1
 - Plasma 5.1.0.1
 
-* Thu Oct 09 2014 Daniel Vrátil <dvratil@redhat.com> - 5.1.0-1
+* Thu Oct 09 2014 Daniel VrÃ¡til <dvratil@redhat.com> - 5.1.0-1
 - Plasma 5.1.0
 
-* Tue Sep 16 2014 Daniel Vrátil <dvratil@redhat.com> - 5.0.2-1
+* Tue Sep 16 2014 Daniel VrÃ¡til <dvratil@redhat.com> - 5.0.2-1
 - Plasma 5.0.2
 
-* Tue Sep 02 2014 Daniel Vrátil <dvratil@redhat.com> - 5.0.1-3
+* Tue Sep 02 2014 Daniel VrÃ¡til <dvratil@redhat.com> - 5.0.1-3
 - Make sure we get oxygen-icon-theme and oxyge-icons installed
 
-* Fri Aug 29 2014 Daniel Vrátil <dvratil@redhat.com> - 5.0.1-2
+* Fri Aug 29 2014 Daniel VrÃ¡til <dvratil@redhat.com> - 5.0.1-2
 - Add upstream patch to fix generated path in plasma.desktop
 
-* Sun Aug 10 2014 Daniel Vrátil <dvratil@redhat.com> - 5.0.1-1
+* Sun Aug 10 2014 Daniel VrÃ¡til <dvratil@redhat.com> - 5.0.1-1
 - Plasma 5.0.1
 
-* Wed Aug 06 2014 Daniel Vrátil <dvratil@redhat.com> - 5.0.0-7
+* Wed Aug 06 2014 Daniel VrÃ¡til <dvratil@redhat.com> - 5.0.0-7
 - Add more Obsoletes to make upgrade from KDE 4 smooth
 - Add sni-qt to Requires so that Qt 4 apps are working with Plasma 5 systray
 - Requires kde-settings
 
-* Thu Jul 24 2014 Daniel Vrátil <dvratil@redhat.com> - 5.0.0-4
+* Thu Jul 24 2014 Daniel VrÃ¡til <dvratil@redhat.com> - 5.0.0-4
 - Add patch to fix build-time generated paths
 
-* Thu Jul 24 2014 Daniel Vrátil <dvratil@redhat.com> - 5.0.0-3
+* Thu Jul 24 2014 Daniel VrÃ¡til <dvratil@redhat.com> - 5.0.0-3
 - Use relative BIN_INSTALL_DIR so that built-in paths are correctly generated
 
-* Thu Jul 24 2014 Daniel Vrátil <dvratil@redhat.com> - 5.0.0-2
+* Thu Jul 24 2014 Daniel VrÃ¡til <dvratil@redhat.com> - 5.0.0-2
 - Fix /usr//usr/ in generated files
 
-* Wed Jul 16 2014 Daniel Vrátil <dvratil@redhat.com> - 5.0.0-1
+* Wed Jul 16 2014 Daniel VrÃ¡til <dvratil@redhat.com> - 5.0.0-1
 - Plasma 5.0.0
 
-* Tue May 20 2014 Daniel Vrátil <dvratil@redhat.com> - 4.96.0-6.20140519gita85f5bc
+* Tue May 20 2014 Daniel VrÃ¡til <dvratil@redhat.com> - 4.96.0-6.20140519gita85f5bc
 - Add LIBEXEC_PATH to kde5 profile to fix drkonqi lookup
 - Fix install
 
-* Mon May 19 2014 Daniel Vrátil <dvratil@redhat.com> - 4.96.0-3.20140519gita85f5bc
+* Mon May 19 2014 Daniel VrÃ¡til <dvratil@redhat.com> - 4.96.0-3.20140519gita85f5bc
 - Update to latest git snapshot
 - Add PAM file
 - Add profile.d entry
 
-* Fri Apr 25 2014 Daniel Vrátil <dvratil@redhat.com> - 4.95.0-1.20140425git7c97c92
+* Fri Apr 25 2014 Daniel VrÃ¡til <dvratil@redhat.com> - 4.95.0-1.20140425git7c97c92
 - Initial version of kde5-plasma-workspace
