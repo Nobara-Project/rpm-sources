@@ -9,9 +9,9 @@
 # check buildresult after a while
 
 %define _lto_cflags %{nil}
-%define realver     9.4
-%define stagingver  9.4.1
-%define packagever  9.4.1
+%define realver     9.5
+%define stagingver  9.5
+%define packagever  9.5
 
 %global flavor %nil
 
@@ -30,7 +30,7 @@
 
 Name:       %pkg
 Version:    %ver
-Release:    1.1
+Release:    1.2
 Epoch:      1
 Summary:    WINE Is Not An Emulator - runs MS Windows programs
 License:    LGPLv2+
