@@ -1,7 +1,7 @@
-%global commit 64341c479cb57431f082d86e1d28412dba3ef30e
+%global commit bb2e2eba422128d06666afa7dedd45f08a78f02e
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
-%global gitdate 20240307
+%global gitdate 20240325
 %global pkgname %{?gitdate:xserver}%{!?gitdate:xwayland}
 
 %global default_font_path "catalogue:/etc/X11/fontpath.d,built-ins"
@@ -123,7 +123,6 @@ patch -Np1 < %{SOURCE2}
         %{?gitdate:-Dxnest=false} \
         %{?gitdate:-Dxvfb=false} \
         %{?gitdate:-Dudev=true} \
-        -Dxwayland_eglstream=true \
         -Ddefault_font_path=%{default_font_path} \
         -Dbuilder_string="Build ID: %{name} %{version}-%{release}" \
         -Dxkb_output_dir=%{_localstatedir}/lib/xkb \

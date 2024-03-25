@@ -1,14 +1,11 @@
 Name:           wayland-protocols
-Version:        1.33
-Release:        4%{?dist}
+Version:        1.34
+Release:        1%{?dist}
 Summary:        Wayland protocols that adds functionality not available in the core protocol
 
 License:        MIT
 URL:            https://wayland.freedesktop.org/
 Source0:        https://gitlab.freedesktop.org/wayland/%{name}/-/releases/%{version}/downloads/%{name}-%{version}.tar.xz
-# needed for nvidia on wayland
-# https://gitlab.freedesktop.org/wayland/wayland-protocols/-/merge_requests/90
-Source1:         90.patch
 
 BuildArch:      noarch
 
@@ -36,9 +33,6 @@ wayland-protocols.
 
 %prep
 %autosetup
-
-# patch macro does some fuckity weird shit for some reason, so we do this instead.
-patch -Np1 < %{SOURCE1}
 
 %build
 %meson
