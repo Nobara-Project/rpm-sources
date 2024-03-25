@@ -3,19 +3,18 @@
 
 Name:           sddm
 Version:        0.21.0
-Release:        3%{?dist}
-License:        GPL-2.0-or-later
+Release:        4%{?dist}
+License:        GPLv2+
 Summary:        QML based desktop and login manager
 
 URL:            https://github.com/sddm/sddm
 Source0:        %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
 
 ## upstream patches
-# Port all themes to Qt 6
-# Submitted: https://github.com/sddm/sddm/pull/1876
-Patch1:         sddm-PR1876.patch
+Patch1: https://github.com/sddm/sddm/pull/1876.patch
 
 ## upstreamable patches
+
 # Fix race with logind restart, and start seat0 if !CanGraphical on timer
 # https://bugzilla.redhat.com/show_bug.cgi?id=2011991
 # https://bugzilla.redhat.com/show_bug.cgi?id=2016310
@@ -30,12 +29,6 @@ Patch103:       sddm-0.18.0-environment_file.patch
 
 # Workaround for https://pagure.io/fedora-kde/SIG/issue/87
 Patch104:       sddm-rpmostree-tmpfiles-hack.patch
-
-# Workaround lack of Qt 5 greeter build
-Patch105:       sddm-0.21.0-qt6greeter.patch
-
-# Workaround to fix black screen on first boot for 7840U
-Patch106:       0001-add-5-second-sleep-to-ExecStartPre-because-sddm-wayl.patch
 
 # Shamelessly stolen from gdm
 Source11:       sddm.pam
@@ -61,22 +54,19 @@ Provides: service(graphical-login) = sddm
 
 BuildRequires:  cmake >= 2.8.8
 BuildRequires:  extra-cmake-modules
+BuildRequires:  libxcb-devel
 BuildRequires:  pam-devel
 BuildRequires:  pkgconfig(libsystemd)
 BuildRequires:  pkgconfig(systemd)
-BuildRequires:  pkgconfig(xcb)
-BuildRequires:  pkgconfig(xcb-xkb)
 # sometimes python-docutils, sometimes python2-docutils, sometimes python3-docutils.
 # use path then for sanity
 BuildRequires:  /usr/bin/rst2man
-BuildRequires:  cmake(Qt6Core)
-BuildRequires:  cmake(Qt6DBus)
-BuildRequires:  cmake(Qt6Gui)
-BuildRequires:  cmake(Qt6Qml)
-BuildRequires:  cmake(Qt6Quick)
-BuildRequires:  cmake(Qt6LinguistTools)
-BuildRequires:  cmake(Qt6Test)
-BuildRequires:  cmake(Qt6QuickTest)
+BuildRequires:  qt6-qtbase-devel
+BuildRequires:  qt6-qtdeclarative-devel
+BuildRequires:  qt6-qttools-devel
+BuildRequires:  qt5-qtbase-devel
+BuildRequires:  qt5-qtdeclarative-devel
+BuildRequires:  qt5-qttools-devel
 # verify presence to pull defaults from /etc/login.defs
 BuildRequires:  shadow-utils
 BuildRequires:  systemd
@@ -159,18 +149,29 @@ A collection of sddm themes, including: elarun, maldives, maya
 %autosetup -p1 %{?commitdate:-n %{name}-%{commit}}
 
 %build
+%global _vpath_builddir %{_target_platform}-qt6
 %cmake \
   -DBUILD_WITH_QT6:BOOL=ON \
   -DBUILD_MAN_PAGES:BOOL=ON \
   -DCMAKE_BUILD_TYPE:STRING="Release" \
   -DENABLE_JOURNALD:BOOL=ON \
   -DSESSION_COMMAND:PATH=/etc/X11/xinit/Xsession \
-  -DWAYLAND_SESSION_COMMAND:PATH=/etc/sddm/wayland-session
+  -DWAYLAND_SESSION_COMMAND:PATH=/etc/sddm/wayland-session \
+  -DDBUS_CONFIG_DIR=/etc/dbus-1/system.d
 
 %cmake_build
 
+%global _vpath_builddir %{_target_platform}-qt5
+%cmake
+cmake --build "%{_vpath_builddir}/src/greeter" %{?_smp_mflags} --verbose
+cmake --build "%{_vpath_builddir}/components" %{?_smp_mflags} --verbose
 
 %install
+%global _vpath_builddir %{_target_platform}-qt5
+DESTDIR="%{buildroot}" cmake --install "%{_vpath_builddir}/src/greeter"
+DESTDIR="%{buildroot}" cmake --install "%{_vpath_builddir}/components"
+DESTDIR="%{buildroot}" cmake --install "%{_vpath_builddir}/data/translations"
+%global _vpath_builddir %{_target_platform}-qt6
 %cmake_install
 
 mkdir -p %{buildroot}%{_sysconfdir}/sddm.conf.d
@@ -191,12 +192,6 @@ cp -a %{buildroot}%{_datadir}/sddm/scripts/* \
 # we're using /etc/X11/xinit/Xsession (by default) instead
 rm -fv %{buildroot}%{_sysconfdir}/sddm/Xsession
 
-%if 0%{?fedora} && 0%{?fedora} < 43
-# Provide unversioned greeter until F40 is EOL
-ln -sr %{buildroot}%{_bindir}/sddm-greeter-qt6 %{buildroot}%{_bindir}/sddm-greeter
-%endif
-
-
 %pre
 %sysusers_create_compat %{SOURCE17}
 
@@ -214,7 +209,6 @@ ln -sr %{buildroot}%{_bindir}/sddm-greeter-qt6 %{buildroot}%{_bindir}/sddm-greet
    -e 's|^\[WaylandDisplay\]$|\[Wayland\]|' \
    %{_sysconfdir}/sddm.conf
 ) ||:
-
 
 %preun
 %systemd_preun sddm.service
@@ -234,7 +228,8 @@ ln -sr %{buildroot}%{_bindir}/sddm-greeter-qt6 %{buildroot}%{_bindir}/sddm-greet
 %config(noreplace) %{_sysconfdir}/pam.d/sddm-autologin
 %config(noreplace) %{_sysconfdir}/pam.d/sddm-greeter
 %config(noreplace) %{_sysconfdir}/sysconfig/sddm
-%{_datadir}/dbus-1/system.d/org.freedesktop.DisplayManager.conf
+# it's under /etc, sure, but it's not a config file -- rex
+%{_sysconfdir}/dbus-1/system.d/org.freedesktop.DisplayManager.conf
 %{_bindir}/sddm
 %{_bindir}/sddm-greeter*
 %{_libexecdir}/sddm-helper
@@ -246,6 +241,7 @@ ln -sr %{buildroot}%{_bindir}/sddm-greeter-qt6 %{buildroot}%{_bindir}/sddm-greet
 %attr(1770, sddm, sddm) %dir %{_localstatedir}/lib/sddm
 %{_unitdir}/sddm.service
 %{_qt6_archdatadir}/qml/SddmComponents/
+%{_qt5_archdatadir}/qml/SddmComponents/
 %dir %{_datadir}/sddm
 %{_datadir}/sddm/faces/
 %{_datadir}/sddm/flags/
@@ -258,16 +254,13 @@ ln -sr %{buildroot}%{_bindir}/sddm-greeter-qt6 %{buildroot}%{_bindir}/sddm-greet
 %{_mandir}/man5/sddm.conf.5*
 %{_mandir}/man5/sddm-state.conf.5*
 
-
 %files wayland-generic
 # No files since default configuration
-
 
 %if %{with x11}
 %files x11
 %{_prefix}/lib/sddm/sddm.conf.d/x11.conf
 %endif
-
 
 %files themes
 %{_datadir}/sddm/themes/elarun/
@@ -276,20 +269,8 @@ ln -sr %{buildroot}%{_bindir}/sddm-greeter-qt6 %{buildroot}%{_bindir}/sddm-greet
 
 
 %changelog
-* Wed Feb 28 2024 Neal Gompa <ngompa@fedoraproject.org> - 0.21.0-1
-- Update to 0.21.0
-
-* Wed Feb 14 2024 Neal Gompa <ngompa@fedoraproject.org> - 0.20.0-11
-- Add patch to fix desktop file parsing
-
-* Wed Jan 31 2024 Alessandro Astone <ales.astone@gmail.com> - 0.20.0-10
-- Remove LayerShellQt patch
-
-* Mon Jan 29 2024 Neal Gompa <ngompa@fedoraproject.org> - 0.20.0-9
-- Add patch to make SDDM uses kiosk-shell rather than fullscreen-shell
-
-* Sat Jan 27 2024 Neal Gompa <ngompa@fedoraproject.org> - 0.20.0-8
-- Switch to SPDX license identifiers
+* Wed Mar 20 2024 Pavel Solovev <daron439@gmail.com> - 0.21.0-3
+- qmlcache rebuild
 
 * Thu Nov 23 2023 Neal Gompa <ngompa@fedoraproject.org> - 0.20.0-7
 - Disable X11 subpackage in RHEL 10+

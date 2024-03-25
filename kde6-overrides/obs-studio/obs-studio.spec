@@ -37,17 +37,17 @@
 #global snapdate 202303261743
 #global shortcommit %(c=%{commit}; echo ${c:0:7})
 
-%define version_string 30.1.0
+%define version_string 30.1.1
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build rc1.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build %{build_timestamp}.%{shortcommit}%{?dist}
 %global _default_patch_fuzz 2
 # obs version and commit
-%define commit 7ae66c72fd2395b49a44d460e5360994da0cfceb
+%define commit 082377043e9507496537f7dd32002212a4d16f54
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 Name:           obs-studio
 Version:        %{version_string}
-Release:        2.%{rel_build}
+Release:        1.%{rel_build}
 Summary:        Open Broadcaster Software Studio
 
 # OBS itself is GPL-2.0-or-later, while various plugin dependencies are of various other licenses
@@ -87,11 +87,6 @@ Patch9:       8051.patch
 # Disabled for now
 # Enable Oauth in UI alongside re-enabling browser panels
 # Patch10:      0001-Revert-UI-Avoid-registering-CEF-OAuth-integrations-o.patch
-
-# This is a hack to force OBS to think it's running on gnome
-# because KDE6 currently has a bug that adds random
-# ampersands to title bar text */
-Patch11: 0001-obs-kde6-theming-hack.patch
 
 # Backports from upstream
 
@@ -225,7 +220,7 @@ software for video recording and live streaming.
 %license COPYING
 %{_bindir}/obs
 %{_bindir}/obs-ffmpeg-mux
-%{_datadir}/metainfo/com.obsproject.Studio.appdata.xml
+%{_datadir}/metainfo/com.obsproject.Studio.metainfo.xml
 %{_datadir}/applications/com.obsproject.Studio.desktop
 %{_datadir}/icons/hicolor/*/apps/com.obsproject.Studio.*
 %{_datadir}/obs/
@@ -408,8 +403,7 @@ find %{buildroot} -name ".gitkeep" -delete
 
 %check
 desktop-file-validate %{buildroot}/%{_datadir}/applications/com.obsproject.Studio.desktop
-appstream-util validate-relax --nonet %{buildroot}%{_datadir}/metainfo/*.appdata.xml
-
+appstream-util validate-relax --nonet %{buildroot}%{_datadir}/metainfo/*.metainfo.xml
 
 %changelog
 * Fri Feb 16 2024 Jan Grulich <jgrulich@redhat.com> - 30.0.0-9
