@@ -1,7 +1,7 @@
 ## START: Set by rpmautospec
 ## (rpmautospec version 0.3.0)
 %define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
-    release_number = 7;
+    release_number = 1;
     base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
     print(release_number + base_release_number - 1);
 }%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
@@ -9,7 +9,7 @@
 # commit d8e8e9e3a0a2d7c0127231c63b8ec355a1e2316b
 
 Name:           goverlay
-Version:        1.0
+Version:        1.1.1
 Release:        %autorelease
 Summary:        Project that aims to create a Graphical UI to help manage Linux overlays
 ExclusiveArch:  %{fpc_arches}
@@ -19,12 +19,11 @@ URL:            https://github.com/benjamimgois/goverlay
 Source0:        %{url}/archive/%{version}/%{name}-main.tar.gz
 
 Patch0:         goverlay-enable-debuginfo-generation.patch
-Patch1:         0001-Fix-broken-gpu-model-checkbox.patch
 
 BuildRequires:  desktop-file-utils
 BuildRequires:  fpc-srpm-macros
 BuildRequires:  lazarus
-BuildRequires:  lazarus-lcl-qt5
+BuildRequires:  lazarus-lcl-qt6
 BuildRequires:  libappstream-glib
 BuildRequires:  libglvnd-devel
 BuildRequires:  make
@@ -32,7 +31,7 @@ BuildRequires:  make
 Requires:       hicolor-icon-theme
 Requires:       mangohud%{?_isa}
 Requires:       mesa-libGLU
-Requires:       qt5pas%{?_isa}
+Requires:       qt6pas%{?_isa}
 Requires:       /usr/bin/lsb_release
 
 # git - Clone reshade repository

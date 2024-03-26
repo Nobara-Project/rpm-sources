@@ -2,11 +2,11 @@
 %global framework kimageformats
 
 Name:           kf5-%{framework}
-Version:        5.113.0
-Release:        1%{?dist}
+Version:        5.115.0
+Release:        2%{?dist}
 Summary:        KDE Frameworks 5 Tier 1 addon with additional image plugins for QtGui
 
-License:        BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LicenseRef-KDE-Accepted-LGPL
+License:        BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND (LGPL-2.1-only OR LGPL-3.0-only)
 URL:            https://invent.kde.org/frameworks/%{framework}
 
 %global majmin %majmin_ver_kf5
@@ -74,6 +74,21 @@ image formats.
 
 
 %changelog
+* Wed Feb 14 2024 Sérgio Basto <sergio@serjux.com> - 5.115.0-2
+- Rebuild for jpegxl (libjxl) 0.9.2 with soname bump
+
+* Sat Feb 10 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 5.115.0-1
+- 5.115.0
+
+* Wed Jan 31 2024 František Zatloukal <fzatlouk@redhat.com> - 5.113.0-4
+- Rebuilt for libavif 1.0.3
+
+* Thu Jan 25 2024 Fedora Release Engineering <releng@fedoraproject.org> - 5.113.0-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Sun Jan 21 2024 Fedora Release Engineering <releng@fedoraproject.org> - 5.113.0-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
 * Fri Dec 08 2023 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 5.113.0-1
 - 5.113.0
 

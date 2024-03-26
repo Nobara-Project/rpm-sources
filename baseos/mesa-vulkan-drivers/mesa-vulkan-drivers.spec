@@ -1,6 +1,6 @@
 %global _default_patch_fuzz 2
 
-%global commit 5438b1910464e4b17fe0248a96a6ed98f0280a20
+%global commit 75a940c949d5b4d8135531e1a9c5491c008910b5
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build git.%{build_timestamp}.%{shortcommit}%{?dist}
@@ -65,7 +65,7 @@
 
 %global with_vulkan_overlay 1
 
-%global vulkan_drivers swrast%{?base_vulkan}%{?platform_vulkan}%{?with_nvk:,nouveau-experimental}
+%global vulkan_drivers swrast%{?base_vulkan}%{?platform_vulkan}%{?with_nvk:,nouveau}
 
 Name:           mesa-vulkan-drivers
 Summary:        The mesa graphics vulkan driver stack.
@@ -93,6 +93,8 @@ Patch2: 25352.patch
 # https://gitlab.com/evlaV/mesa/
 Patch3: valve.patch
 
+# Disabled, causes GPU frequency to lock
+#Patch4: helldivers-2-gpu-hang-workaround-radv.patch
 
 Patch10:        gnome-shell-glthread-disable.patch
 
@@ -246,6 +248,9 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
   -Dglvnd=true \
 %if 0%{?with_intel_clc}
   -Dintel-clc=enabled \
+%endif
+%ifnarch x86_64
+  -Dintel-rt=disabled \
 %endif
   -Dmicrosoft-clc=disabled \
   -Dllvm=enabled \

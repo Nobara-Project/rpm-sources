@@ -6,7 +6,7 @@
 Summary: X.Org X11 Protocol headers
 Name: xorg-x11-proto-devel
 Version: 2023.2
-Release: 4%{?dist}
+Release: 6%{?dist}
 License: MIT
 URL: https://www.x.org
 BuildArch: noarch

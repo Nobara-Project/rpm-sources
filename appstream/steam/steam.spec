@@ -4,8 +4,8 @@
 %global appstream_id com.valvesoftware.Steam
 
 Name:           steam
-Version:        1.0.0.78
-Release:        14%{?dist}
+Version:        1.0.0.79
+Release:        2%{?dist}
 Summary:        Installer for the Steam software distribution service
 # Redistribution and repackaging for Linux is allowed, see license file. udev rules are MIT.
 License:        Steam License Agreement and MIT
@@ -124,7 +124,6 @@ Requires:       (pipewire-alsa%{?_isa} if pipewire)
 # Game performance is increased with gamemode (for games that support it)
 Recommends:     gamemode
 Recommends:     gamemode%{?_isa}
-Recommends:     (gnome-shell-extension-gamemode if gnome-shell)
 Recommends:     (gnome-shell-extension-appindicator if gnome-shell)
 
 # Proton uses xdg-desktop-portal to open URLs from inside a container
@@ -158,6 +157,7 @@ This package contains the necessary permissions for gaming devices.
 
 %prep
 %autosetup -p1 -n %{name}-launcher
+
 cp %{SOURCE5} .
 
 # The Steam Deck controller's touchpad breaks cursor movement when steam is opened on wayland
@@ -249,6 +249,17 @@ appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/%{appstream_id
 %{_udevrulesdir}/*
 
 %changelog
+* Sun Feb 18 2024 Simone Caronni <negativo17@gmail.com> - 1.0.0.79-2
+- Re-add gnome-shell-extension-appindicator recommendation.
+
+* Sun Feb 18 2024 Simone Caronni <negativo17@gmail.com> - 1.0.0.79-1
+- Update to 1.0.0.79.
+- Drop gnome-shell-extension-gamemode recommendation (#6853).
+- Update udev rules.
+
+* Sun Feb 04 2024 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 1.0.0.78-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
 * Thu Aug 03 2023 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 1.0.0.78-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_39_Mass_Rebuild
 

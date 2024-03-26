@@ -1,0 +1,13 @@
+#!/bin/sh
+
+if [[ $USER != 'root' ]]; then
+if [ -f /usr/bin/obs ];then
+    if /usr/bin/obs-gamecapture /usr/bin/prismlauncher $@; then
+        exit 0
+    else
+        /usr/bin/prismlauncher $@
+    fi
+else
+    /usr/bin/prismlauncher $@
+fi
+fi

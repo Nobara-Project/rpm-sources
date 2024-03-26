@@ -1,0 +1,51 @@
+From be2bf6e68f11bdec3e4c5af78103451354fd6d08 Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Fri, 1 Mar 2024 15:25:42 -0700
+Subject: [PATCH] Don't list GNOME's duplicate session entries, also KDE
+ already adds (X11) to the KDE X11 plasma desktop entry.
+
+---
+ src/widgets/session/session.cpp | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/src/widgets/session/session.cpp b/src/widgets/session/session.cpp
+index 7709db9..0697cfd 100644
+--- a/src/widgets/session/session.cpp
++++ b/src/widgets/session/session.cpp
+@@ -90,7 +90,9 @@ Sessions getSessions( bool custom ) {
+                     s.name += " (Wayland)";
+                 }
+ 
+-                mSessions << s;
++                if ( not s.name.contains( "gnome-wayland", Qt::CaseInsensitive ) ) {
++                    mSessions << s;
++                }
+             }
+         }
+     }
+@@ -114,14 +116,20 @@ Sessions getSessions( bool custom ) {
+ 
+             if ( isAvailable ) {
+                 Session s = Session{
+-                    session.value( "Desktop Entry/Name" ).toString() + " (X11)",
++                    session.value( "Desktop Entry/Name" ).toString(),
+                     session.value( "Desktop Entry/Icon", ":/icons/session.png" ).toString(),
+                     "X11",
+                     session.value( "Desktop Entry/Exec" ).toString(),
+                     sess.absoluteFilePath()
+                 };
+ 
+-                mSessions << s;
++                if ( not s.name.contains( "(X11)", Qt::CaseInsensitive ) ) {
++                    s.name += " (X11)";
++                }
++
++                if ( not s.name.contains( "gnome-xorg", Qt::CaseInsensitive ) ) {
++                    mSessions << s;
++                }
+             }
+         }
+     }
+-- 
+2.44.0
+

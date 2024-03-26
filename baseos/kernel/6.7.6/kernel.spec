@@ -164,13 +164,13 @@ Summary: The Linux kernel
 %define specrpmversion 6.7.6
 %define specversion 6.7.6
 %define patchversion 6.7
-%define pkgrelease 200
+%define pkgrelease 201
 %define kversion 6
 %define tarfile_release 6.7.6
 # This is needed to do merge window version magic
 %define patchlevel 7
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease 200%{?buildid}%{?dist}
+%define specrelease 201%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 6.7.6
 
@@ -1015,11 +1015,9 @@ Patch206: tkg-0007-v6.7-fsync1_via_futex_waitv.patch
 Patch207: tkg-0007-v6.7-ntsync.patch
 Patch208: tkg-0013-optimize_harder_O3.patch
 Patch209: tkg-0014-OpenRGB.patch
-#Patch210: tkg-0099-fix-confdata.patch
 
-# https://github.com/zhmars/cjktty-patches
-#Patch211: gentoo-cjktty-6.7.patch
-#Patch212: gentoo-cjktty-add-cjk32x32-font-data.patch
+# CachyOS BORE
+Patch210: 0001-bore.patch
 
 # device specific patches
 Patch300: amdgpu-si-cik-default.patch
@@ -1862,11 +1860,9 @@ ApplyOptionalPatch tkg-0007-v6.7-fsync1_via_futex_waitv.patch
 ApplyOptionalPatch tkg-0007-v6.7-ntsync.patch
 ApplyOptionalPatch tkg-0013-optimize_harder_O3.patch
 ApplyOptionalPatch tkg-0014-OpenRGB.patch
-#ApplyOptionalPatch tkg-0099-fix-confdata.patch
 
-# https://github.com/zhmars/cjktty-patches
-#ApplyOptionalPatch gentoo-cjktty-6.7.patch
-#ApplyOptionalPatch gentoo-cjktty-add-cjk32x32-font-data.patch
+# CachyOS BORE
+ApplyOptionalPatch 0001-bore.patch
 
 # device specific patches
 ApplyOptionalPatch amdgpu-si-cik-default.patch
