@@ -20,10 +20,10 @@
 
 # NOBARA INTERNAL NOTE:
 # We are currently using upstream commit: 
-# fc54f48257e011a629487e2f4b965c90355d9c9d
+# a7a73afdadd045ed9235afae0b414c96808d24ee
 
 Name:           mangohud
-Version:        0.7.0
+Version:        0.7.1
 Release:        %autorelease
 Summary:        Vulkan and OpenGL overlay for monitoring FPS, temperatures, CPU/GPU load
 
@@ -52,7 +52,7 @@ BuildRequires:  pkgconfig(gl)
 BuildRequires:  pkgconfig(glew)
 BuildRequires:  pkgconfig(glfw3)
 BuildRequires:  pkgconfig(libdrm)
-
+BuildRequires:  pkgconfig(xkbcommon)
 BuildRequires:  pkgconfig(spdlog)
 BuildRequires:  pkgconfig(nlohmann_json)
 BuildRequires:  pkgconfig(vulkan)
