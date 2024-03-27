@@ -4,7 +4,7 @@
 
 Name:           dkms-%{dkms_name}
 Version:        550.67
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        NVIDIA OpenSource display driver kernel module
 Epoch:          3
 License:        NVIDIA License
@@ -14,7 +14,7 @@ ExclusiveArch:  x86_64
 Source0:        https://github.com/NVIDIA/open-gpu-kernel-modules/archive/%{version}/open-gpu-kernel-modules-%{version}.tar.gz
 Source1:        %{name}.conf
 Source2:        dkms-no-weak-modules.conf
-Patch1:         0001-simpledrm-nvidia-drm-override.patch
+Patch1:         0001-NVIDIA-take-modeset-ownership-early.patch
 
 BuildRequires:  sed
 
