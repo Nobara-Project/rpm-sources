@@ -773,15 +773,15 @@ diff --git a/src/backends/meta-settings.c b/src/backends/meta-settings.c
 index 1e107b0a7..96541a5bb 100644
 --- a/src/backends/meta-settings.c
 +++ b/src/backends/meta-settings.c
-@@ -296,6 +296,8 @@ experimental_features_handler (GVariant *features_variant,
-         feature = META_EXPERIMENTAL_FEATURE_RT_SCHEDULER;
+@@ -294,4 +294,6 @@ experimental_features_handler (GVariant *features_variant,
+         feature = META_EXPERIMENTAL_FEATURE_KMS_MODIFIERS;
        else if (g_str_equal (feature_str, "autoclose-xwayland"))
          feature = META_EXPERIMENTAL_FEATURE_AUTOCLOSE_XWAYLAND;
 +      else if (g_str_equal (feature_str, "variable-refresh-rate"))
 +        feature = META_EXPERIMENTAL_FEATURE_VARIABLE_REFRESH_RATE;
  
-       if (feature)
-         g_message ("Enabling experimental feature '%s'", feature_str);
+       if (g_str_equal (feature_str, "rt-scheduler"))
+         g_message ("Ignoring obsolete experimental feature '%s'", feature_str);
 -- 
 2.41.0
 

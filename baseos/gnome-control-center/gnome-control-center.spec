@@ -10,14 +10,14 @@
 %define nm_version 1.24.0
 
 %global gnome_major_version 45
-%global gnome_version %{gnome_major_version}.0
+%global gnome_version %{gnome_major_version}.3
 %global tarball_version %%(echo %{gnome_version} | tr '~' '.')
 
 # Disable parental control for RHEL builds
 %bcond malcontent %[!0%{?rhel}]
 
 Name:           gnome-control-center
-Version:        %{gnome_version}.vrr.5
+Version:        %{gnome_version}.vrr.6
 Release:        %autorelease
 Summary:        Utilities to configure the GNOME desktop
 
