@@ -2,7 +2,7 @@
 ## (rpmautospec version 0.3.5)
 ## RPMAUTOSPEC: autorelease, autochangelog
 %define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
-    release_number = 13;
+    release_number = 14;
     base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
     print(release_number + base_release_number - 1);
 }%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
@@ -20,7 +20,7 @@
 
 # NOBARA INTERNAL NOTE:
 # We are currently using upstream commit: 
-# a7a73afdadd045ed9235afae0b414c96808d24ee
+# 1baecfc493ecc32c9c2b14c025769485eb30de20
 
 Name:           mangohud
 Version:        0.7.1
