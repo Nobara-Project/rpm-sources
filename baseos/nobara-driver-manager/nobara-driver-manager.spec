@@ -1,6 +1,6 @@
 Name:          nobara-driver-manager
 Version:       1.0
-Release:       1%{?dist}
+Release:       2%{?dist}
 License:       GPLv2
 Group:         System Environment/Libraries
 Summary:       Nobara's Driver Manager
@@ -54,7 +54,8 @@ Suggests:	kde-runtime
 DESTDIR=%{buildroot} make install
 
 %description
-Nobara's Python3 & GTK3 built Welcome App
+Nobara's Python3 & GTK4 built Welcome App
+
 %files
 %{_prefix}/lib/nobara/drivers/*
 %{_bindir}/*
