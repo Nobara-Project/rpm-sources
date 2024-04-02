@@ -1,6 +1,6 @@
 %global _default_patch_fuzz 2
 
-%global commit 75a940c949d5b4d8135531e1a9c5491c008910b5
+%global commit 9e0d0190ea1a7781013b638ccd98236eb8ee00d7
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build git.%{build_timestamp}.%{shortcommit}%{?dist}
@@ -93,8 +93,6 @@ Patch2: 25352.patch
 # https://gitlab.com/evlaV/mesa/
 Patch3: valve.patch
 
-# Disabled, causes GPU frequency to lock
-#Patch4: helldivers-2-gpu-hang-workaround-radv.patch
 
 Patch10:        gnome-shell-glthread-disable.patch
 
@@ -430,16 +428,16 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 * Tue May 30 2023 Dave Airlie <airlied@redhat.com> - 23.1.1-1
 - Update to mesa 23.1.1
 
-* Fri May 05 2023 Kamil Páral <kparal@redhat.com> - 23.0.3-5
+* Fri May 05 2023 Kamil PÃ¡ral <kparal@redhat.com> - 23.0.3-5
 - Prevent partial updates (rhbz#2193135)
 
-* Wed May 03 2023 Michel Dänzer <mdaenzer@redhat.com> - 23.0.3-4
+* Wed May 03 2023 Michel DÃ¤nzer <mdaenzer@redhat.com> - 23.0.3-4
 - Do not enable intel-clc for ELN/RHEL
 
-* Mon May 01 2023 Michel Dänzer <mdaenzer@redhat.com> - 23.0.3-3
+* Mon May 01 2023 Michel DÃ¤nzer <mdaenzer@redhat.com> - 23.0.3-3
 - Enable intel-clc for ANV ray tracing support
 
-* Fri Apr 28 2023 Michel Dänzer <mdaenzer@redhat.com> - 23.0.3-2
+* Fri Apr 28 2023 Michel DÃ¤nzer <mdaenzer@redhat.com> - 23.0.3-2
 - Remove superfluous meson parameters for rusticl
 - Dllvm=enabled is already there unconditionally further down.
 
@@ -458,7 +456,7 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 * Thu Apr 13 2023 Pete Walter <pwalter@fedoraproject.org> - 23.0.1-3
 - Tighten mesa-va-drivers recommends again (rhbz#2161338)
 
-* Mon Apr 03 2023 František Zatloukal <fzatlouk@redhat.com> - 23.0.1-2
+* Mon Apr 03 2023 FrantiÅ¡ek Zatloukal <fzatlouk@redhat.com> - 23.0.1-2
 - Rebuild for LLVM 16
 
 * Sat Mar 25 2023 Pete Walter <pwalter@fedoraproject.org> - 23.0.1-1
