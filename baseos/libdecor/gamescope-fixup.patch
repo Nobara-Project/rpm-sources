@@ -1,0 +1,75 @@
+From 176f7af30630ce86abc9e6729ecdcf3c47c0e5bd Mon Sep 17 00:00:00 2001
+From: Joshua Ashton <joshua@froggi.es>
+Date: Sun, 10 Mar 2024 22:55:08 +0000
+Subject: [PATCH] libdecor: Fix set_visibility for SSD compositors
+
+There is no version 2. This just does nothing and doesn't work.
+
+Removing the version check makes this call work on labwc + Plasma.
+---
+ src/libdecor.c | 34 ++++++++++++++++------------------
+ 1 file changed, 16 insertions(+), 18 deletions(-)
+
+diff --git a/src/libdecor.c b/src/libdecor.c
+index 3ede712..14c9485 100644
+--- a/src/libdecor.c
++++ b/src/libdecor.c
+@@ -124,6 +124,7 @@ struct libdecor_frame_private {
+ 
+ 	enum libdecor_window_state window_state;
+ 
++	bool has_decoration_mode;
+ 	enum zxdg_toplevel_decoration_v1_mode decoration_mode;
+ 
+ 	enum libdecor_capabilities capabilities;
+@@ -504,7 +505,13 @@ toplevel_decoration_configure(
+ 		struct zxdg_toplevel_decoration_v1 *zxdg_toplevel_decoration_v1,
+ 		uint32_t mode)
+ {
+-	((struct libdecor_frame_private *)(data))->decoration_mode = mode;
++	struct libdecor_frame_private *frame_priv = (struct libdecor_frame_private *)data;
++	/* Ignore any _configure calls after the first, they will be
++	 * from our set_mode call. */
++	if (!frame_priv->has_decoration_mode) {
++		frame_priv->has_decoration_mode = true;
++		frame_priv->decoration_mode = mode;
++	}
+ }
+ 
+ static const struct zxdg_toplevel_decoration_v1_listener
+@@ -684,24 +691,15 @@ libdecor_frame_set_visibility(struct libdecor_frame *frame,
+ 
+ 	frame_priv->visible = visible;
+ 
+-	/* enable/disable decorations that are managed by the compositor,
+-	 * only xdg-decoration version 2 and above allows to toggle decoration */
++	/* enable/disable decorations that are managed by the compositor */
+ 	if (context->decoration_manager &&
+-	    zxdg_decoration_manager_v1_get_version(context->decoration_manager) > 1) {
+-		if (frame_priv->visible &&
+-		    frame_priv->toplevel_decoration == NULL) {
+-			/* - request to SHOW decorations
+-			 * - decorations are NOT HANDLED
+-			 * => create new decorations for already mapped surface */
+-			libdecor_frame_create_xdg_decoration(frame_priv);
+-		} else if (!frame_priv->visible &&
+-			 frame_priv->toplevel_decoration != NULL) {
+-			/* - request to HIDE decorations
+-			 * - decorations are HANDLED
+-			 * => destroy decorations */
+-			zxdg_toplevel_decoration_v1_destroy(frame_priv->toplevel_decoration);
+-			frame_priv->toplevel_decoration = NULL;
+-		}
++	    frame_priv->toplevel_decoration &&
++	    frame_priv->has_decoration_mode &&
++	    frame_priv->decoration_mode == ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE) {
++		zxdg_toplevel_decoration_v1_set_mode(frame_priv->toplevel_decoration,
++						     frame->priv->visible
++						     ? ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE
++						     : ZXDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE);
+ 	}
+ 
+ 	/* enable/disable decorations that are managed by a plugin */
+-- 
+GitLab
+
