@@ -1,11 +1,11 @@
 %global libliftoff_minver 0.4.1
 
-%define commit 7f112d556430e1f814c4646b427bf71ae5b0de77
+%define commit 741bb26b8ef35c00e919daadc39470d0af3642bd
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 %global build_timestamp %(date +"%Y%m%d")
 
-%global rel_build 13.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 14.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           gamescope
 Version:        3.13.20
@@ -17,7 +17,6 @@ URL:            https://github.com/ChimeraOS/gamescope
 
 # Create stb.pc to satisfy dependency('stb')
 Source1:        stb.pc
-Patch0:         8.patch
 
 BuildRequires:  meson >= 0.54.0
 BuildRequires:  ninja-build
@@ -78,11 +77,10 @@ Summary:	libs for %{name}
 %prep
 git clone --single-branch --branch gamescope-plus https://github.com/ChimeraOS/gamescope.git
 cd gamescope
+git checkout %{commit}
 git submodule update --init --recursive
 mkdir -p pkgconfig
 cp %{SOURCE1} pkgconfig/stb.pc
-patch -Np1 < %{PATCH0}
-
 
 %build
 cd gamescope
