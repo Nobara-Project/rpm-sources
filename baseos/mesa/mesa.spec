@@ -576,7 +576,9 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-mesa-defaults.conf
 
 %files dri-drivers
 %dir %{_datadir}/drirc.d
+%ifnarch %{ix86}
 %{_datadir}/drirc.d/00-mesa-defaults.conf
+%endif
 %{_libdir}/dri/kms_swrast_dri.so
 %{_libdir}/dri/swrast_dri.so
 %{_libdir}/dri/virtio_gpu_dri.so
