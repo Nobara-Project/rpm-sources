@@ -11,11 +11,11 @@
 %global mutter_api_version 13
 
 %global gnome_major_version 45
-%global gnome_version %{gnome_major_version}.0
+%global gnome_version %{gnome_major_version}.5
 %global tarball_version %%(echo %{gnome_version} | tr '~' '.')
 
 Name:          mutter
-Version:       %{gnome_version}.vrr.18
+Version:       %{gnome_version}.vrr.19
 Release:       1%{?dist}
 Summary:       Window and compositing manager based on Clutter
 
