@@ -1,12 +1,12 @@
 %global app_id dk.yumex.Yumex
 %global app_build debug
 %global dnf_backend DNF4
-%global gitcommit 230613cf7d00fec97d949f2951afc2112ac368d3
-%global shortcommit 230613c
+%global gitcommit 9a85ac2c1cbeb337af1fcb19bd8e1e8c4eb31a75
+%global shortcommit 9a85ac2
 
 Name:     yumex
 Version:  4.99.4
-Release:  0.14.git.%{shortcommit}%{?dist}
+Release:  0.15.git.%{shortcommit}%{?dist}
 Summary:  Yum Extender graphical package management tool
 
 Group:    Applications/System
@@ -14,8 +14,7 @@ License:  GPLv3+
 URL:      http://yumex.dk
 Source0:  https://github.com/timlau/yumex-ng/archive/%{gitcommit}.zip#/%{name}-%{shortcommit}.tar.gz
 Source1:  rename-desktop-shortcut.patch
-Source3:  0001-add-nobara-update-system-button.patch
-Source4:  0001-fix-english-spelling-of-the-word-completed.patch
+Source2:  0001-add-nobara-update-system-button.patch
 
 BuildArch: noarch
 BuildRequires: python3-devel
@@ -54,8 +53,7 @@ Graphical package tool for maintain packages on the system
 %prep
 %setup -q -n %{name}-ng-%{gitcommit}
 patch -Np1 < %{SOURCE1}
-patch -Np1 < %{SOURCE3}
-patch -Np1 < %{SOURCE4}
+patch -Np1 < %{SOURCE2}
 
 %check
 appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/*.metainfo.xml
