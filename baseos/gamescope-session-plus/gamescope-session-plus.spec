@@ -1,6 +1,6 @@
 Name:           gamescope-session-plus
 Version:        0.2.git.201.5538cd66
-Release:        43%{?dist}
+Release:        44%{?dist}
 Summary:        Gamescope session plus based on Valve's gamescope
 
 License:        MIT
@@ -37,10 +37,12 @@ mkdir -p %{buildroot}%{_bindir}/
 mkdir -p %{buildroot}%{_datadir}/
 mkdir -p %{buildroot}%{_sysconfdir}/
 mkdir -p %{buildroot}%{_userunitdir}/
+mkdir -p %{buildroot}%{_libexecdir}/
 cp -rv gamescope-session-plus/usr/bin/* %{buildroot}%{_bindir}
 cp -rv gamescope-session-plus/usr/share/* %{buildroot}%{_datadir}
 cp -rv gamescope-session-plus/etc/* %{buildroot}%{_sysconfdir}
 cp -rv gamescope-session-plus/usr/lib/systemd/user/* %{buildroot}%{_userunitdir}
+cp -rv gamescope-session-plus/usr/libexec/* %{buildroot}%{_libexecdir}/
 mv gamescope-session-plus/LICENSE .
 mv gamescope-session-plus/README.md .
 
@@ -80,7 +82,9 @@ fi
 %{_datadir}/gamescope-session-plus/device-quirks
 %{_datadir}/gamescope-session-plus/gamescope-session-plus
 %{_sysconfdir}/xdg/autostart/deckscale.desktop
+%{_sysconfdir}/gamescope-session-plus/run-commands
 %{_userunitdir}/gamescope-session-plus@.service
+%{_libexecdir}/gs-thirdparty-services
 
 # Finally, changes from the latest release of your application are generated from
 # your project's Git history. It will be empty until you make first annotated Git tag.
