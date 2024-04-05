@@ -1,5 +1,5 @@
 Name:           vulkan-tools
-Version:        1.3.270
+Version:        1.3.280
 Release:        1%{?dist}
 Summary:        Vulkan tools
 
@@ -14,6 +14,8 @@ BuildRequires:  glslang
 BuildRequires:  ninja-build
 BuildRequires:  python%{python3_pkgversion}-devel
 BuildRequires:  vulkan-loader-devel
+BuildRequires:  vulkan-volk-devel
+BuildRequires:  vulkan-volk-static
 BuildRequires:  wayland-protocols-devel
 BuildRequires:  pkgconfig(wayland-client)
 BuildRequires:  pkgconfig(wayland-cursor)
