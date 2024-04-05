@@ -1,0 +1,133 @@
+From 39d923c5fd6cfc77f7c7eae43a095828fe84cb02 Mon Sep 17 00:00:00 2001
+From: Manuel Thalmann <m@nuth.ch>
+Date: Sun, 25 Feb 2024 13:55:42 +0100
+Subject: [PATCH] Re-enable `pairing` attribute
+
+---
+ README.md          | 14 +++++++++++
+ transport/dongle.c | 59 ++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 73 insertions(+)
+
+diff --git a/README.md b/README.md
+index b65a1af..e4af129 100644
+--- a/README.md
++++ b/README.md
+@@ -113,6 +113,20 @@ echo 5 | sudo tee /sys/class/leds/gip*/brightness
+ Replace the wildcard (`gip*`) if you want to control the LED of a specific device.
+ The modes and the maximum brightness can vary from device to device.
+ 
++## Pairing mode
++
++The pairing mode of the dongle can be queried via `sysfs`:
++
++```
++cat /sys/bus/usb/drivers/xone-dongle/*/pairing
++```
++
++You can enable (`1`) or disable (`0`) the pairing using the following command:
++
++```
++echo 1 | sudo tee /sys/bus/usb/drivers/xone-dongle/*/pairing
++```
++
+ ## Troubleshooting
+ 
+ Uninstall the release version and install a debug build of `xone` (see installation guide).
+diff --git a/transport/dongle.c b/transport/dongle.c
+index aa58ac2..eec9fa1 100644
+--- a/transport/dongle.c
++++ b/transport/dongle.c
+@@ -8,6 +8,7 @@
+ #include <linux/bitfield.h>
+ #include <linux/version.h>
+ #include <linux/usb.h>
++#include <linux/sysfs.h>
+ #include <linux/ieee80211.h>
+ #include <net/cfg80211.h>
+ 
+@@ -262,6 +263,53 @@ static void xone_dongle_pairing_timeout(struct work_struct *work)
+ 			__func__, err);
+ }
+ 
++static ssize_t xone_dongle_pairing_show(struct device *dev,
++										struct device_attribute *attr,
++										char *buf)
++{
++	struct usb_interface *intf = to_usb_interface(dev);
++	struct xone_dongle *dongle = usb_get_intfdata(intf);
++
++	return sprintf(buf, "%d\n", dongle->pairing);
++}
++
++static ssize_t xone_dongle_pairing_store(struct device *dev,
++										 struct device_attribute *attr,
++										 const char *buf, size_t count)
++{
++	struct usb_interface *intf = to_usb_interface(dev);
++	struct xone_dongle *dongle = usb_get_intfdata(intf);
++	bool enable;
++	int err;
++
++	err = kstrtobool(buf, &enable);
++	if (err)
++		return err;
++
++	err = pm_runtime_resume_and_get(dev);
++	if (err)
++		return err;
++
++	err = xone_dongle_toggle_pairing(dongle, enable);
++	if (err)
++		return err;
++
++	pm_runtime_put(dev);
++
++	return count;
++}
++
++static struct device_attribute xone_dongle_attr_pairing =
++	__ATTR(pairing, 0644,
++	       xone_dongle_pairing_show,
++	       xone_dongle_pairing_store);
++
++static struct attribute *xone_dongle_attrs[] = {
++	&xone_dongle_attr_pairing.attr,
++	NULL,
++};
++ATTRIBUTE_GROUPS(xone_dongle);
++
+ static struct xone_dongle_client *
+ xone_dongle_create_client(struct xone_dongle *dongle, u8 *addr)
+ {
+@@ -942,6 +990,10 @@ static int xone_dongle_probe(struct usb_interface *intf,
+ 
+ 	usb_set_intfdata(intf, dongle);
+ 
++	err = device_add_groups(&intf->dev, xone_dongle_groups);
++	if (err)
++		goto err_destroy_dongle;
++
+ 	/* enable USB remote wakeup and autosuspend */
+ 	intf->needs_remote_wakeup = true;
+ 	device_wakeup_enable(&dongle->mt.udev->dev);
+@@ -950,6 +1002,11 @@ static int xone_dongle_probe(struct usb_interface *intf,
+ 	usb_enable_autosuspend(dongle->mt.udev);
+ 
+ 	return 0;
++
++err_destroy_dongle:
++	xone_dongle_destroy(dongle);
++
++	return err;
+ }
+ 
+ static void xone_dongle_disconnect(struct usb_interface *intf)
+@@ -957,6 +1014,8 @@ static void xone_dongle_disconnect(struct usb_interface *intf)
+ 	struct xone_dongle *dongle = usb_get_intfdata(intf);
+ 	int err;
+ 
++	device_remove_groups(&intf->dev, xone_dongle_groups);
++
+ 	/* can fail during USB device removal */
+ 	err = xone_dongle_power_off_clients(dongle);
+ 	if (err)

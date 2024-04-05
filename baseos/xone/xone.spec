@@ -1,3 +1,7 @@
+%global commit 58004bff8bda0ea36dce4b970a054b95800e3c3f
+%global commitdate 20240405
+%global shortcommit %(c=%{commit}; echo ${c:0:7})
+
 %if 0%{?fedora}
 %global buildforkernels akmod
 %global debug_package %{nil}
@@ -5,15 +9,14 @@
 
 Name:     xone
 Version:  0.3
-Release:  4%{?dist}
+Release:  5%{?dist}
 Summary:  Linux kernel driver for Xbox One and Xbox Series X|S accessories 
 License:  GPLv2
 URL:      https://github.com/medusalix/xone
-Source0:  %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
+Source0:  %{url}/archive/%{commit}/%{name}-%{shortcommit}.tar.gz
 Source1:  modules-load-d-%{name}.conf
-Patch0:   https://github.com/medusalix/xone/pull/21.patch#/%{name}-%{version}-kernel-6.3.patch
-Patch1:   https://github.com/medusalix/xone/pull/22.patch#/%{name}-%{version}-higher-power.patch
 Patch2:   https://github.com/medusalix/xone/pull/20.patch#/%{name}-%{version}-share-button.patch
+Patch3:   https://github.com/medusalix/xone/pull/35.patch#/%{name}-%{version}-pairing-attrib.patch
 
 BuildRequires:  gcc
 BuildRequires:  make
@@ -52,14 +55,14 @@ kmod package for %{name}
 # print kmodtool output for debugging purposes:
 kmodtool --target %{_target_cpu} --kmodname %{name} %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null
 
-%autosetup -c %{name}-%{version} -N
+%autosetup -c %{name}-%{commit} -N
 
-pushd %{name}-%{version}
+pushd %{name}-%{commit}
 %autopatch -m0 -p1
 popd
 
 for kernel_version  in %{?kernel_versions} ; do
-  cp -a %{name}-%{version} _kmod_build_${kernel_version%%___*}
+  cp -a %{name}-%{commit} _kmod_build_${kernel_version%%___*}
 done
 
 %build
@@ -75,12 +78,12 @@ for kernel_version in %{?kernel_versions}; do
 done
 %{?akmod_install}
 
-install -D -m 0644 %{name}-%{version}/install/modprobe.conf %{buildroot}%{_modprobedir}/60-%{name}.conf
+install -D -m 0644 %{name}-%{commit}/install/modprobe.conf %{buildroot}%{_modprobedir}/60-%{name}.conf
 install -D -m 0644 %{SOURCE1} %{buildroot}%{_modulesloaddir}/%{name}.conf
 
 %files
-%doc %{name}-%{version}/README.md 
-%license %{name}-%{version}/LICENSE
+%doc %{name}-%{commit}/README.md
+%license %{name}-%{commit}/LICENSE
 %{_modprobedir}/60-%{name}.conf
 %{_modulesloaddir}/%{name}.conf
 
