@@ -97,98 +97,22 @@ index 293ec172e0a71..4c495e0e33f90 100644
 --
 GitLab
 
-From 39ecb253ecf7ed12e3019b72d7a226f0525dfaa3 Mon Sep 17 00:00:00 2001
-From: Venkata Prasad Potturu <venkataprasad.potturu@amd.com>
-Date: Fri, 20 Oct 2023 15:14:52 +0530
-Subject: [PATCH] ASoC: amd: Add new dmi entries and add condition check for
- acp config flag
-
-Signed-off-by: Venkata Prasad Potturu <venkataprasad.potturu@amd.com>
-(cherry picked from commit 50f20ef9bcf6fdf6e6cc64a031be26fb9cb54849)
----
- sound/soc/amd/acp-config.c        | 14 ++++++++++++++
- sound/soc/amd/vangogh/pci-acp5x.c |  3 ++-
- 2 files changed, 16 insertions(+), 1 deletion(-)
-
-diff --git a/sound/soc/amd/acp-config.c b/sound/soc/amd/acp-config.c
-index f27c27580009..73d29a344e70 100644
---- a/sound/soc/amd/acp-config.c
-+++ b/sound/soc/amd/acp-config.c
-@@ -47,6 +47,20 @@ static const struct config_entry config_table[] = {
- 			{}
- 		},
- 	},
-+	{
-+		.flags = FLAG_AMD_LEGACY,
-+		.device = ACP_PCI_DEV_ID,
-+		.dmi_table = (const struct dmi_system_id []) {
-+			{
-+				.matches = {
-+					DMI_MATCH(DMI_SYS_VENDOR, "Valve"),
-+					DMI_MATCH(DMI_PRODUCT_NAME, "Jupiter"),
-+					DMI_MATCH(DMI_PRODUCT_FAMILY, "Aerith"),
-+				},
-+			},
-+			{}
-+		},
-+	},
- 	{
- 		.flags = FLAG_AMD_SOF,
- 		.device = ACP_PCI_DEV_ID,
-diff --git a/sound/soc/amd/vangogh/pci-acp5x.c b/sound/soc/amd/vangogh/pci-acp5x.c
-index c4634a8a17cd..e29c4cc10e0f 100644
---- a/sound/soc/amd/vangogh/pci-acp5x.c
-+++ b/sound/soc/amd/vangogh/pci-acp5x.c
-@@ -13,6 +13,7 @@
- #include <linux/pm_runtime.h>
-
- #include "acp5x.h"
-+#include "../mach-config.h"
-
- struct acp5x_dev_data {
- 	void __iomem *acp5x_base;
-@@ -131,7 +132,7 @@ static int snd_acp5x_probe(struct pci_dev *pci,
-
- 	/* Return if acp config flag is defined */
- 	flag = snd_amd_acp_find_config(pci);
--	if (flag)
-+	if (flag != FLAG_AMD_LEGACY)
- 		return -ENODEV;
-
- 	irqflags = IRQF_SHARED;
---
-GitLab
-
-From 4855323691ea7dd2288c51cd11f00561f9ba22df Mon Sep 17 00:00:00 2001
-From: Thomas Crider <gloriouseggroll@gmail.com>
-Date: Tue, 5 Dec 2023 05:13:41 -0500
-Subject: [PATCH] cs35l41 fixup
-
----
- sound/soc/amd/acp/acp-mach-common.c | 107 ++++++++++++++++++++++++++++
- sound/soc/amd/acp/acp-mach.h        |   4 ++
- sound/soc/amd/acp/acp-sof-mach.c    |   2 +
- sound/soc/sof/ipc3-topology.c       |  11 +--
- sound/soc/sof/topology.c            |   3 +-
- 5 files changed, 122 insertions(+), 5 deletions(-)
-
 diff --git a/sound/soc/amd/acp/acp-mach-common.c b/sound/soc/amd/acp/acp-mach-common.c
-index a06af82b8..ae32748a5 100644
+index 504d1b8c4..3411e8d9a 100644
 --- a/sound/soc/amd/acp/acp-mach-common.c
 +++ b/sound/soc/amd/acp/acp-mach-common.c
-@@ -26,6 +26,8 @@
+@@ -26,6 +26,7 @@
  #include "../../codecs/rt5682s.h"
  #include "../../codecs/nau8825.h"
  #include "../../codecs/nau8821.h"
 +#include "../../codecs/cs35l41.h"
-+
  #include "acp-mach.h"
- 
+
  #define PCO_PLAT_CLK 48000000
-@@ -1243,6 +1245,78 @@ SND_SOC_DAILINK_DEF(nau8821,
+@@ -1282,6 +1283,78 @@ SND_SOC_DAILINK_DEF(nau8821,
  		    DAILINK_COMP_ARRAY(COMP_CODEC("i2c-NVTN2020:00",
  						  "nau8821-hifi")));
- 
+
 +static int acp_cs35l41_init(struct snd_soc_pcm_runtime *rtd)
 +{
 +	return 0;
@@ -264,17 +188,24 @@ index a06af82b8..ae32748a5 100644
  /* Declare DMIC codec components */
  SND_SOC_DAILINK_DEF(dmic_codec,
  		DAILINK_COMP_ARRAY(COMP_CODEC("dmic-codec", "dmic-hifi")));
-@@ -1278,6 +1352,8 @@ SND_SOC_DAILINK_DEF(sof_hs,
- 		    DAILINK_COMP_ARRAY(COMP_CPU("acp-sof-hs")));
- SND_SOC_DAILINK_DEF(sof_hs_virtual,
- 	DAILINK_COMP_ARRAY(COMP_CPU("acp-sof-hs-virtual")));
-+SND_SOC_DAILINK_DEF(sof_bt,
-+		    DAILINK_COMP_ARRAY(COMP_CPU("acp-sof-bt")));
- SND_SOC_DAILINK_DEF(sof_dmic,
- 	DAILINK_COMP_ARRAY(COMP_CPU("acp-sof-dmic")));
- SND_SOC_DAILINK_DEF(pdm_dmic,
-@@ -1336,6 +1412,8 @@ int acp_sofdsp_dai_links_create(struct snd_soc_card *card)
- 
+@@ -1481,6 +1554,7 @@ int acp_sofdsp_dai_links_create(struct snd_soc_card *card)
+ 		links[i].platforms = sof_component;
+ 		links[i].num_platforms = ARRAY_SIZE(sof_component);
+ 		links[i].dpcm_playback = 1;
++		links[i].dpcm_capture = 1;
+ 		links[i].nonatomic = true;
+ 		links[i].no_pcm = 1;
+ 		if (!drv_data->amp_codec_id) {
+@@ -1513,6 +1587,7 @@ int acp_sofdsp_dai_links_create(struct snd_soc_card *card)
+ 		links[i].platforms = sof_component;
+ 		links[i].num_platforms = ARRAY_SIZE(sof_component);
+ 		links[i].dpcm_playback = 1;
++		links[i].dpcm_capture = 1;
+ 		links[i].nonatomic = true;
+ 		links[i].no_pcm = 1;
+ 		if (!drv_data->amp_codec_id) {
+@@ -1597,6 +1672,8 @@ int acp_legacy_dai_links_create(struct snd_soc_card *card)
+
  	if (drv_data->hs_cpu_id)
  		num_links++;
 +	if (drv_data->bt_cpu_id)
@@ -282,23 +213,7 @@ index a06af82b8..ae32748a5 100644
  	if (drv_data->amp_cpu_id)
  		num_links++;
  	if (drv_data->dmic_cpu_id)
-@@ -1421,6 +1499,7 @@ int acp_sofdsp_dai_links_create(struct snd_soc_card *card)
- 		links[i].platforms = sof_component;
- 		links[i].num_platforms = ARRAY_SIZE(sof_component);
- 		links[i].dpcm_playback = 1;
-+		links[i].dpcm_capture = 1;
- 		links[i].nonatomic = true;
- 		links[i].no_pcm = 1;
- 		if (!drv_data->amp_codec_id) {
-@@ -1453,6 +1532,7 @@ int acp_sofdsp_dai_links_create(struct snd_soc_card *card)
- 		links[i].platforms = sof_component;
- 		links[i].num_platforms = ARRAY_SIZE(sof_component);
- 		links[i].dpcm_playback = 1;
-+		links[i].dpcm_capture = 1;
- 		links[i].nonatomic = true;
- 		links[i].no_pcm = 1;
- 		if (!drv_data->amp_codec_id) {
-@@ -1482,6 +1562,33 @@ int acp_sofdsp_dai_links_create(struct snd_soc_card *card)
+@@ -1744,6 +1821,33 @@ int acp_legacy_dai_links_create(struct snd_soc_card *card)
  			card->codec_conf = rt1019_conf;
  			card->num_configs = ARRAY_SIZE(rt1019_conf);
  		}
@@ -331,107 +246,34 @@ index a06af82b8..ae32748a5 100644
 +		}
  		i++;
  	}
- 
+
 diff --git a/sound/soc/amd/acp/acp-mach.h b/sound/soc/amd/acp/acp-mach.h
-index 2b3ec6594..6feef5a93 100644
+index a48546d8d..3b69dfa80 100644
 --- a/sound/soc/amd/acp/acp-mach.h
 +++ b/sound/soc/amd/acp/acp-mach.h
-@@ -23,6 +23,7 @@
- enum be_id {
- 	HEADSET_BE_ID = 0,
- 	AMP_BE_ID,
-+	BT_BE_ID,
- 	DMIC_BE_ID,
- };
- 
-@@ -41,6 +42,7 @@ enum codec_endpoints {
+@@ -46,6 +46,7 @@ enum codec_endpoints {
  	MAX98360A,
  	RT5682S,
  	NAU8825,
 +	CS35L41,
  	NAU8821,
  	MAX98388,
- };
-@@ -53,9 +55,11 @@ enum platform_end_point {
- struct acp_card_drvdata {
- 	unsigned int hs_cpu_id;
- 	unsigned int amp_cpu_id;
-+	unsigned int bt_cpu_id;
- 	unsigned int dmic_cpu_id;
- 	unsigned int hs_codec_id;
- 	unsigned int amp_codec_id;
-+	unsigned int bt_codec_id;
- 	unsigned int dmic_codec_id;
- 	unsigned int dai_fmt;
- 	unsigned int platform;
-diff --git a/sound/soc/amd/acp/acp-sof-mach.c b/sound/soc/amd/acp/acp-sof-mach.c
-index 5223033a1..45d4ce17c 100644
---- a/sound/soc/amd/acp/acp-sof-mach.c
-+++ b/sound/soc/amd/acp/acp-sof-mach.c
-@@ -86,9 +86,11 @@ static struct acp_card_drvdata sof_rt5682s_hs_rt1019_data = {
- static struct acp_card_drvdata sof_nau8821_max98388_data = {
- 	.hs_cpu_id = I2S_SP,
- 	.amp_cpu_id = I2S_HS,
-+	.bt_cpu_id	= I2S_BT,
- 	.dmic_cpu_id = NONE,
- 	.hs_codec_id = NAU8821,
- 	.amp_codec_id = MAX98388,
-+	.bt_codec_id = NONE,
- 	.dmic_codec_id = NONE,
- 	.soc_mclk = true,
- 	.tdm_mode = false,
-diff --git a/sound/soc/sof/ipc3-topology.c b/sound/soc/sof/ipc3-topology.c
-index ba4ef290b..2f070f907 100644
---- a/sound/soc/sof/ipc3-topology.c
-+++ b/sound/soc/sof/ipc3-topology.c
-@@ -1174,6 +1174,7 @@ static int sof_link_acp_bt_load(struct snd_soc_component *scomp, struct snd_sof_
- 	struct snd_soc_tplg_hw_config *hw_config = slink->hw_configs;
- 	struct sof_dai_private_data *private = dai->private;
- 	u32 size = sizeof(*config);
-+	int ret;
- 
- 	/* handle master/slave and inverted clocks */
- 	sof_dai_set_format(hw_config, config);
-@@ -1182,12 +1183,14 @@ static int sof_link_acp_bt_load(struct snd_soc_component *scomp, struct snd_sof_
- 	memset(&config->acpbt, 0, sizeof(config->acpbt));
- 	config->hdr.size = size;
- 
--	config->acpbt.fsync_rate = le32_to_cpu(hw_config->fsync_rate);
--	config->acpbt.tdm_slots = le32_to_cpu(hw_config->tdm_slots);
-+	ret = sof_update_ipc_object(scomp, &config->acpbt, SOF_ACPI2S_TOKENS, slink->tuples,
-+				    slink->num_tuples, size, slink->num_hw_configs);
-+	if (ret < 0)
-+		return ret;
- 
--	dev_info(scomp->dev, "ACP_BT config ACP%d channel %d rate %d\n",
-+	dev_info(scomp->dev, "ACP_BT config ACP%d channel %d rate %d tdm_mode %d\n",
- 		 config->dai_index, config->acpbt.tdm_slots,
--		 config->acpbt.fsync_rate);
-+		 config->acpbt.fsync_rate, config->acpbt.tdm_mode);
- 
- 	dai->number_configs = 1;
- 	dai->current_config = 0;
-diff --git a/sound/soc/sof/topology.c b/sound/soc/sof/topology.c
-index a3a3af252..a634ae05f 100644
---- a/sound/soc/sof/topology.c
-+++ b/sound/soc/sof/topology.c
-@@ -289,7 +289,7 @@ static const struct sof_dai_types sof_dais[] = {
- 	{"ALH", SOF_DAI_INTEL_ALH},
- 	{"SAI", SOF_DAI_IMX_SAI},
- 	{"ESAI", SOF_DAI_IMX_ESAI},
--	{"ACP", SOF_DAI_AMD_BT},
-+	{"ACPBT", SOF_DAI_AMD_BT},
- 	{"ACPSP", SOF_DAI_AMD_SP},
- 	{"ACPDMIC", SOF_DAI_AMD_DMIC},
- 	{"ACPHS", SOF_DAI_AMD_HS},
-@@ -1953,6 +1953,7 @@ static int sof_link_load(struct snd_soc_component *scomp, int index, struct snd_
- 		token_id = SOF_ACPDMIC_TOKENS;
- 		num_tuples += token_list[SOF_ACPDMIC_TOKENS].count;
- 		break;
-+	case SOF_DAI_AMD_BT:
- 	case SOF_DAI_AMD_SP:
- 	case SOF_DAI_AMD_HS:
- 	case SOF_DAI_AMD_SP_VIRTUAL:
--- 
+ 	ES83XX,
+
+--
 2.43.0
 
+diff --git a/sound/soc/amd/acp/acp-mach.h b/sound/soc/amd/acp/acp-mach.h
+index a48546d8d407..0c18ccd29305 100644
+--- a/sound/soc/amd/acp/acp-mach.h
++++ b/sound/soc/amd/acp/acp-mach.h
+@@ -27,8 +27,8 @@
+ enum be_id {
+ 	HEADSET_BE_ID = 0,
+ 	AMP_BE_ID,
+-	DMIC_BE_ID,
+ 	BT_BE_ID,
++	DMIC_BE_ID,
+ };
+
+ enum cpu_endpoints {

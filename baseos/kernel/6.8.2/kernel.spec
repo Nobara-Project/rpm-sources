@@ -1959,8 +1959,8 @@ ApplyOptionalPatch set-ps4-bt-poll-rate-1000hz.patch
 ApplyOptionalPatch 0001-Set-amdgpu.ppfeaturemask-0xffffffff-as-default.patch
 
 # steam deck oled patchs
-##ApplyOptionalPatch steamdeck-oled-wifi.patch
-##ApplyOptionalPatch steamdeck-oled-audio.patch
+ApplyOptionalPatch steamdeck-oled-wifi.patch
+ApplyOptionalPatch steamdeck-oled-audio.patch
 ApplyOptionalPatch steamdeck-oled-hw-quirks.patch
 
 # t2 macbook patches
