@@ -9,8 +9,8 @@
 %endif
 %global debug_package %{nil}
 
-%global commit 2c9b67072b15d903fecde67c7f269abeafee4c25
-%global commitdate 20230503
+%global commit 4f99388d491cd5c1155c0df88316bd22aae40d8c
+%global commitdate 20240405
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 %global prjname v4l2loopback
@@ -33,14 +33,12 @@
 
 Name:           %{prjname}-kmod
 Summary:        Kernel module (kmod) for %{prjname}
-Version:        0.12.7^%{commitdate}g%{shortcommit}
-Release:        2%{?dist}
+Version:        0.13.1^%{commitdate}g%{shortcommit}
+Release:        1%{?dist}
 License:        GPLv2+
 
 URL:            https://github.com/umlaeute/v4l2loopback
 Source0:        %{url}/archive/%{commit}/%{prjname}-%{shortcommit}.tar.gz
-
-Patch0:         0001-v4l2loopback-Fixup-bytesused-field-when-writer-sends.patch
 
 BuildRequires:  gcc
 BuildRequires:  elfutils-libelf-devel
@@ -67,7 +65,6 @@ kmodtool  --target %{_target_cpu} --repo rpmfusion --kmodname %{prjname} %{?buil
 
 %setup -q -c
 (cd v4l2loopback-%{commit}
-%patch0 -p1
 )
 
 for kernel_version  in %{?kernel_versions} ; do
