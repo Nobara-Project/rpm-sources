@@ -1,0 +1,29 @@
+diff --git a/bin_steam.sh b/bin_steam.sh
+index cf38071..a88deda 100755
+--- a/bin_steam.sh
++++ b/bin_steam.sh
+@@ -26,6 +26,24 @@ export STEAMSCRIPT_VERSION=1.0.0.79
+ # Set up domain for script localization
+ export TEXTDOMAIN=steam
+
++# Initialize a flag to indicate if -steamdeck is present
++steamdeck_present=false
++
++# Iterate through all arguments
++while [ $# -gt 0 ]; do
++    # Check if the current argument is -steamdeck
++    if [ "$1" == "-steamdeck" ]; then
++        steamdeck_present=true
++    fi
++    # Shift the arguments to process the next one
++    shift
++done
++
++# If -steamdeck was not found, append it to the list of arguments
++if [ "$steamdeck_present" == false ]; then
++    set -- "$@" "-steamdeck"
++fi
++
+ function show_message()
+ {
+ 	style=$1

@@ -1,31 +1,18 @@
 diff --git a/bin_steam.sh b/bin_steam.sh
-index 963822b..c2e58bc 100755
+index a88deda..d890785 100755
 --- a/bin_steam.sh
 +++ b/bin_steam.sh
-@@ -23,6 +24,9 @@ export STEAMSCRIPT_VERSION=1.0.0.78
- # Set up domain for script localization
- export TEXTDOMAIN=steam
- 
+@@ -44,6 +44,13 @@ if [ "$steamdeck_present" == false ]; then
+     set -- "$@" "-steamdeck"
+ fi
+
 +# Use wayland compatible libextest
-+export LD_PRELOAD=/usr/lib/steam/libextest.so
++if [[ "$XDG_SESSION_TYPE" == "wayland" ]]; then
++  if lsusb | grep -q Valve; then
++    export LD_PRELOAD=/usr/lib/steam/libextest.so
++  fi
++fi
 +
  function show_message()
  {
  	style=$1
-diff --git a/bin_steam.sh b/bin_steam.sh
-index 04c98b9..9257060 100755
---- a/bin_steam.sh
-+++ b/bin_steam.sh
-@@ -25,7 +25,11 @@ export STEAMSCRIPT_VERSION=1.0.0.78
- export TEXTDOMAIN=steam
-
- # Use wayland compatible libextest
--export LD_PRELOAD=/usr/lib/steam/libextest.so
-+if [[ "$XDG_SESSION_TYPE" == "wayland" ]]; then
-+
-+  export LD_PRELOAD=/usr/lib/steam/libextest.so
-+
-+fi
-
- function show_message()
- {
