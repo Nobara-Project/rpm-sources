@@ -1,6 +1,6 @@
 Name:           gamescope-session-steam
 Version:        0.2.git.201.5538cd66
-Release:        45%{?dist}
+Release:        46%{?dist}
 Summary:        Steam Deck Mode session
 
 License:        MIT
@@ -77,7 +77,6 @@ tar -xf %{_datadir}/gamescope-session-plus/bootstraplinux_ubuntu12_32.tar.xz -C 
 %{_datadir}/icons/breeze-dark/*
 %{_sysconfdir}/xdg/autostart/steam.desktop
 %{_sysconfdir}/skel/Desktop/Return.desktop
-%{_sysconfdir}/skel/Desktop/steam-with-controls.desktop
 %{_libexecdir}/os-session-select
 
 # Finally, changes from the latest release of your application are generated from
