@@ -1,6 +1,6 @@
 Name:           gamescope-session-plus
 Version:        0.2.git.201.5538cd66
-Release:        45%{?dist}
+Release:        46%{?dist}
 Summary:        Gamescope session plus based on Valve's gamescope
 
 License:        MIT
@@ -18,6 +18,7 @@ Requires:       gamescope-session-steam
 BuildRequires:  systemd-rpm-macros
 
 Obsoletes:      gamescope-session
+Provides:       steam-powerbuttond
 Obsoletes:      steam-powerbuttond
 
 %description
