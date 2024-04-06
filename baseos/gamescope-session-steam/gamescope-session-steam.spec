@@ -14,7 +14,6 @@ Requires:       gamescope
 Requires:       edid-decode
 Requires:       python3
 Requires:       pulseaudio-utils
-Requires:       steam-powerbuttond
 Requires:       steam
 
 BuildRequires:  systemd-rpm-macros
