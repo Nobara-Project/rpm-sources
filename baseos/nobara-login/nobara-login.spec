@@ -1,7 +1,7 @@
 Summary: A set of scripts to run upon first user login
 Name: nobara-login
 Version: 1.1
-Release: 49%{?dist}
+Release: 50%{?dist}
 License: Public Domain
 Group: System Environment/Base
 Source0: hwcheck.sh
@@ -21,6 +21,7 @@ Source16: wine_gaming.conf
 Source17: nobara-automount.desktop
 Source18: nobara-automount
 Source19: org.nobaraproject.automount.policy
+Source20: nobara-device-quirks
 
 BuildArch: noarch
 BuildRequires: filesystem
@@ -81,6 +82,8 @@ install -m 0755 %{SOURCE16} $RPM_BUILD_ROOT%{_datadir}/pipewire/pipewire-pulse.c
 install -m 0755 %{SOURCE17} $RPM_BUILD_ROOT%{_sysconfdir}/xdg/autostart/nobara-automount.desktop
 install -m 0755 %{SOURCE18} $RPM_BUILD_ROOT%{_libexecdir}/nobara-automount
 install -m 0755 %{SOURCE19} $RPM_BUILD_ROOT%{_datadir}/polkit-1/actions/org.nobaraproject.automount.policy
+install -m 0755 %{SOURCE20} $RPM_BUILD_ROOT%{_bindir}/nobara-device-quirks
+
 echo '# list of disabled automount partitions' > disabled.conf
 install -m 0755 disabled.conf $RPM_BUILD_ROOT%{_sysconfdir}/nobara/automount/disabled.conf
 %post sysctl
@@ -90,6 +93,7 @@ sysctl -p
 %{_bindir}/nobara-firstrun
 %{_bindir}/hwcheck
 %{_bindir}/updatecheck
+%{_bindir}/nobara-device-quirks
 %{_libexecdir}/nobara-automount
 %{_sysconfdir}/xdg/autostart/nobara-automount.desktop
 %{_sysconfdir}/xdg/autostart/nobara-firstrun.desktop

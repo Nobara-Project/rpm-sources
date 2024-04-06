@@ -11,3 +11,5 @@ if [[ $DISPLAY_CHECK ]] && [[ $WHO != "liveuser" ]] && [[ $WHO != "gnome-initial
 	  /usr/bin/updatecheck
   fi
 fi
+
+/usr/bin/nobara-device-quirks

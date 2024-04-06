@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# Use hhd for Legion Go controller mapping (for now).
+# Also we use product_version because for some reason they didn't add the name in product_name
+if grep -q "Legion Go" /sys/devices/virtual/dmi/id/product_version; then
+        systemctl start hhd@$1.service
+fi
+
+# Use hhd for ROG Ally controller mapping (for now).
+if grep -q "ROG Ally" /sys/devices/virtual/dmi/id/product_name; then
+        systemctl start hhd@$1.service
+fi
