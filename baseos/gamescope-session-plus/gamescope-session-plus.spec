@@ -82,7 +82,7 @@ fi
 %{_datadir}/gamescope-session-plus/gamescope-session-plus
 %{_datadir}/polkit-1/actions/org.gamescope.start.policy
 %{_sysconfdir}/xdg/autostart/deckscale.desktop
-%{_sysconfdir}/gamescope-session-plus/run-commands
+%{_sysconfdir}/gamescope-session-plus/*
 %{_userunitdir}/gamescope-session-plus@.service
 %{_libexecdir}/gs-thirdparty-services
 
