@@ -1,0 +1,60 @@
+From 0801b7104c46ac2eff07bf8b867f7d45c74963c2 Mon Sep 17 00:00:00 2001
+From: Reuben Thomas <rrt@sc3d.org>
+Date: Sun, 30 Oct 2016 06:21:53 +0000
+Subject: [PATCH 10/16] xdg-su: fix some easy TODOs
+
+Although xdg-su is not currently shipped, fix some trivial documentation
+TODOs.
+
+Signed-off-by: Simon Lees <sflees@suse.de>
+---
+ TODO                    |  3 ---
+ scripts/desc/xdg-su.xml | 11 ++++++++++-
+ 2 files changed, 10 insertions(+), 4 deletions(-)
+
+diff --git a/TODO b/TODO
+index 183ea6c..a4f3b17 100644
+--- a/TODO
++++ b/TODO
+@@ -16,9 +16,6 @@ General
+ * Add xdg-autostart
+ 
+ xdg-su:
+-* The summary is incorrect, it suggests that it can only run things as
+-root which is incorrect according to the main body of the document.
+-* The -c option is listed in the synopsis, but not in options.
+ * It would be useful if it was possible to distinguish between a failure
+ because of a bad password or some other failure.
+ * use sudo style syntax, drop -c option
+diff --git a/scripts/desc/xdg-su.xml b/scripts/desc/xdg-su.xml
+index 53a0f32..b4e1b7e 100644
+--- a/scripts/desc/xdg-su.xml
++++ b/scripts/desc/xdg-su.xml
+@@ -30,7 +30,7 @@
+ 
+   <refnamediv>
+     <refname>xdg-su</refname>
+-    <refpurpose>run a GUI program as root after prompting for the root password</refpurpose>
++    <refpurpose>run a GUI program as another user (typically root) after prompting for that user's password</refpurpose>
+   </refnamediv>
+ 
+   <refsynopsisdiv>
+@@ -67,6 +67,15 @@
+   <refsect1 id="options">
+     <title>Options</title>
+     <variablelist>
++      <varlistentry>
++	<term><option>-c <replaceable>command</replaceable></option></term>
++	<listitem>
++	  <simpara>
++	    the command to run. This argument is mandatory.
++	  </simpara>
++	</listitem>
++      </varlistentry>
++
+       <varlistentry>
+ 	<term><option>-u <replaceable>user</replaceable></option></term>
+ 	<listitem>
+-- 
+2.31.1
+

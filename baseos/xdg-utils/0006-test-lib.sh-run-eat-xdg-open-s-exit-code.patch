@@ -1,0 +1,45 @@
+From af7b34a6d3b77b7c9565fa7b396c7da676aa2fec Mon Sep 17 00:00:00 2001
+From: Richard Tollerton <rich.tollerton@ni.com>
+Date: Thu, 10 Jan 2019 16:31:38 -0600
+Subject: [PATCH 06/16] test-lib.sh: run: eat xdg-open's exit code
+
+It was observed that t-xdg-open.sh exits after only a fraction of the tests have
+been run, e.g.
+
+ASSERTION FAILED: expected command to be run: gio open http://www.freedesktop.org/
+ASSERTION FAILED: expected command to be run: gio open http://www.freedesktop.org/
+  - opens a URL with gvfs-open if gio open is missing in GNOME 3, GNOME 2, and Cinnamon
+gio: http://www.freedesktop.org/: Operation not supported
+make: *** [Makefile:21: t-xdg-open.sh] Error 4
+
+Given that some tests are failing on my machine (likely because of the
+peculiarities of my archlinux install), the root cause is `set -e`. The nonzero
+exit code returned by xdg-open gets returned by run(), which is also returned by
+e.g. test_open_url(), which causes the script to exit immediately.
+
+All test passes/failures at present are being defined by explicit assertions,
+not by exit codes, and it seems at least plausible that some xdg-open calls are
+meant to fail. So rather than report the nonzero error code, just ignore it, and
+trust that the assertions determine the results.
+
+Signed-off-by: Richard Tollerton <rich.tollerton@ni.com>
+---
+ autotests/test-lib.sh | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/autotests/test-lib.sh b/autotests/test-lib.sh
+index 5ea01b3..ca3b10b 100644
+--- a/autotests/test-lib.sh
++++ b/autotests/test-lib.sh
+@@ -213,7 +213,7 @@ run() {
+         XDG_CONFIG_DIRS=$XDG_CONFIG_DIRS \
+         DISPLAY=x \
+         BROWSER="$BROWSER" \
+-        $trace ../scripts/$cmd "$@"
++        $trace ../scripts/$cmd "$@" ||:
+ }
+ 
+ echo "* Testing that $COMMAND_TESTED"
+-- 
+2.31.1
+

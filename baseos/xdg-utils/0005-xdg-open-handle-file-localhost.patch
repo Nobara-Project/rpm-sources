@@ -1,0 +1,61 @@
+From 186966735dcccd61afde937118f27043bd084f57 Mon Sep 17 00:00:00 2001
+From: Richard Tollerton <rich.tollerton@ni.com>
+Date: Thu, 10 Jan 2019 15:41:08 -0600
+Subject: [PATCH 05/16] xdg-open: handle file://localhost/
+
+Presently, file://localhost/ URLs are totally unsupported: is_file_url_or_path
+correctly considers them files, but they are undecoded and hence
+check_input_file fails.
+
+While the standardization surrounding file: URLs is admittedly vague [1], AFAIK,
+*all* literature, and other implementations, unambiguously demonstrate that
+file://localhost/ should be equivalent to file:///:
+
+- The "File URI specification" explicitly linked to from the xdg-utils homepage [2]
+- RFC 8089 section 1.1
+- RFC 1738 section 3.10
+- Observed implementations of Windows `start`, macOS `open`, Firefox, Chrome, IE
+
+Fix this by adding some simple carve-outs for file://localhost specifically in
+file_url_to_path.
+
+[1] https://lists.freedesktop.org/archives/xdg/2004-November/003711.html
+[2] https://edeproject.org/spec/file-uri-spec.txt
+
+Signed-off-by: Richard Tollerton <rich.tollerton@ni.com>
+---
+ autotests/t-xdg-open.sh | 6 ++++++
+ scripts/xdg-open.in     | 3 ++-
+ 2 files changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/autotests/t-xdg-open.sh b/autotests/t-xdg-open.sh
+index 810bdc3..0d4b8d2 100755
+--- a/autotests/t-xdg-open.sh
++++ b/autotests/t-xdg-open.sh
+@@ -155,3 +155,9 @@ test_generic_open_file 'test#file.txt'
+ 
+ test_that_it opens files with spaces in their name in generic mode
+ test_generic_open_file 'test file.txt'
++
++test_that_it opens file://localhost/ paths
++mock pcmanfm
++touch $LABDIR/file.txt
++run lxde xdg-open file://localhost$(pwd)/$LABDIR/file%2etxt
++assert_run pcmanfm $(pwd)/$LABDIR/file.txt
+diff --git a/scripts/xdg-open.in b/scripts/xdg-open.in
+index 4928538..09ef6d8 100644
+--- a/scripts/xdg-open.in
++++ b/scripts/xdg-open.in
+@@ -84,7 +84,8 @@ is_file_url_or_path()
+ file_url_to_path()
+ {
+     local file="$1"
+-    if echo "$file" | grep -q '^file:///'; then
++    if echo "$file" | grep -q '^file://\(localhost\)\?/'; then
++        file=${file#file://localhost}
+         file=${file#file://}
+         file=${file%%#*}
+         file=$(echo "$file" | sed -r 's/\?.*$//')
+-- 
+2.31.1
+

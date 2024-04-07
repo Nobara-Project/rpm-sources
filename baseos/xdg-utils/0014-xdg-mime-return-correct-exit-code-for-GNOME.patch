@@ -1,0 +1,40 @@
+From 0547886c0a7ae79145998495a6e3af6a1450d0c7 Mon Sep 17 00:00:00 2001
+From: Martin Puppe <dev@mpuppe.de>
+Date: Sat, 13 Apr 2019 12:46:44 +0200
+Subject: [PATCH 14/16] xdg-mime: return correct exit code for GNOME
+
+If the desktop environment was GNOME and none of the commands for
+detecting the MIME type of a file was available, xdg-mime used to return
+exit code 0 even though it failed. The man page says it should return
+exit code 3. This commit fixes the issue.
+
+I have considered returning exit code 4 instead since that is what would
+be returned if info_kde() or info_generic() fail to find a tool for MIME
+type detection. But I have decided to implement the behavior as
+specified in the man page.
+
+The exit code of an if construct is 0 if no condition
+tested true [^1]. The author of the original code probably was not aware
+of this.
+
+[^1]: https://www.gnu.org/software/bash/manual/html_node/Conditional-Constructs.html#Conditional-Constructs
+---
+ scripts/xdg-mime.in | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/scripts/xdg-mime.in b/scripts/xdg-mime.in
+index 0e567c7..034d0ef 100644
+--- a/scripts/xdg-mime.in
++++ b/scripts/xdg-mime.in
+@@ -84,6 +84,8 @@ info_gnome()
+     elif gnomevfs-info --help 2>/dev/null 1>&2; then
+         DEBUG 1 "Running gnomevfs-info \"$1\""
+         gnomevfs-info --slow-mime "$1" 2> /dev/null | grep "^MIME" | cut -d ":" -f 2 | sed s/"^ "//
++    else
++        exit_failure_operation_impossible "no method available for querying MIME type of '$filename'"
+     fi
+ 
+     if [ $? -eq 0 ]; then
+-- 
+2.31.1
+

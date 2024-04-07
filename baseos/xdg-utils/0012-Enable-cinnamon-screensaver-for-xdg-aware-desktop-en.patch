@@ -1,0 +1,26 @@
+From 7f5349ea485fa9e0a4cb69dc645fbaf9ce3cec2e Mon Sep 17 00:00:00 2001
+From: mvdlinde <linde@b1-systems.de>
+Date: Sun, 3 Mar 2019 16:20:48 +0000
+Subject: [PATCH 12/16] Enable cinnamon screensaver for xdg aware desktop
+ environments (eg lxqt)
+
+---
+ scripts/xdg-screensaver.in | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/scripts/xdg-screensaver.in b/scripts/xdg-screensaver.in
+index 9e68196..bc5c4ee 100644
+--- a/scripts/xdg-screensaver.in
++++ b/scripts/xdg-screensaver.in
+@@ -887,6 +887,8 @@ xscreensaver-command -version 2> /dev/null | grep XScreenSaver > /dev/null && DE
+ dbus-send --print-reply --dest=org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus.GetNameOwner string:org.gnome.ScreenSaver > /dev/null 2>&1 && DE="gnome_screensaver"
+ # Consider "mate-screensaver" a separate DE
+ dbus-send --print-reply --dest=org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus.GetNameOwner string:org.mate.ScreenSaver > /dev/null 2>&1 && DE="mate_screensaver"
++# Consider "cinnamon-screensaver" a separate DE
++dbus-send --print-reply --dest=org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus.GetNameOwner string:org.cinnamon.ScreenSaver > /dev/null 2>&1 && DE="cinnamon"
+ # Consider "xautolock" a separate DE
+ xautolock -enable > /dev/null 2>&1 && DE="xautolock_screensaver"
+ 
+-- 
+2.31.1
+

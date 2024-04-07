@@ -1,0 +1,38 @@
+From 755e1f27c58016507053d192351666862905b3cc Mon Sep 17 00:00:00 2001
+From: Ronan Arraes Jardim Chagas <ronisbr@gmail.com>
+Date: Tue, 19 Mar 2019 15:12:58 +1030
+Subject: [PATCH 07/16] Fix a bug when xdg-terminal needs gsettings to get the
+ default terminal
+
+xdg-terminal is not working when it needs gsettings to obtain the
+default terminal. Thus, xdg-terminal cannot be used in MATE, Cinnamon
+or GNOME. This issue was already reported in:
+https://bugs.freedesktop.org/show_bug.cgi?id=93231
+
+Thus, this patch provides a temporary workaround until upstream fixes
+it.
+
+Link: https://bugs.freedesktop.org/show_bug.cgi?id=93231
+Signed-off-by: Simon Lees <sflees@suse.de>
+---
+ scripts/xdg-terminal.in | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/scripts/xdg-terminal.in b/scripts/xdg-terminal.in
+index f67897d..221487c 100644
+--- a/scripts/xdg-terminal.in
++++ b/scripts/xdg-terminal.in
+@@ -86,8 +86,8 @@ terminal_gsettings()
+ {
+     term_schema="$1"; shift
+ 
+-    term_exec=`gsettings get ${term_schema} exec`
+-    term_exec_arg=`gsettings get ${term_schema} exec-arg`
++    term_exec=`gsettings get ${term_schema} exec | sed -r "s/^'(.*)'$/\1/"`
++    term_exec_arg=`gsettings get ${term_schema} exec-arg | sed -r "s/^'(.*)'$/\1/"`
+ 
+     terminal_exec=`which $term_exec 2>/dev/null`
+ 
+-- 
+2.31.1
+

@@ -1,0 +1,30 @@
+From 6519ca76246c3c1ad941d3117d4e3a2d4a1dc599 Mon Sep 17 00:00:00 2001
+From: shamilbi <shamilbi@gmail.com>
+Date: Tue, 27 Jun 2023 19:25:38 +0200
+Subject: [PATCH] fix: egrep and fgrep commands have been deprecated since 2007
+
+https://news.slashdot.org/story/22/09/05/0135254/
+The egrep and fgrep commands have been deprecated since 2007.
+Beginning with GNU Grep 3.8 today, calling these commands will now issue
+a warning to the user that instead they should use
+grep -E and grep -F, respectively
+---
+ scripts/xdg-open.in | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/scripts/xdg-open.in b/scripts/xdg-open.in
+index 2456aa7..140a216 100644
+--- a/scripts/xdg-open.in
++++ b/scripts/xdg-open.in
+@@ -72,7 +72,7 @@ get_key()
+ is_file_url_or_path()
+ {
+     if echo "$1" | grep -q '^file://' \
+-            || ! echo "$1" | egrep -q '^[[:alpha:]][[:alpha:][:digit:]+\.\-]*:'; then
++            || ! echo "$1" | grep -Eq '^[[:alpha:]][[:alpha:][:digit:]+\.\-]*:'; then
+         return 0
+     else
+         return 1
+-- 
+GitLab
+

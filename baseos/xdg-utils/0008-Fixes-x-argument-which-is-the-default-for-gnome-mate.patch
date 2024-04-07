@@ -1,0 +1,67 @@
+From acdf8909f2bf65ca20e69ab1e6bc6854d54b333d Mon Sep 17 00:00:00 2001
+From: "sor.alexei@meowr.ru" <sor.alexei@meowr.ru>
+Date: Tue, 19 Mar 2019 15:13:38 +1030
+Subject: [PATCH 08/16] Fixes -x argument, which is the default for
+ {gnome,mate}-terminal
+
+Signed-off-by: Simon Lees <sflees@suse.de>
+---
+ scripts/xdg-terminal.in | 34 +++++++++++++++++++++++-----------
+ 1 file changed, 23 insertions(+), 11 deletions(-)
+
+diff --git a/scripts/xdg-terminal.in b/scripts/xdg-terminal.in
+index 221487c..36a9833 100644
+--- a/scripts/xdg-terminal.in
++++ b/scripts/xdg-terminal.in
+@@ -65,11 +65,17 @@ terminal_gnome()
+         if [ x"$1" = x"" ]; then
+             $terminal_exec
+         else
+-            if [ x"$term_exec_arg" = x"" ]; then
+-                $terminal_exec "$1"
+-            else
+-                $terminal_exec "$term_exec_arg" "$1"
+-            fi
++            case "$term_exec_arg" in
++              "")
++                "$terminal_exec" "$1"
++                ;;
++              *-x*)
++                "$terminal_exec" "$term_exec_arg" sh -c "$1"
++                ;;
++              *)
++                "$terminal_exec" "$term_exec_arg" "$1"
++              ;;
++            esac
+         fi
+ 
+         if [ $? -eq 0 ]; then
+@@ -93,13 +99,19 @@ terminal_gsettings()
+ 
+     if [ -x "$terminal_exec" ]; then
+         if [ x"$1" = x"" ]; then
+-            $terminal_exec
++            "$terminal_exec"
+         else
+-            if [ x"$term_exec_arg" = x"" ]; then
+-                $terminal_exec "$1"
+-            else
+-                $terminal_exec "$term_exec_arg" "$1"
+-            fi
++            case "$term_exec_arg" in
++              "")
++                "$terminal_exec" "$1"
++                ;;
++              *-x*)
++                "$terminal_exec" "$term_exec_arg" sh -c "$1"
++                ;;
++              *)
++                "$terminal_exec" "$term_exec_arg" "$1"
++              ;;
++            esac
+         fi
+ 
+         if [ $? -eq 0 ]; then
+-- 
+2.31.1
+

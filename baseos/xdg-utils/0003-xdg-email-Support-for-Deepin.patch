@@ -1,0 +1,82 @@
+From 56991bc165577f011f9ad7ca721c5a5134710e33 Mon Sep 17 00:00:00 2001
+From: Alberto Salvia Novella <es20490446e@gmail.com>
+Date: Tue, 11 Sep 2018 02:26:39 +0200
+Subject: [PATCH 03/16] xdg-email: Support for Deepin
+
+---
+ ChangeLog                   | 6 ++++++
+ scripts/xdg-email.in        | 2 +-
+ scripts/xdg-open.in         | 6 +++---
+ scripts/xdg-utils-common.in | 5 ++---
+ 4 files changed, 12 insertions(+), 7 deletions(-)
+
+diff --git a/ChangeLog b/ChangeLog
+index 3eed7c4..1c6b4c1 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -1,3 +1,9 @@
++=== xdg-utils 1.1.5 ===
++	
++2018-09-11 Alberto Salvia Novella <es20490446e@gmail.com>
++   * all: Deepin Desktop name standarised as "deepin"
++   * xdg-email: Support for Deepin (BR107877)
++
+ === xdg-utils 1.1.4 ===
+ 
+ 2018-05-24
+diff --git a/scripts/xdg-email.in b/scripts/xdg-email.in
+index 3614776..6db58ad 100644
+--- a/scripts/xdg-email.in
++++ b/scripts/xdg-email.in
+@@ -472,7 +472,7 @@ case "$DE" in
+     open_gnome "${mailto}"
+     ;;
+ 
+-    gnome3|cinnamon|lxde|mate)
++    gnome3|cinnamon|lxde|mate|deepin)
+     open_gnome3 "${mailto}"
+     ;;
+ 
+diff --git a/scripts/xdg-open.in b/scripts/xdg-open.in
+index bf9da4c..4928538 100644
+--- a/scripts/xdg-open.in
++++ b/scripts/xdg-open.in
+@@ -142,7 +142,7 @@ open_kde()
+     fi
+ }
+ 
+-open_dde()
++open_deepin()
+ {
+     if dde-open -version >/dev/null 2>&1; then
+         dde-open "$1"
+@@ -524,8 +524,8 @@ case "$DE" in
+     open_kde "$url"
+     ;;
+ 
+-    dde)
+-    open_dde "$url"
++    deepin)
++    open_deepin "$url"
+     ;;
+ 
+     gnome3|cinnamon)
+diff --git a/scripts/xdg-utils-common.in b/scripts/xdg-utils-common.in
+index a8abed8..7d2c49c 100644
+--- a/scripts/xdg-utils-common.in
++++ b/scripts/xdg-utils-common.in
+@@ -288,9 +288,8 @@ detectDE()
+          KDE)
+            DE=kde;
+            ;;
+-         # Deepin Desktop Environments
+-         DEEPIN|Deepin|deepin)
+-           DE=dde;
++         Deepin)
++           DE=deepin;
+            ;;
+          LXDE)
+            DE=lxde;
+-- 
+2.31.1
+

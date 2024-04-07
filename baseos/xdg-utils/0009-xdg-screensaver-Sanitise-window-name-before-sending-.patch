@@ -1,0 +1,41 @@
+From 455d066182546b37984e6b9719bde2347bf6fa94 Mon Sep 17 00:00:00 2001
+From: Iain Lane <iain.lane@canonical.com>
+Date: Tue, 2 Oct 2018 10:29:03 +0100
+Subject: [PATCH 09/16] xdg-screensaver: Sanitise window name before sending it
+ over the bus
+
+libdbus expects string arguments to be valid UTF-8. If they are not,
+then it aborts, which causes our backgrounded command to terminate
+abnormally.
+
+Signed-off-by: Simon Lees <sflees@suse.de>
+---
+ scripts/xdg-screensaver.in | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/scripts/xdg-screensaver.in b/scripts/xdg-screensaver.in
+index 9e68196..ccb4307 100644
+--- a/scripts/xdg-screensaver.in
++++ b/scripts/xdg-screensaver.in
+@@ -468,6 +468,7 @@ screensaver_gnome_screensaver()
+         perl -e '
+ use strict;
+ use warnings;
++use Encode qw(decode);
+ use IO::File;
+ use Net::DBus;
+ use X11::Protocol;
+@@ -489,6 +490,10 @@ while (1) {
+   }
+ }
+ 
++# Replace any invalid unicode characters with U+FFFD, so we dont crash when we
++# pass them over to D-Bus
++$window_name = decode("utf8", $window_name, Encode::FB_DEFAULT);
++
+ # Inhibit idle detection (flags = 8) with window name and ID.
+ # We have no reason so just send the window name again.
+ my $bus = Net::DBus->session();
+-- 
+2.31.1
+

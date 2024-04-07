@@ -1,0 +1,59 @@
+From d11b33ec7f24cfb1546f6b459611d440013bdc72 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?M=C3=A9ven=20Car?= <meven.car@enioka.com>
+Date: Wed, 21 Oct 2020 16:58:20 +0200
+Subject: [PATCH 16/16] Fix xdg-settings support for default-web-browser for
+ Plasma 5.19+
+
+---
+ scripts/xdg-settings.in | 18 +++++++++++++++---
+ 1 file changed, 15 insertions(+), 3 deletions(-)
+ mode change 100644 => 100755 scripts/xdg-settings.in
+
+diff --git a/scripts/xdg-settings.in b/scripts/xdg-settings.in
+old mode 100644
+new mode 100755
+index 3781de8..ab18d3a
+--- a/scripts/xdg-settings.in
++++ b/scripts/xdg-settings.in
+@@ -130,7 +130,7 @@ set_browser_mime()
+     fix_local_desktop_file "$1" "$MIME" || return
+     mkdir -p "${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+     xdg-mime default "$1" "$MIME" || return
+-    if [ x"`get_browser_mime`" != x"$1" ]; then
++    if [ x"`get_browser_mime $MIME`" != x"$1" ]; then
+         # Put back the original value
+         xdg-mime default "$orig" "$MIME"
+         exit_failure_operation_failed
+@@ -203,7 +203,13 @@ resolve_kde_browser_desktop()
+ 
+ read_kde_browser()
+ {
+-    read_kde_config kdeglobals General BrowserApplication
++    ret=`read_kde_config kdeglobals General BrowserApplication`
++    if [ -z "$ret" ]; then
++        # since Plasma >= 5.19
++        ret=`get_browser_mime "x-scheme-handler/http"`
++    fi
++    
++    echo $ret
+ }
+ 
+ get_browser_kde()
+@@ -252,7 +258,13 @@ check_browser_kde()
+ 
+ set_browser_kde()
+ {
+-    set_browser_mime "$1" || return
++    # Set the default browser.
++    for protocol in http https; do
++        set_browser_mime "$1" "x-scheme-handler/$protocol" || return
++    done
++
++    # Plasma < 5.19
++    set_browser_mime "$1" "text/html" || return
+     if [ x"${KDE_SESSION_VERSION}" = x"5" ]; then
+         kwriteconfig5 --file kdeglobals --group General --key BrowserApplication "$1"
+     else
+-- 
+2.31.1
+
