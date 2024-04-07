@@ -1,28 +1,37 @@
 diff --git a/bin_steam.sh b/bin_steam.sh
-index cf38071..a88deda 100755
+index fb81d47..0d04291 100755
 --- a/bin_steam.sh
 +++ b/bin_steam.sh
-@@ -26,6 +26,24 @@ export STEAMSCRIPT_VERSION=1.0.0.79
+@@ -26,6 +26,33 @@ export STEAMSCRIPT_VERSION=1.0.0.79
  # Set up domain for script localization
  export TEXTDOMAIN=steam
-
-+# Initialize a flag to indicate if -steamdeck is present
-+steamdeck_present=false
+ 
++# Initialize an empty array to hold the arguments
++args=()
 +
-+# Iterate through all arguments
-+while [ $# -gt 0 ]; do
-+    # Check if the current argument is -steamdeck
-+    if [ "$1" == "-steamdeck" ]; then
-+        steamdeck_present=true
-+    fi
++# Loop through all arguments
++while [ "$#" -gt 0 ]; do
++    case "$1" in
++        -steamdeck)
++            # If -steamdeck is found, just add it to the args array
++            args+=("$1")
++            ;;
++        *)
++            # For all other arguments, add them to the args array
++            args+=("$1")
++            ;;
++    esac
 +    # Shift the arguments to process the next one
 +    shift
 +done
 +
-+# If -steamdeck was not found, append it to the list of arguments
-+if [ "$steamdeck_present" == false ]; then
-+    set -- "$@" "-steamdeck"
++# Check if -steamdeck is in the args array
++if [[ ! " ${args[@]} " =~ " -steamdeck " ]]; then
++    # If -steamdeck is not found, append it
++    args+=("-steamdeck")
 +fi
++set -- "${args[@]}"
++
 +
  function show_message()
  {
