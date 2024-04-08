@@ -1,6 +1,6 @@
 Name:          nobara-welcome
 Version:       5.0.0
-Release:       3%{?dist}
+Release:       4%{?dist}
 License:       GPLv2
 Group:         System Environment/Libraries
 Summary:       Nobara's Welcome App
@@ -38,6 +38,7 @@ Requires: 	colorized-logs
 Requires: 	util-linux
 Requires: 	nobara-driver-manager
 Requires: 	vte291
+Requires: 	rt
 
 # Gnome Deps
 Suggests:	gnome-tweaks
