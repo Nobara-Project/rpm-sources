@@ -5,7 +5,7 @@
 
 Name:           steam
 Version:        1.0.0.79
-Release:        7%{?dist}
+Release:        9%{?dist}
 Summary:        Installer for the Steam software distribution service
 # Redistribution and repackaging for Linux is allowed, see license file. udev rules are MIT.
 License:        Steam License Agreement and MIT
@@ -43,14 +43,9 @@ Patch0:         %{name}-makefile.patch
 # Copy desktop shortcut from /usr/share/applications, not /usr/lib/steam/
 Patch1:         %{name}-icon-desktop.patch
 
-# Always append -steamdeck option
-Patch2:         always-append-steamdeck-arg.patch
+# Nobara changes
+Patch2:         nobara-changes.patch
 
-# Use wayland compatible libextest
-Patch3:         wayland-extest.patch
-
-# Fix steam download speed
-Patch4:         fix-steam-downloads.patch
 
 BuildRequires:  desktop-file-utils
 BuildRequires:  libappstream-glib
