@@ -1,6 +1,6 @@
 Name:          nobara-welcome
 Version:       5.0.0
-Release:       4%{?dist}
+Release:       5%{?dist}
 License:       GPLv2
 Group:         System Environment/Libraries
 Summary:       Nobara's Welcome App
@@ -53,10 +53,10 @@ Suggests:	kde-runtime
 DESTDIR=%{buildroot} make install
 
 # for legacy updater to detect changes
-mkdir -p %{buildroot}%{_sysconfdir}/etc/nobara/scripts/nobara-welcome/
-mkdir -p %{buildroot}%{_sysconfdir}/etc/nobara/scripts/nobara-updater/
-ln -s /usr/lib/nobara/nobara-welcome/scripts/updater/nobara-sync.sh %{buildroot}%{_sysconfdir}/etc/nobara/scripts/nobara-welcome/updater.sh
-ln -s /usr/lib/nobara/nobara-welcome/scripts/updater/nobara-sync.sh %{buildroot}%{_sysconfdir}/etc/nobara/scripts/nobara-updater/nobara-sync.sh
+mkdir -p %{buildroot}%{_sysconfdir}/nobara/scripts/nobara-welcome/
+mkdir -p %{buildroot}%{_sysconfdir}/nobara/scripts/nobara-updater/
+ln -s /usr/lib/nobara/nobara-welcome/scripts/updater/nobara-sync.sh %{buildroot}%{_sysconfdir}/nobara/scripts/nobara-welcome/updater.sh
+ln -s /usr/lib/nobara/nobara-welcome/scripts/updater/nobara-sync.sh %{buildroot}%{_sysconfdir}/nobara/scripts/nobara-updater/nobara-sync.sh
 
 
 %description
@@ -71,8 +71,8 @@ Nobara's Python3 & GTK3 built Welcome App
 %{_datadir}/icons/hicolor/scalable/apps/*.svg
 %{_datadir}/nobara/*
 %{_sysconfdir}/xdg/autostart/nobara-welcome-autostart.desktop
-%{_sysconfdir}/etc/nobara/scripts/nobara-welcome/updater.sh
-%{_sysconfdir}/etc/nobara/scripts/nobara-updater/nobara-sync.sh
+%{_sysconfdir}/nobara/scripts/nobara-welcome/updater.sh
+%{_sysconfdir}/nobara/scripts/nobara-updater/nobara-sync.sh
 
 %post
 glib-compile-schemas /usr/share/glib-2.0/schemas/
