@@ -1,9 +1,10 @@
 # Version of the .so library
 %global abi_ver 13
 %global gitcommit a5c9826e6d7d8b504b07d1c02425e6f62b020791
+
 Name:           wlroots
 Version:        0.18.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        A modular Wayland compositor library
 
 # Source files/overall project licensed as MIT, but
@@ -22,8 +23,8 @@ Summary:        A modular Wayland compositor library
 # the main license of the binaries linking with them by
 # the underlying licenses.
 License:        MIT
-URL:            https://gitlab.freedesktop.org/wlroots/wlroots
-Source0:        %{url}/-/archive/%{gitcommit}/wlroots-%{gitcommit}.tar.gz
+URL:            https://github.com/Joshua-Ashton/wlroots
+Source0:        %{url}/archive/%{gitcommit}/wlroots-%{gitcommit}.tar.gz
 
 # this file is a modification of examples/meson.build so as to:
 # - make it self-contained
