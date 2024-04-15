@@ -1,78 +1,26 @@
 diff --git a/bin_steam.sh b/bin_steam.sh
-index fb81d47..c933c96 100755
+index fb81d47..134f94e 100755
 --- a/bin_steam.sh
 +++ b/bin_steam.sh
-@@ -26,6 +26,63 @@ export STEAMSCRIPT_VERSION=1.0.0.79
+@@ -26,6 +26,12 @@ export STEAMSCRIPT_VERSION=1.0.0.79
  # Set up domain for script localization
  export TEXTDOMAIN=steam
  
 +
-+###
-+# NOBARA CHANGES
-+###
-+# 1. Only auto-append -steamdeck to steam if gamescope-session-steam is installed
-+# 2. Allow setting `SteamDeck=0 steam` to disable auto-append of -steamdeck to steam itself
-+# 3. If setting -steamdeck, also set -forcevgui to prevent steam from repeated login requesting on each restart
-+# 4. Auto-apply SteamDeck=0 to all steam subprocesses in desktop mode/wayland session, otherwise some games have broken controls input or other -steamdeck specific quirks.
-+# 5. Use wayland compatible libextest to fix steam/steamdeck controller input as well as some other devices
-+# 6. Fix download speeds
-+#
-+
-+# Nobara fixes 1->5
 +if [[ "$XDG_CURRENT_DESKTOP" != "gamescope" ]]; then
-+
-+  # If gamescope-session-steam exists then -steamdeck gets enforced, we need to fix some things for this
-+  if [[ -f /usr/share/wayland-sessions/gamescope-session-steam.desktop ]]; then
-+    # If SteamDeck=0 not explicitly set, enforce -steamdeck
-+    if [[ -z $SteamDeck ]]; then
-+        # Initialize an empty array to hold the arguments
-+        args=()
-+
-+        # Loop through all arguments
-+        while [ "$#" -gt 0 ]; do
-+            case "$1" in
-+                -steamdeck)
-+                    # If -steamdeck is found, just add it to the args array
-+                    args+=("$1")
-+                    ;;
-+                *)
-+                    # For all other arguments, add them to the args array
-+                    args+=("$1")
-+                    ;;
-+            esac
-+            # Shift the arguments to process the next one
-+            shift
-+        done
-+
-+        # Check if -steamdeck is in the args array
-+        if [[ ! " ${args[@]} " =~ " -steamdeck " ]]; then
-+            # If -steamdeck is not found, append it
-+            args+=("-steamdeck")
-+            # this is needed to prevent re-login from being spammed
-+            args+=("-forcevgui")
-+        fi
-+        set -- "${args[@]}"
-+    fi
-+
-+    # Set this for desktop mode because otherwise it forces some weird changes for some games.
-+    export SteamDeck=0
-+
 +    # Set this for desktop mode because otherwise steam/steamdeck controller input and some other controller inputs break
 +    export LD_PRELOAD=/usr/lib/steam/libextest.so
-+
-+  fi
 +fi
 +
  function show_message()
  {
  	style=$1
-@@ -200,6 +257,23 @@ fi
+@@ -200,6 +206,22 @@ fi
  
  # go to the install directory and run the client
  cp "$LAUNCHSTEAMBOOTSTRAPFILE" "$LAUNCHSTEAMDIR/bootstrap.tar.xz"
 -cd "$LAUNCHSTEAMDIR"
 +
-+# Nobara fix 6
 +STEAMDEV="$LAUNCHSTEAMDIR"/steam_dev.cfg
 +
 +if [[ ! -f "$STEAMDEV" ]]; then
