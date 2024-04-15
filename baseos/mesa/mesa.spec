@@ -2,7 +2,7 @@
 ## (rpmautospec version 0.3.5)
 ## RPMAUTOSPEC: autorelease, autochangelog
 %define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
-    release_number = 2;
+    release_number = 3;
     base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
     print(release_number + base_release_number - 1);
 }%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
@@ -85,7 +85,10 @@ Source0:        https://gitlab.freedesktop.org/mesa/mesa/-/archive/mesa-%{ver}/m
 # Fedora opts to ignore the optional part of clause 2 and treat that code as 2 clause BSD.
 Source1:        Mesa-MLAA-License-Clarification-Email.txt
 
-Patch10:        gnome-shell-glthread-disable.patch
+Patch0:         gnome-shell-glthread-disable.patch
+
+# explicit sync
+Patch1:         25709.patch
 
 # Performance bump
 # Original:

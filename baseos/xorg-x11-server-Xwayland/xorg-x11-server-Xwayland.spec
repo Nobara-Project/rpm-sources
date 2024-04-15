@@ -1,4 +1,4 @@
-%global commit 64341c479cb57431f082d86e1d28412dba3ef30e
+%global commit 337d8d48b618d4fc0168a7b978be4c3447650b04
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 %global gitdate 20240307
@@ -9,7 +9,7 @@
 Summary:   Xwayland
 Name:      xorg-x11-server-Xwayland
 Version:   23.2.4
-Release:   5%{?gitdate:.%{gitdate}git%{shortcommit}}%{?dist}
+Release:   6%{?gitdate:.%{gitdate}git%{shortcommit}}%{?dist}
 
 URL:       http://www.x.org
 %if 0%{?gitdate}
@@ -17,11 +17,6 @@ Source0:   https://gitlab.freedesktop.org/xorg/%{pkgname}/-/archive/%{commit}/%{
 %else
 Source0:   https://www.x.org/pub/individual/xserver/%{pkgname}-%{version}.tar.xz
 %endif
-
-#Source1:   https://gitlab.freedesktop.org/xorg/xserver/-/raw/24c5d8f17e2afd7d4e9626ba7cdcfbab53b2fdc0/hw/xfree86/common/xf86Module.h
-# needed for nvidia on wayland
-# https://gitlab.freedesktop.org/xorg/xserver/-/merge_requests/967
-Source2:   967.patch
 
 Patch1:    xwayland-pointer-warp-fix.patch
 
@@ -114,8 +109,6 @@ mkdir -p hw/xfree86/common
 cp %{SOURCE1} hw/xfree86/common/
 %endif
 
-patch -Np1 < %{SOURCE2}
-
 %build
 %meson \
         %{?gitdate:-Dxwayland=true} \
@@ -123,7 +116,6 @@ patch -Np1 < %{SOURCE2}
         %{?gitdate:-Dxnest=false} \
         %{?gitdate:-Dxvfb=false} \
         %{?gitdate:-Dudev=true} \
-        -Dxwayland_eglstream=true \
         -Ddefault_font_path=%{default_font_path} \
         -Dbuilder_string="Build ID: %{name} %{version}-%{release}" \
         -Dxkb_output_dir=%{_localstatedir}/lib/xkb \

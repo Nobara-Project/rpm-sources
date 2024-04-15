@@ -1,6 +1,6 @@
 %global _default_patch_fuzz 2
 
-%global commit d5aefb7a16dfd4e838bbfa620df013c6a4d06983
+%global commit e511ffea4b9e298217813a2148f86910a4cdcd8b
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build git.%{build_timestamp}.%{shortcommit}%{?dist}
@@ -96,6 +96,7 @@ Patch3: valve.patch
 Patch10:        gnome-shell-glthread-disable.patch
 
 BuildRequires:  meson >= 1.2.0
+BuildRequires:  cbindgen
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
 BuildRequires:  gettext
@@ -158,6 +159,7 @@ BuildRequires:  pkgconfig(SPIRV-Tools)
 BuildRequires:  pkgconfig(LLVMSPIRVLib)
 %endif
 %if 0%{?with_nvk}
+BuildRequires:  (crate(paste/default) >= 1.0.0 with crate(paste/default) < 2.0.0~)
 BuildRequires:  (crate(proc-macro2) >= 1.0.56 with crate(proc-macro2) < 2)
 BuildRequires:  (crate(quote) >= 1.0.25 with crate(quote) < 2)
 BuildRequires:  (crate(syn/clone-impls) >= 2.0.15 with crate(syn/clone-impls) < 3)
@@ -236,13 +238,13 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
   -Dvulkan-drivers=%{?vulkan_drivers} \
   -Dvulkan-layers=device-select%{?with_vulkan_overlay:,overlay} \
   -Dshared-glapi=enabled \
-  -Dgles1=disabled \
+  -Dgles1=enabled \
   -Dgles2=enabled \
   -Dopengl=true \
   -Dgbm=enabled \
   -Dglx=dri \
   -Degl=enabled \
-  -Dglvnd=true \
+  -Dglvnd=enabled \
 %if 0%{?with_intel_clc}
   -Dintel-clc=enabled \
 %endif
