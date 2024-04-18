@@ -1,0 +1,479 @@
+From e08dfd29027d6c57ef41f3d8c47d389a144e501b Mon Sep 17 00:00:00 2001
+From: John Schoenick <johns@valvesoftware.com>
+Date: Tue, 11 Jul 2023 15:27:33 -0700
+Subject: [PATCH] drm: panel-orientation-quirks: Add quirk for Valve Galileo
+
+---
+ drivers/gpu/drm/drm_panel_orientation_quirks.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/gpu/drm/drm_panel_orientation_quirks.c b/drivers/gpu/drm/drm_panel_orientation_quirks.c
+index 0cb646cb04ee1..014101e92b5a7 100644
+--- a/drivers/gpu/drm/drm_panel_orientation_quirks.c
++++ b/drivers/gpu/drm/drm_panel_orientation_quirks.c
+@@ -395,6 +395,13 @@ static const struct dmi_system_id orientation_data[] = {
+ 		  DMI_EXACT_MATCH(DMI_PRODUCT_VERSION, "1"),
+ 		},
+ 		.driver_data = (void *)&lcd800x1280_rightside_up,
++	}, {	/* Valve Steam Deck */
++		.matches = {
++		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Valve"),
++		  DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Galileo"),
++		  DMI_EXACT_MATCH(DMI_PRODUCT_VERSION, "1"),
++		},
++		.driver_data = (void *)&lcd800x1280_rightside_up,
+ 	}, {	/* VIOS LTH17 */
+ 		.matches = {
+ 		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "VIOS"),
+-- 
+GitLab
+
+From 1fc12492bc3045d7e55d85f6dd559b6766a7e564 Mon Sep 17 00:00:00 2001
+From: Swapnil Patel <swapatel@amd.com>
+Date: Thu, 2 Nov 2023 16:16:49 -0400
+Subject: [PATCH] Disable modes with >1200 MHz Pixel clocks when connected via
+ dock
+
+(cherry picked from commit 36301114e8a32e7f13985cbbeff7282d4c599aed)
+---
+ drivers/gpu/drm/amd/display/dc/link/link_validation.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/link/link_validation.c b/drivers/gpu/drm/amd/display/dc/link/link_validation.c
+index e8b2fc4002a52..3c69d860e1c9d 100644
+--- a/drivers/gpu/drm/amd/display/dc/link/link_validation.c
++++ b/drivers/gpu/drm/amd/display/dc/link/link_validation.c
+@@ -35,6 +35,8 @@
+ 
+ #define DC_LOGGER_INIT(logger)
+ 
++static const uint8_t DP_SINK_BRANCH_DEV_NAME_KT50X0[] = "KT50X0!";
++
+ static uint32_t get_tmds_output_pixel_clock_100hz(const struct dc_crtc_timing *timing)
+ {
+ 
+@@ -277,6 +279,15 @@ static bool dp_validate_mode_timing(
+ 		timing->v_addressable == (uint32_t) 480)
+ 		return true;
+ 
++	if (link->ctx->dce_version == DCN_VERSION_3_01 &&
++	    link->dpcd_caps.sink_dev_id == DP_BRANCH_DEVICE_ID_0060AD &&
++	    memcmp(&link->dpcd_caps.branch_dev_name,
++		   DP_SINK_BRANCH_DEV_NAME_KT50X0,
++		   sizeof(link->dpcd_caps.branch_dev_name)) == 0) {
++		if (timing->pix_clk_100hz / 10 >= (uint32_t) 1200000)
++			return false; /* KT50X0 does not support Pxl clock >= 1200MHz */
++	}
++
+ 	link_setting = dp_get_verified_link_cap(link);
+ 
+ 	/* TODO: DYNAMIC_VALIDATION needs to be implemented */
+-- 
+GitLab
+
+From b59fed802470f07fafe72f6a2bdda2163da5ba33 Mon Sep 17 00:00:00 2001
+From: Swapnil Patel <Swapnil.Patel@amd.com>
+Date: Tue, 26 Sep 2023 16:24:25 -0400
+Subject: [PATCH] drm/amd/display: Don't add common modes for eDP connector
+
+[Why]
+Currently, we are adding various common modes to drm_connector for DP
+and eDP connection even if they aren't part of EDID. This results in
+unsupported modes getting added to eDP connector.
+
+[How]
+Add common modes to drm_connector only for DP connection.
+
+Signed-off-by: Swapnil Patel <swapnil.patel@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 85159cd0bfcd..2efefca8143b 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -7332,7 +7332,8 @@ static int amdgpu_dm_connector_get_modes(struct drm_connector *connector)
+ 				drm_add_modes_noedid(connector, 1920, 1080);
+ 	} else {
+ 		amdgpu_dm_connector_ddc_get_modes(connector, edid);
+-		amdgpu_dm_connector_add_common_modes(encoder, connector);
++		if (connector->connector_type != DRM_MODE_CONNECTOR_eDP)
++			amdgpu_dm_connector_add_common_modes(encoder, connector);
+ 		amdgpu_dm_connector_add_freesync_modes(connector, edid);
+ 	}
+ 	amdgpu_dm_fbc_init(connector);
+--
+GitLab
+
+From 8f24ff69523cf3059e23ba6aa41d09b0c00f2986 Mon Sep 17 00:00:00 2001
+From: Jeremy Selan <jeremys@valvesoftware.com>
+Date: Wed, 28 Apr 2021 14:33:36 -0700
+Subject: [PATCH] drm/amd: bump backlight brightness precision from 8 ->
+ 16-bits
+
+Signed-off-by: Gabriel Krisman Bertazi <krisman@collabora.com>
+[Fwd-ported to DC_VER 3.2.237]
+Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h          |  2 --
+ drivers/gpu/drm/amd/amdgpu/atombios_encoders.c    | 10 +++++++---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c |  3 +++
+ 3 files changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
+index b8633df418d43..77a1bedaee98c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
+@@ -416,8 +416,6 @@
+ 	struct drm_property *regamma_tf_property;
+ };
+ 
+-#define AMDGPU_MAX_BL_LEVEL 0xFF
+-
+ struct amdgpu_backlight_privdata {
+ 	struct amdgpu_encoder *encoder;
+ 	uint8_t negative;
+diff --git a/drivers/gpu/drm/amd/amdgpu/atombios_encoders.c b/drivers/gpu/drm/amd/amdgpu/atombios_encoders.c
+index 18ae9433e463d..37cb6e7ba47a2 100644
+--- a/drivers/gpu/drm/amd/amdgpu/atombios_encoders.c
++++ b/drivers/gpu/drm/amd/amdgpu/atombios_encoders.c
+@@ -39,6 +39,10 @@
+ #include <linux/backlight.h>
+ #include "bif/bif_4_1_d.h"
+
++
++/* Maximum backlight level. */
++#define AMDGPU_ATOM_MAX_BL_LEVEL 0xFF
++
+ u8
+ amdgpu_atombios_encoder_get_backlight_level_from_reg(struct amdgpu_device *adev)
+ {
+@@ -127,8 +131,8 @@ static u8 amdgpu_atombios_encoder_backlight_level(struct backlight_device *bd)
+ 	/* Convert brightness to hardware level */
+ 	if (bd->props.brightness < 0)
+ 		level = 0;
+-	else if (bd->props.brightness > AMDGPU_MAX_BL_LEVEL)
+-		level = AMDGPU_MAX_BL_LEVEL;
++	else if (bd->props.brightness > AMDGPU_ATOM_MAX_BL_LEVEL)
++		level = AMDGPU_ATOM_MAX_BL_LEVEL;
+ 	else
+ 		level = bd->props.brightness;
+
+@@ -198,7 +202,7 @@ void amdgpu_atombios_encoder_init_backlight(struct amdgpu_encoder *amdgpu_encode
+ 	}
+
+ 	memset(&props, 0, sizeof(props));
+-	props.max_brightness = AMDGPU_MAX_BL_LEVEL;
++	props.max_brightness = AMDGPU_ATOM_MAX_BL_LEVEL;
+ 	props.type = BACKLIGHT_RAW;
+ 	snprintf(bl_name, sizeof(bl_name),
+ 		 "amdgpu_bl%d", dev->primary->index);
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 22e9d8e91ed49..e1a77a0d66336 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -146,6 +146,9 @@ MODULE_FIRMWARE(FIRMWARE_NAVI12_DMCU);
+ /* Number of bytes in PSP footer for firmware. */
+ #define PSP_FOOTER_BYTES 0x100
+
++/* Maximum backlight level. */
++#define AMDGPU_MAX_BL_LEVEL 0xFFFF
++
+ /**
+  * DOC: overview
+  *
+--
+GitLab
+
+From 1fdb02c119c85b18b48150c0f3ce97e1940c63f1 Mon Sep 17 00:00:00 2001
+From: Jeremy Selan <jeremys@valvesoftware.com>
+Date: Fri, 12 Nov 2021 10:03:20 -0800
+Subject: [PATCH] amd/drm: override backlight min value from 12 -> 0
+
+This overrides backlight handling to the FULL range of the device {0,max}
+with no additional interpretation / rescaling. This places the burden
+of selecting appropriate device-specific minimum ranges fully on
+userspace.
+
+Device defaults provided by ACPI/ATIF are logged, but ignored.
+
+[Merge, add line breaks]
+Signed-off-by: Gabriel Krisman Bertazi <krisman@collabora.com>
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 25 ++++++++++++++++---
+ 1 file changed, 22 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index e1a77a0d66336..8e61c86819fe2 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -4017,7 +4017,7 @@ static int amdgpu_dm_mode_config_init(struct amdgpu_device *adev)
+ 	return 0;
+ }
+
+-#define AMDGPU_DM_DEFAULT_MIN_BACKLIGHT 12
++#define AMDGPU_DM_DEFAULT_MIN_BACKLIGHT 0
+ #define AMDGPU_DM_DEFAULT_MAX_BACKLIGHT 255
+ #define AUX_BL_DEFAULT_TRANSITION_TIME_MS 50
+
+@@ -4035,11 +4035,27 @@ static void amdgpu_dm_update_backlight_caps(struct amdgpu_display_manager *dm,
+ 	amdgpu_acpi_get_backlight_caps(&caps);
+ 	if (caps.caps_valid) {
+ 		dm->backlight_caps[bl_idx].caps_valid = true;
++
++		printk(KERN_NOTICE"VLV Successfully queried backlight range over ACPI: %d %d\n",
++		       (int) caps.min_input_signal, (int) caps.max_input_signal);
++
++		if ( caps.min_input_signal != AMDGPU_DM_DEFAULT_MIN_BACKLIGHT ||
++			caps.max_input_signal != AMDGPU_DM_DEFAULT_MAX_BACKLIGHT )
++		{
++			caps.min_input_signal = AMDGPU_DM_DEFAULT_MIN_BACKLIGHT;
++			caps.max_input_signal = AMDGPU_DM_DEFAULT_MAX_BACKLIGHT;
++
++			printk(KERN_NOTICE"VLV OVERRIDE backlight range: %d %d\n",
++			       (int) caps.min_input_signal, (int) caps.max_input_signal);
++		}
++
+ 		if (caps.aux_support)
+ 			return;
+ 		dm->backlight_caps[bl_idx].min_input_signal = caps.min_input_signal;
+ 		dm->backlight_caps[bl_idx].max_input_signal = caps.max_input_signal;
+ 	} else {
++		printk(KERN_NOTICE"VLV ACPI does not provide backlight range, using defaults: %d %d\n",
++		       AMDGPU_DM_DEFAULT_MIN_BACKLIGHT, AMDGPU_DM_DEFAULT_MAX_BACKLIGHT);
+ 		dm->backlight_caps[bl_idx].min_input_signal =
+ 				AMDGPU_DM_DEFAULT_MIN_BACKLIGHT;
+ 		dm->backlight_caps[bl_idx].max_input_signal =
+@@ -4049,6 +4065,9 @@ static void amdgpu_dm_update_backlight_caps(struct amdgpu_display_manager *dm,
+ 	if (dm->backlight_caps[bl_idx].aux_support)
+ 		return;
+
++	printk(KERN_NOTICE"VLV Kernel built without ACPI. using backlight range defaults: %d %d\n",
++	       AMDGPU_DM_DEFAULT_MIN_BACKLIGHT, AMDGPU_DM_DEFAULT_MAX_BACKLIGHT);
++
+ 	dm->backlight_caps[bl_idx].min_input_signal = AMDGPU_DM_DEFAULT_MIN_BACKLIGHT;
+ 	dm->backlight_caps[bl_idx].max_input_signal = AMDGPU_DM_DEFAULT_MAX_BACKLIGHT;
+ #endif
+@@ -4080,7 +4099,7 @@ static u32 convert_brightness_from_user(const struct amdgpu_dm_backlight_caps *c
+ 	if (!get_brightness_range(caps, &min, &max))
+ 		return brightness;
+
+-	// Rescale 0..255 to min..max
++	// Rescale 0..AMDGPU_MAX_BL_LEVEL to min..max
+ 	return min + DIV_ROUND_CLOSEST((max - min) * brightness,
+ 				       AMDGPU_MAX_BL_LEVEL);
+ }
+@@ -4095,7 +4114,7 @@ static u32 convert_brightness_to_user(const struct amdgpu_dm_backlight_caps *cap
+
+ 	if (brightness < min)
+ 		return 0;
+-	// Rescale min..max to 0..255
++	// Rescale min..max to 0..AMDGPU_MAX_BL_LEVEL
+ 	return DIV_ROUND_CLOSEST(AMDGPU_MAX_BL_LEVEL * (brightness - min),
+ 				 max - min);
+ }
+--
+GitLab
+
+From ab7d646eacf9f1c745d284e293211569a4428573 Mon Sep 17 00:00:00 2001
+From: "Pierre-Loup A. Griffais" <pgriffais@valvesoftware.com>
+Date: Wed, 8 Nov 2023 19:45:52 -0800
+Subject: [PATCH] amdgpu: fix Galileo desktop brightness overflowing
+
+500k uNits * 65k max brightness range overflows in the conversion code.
+Scale back brightness range to 12bit max.
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 6d7df6ae890a..c1aeeb927a0b 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -147,7 +147,7 @@ MODULE_FIRMWARE(FIRMWARE_NAVI12_DMCU);
+ #define PSP_FOOTER_BYTES 0x100
+ 
+ /* Maximum backlight level. */
+-#define AMDGPU_MAX_BL_LEVEL 0xFFFF
++#define AMDGPU_MAX_BL_LEVEL 0xFFF
+ 
+ /**
+  * DOC: overview
+-- 
+GitLab
+
+From a92d28a30aac79b0656d0bf5833e6fe0625e31af Mon Sep 17 00:00:00 2001
+From: Andres Rodriguez <andresr@valvesoftware.com>
+Date: Wed, 22 Nov 2023 11:28:35 -0800
+Subject: [PATCH] Revert "PCI: Prevent xHCI driver from claiming AMD VanGogh
+ USB3 DRD device"
+
+This reverts commit a4904c47fcd7fc9152b6b04409feac1130e2033d.
+
+This results in some USB devices to fail to enumerate. Revert pending
+further investigation.
+---
+ drivers/pci/quirks.c    | 8 +++-----
+ include/linux/pci_ids.h | 1 -
+ 2 files changed, 3 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+index 30e7c627f21a7..472fa2c8ebcec 100644
+--- a/drivers/pci/quirks.c
++++ b/drivers/pci/quirks.c
+@@ -595,7 +595,7 @@ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATI,	PCI_DEVICE_ID_ATI_RS100,   quirk_ati_
+ /*
+  * In the AMD NL platform, this device ([1022:7912]) has a class code of
+  * PCI_CLASS_SERIAL_USB_XHCI (0x0c0330), which means the xhci driver will
+- * claim it. The same applies on the VanGogh platform device ([1022:163a]).
++ * claim it.
+  *
+  * But the dwc3 driver is a more specific driver for this device, and we'd
+  * prefer to use it instead of xhci. To prevent xhci from claiming the
+@@ -603,7 +603,7 @@ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_ATI,	PCI_DEVICE_ID_ATI_RS100,   quirk_ati_
+  * defines as "USB device (not host controller)". The dwc3 driver can then
+  * claim it based on its Vendor and Device ID.
+  */
+-static void quirk_amd_dwc_class(struct pci_dev *pdev)
++static void quirk_amd_nl_class(struct pci_dev *pdev)
+ {
+ 	u32 class = pdev->class;
+ 
+@@ -711,9 +711,7 @@
+ 	}
+ }
+ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_NL_USB,
+-		quirk_amd_dwc_class);
+-DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_VANGOGH_USB,
+-		quirk_amd_dwc_class);
++		quirk_amd_nl_class);
+ 
+ /*
+  * Synopsys USB 3.x host HAPS platform has a class code of
+-- 
+GitLab
+
+From 32d8309584145f531b46e8c1a72c86494e72160d Mon Sep 17 00:00:00 2001
+From: Joshua Ashton <joshua@froggi.es>
+Date: Wed, 6 Sep 2023 22:00:26 +0100
+Subject: [PATCH] drm/amd/display: Don't consider vblank passed if currently in
+ vertical front porch time
+
+Changing refresh rates on OLED displays works differently to typical
+LCD panels in that instead of changing the clock, the vertical porch
+is extended significantly for lower rates.
+
+This can mean that the vertical porch can be incredibly large for
+non-base refresh rates eg. 60Hz on a 90Hz display.
+
+This isn't an issue for X11/typical compositors as their present slop
+is 1/2th of the refresh interval so the issue never manifests.
+
+However in Gamescope, the present slop very small and tuned to be
+optimal in real-time to try and reduce display latency significantly.
+This results in us queueing up the atomic commit inside the vertical
+porch region which, due to legacy X11/sync control reasons, means that
+AMDGPU must target the next vblank.
+
+This patch changes that behaviour to make FRR displays match what occurs
+on VRR/Freesync displays where the vertical porch time is not included
+in determining what vblank to target and solves the issue.
+
+This means that smarter compositors can get large input latency
+reductions when using OLED displays at lower than base refresh rates.
+
+For upstreaming this patch, it will need to be considered what the best
+solution is to enable this behaviour from the userspace side.
+Obviously the X11/legacy stuff probably cannot change here -- so we
+either need to enable this new behaviour globally for all DRM atomic
+clients (ie. basically Wayland compositors) or have a
+new DRM_MODE_ATOMIC flag.
+
+Signed-off-by: Joshua Ashton <joshua@froggi.es>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index b87797bc5874..28e6fa8d7860 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -434,7 +434,7 @@ static void dm_pflip_high_irq(void *interrupt_params)
+
+ 	WARN_ON(!e);
+
+-	vrr_active = amdgpu_dm_crtc_vrr_active_irq(amdgpu_crtc);
++	vrr_active = true;//amdgpu_dm_crtc_vrr_active_irq(amdgpu_crtc);
+
+ 	/* Fixed refresh rate, or VRR scanout position outside front-porch? */
+ 	if (!vrr_active ||
+@@ -531,11 +531,11 @@ static void dm_vupdate_high_irq(void *interrupt_params)
+ 		 * page-flip completion events that have been queued to us
+ 		 * if a pageflip happened inside front-porch.
+ 		 */
+-		if (vrr_active) {
++		if (true) {
+ 			amdgpu_dm_crtc_handle_vblank(acrtc);
+
+ 			/* BTR processing for pre-DCE12 ASICs */
+-			if (acrtc->dm_irq_params.stream &&
++			if (vrr_active && acrtc->dm_irq_params.stream &&
+ 			    adev->family < AMDGPU_FAMILY_AI) {
+ 				spin_lock_irqsave(&adev_to_drm(adev)->event_lock, flags);
+ 				mod_freesync_handle_v_update(
+@@ -8098,7 +8098,7 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_state *state,
+ 	int planes_count = 0, vpos, hpos;
+ 	unsigned long flags;
+ 	u32 target_vblank, last_flip_vblank;
+-	bool vrr_active = amdgpu_dm_crtc_vrr_active(acrtc_state);
++	bool vrr_active = true;//amdgpu_dm_crtc_vrr_active(acrtc_state);
+ 	bool cursor_update = false;
+ 	bool pflip_present = false;
+ 	bool dirty_rects_changed = false;
+--
+GitLab
+
+From 2bfd05863fff384619dea44bafa98ba0e6a5cdf4 Mon Sep 17 00:00:00 2001
+From: Joshua Ashton <joshua@froggi.es>
+Date: Sun, 3 Dec 2023 11:35:06 +0000
+Subject: [PATCH] drm/amd/display: Revert some of the vrr always on hack
+
+Fixes frame timings on some non)-VRR external displays going all whacky.
+
+This makes us not use the late vblank irq handler (backporch line 0) and instead send the vblank event immediately on page flip when we know where the vblank is going to be.
+
+Should also improve latency/stutter on internal display potentially too.
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 715f442a0e3b..06dcd463f841 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -434,7 +434,7 @@ static void dm_pflip_high_irq(void *interrupt_params)
+
+ 	WARN_ON(!e);
+
+-	vrr_active = true;//amdgpu_dm_crtc_vrr_active_irq(amdgpu_crtc);
++	vrr_active = amdgpu_dm_crtc_vrr_active_irq(amdgpu_crtc);
+
+ 	/* Fixed refresh rate, or VRR scanout position outside front-porch? */
+ 	if (!vrr_active ||
+@@ -531,11 +531,11 @@ static void dm_vupdate_high_irq(void *interrupt_params)
+ 		 * page-flip completion events that have been queued to us
+ 		 * if a pageflip happened inside front-porch.
+ 		 */
+-		if (true) {
++		if (vrr_active) {
+ 			amdgpu_dm_crtc_handle_vblank(acrtc);
+
+ 			/* BTR processing for pre-DCE12 ASICs */
+-			if (vrr_active && acrtc->dm_irq_params.stream &&
++			if (acrtc->dm_irq_params.stream &&
+ 			    adev->family < AMDGPU_FAMILY_AI) {
+ 				spin_lock_irqsave(&adev_to_drm(adev)->event_lock, flags);
+ 				mod_freesync_handle_v_update(
+--
+GitLab
