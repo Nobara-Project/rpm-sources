@@ -1,9 +1,9 @@
-%define commit 85871982bc0b2852b4875374271547536fa1f6b1
+%define commit 17ea62819e906bcfdcded91fe6e5be8859ceb8f9
 %global appid net.lutris.Lutris
 
 Name:           lutris
-Version:        0.5.16
-Release:        2%{?dist}
+Version:        0.5.17
+Release:        3%{?dist}
 Summary:        Video game preservation platform
 
 License:        GPL-3.0+
