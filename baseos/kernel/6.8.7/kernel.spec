@@ -1001,12 +1001,13 @@ Patch203: tkg-0003-glitched-base.patch
 Patch204: tkg-0003-glitched-eevdf-additions.patch
 Patch205: tkg-0003-glitched-cfs.patch
 Patch206: tkg-0007-v6.8-fsync1_via_futex_waitv.patch
-Patch207: tkg-0007-v6.8-ntsync.patch
+#Patch207: tkg-0007-v6.8-ntsync.patch
 Patch208: tkg-0013-optimize_harder_O3.patch
 Patch209: tkg-0014-OpenRGB.patch
 
 # CachyOS BORE
 Patch210: 0001-bore.patch
+Patch211: 0002-ntsync.patch
 
 # device specific patches
 Patch300: amdgpu-si-cik-default.patch
@@ -1078,9 +1079,10 @@ Patch1001: steamdeck-oled-wifi.patch
 Patch1003: steamdeck-oled-audio.patch
 Patch1004: steamdeck-oled-hw-quirks.patch
 Patch1005: steamdeck-oled-refresh-rate.patch
+Patch1006: steamdeck-oled-legion-go-bluetooth-hang.patch
 
 # t2 macbook patches
-Patch1006: t2linux.patch
+Patch1007: t2linux.patch
 
 # empty final patch to facilitate testing of kernel patches
 Patch999999: linux-kernel-test.patch
@@ -1915,12 +1917,13 @@ ApplyOptionalPatch tkg-0003-glitched-base.patch
 ApplyOptionalPatch tkg-0003-glitched-eevdf-additions.patch
 ApplyOptionalPatch tkg-0003-glitched-cfs.patch
 ApplyOptionalPatch tkg-0007-v6.8-fsync1_via_futex_waitv.patch
-ApplyOptionalPatch tkg-0007-v6.8-ntsync.patch
 ApplyOptionalPatch tkg-0013-optimize_harder_O3.patch
 ApplyOptionalPatch tkg-0014-OpenRGB.patch
 
 # CachyOS BORE
 ApplyOptionalPatch 0001-bore.patch
+ApplyOptionalPatch 0002-ntsync.patch
+
 
 # device specific patches
 ApplyOptionalPatch amdgpu-si-cik-default.patch
@@ -1990,6 +1993,8 @@ ApplyOptionalPatch steamdeck-oled-wifi.patch
 ApplyOptionalPatch steamdeck-oled-audio.patch
 ApplyOptionalPatch steamdeck-oled-hw-quirks.patch
 ApplyOptionalPatch steamdeck-oled-refresh-rate.patch
+ApplyOptionalPatch steamdeck-oled-legion-go-bluetooth-hang.patch
+
 
 # t2 macbook patches
 ApplyOptionalPatch t2linux.patch
