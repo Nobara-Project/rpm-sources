@@ -1,0 +1,53 @@
+From d355089a72d0cc1777f64276e54ace8eb340fd79 Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Sat, 13 Jan 2024 00:08:18 -0700
+Subject: [PATCH] 0003
+
+---
+ CMakeLists.txt       | 2 +-
+ calamares.desktop    | 2 +-
+ calamares.desktop.in | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index effc36d..94b20f3 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -77,7 +77,7 @@ set(CALAMARES_SOVERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")
+ 
+ ### OPTIONS
+ #
+-option(INSTALL_POLKIT "Install Polkit configuration" ON)
++option(INSTALL_POLKIT "Install Polkit configuration" OFF)
+ option(INSTALL_COMPLETION "Install shell completions" OFF)
+ option(INSTALL_CONFIG "Install configuration files" OFF)
+ # When adding WITH_* that affects the ABI offered by libcalamares,
+diff --git a/calamares.desktop b/calamares.desktop
+index 6d0aff3..4798f14 100644
+--- a/calamares.desktop
++++ b/calamares.desktop
+@@ -5,7 +5,7 @@ Name=Install System
+ GenericName=System Installer
+ Keywords=calamares;system;installer;
+ TryExec=calamares
+-Exec=sh -c "pkexec calamares"
++Exec=kdesu /usr/bin/calamares
+ Comment=Calamares — System Installer
+ Icon=org.fedoraproject.AnacondaInstaller
+ Terminal=false
+diff --git a/calamares.desktop.in b/calamares.desktop.in
+index 40fb273..5f21156 100644
+--- a/calamares.desktop.in
++++ b/calamares.desktop.in
+@@ -5,7 +5,7 @@ Name=Install System
+ GenericName=System Installer
+ Keywords=calamares;system;installer;
+ TryExec=calamares
+-Exec=sh -c "pkexec calamares"
++Exec=kdesu /usr/bin/calamares
+ Comment=Calamares — System Installer
+ Icon=org.fedoraproject.AnacondaInstaller
+ Terminal=false
+-- 
+2.43.0
+

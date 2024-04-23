@@ -1,14 +1,15 @@
-From 149740e250df7e2e57493acffc3cb55ecbdd4445 Mon Sep 17 00:00:00 2001
+From 9b56e050fff4e632cd39065b930bb2906631c820 Mon Sep 17 00:00:00 2001
 From: GloriousEggroll <gloriouseggroll@gmail.com>
-Date: Sun, 2 Apr 2023 08:55:21 -0600
-Subject: [PATCH] apply fedora defaults
+Date: Fri, 12 Jan 2024 23:00:14 -0700
+Subject: [PATCH] 0001-Defaults
 
 ---
  settings.conf                                 | 18 +++++----
- src/branding/default/branding.desc            | 14 +++----
+ src/branding/default/branding.desc            | 15 ++++---
  src/modules/bootloader/bootloader.conf        | 14 ++++---
- src/modules/bootloader/main.py                |  2 +
- src/modules/grubcfg/grubcfg.conf              |  1 +
+ src/modules/bootloader/main.py                |  5 ++-
+ src/modules/dracut/dracut.conf                |  1 -
+ src/modules/grubcfg/grubcfg.conf              |  3 +-
  src/modules/keyboard/keyboard.conf            |  2 +-
  src/modules/license/license.conf              | 20 ++--------
  src/modules/locale/locale.conf                |  4 +-
@@ -19,12 +20,12 @@ Subject: [PATCH] apply fedora defaults
  .../partition/core/PartitionLayout.cpp        | 40 ++++++++++++++-----
  src/modules/partition/partition.conf          | 19 ++++++---
  src/modules/plasmalnf/plasmalnf.conf          | 18 ++++-----
- src/modules/shellprocess/shellprocess.conf    | 30 +++++++++++---
+ src/modules/shellprocess/shellprocess.conf    | 25 +++++++++---
  src/modules/tracking/tracking.conf            |  4 +-
  src/modules/unpackfs/unpackfs.conf            | 13 ++----
  src/modules/users/users.conf                  | 15 ++++---
  src/modules/welcome/welcome.conf              | 14 +++----
- 20 files changed, 151 insertions(+), 141 deletions(-)
+ 21 files changed, 148 insertions(+), 146 deletions(-)
 
 diff --git a/settings.conf b/settings.conf
 index f4cbd05..7a3bfaa 100644
@@ -72,20 +73,21 @@ index f4cbd05..7a3bfaa 100644
  # If this is set to true, Calamares will show an "Are you sure?" prompt right
  # before each execution phase, i.e. at points of no return. If this is set to
 diff --git a/src/branding/default/branding.desc b/src/branding/default/branding.desc
-index b29e000..6e845aa 100644
+index 729b958..4af74fc 100644
 --- a/src/branding/default/branding.desc
 +++ b/src/branding/default/branding.desc
-@@ -121,13 +121,13 @@ navigation: widget
+@@ -121,14 +121,13 @@ navigation: widget
  # are visible as buttons there if the corresponding *show* keys
  # are set to "true" (they can also be overridden).
  strings:
 -    productName:         "${NAME}"
 -    shortProductName:    Generic
--    version:             2020.2 LTS
--    shortVersion:        2020.2
--    versionedName:       Fancy GNU/Linux 2020.2 LTS "Turgid Tuba"
--    shortVersionedName:  FancyGL 2020.2
+-    version:             2023.3 LTS
+-    shortVersion:        2023.3
+-    versionedName:       Fancy GNU/Linux 2023.3 LTS "Venomous Vole"
+-    shortVersionedName:  FancyGL 2023.3
 -    bootloaderEntryName: FancyGL
+-    productUrl:          https://calamares.io/
 +    productName:         "@{NAME}"
 +    shortProductName:    "@{NAME}"
 +    version:             "@{VERSION}"
@@ -93,9 +95,9 @@ index b29e000..6e845aa 100644
 +    versionedName:       "@{NAME} @{VERSION_ID}"
 +    shortVersionedName:  "@{NAME} @{VERSION_ID}"
 +    bootloaderEntryName: "@{NAME}"
-     productUrl:          https://calamares.io/
      supportUrl:          https://github.com/calamares/calamares/wiki
      knownIssuesUrl:      https://github.com/calamares/calamares/issues
+     releaseNotesUrl:     https://calamares.io/news/
 diff --git a/src/modules/bootloader/bootloader.conf b/src/modules/bootloader/bootloader.conf
 index 9679f66..215cfad 100644
 --- a/src/modules/bootloader/bootloader.conf
@@ -136,7 +138,7 @@ index 9679f66..215cfad 100644
  # Optionally install a copy of the GRUB EFI bootloader as the EFI
  # fallback loader (either bootia32.efi or bootx64.efi depending on
 diff --git a/src/modules/bootloader/main.py b/src/modules/bootloader/main.py
-index 4a5a93f..f31526c 100644
+index 1899028..1e21767 100644
 --- a/src/modules/bootloader/main.py
 +++ b/src/modules/bootloader/main.py
 @@ -41,6 +41,8 @@ _ = gettext.translation("calamares-python",
@@ -148,7 +150,7 @@ index 4a5a93f..f31526c 100644
  
  def pretty_name():
      return _("Install bootloader.")
-@@ -746,8 +748,7 @@ def install_secureboot(efi_directory):
+@@ -772,8 +774,7 @@ def install_secureboot(efi_directory):
      # The input file /etc/default/grub should already be filled out by the
      # grubcfg job module.
      check_target_env_call([libcalamares.job.configuration["grubMkconfig"],
@@ -158,6 +160,15 @@ index 4a5a93f..f31526c 100644
  
  
  def vfat_correct_case(parent, name):
+diff --git a/src/modules/dracut/dracut.conf b/src/modules/dracut/dracut.conf
+index ba1a7b0..3912efd 100644
+--- a/src/modules/dracut/dracut.conf
++++ b/src/modules/dracut/dracut.conf
+@@ -7,4 +7,3 @@
+ # If you want to specify another filename for the resulting image,
+ # set a custom name, including the path
+ #
+-initramfsName: /boot/initramfs-freebsd.img
 diff --git a/src/modules/grubcfg/grubcfg.conf b/src/modules/grubcfg/grubcfg.conf
 index 189d4c2..86bb61e 100644
 --- a/src/modules/grubcfg/grubcfg.conf
@@ -180,15 +191,18 @@ index 189d4c2..86bb61e 100644
  # Set to true to force defaults to be used even when not overwriting
  always_use_defaults: false
 diff --git a/src/modules/keyboard/keyboard.conf b/src/modules/keyboard/keyboard.conf
-index 3b2f3a3..199a7b5 100644
+index 2a8e851..ca9776c 100644
 --- a/src/modules/keyboard/keyboard.conf
 +++ b/src/modules/keyboard/keyboard.conf
-@@ -20,4 +20,4 @@ convertedKeymapPath: "/lib/kbd/keymaps/xkb"
+@@ -20,7 +20,7 @@ convertedKeymapPath: "/lib/kbd/keymaps/xkb"
  # Write keymap configuration to /etc/default/keyboard, usually
  # found on Debian-related systems.
  # Defaults to true if nothing is set.
 -#writeEtcDefaultKeyboard:   true
-+writeEtcDefaultKeyboard: false
++writeEtcDefaultKeyboard:   false
+ 
+ # Use the Locale1 service instead of directly managing configuration files.
+ # This is the modern mechanism for configuring the systemwide keyboard layout,
 diff --git a/src/modules/license/license.conf b/src/modules/license/license.conf
 index e32d499..be95158 100644
 --- a/src/modules/license/license.conf
@@ -238,7 +252,7 @@ index 4463f7a..bb022c1 100644
  # For testing purposes, you could use *fixed* style, to see how Calamares
  # behaves in a particular zone:
 diff --git a/src/modules/mount/mount.conf b/src/modules/mount/mount.conf
-index 97e5128..a985066 100644
+index da95395..1801e3c 100644
 --- a/src/modules/mount/mount.conf
 +++ b/src/modules/mount/mount.conf
 @@ -50,15 +50,8 @@ extraMounts:
@@ -261,7 +275,7 @@ index 97e5128..a985066 100644
      - filesystem: efi
        options: [ defaults, umask=0077 ]
      - filesystem: btrfs
--      options: [ defaults, noatime, compress=lzo ]
+-      options: [ defaults, compress=zstd:1 ]
 +      options: [ compress=zstd:1,x-systemd.device-timeout=0 ]
      - filesystem: btrfs_swap
        options: [ defaults, noatime ]
@@ -322,7 +336,7 @@ index 6e62f4b..87b4d5a 100644
 +    - anaconda-install-env-deps
 +    - anaconda-live
 diff --git a/src/modules/partition/core/PartitionActions.cpp b/src/modules/partition/core/PartitionActions.cpp
-index 2287c57..45eaec1 100644
+index b5fb0ca..b633e80 100644
 --- a/src/modules/partition/core/PartitionActions.cpp
 +++ b/src/modules/partition/core/PartitionActions.cpp
 @@ -174,30 +174,15 @@ doAutopartition( PartitionCoreModule* core, Device* dev, Choices::AutoPartitionO
@@ -366,10 +380,10 @@ index 2287c57..45eaec1 100644
          if ( gs->contains( "swapPartitionName" ) )
          {
 diff --git a/src/modules/partition/core/PartitionLayout.cpp b/src/modules/partition/core/PartitionLayout.cpp
-index 61c7010..b6c85d6 100644
+index 4575a68..0354bb5 100644
 --- a/src/modules/partition/core/PartitionLayout.cpp
 +++ b/src/modules/partition/core/PartitionLayout.cpp
-@@ -310,17 +310,35 @@ PartitionLayout::createPartitions( Device* dev,
+@@ -308,17 +308,35 @@ PartitionLayout::createPartitions( Device* dev,
                                                     KPM_PARTITION_FLAG( None ) );
          }
          else
@@ -417,19 +431,19 @@ index 61c7010..b6c85d6 100644
  
          // For zfs, we need to make the passphrase available to later modules
 diff --git a/src/modules/partition/partition.conf b/src/modules/partition/partition.conf
-index ecd183c..7a0d464 100644
+index ca94ef3..cc91ee4 100644
 --- a/src/modules/partition/partition.conf
 +++ b/src/modules/partition/partition.conf
-@@ -16,7 +16,7 @@ efiSystemPartition:     "/boot/efi"
- # 300MiB is the default, M is treated as MiB, and if you really want
- # one-million (10^6) bytes, use MB.
- #
--# efiSystemPartitionSize:     300M
-+efiSystemPartitionSize:     600M
+@@ -41,7 +41,7 @@ efi:
+ # efiSystemPartition:     "/boot/efi"
  
- # This optional setting specifies the name of the EFI system partition (see
- # PARTLABEL; gpt only; requires KPMCore >= 4.2.0).
-@@ -76,7 +76,7 @@ userSwapChoices:
+ # Deprecated alias of efi.recommendedSize
+-# efiSystemPartitionSize:          300MiB
++efiSystemPartitionSize:          600MiB
+ 
+ # Deprecated alias of efi.label
+ # efiSystemPartitionName:     EFI
+@@ -99,7 +99,7 @@ userSwapChoices:
  #
  # The default is luks1
  #
@@ -438,7 +452,7 @@ index ecd183c..7a0d464 100644
  
  # This setting determines if encryption should be allowed when using zfs.  This
  # setting has no effect unless zfs support is provided.
-@@ -89,7 +89,7 @@ luksGeneration: luks1
+@@ -112,7 +112,7 @@ luksGeneration: luks1
  # allowZfsEncryption: true
  
  # Correctly draw nested (e.g. logical) partitions as such.
@@ -447,16 +461,16 @@ index ecd183c..7a0d464 100644
  
  # Show/hide partition labels on manual partitioning page.
  alwaysShowPartitionLabels: true
-@@ -122,7 +122,7 @@ initialPartitioningChoice: none
+@@ -154,7 +154,7 @@ initialPartitioningChoice: none
  #
  # The default is "none" (no swap) if that is one of the enabled options, otherwise
  # one of the items from the options.
 -initialSwapChoice: none
 +initialSwapChoice: suspend
  
- # Default partition table type, used when a "erase" disk is made.
+ # armInstall
  #
-@@ -166,7 +166,7 @@ initialSwapChoice: none
+@@ -205,7 +205,7 @@ initialSwapChoice: none
  # If nothing is specified, Calamares defaults to "ext4".
  #
  # Names are case-sensitive and defined by KPMCore.
@@ -465,7 +479,7 @@ index ecd183c..7a0d464 100644
  
  # Selectable filesystem type, used when "erase" is done.
  #
-@@ -277,3 +277,12 @@ defaultFileSystemType:  "ext4"
+@@ -316,3 +316,12 @@ defaultFileSystemType:  "ext4"
  #                  the welcome module, **and** configure this value in
  #                  `welcome.conf`, not here.
  # requiredStorage: 3.5
@@ -522,7 +536,7 @@ index 105f247..b9105d1 100644
  # You can pre-select one of the themes; it is not applied
  # immediately, but its radio-button is switched on to indicate
 diff --git a/src/modules/shellprocess/shellprocess.conf b/src/modules/shellprocess/shellprocess.conf
-index 9ff8322..e726c36 100644
+index 9ff8322..3e449b4 100644
 --- a/src/modules/shellprocess/shellprocess.conf
 +++ b/src/modules/shellprocess/shellprocess.conf
 @@ -73,11 +73,11 @@ dontChroot: false
@@ -603,10 +617,10 @@ index d12110b..6d07324 100644
 +        sourcefs: "ext4"
 +        destination: ""
 diff --git a/src/modules/users/users.conf b/src/modules/users/users.conf
-index 00a98ee..099c9c7 100644
+index 669cac0..6c9acbd 100644
 --- a/src/modules/users/users.conf
 +++ b/src/modules/users/users.conf
-@@ -34,8 +34,7 @@ defaultGroups:
+@@ -40,8 +40,7 @@ defaultGroups:
        system: true
      - lp
      - video
@@ -616,17 +630,17 @@ index 00a98ee..099c9c7 100644
      - name: wheel
        must_exist: false
        system: true
-@@ -62,7 +61,7 @@ doAutologin:     true
+@@ -56,7 +55,7 @@ defaultGroups:
  # remove this setting (delete or comment out the line below). Otherwise,
  # the setting will be duplicated in the `/etc/sudoers.d/10-installer` file,
  # potentially confusing users.
 -sudoersGroup:    wheel
 +#sudoersGroup:    wheel
- # If set to `false` (the default), writes a sudoers file with `(ALL)`
- # so that the command can be run as any user. If set to `true`, writes
- # `(ALL:ALL)` so that any user and any group can be chosen.
-@@ -119,9 +118,9 @@ passwordRequirements:
-     nonempty: true
+ 
+ # Some Distributions require a 'autologin' group for the user.
+ # Autologin causes a user to become automatically logged in to
+@@ -151,9 +150,9 @@ doAutologin:     true
+ passwordRequirements:
      minLength: -1  # Password at least this many characters
      maxLength: -1  # Password at most this many characters
 -    libpwquality:
@@ -636,9 +650,9 @@ index 00a98ee..099c9c7 100644
 +#        - minlen=0
 +#        - minclass=0
  
- # You can control the visibility of the 'strong passwords' checkbox here.
- # Possible values are:
-@@ -159,7 +158,7 @@ allowWeakPasswordsDefault: false
+ # These are "you must have a password, any password" -- requirements
+ #
+@@ -215,7 +214,7 @@ allowWeakPasswordsDefault: false
  #   names for a given distro (eg. "video", or "mysql" might not be a valid
  #   end-user login name).
  user:
@@ -646,8 +660,8 @@ index 00a98ee..099c9c7 100644
 +  shell: ""
    forbidden_names: [ root ]
  
- # Hostname settings
-@@ -205,7 +204,7 @@ user:
+ 
+@@ -262,7 +261,7 @@ user:
  hostname:
    location: EtcFile
    writeHostsFile: true
@@ -704,13 +718,5 @@ index b988eb2..9055b5e 100644
  # User interface
  #
 -- 
-2.39.2
-diff --git a/src/modules/dracut/dracut.conf b/src/modules/dracut/dracut.conf
-index ba1a7b0..3912efd 100644
---- a/src/modules/dracut/dracut.conf
-+++ b/src/modules/dracut/dracut.conf
-@@ -7,4 +7,3 @@
- # If you want to specify another filename for the resulting image,
- # set a custom name, including the path
- #
--initramfsName: /boot/initramfs-freebsd.img
+2.43.0
+

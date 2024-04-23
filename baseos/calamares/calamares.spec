@@ -1,31 +1,26 @@
-%global snapdate 20230303
-%global snaphash 4f2ab856a320c840ec3fc492faf1f3de32769398
-
-#%global prerelease alpha3
-
-# For rpmdev-bumpspec and releng scripts
-%global baserelease 20
+# Plasma module not yet ported to Plasma 6
+%global plasma_module 0
 
 Name:           calamares
 Version:        3.3.0
-Release:        %{baserelease}%{?snaphash:.%{snapdate}git%(echo %{snaphash} | cut -c -13)}%{!?snaphash:%{?prerelease:.%{prerelease}}}%{?dist}
+Release:        1%{?dist}
 Summary:        Installer from a live CD/DVD/USB to disk
 
-License:        GPLv3+
+License:        GPL-3.0-or-later
 URL:            https://calamares.io/
-Source0:        https://github.com/calamares/calamares/archive/refs/heads/calamares.tar.gz
+Source0:        https://github.com/calamares/calamares/%{?snaphash:archive}%{!?snaphash:releases/download}/%{?snaphash}%{!?snaphash:v%{version_no_tilde}}/calamares-%{?snaphash}%{!?snaphash:%{version_no_tilde}}.tar.gz
 Source2:        show.qml
 # Run:
-# lupdate-qt5 show.qml -ts calamares-auto_fr.ts
-# then translate the template in linguist-qt5.
+# lupdate-qt6 show.qml -ts calamares-auto_fr.ts
+# then translate the template in linguist-qt6.
 Source3:        calamares-auto_fr.ts
 # Run:
-# lupdate-qt5 show.qml -ts calamares-auto_de.ts
-# then translate the template in linguist-qt5.
+# lupdate-qt6 show.qml -ts calamares-auto_de.ts
+# then translate the template in linguist-qt6.
 Source4:        calamares-auto_de.ts
 # Run:
-# lupdate-qt5 show.qml -ts calamares-auto_it.ts
-# then translate the template in linguist-qt5.
+# lupdate-qt6 show.qml -ts calamares-auto_it.ts
+# then translate the template in linguist-qt6.
 Source5:        calamares-auto_it.ts
 
 # adjust some default settings (default shipped .conf files)
@@ -34,30 +29,22 @@ Patch1:         0001-Apply-default-settings-for-Fedora.patch
 # use custom installer icon
 Patch2:         0002-Change-icon-to-custom-installer-icon.patch
 
-# allows usage of pkexec without admin confirmation
-Patch3:         0003-fixup-desktop-URL-for-polkit-without-authentication.patch
+## use kdesu instead of pkexec (works around #1171779)
+Patch1002:       calamares-3.3.0-kdesu.patch
 
-# revert the removal of INSTALL_CONFIG to save my fucking sanity
-Patch4:         0004-revert-INSTALL_CONFIG-removal.patch
-
-# enable the INSTALL_CONFIG option
-Patch5:         0005-enable-INSTALL_CONFIG-option.patch
-
-
-
-Source7:	49-nopasswd-calamares.rules
 
 # Calamares is only supported where live images (and GRUB) are. (#1171380)
 # This list matches the arches where grub2-efi is used to boot the system
 ExclusiveArch:  %{ix86} x86_64 aarch64
 
 # Macros
-BuildRequires:  kf5-rpm-macros
+BuildRequires:  git-core
+BuildRequires:  kf6-rpm-macros
 
 # Compilation tools
-BuildRequires:  cmake >= 3.3
-BuildRequires:  extra-cmake-modules >= 5.18
-BuildRequires:  gcc-c++ >= 7.0
+BuildRequires:  cmake >= 3.16
+BuildRequires:  extra-cmake-modules >= 5.245
+BuildRequires:  gcc-c++ >= 9.0.0
 BuildRequires:  pkgconfig
 BuildRequires:  make
 
@@ -65,28 +52,34 @@ BuildRequires:  make
 BuildRequires:  desktop-file-utils
 BuildRequires:  gettext
 
-# Qt 5
-BuildRequires:	polkit-qt5-1-devel
-BuildRequires:  qt5-linguist >= 5.10
-BuildRequires:  qt5-qtbase-devel >= 5.10
-BuildRequires:  qt5-qtdeclarative-devel >= 5.10
-BuildRequires:  qt5-qtsvg-devel >= 5.10
-BuildRequires:  qt5-qtwebkit-devel >= 5.212
+# Qt 6
+BuildRequires:  cmake(Qt6Concurrent)
+BuildRequires:  cmake(Qt6Core)
+BuildRequires:  cmake(Qt6DBus)
+BuildRequires:  cmake(Qt6Gui)
+BuildRequires:  cmake(Qt6LinguistTools)
+BuildRequires:  cmake(Qt6Network)
+BuildRequires:  cmake(Qt6Svg)
+BuildRequires:  cmake(Qt6Widgets)
+BuildRequires:  cmake(Qt6Quick)
+BuildRequires:  cmake(Qt6QuickWidgets)
 
-# KF5
-BuildRequires:  kf5-kconfig-devel
-BuildRequires:  kf5-kcoreaddons-devel
-BuildRequires:  kf5-kcrash-devel
-BuildRequires:  kf5-kdbusaddons-devel
-BuildRequires:  kf5-ki18n-devel
-BuildRequires:  kf5-kpackage-devel
-BuildRequires:  kf5-kparts-devel
-BuildRequires:  kf5-kservice-devel
-BuildRequires:  kf5-kwidgetsaddons-devel
-BuildRequires:  kf5-plasma-devel
+# KF6
+BuildRequires:  cmake(KF6CoreAddons)
+BuildRequires:  cmake(KF6Config)
+BuildRequires:  cmake(KF6Crash)
+BuildRequires:  cmake(KF6DBusAddons)
+BuildRequires:  cmake(KF6I18n)
+BuildRequires:  cmake(KF6Package)
+BuildRequires:  cmake(KF6Parts)
+BuildRequires:  cmake(KF6Service)
+BuildRequires:  cmake(KF6WidgetsAddons)
 
-# KPMCore
-BuildRequires:  kpmcore-devel >= 4.2.0
+# Plasma
+BuildRequires:  cmake(Plasma)
+
+# KPMcore
+BuildRequires:  cmake(KPMcore) >= 4.2.0
 
 # Python 3
 BuildRequires:  python3-devel >= 3.3
@@ -96,7 +89,7 @@ BuildRequires:  boost-devel >= 1.55.0
 %global __python %{__python3}
 
 # Other libraries
-BuildRequires:  appstream-qt-devel
+BuildRequires:  cmake(AppStreamQt) >= 1.0.0
 BuildRequires:  libpwquality-devel
 BuildRequires:  libxcrypt-devel
 BuildRequires:  parted-devel
@@ -139,11 +132,17 @@ Requires:       kdesu
 Requires:       hicolor-icon-theme
 
 Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
+# webview module is no longer available
+Obsoletes:      %{name}-webview < 3.0.0~
+%if ! %{plasma_module}
+Obsoletes:      %{name}-plasmalnf < %{version}-%{release}
+%endif
+
 
 %description
 Calamares is a distribution-independent installer framework, designed to install
 from a live CD/DVD/USB environment to a hard disk. It includes a graphical
-installation program based on Qt 5. This package includes the Calamares
+installation program based on Qt 6. This package includes the Calamares
 framework and the required configuration files to produce a working replacement
 for Anaconda's liveinst.
 
@@ -160,13 +159,14 @@ Requires:       %{name} = %{version}-%{release}
 Summary:        Calamares interactiveterminal module
 Requires:       %{name} = %{version}-%{release}
 Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
-Requires:       konsole5-part
+Requires:       konsole-part
 
 %description    interactiveterminal
 Optional interactiveterminal module for the Calamares installer, based on the
-KonsolePart (from Konsole 5)
+KonsolePart (from Konsole 6)
 
 
+%if %{plasma_module}
 %package        plasmalnf
 Summary:        Calamares plasmalnf module
 Requires:       %{name} = %{version}-%{release}
@@ -176,6 +176,7 @@ Requires:       plasma-desktop
 %description    plasmalnf
 Optional plasmalnf module for the Calamares installer, based on the KDE Plasma
 Desktop Workspace and its KDE Frameworks (KConfig, KPackage, Plasma)
+%endif
 
 
 %package        devel
@@ -189,22 +190,16 @@ developing custom modules for Calamares.
 
 
 %prep
-%setup -q %{?snaphash:-n %{name}-%{name}} %{!?snaphash:%{?prerelease:-n %{name}-%{version}}}
-sed -i -e "s|CALAMARES_VERSION_RC 1|CALAMARES_VERSION_RC 0|g" CMakeLists.txt
-%patch1 -p1 -b .default-settings
-# delete backup files so they don't get installed
-rm -f src/modules/*/*.conf.default-settings
-
-%patch2 -p1 -b .
-%patch3 -p1 -b .
-%patch4 -p1 -b .
-%patch5 -p1 -b .
+%autosetup -S git_am -n %{name}-%{version_no_tilde}
 
 %build
-%{cmake_kf5} -DCMAKE_BUILD_TYPE:STRING="RelWithDebInfo" \
+%{cmake_kf6} -DCMAKE_BUILD_TYPE:STRING="RelWithDebInfo" \
              -DBUILD_TESTING:BOOL=OFF \
              -DWITH_PYTHONQT:BOOL=OFF \
-             -DWITH_KPMCORE4API:BOOL=ON
+             -DWITH_QT6:BOOL=ON \
+             -DWITH_KPMCORE4API:BOOL=ON \
+             -DINSTALL_CONFIG=ON \
+             %{nil}
 %cmake_build
 
 %install
@@ -215,16 +210,14 @@ mkdir -p %{buildroot}%{_datadir}/calamares/branding/auto
 touch %{buildroot}%{_datadir}/calamares/branding/auto/branding.desc
 install -p -m 644 %{SOURCE2} %{buildroot}%{_datadir}/calamares/branding/auto/show.qml
 mkdir -p %{buildroot}%{_datadir}/calamares/branding/auto/lang
-lrelease-qt5 %{SOURCE3} -qm %{buildroot}%{_datadir}/calamares/branding/auto/lang/calamares-auto_fr.qm
-lrelease-qt5 %{SOURCE4} -qm %{buildroot}%{_datadir}/calamares/branding/auto/lang/calamares-auto_de.qm
-lrelease-qt5 %{SOURCE5} -qm %{buildroot}%{_datadir}/calamares/branding/auto/lang/calamares-auto_it.qm
+lrelease-qt6 %{SOURCE3} -qm %{buildroot}%{_datadir}/calamares/branding/auto/lang/calamares-auto_fr.qm
+lrelease-qt6 %{SOURCE4} -qm %{buildroot}%{_datadir}/calamares/branding/auto/lang/calamares-auto_de.qm
+lrelease-qt6 %{SOURCE5} -qm %{buildroot}%{_datadir}/calamares/branding/auto/lang/calamares-auto_it.qm
 # own the local settings directories
 mkdir -p %{buildroot}%{_sysconfdir}/calamares/modules
 mkdir -p %{buildroot}%{_sysconfdir}/calamares/branding
 # delete dummypythonqt translations, we do not use PythonQt at this time
 rm -f %{buildroot}%{_datadir}/locale/*/LC_MESSAGES/calamares-dummypythonqt.mo
-mkdir -p %{buildroot}%{_sysconfdir}/polkit-1/rules.d/
-cp %{SOURCE7} %{buildroot}%{_sysconfdir}/polkit-1/rules.d/
 %find_lang calamares-python
 
 %check
@@ -318,12 +311,12 @@ EOF
 %{_datadir}/calamares/branding/auto/lang/
 %{_datadir}/calamares/modules/
 %exclude %{_datadir}/calamares/modules/interactiveterminal.conf
+%if %{plasma_module}
 %exclude %{_datadir}/calamares/modules/plasmalnf.conf
+%endif
 %{_datadir}/calamares/qml/
 %{_datadir}/applications/calamares.desktop
 %{_datadir}/icons/hicolor/scalable/apps/calamares.svg
-%{_datadir}/polkit-1/actions/com.github.calamares.calamares.policy
-%{_sysconfdir}/polkit-1/rules.d/49-nopasswd-calamares.rules
 %{_mandir}/man8/calamares.8*
 %{_sysconfdir}/calamares/
 
@@ -332,15 +325,19 @@ EOF
 %{_libdir}/libcalamaresui.so.*
 %{_libdir}/calamares/
 %exclude %{_libdir}/calamares/modules/interactiveterminal/
+%if %{plasma_module}
 %exclude %{_libdir}/calamares/modules/plasmalnf/
+%endif
 
 %files interactiveterminal
 %{_datadir}/calamares/modules/interactiveterminal.conf
 %{_libdir}/calamares/modules/interactiveterminal/
 
+%if %{plasma_module}
 %files plasmalnf
 %{_datadir}/calamares/modules/plasmalnf.conf
 %{_libdir}/calamares/modules/plasmalnf/
+%endif
 
 %files devel
 %{_includedir}/libcalamares/
@@ -350,6 +347,48 @@ EOF
 
 
 %changelog
+* Sat Dec 30 2023 Neal Gompa <ngompa@fedoraproject.org> - 3.3.0-1
+- Update to 3.3.0 final
+
+* Wed Dec 06 2023 Yaakov Selkowitz <yselkowitz@fedoraproject.org> - 3.3.0~alpha6-2
+- Rebuilt for KDE Frameworks 5.246.0 and Gear 24.01.80
+
+* Sun Nov 26 2023 Neal Gompa <ngompa@fedoraproject.org> - 3.3.0~alpha6-1
+- Rebase to 3.3.0~alpha6 for AppStream 1.0 and Qt 6 compatibility
+
+* Tue Nov 07 2023 Neal Gompa <ngompa@fedoraproject.org> - 3.2.62-5
+- Switch to appstream0.16-qt
+
+* Mon Sep 04 2023 Neal Gompa <ngompa@fedoraproject.org> - 3.2.62-4
+- Add a patch to fix keyboard layout detection
+
+* Mon Sep 04 2023 Neal Gompa <ngompa@fedoraproject.org> - 3.2.62-3
+- Add more patches for Fedora Asahi
+
+* Sat Sep 02 2023 Neal Gompa <ngompa@fedoraproject.org> - 3.2.62-2
+- Refresh backported patch stack
+
+* Sat Sep 02 2023 Neal Gompa <ngompa@fedoraproject.org> - 3.2.62-1
+- Update to 3.2.62 and backport fixes for Asahi
+
+* Wed Jul 19 2023 Fedora Release Engineering <releng@fedoraproject.org> - 3.2.61-8
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_39_Mass_Rebuild
+
+* Tue Jul 11 2023 František Zatloukal <fzatlouk@redhat.com> - 3.2.61-7
+- Rebuilt for ICU 73.2
+
+* Thu Jun 15 2023 Python Maint <python-maint@redhat.com> - 3.2.61-6
+- Rebuilt for Python 3.12
+
+* Mon Feb 20 2023 Jonathan Wakely <jwakely@redhat.com> - 3.2.61-5
+- Rebuilt for Boost 1.81
+
+* Wed Jan 18 2023 Fedora Release Engineering <releng@fedoraproject.org> - 3.2.61-4
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_38_Mass_Rebuild
+
+* Sat Dec 31 2022 Pete Walter <pwalter@fedoraproject.org> - 3.2.61-3
+- Rebuild for ICU 72
+
 * Tue Nov 15 2022 Richard Shaw <hobbes1069@gmail.com> - 3.2.61-2
 - Rebuild for yaml-cpp 0.7.0.
 
