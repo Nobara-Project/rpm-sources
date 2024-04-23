@@ -27,7 +27,7 @@
 # Use hardening ldflags.
 %global rustflags -Clink-arg=-Wl,-z,relro,-z,now
 Name:           asusctl
-Version:        5.0.7
+Version:        5.0.10
 Release: %{pkg_release}
 Summary:        Control fan speeds, LEDs, graphics modes, and charge levels for ASUS notebooks
 License:        MPLv2
