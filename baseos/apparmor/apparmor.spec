@@ -3,7 +3,7 @@
 %bcond_with tests
 
 Name:           apparmor
-Version:        3.1.6
+Version:        3.1.7
 Release:        0.1%{?dist}
 Summary:        AppArmor userspace components
 
@@ -14,7 +14,6 @@ URL:            https://launchpad.net/apparmor
 Source0:        %{url}/%{baseversion}/%{version}/+download/%{name}-%{version}.tar.gz
 Source10:       %{name}.preset
 Patch01:	0001-fix-avahi-daemon-authselect-denial-in-fedora.patch
-Patch02:	0001-All-current-versions-of-RHEL-and-Fedora-that-are-not.patch
 Patch03:	0001-fix-denial-on-dnsmask-for-nsswitch.patch
 Patch04:	0001-fix-apparmor-waydroid-denials.patch
 Patch05:	set_samba_profiles_to_complain_mode_in_ExecStartPre.patch
