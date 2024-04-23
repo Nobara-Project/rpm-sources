@@ -1,12 +1,12 @@
-%define commit e0fd609deceed6b940637a284fdb1275008fb0b4
+%define commit 89a49751ffbeeed0beeba21ee9ba7fd7c94ce78f
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 %global build_timestamp %(date +"%Y%m%d")
 
-%global rel_build 1.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build RC4.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           umu-launcher
-Version:        1.0.0
+Version:        0.1
 Release:        %{rel_build}
 Summary:        A tool for launching non-steam games with proton
 
