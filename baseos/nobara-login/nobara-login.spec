@@ -1,7 +1,7 @@
 Summary: A set of scripts to run upon first user login
 Name: nobara-login
 Version: 1.1
-Release: 50%{?dist}
+Release: 51%{?dist}
 License: Public Domain
 Group: System Environment/Base
 Source0: hwcheck.sh
@@ -22,6 +22,7 @@ Source17: nobara-automount.desktop
 Source18: nobara-automount
 Source19: org.nobaraproject.automount.policy
 Source20: nobara-device-quirks
+Source21: 99-ntsync.rules
 
 BuildArch: noarch
 BuildRequires: filesystem
@@ -83,6 +84,7 @@ install -m 0755 %{SOURCE17} $RPM_BUILD_ROOT%{_sysconfdir}/xdg/autostart/nobara-a
 install -m 0755 %{SOURCE18} $RPM_BUILD_ROOT%{_libexecdir}/nobara-automount
 install -m 0755 %{SOURCE19} $RPM_BUILD_ROOT%{_datadir}/polkit-1/actions/org.nobaraproject.automount.policy
 install -m 0755 %{SOURCE20} $RPM_BUILD_ROOT%{_bindir}/nobara-device-quirks
+install -m 0644 %{SOURCE21} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/99-ntsync.rules
 
 echo '# list of disabled automount partitions' > disabled.conf
 install -m 0755 disabled.conf $RPM_BUILD_ROOT%{_sysconfdir}/nobara/automount/disabled.conf
@@ -101,6 +103,7 @@ sysctl -p
 %{_sysconfdir}/dnf/protected.d/nobara.conf
 %{_sysconfdir}/udev/rules.d/40-hpet-permissions.rules
 %{_sysconfdir}/udev/rules.d/60-ioschedulers.rules
+%{_sysconfdir}/udev/rules.d/99-ntsync.rules
 %{_sysconfdir}/polkit-1/rules.d/90-corectrl.rules
 %{_sysconfdir}/login.conf.d/00-handheld-power.conf
 %config(noreplace) %{_sysconfdir}/nobara/automount/disabled.conf
