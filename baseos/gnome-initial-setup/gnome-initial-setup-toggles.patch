@@ -1,16 +1,13 @@
 diff --git a/gnome-initial-setup/pages/privacy/gis-privacy-page.c b/gnome-initial-setup/pages/privacy/gis-privacy-page.c
-index b910651..10663e8 100644
+index 323e1aa..73d822b 100644
 --- a/gnome-initial-setup/pages/privacy/gis-privacy-page.c
 +++ b/gnome-initial-setup/pages/privacy/gis-privacy-page.c
-@@ -121,7 +121,7 @@ gis_privacy_page_constructed (GObject *object)
-   priv->privacy_settings = g_settings_new ("org.gnome.desktop.privacy");
-
-   gtk_switch_set_active (GTK_SWITCH (priv->location_switch), TRUE);
--  gtk_switch_set_active (GTK_SWITCH (priv->reporting_switch), TRUE);
-+  gtk_switch_set_active (GTK_SWITCH (priv->reporting_switch), FALSE);
-
-   if (update_os_data (page))
-     {
---
-2.41.0
-
+@@ -193,7 +193,7 @@ gis_privacy_page_constructed (GObject *object)
+   page->privacy_settings = g_settings_new ("org.gnome.desktop.privacy");
+ 
+   gtk_switch_set_active (GTK_SWITCH (page->location_switch), TRUE);
+-  gtk_switch_set_active (GTK_SWITCH (page->reporting_switch), TRUE);
++  gtk_switch_set_active (GTK_SWITCH (page->reporting_switch), FALSE);
+ 
+ #ifdef HAVE_WEBKITGTK
+   gtk_label_set_markup (GTK_LABEL (page->location_privacy_label),
