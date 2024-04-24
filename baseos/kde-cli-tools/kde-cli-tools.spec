@@ -1,48 +1,37 @@
 Name:    kde-cli-tools
-Version: 5.27.10
-Release: 2%{?dist}
+Version: 6.0.3
+Release: 1%{?dist}
 Summary: Tools based on KDE Frameworks 5 to better interact with the system
 
-License: GPLv2+
+License: Artistic-2.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-only AND LGPL-3.0-only AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only)
 URL:     https://invent.kde.org/plasma/%{name}
-
-%global revision %(echo %{version} | cut -d. -f3)
-%if %{revision} >= 50
-%global majmin_ver %(echo %{version} | cut -d. -f1,2).50
-%global stable unstable
-%else
-%global majmin_ver %(echo %{version} | cut -d. -f1,2)
-%global stable stable
-%endif
-Source0: http://download.kde.org/%{stable}/plasma/%{version}/%{name}-%{version}.tar.xz
-
+Source0: http://download.kde.org/stable/plasma/%{version}/%{name}-%{version}.tar.xz
 ## upstream patches
 Patch0: 99.patch
 
-BuildRequires:  qt5-qtbase-devel
-BuildRequires:  qt5-qtsvg-devel
-BuildRequires:  qt5-qtx11extras-devel
 
-BuildRequires:  kf5-rpm-macros
+## upstream patches
+
+BuildRequires:  qt6-qtbase-devel
+BuildRequires:  qt6-qtbase-private-devel
+%{?_qt6:Requires: %{_qt6}%{?_isa} = %{_qt6_version}}
+BuildRequires:  cmake(Qt6Qml)
+BuildRequires:  cmake(Qt6Svg)
+
+BuildRequires:  kf6-rpm-macros
 
 BuildRequires:  extra-cmake-modules
-BuildRequires:  kf5-kconfig-devel
-BuildRequires:  kf5-kdoctools-devel
-BuildRequires:  kf5-kiconthemes-devel
-BuildRequires:  kf5-ki18n-devel
-BuildRequires:  kf5-kcmutils-devel
-BuildRequires:  kf5-kdesu-devel
-BuildRequires:  kf5-kio-devel
-BuildRequires:  kf5-kwindowsystem-devel
-BuildRequires:  kf5-kactivities-devel
-BuildRequires:  kf5-kdeclarative-devel
-BuildRequires:  kf5-kparts-devel
-# todo: consider adjusting things to allow majmin
-# fix the following lines. Only commented out due to 5.27.5.1 release
-#BuildRequires:  plasma-workspace-devel >= %{version}
-#Requires: libkworkspace5%{?_isa} >= %{version}
-BuildRequires:  plasma-workspace-devel
-Requires: libkworkspace5%{?_isa}
+BuildRequires:  cmake(KF6Config)
+BuildRequires:  cmake(KF6DocTools)
+BuildRequires:  cmake(KF6IconThemes)
+BuildRequires:  cmake(KF6I18n)
+BuildRequires:  cmake(KF6KCMUtils)
+BuildRequires:  cmake(KF6Su)
+BuildRequires:  cmake(KF6KIO)
+BuildRequires:  cmake(KF6WindowSystem)
+BuildRequires:  cmake(KF6Parts)
+BuildRequires:  plasma-workspace-devel >= %{version}
+Requires:       libkworkspace6%{?_isa} >= %{version}
 
 # upgrade path, from when this wasn't split out
 Requires:       kdesu = 1:%{version}-%{release}
@@ -61,10 +50,6 @@ Summary: Runs a program with elevated privileges
 Epoch: 1
 Conflicts: kde-runtime < 14.12.3-2
 Conflicts: kde-runtime-docs < 14.12.3-2
-## added deps below avoidable to due main pkg Requires: kdesu -- rex
-# upgrade path, when kdesu was introduced
-#Obsoletes: kde-cli-tools < 5.2.1-3
-#Requires: %%{name} = %%{version}-%%{release}
 %description -n kdesu
 %{summary}.
 
@@ -74,8 +59,7 @@ Conflicts: kde-runtime-docs < 14.12.3-2
 
 
 %build
-%cmake_kf5
-
+%cmake_kf6
 %cmake_build
 
 
@@ -83,12 +67,11 @@ Conflicts: kde-runtime-docs < 14.12.3-2
 %cmake_install
 %find_lang kdeclitools_qt --with-qt --with-kde --all-name
 
-ln -s %{_kf5_libexecdir}/kdesu %{buildroot}%{_bindir}/kdesu
+ln -s %{_kf6_libexecdir}/kdesu %{buildroot}%{_bindir}/kdesu
 
 
 %files -f kdeclitools_qt.lang
 %{_bindir}/kbroadcastnotification
-%{_bindir}/kcmshell5
 %{_bindir}/kdecp
 %{_bindir}/kdecp5
 %{_bindir}/kde-inhibit
@@ -107,18 +90,18 @@ ln -s %{_kf5_libexecdir}/kdesu %{buildroot}%{_bindir}/kdesu
 %{_bindir}/kstart5
 %{_bindir}/ksvgtopng
 %{_bindir}/ksvgtopng5
-%{_bindir}/ktraderclient5
 %{_bindir}/plasma-open-settings
-%{_kf5_libexecdir}/kdeeject
-%{_kf5_qtplugindir}/plasma/kcms/systemsettings_qwidgets/kcm_filetypes.so
-%{_datadir}/doc/HTML/*/kcontrol5
+%{_kf6_libexecdir}/kdeeject
+%{_kf6_qtplugindir}/plasma/kcms/systemsettings_qwidgets/kcm_filetypes.so
+%{_datadir}/doc/HTML/*/kcontrol6
 %{_datadir}/applications/org.kde.keditfiletype.desktop
 %{_datadir}/applications/org.kde.plasma.settings.open.desktop
 %{_datadir}/applications/kcm_filetypes.desktop
+%{zsh_completions_dir}/_kde-inhibit
 
 %files -n kdesu
 %{_bindir}/kdesu
-%{_kf5_libexecdir}/kdesu
+%{_kf6_libexecdir}/kdesu
 %{_mandir}/man1/kdesu.1.gz
 %{_mandir}/*/man1/kdesu.1.gz
 ## FIXME: %%lang'ify
@@ -126,8 +109,8 @@ ln -s %{_kf5_libexecdir}/kdesu %{buildroot}%{_bindir}/kdesu
 
 
 %changelog
-* Sat Dec 16 2023 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 5.27.10-1
-- 5.27.10
+* Sat Nov 18 2023 Alessandro Astone <ales.astone@gmail.com> - 5.27.80-1
+- 5.27.80
 
 * Tue Oct 24 2023 Steve Cossette <farchord@gmail.com> - 5.27.9-1
 - 5.27.9
