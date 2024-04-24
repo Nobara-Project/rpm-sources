@@ -2,7 +2,7 @@
 %define __cmake_in_source_build 1
 
 # default dependencies
-%global hawkey_version 0.71.1
+%global hawkey_version 0.73.1
 %global libcomps_version 0.1.8
 %global libmodulemd_version 2.9.3
 %global rpm_version 4.14.0
@@ -12,7 +12,7 @@
 %global conflicts_dnf_plugins_extras_version 4.0.4
 %global conflicts_dnfdaemon_version 0.3.19
 
-%bcond dnf5_obsoletes_dnf %[0%{?fedora} > 40 || 0%{?rhel} > 10]
+%bcond dnf5_obsoletes_dnf %[0%{?fedora} > 41 || 0%{?rhel} > 11]
 
 # override dependencies for rhel 7
 %if 0%{?rhel} == 7
@@ -67,22 +67,26 @@
 It supports RPMs, modules and comps groups & environments.
 
 Name:           dnf
-Version:        4.18.2
+Version:        4.19.2
 Release:        1%{?dist}
 Summary:        %{pkg_summary}
 # For a breakdown of the licensing, see PACKAGE-LICENSING
 License:        GPL-2.0-or-later AND GPL-1.0-only
 URL:            https://github.com/rpm-software-management/dnf
 Source0:        %{url}/archive/%{version}/%{name}-%{version}.tar.gz
-Patch0:         0001-Revert-Does-not-print-Verify-package-RhBug-1908253.patch
-Patch1:      0001-increase-parallel-downloads.patch
-Patch2:      0001-disable-zchunk-for-Nobara-snapshots.patch
+Patch0:      0001-increase-parallel-downloads.patch
+Patch1:      0001-disable-zchunk-for-Nobara-snapshots.patch
 BuildArch:      noarch
 BuildRequires:  cmake
 BuildRequires:  gettext
 # Documentation
 BuildRequires:  systemd
+%if 0%{?fedora} > 40 || 0%{?rhel} > 10
+BuildRequires:  bash-completion-devel
+%else
 BuildRequires:  bash-completion
+%endif
+Requires:       coreutils
 BuildRequires:  %{_bindir}/sphinx-build-3
 Requires:       python3-%{name} = %{version}-%{release}
 %if 0%{?rhel} && 0%{?rhel} <= 7
@@ -138,7 +142,9 @@ BuildRequires:  libmodulemd >= %{libmodulemd_version}
 Requires:       libmodulemd >= %{libmodulemd_version}
 Requires:       %{name}-data = %{version}-%{release}
 %if 0%{?fedora}
+%if 0%{?fedora} < 40
 Recommends:     deltarpm
+%endif
 # required for DNSSEC main.gpgkey_dns_verification https://dnf.readthedocs.io/en/latest/conf_ref.html
 Recommends:     python3-unbound
 %endif
@@ -221,6 +227,8 @@ mkdir -p %{buildroot}%{_var}/cache/dnf/
 touch %{buildroot}%{_localstatedir}/log/%{name}.log
 ln -sr %{buildroot}%{_bindir}/dnf-3 %{buildroot}%{_bindir}/dnf
 ln -sr %{buildroot}%{_bindir}/dnf-3 %{buildroot}%{_bindir}/dnf4
+ln -sr %{buildroot}%{_datadir}/bash-completion/completions/dnf-3 %{buildroot}%{_datadir}/bash-completion/completions/dnf4
+ln -sr %{buildroot}%{_datadir}/bash-completion/completions/dnf-3 %{buildroot}%{_datadir}/bash-completion/completions/dnf
 mv %{buildroot}%{_bindir}/dnf-automatic-3 %{buildroot}%{_bindir}/dnf-automatic
 rm -vf %{buildroot}%{_bindir}/dnf-automatic-*
 
@@ -277,8 +285,6 @@ popd
 %if 0%{?rhel} && 0%{?rhel} <= 7
 %{_sysconfdir}/bash_completion.d/%{name}
 %else
-%dir %{_datadir}/bash-completion
-%dir %{_datadir}/bash-completion/completions
 %{_datadir}/bash-completion/completions/%{name}
 %endif
 %{_mandir}/man8/%{name}.8*
@@ -366,6 +372,10 @@ popd
 %files -n python3-%{name}
 %{_bindir}/%{name}-3
 %{_bindir}/%{name}4
+%dir %{_datadir}/bash-completion
+%dir %{_datadir}/bash-completion/completions
+%{_datadir}/bash-completion/completions/%{name}-3
+%{_datadir}/bash-completion/completions/%{name}4
 %exclude %{python3_sitelib}/%{name}/automatic
 %{python3_sitelib}/%{name}-*.dist-info
 %{python3_sitelib}/%{name}/
@@ -387,6 +397,45 @@ popd
 %{python3_sitelib}/%{name}/automatic/
 
 %changelog
+* Fri Mar 29 2024 Evan Goode <mail@evangoo.de> - 4.19.2-1
+- Update to 4.19.2
+- Bump libdnf requirement to 0.73.1
+
+* Thu Mar 28 2024 Evan Goode <egoode@redhat.com> - 4.19.1-1
+- Update to 4.19.1
+- Add required `.readthedocs.yaml`, `conf.py` and set `sphinx_rtd_theme`
+- Drop dnf obsoletion temporarily
+- doc: Update FAQ entry on filelists
+- build: Adapt to changes in Fedora packaging of bash-completion
+- Support RPMTRANS_FLAG_DEPLOOPS
+- Add all candidates for reinstall to solver
+- Fix handling installonly packages reasons
+- Remove confusing sentence from documentation
+- Remove "leaf" word from documentation
+- Update documentation of history userinstalled command
+- Onboard packit tests
+- doc: Makecache with timer tries only one mirror
+- ELN: Don't obsolete DNF with DNF5 yet
+- bash-completion: Complete dnf command only if we own it
+- bash-completion: Prepare ownerships for dnf5 switch
+
+* Thu Feb 08 2024 Jan Kolarik <jkolarik@redhat.com> - 4.19.0-1
+- Update to 4.19.0
+- filelists metadata loading on demand
+- deltarpm disabled on Fedora by default
+- conf: Introduce new optional_metadata_types option to load filelists on demand
+- cli: Add a hint for user on transaction file dependency failure
+- cli: Setup filelists metadata for commands that need them
+- util: Add function for detecting file in specs
+- Fix failing API unit test on rawhide (RhBug:2261066)
+- automatic: Use add_security_filters, not _update_security_filters
+
+* Wed Jan 24 2024 Fedora Release Engineering <releng@fedoraproject.org> - 4.18.2-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Fri Jan 19 2024 Fedora Release Engineering <releng@fedoraproject.org> - 4.18.2-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
 * Fri Dec 08 2023 Jan Kolarik <jkolarik@redhat.com> - 4.18.2-1
 - Update to 4.18.2
 - automatic: Add feature to allow emitters to invoke on dnf error
@@ -398,9 +447,6 @@ popd
 - Update to 4.18.1
 - Do not translate repoquery time format strings (RhBug:2245773)
 - automatic: Fix applying the color option
-
-* Thu Oct 19 2023 Jan Kolarik <jkolarik@redhat.com> - 4.18.0-2
-- Revert "Does not print Verify: package" (RhBug:1908253)
 
 * Wed Oct 18 2023 Jan Kolarik <jkolarik@redhat.com> - 4.18.0-1
 - Update to 4.18.0
@@ -415,10 +461,10 @@ popd
 - Allow DNF to be removed by DNF 5 (RhBug:2221907)
 - Update translations
 
-* Thu Sep 21 2023 Jan Kolarik <jkolarik@redhat.com> - 4.17.0-6
+* Wed Sep 20 2023 Jan Kolarik <jkolarik@redhat.com> - 4.17.0-6
 - Revert "Block signals during RPM transaction processing" (RhBug:2236997)
 
-* Thu Sep 21 2023 Jan Kolarik <jkolarik@redhat.com> - 4.17.0-1
+* Fri Sep 01 2023 Jan Kolarik <jkolarik@redhat.com> - 4.17.0-1
 - Update to 4.17.0
 - crypto: Use libdnf crypto API instead of using GnuPG/GpgME
 - Reprotect dnf, unprotect python3-dnf (RhBug:2221905)
@@ -426,9 +472,6 @@ popd
 - Fix bash completion due to sqlite changes (RhBug:2232052)
 - automatic: allow use of STARTTLS/TLS
 - automatic: use email_port specified in config
-
-* Mon Sep 11 2023 Jan Kolarik <jkolarik@redhat.com> - 4.16.2-5
-- Add patch for reprotecting dnf
 
 * Wed Aug 16 2023 Jan Kolarik <jkolarik@redhat.com> - 4.16.2-4
 - Fixes of conditions in spec file
