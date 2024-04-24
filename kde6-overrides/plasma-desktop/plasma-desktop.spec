@@ -1,17 +1,49 @@
+%global kf5_version_min 5.98
+
+%global synaptics 1
+%global scim 1
+%if 0%{?rhel} && 0%{?rhel} > 7
+%undefine synaptics
+%undefine scim
+%endif
+
 Name:    plasma-desktop
 Summary: Plasma Desktop shell
-Version: 6.0.3
+Version: 5.27.9
 Release: 1%{?dist}
 
-License: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LicenseRef-KDE-Accepted-GPL AND LicenseRef-KDE-Accepted-LGPL
+License: GPLv2+ and (GPLv2 or GPLv3)
 URL:     https://invent.kde.org/plasma/%{name}
-Source0: https://download.kde.org/stable/plasma/%{version}/%{name}-%{version}.tar.xz
+
+%global verdir %(echo %{version} | cut -d. -f1-3)
+%global revision %(echo %{version} | cut -d. -f3)
+%if %{revision} >= 50
+%global majmin_ver %(echo %{version} | cut -d. -f1,2).50
+%global stable unstable
+%else
+%global majmin_ver %(echo %{version} | cut -d. -f1,2)
+%global stable stable
+%endif
+Source0: http://download.kde.org/%{stable}/plasma/%{verdir}/%{name}-%{version}.tar.xz
+
+## upstream patches
 
 ## downstream patches
-# default kickoff/kicker favorites: +kwrite +konsole
-Patch100: plasma-desktop-5.90.0-default_favorites.patch
+# default kickoff favorites: +konsole +apper
+Patch100: plasma-desktop-5.8-default_favorites.patch
 
 ## upstreamable patches
+# REBASE?  -- rex
+#Patch200: https://gitweb.gentoo.org/proj/kde.git/plain/kde-plasma/plasma-desktop/files/plasma-desktop-5.18.4.1-override-include-dirs.patch
+Patch202: plasma-desktop-python-shebang.patch
+
+Patch 203: set_dark_default.patch
+
+# use this bundled copy (from f31) if not provided already
+Source200: synaptics-properties.h
+
+# filter qmk/plugins provides
+%global __provides_exclude_from ^(%{_kf5_qmldir}/.*\\.so|%{_kf5_qtplugindir}/.*\\.so)$
 
 BuildRequires:  pkgconfig(libusb)
 BuildRequires:  fontconfig-devel
@@ -25,74 +57,71 @@ BuildRequires:  xcb-util-devel
 BuildRequires:  libxkbcommon-devel
 BuildRequires:  pkgconfig(xkeyboard-config)
 
-BuildRequires:  qt6-qtbase-devel
-BuildRequires:  qt6-qtbase-private-devel
-%{?_qt6:Requires: %{_qt6}%{?_isa} = %{_qt6_version}}
-BuildRequires:  qt6-qtsvg-devel
-BuildRequires:  qt6-qtdeclarative-devel
-BuildRequires:  qt6-qtwayland-devel
-BuildRequires:  cmake(Qt6Core5Compat)
-BuildRequires:  cmake(Phonon4Qt6)
+BuildRequires:  qt5-qtbase-devel >= 5.9
+BuildRequires:  qt5-qtbase-private-devel
+BuildRequires:  qt5-qtx11extras-devel
+BuildRequires:  qt5-qtsvg-devel
+BuildRequires:  qt5-qtdeclarative-devel
+BuildRequires:  qt5-qtwayland-devel
+BuildRequires:  phonon-qt5-devel
 BuildRequires:  wayland-protocols-devel
 
 BuildRequires:  ibus-devel
+%if 0%{?scim}
 BuildRequires:  scim-devel
+%endif
 
-BuildRequires:  kf6-rpm-macros
+BuildRequires:  kf5-rpm-macros >= %{kf5_version_min}
 BuildRequires:  extra-cmake-modules
-BuildRequires:  cmake(Plasma)
-BuildRequires:  cmake(KF6DocTools)
-BuildRequires:  cmake(KF6I18n)
-BuildRequires:  cmake(KF6KCMUtils)
-BuildRequires:  cmake(KF6GlobalAccel)
-BuildRequires:  cmake(KF6NewStuff)
-BuildRequires:  cmake(KF6NotifyConfig)
-BuildRequires:  cmake(KF6Su)
-BuildRequires:  cmake(KF6Attica)
-BuildRequires:  cmake(KF6Wallet)
-BuildRequires:  cmake(KF6Runner)
-BuildRequires:  cmake(KF6Baloo)
-BuildRequires:  cmake(KF6Declarative)
-BuildRequires:  cmake(KF6People)
-BuildRequires:  cmake(KF6Crash)
-BuildRequires:  cmake(KF6Notifications)
-BuildRequires:  cmake(KF6GuiAddons)
-BuildRequires:  cmake(KF6DBusAddons)
-BuildRequires:  cmake(KF6Sonnet)
-BuildRequires:  cmake(KF6Svg)
-BuildRequires:  cmake(Plasma5Support)
-BuildRequires:  cmake(KF6ItemModels)
-BuildRequires:  cmake(KF6KDED)
-BuildRequires:  cmake(KF6KIO)
-BuildRequires:  cmake(KF6Auth)
-BuildRequires:  cmake(KF6XmlGui)
+BuildRequires:  kf5-plasma-devel >= %{kf5_version_min}
+Requires:       kf5-plasma%{?_isa} >= %{_kf5_version}
+BuildRequires:  kf5-kdoctools-devel >= %{kf5_version_min}
+BuildRequires:  kf5-ki18n-devel >= %{kf5_version_min}
+BuildRequires:  kf5-kcmutils-devel >= %{kf5_version_min}
+BuildRequires:  kf5-kglobalaccel-devel >= %{kf5_version_min}
+BuildRequires:  kf5-knewstuff-devel >= %{kf5_version_min}
+BuildRequires:  kf5-kdelibs4support-devel >= %{kf5_version_min}
+BuildRequires:  kf5-knotifyconfig-devel >= %{kf5_version_min}
+BuildRequires:  kf5-kdesu-devel >= %{kf5_version_min}
+BuildRequires:  kf5-attica-devel >= %{kf5_version_min}
+BuildRequires:  kf5-kwallet-devel >= %{kf5_version_min}
+BuildRequires:  kf5-krunner-devel >= %{kf5_version_min}
+BuildRequires:  kf5-baloo-devel >= %{kf5_version_min}
+BuildRequires:  kf5-kdeclarative-devel >= %{kf5_version_min}
+BuildRequires:  kf5-kpeople-devel >= %{kf5_version_min}
+BuildRequires:  kf5-kded-devel >= %{kf5_version_min}
 
-BuildRequires:  cmake(KSysGuard)
-BuildRequires:  kscreenlocker-devel
-BuildRequires:  kwin-devel
-BuildRequires:  plasma-breeze-qt6
-BuildRequires:  plasma-workspace-devel
+BuildRequires:  libksysguard-devel >= %{majmin_ver}
+BuildRequires:  kscreenlocker-devel >= %{majmin_ver}
+BuildRequires:  kwin-devel >= %{majmin_ver}
+# see %%prep below -- rex
+BuildRequires:  plasma-breeze >= %{majmin_ver}
+BuildRequires:  plasma-workspace-devel >= %{majmin_ver}
 
+# Optional
+%if 0%{?fedora}
 BuildRequires:  cmake(AppStreamQt)
-BuildRequires:  cmake(KAccounts6)
-BuildRequires:  cmake(AccountsQt6)
-BuildRequires:  intltool
-BuildRequires:  cmake(KF6UserFeedback)
-BuildRequires:  PackageKit-Qt6-devel
-BuildRequires:  cmake(PlasmaActivities)
-BuildRequires:  cmake(PlasmaActivitiesStats)
+%endif
+BuildRequires:  cmake(KAccounts) intltool
+BuildRequires:  cmake(KUserFeedback)
+BuildRequires:  PackageKit-Qt5-devel
+BuildRequires:  kf5-kactivities-devel >= %{kf5_version_min}
+BuildRequires:  kf5-kactivities-stats-devel >= %{kf5_version_min}
 BuildRequires:  libcanberra-devel
+BuildRequires:  boost-devel
 BuildRequires:  pulseaudio-libs-devel
-BuildRequires:  SDL2-devel
-BuildRequires:  desktop-file-utils
 
-BuildRequires:  xdg-user-dirs
+BuildRequires:  chrpath
+BuildRequires:  desktop-file-utils
 
 # xorg-x11 doesn't have hw_server and disable for s390/s390x
 %ifnarch s390 s390x
+# KCM touchpad has been merged to plasma-desktop in 5.3
+Provides:       kcm_touchpad = %{version}-%{release}
+Obsoletes:      kcm_touchpad < 5.3.0
 # for xserver-properties
 BuildRequires:  xorg-x11-server-devel
-Requires:       kf6-kded
+Requires:       kf5-kded
 
 # for kcm_keyboard
 BuildRequires:  pkgconfig(libudev)
@@ -101,47 +130,37 @@ Requires:       iso-codes
 # for kcm_input, kcm_touchpad
 BuildRequires:  pkgconfig(xorg-evdev)
 BuildRequires:  pkgconfig(xorg-libinput)
-
+%if 0%{?synaptics}
+BuildRequires:  pkgconfig(xorg-synaptics)
+%endif
 %endif
 
 # kcm_users
 Requires:       accountsservice
 
 # Desktop
-Requires:       plasma-workspace
-
-# xdg-utils integration
-Requires:       xdg-utils >= 1.1.3^1
-Requires:       kde-cli-tools
+Requires:       plasma-workspace >= %{majmin_ver}
 
 # Qt Integration (brings in Breeze)
-Requires:       plasma-integration
+Requires:       plasma-integration >= %{majmin_ver}
 
 # Install systemsettings, full set of KIO slaves and write() notifications
-Requires:       plasma-systemsettings
+Requires:       plasma-systemsettings >= %{majmin_ver}
 Requires:       kio-extras
-Requires:       kwrited
+Requires:       kwrited >= %{majmin_ver}
 
 # Install KWin
-Requires:       kwin
+Requires:       kwin >= %{majmin_ver}
 
 # kickoff -> edit applications (#1229393)
-Requires:       kmenuedit
+Requires:       kmenuedit >= %{majmin_ver}
 
 Requires:	plasma-discover
 
-BuildRequires:  cmake(KF6Kirigami)
-Requires:       kf6-kirigami%{?_isa}
-BuildRequires:  cmake(KF6KirigamiAddons)
-Requires:       kf6-kirigami-addons%{?_isa}
-BuildRequires:  kf6-qqc2-desktop-style
-Requires:       kf6-qqc2-desktop-style%{?_isa}
-BuildRequires:  kpipewire
-Requires:       kpipewire%{?_isa}
-BuildRequires:  signon-plugin-oauth2-devel
-Requires:       signon-plugin-oauth2%{?_isa}
-
-Requires:       shared-mime-info
+BuildRequires:  kf5-kirigami2
+Requires:       kf5-kirigami2%{?_isa}
+BuildRequires:  qqc2-desktop-style
+Requires:       qqc2-desktop-style%{?_isa}
 
 # for kimpanel-ibus-panel and kimpanel-ibus-panel-launcher
 Recommends: ibus
@@ -150,7 +169,22 @@ Recommends: ibus
 Provides:       plasmashell(desktop) = %{version}-%{release}
 Provides:       plasmashell = %{version}-%{release}
 
-Conflicts:      kde-settings < 39.1-2
+Obsoletes:      kde-workspace < 5.0.0-1
+
+Obsoletes:      kactivities-workspace < 5.6.0
+Provides:       kactivities-workspace = %{version}-%{release}
+
+Obsoletes:      plasma-user-manager < 5.19.50
+Provides:       plasma-user-manager = %{version}-%{release}
+
+# kimpanel moved here from kdeplasma-addons-5.5.x
+Conflicts:      kdeplasma-addons < 5.6.0
+
+# kcm_activities.mo moved here (#1325724)
+Conflicts:      kde-l10n < 15.12.3-4
+
+# needed for python os.system calls
+Requires:	kde-runtime
 
 %description
 %{summary}.
@@ -164,39 +198,81 @@ method framework.
 
 %package        doc
 Summary:        Documentation and user manuals for %{name}
-BuildArch:      noarch
+# when conflicting HTML docs were removed
+Conflicts:      kcm_colors < 1:4.11.16-10
+# when conflicting HTML docs were removed
+Conflicts:      kde-runtime-docs < 17.08.3-6
+# when made noarch
+Obsoletes: plasma-desktop-doc < 5.3.1-2
+BuildArch: noarch
 %description    doc
 %{summary}.
 
 
 %prep
-%autosetup -p1
+%setup -q
 
-sed '/falkon\|debian/d' -i kde-mimeapps.list
+## upstream patches
+
+## upstreamable patches
+#patch200 -p1
+%patch202 -p1
+
+%patch203 -p1
+
+
+%if ! 0%{?synaptics}
+install -pD %{SOURCE200} 3rdparty/xorg/synaptics-properties.h
+%endif
+
+## downstream patches
+%patch100 -p1
+
+# relax plasma-breeze/plasma-workspace deps
+sed -i.breeze_ver \
+  -e "s|find_package(Breeze \${PROJECT_VERSION} |find_package(Breeze %{majmin_ver} |g" \
+  -e "s|find_package(LibKWorkspace \${PROJECT_VERSION} |find_package(LibKWorkspace %{majmin_ver} |g" \
+  -e "s|find_package(LibColorCorrect \${PROJECT_VERSION} |find_package(LibColorCorrect %{majmin_ver} |g" \
+  -e "s|find_package(LibNotificationManager \${PROJECT_VERSION} |find_package(LibNotificationManager %{majmin_ver} |g" \
+  -e "s|find_package(LibTaskManager \${PROJECT_VERSION} |find_package(LibTaskManager %{majmin_ver} |g" \
+  CMakeLists.txt
 
 
 %build
-%cmake_kf6 \
-%ifarch s390 s390x
-    -DBUILD_KCM_MOUSE_X11=OFF \
-    -DBUILD_KCM_TOUCHPAD_X11=OFF
+%ifarch s390 %{arm}
+# Decrease debuginfo verbosity to reduce memory consumption even more
+%global optflags %(echo %{optflags} | sed 's/-g /-g1 /')
 %endif
 
+%{cmake_kf5} \
+  %{?!synaptics:-DSynaptics_INCLUDE_DIRS:PATH="$(pwd)/../3rdparty/xorg"}
 %cmake_build
 
 
 %install
 %cmake_install
+
 %find_lang %{name} --with-html --all-name
 
-grep "%{_kf6_docdir}" %{name}.lang > %{name}-doc.lang
-cat  %{name}.lang %{name}-doc.lang | sort | uniq -u > plasmadesktop6.lang
+grep "%{_kf5_docdir}" %{name}.lang > %{name}-doc.lang
+cat  %{name}.lang %{name}-doc.lang | sort | uniq -u > plasmadesktop5.lang
+
+# No -devel
+rm -fv %{buildroot}%{_libdir}/libkfontinst{,ui}.so
+
+## unpackaged files
+rm -rfv %{buildroot}%{_datadir}/kdm/pics/users/
+# odd locale stuff?
+rm -rfv %{buildroot}%{_datadir}/locale/*/LC_SCRIPTS/kfontinst/
 
 
 %check
-desktop-file-validate %{buildroot}/%{_datadir}/applications/*.desktop
+desktop-file-validate %{buildroot}/%{_datadir}/applications/org.kde.knetattach.desktop
 
-%files -f plasmadesktop6.lang
+
+%ldconfig_scriptlets
+
+%files -f plasmadesktop5.lang
 %license LICENSES
 %{_bindir}/kaccess
 %{_bindir}/knetattach
@@ -204,71 +280,67 @@ desktop-file-validate %{buildroot}/%{_datadir}/applications/*.desktop
 %{_bindir}/plasma-emojier
 %{_bindir}/tastenbrett
 %{_bindir}/krunner-plugininstaller
-%{_kf6_libexecdir}/kauth/kcmdatetimehelper
+%{_kf5_libexecdir}/kauth/kcmdatetimehelper
 %{_libexecdir}/kimpanel-ibus-panel
 %{_libexecdir}/kimpanel-ibus-panel-launcher
-%{_kf6_qmldir}/org/kde/plasma/private
-%{_kf6_qtplugindir}/plasma/kcms/desktop/kcm_krunnersettings.so
-%{_kf6_qtplugindir}/plasma/kcms/systemsettings/*.so
-%{_kf6_qtplugindir}/plasma/kcms/systemsettings_qwidgets/*.so
-%{_kf6_qtplugindir}/plasma/kcminit/kcm_touchpad_init.so
-%{_kf6_qtplugindir}/attica_kde.so
-%{_kf6_plugindir}/kded/*.so
-%{_kf6_plugindir}/krunner/krunner*.so
-%{_kf6_qmldir}/org/kde/plasma/activityswitcher
-%{_kf6_qmldir}/org/kde/plasma/emoji/
-%{_kf6_qmldir}/org/kde/private/desktopcontainment/*
-%{_kf6_datadir}/plasma/*
+%{_kf5_qmldir}/org/kde/plasma/private
+# TODO: -libs subpkg -- rex
+%{_kf5_qtplugindir}/*.so
+%{_kf5_qtplugindir}/plasma/kcms/desktop/kcm_krunnersettings.so
+%{_kf5_qtplugindir}/plasma/kcms/systemsettings/*.so
+%{_kf5_qtplugindir}/plasma/kcms/systemsettings_qwidgets/*.so
+%{_kf5_plugindir}/kded/*.so
+%{_kf5_plugindir}/krunner/krunner*.so
+%{_kf5_qmldir}/org/kde/plasma/activityswitcher
+%{_kf5_qmldir}/org/kde/plasma/emoji/
+%{_kf5_qmldir}/org/kde/private/desktopcontainment/*
+%{_kf5_qmldir}/org/kde/activities/settings/
+%{_kf5_datadir}/plasma/*
 %ifnarch s390 s390x
+# touchpad
+%{_bindir}/kcm-touchpad-list-devices
+%{_kf5_qtplugindir}/plasma/dataengine/plasma_engine_touchpad.so
+%{_kf5_qtplugindir}/plasma/kcminit/kcm_touchpad_init.so
+%{_datadir}/dbus-1/interfaces/org.kde.touchpad.xml
 # kcminput
-%{_kf6_bindir}/kapplymousetheme
-%{_kf6_bindir}/kcm-touchpad-list-devices
+%{_kf5_bindir}/kapplymousetheme
+%{_kf5_datadir}/kcmmouse/
+%{_kf5_qtplugindir}/plasma/kcminit/kcm_mouse_init.so
 %endif
-%{_kf6_datadir}/kcmmouse/
-%{_kf6_qtplugindir}/plasma/kcminit/kcm_mouse_init.so
 %{_datadir}/config.kcfg/*.kcfg
 %{_datadir}/kglobalaccel/org.kde.plasma.emojier.desktop
-%{_datadir}/qlogging-categories6/*.categories
-%{_kf6_datadir}/dbus-1/interfaces/org.kde.touchpad.xml
-%{_kf6_datadir}/kcmkeys
-%{_kf6_datadir}/knsrcfiles/
-%{_kf6_datadir}/kcm_recentFiles/workspace/settings/qml/recentFiles/BlacklistApplicationView.qml
-%{_kf6_datadir}/kcmsolidactions/
-%{_kf6_datadir}/solid/devices/*.desktop
-%{_kf6_datadir}/dbus-1/system.d/*.conf
-%{_kf6_datadir}/knotifications6/*.notifyrc
-%{_kf6_datadir}/accounts/services/kde/opendesktop-rating.service
-%{_kf6_datadir}/accounts/providers/kde/opendesktop.provider
+%{_datadir}/qlogging-categories5/*.categories
+%{_kf5_datadir}/kconf_update/*
+%{_kf5_datadir}/kcmkeys
+%{_kf5_datadir}/kpackage/kcms/*
+%{_kf5_datadir}/knsrcfiles/
+%{_kf5_datadir}/kf5/kactivitymanagerd/workspace/
+%{_kf5_datadir}/kf5/kcm_recentFiles/workspace/settings/qml/recentFiles/BlacklistApplicationView.qml
+%{_kf5_datadir}/kcmsolidactions/
+%{_kf5_datadir}/solid/devices/*.desktop
+%{_kf5_datadir}/dbus-1/system.d/*.conf
+%{_kf5_datadir}/kservicetypes5/*.desktop
+%{_kf5_datadir}/knotifications5/*.notifyrc
+%ifnarch s390 s390x
 %{_datadir}/icons/hicolor/*/*/*
-%{_kf6_metainfodir}/*.xml
+%endif
+%{_kf5_metainfodir}/*.xml
 %{_datadir}/applications/*.desktop
-%{_datadir}/applications/kde-mimeapps.list
 %{_datadir}/dbus-1/system-services/*.service
 %{_datadir}/polkit-1/actions/org.kde.kcontrol.kcmclock.policy
 %{_sysconfdir}/xdg/autostart/*.desktop
+%{_kf5_datadir}/accounts/providers/kde/
+%{_kf5_datadir}/accounts/services/kde/
 
-# How to include these in the .lang file?
-%{_kf6_datadir}/locale/sr/LC_SCRIPTS/kfontinst/kfontinst.js
-%{_kf6_datadir}/locale/sr@ijekavian/LC_SCRIPTS/kfontinst/kfontinst.js
-%{_kf6_datadir}/locale/sr@ijekavianlatin/LC_SCRIPTS/kfontinst/kfontinst.js
-%{_kf6_datadir}/locale/sr@latin/LC_SCRIPTS/kfontinst/kfontinst.js
-
+%if 0%{?scim}
 %files kimpanel-scim
 %{_libexecdir}/kimpanel-scim-panel
+%endif
 
 %files doc -f %{name}-doc.lang
 
 
 %changelog
-* Wed Mar 20 2024 Pavel Solovev <daron439@gmail.com> - 6.0.2-2
-- qmlcache rebuild
-
-* Sat Nov 18 2023 Alessandro Astone <ales.astone@gmail.com> - 5.27.80-2
-- Fix Plasma 6 runtime requirements
-
-* Sat Nov 18 2023 Steve Cossette <farchord@gmail.com> - 5.27.80-1
-- 5.27.80
-
 * Tue Oct 24 2023 Steve Cossette <farchord@gmail.com> - 5.27.9-1
 - 5.27.9
 
@@ -305,7 +377,7 @@ desktop-file-validate %{buildroot}/%{_datadir}/applications/*.desktop
 * Thu Feb 09 2023 Marc Deop <marcdeop@fedoraproject.org> - 5.27.0-1
 - 5.27.0
 
-* Fri Jan 20 2023 Marc Deop <marcdeop@fedoraproject.org> - 5.26.90-1
+* Thu Jan 19 2023 Marc Deop <marcdeop@fedoraproject.org> - 5.26.90-1
 - 5.26.90
 
 * Fri Jan 20 2023 Fedora Release Engineering <releng@fedoraproject.org> - 5.26.5-2
