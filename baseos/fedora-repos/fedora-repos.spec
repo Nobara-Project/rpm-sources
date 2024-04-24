@@ -1,10 +1,10 @@
-%global rawhide_release 40
+%global rawhide_release 41
 %global updates_testing_enabled 0
 
 Summary:        Fedora package repositories
 Name:           fedora-repos
-Version:        39
-Release:        2%{?eln:.eln%{eln}}
+Version:        40
+Release:        1%{?eln:.eln%{eln}}
 License:        MIT
 URL:            https://fedoraproject.org/
 
@@ -81,6 +81,7 @@ Source58:       RPM-GPG-KEY-fedora-38-primary
 Source59:       RPM-GPG-KEY-fedora-39-primary
 Source60:       RPM-GPG-KEY-fedora-40-primary
 Source61:       RPM-GPG-KEY-fedora-41-primary
+Source62:       RPM-GPG-KEY-fedora-42-primary
 
 # When bumping Rawhide to fN, create N+1 key (and update archmap). (This
 # ensures users have the next future key installed and referenced, even if they
@@ -395,15 +396,20 @@ rm -f "$TMPRING"
 
 
 %changelog
-* Fri Oct 06 2023 Kevin Fenzi <kevin@scrye.com> - 39-1
-- Disable updates_testing for release.
+* Sat Apr 06 2024 Kevin Fenzi <kevin@scrye.com> - 40-1
+- Disable updates-testing for f40 final release.
 
-* Wed Sep 06 2023 Tomas Hrcka <thrcka@redhat.com> - 39-0.6
-- added Fedora 41 keys
-- enabled updates_testing repository
+* Tue Feb 27 2024 Kevin Fenzi <kevin@scrye.com> - 40-0.4
+- Enable updates-testing for branched. Fixes rhbz#2266096
 
-* Tue Aug 08 2023 Samyak Jain <samyak.jn11@gmail.com> - 39-0.5
-- Update Rawhide definition to F40
+* Tue Feb 13 2024 Samyak Jain <samyak.jn11@gmail.com> - 40-0.3
+- Update Rawhide definition to F41
+
+* Wed Sep 27 2023 Sandro Bonazzola <sbonazzo@redhat.com> - 40-0.2
+- Allow ELN installation without Rawhide repos
+
+* Tue Aug 08 2023 Samyak Jain <samyak.jn11@gmail.com> - 40-0.1
+- Setup for rawhide being F40
 
 * Fri Jul 21 2023 Peter Robinson <pbrobinson@fedoraproject.org> - 39-0.4
 - Update IMA keys location for kernel/dracut
