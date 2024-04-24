@@ -2,7 +2,7 @@
 
 Name:    plasma-workspace
 Summary: Plasma workspace, applications and applets
-Version: 6.0.4
+Version: 6.0.3
 Release: 1%{?dist}
 
 License: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND LicenseRef-KDE-Accepted-GPL AND LicenseRef-KDE-Accepted-LGPL AND MIT
@@ -19,7 +19,6 @@ Source102:      kde-smartcard
 ## in the repective pkgs themselves? -- rdieter)
 Source40:       ssh-agent.conf
 Source41:       spice-vdagent.conf
-Source42:       waitforkded.conf
 
 ## upstream Patches
 
@@ -128,7 +127,6 @@ BuildRequires:  cmake(KF6NetworkManagerQt)
 BuildRequires:  cmake(KF6Screen)
 BuildRequires:  cmake(KF6KirigamiAddons)
 BuildRequires:  cmake(KF6Auth)
-BuildRequires:  cmake(KF6IconThemes)
 Requires:       kf6-kirigami-addons
 BuildRequires:  wayland-devel >= 1.3.0
 BuildRequires:  libksysguard-devel
@@ -172,8 +170,8 @@ Requires:       libkworkspace6%{?_isa} = %{version}-%{release}
 # for selinux settings
 Requires:       (policycoreutils if selinux-policy)
 
-Requires:       kactivitymanagerd%{?_isa} >= %{basever}
-Requires:       ksystemstats%{?_isa} >= %{basever}
+Requires:       kactivitymanagerd%{?_isa}
+Requires:       ksystemstats%{?_isa}
 Requires:       kf6-baloo
 Requires:       kf6-kded
 Requires:       kf6-kdoctools
@@ -204,7 +202,7 @@ Recommends: orca
 # need to avoid this dep when bootstrapping
 %if ! 0%{?bootstrap}
 # Power management
-Requires:       powerdevil >= %{basever}
+Requires:       powerdevil
 %endif
 
 Requires:       dbus
@@ -216,8 +214,6 @@ Requires:       coreutils
 Requires:       socat
 Requires:       xmessage
 Requires:       qt6-qttools
-
-Requires:       qt6-qt5compat%{?_isa}
 
 Requires:       iceauth xrdb xprop
 
@@ -357,7 +353,7 @@ Requires:       kde-settings-sddm
 Obsoletes: plasma-workspace < 5.3.2-8
 Requires:       kf6-plasma
 # on-screen keyboard
-Recommends:     qt6-qtvirtualkeyboard
+Requires:       qt6-qtvirtualkeyboard
 # QML imports:
 # org.kde.plasma.workspace.components
 # org.kde.plasma.workspace.keyboardlayout
@@ -401,6 +397,7 @@ Requires:       qt6-qttools
 Requires:       xdg-desktop-portal-kde
 %if ! %{with x11}
 Obsoletes:      %{name}-x11 < %{version}-%{release}
+Conflicts:      %{name}-x11 < %{version}-%{release}
 %endif
 %description wayland
 %{summary}.
@@ -418,6 +415,8 @@ Requires:       %{name} = %{version}-%{release}
 Requires:       kwin-x11
 Requires:       xorg-x11-server-Xorg
 Requires:       xsetroot
+# Plasma X11 is deprecated and will be removed with Plasma 6.0
+Provides:       deprecated()
 %description x11
 %{summary}.
 %endif
@@ -467,7 +466,6 @@ mkdir -p %{buildroot}%{_userunitdir}/plasma-workspace@.target.d/
 
 install -m644 -p -D %{SOURCE40} %{buildroot}%{_userunitdir}/plasma-core.target.d/ssh-agent.conf
 install -m644 -p -D %{SOURCE41} %{buildroot}%{_userunitdir}/plasma-core.target.d/spice-vdagent.conf
-install -m644 -p -D %{SOURCE42} %{buildroot}%{_userunitdir}/plasma-plasmashell.service.d/waitforkded.conf
 
 %find_lang all --with-html --all-name
 
@@ -568,8 +566,6 @@ fi
 %{_userunitdir}/plasma-workspace.target
 %{_userunitdir}/plasma-workspace-wayland.target
 %{_userunitdir}/plasma-workspace-x11.target
-%dir %{_userunitdir}/plasma-plasmashell.service.d
-%{_userunitdir}/plasma-plasmashell.service.d/waitforkded.conf
 %{zsh_completions_dir}/_krunner
 %dir %{_userunitdir}/plasma-workspace@.target.d/
 # PAM
@@ -675,15 +671,6 @@ fi
 %endif
 
 %changelog
-* Tue Apr 16 2024 Pavel Solovev <daron439@gmail.com> - 6.0.4-1
-- Update to 6.0.4
-
-* Tue Mar 26 2024 Pavel Solovev <daron439@gmail.com> - 6.0.3-1
-- Update to 6.0.3
-
-* Thu Mar 21 2024 Pavel Solovev <daron439@gmail.com> - 6.0.2-3
-- re-enable qml cache
-
 * Wed Mar 20 2024 Pavel Solovev <daron439@gmail.com> - 6.0.2-2
 - qmlcache rebuild
 
