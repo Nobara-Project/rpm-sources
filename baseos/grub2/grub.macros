@@ -419,7 +419,7 @@ rm -f %{1}.conf							\
 %define efi_mkimage()						\
 mkdir -p memdisk/fonts						\
 cp %{4}/unicode.pf2 memdisk/fonts				\
-mksquashfs memdisk memdisk.squashfs -comp xz			\
+mksquashfs memdisk memdisk.squashfs -comp lzo			\
 %{4}./grub-mkimage -O %{1} -o %{2}.orig				\\\
 	-d grub-core						\\\
 	--sbat %{4}./sbat.csv					\\\
@@ -448,14 +448,14 @@ mksquashfs memdisk memdisk.squashfs -comp xz			\
 %define ieee1275_mkimage()					\
 mkdir -p memdisk/fonts						\
 cp %{5}/unicode.pf2 memdisk/fonts				\
-mksquashfs memdisk memdisk.squashfs -comp xz			\
+mksquashfs memdisk memdisk.squashfs -comp lzo			\
 ./grub-mkimage -O %{1} -o %{2} -p '/grub2' -d grub-core ${GRUB_MODULES} \
 %{nil}
 %else
 %define ieee1275_mkimage()					\
 mkdir -p memdisk/fonts						\
 cp %{5}/unicode.pf2 memdisk/fonts				\
-mksquashfs memdisk memdisk.squashfs -comp xz			\
+mksquashfs memdisk memdisk.squashfs -comp lzo			\
 APPENDED_SIG_SIZE=0						\
 if [ -x /usr/bin/rpm-sign ]; then				\
 	touch empty.unsigned					\

@@ -17,9 +17,9 @@
 Name:		grub2
 Epoch:		1
 Version:	2.06
-Release:	116%{?dist}
+Release:	121%{?dist}
 Summary:	Bootloader with support for Linux, Multiboot and more
-License:	GPLv3+
+License:	GPL-3.0-or-later
 URL:		http://www.gnu.org/software/grub/
 Obsoletes:	grub < 1:0.98
 Source0:	https://ftp.gnu.org/gnu/grub/grub-%{tarversion}.tar.xz
@@ -564,23 +564,50 @@ mv ${EFI_HOME}/grub.cfg.stb ${EFI_HOME}/grub.cfg
 %endif
 
 %changelog
-* Mon Jan 15 2024 Nicolas Frayer <nfrayer@redhat.com> - 2.06-116
+* Fri Apr 12 2024 Nicolas Frayer <nfrayer@redhat.com> - 2.06-121
+- fs/xfs: Handle non-continuous data blocks in directory extents
+- Related: #2254370
+
+* Fri Mar 8 2024 Nicolas Frayer <nfrayer@redhat.com> - 2.06-120
+- GRUB2 NTFS driver vulnerabilities
+- (CVE-2023-4692)
+- (CVE-2023-4693)
+- Resolves: #2236613
+- Resolves: #2241978
+- Resolves: #2241976
+- Resolves: #2238343
+
+* Wed Feb 7 2024 Nicolas Frayer <nfrayer@redhat.com> - 2.06-119
+- grub-set-bootflag: Fix for CVE-2024-1048
+- (CVE-2024-1048)
+- Resolves: #2256678
+
+* Tue Jan 23 2024 Leo Sandoval <lsandova@redhat.com> - 2.06-118
+- xfs: include the 'directory extent parsing patch', otherwise
+XFS-formatted partitions do not boot. This change effectively
+reverts 2.06-115
+- Resolves: #2259266
+
+* Wed Jan 17 2024 Nicolas Frayer <nfrayer@redhat.com> - 2.06-117
+- Compiler flags: ignore incompatible types for now as it prevents
+CI builds
+
+* Wed Jan 17 2024 Nicolas Frayer <nfrayer@redhat.com> - 2.06-116
 - grub-core/commands: add flag to only search root dev
 - Resolves: #2223437
 - Resolves: #2224951
-- Resolves: #2258096 
+- Resolves: #2258096
 - Resolves: CVE-2023-4001
 
-* Sat Jan 13 2024 Hector Martin <marcan@fedoraproject.org> - 2.06-115
+* Wed Jan 17 2024 Nicolas Frayer <nfrayer@redhat.com> - 2.06-115
+- xfs: some bios systems can't boot with one of the xfs upstream patches
+- Resolves: #2254370
+
+* Sat Jan 13 2024 Hector Martin <marcan@fedoraproject.org> - 2.06-114
 - Switch memdisk compression to lzop
 
-* Thu Jan 11 2024 Daan De Meyer <daan.j.demeyer@gmail.com> - 2.06-114
+* Thu Jan 11 2024 Daan De Meyer <daan.j.demeyer@gmail.com> - 2.06-113
 -  Don't obsolete the tools package with minimal
-
-* Mon Jan 8 2024 Nicolas Frayer <nfrayer@redhat.com> - 2.06-113
-- xfs: some bios systems with /boot partition created with
-  xfsprog < 6.5.0 can't boot with one of the xfs upstream patches
-- Resolves: #2254370
 
 * Tue Dec 19 2023 Nicolas Frayer <nfrayer@redhat.com> - 2.06-112
 - normal: fix prefix when loading modules
@@ -612,11 +639,11 @@ https://fedoraproject.org/wiki/Changes/Linker_Error_On_Security_Issues
 * Mon Nov 6 2023 Nicolas Frayer <nfrayer@redhat.com> - 2.06-106
 - util: grub-install on EFI if forced
 - Resolves: #1917213
-- Resolves: #2240994 
+- Resolves: #2240994
 
 * Fri Oct 20 2023 Nicolas Frayer <nfrayer@redhat.com> - 2.06-105
 - kern/ieee1275/init: ppc64: Restrict high memory in presence
-of fadump
+  of fadump
 
 * Wed Oct 11 2023 Janne Grunau <j@jannau.net> - 2.06-104
 - 20-grub.install: Copy device-tree directory recursively
@@ -660,7 +687,7 @@ of fadump
 - Add legacy pxe core.0 (cmadams)
 
 * Thu Mar 30 2023 Robbie Harwood <rharwood@redhat.com> - 2.06-92
-- Disable the tpm verifier if the TPM device is not present 
+- Disable the tpm verifier if the TPM device is not present
 
 * Thu Mar 30 2023 Robbie Harwood <rharwood@redhat.com> - 2.06-91
 - ppc64le: more cas vec5 shenanigans
