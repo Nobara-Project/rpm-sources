@@ -1,0 +1,47 @@
+From fcd09096796a259c8c438627528c92829be39c01 Mon Sep 17 00:00:00 2001
+From: Thomas Crider <gloriouseggroll@gmail.com>
+Date: Fri, 22 Dec 2023 19:10:34 -0500
+Subject: [PATCH] Revert "UI: Avoid registering CEF OAuth integrations on
+ Wayland"
+
+This reverts commit 169cd07c42ddf1d0693094badb75f6255c052fac.
+---
+ UI/auth-restream.cpp | 5 -----
+ UI/auth-twitch.cpp   | 5 -----
+ 2 files changed, 10 deletions(-)
+
+diff --git a/UI/auth-restream.cpp b/UI/auth-restream.cpp
+index bedc10c70..cf8a3e098 100644
+--- a/UI/auth-restream.cpp
++++ b/UI/auth-restream.cpp
+@@ -282,11 +282,6 @@ static void DeleteCookies()
+ 
+ void RegisterRestreamAuth()
+ {
+-#if !defined(__APPLE__) && !defined(_WIN32)
+-	if (QApplication::platformName().contains("wayland"))
+-		return;
+-#endif
+-
+ 	OAuth::RegisterOAuth(restreamDef, CreateRestreamAuth,
+ 			     RestreamAuth::Login, DeleteCookies);
+ }
+diff --git a/UI/auth-twitch.cpp b/UI/auth-twitch.cpp
+index 88e14e0be..abc9cae66 100644
+--- a/UI/auth-twitch.cpp
++++ b/UI/auth-twitch.cpp
+@@ -512,11 +512,6 @@ static void DeleteCookies()
+ 
+ void RegisterTwitchAuth()
+ {
+-#if !defined(__APPLE__) && !defined(_WIN32)
+-	if (QApplication::platformName().contains("wayland"))
+-		return;
+-#endif
+-
+ 	OAuth::RegisterOAuth(twitchDef, CreateTwitchAuth, TwitchAuth::Login,
+ 			     DeleteCookies);
+ }
+-- 
+2.43.0
+
