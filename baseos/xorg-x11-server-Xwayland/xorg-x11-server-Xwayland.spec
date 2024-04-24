@@ -1,4 +1,4 @@
-%global commit 337d8d48b618d4fc0168a7b978be4c3447650b04
+%global commit 84b6d7e2c50514c40b905e8bf59726436c518cf4
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 %global gitdate 20240307
@@ -8,8 +8,8 @@
 
 Summary:   Xwayland
 Name:      xorg-x11-server-Xwayland
-Version:   23.2.4
-Release:   6%{?gitdate:.%{gitdate}git%{shortcommit}}%{?dist}
+Version:   23.2.6
+Release:   1%{?gitdate:.%{gitdate}git%{shortcommit}}%{?dist}
 
 URL:       http://www.x.org
 %if 0%{?gitdate}
