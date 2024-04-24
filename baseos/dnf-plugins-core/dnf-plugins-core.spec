@@ -1,6 +1,6 @@
-%{?!dnf_lowest_compatible: %global dnf_lowest_compatible 4.11.0}
+%{?!dnf_lowest_compatible: %global dnf_lowest_compatible 4.19.0}
 %global dnf_plugins_extra 2.0.0
-%global hawkey_version 0.64.0
+%global hawkey_version 0.73.0
 %global yum_utils_subpackage_name dnf-utils
 %if 0%{?rhel} > 7
 %global yum_utils_subpackage_name yum-utils
@@ -33,7 +33,7 @@
 %endif
 
 Name:           dnf-plugins-core
-Version:        4.4.3
+Version:        4.6.0
 Release:        2%{?dist}
 Summary:        Core Plugins for DNF
 License:        GPL-2.0-or-later
@@ -327,6 +327,34 @@ Conflicts:      python2-dnf-plugin-post-transaction-actions < %{version}-%{relea
 %description -n python3-dnf-plugin-post-transaction-actions
 Post transaction actions Plugin for DNF, Python 3 version. Plugin runs actions
 (shell commands) after transaction is completed. Actions are defined in action
+files.
+%endif
+
+%if %{with python2}
+%package -n python2-dnf-plugin-pre-transaction-actions
+Summary:        Pre transaction actions Plugin for DNF
+Requires:       python2-%{name} = %{version}-%{release}
+%if !%{with python3}
+Provides:       dnf-plugin-pre-transaction-actions =  %{version}-%{release}
+%endif
+Conflicts:      python3-dnf-plugin-pre-transaction-actions < %{version}-%{release}
+
+%description -n python2-dnf-plugin-pre-transaction-actions
+Pre transaction actions Plugin for DNF, Python 2 version. Plugin runs actions
+(shell commands) before transaction is completed. Actions are defined in action
+files.
+%endif
+
+%if %{with python3}
+%package -n python3-dnf-plugin-pre-transaction-actions
+Summary:        Pre transaction actions Plugin for DNF
+Requires:       python3-%{name} = %{version}-%{release}
+Provides:       dnf-plugin-pre-transaction-actions =  %{version}-%{release}
+Conflicts:      python2-dnf-plugin-pre-transaction-actions < %{version}-%{release}
+
+%description -n python3-dnf-plugin-pre-transaction-actions
+Pre transaction actions Plugin for DNF, Python 3 version. Plugin runs actions
+(shell commands) before transaction is completed. Actions are defined in action
 files.
 %endif
 
@@ -748,6 +776,23 @@ ln -sf %{_mandir}/man1/%{yum_utils_subpackage_name}.1.gz %{buildroot}%{_mandir}/
 %{_mandir}/man8/dnf-post-transaction-actions.*
 %endif
 
+%if %{with python2}
+%files -n python2-dnf-plugin-pre-transaction-actions
+%config(noreplace) %{_sysconfdir}/dnf/plugins/pre-transaction-actions.conf
+%config(noreplace) %{_sysconfdir}/dnf/plugins/pre-transaction-actions.d
+%{python2_sitelib}/dnf-plugins/pre-transaction-actions.*
+%{_mandir}/man8/dnf-pre-transaction-actions.*
+%endif
+
+%if %{with python3}
+%files -n python3-dnf-plugin-pre-transaction-actions
+%config(noreplace) %{_sysconfdir}/dnf/plugins/pre-transaction-actions.conf
+%config(noreplace) %{_sysconfdir}/dnf/plugins/pre-transaction-actions.d
+%{python3_sitelib}/dnf-plugins/pre-transaction-actions.*
+%{python3_sitelib}/dnf-plugins/__pycache__/pre-transaction-actions.*
+%{_mandir}/man8/dnf-pre-transaction-actions.*
+%endif
+
 %if 0%{?rhel} == 0
 
 %if %{with python2}
@@ -814,6 +859,25 @@ ln -sf %{_mandir}/man1/%{yum_utils_subpackage_name}.1.gz %{buildroot}%{_mandir}/
 %endif
 
 %changelog
+* Tue Mar 26 2024 Evan Goode <egoode@redhat.com> - 4.6.0-1
+- Update to 4.6.0
+- Added pre-transaction plugin
+- needs-restarting: get systemd boot time from UnitsLoadStartTimestamp
+
+* Thu Feb 08 2024 Jan Kolarik <jkolarik@redhat.com> - 4.5.0-1
+- Update to 4.5.0
+- Request filelists metadata for plugins needing that
+
+* Wed Jan 24 2024 Fedora Release Engineering <releng@fedoraproject.org> - 4.4.4-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Fri Jan 19 2024 Fedora Release Engineering <releng@fedoraproject.org> - 4.4.4-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Fri Dec 08 2023 Jan Kolarik <jkolarik@redhat.com> - 4.4.4-1
+- Update to 4.4.4
+- needs-restarting: Add microcode_ctl to a reboot list
+
 * Fri Oct 06 2023 Jan Kolarik <jkolarik@redhat.com> - 4.4.3-1
 - Update to 4.4.3
 - needs-restarting: Avoid issue with garbage smaps chars (RhBug:2212953)
