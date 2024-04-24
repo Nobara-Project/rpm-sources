@@ -1,13 +1,20 @@
+%if 0%{?fedora} >= 40 || 0%{?rhel} >= 10
+%bcond initialsetup_gui_backend 1
+%else
+%bcond initialsetup_gui_backend 0
+%endif
+
 Summary: Config files for KDE
 Name:    kde-settings
-Version: 39.0
-Release: 4%{?dist}
+Version: 40.0
+Release: 1%{?dist}
 
 License: MIT
 Url:     https://pagure.io/fedora-kde/kde-settings
 Source0: https://pagure.io/fedora-kde/kde-settings/archive/%{version}/kde-settings-%{version}.tar.gz
 Source1: COPYING
-Patch0:	set-dark-global.patch
+Patch0:  set-dark-global.patch
+Patch1:  https://pagure.io/fedora-kde/kde-settings/c/0cdfac2a2dc46c038660272e1a4bf9873c55607c.patch
 
 BuildArch: noarch
 
@@ -17,7 +24,6 @@ BuildRequires: desktop-file-utils
 BuildRequires: xdg-user-dirs
 # ssh-agent.service
 BuildRequires: systemd-rpm-macros
-
 Source10: ssh-agent.sh
 
 # when kdebugrc was moved here
@@ -34,6 +40,8 @@ Requires: pam
 Requires: xdg-user-dirs
 ## add breeze deps here? probably, need more too -- rex
 Requires: breeze-icon-theme
+# Baseline mimeapps associations, e.g. LibreOffice
+Requires: shared-mime-info
 
 %description
 %{summary}.
@@ -43,8 +51,8 @@ Summary: Configuration files for plasma
 Requires: %{name} = %{version}-%{release}
 Requires: system-logos
 Requires: google-noto-sans-fonts
-# Not used strictly, but users expect general noto "family" to be present, so that includes serif too -- rdieter
-Requires: google-noto-serif-fonts
+# Not required but expected by users as we use other fonts from the noto "family"
+Recommends: google-noto-serif-fonts
 %if 0%{?rhel} && 0%{?rhel} < 9
 Requires: google-noto-mono-fonts
 %else
@@ -86,6 +94,22 @@ Summary: Configuration files for Qt
 #Requires: pciutils
 %description -n qt-settings
 %{summary}.
+
+%if %{with initialsetup_gui_backend}
+%package -n initial-setup-gui-wayland-plasma
+Summary: Run initial-setup GUI on Plasma Wayland
+Provides: firstboot(gui-backend)
+Conflicts: firstboot(gui-backend)
+Requires: kwin-wayland
+Requires: maliit-keyboard
+Requires: xorg-x11-server-Xwayland
+Requires: initial-setup-gui >= 0.3.99
+Supplements: ((initial-setup or initial-setup-gui) and kwin-wayland)
+Enhances: (initial-setup-gui and kwin-wayland)
+
+%description -n initial-setup-gui-wayland-plasma
+%{summary}.
+%endif
 
 
 %prep
@@ -132,8 +156,12 @@ sed -e "s/Noto Sans Mono/Noto Mono/g" \
 # for ssh-agent.serivce, set SSH_AUTH_SOCK
 install -p -m644 -D %{SOURCE10} %{buildroot}%{_sysconfdir}/xdg/plasma-workspace/env/ssh-agent.sh
 
-## unpackaged files
+%if ! %{with initialsetup_gui_backend}
+rm -rv %{buildroot}%{_libexecdir}/initial-setup
+%endif
 
+## unpackaged files
+rm -Rf %{buildroot}%{_datadir}/plasma/look-and-feel/
 
 %check
 %if 0%{?version_maj:1} && 1%{?flatpak} == 0
@@ -144,6 +172,7 @@ test -f %{_datadir}/wallpapers/F%{version_maj} || ls -l %{_datadir}/wallpapers
 %files
 %license COPYING
 %config(noreplace) %{_sysconfdir}/profile.d/kde.*
+%{_sysconfdir}/fonts/conf.d/10-sub-pixel-rgb-for-kde.conf
 %{_sysconfdir}/kde/env/env.sh
 %{_sysconfdir}/kde/env/gpg-agent-startup.sh
 %{_sysconfdir}/kde/shutdown/gpg-agent-shutdown.sh
@@ -164,7 +193,6 @@ test -f %{_datadir}/wallpapers/F%{version_maj} || ls -l %{_datadir}/wallpapers
 # drop noreplace, so we can be sure to get the new kiosk bits
 %config %{_sysconfdir}/kderc
 %config %{_sysconfdir}/kde4rc
-%{_datadir}/applications/kde-mimeapps.list
 %if 0%{?rhel} && 0%{?rhel} <= 7
 %exclude %{_datadir}/kde-settings/kde-profile/default/share/apps/plasma-desktop/init/00-defaultLayout.js
 %endif
@@ -179,6 +207,7 @@ test -f %{_datadir}/wallpapers/F%{version_maj} || ls -l %{_datadir}/wallpapers
 %{_sysconfdir}/xdg/plasma-workspace/env/gtk3_scrolling.sh
 %{_sysconfdir}/xdg/plasma-workspace/env/ssh-agent.sh
 
+
 %files sddm
 %{_prefix}/lib/sddm/sddm.conf.d/kde_settings.conf
 
@@ -190,8 +219,44 @@ test -f %{_datadir}/wallpapers/F%{version_maj} || ls -l %{_datadir}/wallpapers
 %license COPYING
 %config(noreplace) %{_sysconfdir}/Trolltech.conf
 
+%if %{with initialsetup_gui_backend}
+%files -n initial-setup-gui-wayland-plasma
+%{_libexecdir}/initial-setup/run-gui-backend
+%endif
+
 
 %changelog
+* Thu Mar 07 2024 Neal Gompa <ngompa@fedoraproject.org> - 40.0-1
+- Bump for F40 backgrounds
+- Enable login/logout sounds for a11y
+
+* Tue Feb 20 2024 Alessandro Astone <ales.astone@gmail.com> - 39.1-7
+- Enable maliit-keyboard by default
+- Provide default mimeapps associations overrides over plasma-desktop
+
+* Fri Feb 02 2024 Alessandro Astone <ales.astone@gmail.com> - 39.1-6
+- Re-enable kwin blur plugin
+
+* Wed Jan 24 2024 Fedora Release Engineering <releng@fedoraproject.org> - 39.1-5
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Sun Jan 21 2024 Fedora Release Engineering <releng@fedoraproject.org> - 39.1-4
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Fri Jan 05 2024 Alessandro Astone <ales.astone@gmail.com> - 39.1-3
+- Fix initial-setup-gui version requirement
+
+* Wed Jan 03 2024 Neal Gompa <ngompa@fedoraproject.org> - 39.1-2
+- Add initial-setup-gui-wayland-plasma subpackage for f40+/epel10+
+
+* Wed Jan 03 2024 Neal Gompa <ngompa@fedoraproject.org> - 39.1-1
+- Add fontconfig snippet to enable RGBA subpixel rendering for KDE
+- Reland: feat: remove KDE Action Restrictions
+- Set the default theme for sddm
+
+* Fri Oct 13 2023 Timothée Ravier <tim@siosm.fr> - 39.0-2
+- Switch google-noto-serif-fonts to a Recommends
+
 * Fri Sep 01 2023 Adam Williamson <awilliam@redhat.com> - 39.0-1
 - New release 39.0 (to pick up Fedora 39 backgrounds)
 
