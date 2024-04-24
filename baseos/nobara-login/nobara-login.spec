@@ -29,7 +29,6 @@ BuildRequires: filesystem
 Requires: system-release
 Requires: nobara-login-sysctl
 Requires: nobara-welcome
-Requires: supergfxctl
 Requires: nobara-nvidia-wizard
 Provides: nobara-amdgpu-config > 2.1
 Obsoletes: nobara-amdgpu-config <= 2.1

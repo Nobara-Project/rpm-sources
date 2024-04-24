@@ -155,9 +155,6 @@ Requires:       kwin >= %{majmin_ver}
 # kickoff -> edit applications (#1229393)
 Requires:       kmenuedit >= %{majmin_ver}
 
-# required for laptop igpu/dgpu switching
-Requires:       supergfxctl-plasmoid
-
 Requires:	plasma-discover
 
 BuildRequires:  kf5-kirigami2

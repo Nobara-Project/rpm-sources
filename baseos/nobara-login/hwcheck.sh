@@ -6,13 +6,11 @@ WHO=$(whoami)
 ### NVIDIA DRIVER CHECK ####
 nvgpu=$(lspci -D | grep -iE 'VGA|3D' | grep -i nvidia | cut -d ":" -f 4)
 nvkernmod=$(lspci -kD | grep -iEA3 '^[[:alnum:]]{4}:[[:alnum:]]{2}:[[:alnum:]]{2}.*VGA|3D' | grep -iA3 nvidia | grep -i 'kernel driver' | grep -iE 'vfio-pci|nvidia')
-laptopmodecheck=$(supergfxctl -g)
 
 
 if [[ $DISPLAY_CHECK ]] && [[ $WHO != "liveuser" ]] && [[ $WHO != "gnome-initial-setup" ]]; then
   if [[ ! -z $nvgpu ]]; then
     if [[ -z $nvkernmod ]]; then
-        if [[ $laptopmodecheck == "hybrid" ]] || [[ ! -z $(systemctl status supergfxd | grep 'Active: inactive') ]]; then
         # Check for internet connection
           wget -q --spider http://google.com
           if [ $? -eq 0 ]; then
@@ -25,7 +23,6 @@ if [[ $DISPLAY_CHECK ]] && [[ $WHO != "liveuser" ]] && [[ $WHO != "gnome-initial
               --text="`printf "An internet connection is required to install Nvidia drivers. Once your system is connected to the internet, run 'hwcheck' from the terminal to restart the installer.\n\n"`"
             exit 0
           fi
-        fi
     fi
   fi
 fi
