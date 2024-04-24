@@ -111,11 +111,7 @@ cp %{SOURCE1} hw/xfree86/common/
 
 %build
 %meson \
-        %{?gitdate:-Dxwayland=true} \
-        %{?gitdate:-Dxorg=false} \
-        %{?gitdate:-Dxnest=false} \
         %{?gitdate:-Dxvfb=false} \
-        %{?gitdate:-Dudev=true} \
         -Ddefault_font_path=%{default_font_path} \
         -Dbuilder_string="Build ID: %{name} %{version}-%{release}" \
         -Dxkb_output_dir=%{_localstatedir}/lib/xkb \
