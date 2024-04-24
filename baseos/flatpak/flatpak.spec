@@ -1,16 +1,22 @@
-%global appstream_version 0.15.3
-%global bubblewrap_version 0.5.0
+%global appstream_version 1.0.0~
+%global bubblewrap_version 0.8.0
 %global glib_version 2.46.0
+%global gpgme_version 1.8.0
 %global libcurl_version 7.29.0
 %global ostree_version 2020.8
+%global wayland_protocols_version 1.32
+%global wayland_scanner_version 1.15
+
+# Disable parental control for RHEL builds
+%bcond malcontent %[!0%{?rhel}]
 
 Name:           flatpak
-Version:        1.15.4
-Release:        12%{?dist}
+Version:        1.15.8
+Release:        1%{?dist}
 Summary:        Application deployment framework for desktop apps
 
-License:        LGPLv2+
-URL:            http://flatpak.org/
+License:        LGPL-2.1-or-later
+URL:            https://flatpak.org/
 Source0:        https://github.com/flatpak/flatpak/releases/download/%{version}/%{name}-%{version}.tar.xz
 
 %if 0%{?fedora}
@@ -24,12 +30,19 @@ Source3:        flatpak-repo-setup.sh
 # with the config from upstream sources.
 Source4:        flatpak.sysusers.conf
 
+# ostree not on i686 for RHEL 10
+# https://github.com/containers/composefs/pull/229#issuecomment-1838735764
+%if 0%{?rhel} >= 10
+ExcludeArch:    %{ix86}
+%endif
+
 BuildRequires:  pkgconfig(appstream) >= %{appstream_version}
 BuildRequires:  pkgconfig(dconf)
 BuildRequires:  pkgconfig(fuse3)
 BuildRequires:  pkgconfig(gdk-pixbuf-2.0)
 BuildRequires:  pkgconfig(gio-unix-2.0) >= %{glib_version}
 BuildRequires:  pkgconfig(gobject-introspection-1.0) >= 1.40.0
+BuildRequires:  pkgconfig(gpgme) >= %{gpgme_version}
 BuildRequires:  pkgconfig(json-glib-1.0)
 BuildRequires:  pkgconfig(libarchive) >= 2.8.0
 BuildRequires:  pkgconfig(libseccomp)
@@ -37,22 +50,27 @@ BuildRequires:  pkgconfig(libcurl) >= %{libcurl_version}
 BuildRequires:  pkgconfig(libsystemd)
 BuildRequires:  pkgconfig(libxml-2.0) >= 2.4
 BuildRequires:  pkgconfig(libzstd) >= 0.8.1
+%if %{with malcontent}
 BuildRequires:  pkgconfig(malcontent-0)
+%endif
 BuildRequires:  pkgconfig(ostree-1) >= %{ostree_version}
 BuildRequires:  pkgconfig(polkit-gobject-1)
+BuildRequires:  pkgconfig(wayland-client)
+BuildRequires:  pkgconfig(wayland-protocols) >= %{wayland_protocols_version}
+BuildRequires:  pkgconfig(wayland-scanner) >= %{wayland_scanner_version}
 BuildRequires:  pkgconfig(xau)
 BuildRequires:  bison
 BuildRequires:  bubblewrap >= %{bubblewrap_version}
 BuildRequires:  docbook-dtds
 BuildRequires:  docbook-style-xsl
 BuildRequires:  gettext-devel
-BuildRequires:  gpgme-devel
 BuildRequires:  gtk-doc
 BuildRequires:  libcap-devel
 BuildRequires:  meson
 BuildRequires:  python3-pyparsing
 BuildRequires:  systemd
 BuildRequires:  systemd-rpm-macros
+BuildRequires:  /usr/bin/fusermount3
 BuildRequires:  /usr/bin/pkcheck
 BuildRequires:  /usr/bin/socat
 BuildRequires:  /usr/bin/xdg-dbus-proxy
@@ -67,7 +85,7 @@ Requires:       glib2%{?_isa} >= %{glib_version}
 Requires:       libcurl%{?_isa} >= %{libcurl_version}
 Requires:       librsvg2%{?_isa}
 Requires:       ostree-libs%{?_isa} >= %{ostree_version}
-Requires:       /usr/bin/fusermount
+Requires:       /usr/bin/fusermount3
 Requires:       /usr/bin/xdg-dbus-proxy
 # https://fedoraproject.org/wiki/SELinux/IndependentPolicy
 Requires:       (flatpak-selinux = %{?epoch:%{epoch}:}%{version}-%{release} if selinux-policy-targeted)
@@ -97,7 +115,9 @@ This package contains the pkg-config file and development headers for %{name}.
 %package libs
 Summary:        Libraries for %{name}
 Requires:       bubblewrap >= %{bubblewrap_version}
-Requires:       ostree%{?_isa} >= %{ostree_version}
+# We can assume ostree is installed on ostree systems
+# So do not enforce it on non-ostree ones
+Requires:       ostree-libs%{?_isa} >= %{ostree_version}
 
 %description libs
 This package contains libflatpak.
@@ -142,7 +162,15 @@ This package contains installed tests for %{name}.
 %meson \
     -Dinstalled_tests=true \
     -Dsystem_bubblewrap=/usr/bin/bwrap \
-    -Dsystem_dbus_proxy=/usr/bin/xdg-dbus-proxy
+    -Dsystem_dbus_proxy=/usr/bin/xdg-dbus-proxy \
+    -Dtmpfilesdir=%{_tmpfilesdir} \
+%if %{with malcontent}
+    -Dmalcontent=enabled \
+%else
+    -Dmalcontent=disabled \
+%endif
+    -Dwayland_security_context=enabled \
+    %{nil}
 %meson_build
 
 
@@ -228,6 +256,8 @@ fi
 %{_mandir}/man5/flatpak-flatpakrepo.5*
 %{_mandir}/man5/flatpak-installation.5*
 %{_mandir}/man5/flatpak-remote.5*
+%{_mandir}/man5/flatpakref.5*
+%{_mandir}/man5/flatpakrepo.5*
 %{_sysconfdir}/dbus-1/system.d/org.freedesktop.Flatpak.SystemHelper.conf
 %dir %{_sysconfdir}/flatpak
 %{_sysconfdir}/flatpak/remotes.d
@@ -238,6 +268,7 @@ fi
 %{_userunitdir}/flatpak-portal.service
 %{_systemd_system_env_generator_dir}/60-flatpak-system-only
 %{_systemd_user_env_generator_dir}/60-flatpak
+%{_tmpfilesdir}/%{name}.conf
 
 %if 0%{?fedora}
 %{_unitdir}/flatpak-add-fedora-repos.service
@@ -272,6 +303,31 @@ fi
 
 
 %changelog
+* Fri Apr 19 2024 David King <amigadave@amigadave.com> - 1.15.8-1
+- Update to 1.15.8 (#2275983)
+
+* Wed Jan 24 2024 Fedora Release Engineering <releng@fedoraproject.org> - 1.15.6-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Fri Jan 19 2024 Fedora Release Engineering <releng@fedoraproject.org> - 1.15.6-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Thu Nov 16 2023 Debarshi Ray <rishi@fedoraproject.org> - 1.15.6-1
+- Update to 1.15.6 (#2249763)
+
+* Tue Nov 07 2023 Neal Gompa <ngompa@fedoraproject.org> - 1.15.4-5
+- Fix appstream_version macro for prerelease appstream 1.0 package
+
+* Tue Nov 07 2023 Debarshi Ray <rishi@fedoraproject.org> - 1.15.4-4
+- Adjust to Appstream 1.0 API changes
+- Fix Appstream regression in 'remote-info'
+
+* Wed Jul 19 2023 Fedora Release Engineering <releng@fedoraproject.org> - 1.15.4-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_39_Mass_Rebuild
+
+* Thu Jun 22 2023 Tomas Popela <tpopela@redhat.com> - 1.15.4-2
+- Disable parental control support (through malcontent) on RHEL
+
 * Fri Mar 17 2023 David King <amigadave@amigadave.com> - 1.15.4-1
 - Update to 1.15.4
 
