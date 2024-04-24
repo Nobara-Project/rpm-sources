@@ -1,6 +1,6 @@
 Name:           kde-nobara
-Version:        6.0.2
-Release:        3%{?dist}
+Version:        6.0.4
+Release:        1%{?dist}
 Summary:        KDE Presets from NobaraProject Official
 License:    	GPLv2
 URL:            https://github.com/nobara-project/nobara-core-packages

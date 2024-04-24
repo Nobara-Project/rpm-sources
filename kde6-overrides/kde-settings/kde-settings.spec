@@ -1,7 +1,7 @@
 Summary: Config files for KDE
 Name:    kde-settings
 Version: 39.1
-Release: 2%{?dist}
+Release: 3%{?dist}
 
 License: MIT
 Url:     https://pagure.io/fedora-kde/kde-settings
@@ -9,6 +9,7 @@ Source0: https://pagure.io/fedora-kde/kde-settings/archive/%{version}/kde-settin
 Source1: COPYING
 Patch0:  set-dark-global.patch
 Patch1:  0001-Revert-kwinrc-Disable-the-Blur-plugin-in-kwin-by-def.patch
+Patch2:  https://pagure.io/fedora-kde/kde-settings/c/0cdfac2a2dc46c038660272e1a4bf9873c55607c.patch
 
 BuildArch: noarch
 
@@ -43,8 +44,8 @@ Summary: Configuration files for plasma
 Requires: %{name} = %{version}-%{release}
 Requires: system-logos
 Requires: google-noto-sans-fonts
-# Not used strictly, but users expect general noto "family" to be present, so that includes serif too -- rdieter
-Requires: google-noto-serif-fonts
+# Not required but expected by users as we use other fonts from the noto "family"
+Recommends: google-noto-serif-fonts
 %if 0%{?rhel} && 0%{?rhel} < 9
 Requires: google-noto-mono-fonts
 %else
