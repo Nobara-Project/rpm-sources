@@ -1,25 +1,25 @@
-From 2184adca1e510361fd1c425d88ac9a3d458eb76a Mon Sep 17 00:00:00 2001
-From: David King <amigadave@amigadave.com>
-Date: Fri, 14 Jan 2022 18:18:03 +0000
-Subject: [PATCH] Disable KMS on tegra
+From a5c67e0debaa89f7a73452560664cdc5c581ab95 Mon Sep 17 00:00:00 2001
+From: Adam Williamson <awilliam@redhat.com>
+Date: Tue, 9 Mar 2021 17:21:59 -0800
+Subject: [PATCH] Test: deny atomic KMS for "tegra" (RHBZ #1936991)
 
-Based on commit 77a40614f08ef10044409f689b9efc3d5f65ff0c.
+Signed-off-by: Adam Williamson <awilliam@redhat.com>
 ---
  src/backends/native/meta-kms-impl-device-atomic.c | 1 +
  1 file changed, 1 insertion(+)
 
 diff --git a/src/backends/native/meta-kms-impl-device-atomic.c b/src/backends/native/meta-kms-impl-device-atomic.c
-index bcb41e8ad..bafbc7b8f 100644
+index 35837f7429..ffff7b8e23 100644
 --- a/src/backends/native/meta-kms-impl-device-atomic.c
 +++ b/src/backends/native/meta-kms-impl-device-atomic.c
-@@ -1216,6 +1216,7 @@ is_atomic_allowed (const char *driver_name)
-     "vboxvideo",
-     "virtio_gpu",
+@@ -1352,6 +1352,7 @@ is_atomic_allowed (const char *driver_name)
+ {
+   const char *atomic_driver_deny_list[] = {
      "xlnx",
 +    "tegra",
      NULL,
    };
  
 -- 
-2.34.1
+2.43.0
 
