@@ -16,7 +16,7 @@
 %global with_vdpau 1
 %global with_va 1
 %if !0%{?rhel}
-%global with_nine 1
+# %global with_nine 1
 %global with_nvk %{with vulkan_hw}
 %global with_omx 1
 %global with_opencl 1
@@ -442,7 +442,6 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
   -Dxlib-lease=enabled \
   -Dbuild-tests=false \
   -Dselinux=true \
-  -Dintel-xe-kmd=enabled \
 %if !0%{?with_libunwind}
   -Dlibunwind=disabled \
 %endif
