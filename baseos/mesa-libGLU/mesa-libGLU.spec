@@ -1,20 +1,17 @@
-%define gitdate 20230418
-
 Name:           mesa-libGLU
-Version:        9.0.1
-Release:        9%{?dist}
+Version:        9.0.3
+Release:        4%{?dist}
 Summary:        Mesa libGLU library
 
-License:        MIT
+License:        X11
 URL:            http://mesa3d.org/
-Source0:        https://ftp.freedesktop.org/pub/mesa/glu/glu-%{gitdate}.tar.xz
+Source0:        https://ftp.freedesktop.org/pub/mesa/glu/glu-%{version}.tar.xz
 Source2:        make-git-snapshot.sh
 
-BuildRequires: make
 BuildRequires:  gcc-c++
-BuildRequires:  autoconf automake libtool
+BuildRequires:  libglvnd-devel
 BuildRequires:  mesa-libGL-devel
-#Requires:       
+BuildRequires:  meson
 Provides: libGLU
 
 %description
@@ -31,22 +28,17 @@ The %{name}-devel package contains libraries and header files for
 developing applications that use %{name}.
 
 %prep
-%setup -q -n glu-%{gitdate}
+%autosetup -p1 -n glu-%{version}
 
 %build
-autoreconf -v -i -f
-%configure --disable-static
-%make_build
-make %{?_smp_mflags}
+%meson -Dgl_provider=glvnd
+%meson_build
 
 %install
-%make_install
-find $RPM_BUILD_ROOT -name '*.la' -delete
-rm -rf $RPM_BUILD_ROOT%{_datadir}/man/man3/gl[A-Z]*
+%meson_install
+find $RPM_BUILD_ROOT -name '*.a' -delete
 
-%ldconfig_post
-
-%ldconfig_postun
+%ldconfig_scriptlets
 
 %files
 %{_libdir}/libGLU.so.1
@@ -58,6 +50,23 @@ rm -rf $RPM_BUILD_ROOT%{_datadir}/man/man3/gl[A-Z]*
 %{_libdir}/pkgconfig/glu.pc
 
 %changelog
+* Thu Jan 25 2024 Fedora Release Engineering <releng@fedoraproject.org> - 9.0.3-4
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Sun Jan 21 2024 Fedora Release Engineering <releng@fedoraproject.org> - 9.0.3-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Thu Sep 07 2023 José Expósito <jexposit@redhat.com> - 9.0.3-2
+- SPDX Migration
+
+* Sun Jul 23 2023 Peter Robinson <pbrobinson@fedoraproject.org> - 9.0.3-1
+- Update to 9.0.3
+- Move to meson build
+- Set gl_provider to libglvnd
+
+* Thu Jul 20 2023 Fedora Release Engineering <releng@fedoraproject.org> - 9.0.1-9
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_39_Mass_Rebuild
+
 * Thu Jan 19 2023 Fedora Release Engineering <releng@fedoraproject.org> - 9.0.1-8
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_38_Mass_Rebuild
 
@@ -138,5 +147,4 @@ rm -rf $RPM_BUILD_ROOT%{_datadir}/man/man3/gl[A-Z]*
 
 * Tue Sep 04 2012 Adam Jackson <ajax@redhat.com> 9.0-0.1
 - Initial packaging for split libGLU
-
 
