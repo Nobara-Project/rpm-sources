@@ -1,43 +1,19 @@
-%undefine __cmake_in_source_build
-
-# Control Plasma Wayland by default
-%if 0%{?rhel} && 0%{?rhel} <= 9
-%bcond_with wayland_default
-%else
-%bcond_without wayland_default
-%endif
-
-# Control SDDM Wayland by default
-%if (0%{?fedora} && 0%{?fedora} < 38) || (0%{?rhel} && 0%{?rhel} <= 9)
-%bcond_with sddm_wayland_default
-%else
-%bcond_without sddm_wayland_default
-%endif
-
-#global commit e6524335a54ca469401ee9487adc4ae973860aad
-#global commitdate 20230404
-#global shortcommit %(c=%{commit}; echo ${c:0:7})
+# Disable X11 for RHEL 10+
+%bcond x11 %[%{undefined rhel} || 0%{?rhel} < 10]
 
 Name:           sddm
-Version:        0.20.0%{?commitdate:^git%{commitdate}.%{shortcommit}}
-Release:        7%{?dist}
-License:        GPLv2+
+Version:        0.21.0
+Release:        5%{?dist}
+License:        GPL-2.0-or-later
 Summary:        QML based desktop and login manager
 
-Url:            https://github.com/sddm/sddm
-%if 0%{?commitdate}
-Source0:        %{url}/archive/%{commit}/%{name}-%{commit}.tar.gz
-%else
+URL:            https://github.com/sddm/sddm
 Source0:        %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
-# Broken: https://github.com/sddm/sddm/pull/1743
-#Source0:        %{url}/releases/download/v%{version}/%{name}-%{version}.tar.xz
-%endif
 
 ## upstream patches
-# Hide keyboard layout picker in the wayland greeter
-# https://bugzilla.redhat.com/show_bug.cgi?id=2239426
-# https://github.com/sddm/sddm/pull/1797
-Patch1: 1797.patch
+# Port all themes to Qt 6
+# Submitted: https://github.com/sddm/sddm/pull/1876
+Patch1:         sddm-PR1876.patch
 
 ## upstreamable patches
 
@@ -56,10 +32,15 @@ Patch103:       sddm-0.18.0-environment_file.patch
 # Workaround for https://pagure.io/fedora-kde/SIG/issue/87
 Patch104:       sddm-rpmostree-tmpfiles-hack.patch
 
+# Workaround lack of Qt 5 greeter build
+Patch105:       sddm-0.21.0-qt6greeter.patch
+
 # Shamelessly stolen from gdm
-Source11:       sddm.pam
+Source10:       sddm.pam
 # Shamelessly stolen from gdm
-Source12:       sddm-autologin.pam
+Source11:       sddm-autologin.pam
+# Previously included in sddm sources
+Source12:       sddm-greeter.pam
 # sample sddm.conf generated with sddm --example-config, and entries commented-out
 Source13: sddm.conf
 # README.scripts
@@ -68,7 +49,6 @@ Source14: README.scripts
 Source15: sddm.sysconfig
 # sddm x11 override config
 Source16:  sddm-x11.conf
-
 # sysusers config file. note these are shipped in the upstream tarball
 # but we cannot use the files from the tarball for %pre scriptlet
 # generation, so we duplicate them as source files for that purpose;
@@ -76,26 +56,37 @@ Source16:  sddm-x11.conf
 # see https://lists.fedoraproject.org/archives/list/devel@lists.fedoraproject.org/thread/TFDMAU7KLMSQTKPJELHSM6PFVXIZ56GK/
 Source17:        sddm-systemd-sysusers.conf
 
+
 Provides: service(graphical-login) = sddm
 
 BuildRequires:  cmake >= 2.8.8
 BuildRequires:  extra-cmake-modules
-BuildRequires:  libxcb-devel
 BuildRequires:  pam-devel
 BuildRequires:  pkgconfig(libsystemd)
 BuildRequires:  pkgconfig(systemd)
+BuildRequires:  pkgconfig(xcb)
+BuildRequires:  pkgconfig(xcb-xkb)
 # sometimes python-docutils, sometimes python2-docutils, sometimes python3-docutils.
 # use path then for sanity
 BuildRequires:  /usr/bin/rst2man
-BuildRequires:  qt5-qtbase-devel >= 5.6
-BuildRequires:  qt5-qtdeclarative-devel >= 5.6
-BuildRequires:  qt5-qttools-devel >= 5.6
+BuildRequires:  cmake(Qt6Core)
+BuildRequires:  cmake(Qt6DBus)
+BuildRequires:  cmake(Qt6Gui)
+BuildRequires:  cmake(Qt6Qml)
+BuildRequires:  cmake(Qt6Quick)
+BuildRequires:  cmake(Qt6LinguistTools)
+BuildRequires:  cmake(Qt6Test)
+BuildRequires:  cmake(Qt6QuickTest)
 # verify presence to pull defaults from /etc/login.defs
 BuildRequires:  shadow-utils
 BuildRequires:  systemd
 BuildRequires:  systemd-rpm-macros
 
 Obsoletes: kde-settings-sddm < 20-5
+
+Requires: sddm-breeze
+Requires: sddm-kcm
+
 
 %if 0%{?fedora}
 # for /usr/share/backgrounds/default.png
@@ -106,19 +97,16 @@ Requires: desktop-backgrounds-compat
 Requires: system-logos
 %endif
 Requires: systemd
+%if %{with x11}
 Requires: xorg-x11-xinit
-Suggests: qt5-qtvirtualkeyboard%{?_isa}
+%endif
 %{?systemd_requires}
 
 Requires(pre): shadow-utils
 
 # Virtual dependency for sddm greeter setup
 Requires: sddm-greeter-displayserver
-%if ! %{with sddm_wayland_default}
-Suggests: sddm-x11
-%else
 Suggests: sddm-wayland-generic
-%endif
 
 %description
 SDDM is a modern graphical display manager aiming to be fast, simple and
@@ -140,17 +128,22 @@ to use Weston for the greeter display server.
 This is the generic default Wayland configuration provided
 by SDDM.
 
+%if %{with x11}
 %package x11
 Summary: X11 SDDM greeter configuration
 Provides: sddm-greeter-displayserver
 Conflicts: sddm-greeter-displayserver
+# This will eventually go away...
+Provides: deprecated()
 Requires: xorg-x11-server-Xorg
 Requires: %{name} = %{version}-%{release}
+Recommends: qt6-qtvirtualkeyboard
 BuildArch: noarch
 
 %description x11
 This package contains configuration and dependencies for SDDM
 to use X11 for the greeter display server.
+%endif
 
 %package themes
 Summary: SDDM Themes
@@ -167,6 +160,7 @@ A collection of sddm themes, including: elarun, maldives, maya
 
 %build
 %cmake \
+  -DBUILD_WITH_QT6:BOOL=ON \
   -DBUILD_MAN_PAGES:BOOL=ON \
   -DCMAKE_BUILD_TYPE:STRING="Release" \
   -DENABLE_JOURNALD:BOOL=ON \
@@ -181,13 +175,15 @@ A collection of sddm themes, including: elarun, maldives, maya
 
 mkdir -p %{buildroot}%{_sysconfdir}/sddm.conf.d
 mkdir -p %{buildroot}%{_prefix}/lib/sddm/sddm.conf.d
-mkdir -p %{buildroot}%{_libexecdir}/
-install -Dpm 644 %{SOURCE11} %{buildroot}%{_sysconfdir}/pam.d/sddm
-install -Dpm 644 %{SOURCE12} %{buildroot}%{_sysconfdir}/pam.d/sddm-autologin
+install -Dpm 644 %{SOURCE10} %{buildroot}%{_sysconfdir}/pam.d/sddm
+install -Dpm 644 %{SOURCE11} %{buildroot}%{_sysconfdir}/pam.d/sddm-autologin
+install -Dpm 644 %{SOURCE12} %{buildroot}%{_sysconfdir}/pam.d/sddm-greeter
 install -Dpm 644 %{SOURCE13} %{buildroot}%{_sysconfdir}/sddm.conf
 install -Dpm 644 %{SOURCE14} %{buildroot}%{_datadir}/sddm/scripts/README.scripts
 install -Dpm 644 %{SOURCE15} %{buildroot}%{_sysconfdir}/sysconfig/sddm
+%if %{with x11}
 install -Dpm 644 %{SOURCE16} %{buildroot}%{_prefix}/lib/sddm/sddm.conf.d/x11.conf
+%endif
 mkdir -p %{buildroot}/run/sddm
 mkdir -p %{buildroot}%{_localstatedir}/lib/sddm
 mkdir -p %{buildroot}%{_sysconfdir}/sddm/
@@ -195,6 +191,16 @@ cp -a %{buildroot}%{_datadir}/sddm/scripts/* \
       %{buildroot}%{_sysconfdir}/sddm/
 # we're using /etc/X11/xinit/Xsession (by default) instead
 rm -fv %{buildroot}%{_sysconfdir}/sddm/Xsession
+
+# De-conflict the dbus file
+mv %{buildroot}%{_datadir}/dbus-1/system.d/org.freedesktop.DisplayManager.conf \
+   %{buildroot}%{_datadir}/dbus-1/system.d/org.freedesktop.DisplayManager-sddm.conf
+
+%if 0%{?fedora} && 0%{?fedora} < 43
+# Provide unversioned greeter until F40 is EOL
+ln -sr %{buildroot}%{_bindir}/sddm-greeter-qt6 %{buildroot}%{_bindir}/sddm-greeter
+%endif
+
 
 %pre
 %sysusers_create_compat %{SOURCE17}
@@ -214,33 +220,14 @@ rm -fv %{buildroot}%{_sysconfdir}/sddm/Xsession
    %{_sysconfdir}/sddm.conf
 ) ||:
 
-%if %{with wayland_default}
-%triggerun -- plasma-workspace < 5.20.90-2
-# When upgrading, handle session filename changes
-if [ -f %{_sharedstatedir}/sddm/state.conf ]; then
-   sed \
-       -e "s|%{_datadir}/xsessions/plasma.desktop|%{_datadir}/xsessions/plasmax11.desktop|g" \
-       -e "s|%{_datadir}/xsessions/plasmaxorg.desktop|%{_datadir}/xsessions/plasmax11.desktop|g" \
-       -e "s|%{_datadir}/wayland-sessions/plasmawayland.desktop|%{_datadir}/wayland-sessions/plasma.desktop|g" \
-       -i %{_sharedstatedir}/sddm/state.conf
-fi
-
-%triggerun -- fedora-release < 34
-# When upgrading to Fedora 34, transition to Plasma Wayland by default
-if [ -f %{_sharedstatedir}/sddm/state.conf ]; then
-   sed \
-       -e "s|%{_datadir}/xsessions/plasma.desktop|%{_datadir}/wayland-sessions/plasma.desktop|g" \
-       -e "s|%{_datadir}/xsessions/plasmax11.desktop|%{_datadir}/wayland-sessions/plasma.desktop|g" \
-       -e "s|%{_datadir}/wayland-sessions/plasmawayland.desktop|%{_datadir}/wayland-sessions/plasma.desktop|g" \
-       -i %{_sharedstatedir}/sddm/state.conf
-fi
-%endif
 
 %preun
 %systemd_preun sddm.service
 
+
 %postun
 %systemd_postun sddm.service
+
 
 %files
 %license LICENSE
@@ -250,14 +237,11 @@ fi
 %dir %{_prefix}/lib/sddm/sddm.conf.d
 %config(noreplace)   %{_sysconfdir}/sddm/*
 %config(noreplace)   %{_sysconfdir}/sddm.conf
-%config(noreplace)   %{_sysconfdir}/pam.d/sddm
-%config(noreplace)   %{_sysconfdir}/pam.d/sddm-autologin
-%config(noreplace)   %{_sysconfdir}/pam.d/sddm-greeter
 %config(noreplace) %{_sysconfdir}/sysconfig/sddm
-# it's under /etc, sure, but it's not a config file -- rex
-%{_sysconfdir}/dbus-1/system.d/org.freedesktop.DisplayManager.conf
+%config(noreplace) %{_sysconfdir}/pam.d/sddm*
+%{_datadir}/dbus-1/system.d/org.freedesktop.DisplayManager-sddm.conf
 %{_bindir}/sddm
-%{_bindir}/sddm-greeter
+%{_bindir}/sddm-greeter*
 %{_libexecdir}/sddm-helper
 %{_libexecdir}/sddm-helper-start-wayland
 %{_libexecdir}/sddm-helper-start-x11user
@@ -266,24 +250,29 @@ fi
 %attr(0711, root, sddm) %dir /run/sddm
 %attr(1770, sddm, sddm) %dir %{_localstatedir}/lib/sddm
 %{_unitdir}/sddm.service
-%{_qt5_archdatadir}/qml/SddmComponents/
+%{_qt6_archdatadir}/qml/SddmComponents/
 %dir %{_datadir}/sddm
 %{_datadir}/sddm/faces/
 %{_datadir}/sddm/flags/
 %{_datadir}/sddm/scripts/
 %dir %{_datadir}/sddm/themes/
 # %%lang'ify? they're small, probably not worth it -- rex
-%{_datadir}/sddm/translations/
+%{_datadir}/sddm/translations*/
 %{_mandir}/man1/sddm.1*
 %{_mandir}/man1/sddm-greeter.1*
 %{_mandir}/man5/sddm.conf.5*
 %{_mandir}/man5/sddm-state.conf.5*
 
+
 %files wayland-generic
 # No files since default configuration
 
+
+%if %{with x11}
 %files x11
 %{_prefix}/lib/sddm/sddm.conf.d/x11.conf
+%endif
+
 
 %files themes
 %{_datadir}/sddm/themes/elarun/
@@ -292,6 +281,40 @@ fi
 
 
 %changelog
+* Wed Mar 20 2024 Neal Gompa <ngompa@fedoraproject.org> - 0.21.0-4
+- Move pam configs back to /etc for now
+
+* Wed Mar 20 2024 Neal Gompa <ngompa@fedoraproject.org> - 0.21.0-3
+- Use our own greeter pam config and install pam configs to /usr
+
+* Tue Mar 05 2024 Neal Gompa <ngompa@fedoraproject.org> - 0.21.0-2
+- De-conflict sddm dbus configuration file
+
+* Wed Feb 28 2024 Neal Gompa <ngompa@fedoraproject.org> - 0.21.0-1
+- Update to 0.21.0
+
+* Wed Feb 14 2024 Neal Gompa <ngompa@fedoraproject.org> - 0.20.0-11
+- Add patch to fix desktop file parsing
+
+* Wed Jan 31 2024 Alessandro Astone <ales.astone@gmail.com> - 0.20.0-10
+- Remove LayerShellQt patch
+
+* Mon Jan 29 2024 Neal Gompa <ngompa@fedoraproject.org> - 0.20.0-9
+- Add patch to make SDDM uses kiosk-shell rather than fullscreen-shell
+
+* Sat Jan 27 2024 Neal Gompa <ngompa@fedoraproject.org> - 0.20.0-8
+- Switch to SPDX license identifiers
+
+* Thu Nov 23 2023 Neal Gompa <ngompa@fedoraproject.org> - 0.20.0-7
+- Disable X11 subpackage in RHEL 10+
+- Drop unneeded scriptlets
+
+* Mon Nov 20 2023 Alessandro Astone <ales.astone@gmail.com> - 0.20.0-6
+- Backport patch to fix the keyboard with layer-shell
+
+* Sun Nov 19 2023 Alessandro Astone <ales.astone@gmail.com> - 0.20.0-5
+- Build against Qt6
+
 * Tue Sep 19 2023 Alessandro Astone <ales.astone@gmail.com> - 0.20.0-4
 - Hide keyboard layout picker in the wayland greeter
 
