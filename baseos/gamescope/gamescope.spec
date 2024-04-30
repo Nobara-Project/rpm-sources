@@ -7,7 +7,7 @@
 %global _default_patch_fuzz 2
 %global build_timestamp %(date +"%Y%m%d")
 
-%global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 2.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           gamescope
 Version:        3.14.11
@@ -74,14 +74,18 @@ BuildRequires:  git
 # libliftoff hasn't bumped soname, but API/ABI has changed for 0.2.0 release
 Requires:       libliftoff%{?_isa} >= %{libliftoff_minver}
 Requires:       xorg-x11-server-Xwayland
+Requires:       gamescope-libs = %{version}-%{release}
+Requires:       gamescope-libs(x86-32) = %{version}-%{release}
 Recommends:     mesa-dri-drivers
 Recommends:     mesa-vulkan-drivers
 
-Provides:  gamescope-libs
-Obsoletes: gamescope-libs
-
 %description
 %{name} is the micro-compositor optimized for running video games on Wayland.
+
+%package libs
+Summary:	libs for %{name}
+%description libs
+%summary
 
 %prep
 git clone --single-branch --branch master https://github.com/ValveSoftware/gamescope
@@ -110,8 +114,9 @@ cd gamescope
 %license gamescope/LICENSE
 %doc gamescope/README.md
 %{_bindir}/gamescope
-%{_libdir}/libVkLayer_FROG_gamescope_wsi_*.so
-%{_datadir}/vulkan/implicit_layer.d/VkLayer_FROG_gamescope_wsi.*.json
 
+%files libs
+%{_libdir}/*.so
+%{_datadir}/vulkan/implicit_layer.d/
 
 %changelog
