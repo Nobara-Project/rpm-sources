@@ -20,6 +20,15 @@ URL:            https://github.com/ValveSoftware/gamescope
 # Create stb.pc to satisfy dependency('stb')
 Source0:        stb.pc
 
+# hardware patchset from ChimeraOS and Bazzite
+Patch0:         hardware.patch
+Patch1:         720p.patch
+Patch2:         disable-steam-touch-click-atom.patch
+Patch3:         external-rotation.patch
+Patch4:         panel-type.patch
+Patch5:         gestures.patch
+Patch6:         deckhd.patch
+
 BuildRequires:  meson >= 0.54.0
 BuildRequires:  ninja-build
 BuildRequires:  cmake
