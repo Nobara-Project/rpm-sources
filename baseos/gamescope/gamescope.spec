@@ -1,7 +1,7 @@
 %global libliftoff_minver 0.4.1
 
 # latest git
-%define commit fb5e86b7c5f2e3dfb998eb1d93a759bd9e43319b
+%define commit 7439e35258fd47d079bebcdb09454e3b667c2a7b
 
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global _default_patch_fuzz 2
@@ -10,7 +10,7 @@
 %global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           gamescope
-Version:        3.14.12
+Version:        3.14.14
 Release:        %{rel_build}
 Summary:        Micro-compositor for video games on Wayland
 
@@ -114,7 +114,7 @@ sed -i 's^../thirdparty/SPIRV-Headers/include/spirv/^/usr/include/spirv/^' src/m
 %build
 cd gamescope
 export PKG_CONFIG_PATH=pkgconfig
-%meson -Dpipewire=enabled -Dinput_emulation=enabled -Ddrm_backend=enabled -Drt_cap=enabled -Davif_screenshots=enabled -Dsdl2_backend=enabled -Dforce_fallback_for=vkroots -Dforce_fallback_for=wlroots
+%meson -Dpipewire=enabled -Dinput_emulation=enabled -Ddrm_backend=enabled -Drt_cap=enabled -Davif_screenshots=enabled -Dsdl2_backend=enabled -Dforce_fallback_for=vkroots,wlroots
 %meson_build
 
 %install
