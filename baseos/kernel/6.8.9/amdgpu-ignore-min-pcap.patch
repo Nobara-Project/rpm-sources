@@ -1,0 +1,38 @@
+diff -upr linux-6.7.9/drivers/gpu/drm/amd/pm/amdgpu_pm.c ../a/linux-6.7.9/drivers/gpu/drm/amd/pm/amdgpu_pm.c
+--- linux-6.7.9/drivers/gpu/drm/amd/pm/amdgpu_pm.c	2024-03-06 15:54:01.000000000 +0100
++++ ../a/linux-6.7.9/drivers/gpu/drm/amd/pm/amdgpu_pm.c	2024-03-09 21:15:32.106409000 +0100
+@@ -2984,7 +2984,7 @@ static ssize_t amdgpu_hwmon_show_power_c
+ 					 struct device_attribute *attr,
+ 					 char *buf)
+ {
+-	return amdgpu_hwmon_show_power_cap_generic(dev, attr, buf, PP_PWR_LIMIT_MIN);
++    return sysfs_emit(buf, "%i\n", 0);
+ }
+
+ static ssize_t amdgpu_hwmon_show_power_cap_max(struct device *dev,
+diff -upr linux-6.7.9/drivers/gpu/drm/amd/pm/swsmu/amdgpu_smu.c ../a/linux-6.7.9/drivers/gpu/drm/amd/pm/swsmu/amdgpu_smu.c
+--- linux-6.7.9/drivers/gpu/drm/amd/pm/swsmu/amdgpu_smu.c	2024-03-06 15:54:01.000000000 +0100
++++ ../a/linux-6.7.9/drivers/gpu/drm/amd/pm/swsmu/amdgpu_smu.c	2024-03-09 18:53:10.109876000 +0100
+@@ -2487,7 +2487,7 @@ int smu_get_power_limit(void *handle,
+ 			*limit = smu->max_power_limit;
+ 			break;
+ 		case SMU_PPT_LIMIT_MIN:
+-			*limit = smu->min_power_limit;
++			*limit = 0;
+ 			break;
+ 		default:
+ 			return -EINVAL;
+@@ -2511,10 +2511,10 @@ static int smu_set_power_limit(void *han
+ 		if (smu->ppt_funcs->set_power_limit)
+ 			return smu->ppt_funcs->set_power_limit(smu, limit_type, limit);
+
+-	if ((limit > smu->max_power_limit) || (limit < smu->min_power_limit)) {
++	if (limit > smu->max_power_limit) {
+ 		dev_err(smu->adev->dev,
+-			"New power limit (%d) is out of range [%d,%d]\n",
+-			limit, smu->min_power_limit, smu->max_power_limit);
++            "New power limit (%d) is over the max allowed %d\n",
++			limit, smu->max_power_limit);
+ 		return -EINVAL;
+ 	}
+

@@ -1,0 +1,34 @@
+diff --git a/drivers/gpu/drm/radeon/si_dpm.c b/drivers/gpu/drm/radeon/si_dpm.c
+index fbf968e3f6d7..8afc4fa73101 100644
+--- a/drivers/gpu/drm/radeon/si_dpm.c
++++ b/drivers/gpu/drm/radeon/si_dpm.c
+@@ -2959,9 +2959,11 @@ static void si_apply_state_adjust_rules(struct radeon_device *rdev,
+ 	if (rdev->family == CHIP_HAINAN) {
+ 		if ((rdev->pdev->revision == 0x81) ||
+ 		    (rdev->pdev->revision == 0xC3) ||
++		    (rdev->pdev->device == 0x6660) ||
+ 		    (rdev->pdev->device == 0x6664) ||
+ 		    (rdev->pdev->device == 0x6665) ||
+-		    (rdev->pdev->device == 0x6667)) {
++		    (rdev->pdev->device == 0x6667) ||
++		    (rdev->pdev->device == 0x666F)) {
+ 			max_sclk = 75000;
+ 		}
+ 		if ((rdev->pdev->revision == 0xC3) ||
+diff --git a/drivers/gpu/drm/amd/pm/legacy-dpm/si_dpm.c b/drivers/gpu/drm/amd/pm/legacy-dpm/si_dpm.c
+index 02e69ccff3ba..b9a60851d799 100644
+--- a/drivers/gpu/drm/amd/pm/legacy-dpm/si_dpm.c
++++ b/drivers/gpu/drm/amd/pm/legacy-dpm/si_dpm.c
+@@ -3435,9 +3435,11 @@ static void si_apply_state_adjust_rules(struct amdgpu_device *adev,
+ 	if (adev->asic_type == CHIP_HAINAN) {
+ 		if ((adev->pdev->revision == 0x81) ||
+ 		    (adev->pdev->revision == 0xC3) ||
++		    (adev->pdev->device == 0x6660) ||
+ 		    (adev->pdev->device == 0x6664) ||
+ 		    (adev->pdev->device == 0x6665) ||
+-		    (adev->pdev->device == 0x6667)) {
++		    (adev->pdev->device == 0x6667) ||
++		    (adev->pdev->device == 0x666F)) {
+ 			max_sclk = 75000;
+ 		}
+ 		if ((adev->pdev->revision == 0xC3) ||
