@@ -48,7 +48,7 @@ URL:        https://www.winehq.org/
 Source0:	https://dl.winehq.org/wine/source/9.x/wine-%{realver}.tar.xz
 Source1:	https://dl.winehq.org/wine/source/9.x/wine-%{realver}.tar.xz.sign
 
-Source100:	https://github.com/wine-staging/wine-staging/archive/v%{stagingver}.tar.gz#/wine-staging-%{stagingver}.tar.xz
+Source100:	https://github.com/wine-staging/wine-staging/archive/v%{realver}.tar.gz#/wine-staging-%{stagingver}.tar.xz
 
 # Alexandres key
 Source99:	wine.keyring
@@ -282,6 +282,11 @@ mkdir -p "%{buildroot}/usr/bin"
 for _file in $(ls "%{buildroot}/%{_bindir}"); do \
     ln -s "%{_bindir}/$_file" "%{buildroot}/usr/bin/$_file"; \
 done
+%ifarch x86_64
+for _file in wine wine-preloader; do \
+    ln -s "%{_prefix}/bin/$_file" "%{buildroot}/usr/bin/$_file"; \
+done
+%endif
 
 # Compat symlinks for desktop file
 mkdir -p "%{buildroot}/usr/share/applications"
