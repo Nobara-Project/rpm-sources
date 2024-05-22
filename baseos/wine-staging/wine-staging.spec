@@ -48,7 +48,7 @@ URL:        https://www.winehq.org/
 Source0:	https://dl.winehq.org/wine/source/9.x/wine-%{realver}.tar.xz
 Source1:	https://dl.winehq.org/wine/source/9.x/wine-%{realver}.tar.xz.sign
 
-Source100:	https://github.com/wine-staging/wine-staging/archive/v%{realver}.tar.gz#/wine-staging-%{stagingver}.tar.xz
+Source100:	https://github.com/wine-staging/wine-staging/archive/v%{stagingver}.tar.gz#/wine-staging-%{stagingver}.tar.xz
 
 # Alexandres key
 Source99:	wine.keyring
