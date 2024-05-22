@@ -1,4 +1,3 @@
-%global _default_patch_fuzz 2
 # How to do version updates:
 # bump one or more of the 3 defines below
 # osc service localrun download_files
@@ -14,6 +13,7 @@
 %define packagever  9.9
 
 %global flavor %nil
+%global build_type_safety_c 0
 
 # defaults ..
 %define pkg 		wine-staging
@@ -30,7 +30,7 @@
 
 Name:       %pkg
 Version:    %ver
-Release:    1.6
+Release:    1.7
 Epoch:      1
 Summary:    WINE Is Not An Emulator - runs MS Windows programs
 License:    LGPLv2+
@@ -48,17 +48,16 @@ URL:        https://www.winehq.org/
 Source0:	https://dl.winehq.org/wine/source/9.x/wine-%{realver}.tar.xz
 Source1:	https://dl.winehq.org/wine/source/9.x/wine-%{realver}.tar.xz.sign
 
-Source100:	https://github.com/wine-staging/wine-staging/archive/refs/tags/v%{stagingver}.tar.gz#/wine-staging-%{stagingver}.tar.xz
+Source100:	https://github.com/wine-staging/wine-staging/archive/v%{realver}.tar.gz#/wine-staging-%{stagingver}.tar.xz
 
 # Alexandres key
 Source99:	wine.keyring
 
-# These are all the Fedora only packages, which are not present on Centos, RHEL or Scientific Linux
 BuildRequires:  mingw32-gcc
 BuildRequires:  mingw64-gcc
-
-BuildRequires:  gcc
 BuildRequires:  SDL2-devel
+BuildRequires:  gcc
+BuildRequires:  make
 # BuildRequires:  openal-soft-devel
 BuildRequires:  opencl-headers
 BuildRequires:  ocl-icd-devel
@@ -69,11 +68,7 @@ BuildRequires:  pcsc-lite-devel
 # BuildRequires:  jxrlib-devel
 BuildRequires:  samba-devel
 BuildRequires:  libnetapi-devel
-
 BuildRequires: libgcrypt-devel
-BuildRequires:  libvkd3d-devel
-
-# Fedora and SL 7.0 packages
 BuildRequires:  icoutils
 BuildRequires:  vulkan-devel
 # BuildRequires:  lcms2-devel
@@ -82,7 +77,6 @@ BuildRequires:  gstreamer1-plugins-base-devel
 # BuildRequires:  libmpg123-devel
 BuildRequires:  gtk3-devel
 BuildRequires:  libva-devel
-
 BuildRequires:  fontforge
 BuildRequires:  fontpackages-devel
 # BuildRequires:  gsm-devel
@@ -101,7 +95,6 @@ BuildRequires:  libgphoto2-devel
 BuildRequires:  libusb1-devel
 BuildRequires:  alsa-lib-devel
 BuildRequires:  autoconf
-BuildRequires:  make
 BuildRequires:  bison
 BuildRequires:  coreutils
 BuildRequires:  cups-devel
@@ -129,6 +122,7 @@ BuildRequires:  libXcursor-devel
 BuildRequires:  libXext-devel
 BuildRequires:  libXi-devel
 BuildRequires:  libXinerama-devel
+BuildRequires:  libxkbcommon-devel
 # BuildRequires:  libxml2-devel
 BuildRequires:  libXmu-devel
 BuildRequires:  libXrandr-devel
@@ -144,11 +138,11 @@ BuildRequires:  unixODBC-devel
 BuildRequires:  unzip
 BuildRequires:  util-linux
 # BuildRequires:  zlib-devel
-BuildRequires:  patch
 
 %ifarch x86_64
 %package -n %{wine}
 %endif
+
 Summary:    WINE Is Not An Emulator - runs MS Windows programs
 Group:      Emulators
 %ifarch x86_64
@@ -259,7 +253,7 @@ the default Wine version.
 
 # apply wine staging patch set on top of the wine release.
 tar xf %{SOURCE100}
-./wine-staging-%{stagingver}/staging/patchinstall.py --all
+./wine-staging-%{stagingver}/staging/patchinstall.py --all -W Compiler_Warnings -W shell32-IconCache
 
 %build
 %define debug_package %{nil}
@@ -288,11 +282,6 @@ mkdir -p "%{buildroot}/usr/bin"
 for _file in $(ls "%{buildroot}/%{_bindir}"); do \
     ln -s "%{_bindir}/$_file" "%{buildroot}/usr/bin/$_file"; \
 done
-%ifarch x86_64
-for _file in wine wine-preloader; do \
-    ln -s "%{_prefix}/bin/$_file" "%{buildroot}/usr/bin/$_file"; \
-done
-%endif
 
 # Compat symlinks for desktop file
 mkdir -p "%{buildroot}/usr/share/applications"
