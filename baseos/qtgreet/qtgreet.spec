@@ -1,8 +1,8 @@
-%global commit  274e439dc1f2fcf39186f867a7a863269e236244
+%global commit  dac13c7b18b9b6d6eff13b63edced5947fc27b77
 
 Name:           qtgreet
-Version:        2.0.1
-Release:        2%{?dist}
+Version:        2.0.2
+Release:        1%{?dist}
 Summary:        Qt based greeter for greetd
 
 License:        GPL-3.0-or-later

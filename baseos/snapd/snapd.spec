@@ -2,7 +2,11 @@
 
 # With Fedora, nothing is bundled. For everything else, bundling is used.
 # To use bundled stuff, use "--with vendorized" on rpmbuild
+%if 0%{?fedora}
+%bcond_with vendorized
+%else
 %bcond_without vendorized
+%endif
 
 # A switch to allow building the package with support for testkeys which
 # are used for the spread test suite of snapd.
@@ -53,6 +57,26 @@
 %global snappy_svcs      snapd.service snapd.socket snapd.autoimport.service snapd.seeded.service snapd.mounts.target snapd.mounts-pre.target
 %global snappy_user_svcs snapd.session-agent.service snapd.session-agent.socket
 
+# Until we have a way to add more extldflags to gobuild macro...
+# Always use external linking when building static binaries.
+%if 0%{?fedora} || 0%{?rhel} >= 8
+%define gobuild_static(o:) go build -buildmode pie -compiler gc -tags="rpm_crashtraceback ${BUILDTAGS:-}" -ldflags "-B 0x$(head -c20 /dev/urandom|od -An -tx1|tr -d ' \\n') -linkmode external -extldflags '%__global_ldflags -static'" -a -v -x %{?**};
+%endif
+%if 0%{?rhel} == 7
+# no pass PIE flags due to https://bugzilla.redhat.com/show_bug.cgi?id=1634486
+%define gobuild_static(o:) go build -compiler gc -tags="rpm_crashtraceback ${BUILDTAGS:-}" -ldflags "-B 0x$(head -c20 /dev/urandom|od -An -tx1|tr -d ' \\n') -linkmode external -extldflags '%__global_ldflags -static'" -a -v -x %{?**};
+%endif
+
+# These macros are missing BUILDTAGS in RHEL 8/9, see RHBZ#1825138
+%if 0%{?rhel} >= 8
+%define gobuild(o:) go build -buildmode pie -compiler gc -tags="rpm_crashtraceback ${BUILDTAGS:-}" -ldflags "-B 0x$(head -c20 /dev/urandom|od -An -tx1|tr -d ' \\n') -linkmode external -extldflags '%__global_ldflags'" -a -v -x %{?**};
+%endif
+
+# These macros are not defined in RHEL 7
+%if 0%{?rhel} == 7
+%define gobuild(o:) go build -compiler gc -tags="rpm_crashtraceback ${BUILDTAGS:-}" -ldflags "-B 0x$(head -c20 /dev/urandom|od -An -tx1|tr -d ' \\n') -linkmode external -extldflags '%__global_ldflags'" -a -v -x %{?**};
+%define gotest() go test -compiler gc %{?**};
+%endif
 
 # Compat path macros
 %{!?_environmentdir: %global _environmentdir %{_prefix}/lib/environment.d}
@@ -61,8 +85,8 @@
 %{!?_tmpfilesdir: %global _tmpfilesdir %{_prefix}/lib/tmpfiles.d}
 
 Name:           snapd
-Version:        2.58.3
-Release:        2%{?dist}
+Version:        2.62
+Release:        0%{?dist}
 Summary:        A transactional software package manager
 License:        GPLv3
 URL:            https://%{provider_prefix}
@@ -104,6 +128,11 @@ Requires:       fuse
 %else
 # snapd will use squashfuse in the event that squashfs.ko isn't available (cloud instances, containers, etc.)
 Requires:       ((squashfuse and fuse) or kmod(squashfs.ko))
+%endif
+
+# Require xdelta for delta updates of snap packages.
+%if 0%{?fedora} || ( 0%{?rhel} && 0%{?rhel} > 8 )
+Requires:       xdelta
 %endif
 
 # bash-completion owns /usr/share/bash-completion/completions
@@ -156,7 +185,9 @@ designed for working with self-contained, immutable packages.
 Summary:        Confinement system for snap applications
 License:        GPLv3
 BuildRequires:  autoconf
+BuildRequires:  autoconf-archive
 BuildRequires:  automake
+BuildRequires:  make
 BuildRequires:  libtool
 BuildRequires:  gcc
 BuildRequires:  gettext
@@ -313,7 +344,6 @@ Provides:      golang(%{import_path}/desktop/notification) = %{version}-%{releas
 Provides:      golang(%{import_path}/desktop/notification/notificationtest) = %{version}-%{release}
 Provides:      golang(%{import_path}/dirs) = %{version}-%{release}
 Provides:      golang(%{import_path}/docs) = %{version}-%{release}
-Provides:      golang(%{import_path}/errtracker) = %{version}-%{release}
 Provides:      golang(%{import_path}/features) = %{version}-%{release}
 Provides:      golang(%{import_path}/gadget) = %{version}-%{release}
 Provides:      golang(%{import_path}/gadget/edition) = %{version}-%{release}
@@ -460,6 +490,8 @@ providing packages with %{import_path} prefix.
 %prep
 %if ! 0%{?with_bundled}
 %setup -q
+# Ensure there's no bundled stuff accidentally leaking in...
+rm -rf vendor/*
 %else
 # Extract each tarball properly
 %setup -q -D -b 1
@@ -477,7 +509,7 @@ mkdir -p src/github.com/snapcore
 ln -s ../../../ src/github.com/snapcore/snapd
 
 export GOPATH=$(pwd):%{gopath}
-# remove the mod file, we are building without go modules support
+# FIXME: move spec file really to a go.mod world instead of this hack
 rm -f go.mod
 export GO111MODULE=off
 
@@ -494,7 +526,7 @@ BUILDTAGS="nosecboot"
 
 %if ! 0%{?with_bundled}
 # We don't need the snapcore fork for bolt - it is just a fix on ppc
-sed -e "s:github.com/snapcore/bolt:github.com/boltdb/bolt:g" -i advisor/*.go errtracker/*.go
+sed -e "s:github.com/snapcore/bolt:github.com/boltdb/bolt:g" -i advisor/*.go
 %endif
 
 # We have to build snapd first to prevent the build from
@@ -583,6 +615,7 @@ install -d -p %{buildroot}%{_sysconfdir}/profile.d
 install -d -p %{buildroot}%{_sysconfdir}/sysconfig
 install -d -p %{buildroot}%{_sharedstatedir}/snapd/assertions
 install -d -p %{buildroot}%{_sharedstatedir}/snapd/cookie
+install -d -p %{buildroot}%{_sharedstatedir}/snapd/cgroup
 install -d -p %{buildroot}%{_sharedstatedir}/snapd/dbus-1/services
 install -d -p %{buildroot}%{_sharedstatedir}/snapd/dbus-1/system-services
 install -d -p %{buildroot}%{_sharedstatedir}/snapd/desktop/applications
@@ -679,11 +712,6 @@ rm %{buildroot}%{_libexecdir}/snapd/system-shutdown
 rm -f %{buildroot}%{_unitdir}/snapd.apparmor.service
 rm -f %{buildroot}%{_libexecdir}/snapd/snapd-apparmor
 
-# Remove prompt services
-rm %{buildroot}%{_unitdir}/snapd.aa-prompt-listener.service
-rm %{buildroot}%{_userunitdir}/snapd.aa-prompt-ui.service
-rm %{buildroot}%{_datadir}/dbus-1/services/io.snapcraft.Prompt.service
-
 # Install Polkit configuration
 install -m 644 -D data/polkit/io.snapcraft.snapd.policy %{buildroot}%{_datadir}/polkit-1/actions
 
@@ -740,6 +768,7 @@ export GOPATH=%{buildroot}/%{gopath}:%{gopath}
 %else
 export GOPATH=%{buildroot}/%{gopath}:$(pwd)/Godeps/_workspace:%{gopath}
 %endif
+# FIXME: we are in the go.mod world now but without this things fall apart
 export GO111MODULE=off
 %gotest %{import_path}/...
 %endif
@@ -939,8 +968,318 @@ fi
 
 
 %changelog
+* Thu Mar 21 2024 Ernest Lotter <ernest.lotter@canonical.com>
+- New upstream release 2.62
+ - Aspects based configuration schema support (experimental)
+ - Refresh app awareness support for UI (experimental)
+ - Support for user daemons by introducing new control switches
+   --user/--system/--users for service start/stop/restart
+   (experimental)
+ - Add AppArmor prompting experimental flag (feature currently
+   unsupported)
+ - Installation of local snap components of type test
+ - Packaging of components with snap pack
+ - Expose experimental features supported/enabled in snapd REST API
+   endpoint /v2/system-info
+ - Support creating and removing recovery systems for use by factory
+   reset
+ - Enable API route for creating and removing recovery systems using
+   /v2/systems with action create and /v2/systems/{label} with action
+   remove
+ - Lift requirements for fde-setup hook for single boot install
+ - Enable single reboot gadget update for UC20+
+ - Allow core to be removed on classic systems
+ - Support for remodeling on hybrid systems
+ - Install desktop files on Ubuntu Core and update after snapd
+   upgrade
+ - Upgrade sandbox features to account for cgroup v2 device filtering
+ - Support snaps to manage their own cgroups
+ - Add support for AppArmor 4.0 unconfined profile mode
+ - Add AppArmor based read access to /etc/default/keyboard
+ - Upgrade to squashfuse 0.5.0
+ - Support useradd utility to enable removing Perl dependency for
+   UC24+
+ - Support for recovery-chooser to use console-conf snap
+ - Add support for --uid/--gid using strace-static
+ - Add support for notices (from pebble) and expose via the snapd
+   REST API endpoints /v2/notices and /v2/notice
+ - Add polkit authentication for snapd REST API endpoints
+   /v2/snaps/{snap}/conf and /v2/apps
+ - Add refresh-inhibit field to snapd REST API endpoint /v2/snaps
+ - Add refresh-inhibited select query to REST API endpoint /v2/snaps
+ - Take into account validation sets during remodeling
+ - Improve offline remodeling to use installed revisions of snaps to
+   fulfill the remodel revision requirement
+ - Add rpi configuration option sdtv_mode
+ - When snapd snap is not installed, pin policy ABI to 4.0 or 3.0 if
+   present on host
+ - Fix gadget zero-sized disk mapping caused by not ignoring zero
+   sized storage traits
+ - Fix gadget install case where size of existing partition was not
+   correctly taken into account
+ - Fix trying to unmount early kernel mount if it does not exist
+ - Fix restarting mount units on snapd start
+ - Fix call to udev in preseed mode
+ - Fix to ensure always setting up the device cgroup for base bare
+   and core24+
+ - Fix not copying data from newly set homedirs on revision change
+ - Fix leaving behind empty snap home directories after snap is
+   removed (resulting in broken symlink)
+ - Fix to avoid using libzstd from host by adding to snapd snap
+ - Fix autorefresh to correctly handle forever refresh hold
+ - Fix username regex allowed for system-user assertion to not allow
+   '+'
+ - Fix incorrect application icon for notification after autorefresh
+   completion
+ - Fix to restart mount units when changed
+ - Fix to support AppArmor running under incus
+ - Fix case of snap-update-ns dropping synthetic mounts due to
+   failure to match  desired mount dependencies
+ - Fix parsing of base snap version to enable pre-seeding of Ubuntu
+   Core Desktop
+ - Fix packaging and tests for various distributions
+ - Add remoteproc interface to allow developers to interact with
+   Remote Processor Framework which enables snaps to load firmware to
+   ARM Cortex microcontrollers
+ - Add kernel-control interface to enable controlling the kernel
+   firmware search path
+ - Add nfs-mount interface to allow mounting of NFS shares
+ - Add ros-opt-data interface to allow snaps to access the host
+   /opt/ros/ paths
+ - Add snap-refresh-observe interface that provides refresh-app-
+   awareness clients access to relevant snapd API endpoints
+ - steam-support interface: generalize Pressure Vessel root paths and
+   allow access to driver information, features and container
+   versions
+ - steam-support interface: make implicit on Ubuntu Core Desktop
+ - desktop interface: improved support for Ubuntu Core Desktop and
+   limit autoconnection to implicit slots
+ - cups-control interface: make autoconnect depend on presence of
+   cupsd on host to ensure it works on classic systems
+ - opengl interface: allow read access to /usr/share/nvidia
+ - personal-files interface: extend to support automatic creation of
+   missing parent directories in write paths
+ - network-control interface: allow creating /run/resolveconf
+ - network-setup-control and network-setup-observe interfaces: allow
+   busctl bind as required for systemd 254+
+ - libvirt interface: allow r/w access to /run/libvirt/libvirt-sock-
+   ro and read access to /var/lib/libvirt/dnsmasq/**
+ - fwupd interface: allow access to IMPI devices (including locking
+   of device nodes), sysfs attributes needed by amdgpu and the COD
+   capsule update directory
+ - uio interface: allow configuring UIO drivers from userspace
+   libraries
+ - serial-port interface: add support for NXP Layerscape SoC
+ - lxd-support interface: add attribute enable-unconfined-mode to
+   require LXD to opt-in to run unconfined
+ - block-devices interface: add support for ZFS volumes
+ - system-packages-doc interface: add support for reading jquery and
+   sphinx documentation
+ - system-packages-doc interface: workaround to prevent autoconnect
+   failure for snaps using base bare
+ - microceph-support interface: allow more types of block devices to
+   be added as an OSD
+ - mount-observe interface: allow read access to
+   /proc/{pid}/task/{tid}/mounts and proc/{pid}/task/{tid}/mountinfo
+ - polkit interface: changed to not be implicit on core because
+   installing policy files is not possible
+ - upower-observe interface: allow stats refresh
+ - gpg-public-keys interface: allow creating lock file for certain
+   gpg operations
+ - shutdown interface: allow access to SetRebootParameter method
+ - media-control interface: allow device file locking
+ - u2f-devices interface: support for Trustkey G310H, JaCarta U2F,
+   Kensington VeriMark Guard, RSA DS100, Google Titan v2
+
+* Wed Mar 06 2024 Ernest Lotter <ernest.lotter@canonical.com>
+- New upstream release 2.61.3
+ - Install systemd files in correct location for 24.04
+
+* Fri Feb 16 2024 Ernest Lotter <ernest.lotter@canonical.com>
+- New upstream release 2.61.2
+ - Fix to enable plug/slot sanitization for prepare-image
+ - Fix panic when device-service.access=offline
+ - Support offline remodeling
+ - Allow offline update only remodels without serial
+ - Fail early when remodeling to old model revision
+ - Fix to enable plug/slot sanitization for validate-seed
+ - Allow removal of core snap on classic systems
+ - Fix network-control interface denial for file lock on /run/netns
+ - Add well-known core24 snap-id
+ - Fix remodel snap installation order
+ - Prevent remodeling from UC18+ to UC16
+ - Fix cups auto-connect on classic with cups snap installed
+ - u2f-devices interface support for GoTrust Idem Key with USB-C
+ - Fix to restore services after unlink failure
+ - Add libcudnn.so to Nvidia libraries
+ - Fix skipping base snap download due to false snapd downgrade
+   conflict
+
+* Sun Feb 11 2024 Maxwell G <maxwell@gtmx.me> - 2.61.1-2
+- Rebuild for golang 1.22.0
+
+* Sat Jan 27 2024 Fedora Release Engineering <releng@fedoraproject.org> - 2.61.1-1
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Thu Jan 18 2024 Zygmunt Krynicki <me@zygoon.pl> - 2.61.1-1
+- Changelog resynchronization
+
+* Wed Jan 17 2024 Zygmunt Krynicki <me@zygoon.pl> - 2.58.3-3
+- Require xdelta on Fedora or EPEL >= 9 (for delta updates)
+
+* Fri Nov 24 2023 Ernest Lotter <ernest.lotter@canonical.com>
+- New upstream release 2.61.1
+ - Stop requiring default provider snaps on image building and first
+   boot if alternative providers are included and available
+ - Fix auth.json access for login as non-root group ID
+ - Fix incorrect remodelling conflict when changing track to older
+   snapd version
+ - Improved check-rerefresh message
+ - Fix UC16/18 kernel/gadget update failure due volume mismatch with
+   installed disk
+ - Stop auto-import of assertions during install modes
+ - Desktop interface exposes GetIdletime
+ - Polkit interface support for new polkit versions
+ - Fix not applying snapd snap changes in tracked channel when remodelling
+
+* Fri Oct 13 2023 Philip Meulengracht <philip.meulengracht@canonical.com>
+- New upstream release 2.61
+ - Fix control of activated services in 'snap start' and 'snap stop'
+ - Correctly reflect activated services in 'snap services'
+ - Disabled services are no longer enabled again when snap is
+   refreshed
+ - interfaces/builtin: added support for Token2 U2F keys
+ - interfaces/u2f-devices: add Swissbit iShield Key
+ - interfaces/builtin: update gpio apparmor to match pattern that
+   contains multiple subdirectories under /sys/devices/platform
+ - interfaces: add a polkit-agent interface
+ - interfaces: add pcscd interface
+ - Kernel command-line can now be edited in the gadget.yaml
+ - Only track validation-sets in run-mode, fixes validation-set
+   issues on first boot.
+ - Added support for using store.access to disable access to snap
+   store
+ - Support for fat16 partition in gadget
+ - Pre-seed authority delegation is now possible
+ - Support new system-user name  daemon
+ - Several bug fixes and improvements around remodelling
+ - Offline remodelling support
+
+* Fri Sep 15 2023 Michael Vogt <michael.vogt@ubuntu.com>
+- New upstream release 2.60.4
+ - i/b/qualcomm_ipc_router.go: switch to plug/slot and add socket
+   permission
+ - interfaces/builtin: fix custom-device udev KERNEL values
+ - overlord: allow the firmware-updater snap to install user daemons
+ - interfaces: allow loopback as a block-device
+
+* Fri Aug 25 2023 Michael Vogt <michael.vogt@ubuntu.com>
+- New upstream release 2.60.3
+ - i/b/shared-memory: handle "private" plug attribute in shared-
+   memory interface correctly
+ - i/apparmor: support for home.d tunables from /etc/
+
+* Fri Aug 04 2023 Michael Vogt <michael.vogt@ubuntu.com>
+- New upstream release 2.60.2
+ - i/builtin: allow directories in private /dev/shm
+ - i/builtin: add read access to /proc/task/schedstat in system-
+   observe
+ - snap-bootstrap: print version information at startup
+ - go.mod: update gopkg.in/yaml.v3 to v3.0.1 to fix CVE-2022-28948
+ - snap, store: filter out invalid snap edited links from store info
+   and persisted state
+ - o/configcore: write netplan defaults to 00-snapd-config on seeding
+ - snapcraft.yaml: pull in apparmor_parser optimization patches from
+   https://gitlab.com/apparmor/apparmor/-/merge_requests/711
+ - snap-confine: fix missing \0 after readlink
+ - cmd/snap: hide append-integrity-data
+ - interfaces/opengl: add support for ARM Mali
+
 * Sat Jul 22 2023 Fedora Release Engineering <releng@fedoraproject.org> - 2.58.3-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_39_Mass_Rebuild
+
+* Tue Jul 04 2023 Michael Vogt <michael.vogt@ubuntu.com>
+- New upstream release 2.60.1
+ - install: fallback to lazy unmount() in writeFilesystemContent
+ - data: include "modprobe.d" and "modules-load.d" in preseeded blob
+ - gadget: fix install test on armhf
+ - interfaces: fix typo in network_manager_observe
+ - sandbox/apparmor: don't let vendored apparmor conflict with system
+ - gadget/update: set parts in laid out data from the ones matched
+ - many: move SnapConfineAppArmorDir from dirs to sandbox/apparmor
+ - many: stop using `-O no-expr-simplify` in apparmor_parser
+ - go.mod: update secboot to latest uc22 branch
+
+* Thu Jun 15 2023 Michael Vogt <michael.vogt@ubuntu.com>
+- New upstream release 2.60
+ - Support for dynamic snapshot data exclusions
+ - Apparmor userspace is vendored inside the snapd snap
+ - Added a default-configure hook that exposes gadget default
+   configuration options to snaps during first install before
+   services are started
+ - Allow install from initrd to speed up the initial installation
+   for systems that do not have a install-device hook
+ - New `snap sign --chain` flag that appends the account and
+   account-key assertions
+ - Support validation-sets in the model assertion
+ - Support new "min-size" field in gadget.yaml
+ - New interface: "userns"
+
+* Sat May 27 2023 Michael Vogt <michael.vogt@ubuntu.com>
+- New upstream release 2.59.5
+ - Explicitly disallow the use of ioctl + TIOCLINUX
+   This fixes CVE-2023-1523.
+
+* Fri May 12 2023 Michael Vogt <michael.vogt@ubuntu.com>
+- New upstream release 2.59.4
+ - Retry when looking for disk label on non-UEFI systems
+   (LP: #2018977)
+ - Fix remodel from UC20 to UC22
+
+* Wed May 03 2023 Michael Vogt <michael.vogt@ubuntu.com>
+- New upstream release 2.59.3
+ - Fix quiet boot
+ - i/b/physical_memory_observe: allow reading virt-phys page mappings
+ - gadget: warn instead of returning error if overlapping with GPT
+   header
+ - overlord,wrappers: restart always enabled units
+ - go.mod: update github.com/snapcore/secboot to latest uc22
+ - boot: make sure we update assets for the system-seed-null role
+ - many: ignore case for vfat partitions when validating
+
+* Tue Apr 18 2023 Michael Vogt <michael.vogt@ubuntu.com>
+- New upstream release 2.59.2
+ - Notify users when a user triggered auto refresh finished
+
+* Tue Mar 28 2023 Michael Vogt <michael.vogt@ubuntu.com>
+- New upstream release 2.59.1
+ - Add udev rules from steam-devices to steam-support interface
+ - Bugfixes for layout path checking, dm_crypt permissions,
+   mount-control interface parameter checking, kernel commandline
+   parsing, docker-support, refresh-app-awareness
+
+* Fri Mar 10 2023 Michael Vogt <michael.vogt@ubuntu.com>
+- New upstream release 2.59
+ - Support setting extra kernel command line parameters via snap
+   configuration and under a gadget allow-list
+ - Support for Full-Disk-Encryption using ICE
+ - Support for arbitrary home dir locations via snap configuration
+ - New nvidia-drivers-support interface
+ - Support for udisks2 snap
+ - Pre-download of snaps ready for refresh and automatic refresh of
+   the snap when all apps are closed
+ - New microovn interface
+ - Support uboot with `CONFIG_SYS_REDUNDAND_ENV=n`
+ - Make "snap-preseed --reset" re-exec when needed
+ - Update the fwupd interface to support fully confined fwupd
+ - The memory,cpu,thread quota options are no longer experimental
+ - Support debugging snap client requests via the
+   `SNAPD_CLIENT_DEBUG_HTTP` environment variable
+ - Support ssh listen-address via snap configuration
+ - Support for quotas on single services
+ - prepare-image now takes into account snapd versions going into
+   the image, including in the kernel initrd, to fetch supported
+   assertion formats
 
 * Sat Feb 25 2023 Maciek Borzecki <maciek.borzecki@gmail.com> - 2.58.3-1
 - Releate 2.58.3 to Fedora RHBZ#2173056
@@ -2497,13 +2836,18 @@ fi
 
 * Tue Feb 15 2022 Michael Vogt <michael.vogt@ubuntu.com>
 - New upstream release 2.54.3
- - bugfixes
-
-* Tue Jan 25 2022 Maciek Borzecki <maciek.borzecki@gmail.com> - 2.54.2-1
-- Release 2.54.2 to Fedora
-
-* Sat Jan 22 2022 Fedora Release Engineering <releng@fedoraproject.org> - 2.54.1-2
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_36_Mass_Rebuild
+ - SECURITY UPDATE: Local privilege escalation
+  - snap-confine: Add validations of the location of the snap-confine
+    binary within snapd.
+  - snap-confine: Fix race condition in snap-confine when preparing a
+    private mount namespace for a snap.
+  - CVE-2021-44730
+  - CVE-2021-44731
+ - SECURITY UPDATE: Data injection from malicious snaps
+  - interfaces: Add validations of snap content interface and layout
+    paths in snapd.
+  - CVE-2021-4120
+  - LP: #1949368
 
 * Thu Jan 06 2022 Ian Johnson <ian.johnson@canonical.com>
 - New upstream release 2.54.2
@@ -5931,7 +6275,7 @@ fi
 - New upstream release 2.45.1
  - data/selinux: allow checking /var/cache/app-info
  - cmd/snap-confine: add support for libc6-lse
- - interfaces: miscellanious policy updates xlv
+ - interfaces: miscellaneous policy updates xlv
  - snap-bootstrap: remove sealed key file on reinstall
  - interfaces-ssh-keys: Support reading /etc/ssh/ssh_config.d/
  - gadget: make ext4 filesystems with or without metadata checksum

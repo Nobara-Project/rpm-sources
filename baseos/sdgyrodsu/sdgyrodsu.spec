@@ -1,12 +1,12 @@
+%global gitcommit 243c44a1fe4898fbc6a092529f16b8b7d0dc21af
 Name:           sdgyrodsu
-Version:        0.0.git.220.66115fc8
+Version:        0.0.git.221.243c44a1
 Release:        1%{?dist}
 Summary:        DSU server for motion data running on Steam Deck. 
 License:        MIT
 URL:            https://github.com/KyleGospo/SteamDeckGyroDSU
 
-VCS:            git+https://github.com/KyleGospo/SteamDeckGyroDSU.git#66115fc8a23a14c7484bc79d98c1dd06ac711ffe:
-Source:         SteamDeckGyroDSU-66115fc8.tar.gz
+Source:         %{url}/archive/%{gitcommit}.tar.gz
 Patch0:         fedora.patch
 
 BuildRequires:  systemd-rpm-macros
@@ -20,7 +20,7 @@ BuildRequires:  ncurses-devel
 DSU (cemuhook protocol) server for motion data for Steam Deck.
 
 %prep
-%setup -T -b 0 -q -n SteamDeckGyroDSU
+%setup -T -b 0 -q -n SteamDeckGyroDSU-%{gitcommit}
 %patch 0
 
 %build
