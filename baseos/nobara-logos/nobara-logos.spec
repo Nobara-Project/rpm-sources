@@ -1,7 +1,7 @@
 Name:		nobara-logos
 Summary:	Nobara-related icons and pictures
-Version:	39.0.0
-Release:	2%{?dist}
+Version:	40.0.0
+Release:	1%{?dist}
 URL:            https://github.com/nobara-project/nobara-core-packages
 Source0:        %{URL}/releases/download/1.0/nobara-logos.tar.gz
 License:	Licensed only for approved usage, see COPYING for details.
@@ -16,7 +16,7 @@ BuildRequires:	hardlink
 
 %if ! 0%{?eln}
 # For _kde4_* macros:
-BuildRequires:	kde-filesystem
+BuildRequires:	kde4-macros(api)
 %endif
 
 %description
@@ -395,6 +395,34 @@ hardlink -vv %{buildroot}/usr
 
 
 %changelog
+* Mon Jan 29 2024 Tom Callaway <spot@fedoraproject.org> - 38.1.0-5
+- fix BR to reflect new macro provides for kde4 macros
+
+* Wed Jan 24 2024 Fedora Release Engineering <releng@fedoraproject.org> - 38.1.0-4
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Fri Jan 19 2024 Fedora Release Engineering <releng@fedoraproject.org> - 38.1.0-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Wed Jul 19 2023 Fedora Release Engineering <releng@fedoraproject.org> - 38.1.0-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_39_Mass_Rebuild
+
+* Mon Feb 20 2023 Neal Gompa <ngompa@fedoraproject.org> - 38.1.0-1
+- Update to 38.1.0
+
+* Thu Jan 19 2023 Fedora Release Engineering <releng@fedoraproject.org> - 38.0.0-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_38_Mass_Rebuild
+
+* Thu Oct 27 2022 Davide Cavalca <dcavalca@fedoraproject.org> - 38.0.0-2
+- Install bootloader logos for m1n1
+
+* Wed Sep 21 2022 Tom Callaway <spot@fedoraproject.org> - 38.0.0-1
+- update to 38.0.0, contains darkbackground image properly in tarball
+- source tarball comes from properly git tagged release
+
+* Thu Jul 21 2022 Fedora Release Engineering <releng@fedoraproject.org> - 36.0.0-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_37_Mass_Rebuild
+
 * Mon Apr 04 2022 Nils Philippsen <nils@redhat.com> - 36.0.0-2
 - Add logo for dark backgrounds
 
@@ -672,7 +700,7 @@ hardlink -vv %{buildroot}/usr
 * Wed Oct 13 2010 Tom "spot" Callaway <tcallawa@redhat.com> - 14.0.0-3
 - add missing Requires for splashtolss.sh (bz 635289)
 
-* Tue Sep 28 2010 Rex Dieter <rdieter@fedoraproject.org> - 14.0.0-2 
+* Tue Sep 28 2010 Rex Dieter <rdieter@fedoraproject.org> - 14.0.0-2
 - s/Fedora-KDE/oxygen/ icons (#615621)
 - use hardlink to save a little space
 
@@ -683,7 +711,7 @@ hardlink -vv %{buildroot}/usr
 - And fix another %%postun scriptlet error
 
 * Sat Jul 17 2010 Rex Dieter <rdieter@fedoraproject.org> - 13.0.3-2
-- fix %%postun scriptlet error 
+- fix %%postun scriptlet error
 
 * Fri Jul 16 2010 Tom "spot" Callaway <tcallawa@redhat.com> 13.0.3-1
 - Anaconda changed where it puts and looks for items, so we need to place
@@ -922,7 +950,7 @@ hardlink -vv %{buildroot}/usr
 - Add dual screen backgrounds
 
 * Thu Mar 15 2007 Ray Strode <rstrode@redhat.com> - 6.0.95-1
-- Drop weird gnome-logo-icon-transparent.png symlink that 
+- Drop weird gnome-logo-icon-transparent.png symlink that
   makes fedora show up where gnome logo is supposed to
 
 * Thu Mar 15 2007 Matthias Clasen <mclasen@redhat.com> - 6.0.94-1
@@ -939,7 +967,7 @@ hardlink -vv %{buildroot}/usr
 - resave the syslinux splash so that it works (lalalala....)
 
 * Thu Feb 22 2007 Matthias Clasen <mclasen@redhat.com> - 6.0.92-3
-- Improve the branded lock dialog 
+- Improve the branded lock dialog
 
 * Wed Feb 21 2007 Matthias Clasen <mclasen@redhat.com> - 6.0.92-2
 - Some more new images
@@ -952,7 +980,7 @@ hardlink -vv %{buildroot}/usr
 - Slight update to one rhgb image
 
 * Sun Feb 18 2007 Matthias Clasen <mclasen@redhat.com> - 6.0.91-2
-- Add new gnome splash 
+- Add new gnome splash
 - New firstboot images
 - Add some new anaconda images
 - Add new grub image
@@ -978,7 +1006,7 @@ hardlink -vv %{buildroot}/usr
 * Fri Sep 22 2006 Ray Strode <rstrode@redhat.com> - 6.0.0-1
 - drop unused n-small image in FedoraDNA gdm theme
 - rename fedora.png to logo.png in FedoraDNA gdm theme
-- crop fedora.png to not have uneven padding in FedoraDNA 
+- crop fedora.png to not have uneven padding in FedoraDNA
   gdm theme
 
 * Fri Sep 22 2006 Bill Nottingham <notting@redhat.com>
@@ -997,7 +1025,7 @@ hardlink -vv %{buildroot}/usr
 - Fix the colors in the grub splash
 
 * Thu Sep  7 2006 Matthias Clasen <mclasen@redhat.com> - 1.1.51-1
-- Add new gdm theme 
+- Add new gdm theme
 
 * Wed Sep 06 2006 John (J5) Palmieri <johnp@redhat.com> - 1.1.50-1
 - cvs add the new backgrounds this time
@@ -1013,8 +1041,8 @@ hardlink -vv %{buildroot}/usr
 - Add links for new icon name used in the gnome-panel menubar
 
 * Fri Jul 28 2006 John (J5) Palmieri <johnp@redhat.com> - 1.1.47-1
-- Add a 4:3 aspect ratio background 
-- Fix extention to be .jpg on backgrounds 
+- Add a 4:3 aspect ratio background
+- Fix extention to be .jpg on backgrounds
 
 * Thu Jul 27 2006 John (J5) Palmieri <johnp@redhat.com> - 1.1.46-1
 - Add new default backgrounds
@@ -1095,7 +1123,7 @@ hardlink -vv %{buildroot}/usr
 - newer grub image for fc2
 
 * Tue Mar 23 2004 Alexander Larsson <alexl@redhat.com> 1.1.23-1
-- Use correct gdm logo 
+- Use correct gdm logo
 
 * Tue Mar 23 2004 Alexander Larsson <alexl@redhat.com> 1.1.22-1
 - fix up gdm logo and add screenshot

@@ -1,13 +1,4 @@
 ## START: Set by rpmautospec
-## (rpmautospec version 0.3.0)
-%define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
-    release_number = 1;
-    base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
-    print(release_number + base_release_number - 1);
-}%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
-## END: Set by rpmautospec
-
-## START: Set by rpmautospec
 ## (rpmautospec version 0.2.5)
 %define autorelease(e:s:pb:) %{?-p:0.}%{lua:
     release_number = 1;
@@ -17,7 +8,7 @@
 ## END: Set by rpmautospec
 
 Name:           nobara-bookmarks
-Version:        37
+Version:        40
 Release:        %autorelease
 Summary:        Nobara bookmarks
 License:        GFDL

@@ -1,0 +1,611 @@
+From a772c709aaba8812c9c972b7db1f437a3839b849 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Corentin=20No=C3=ABl?= <corentin.noel@collabora.com>
+Date: Mon, 23 Oct 2023 23:59:19 +0200
+Subject: [PATCH] wayland/surface: Make MetaWaylandSurface public
+
+Only expose the method to get the associated MetaWindow.
+
+Part-of: <https://gitlab.gnome.org/GNOME/mutter/-/merge_requests/3340>
+---
+ HACKING.md                                    |  2 +-
+ src/compositor/meta-compositor-view-native.c  |  2 +-
+ src/compositor/meta-window-actor-wayland.c    |  2 +-
+ src/compositor/meta-window-actor.c            |  2 +-
+ src/core/window.c                             |  2 +-
+ src/meson.build                               |  2 +-
+ src/meta/meson.build                          |  1 +
+ src/meta/meta-wayland-surface.h               | 35 +++++++++++++++++++
+ src/tests/meta-wayland-test-driver.c          |  2 +-
+ src/tests/service-channel-tests.c             |  2 +-
+ src/tests/wayland-fractional-scale-test.c     |  2 +-
+ src/tests/wayland-fullscreen-test.c           |  2 +-
+ src/tests/wayland-unit-tests.c                |  2 +-
+ src/wayland/meta-cursor-sprite-wayland.h      |  2 +-
+ .../meta-pointer-confinement-wayland.c        |  2 +-
+ src/wayland/meta-wayland-actor-surface.c      |  2 +-
+ src/wayland/meta-wayland-actor-surface.h      |  2 +-
+ src/wayland/meta-wayland-cursor-surface.h     |  2 +-
+ src/wayland/meta-wayland-fractional-scale.c   |  2 +-
+ src/wayland/meta-wayland-gtk-shell.c          |  2 +-
+ .../meta-wayland-pointer-constraints.c        |  2 +-
+ .../meta-wayland-pointer-gesture-hold.c       |  2 +-
+ .../meta-wayland-pointer-gesture-pinch.c      |  2 +-
+ .../meta-wayland-pointer-gesture-swipe.c      |  2 +-
+ src/wayland/meta-wayland-pointer.c            |  2 +-
+ src/wayland/meta-wayland-pointer.h            |  2 +-
+ src/wayland/meta-wayland-popup.c              |  2 +-
+ src/wayland/meta-wayland-presentation-time.c  |  2 +-
+ src/wayland/meta-wayland-private.h            |  2 +-
+ src/wayland/meta-wayland-shell-surface.c      |  2 +-
+ src/wayland/meta-wayland-subsurface.c         |  2 +-
+ ...rface.h => meta-wayland-surface-private.h} | 10 +-----
+ src/wayland/meta-wayland-surface.c            | 10 +++++-
+ src/wayland/meta-wayland-viewporter.c         |  2 +-
+ src/wayland/meta-wayland-x11-interop.c        |  2 +-
+ src/wayland/meta-wayland-xdg-shell.c          |  2 +-
+ src/wayland/meta-window-wayland.c             |  2 +-
+ src/wayland/meta-window-xwayland.c            |  2 +-
+ 38 files changed, 80 insertions(+), 44 deletions(-)
+ create mode 100644 src/meta/meta-wayland-surface.h
+ rename src/wayland/{meta-wayland-surface.h => meta-wayland-surface-private.h} (98%)
+
+diff --git a/HACKING.md b/HACKING.md
+index af9184a6c75..2123579dcfc 100644
+--- a/HACKING.md
++++ b/HACKING.md
+@@ -143,7 +143,7 @@ Source files should use the header include order of the following example:
+ #include "mtk/mtk.h"
+ 
+ #ifdef HAVE_WAYLAND
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ #endif
+ 
+ #include "meta-dbus-file-generated-by-gdbus-codegen.h"
+diff --git a/src/compositor/meta-compositor-view-native.c b/src/compositor/meta-compositor-view-native.c
+index c16457725c9..5c89d7fd475 100644
+--- a/src/compositor/meta-compositor-view-native.c
++++ b/src/compositor/meta-compositor-view-native.c
+@@ -31,7 +31,7 @@
+ 
+ #ifdef HAVE_WAYLAND
+ #include "compositor/meta-surface-actor-wayland.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ #endif /* HAVE_WAYLAND */
+ 
+ struct _MetaCompositorViewNative
+diff --git a/src/compositor/meta-window-actor-wayland.c b/src/compositor/meta-window-actor-wayland.c
+index bb8263eefb5..d11ac424642 100644
+--- a/src/compositor/meta-window-actor-wayland.c
++++ b/src/compositor/meta-window-actor-wayland.c
+@@ -26,7 +26,7 @@
+ #include "compositor/meta-window-actor-wayland.h"
+ #include "compositor/region-utils.h"
+ #include "meta/meta-window-actor.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ #include "wayland/meta-window-wayland.h"
+ 
+ struct _MetaSurfaceContainerActorWayland
+diff --git a/src/compositor/meta-window-actor.c b/src/compositor/meta-window-actor.c
+index 147c855684c..c1794e37a7b 100644
+--- a/src/compositor/meta-window-actor.c
++++ b/src/compositor/meta-window-actor.c
+@@ -35,7 +35,7 @@
+ 
+ #ifdef HAVE_WAYLAND
+ #include "compositor/meta-surface-actor-wayland.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ #endif
+ 
+ typedef enum
+diff --git a/src/core/window.c b/src/core/window.c
+index 647aea59f14..f47b27be032 100644
+--- a/src/core/window.c
++++ b/src/core/window.c
+@@ -92,7 +92,7 @@
+ 
+ #ifdef HAVE_WAYLAND
+ #include "wayland/meta-wayland-private.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ #include "wayland/meta-window-wayland.h"
+ #endif
+ 
+diff --git a/src/meson.build b/src/meson.build
+index 69a4bc55f3f..666400962cf 100644
+--- a/src/meson.build
++++ b/src/meson.build
+@@ -669,7 +669,7 @@ if have_wayland
+     'wayland/meta-wayland-subsurface.c',
+     'wayland/meta-wayland-subsurface.h',
+     'wayland/meta-wayland-surface.c',
+-    'wayland/meta-wayland-surface.h',
++    'wayland/meta-wayland-surface-private.h',
+     'wayland/meta-wayland-tablet.c',
+     'wayland/meta-wayland-tablet-cursor-surface.c',
+     'wayland/meta-wayland-tablet-cursor-surface.h',
+diff --git a/src/meta/meson.build b/src/meta/meson.build
+index 688ff300482..fc6c0c2956d 100644
+--- a/src/meta/meson.build
++++ b/src/meta/meson.build
+@@ -52,6 +52,7 @@ if have_wayland
+   mutter_public_headers += [
+     'meta-wayland-client.h',
+     'meta-wayland-compositor.h',
++    'meta-wayland-surface.h',
+   ]
+ endif
+ 
+diff --git a/src/meta/meta-wayland-surface.h b/src/meta/meta-wayland-surface.h
+new file mode 100644
+index 00000000000..487dc579b59
+--- /dev/null
++++ b/src/meta/meta-wayland-surface.h
+@@ -0,0 +1,35 @@
++/*
++ * Copyright 2023 Collabora Ltd.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation; either version 2 of the
++ * License, or (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, see <http://www.gnu.org/licenses/>.
++ */
++
++#pragma once
++
++#include <glib-object.h>
++#include <gio/gio.h>
++
++G_BEGIN_DECLS
++
++#define META_TYPE_WAYLAND_SURFACE (meta_wayland_surface_get_type ())
++META_EXPORT
++G_DECLARE_FINAL_TYPE (MetaWaylandSurface,
++                      meta_wayland_surface,
++                      META, WAYLAND_SURFACE,
++                      GObject);
++
++META_EXPORT
++MetaWindow *meta_wayland_surface_get_window (MetaWaylandSurface *surface);
++
++G_END_DECLS
+diff --git a/src/tests/meta-wayland-test-driver.c b/src/tests/meta-wayland-test-driver.c
+index 81788f3a72f..d93cc19e4e0 100644
+--- a/src/tests/meta-wayland-test-driver.c
++++ b/src/tests/meta-wayland-test-driver.c
+@@ -25,7 +25,7 @@
+ #include "tests/meta-ref-test.h"
+ #include "wayland/meta-wayland-actor-surface.h"
+ #include "wayland/meta-wayland-private.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ 
+ #include "test-driver-server-protocol.h"
+ 
+diff --git a/src/tests/service-channel-tests.c b/src/tests/service-channel-tests.c
+index 498cb1a3fa1..fc7e9d92d1e 100644
+--- a/src/tests/service-channel-tests.c
++++ b/src/tests/service-channel-tests.c
+@@ -26,7 +26,7 @@
+ #include "tests/meta-wayland-test-utils.h"
+ #include "wayland/meta-wayland.h"
+ #include "wayland/meta-wayland-client-private.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ 
+ static MetaContext *test_context;
+ static MetaWaylandTestDriver *test_driver;
+diff --git a/src/tests/wayland-fractional-scale-test.c b/src/tests/wayland-fractional-scale-test.c
+index 7ae4f561357..dadb936c00a 100644
+--- a/src/tests/wayland-fractional-scale-test.c
++++ b/src/tests/wayland-fractional-scale-test.c
+@@ -24,7 +24,7 @@
+ #include "tests/meta-test-utils.h"
+ #include "tests/meta-wayland-test-driver.h"
+ #include "tests/meta-wayland-test-utils.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ 
+ static MetaContext *test_context;
+ static MetaVirtualMonitor *virtual_monitor;
+diff --git a/src/tests/wayland-fullscreen-test.c b/src/tests/wayland-fullscreen-test.c
+index 4fc17f86061..0d96042231d 100644
+--- a/src/tests/wayland-fullscreen-test.c
++++ b/src/tests/wayland-fullscreen-test.c
+@@ -27,7 +27,7 @@
+ #include "backends/native/meta-renderer-native.h"
+ #include "tests/meta-ref-test.h"
+ #include "wayland/meta-window-wayland.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ 
+ static MetaContext *test_context;
+ static MetaWaylandTestDriver *test_driver;
+diff --git a/src/tests/wayland-unit-tests.c b/src/tests/wayland-unit-tests.c
+index 7920f645fc7..46169669fdb 100644
+--- a/src/tests/wayland-unit-tests.c
++++ b/src/tests/wayland-unit-tests.c
+@@ -31,7 +31,7 @@
+ #include "tests/meta-wayland-test-utils.h"
+ #include "wayland/meta-wayland-client-private.h"
+ #include "wayland/meta-wayland-filter-manager.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ 
+ #include "dummy-client-protocol.h"
+ #include "dummy-server-protocol.h"
+diff --git a/src/wayland/meta-cursor-sprite-wayland.h b/src/wayland/meta-cursor-sprite-wayland.h
+index 5fdf88b9d17..6b2ccfa7d53 100644
+--- a/src/wayland/meta-cursor-sprite-wayland.h
++++ b/src/wayland/meta-cursor-sprite-wayland.h
+@@ -21,7 +21,7 @@
+ #include <glib-object.h>
+ 
+ #include "backends/meta-cursor.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ 
+ #define META_TYPE_CURSOR_SPRITE_WAYLAND meta_cursor_sprite_wayland_get_type ()
+ META_EXPORT_TEST
+diff --git a/src/wayland/meta-pointer-confinement-wayland.c b/src/wayland/meta-pointer-confinement-wayland.c
+index 998cc6eb0e7..64ffed25cf3 100644
+--- a/src/wayland/meta-pointer-confinement-wayland.c
++++ b/src/wayland/meta-pointer-confinement-wayland.c
+@@ -42,7 +42,7 @@
+ #include "wayland/meta-wayland-pointer-constraints.h"
+ #include "wayland/meta-wayland-pointer.h"
+ #include "wayland/meta-wayland-seat.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ #include "wayland/meta-wayland.h"
+ 
+ typedef struct _MetaPointerConfinementWaylandPrivate MetaPointerConfinementWaylandPrivate;
+diff --git a/src/wayland/meta-wayland-actor-surface.c b/src/wayland/meta-wayland-actor-surface.c
+index 6ea95d896eb..de2163894b1 100644
+--- a/src/wayland/meta-wayland-actor-surface.c
++++ b/src/wayland/meta-wayland-actor-surface.c
+@@ -27,7 +27,7 @@
+ #include "compositor/meta-window-actor-wayland.h"
+ #include "compositor/region-utils.h"
+ #include "wayland/meta-wayland-buffer.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ #include "wayland/meta-window-wayland.h"
+ 
+ #ifdef HAVE_XWAYLAND
+diff --git a/src/wayland/meta-wayland-actor-surface.h b/src/wayland/meta-wayland-actor-surface.h
+index bec879d9e42..729ee4e8da4 100644
+--- a/src/wayland/meta-wayland-actor-surface.h
++++ b/src/wayland/meta-wayland-actor-surface.h
+@@ -18,7 +18,7 @@
+ 
+ #pragma once
+ 
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ 
+ #define META_TYPE_WAYLAND_ACTOR_SURFACE (meta_wayland_actor_surface_get_type ())
+ G_DECLARE_DERIVABLE_TYPE (MetaWaylandActorSurface,
+diff --git a/src/wayland/meta-wayland-cursor-surface.h b/src/wayland/meta-wayland-cursor-surface.h
+index 6dd863d7009..af9dd861e76 100644
+--- a/src/wayland/meta-wayland-cursor-surface.h
++++ b/src/wayland/meta-wayland-cursor-surface.h
+@@ -20,7 +20,7 @@
+ #pragma once
+ 
+ #include "backends/meta-cursor-renderer.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ 
+ struct _MetaWaylandCursorSurfaceClass
+ {
+diff --git a/src/wayland/meta-wayland-fractional-scale.c b/src/wayland/meta-wayland-fractional-scale.c
+index dfb03d34687..2af49e23128 100644
+--- a/src/wayland/meta-wayland-fractional-scale.c
++++ b/src/wayland/meta-wayland-fractional-scale.c
+@@ -26,7 +26,7 @@
+ 
+ #include "wayland/meta-wayland-outputs.h"
+ #include "wayland/meta-wayland-private.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ #include "wayland/meta-wayland-versions.h"
+ 
+ #include "fractional-scale-v1-server-protocol.h"
+diff --git a/src/wayland/meta-wayland-gtk-shell.c b/src/wayland/meta-wayland-gtk-shell.c
+index f4d0af24ecf..4f699265944 100644
+--- a/src/wayland/meta-wayland-gtk-shell.c
++++ b/src/wayland/meta-wayland-gtk-shell.c
+@@ -25,7 +25,7 @@
+ #include "core/bell.h"
+ #include "core/window-private.h"
+ #include "wayland/meta-wayland-private.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ #include "wayland/meta-wayland-versions.h"
+ #include "wayland/meta-window-wayland.h"
+ 
+diff --git a/src/wayland/meta-wayland-pointer-constraints.c b/src/wayland/meta-wayland-pointer-constraints.c
+index 2684d692591..894b2e132d1 100644
+--- a/src/wayland/meta-wayland-pointer-constraints.c
++++ b/src/wayland/meta-wayland-pointer-constraints.c
+@@ -38,7 +38,7 @@
+ #include "wayland/meta-wayland-region.h"
+ #include "wayland/meta-wayland-seat.h"
+ #include "wayland/meta-wayland-subsurface.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ 
+ #ifdef HAVE_XWAYLAND
+ #include "wayland/meta-xwayland.h"
+diff --git a/src/wayland/meta-wayland-pointer-gesture-hold.c b/src/wayland/meta-wayland-pointer-gesture-hold.c
+index 7c937645865..50d08ec02ba 100644
+--- a/src/wayland/meta-wayland-pointer-gesture-hold.c
++++ b/src/wayland/meta-wayland-pointer-gesture-hold.c
+@@ -25,7 +25,7 @@
+ 
+ #include "wayland/meta-wayland-pointer.h"
+ #include "wayland/meta-wayland-seat.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ 
+ #include "pointer-gestures-unstable-v1-server-protocol.h"
+ 
+diff --git a/src/wayland/meta-wayland-pointer-gesture-pinch.c b/src/wayland/meta-wayland-pointer-gesture-pinch.c
+index ae953e07d7f..07a2d125e5c 100644
+--- a/src/wayland/meta-wayland-pointer-gesture-pinch.c
++++ b/src/wayland/meta-wayland-pointer-gesture-pinch.c
+@@ -27,7 +27,7 @@
+ 
+ #include "wayland/meta-wayland-pointer.h"
+ #include "wayland/meta-wayland-seat.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ 
+ #include "pointer-gestures-unstable-v1-server-protocol.h"
+ 
+diff --git a/src/wayland/meta-wayland-pointer-gesture-swipe.c b/src/wayland/meta-wayland-pointer-gesture-swipe.c
+index 9eb563b4f74..22f3578601e 100644
+--- a/src/wayland/meta-wayland-pointer-gesture-swipe.c
++++ b/src/wayland/meta-wayland-pointer-gesture-swipe.c
+@@ -27,7 +27,7 @@
+ 
+ #include "wayland/meta-wayland-pointer.h"
+ #include "wayland/meta-wayland-seat.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ 
+ #include "pointer-gestures-unstable-v1-server-protocol.h"
+ 
+diff --git a/src/wayland/meta-wayland-pointer.c b/src/wayland/meta-wayland-pointer.c
+index 71b0682996d..89ac75faf12 100644
+--- a/src/wayland/meta-wayland-pointer.c
++++ b/src/wayland/meta-wayland-pointer.c
+@@ -61,7 +61,7 @@
+ #include "wayland/meta-wayland-popup.h"
+ #include "wayland/meta-wayland-private.h"
+ #include "wayland/meta-wayland-seat.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ 
+ #ifdef HAVE_XWAYLAND
+ #include "wayland/meta-xwayland.h"
+diff --git a/src/wayland/meta-wayland-pointer.h b/src/wayland/meta-wayland-pointer.h
+index 479d8141b42..60870a5d001 100644
+--- a/src/wayland/meta-wayland-pointer.h
++++ b/src/wayland/meta-wayland-pointer.h
+@@ -28,7 +28,7 @@
+ #include "wayland/meta-wayland-pointer-gesture-pinch.h"
+ #include "wayland/meta-wayland-pointer-gesture-swipe.h"
+ #include "wayland/meta-wayland-seat.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ #include "wayland/meta-wayland-types.h"
+ 
+ #define META_TYPE_WAYLAND_POINTER (meta_wayland_pointer_get_type ())
+diff --git a/src/wayland/meta-wayland-popup.c b/src/wayland/meta-wayland-popup.c
+index 96f082d7c23..f757767c463 100644
+--- a/src/wayland/meta-wayland-popup.c
++++ b/src/wayland/meta-wayland-popup.c
+@@ -46,7 +46,7 @@
+ 
+ #include "wayland/meta-wayland-pointer.h"
+ #include "wayland/meta-wayland-private.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ 
+ G_DEFINE_INTERFACE (MetaWaylandPopupSurface, meta_wayland_popup_surface,
+                     G_TYPE_OBJECT);
+diff --git a/src/wayland/meta-wayland-presentation-time.c b/src/wayland/meta-wayland-presentation-time.c
+index 190c3f0083a..abddb63b121 100644
+--- a/src/wayland/meta-wayland-presentation-time.c
++++ b/src/wayland/meta-wayland-presentation-time.c
+@@ -26,7 +26,7 @@
+ #include "wayland/meta-wayland-cursor-surface.h"
+ #include "wayland/meta-wayland-presentation-time-private.h"
+ #include "wayland/meta-wayland-private.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ #include "wayland/meta-wayland-outputs.h"
+ #include "wayland/meta-wayland-versions.h"
+ 
+diff --git a/src/wayland/meta-wayland-private.h b/src/wayland/meta-wayland-private.h
+index 6af75e5d843..e8d442c0398 100644
+--- a/src/wayland/meta-wayland-private.h
++++ b/src/wayland/meta-wayland-private.h
+@@ -27,7 +27,7 @@
+ #include "wayland/meta-wayland-pointer-gestures.h"
+ #include "wayland/meta-wayland-presentation-time-private.h"
+ #include "wayland/meta-wayland-seat.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ #include "wayland/meta-wayland-tablet-manager.h"
+ #include "wayland/meta-wayland-versions.h"
+ #include "wayland/meta-wayland.h"
+diff --git a/src/wayland/meta-wayland-shell-surface.c b/src/wayland/meta-wayland-shell-surface.c
+index e341da79ff5..fa72df49c55 100644
+--- a/src/wayland/meta-wayland-shell-surface.c
++++ b/src/wayland/meta-wayland-shell-surface.c
+@@ -27,7 +27,7 @@
+ #include "wayland/meta-wayland-actor-surface.h"
+ #include "wayland/meta-wayland-buffer.h"
+ #include "wayland/meta-wayland-subsurface.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ #include "wayland/meta-window-wayland.h"
+ 
+ typedef struct _MetaWaylandShellSurfacePrivate
+diff --git a/src/wayland/meta-wayland-subsurface.c b/src/wayland/meta-wayland-subsurface.c
+index f4aa0495955..333228e286a 100644
+--- a/src/wayland/meta-wayland-subsurface.c
++++ b/src/wayland/meta-wayland-subsurface.c
+@@ -25,7 +25,7 @@
+ #include "wayland/meta-wayland.h"
+ #include "wayland/meta-wayland-actor-surface.h"
+ #include "wayland/meta-wayland-buffer.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ #include "wayland/meta-wayland-transaction.h"
+ #include "wayland/meta-window-wayland.h"
+ 
+diff --git a/src/wayland/meta-wayland-surface.h b/src/wayland/meta-wayland-surface-private.h
+similarity index 98%
+rename from src/wayland/meta-wayland-surface.h
+rename to src/wayland/meta-wayland-surface-private.h
+index 4f621ade8ba..8b485cac8c1 100644
+--- a/src/wayland/meta-wayland-surface.h
++++ b/src/wayland/meta-wayland-surface-private.h
+@@ -26,15 +26,10 @@
+ #include "compositor/meta-shaped-texture-private.h"
+ #include "compositor/meta-surface-actor.h"
+ #include "meta/meta-cursor-tracker.h"
++#include "meta/meta-wayland-surface.h"
+ #include "wayland/meta-wayland-pointer-constraints.h"
+ #include "wayland/meta-wayland-types.h"
+ 
+-#define META_TYPE_WAYLAND_SURFACE (meta_wayland_surface_get_type ())
+-G_DECLARE_FINAL_TYPE (MetaWaylandSurface,
+-                      meta_wayland_surface,
+-                      META, WAYLAND_SURFACE,
+-                      GObject);
+-
+ #define META_TYPE_WAYLAND_SURFACE_ROLE (meta_wayland_surface_role_get_type ())
+ G_DECLARE_DERIVABLE_TYPE (MetaWaylandSurfaceRole, meta_wayland_surface_role,
+                           META, WAYLAND_SURFACE_ROLE, GObject);
+@@ -324,9 +319,6 @@ void                meta_wayland_surface_update_outputs (MetaWaylandSurface *sur
+ 
+ MetaWaylandSurface *meta_wayland_surface_get_toplevel (MetaWaylandSurface *surface);
+ 
+-META_EXPORT_TEST
+-MetaWindow *        meta_wayland_surface_get_window (MetaWaylandSurface *surface);
+-
+ gboolean            meta_wayland_surface_is_synchronized (MetaWaylandSurface *surface);
+ 
+ MetaWindow *        meta_wayland_surface_get_toplevel_window (MetaWaylandSurface *surface);
+diff --git a/src/wayland/meta-wayland-surface.c b/src/wayland/meta-wayland-surface.c
+index cc09678d055..e3d405ea7e2 100644
+--- a/src/wayland/meta-wayland-surface.c
++++ b/src/wayland/meta-wayland-surface.c
+@@ -20,7 +20,7 @@
+ 
+ #include "config.h"
+ 
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ 
+ #include <gobject/gvaluecollector.h>
+ #include <wayland-server.h>
+@@ -2007,6 +2007,14 @@ meta_wayland_surface_role_get_window (MetaWaylandSurfaceRole *surface_role)
+     return NULL;
+ }
+ 
++/**
++ * meta_wayland_surface_get_window:
++ * @surface: a #MetaWaylandSurface
++ *
++ * Get the #MetaWindow associated with this wayland surface.
++ *
++ * Returns: (nullable) (transfer none): a #MetaWindow
++ */
+ MetaWindow *
+ meta_wayland_surface_get_window (MetaWaylandSurface *surface)
+ {
+diff --git a/src/wayland/meta-wayland-viewporter.c b/src/wayland/meta-wayland-viewporter.c
+index e28146e7364..1febfa1bc96 100644
+--- a/src/wayland/meta-wayland-viewporter.c
++++ b/src/wayland/meta-wayland-viewporter.c
+@@ -24,7 +24,7 @@
+ 
+ #include "wayland/meta-wayland-private.h"
+ #include "wayland/meta-wayland-subsurface.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ #include "wayland/meta-wayland-versions.h"
+ #include "wayland/meta-wayland-viewporter.h"
+ 
+diff --git a/src/wayland/meta-wayland-x11-interop.c b/src/wayland/meta-wayland-x11-interop.c
+index 3d0c357c14b..506adc44891 100644
+--- a/src/wayland/meta-wayland-x11-interop.c
++++ b/src/wayland/meta-wayland-x11-interop.c
+@@ -23,7 +23,7 @@
+ #include "core/window-private.h"
+ #include "wayland/meta-wayland-client-private.h"
+ #include "wayland/meta-wayland-filter-manager.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ #include "wayland/meta-wayland-versions.h"
+ #include "wayland/meta-wayland.h"
+ #include "x11/meta-x11-display-private.h"
+diff --git a/src/wayland/meta-wayland-xdg-shell.c b/src/wayland/meta-wayland-xdg-shell.c
+index a1c8803f7fc..cee1dc980b3 100644
+--- a/src/wayland/meta-wayland-xdg-shell.c
++++ b/src/wayland/meta-wayland-xdg-shell.c
+@@ -32,7 +32,7 @@
+ #include "wayland/meta-wayland-private.h"
+ #include "wayland/meta-wayland-seat.h"
+ #include "wayland/meta-wayland-shell-surface.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ #include "wayland/meta-wayland-transaction.h"
+ #include "wayland/meta-wayland-versions.h"
+ #include "wayland/meta-wayland-window-configuration.h"
+diff --git a/src/wayland/meta-window-wayland.c b/src/wayland/meta-window-wayland.c
+index 79a0f0a9a63..738c367b1bd 100644
+--- a/src/wayland/meta-window-wayland.c
++++ b/src/wayland/meta-window-wayland.c
+@@ -39,7 +39,7 @@
+ #include "meta/meta-x11-errors.h"
+ #include "wayland/meta-wayland-actor-surface.h"
+ #include "wayland/meta-wayland-private.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ #include "wayland/meta-wayland-window-configuration.h"
+ #include "wayland/meta-wayland-xdg-shell.h"
+ 
+diff --git a/src/wayland/meta-window-xwayland.c b/src/wayland/meta-window-xwayland.c
+index ed3c679f1c5..a0f2b760707 100644
+--- a/src/wayland/meta-window-xwayland.c
++++ b/src/wayland/meta-window-xwayland.c
+@@ -27,7 +27,7 @@
+ #include "x11/xprops.h"
+ #include "wayland/meta-window-xwayland.h"
+ #include "wayland/meta-wayland.h"
+-#include "wayland/meta-wayland-surface.h"
++#include "wayland/meta-wayland-surface-private.h"
+ 
+ enum
+ {
+-- 
+GitLab
+

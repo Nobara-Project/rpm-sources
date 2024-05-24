@@ -65,7 +65,7 @@ algorithms and decoding only VC1 algorithm.
 
 Name:           %{srcname}-freeworld
 Summary:        Mesa graphics libraries
-%global ver 24.0.4
+%global ver 24.1.0-rc1
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        2%{?dist}
 License:        MIT
@@ -137,25 +137,26 @@ BuildRequires:  pkgconfig(libomxil-bellagio)
 BuildRequires:  pkgconfig(libelf)
 BuildRequires:  pkgconfig(libglvnd) >= 1.3.2
 BuildRequires:  llvm-devel >= 7.0.0
-%if 0%{?with_opencl} || 0%{?with_nvk}
 BuildRequires:  clang-devel
 BuildRequires:  bindgen
 BuildRequires:  rust-packaging
 BuildRequires:  pkgconfig(libclc)
 BuildRequires:  pkgconfig(SPIRV-Tools)
 BuildRequires:  pkgconfig(LLVMSPIRVLib)
-%endif
 %if 0%{?with_nvk}
+BuildRequires:  cbindgen
 BuildRequires:  (crate(proc-macro2) >= 1.0.56 with crate(proc-macro2) < 2)
 BuildRequires:  (crate(quote) >= 1.0.25 with crate(quote) < 2)
 BuildRequires:  (crate(syn/clone-impls) >= 2.0.15 with crate(syn/clone-impls) < 3)
 BuildRequires:  (crate(unicode-ident) >= 1.0.6 with crate(unicode-ident) < 2)
+BuildRequires:  (crate(paste) >= 1.0.14 with crate(paste) < 2)
 %endif
 %if %{with valgrind}
 BuildRequires:  pkgconfig(valgrind)
 %endif
 BuildRequires:  python3-devel
 BuildRequires:  python3-mako
+BuildRequires:  python3-pycparser
 %if 0%{?with_intel_clc}
 BuildRequires:  python3-ply
 %endif
@@ -232,13 +233,15 @@ export RUSTFLAGS="%build_rustflags"
 %if 0%{?with_intel_clc}
   -Dintel-clc=enabled \
 %endif
+%ifnarch x86_64
+  -Dintel-rt=disabled \
+%endif
   -Dmicrosoft-clc=disabled \
   -Dllvm=enabled \
   -Dshared-llvm=enabled \
   -Dvalgrind=%{?with_valgrind:enabled}%{!?with_valgrind:disabled} \
   -Dbuild-tests=false \
   -Dselinux=true \
-  -Dintel-xe-kmd=enabled \
 %if !0%{?with_libunwind}
   -Dlibunwind=disabled \
 %endif

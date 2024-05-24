@@ -2,7 +2,7 @@
 ## (rpmautospec version 0.3.5)
 ## RPMAUTOSPEC: autorelease, autochangelog
 %define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
-    release_number = 30;
+    release_number = 1;
     base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
     print(release_number + base_release_number - 1);
 }%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
@@ -13,7 +13,7 @@
 
 %define eol_date 2024-05-14
 
-%define dist_version 39
+%define dist_version 40
 %define rhel_dist_version 10
 
 %if %{is_rawhide}
@@ -41,7 +41,7 @@
 
 Summary:        Nobara release files
 Name:           nobara-release
-Version:        39
+Version:        40
 # The numbering is 0.<r> before a given Fedora Linux release is released,
 # with r starting at 1, and then just <r>, with r starting again at 1.
 # Use '%%autorelease -p' before final, and then drop the '-p'.

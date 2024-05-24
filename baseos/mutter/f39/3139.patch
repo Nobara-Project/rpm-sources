@@ -1,0 +1,641 @@
+From dc57aa6d97138693952414e40276815cb2c5c526 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Michel=20D=C3=A4nzer?= <mdaenzer@redhat.com>
+Date: Thu, 27 Jul 2023 10:34:17 +0200
+Subject: [PATCH 1/5] cogl/egl: Fix coding style of CoglEGLWinsysFeature
+ definition
+
+To prevent the check-style.py script from complaining about the next
+commit.
+
+Part-of: <https://gitlab.gnome.org/GNOME/mutter/-/merge_requests/3139>
+---
+ cogl/cogl/winsys/cogl-winsys-egl-private.h | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/cogl/cogl/winsys/cogl-winsys-egl-private.h b/cogl/cogl/winsys/cogl-winsys-egl-private.h
+index ae7cbf2e1c9..0c103e9c12c 100644
+--- a/cogl/cogl/winsys/cogl-winsys-egl-private.h
++++ b/cogl/cogl/winsys/cogl-winsys-egl-private.h
+@@ -93,14 +93,14 @@ typedef struct _CoglWinsysEGLVtable
+ 
+ typedef enum _CoglEGLWinsysFeature
+ {
+-  COGL_EGL_WINSYS_FEATURE_SWAP_REGION                   =1L<<0,
+-  COGL_EGL_WINSYS_FEATURE_EGL_IMAGE_FROM_X11_PIXMAP     =1L<<1,
+-  COGL_EGL_WINSYS_FEATURE_EGL_IMAGE_FROM_WAYLAND_BUFFER =1L<<2,
+-  COGL_EGL_WINSYS_FEATURE_CREATE_CONTEXT                =1L<<3,
+-  COGL_EGL_WINSYS_FEATURE_BUFFER_AGE                    =1L<<4,
+-  COGL_EGL_WINSYS_FEATURE_FENCE_SYNC                    =1L<<5,
+-  COGL_EGL_WINSYS_FEATURE_SURFACELESS_CONTEXT           =1L<<6,
+-  COGL_EGL_WINSYS_FEATURE_CONTEXT_PRIORITY              =1L<<7,
++  COGL_EGL_WINSYS_FEATURE_SWAP_REGION                   = 1L << 0,
++  COGL_EGL_WINSYS_FEATURE_EGL_IMAGE_FROM_X11_PIXMAP     = 1L << 1,
++  COGL_EGL_WINSYS_FEATURE_EGL_IMAGE_FROM_WAYLAND_BUFFER = 1L << 2,
++  COGL_EGL_WINSYS_FEATURE_CREATE_CONTEXT                = 1L << 3,
++  COGL_EGL_WINSYS_FEATURE_BUFFER_AGE                    = 1L << 4,
++  COGL_EGL_WINSYS_FEATURE_FENCE_SYNC                    = 1L << 5,
++  COGL_EGL_WINSYS_FEATURE_SURFACELESS_CONTEXT           = 1L << 6,
++  COGL_EGL_WINSYS_FEATURE_CONTEXT_PRIORITY              = 1L << 7,
+ } CoglEGLWinsysFeature;
+ 
+ typedef struct _CoglRendererEGL
+-- 
+GitLab
+
+
+From e437c854cda9be1b4637e1bbae650c9618a69a11 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Michel=20D=C3=A4nzer?= <mdaenzer@redhat.com>
+Date: Wed, 31 May 2023 15:57:11 +0200
+Subject: [PATCH 2/5] cogl/egl: Add COGL_EGL_WINSYS_FEATURE_NO_CONFIG_CONTEXT
+
+If the EGL_KHR_no_config_context extension is supported, pass
+EGL_NO_CONFIG_KHR to eglCreateContext. This will allow binding the
+context to surfaces created with different configs.
+
+Part-of: <https://gitlab.gnome.org/GNOME/mutter/-/merge_requests/3139>
+---
+ .../cogl-winsys-egl-feature-functions.h       |  6 ++++++
+ cogl/cogl/winsys/cogl-winsys-egl-private.h    |  1 +
+ cogl/cogl/winsys/cogl-winsys-egl.c            | 19 +++++++++++++++----
+ 3 files changed, 22 insertions(+), 4 deletions(-)
+
+diff --git a/cogl/cogl/winsys/cogl-winsys-egl-feature-functions.h b/cogl/cogl/winsys/cogl-winsys-egl-feature-functions.h
+index 494d5ea39f5..4b74e20885c 100644
+--- a/cogl/cogl/winsys/cogl-winsys-egl-feature-functions.h
++++ b/cogl/cogl/winsys/cogl-winsys-egl-feature-functions.h
+@@ -99,6 +99,12 @@ COGL_WINSYS_FEATURE_BEGIN (create_context,
+                            COGL_EGL_WINSYS_FEATURE_CREATE_CONTEXT)
+ COGL_WINSYS_FEATURE_END ()
+ 
++COGL_WINSYS_FEATURE_BEGIN (no_config_context,
++                           "KHR\0",
++                           "no_config_context\0",
++                           COGL_EGL_WINSYS_FEATURE_NO_CONFIG_CONTEXT)
++COGL_WINSYS_FEATURE_END ()
++
+ COGL_WINSYS_FEATURE_BEGIN (buffer_age,
+                            "EXT\0",
+                            "buffer_age\0",
+diff --git a/cogl/cogl/winsys/cogl-winsys-egl-private.h b/cogl/cogl/winsys/cogl-winsys-egl-private.h
+index 0c103e9c12c..8b6f2140609 100644
+--- a/cogl/cogl/winsys/cogl-winsys-egl-private.h
++++ b/cogl/cogl/winsys/cogl-winsys-egl-private.h
+@@ -101,6 +101,7 @@ typedef enum _CoglEGLWinsysFeature
+   COGL_EGL_WINSYS_FEATURE_FENCE_SYNC                    = 1L << 5,
+   COGL_EGL_WINSYS_FEATURE_SURFACELESS_CONTEXT           = 1L << 6,
+   COGL_EGL_WINSYS_FEATURE_CONTEXT_PRIORITY              = 1L << 7,
++  COGL_EGL_WINSYS_FEATURE_NO_CONFIG_CONTEXT             = 1L << 8,
+ } CoglEGLWinsysFeature;
+ 
+ typedef struct _CoglRendererEGL
+diff --git a/cogl/cogl/winsys/cogl-winsys-egl.c b/cogl/cogl/winsys/cogl-winsys-egl.c
+index 5986fd1c97e..26a3395fede 100644
+--- a/cogl/cogl/winsys/cogl-winsys-egl.c
++++ b/cogl/cogl/winsys/cogl-winsys-egl.c
+@@ -428,10 +428,21 @@ try_create_context (CoglDisplay *display,
+ 
+   attribs[i++] = EGL_NONE;
+ 
+-  egl_display->egl_context = eglCreateContext (edpy,
+-                                               config,
+-                                               EGL_NO_CONTEXT,
+-                                               attribs);
++  if (egl_renderer->private_features &
++      COGL_EGL_WINSYS_FEATURE_NO_CONFIG_CONTEXT)
++    {
++      egl_display->egl_context = eglCreateContext (edpy,
++                                                   EGL_NO_CONFIG_KHR,
++                                                   EGL_NO_CONTEXT,
++                                                   attribs);
++    }
++  else
++    {
++      egl_display->egl_context = eglCreateContext (edpy,
++                                                   config,
++                                                   EGL_NO_CONTEXT,
++                                                   attribs);
++    }
+ 
+   if (egl_display->egl_context == EGL_NO_CONTEXT)
+     {
+-- 
+GitLab
+
+
+From 4c42eab3581e7871440852307010f976702ba7eb Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Michel=20D=C3=A4nzer?= <mdaenzer@redhat.com>
+Date: Tue, 18 Jul 2023 12:21:36 +0200
+Subject: [PATCH 3/5] renderer/native: Refactor
+ meta_renderer_native_choose_gbm_format helper
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Preparation for the following commits, no functional change intended.
+
+v2:
+* Pass through MetaEgl pointer
+v3:
+* Make it return gboolean (Robert Mader)
+v4:
+* Add debug logging and corresponding purpose parameter
+v5:
+* Fix excessive function parameter indentation (Jonas Ådahl)
+
+Part-of: <https://gitlab.gnome.org/GNOME/mutter/-/merge_requests/3139>
+---
+ src/backends/native/meta-renderer-native.c | 61 ++++++++++++++++------
+ src/backends/native/meta-renderer-native.h |  9 ++++
+ 2 files changed, 55 insertions(+), 15 deletions(-)
+
+diff --git a/src/backends/native/meta-renderer-native.c b/src/backends/native/meta-renderer-native.c
+index 54e3203b467..9d1a8ea189c 100644
+--- a/src/backends/native/meta-renderer-native.c
++++ b/src/backends/native/meta-renderer-native.c
+@@ -56,6 +56,7 @@
+ #include "backends/native/meta-device-pool.h"
+ #include "backends/native/meta-kms-cursor-manager.h"
+ #include "backends/native/meta-kms-device.h"
++#include "backends/native/meta-kms-utils.h"
+ #include "backends/native/meta-kms.h"
+ #include "backends/native/meta-onscreen-native.h"
+ #include "backends/native/meta-output-kms.h"
+@@ -410,6 +411,43 @@ choose_egl_config_from_gbm_format (MetaEgl       *egl,
+   return FALSE;
+ }
+ 
++gboolean
++meta_renderer_native_choose_gbm_format (MetaEgl         *egl,
++                                        EGLDisplay       egl_display,
++                                        EGLint          *attributes,
++                                        const uint32_t  *formats,
++                                        size_t           num_formats,
++                                        const char      *purpose,
++                                        EGLConfig       *out_config,
++                                        GError         **error)
++{
++  int i;
++
++  for (i = 0; i < num_formats; i++)
++    {
++      g_clear_error (error);
++
++      if (choose_egl_config_from_gbm_format (egl,
++                                             egl_display,
++                                             attributes,
++                                             formats[i],
++                                             out_config,
++                                             error))
++        {
++          MetaDrmFormatBuf format_string;
++
++          meta_drm_format_to_string (&format_string, formats[i]);
++          meta_topic (META_DEBUG_KMS,
++                      "Using GBM format %s for primary GPU EGL %s",
++                      format_string.s, purpose);
++
++          return TRUE;
++        }
++    }
++
++  return FALSE;
++}
++
+ static gboolean
+ meta_renderer_native_choose_egl_config (CoglDisplay  *cogl_display,
+                                         EGLint       *attributes,
+@@ -432,22 +470,15 @@ meta_renderer_native_choose_egl_config (CoglDisplay  *cogl_display,
+           GBM_FORMAT_XRGB8888,
+           GBM_FORMAT_ARGB8888,
+         };
+-        int i;
+ 
+-        for (i = 0; i < G_N_ELEMENTS (formats); i++)
+-          {
+-            g_clear_error (error);
+-
+-            if (choose_egl_config_from_gbm_format (egl,
+-                                                   egl_display,
+-                                                   attributes,
+-                                                   formats[i],
+-                                                   out_config,
+-                                                   error))
+-              return TRUE;
+-          }
+-
+-        return FALSE;
++        return meta_renderer_native_choose_gbm_format (egl,
++                                                       egl_display,
++                                                       attributes,
++                                                       formats,
++                                                       G_N_ELEMENTS (formats),
++                                                       "fallback",
++                                                       out_config,
++                                                       error);
+       }
+     case META_RENDERER_NATIVE_MODE_SURFACELESS:
+       *out_config = EGL_NO_CONFIG_KHR;
+diff --git a/src/backends/native/meta-renderer-native.h b/src/backends/native/meta-renderer-native.h
+index f84c7741ab8..338f0862bd1 100644
+--- a/src/backends/native/meta-renderer-native.h
++++ b/src/backends/native/meta-renderer-native.h
+@@ -75,3 +75,12 @@ gboolean meta_renderer_native_use_modifiers (MetaRendererNative *renderer_native
+ gboolean meta_renderer_native_has_addfb2 (MetaRendererNative *renderer_native);
+ 
+ MetaRendererNativeMode meta_renderer_native_get_mode (MetaRendererNative *renderer_native);
++
++gboolean meta_renderer_native_choose_gbm_format (MetaEgl         *egl,
++                                                 EGLDisplay       egl_display,
++                                                 EGLint          *attributes,
++                                                 const uint32_t  *formats,
++                                                 size_t           num_formats,
++                                                 const char      *purpose,
++                                                 EGLConfig       *out_config,
++                                                 GError         **error);
+-- 
+GitLab
+
+
+From e1f795ff79d8663681a97df0e6ff5740e34e9dc9 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Michel=20D=C3=A4nzer?= <mdaenzer@redhat.com>
+Date: Tue, 31 Oct 2023 18:47:31 +0100
+Subject: [PATCH 4/5] onscreen/native: Add and use choose_onscreen_egl_config
+ helper
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+If the EGL_KHR_no_config_context extension is supported, use it to
+choose a format per onscreen which is compatible with the scanout CRTC
+and the GL rendering API used.
+
+Suggested by Jonas Ådahl.
+
+v2:
+* Drop code which checked for GLES3 renderability. Makes no sense for
+  various reasons, in particular that EGLconfigs are about EGLSurfaces,
+  whereas secondary GPU contexts use an FBO for blitting.
+* Use error parameter directly for meta_renderer_native_choose_gbm_format
+  call (Jonas Ådahl)
+
+Part-of: <https://gitlab.gnome.org/GNOME/mutter/-/merge_requests/3139>
+---
+ cogl/cogl/cogl-display-private.h           |  2 +-
+ cogl/cogl/winsys/cogl-winsys-egl-private.h |  2 +-
+ src/backends/native/meta-onscreen-native.c | 50 +++++++++++++++++++++-
+ src/backends/native/meta-renderer-native.c | 13 +++++-
+ src/backends/native/meta-renderer-native.h |  3 +-
+ 5 files changed, 63 insertions(+), 7 deletions(-)
+
+diff --git a/cogl/cogl/cogl-display-private.h b/cogl/cogl/cogl-display-private.h
+index 6f228c92549..d88a0847b2b 100644
+--- a/cogl/cogl/cogl-display-private.h
++++ b/cogl/cogl/cogl-display-private.h
+@@ -32,7 +32,7 @@
+ 
+ #include "cogl/cogl-display.h"
+ #include "cogl/cogl-renderer.h"
+-#include "cogl/cogl-onscreen-template.h"
++#include "cogl/cogl-onscreen-template-private.h"
+ 
+ struct _CoglDisplay
+ {
+diff --git a/cogl/cogl/winsys/cogl-winsys-egl-private.h b/cogl/cogl/winsys/cogl-winsys-egl-private.h
+index 8b6f2140609..178fb2270d3 100644
+--- a/cogl/cogl/winsys/cogl-winsys-egl-private.h
++++ b/cogl/cogl/winsys/cogl-winsys-egl-private.h
+@@ -194,7 +194,7 @@ COGL_EXPORT gboolean
+ _cogl_winsys_egl_renderer_connect_common (CoglRenderer *renderer,
+                                           GError **error);
+ 
+-void
++COGL_EXPORT void
+ cogl_display_egl_determine_attributes (CoglDisplay                 *display,
+                                        const CoglFramebufferConfig *config,
+                                        EGLint                      *attributes);
+diff --git a/src/backends/native/meta-onscreen-native.c b/src/backends/native/meta-onscreen-native.c
+index 9d61985fe59..7b625ef751c 100644
+--- a/src/backends/native/meta-onscreen-native.c
++++ b/src/backends/native/meta-onscreen-native.c
+@@ -47,6 +47,7 @@
+ #include "backends/native/meta-render-device.h"
+ #include "backends/native/meta-renderer-native-gles3.h"
+ #include "backends/native/meta-renderer-native-private.h"
++#include "cogl/cogl.h"
+ #include "common/meta-cogl-drm-formats.h"
+ 
+ typedef enum _MetaSharedFramebufferImportStatus
+@@ -1743,6 +1744,45 @@ get_supported_kms_formats (CoglOnscreen *onscreen)
+   return meta_crtc_kms_copy_drm_format_list (crtc_kms);
+ }
+ 
++static gboolean
++choose_onscreen_egl_config (CoglOnscreen  *onscreen,
++                            EGLConfig     *out_config,
++                            GError       **error)
++{
++  MetaOnscreenNative *onscreen_native = META_ONSCREEN_NATIVE (onscreen);
++  CoglFramebuffer *framebuffer = COGL_FRAMEBUFFER (onscreen);
++  CoglContext *cogl_context = cogl_framebuffer_get_context (framebuffer);
++  CoglDisplay *cogl_display = cogl_context->display;
++  CoglRenderer *cogl_renderer = cogl_display->renderer;
++  CoglRendererEGL *cogl_renderer_egl = cogl_renderer->winsys;
++  EGLDisplay egl_display = cogl_renderer_egl->edpy;
++  MetaEgl *egl = meta_onscreen_native_get_egl (onscreen_native);
++  MetaCrtcKms *crtc_kms = META_CRTC_KMS (onscreen_native->crtc);
++  EGLint attrs[MAX_EGL_CONFIG_ATTRIBS];
++  g_autoptr (GError) local_error = NULL;
++  static const uint32_t formats[] = {
++    GBM_FORMAT_XRGB8888,
++    GBM_FORMAT_ARGB8888,
++  };
++
++  cogl_display_egl_determine_attributes (cogl_display,
++                                         &cogl_display->onscreen_template->config,
++                                         attrs);
++
++  if (meta_renderer_native_choose_gbm_format (crtc_kms,
++                                              egl,
++                                              egl_display,
++                                              attrs,
++                                              formats,
++                                              G_N_ELEMENTS (formats),
++                                              "surface",
++                                              out_config,
++                                              error))
++    return TRUE;
++
++  return FALSE;
++}
++
+ static gboolean
+ create_surfaces_gbm (CoglOnscreen        *onscreen,
+                      int                  width,
+@@ -1766,6 +1806,7 @@ create_surfaces_gbm (CoglOnscreen        *onscreen,
+   struct gbm_surface *new_gbm_surface = NULL;
+   EGLNativeWindowType egl_native_window;
+   EGLSurface new_egl_surface;
++  EGLConfig egl_config;
+   uint32_t format;
+   GArray *modifiers;
+ 
+@@ -1775,9 +1816,14 @@ create_surfaces_gbm (CoglOnscreen        *onscreen,
+   render_device_gbm = META_RENDER_DEVICE_GBM (renderer_gpu_data->render_device);
+   gbm_device = meta_render_device_gbm_get_gbm_device (render_device_gbm);
+ 
++  if (!(cogl_renderer_egl->private_features &
++        COGL_EGL_WINSYS_FEATURE_NO_CONFIG_CONTEXT) ||
++      !choose_onscreen_egl_config (onscreen, &egl_config, error))
++    egl_config = cogl_display_egl->egl_config;
++    
+   format = get_gbm_format_from_egl (egl,
+                                     cogl_renderer_egl->edpy,
+-                                    cogl_display_egl->egl_config);
++                                    egl_config);
+ 
+   if (meta_renderer_native_use_modifiers (renderer_native))
+     modifiers = get_supported_modifiers (onscreen, format);
+@@ -1819,7 +1865,7 @@ create_surfaces_gbm (CoglOnscreen        *onscreen,
+   new_egl_surface =
+     meta_egl_create_window_surface (egl,
+                                     cogl_renderer_egl->edpy,
+-                                    cogl_display_egl->egl_config,
++                                    egl_config,
+                                     egl_native_window,
+                                     NULL,
+                                     error);
+diff --git a/src/backends/native/meta-renderer-native.c b/src/backends/native/meta-renderer-native.c
+index 9d1a8ea189c..fbee5db2f84 100644
+--- a/src/backends/native/meta-renderer-native.c
++++ b/src/backends/native/meta-renderer-native.c
+@@ -412,7 +412,8 @@ choose_egl_config_from_gbm_format (MetaEgl       *egl,
+ }
+ 
+ gboolean
+-meta_renderer_native_choose_gbm_format (MetaEgl         *egl,
++meta_renderer_native_choose_gbm_format (MetaCrtcKms     *crtc_kms,
++                                        MetaEgl         *egl,
+                                         EGLDisplay       egl_display,
+                                         EGLint          *attributes,
+                                         const uint32_t  *formats,
+@@ -427,6 +428,13 @@ meta_renderer_native_choose_gbm_format (MetaEgl         *egl,
+     {
+       g_clear_error (error);
+ 
++      if (crtc_kms && !meta_crtc_kms_supports_format (crtc_kms, formats[i]))
++        {
++          g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
++                       "KMS CRTC doesn't support format");
++          continue;
++        }
++
+       if (choose_egl_config_from_gbm_format (egl,
+                                              egl_display,
+                                              attributes,
+@@ -471,7 +479,8 @@ meta_renderer_native_choose_egl_config (CoglDisplay  *cogl_display,
+           GBM_FORMAT_ARGB8888,
+         };
+ 
+-        return meta_renderer_native_choose_gbm_format (egl,
++        return meta_renderer_native_choose_gbm_format (NULL,
++                                                       egl,
+                                                        egl_display,
+                                                        attributes,
+                                                        formats,
+diff --git a/src/backends/native/meta-renderer-native.h b/src/backends/native/meta-renderer-native.h
+index 338f0862bd1..6cbad0b4820 100644
+--- a/src/backends/native/meta-renderer-native.h
++++ b/src/backends/native/meta-renderer-native.h
+@@ -76,7 +76,8 @@ gboolean meta_renderer_native_has_addfb2 (MetaRendererNative *renderer_native);
+ 
+ MetaRendererNativeMode meta_renderer_native_get_mode (MetaRendererNative *renderer_native);
+ 
+-gboolean meta_renderer_native_choose_gbm_format (MetaEgl         *egl,
++gboolean meta_renderer_native_choose_gbm_format (MetaCrtcKms     *crtc_kms,
++                                                 MetaEgl         *egl,
+                                                  EGLDisplay       egl_display,
+                                                  EGLint          *attributes,
+                                                  const uint32_t  *formats,
+-- 
+GitLab
+
+
+From 69e0ce36b1d02e0ee04283dbc1834154cc7cf465 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Michel=20D=C3=A4nzer?= <mdaenzer@redhat.com>
+Date: Wed, 8 Nov 2023 17:43:54 +0100
+Subject: [PATCH 5/5] renderer/native: Try 10 bpc formats for EGL surfaces
+
+For scanout on a secondary GPU, for the time being try only formats
+which are guaranteed to be renderable with GLES3, which notably excludes
+10 bpc formats without alpha channel.
+
+v2:
+* Use separate format array for 10 bpc formats without alpha.
+
+Part-of: <https://gitlab.gnome.org/GNOME/mutter/-/merge_requests/3139>
+---
+ src/backends/native/meta-onscreen-native.c | 31 ++++++++-
+ src/backends/native/meta-renderer-native.c | 77 ++++++++++++++++++----
+ 2 files changed, 92 insertions(+), 16 deletions(-)
+
+diff --git a/src/backends/native/meta-onscreen-native.c b/src/backends/native/meta-onscreen-native.c
+index 7b625ef751c..d27995aee36 100644
+--- a/src/backends/native/meta-onscreen-native.c
++++ b/src/backends/native/meta-onscreen-native.c
+@@ -1760,7 +1760,17 @@ choose_onscreen_egl_config (CoglOnscreen  *onscreen,
+   MetaCrtcKms *crtc_kms = META_CRTC_KMS (onscreen_native->crtc);
+   EGLint attrs[MAX_EGL_CONFIG_ATTRIBS];
+   g_autoptr (GError) local_error = NULL;
+-  static const uint32_t formats[] = {
++  static const uint32_t alphaless_10bpc_formats[] = {
++    GBM_FORMAT_XRGB2101010,
++    GBM_FORMAT_XBGR2101010,
++    GBM_FORMAT_RGBX1010102,
++    GBM_FORMAT_BGRX1010102,
++  };
++  static const uint32_t default_formats[] = {
++    GBM_FORMAT_ARGB2101010,
++    GBM_FORMAT_ABGR2101010,
++    GBM_FORMAT_RGBA1010102,
++    GBM_FORMAT_BGRA1010102,
+     GBM_FORMAT_XRGB8888,
+     GBM_FORMAT_ARGB8888,
+   };
+@@ -1769,12 +1779,27 @@ choose_onscreen_egl_config (CoglOnscreen  *onscreen,
+                                          &cogl_display->onscreen_template->config,
+                                          attrs);
+ 
++  /* Secondary GPU contexts use GLES3, which doesn't guarantee that 10 bpc
++   * formats without alpha are renderable
++   */
++  if (!should_surface_be_sharable (onscreen) &&
++      meta_renderer_native_choose_gbm_format (crtc_kms,
++                                              egl,
++                                              egl_display,
++                                              attrs,
++                                              alphaless_10bpc_formats,
++                                              G_N_ELEMENTS (alphaless_10bpc_formats),
++                                              "surface",
++                                              out_config,
++                                              error))
++    return TRUE;
++
+   if (meta_renderer_native_choose_gbm_format (crtc_kms,
+                                               egl,
+                                               egl_display,
+                                               attrs,
+-                                              formats,
+-                                              G_N_ELEMENTS (formats),
++                                              default_formats,
++                                              G_N_ELEMENTS (default_formats),
+                                               "surface",
+                                               out_config,
+                                               error))
+diff --git a/src/backends/native/meta-renderer-native.c b/src/backends/native/meta-renderer-native.c
+index fbee5db2f84..0811be7bb24 100644
+--- a/src/backends/native/meta-renderer-native.c
++++ b/src/backends/native/meta-renderer-native.c
+@@ -1610,11 +1610,11 @@ meta_renderer_native_finish_frame (MetaRendererNative *renderer_native,
+ }
+ 
+ static gboolean
+-create_secondary_egl_config (MetaEgl               *egl,
+-                             MetaRendererNativeMode mode,
+-                             EGLDisplay             egl_display,
+-                             EGLConfig             *egl_config,
+-                             GError               **error)
++create_secondary_egl_config (MetaEgl                    *egl,
++                             MetaRendererNativeGpuData  *renderer_gpu_data,
++                             EGLDisplay                  egl_display,
++                             EGLConfig                  *egl_config,
++                             GError                    **error)
+ {
+   EGLint attributes[] = {
+     EGL_RED_SIZE, 1,
+@@ -1627,16 +1627,67 @@ create_secondary_egl_config (MetaEgl               *egl,
+     EGL_NONE
+   };
+ 
+-  switch (mode)
++  switch (renderer_gpu_data->mode)
+     {
+     case META_RENDERER_NATIVE_MODE_GBM:
+     case META_RENDERER_NATIVE_MODE_SURFACELESS:
+-      return choose_egl_config_from_gbm_format (egl,
+-                                                egl_display,
+-                                                attributes,
+-                                                GBM_FORMAT_XRGB8888,
+-                                                egl_config,
+-                                                error);
++      {
++        MetaGpuKms *gpu_kms = renderer_gpu_data->gpu_kms;
++        static const uint32_t gles3_formats[] = {
++          GBM_FORMAT_ARGB2101010,
++          GBM_FORMAT_ABGR2101010,
++          GBM_FORMAT_RGBA1010102,
++          GBM_FORMAT_BGRA1010102,
++          GBM_FORMAT_XRGB8888,
++          GBM_FORMAT_ARGB8888,
++        };
++        int i;
++
++        for (i = 0; i < G_N_ELEMENTS (gles3_formats); i++)
++          {
++            g_clear_error (error);
++
++            if (gpu_kms)
++              {
++                GList *l;
++
++                for (l = meta_gpu_get_crtcs (META_GPU (gpu_kms)); l; l = l->next)
++                  {
++                    MetaCrtc *crtc = l->data;
++
++                    if (!meta_crtc_kms_supports_format (META_CRTC_KMS (crtc), gles3_formats[i]))
++                      break;
++                  }
++
++                /* If any CRTC doesn't support the format, we can't use it */
++                if (l)
++                  {
++                    g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
++                                 "KMS CRTC doesn't support GBM format");
++                    continue;
++                  }
++              }
++
++            if (choose_egl_config_from_gbm_format (egl,
++                                                   egl_display,
++                                                   attributes,
++                                                   gles3_formats[i],
++                                                   egl_config,
++                                                   error))
++              {
++                MetaDrmFormatBuf format_string;
++
++                meta_drm_format_to_string (&format_string, gles3_formats[i]);
++                meta_topic (META_DEBUG_KMS,
++                            "Using GBM format %s for secondary GPU EGL",
++                            format_string.s);
++
++                return TRUE;
++              }
++          }
++
++        return FALSE;
++      }
+ #ifdef HAVE_EGL_DEVICE
+     case META_RENDERER_NATIVE_MODE_EGL_DEVICE:
+       return meta_egl_choose_first_config (egl,
+@@ -1728,7 +1779,7 @@ init_secondary_gpu_data_gpu (MetaRendererNativeGpuData *renderer_gpu_data,
+ 
+   meta_egl_bind_api (egl, EGL_OPENGL_ES_API, NULL);
+ 
+-  if (!create_secondary_egl_config (egl, renderer_gpu_data->mode, egl_display,
++  if (!create_secondary_egl_config (egl, renderer_gpu_data, egl_display,
+                                     &egl_config, error))
+     goto out;
+ 
+-- 
+GitLab
+

@@ -1,6 +1,6 @@
 %global majorversion 1
 %global minorversion 0
-%global microversion 4
+%global microversion 6
 
 %global apiversion   0.3
 %global spaversion   0.2
@@ -9,7 +9,7 @@
 %global ms_version   0.4.2
 
 # For rpmdev-bumpspec and releng automation
-%global baserelease 2
+%global baserelease 1
 
 #global snapdate   20210107
 #global gitcommit  b17db2cebc1a5ab2c01851d29c05f79cd2f262bb
@@ -834,11 +834,23 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 %endif
 
 %changelog
+* Thu May 09 2024 Wim Taymans <wtaymans@redhat.com> - 1.0.6-1
+- Update version to 1.0.6
+
+* Tue Apr 23 2024 Wim Taymans <wtaymans@redhat.com> - 1.0.5-2
+- Enable ROC again
+
+* Mon Apr 15 2024 Wim Taymans <wtaymans@redhat.com> - 1.0.5-1
+- Update version to 1.0.5
+
 * Wed Mar 13 2024 Wim Taymans <wtaymans@redhat.com> - 1.0.4-2
 - Configure server, client and rlimit priorities to be the same as JACK.
 
 * Wed Mar 13 2024 Wim Taymans <wtaymans@redhat.com> - 1.0.4-1
 - Update version to 1.0.4
+
+* Tue Feb 13 2024 Yaakov Selkowitz <yselkowi@redhat.com> - 1.0.3-2
+- Use webrtc-audio-processing-1 on F40 and RHEL 10
 
 * Fri Feb 02 2024 Wim Taymans <wtaymans@redhat.com> - 1.0.3-1
 - Update version to 1.0.3
@@ -1031,7 +1043,7 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 * Thu Nov 10 2022 Wim Taymans <wtaymans@redhat.com> - 0.3.60-1
 - Update version to 0.3.60
 
-* Mon Oct 24 2022 Jaroslav Škarvada <jskarvad@redhat.com> - 0.3.59-3
+* Mon Oct 24 2022 Jaroslav Å karvada <jskarvad@redhat.com> - 0.3.59-3
 - Enabled roc-toolkit support
   Resolves: rhbz#2041189
 
@@ -1241,7 +1253,7 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 - Split media-session into a subpackage and Require it through a virtual
   Provides from the main pipewire package
 
-* Tue Jun 15 2021 Łukasz Patron <priv.luk@gmail.com> - 0.3.30-4
+* Tue Jun 15 2021 Åukasz Patron <priv.luk@gmail.com> - 0.3.30-4
 - Add patch for setting node description for module-combine-sink
 
 * Tue Jun 15 2021 Wim Taymans <wtaymans@redhat.com> - 0.3.30-3

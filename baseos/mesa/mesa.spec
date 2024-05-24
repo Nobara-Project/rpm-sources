@@ -70,11 +70,11 @@
 %bcond_with valgrind
 %endif
 
-%global vulkan_drivers swrast%{?base_vulkan}%{?intel_platform_vulkan}%{?extra_platform_vulkan}%{?with_nvk:,nouveau-experimental}
+%global vulkan_drivers swrast%{?base_vulkan}%{?intel_platform_vulkan}%{?extra_platform_vulkan}%{?with_nvk:,nouveau}
 
 Name:           mesa
 Summary:        Mesa graphics libraries
-%global ver 24.0.6
+%global ver 24.1.0-rc1
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
@@ -87,8 +87,10 @@ Source1:        Mesa-MLAA-License-Clarification-Email.txt
 
 Patch0:         gnome-shell-glthread-disable.patch
 
+# # broken proc-macro disable
+Patch1:         mesa-28923.patch
 # explicit sync
-Patch1:         25709.patch
+#Patch1:         25709.patch
 
 # Performance bump
 # Original:
@@ -102,7 +104,7 @@ Patch2: 25352.patch
 # https://gitlab.com/evlaV/mesa/
 Patch3: valve.patch
 
-BuildRequires:  meson >= 1.2.0
+BuildRequires:  meson >= 1.3.0
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
 BuildRequires:  gettext
@@ -169,16 +171,19 @@ BuildRequires:  pkgconfig(SPIRV-Tools)
 BuildRequires:  pkgconfig(LLVMSPIRVLib)
 %endif
 %if 0%{?with_nvk}
+BuildRequires:  cbindgen
 BuildRequires:  (crate(proc-macro2) >= 1.0.56 with crate(proc-macro2) < 2)
 BuildRequires:  (crate(quote) >= 1.0.25 with crate(quote) < 2)
 BuildRequires:  (crate(syn/clone-impls) >= 2.0.15 with crate(syn/clone-impls) < 3)
 BuildRequires:  (crate(unicode-ident) >= 1.0.6 with crate(unicode-ident) < 2)
+BuildRequires:  (crate(paste) >= 1.0.14 with crate(paste) < 2)
 %endif
 %if %{with valgrind}
 BuildRequires:  pkgconfig(valgrind)
 %endif
 BuildRequires:  python3-devel
 BuildRequires:  python3-mako
+BuildRequires:  python3-pycparser
 %if 0%{?with_intel_clc}
 BuildRequires:  python3-ply
 %endif
@@ -263,7 +268,7 @@ Requires:       %{name}-filesystem%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{rel
 %package        va-drivers
 Summary:        Mesa-based VA-API video acceleration drivers
 Requires:       %{name}-filesystem%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
-Obsoletes:      %{name}-vaapi-drivers < 22.2.0-5
+Obsoletes:      %{name}-vaapi-drivers < 22.3.0-0.24
 
 %description va-drivers
 %{summary}.
@@ -434,6 +439,9 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
   -Dglvnd=true \
 %if 0%{?with_intel_clc}
   -Dintel-clc=enabled \
+%endif
+%ifnarch x86_64
+  -Dintel-rt=disabled \
 %endif
   -Dmicrosoft-clc=disabled \
   -Dllvm=enabled \
@@ -659,14 +667,18 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-mesa-defaults.conf
 %{_libdir}/dri/meson_dri.so
 %{_libdir}/dri/mi0283qt_dri.so
 %{_libdir}/dri/panel-mipi-dbi_dri.so
+%{_libdir}/dri/panthor_dri.so
 %{_libdir}/dri/pl111_dri.so
 %{_libdir}/dri/repaper_dri.so
 %{_libdir}/dri/rockchip_dri.so
+%{_libdir}/dri/rzg2l-du_dri.so
+%{_libdir}/dri/ssd130x_dri.so
 %{_libdir}/dri/st7586_dri.so
 %{_libdir}/dri/st7735r_dri.so
 %{_libdir}/dri/sti_dri.so
 %{_libdir}/dri/sun4i-drm_dri.so
 %{_libdir}/dri/udl_dri.so
+%{_libdir}/dri/zynqmp-dpsub_dri.so
 %endif
 %if 0%{?with_vulkan_hw}
 %{_libdir}/dri/zink_dri.so
