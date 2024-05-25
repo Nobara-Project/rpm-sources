@@ -1,0 +1,81 @@
+From ca3a26cd53ca6232b6613a1d2395eb9ca9cafe08 Mon Sep 17 00:00:00 2001
+From: Zijun Hu <quic_zijuhu@quicinc.com>
+Date: Sun, 22 Oct 2023 09:10:19 +0800
+Subject: [PATCH 1/1] pipeware: bluez5/backend-native: Enable SCO offload
+
+Enable SCO offload.
+
+Signed-off-by: Zijun Hu <quic_zijuhu@quicinc.com>
+---
+ spa/plugins/bluez5/backend-native.c | 34 ++++++++++++++++++++++++++++++++++
+ 1 file changed, 34 insertions(+)
+
+diff --git a/spa/plugins/bluez5/backend-native.c b/spa/plugins/bluez5/backend-native.c
+index 8144b09fa12c..4b1e0b2b5603 100644
+--- a/spa/plugins/bluez5/backend-native.c
++++ b/spa/plugins/bluez5/backend-native.c
+@@ -37,6 +37,8 @@
+ #include "modemmanager.h"
+ #include "upower.h"
+ 
++#define ENABLE_SCO_OFFLOAD   1
++
+ static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.native");
+ #undef SPA_LOG_TOPIC_DEFAULT
+ #define SPA_LOG_TOPIC_DEFAULT &log_topic
+@@ -1378,6 +1380,32 @@ static void rfcomm_event(struct spa_source *source)
+ 	}
+ }
+ 
++static int sco_offload_btcodec(struct impl *backend, int sock, bool msbc)
++{
++	int err;
++	char buffer[255];
++	struct bt_codecs *codecs;
++
++	spa_log_info(backend->log, "%s: sock(%d) msbc(%d)", __func__, sock, msbc);
++
++	memset(buffer, 0, sizeof(buffer));
++	codecs = (void *)buffer;
++	if (msbc)
++		codecs->codecs[0].id = 0x05;
++	else
++		codecs->codecs[0].id = 0x02;
++	codecs->num_codecs = 1;
++	codecs->codecs[0].data_path_id = 1;
++	codecs->codecs[0].num_caps = 0x00;
++
++	err = setsockopt(sock, SOL_BLUETOOTH, BT_CODEC, codecs, sizeof(buffer));
++	if (err < 0)
++		spa_log_error(backend->log, "%s: ERROR: %s (%d)", __func__,strerror(errno), errno);
++	else
++		spa_log_info(backend->log, "%s: Okay", __func__);
++	return err;
++}
++
+ static int sco_create_socket(struct impl *backend, struct spa_bt_adapter *adapter, bool msbc)
+ {
+ 	struct sockaddr_sco addr;
+@@ -1413,6 +1441,9 @@ static int sco_create_socket(struct impl *backend, struct spa_bt_adapter *adapte
+ 			return -1;
+ 		}
+ 	}
++#if ENABLE_SCO_OFFLOAD
++	sco_offload_btcodec(backend, sock, msbc);
++#endif
+ 
+ 	return spa_steal_fd(sock);
+ }
+@@ -1777,6 +1808,9 @@ static void sco_listen_event(struct spa_source *source)
+ 				return;
+ 			}
+ 		}
++#if ENABLE_SCO_OFFLOAD
++		sco_offload_btcodec(backend, sock, t->codec == HFP_AUDIO_CODEC_MSBC);
++#endif
+ 
+ 		/* First read from the accepted socket is non-blocking and returns a zero length buffer. */
+ 		if (read(sock, &buff, 1) == -1) {
+-- 
+2.7.4
+
