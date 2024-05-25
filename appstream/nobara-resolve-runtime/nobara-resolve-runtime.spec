@@ -8,7 +8,7 @@ Name: nobara-resolve-runtime
 Version: 1.0
 Release: 5%{?dist}
 License: Public Domain
-URL:            https://github.com/nobara-project/nobara-core-core-packages
+URL:            https://github.com/nobara-project/nobara-core-packages
 Source0:        %{URL}/releases/download/1.0/nobara-resolve-runtime.tar.gz
 
 
