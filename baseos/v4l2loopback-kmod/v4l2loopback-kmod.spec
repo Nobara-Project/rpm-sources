@@ -33,7 +33,7 @@
 
 Name:           %{prjname}-kmod
 Summary:        Kernel module (kmod) for %{prjname}
-Version:        0.13.1^%{commitdate}g%{shortcommit}
+Version:        0.13.2^%{commitdate}g%{shortcommit}
 Release:        1%{?dist}
 License:        GPLv2+
 
