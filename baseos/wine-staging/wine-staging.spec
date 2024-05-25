@@ -9,11 +9,12 @@
 # check buildresult after a while
 
 %define _lto_cflags %{nil}
-%define realver     9.7
-%define stagingver  9.7
-%define packagever  9.7
+%define realver     9.9
+%define stagingver  9.9
+%define packagever  9.9
 
 %global flavor %nil
+%global build_type_safety_c 0
 
 # defaults ..
 %define pkg 		wine-staging
@@ -30,13 +31,14 @@
 
 Name:       %pkg
 Version:    %ver
-Release:    1.4
+Release:    10.1
 Epoch:      1
 Summary:    WINE Is Not An Emulator - runs MS Windows programs
 License:    LGPLv2+
 Group:      Emulators
 URL:        https://www.winehq.org/
 
+%if 0%{?fedora_version} < 40
 %ifarch x86_64
 %define wine    %{name}64
 %define mark64  ()(64bit)
@@ -44,21 +46,30 @@ URL:        https://www.winehq.org/
 %define wine    %{name}
 %define mark64  %{nil}
 %endif
+%endif
+
+%if 0%{?fedora_version} >= 40
+%define wine    %{name}
+%ifarch x86_64
+%define mark64  ()(64bit)
+%else
+%define mark64  %{nil}
+%endif
+%endif
 
 Source0:	https://dl.winehq.org/wine/source/9.x/wine-%{realver}.tar.xz
 Source1:	https://dl.winehq.org/wine/source/9.x/wine-%{realver}.tar.xz.sign
 
-Source100:	https://github.com/wine-staging/wine-staging/archive/refs/tags/v%{stagingver}.tar.gz#/wine-staging-%{stagingver}.tar.xz
+Source100:	https://github.com/wine-staging/wine-staging/archive/v%{realver}.tar.gz#/wine-staging-%{stagingver}.tar.xz
 
 # Alexandres key
 Source99:	wine.keyring
 
-# These are all the Fedora only packages, which are not present on Centos, RHEL or Scientific Linux
 BuildRequires:  mingw32-gcc
 BuildRequires:  mingw64-gcc
-
-BuildRequires:  gcc
 BuildRequires:  SDL2-devel
+BuildRequires:  gcc
+BuildRequires:  make
 # BuildRequires:  openal-soft-devel
 BuildRequires:  opencl-headers
 BuildRequires:  ocl-icd-devel
@@ -69,11 +80,7 @@ BuildRequires:  pcsc-lite-devel
 # BuildRequires:  jxrlib-devel
 BuildRequires:  samba-devel
 BuildRequires:  libnetapi-devel
-
 BuildRequires: libgcrypt-devel
-BuildRequires:  libvkd3d-devel
-
-# Fedora and SL 7.0 packages
 BuildRequires:  icoutils
 BuildRequires:  vulkan-devel
 # BuildRequires:  lcms2-devel
@@ -82,7 +89,6 @@ BuildRequires:  gstreamer1-plugins-base-devel
 # BuildRequires:  libmpg123-devel
 BuildRequires:  gtk3-devel
 BuildRequires:  libva-devel
-
 BuildRequires:  fontforge
 BuildRequires:  fontpackages-devel
 # BuildRequires:  gsm-devel
@@ -101,7 +107,6 @@ BuildRequires:  libgphoto2-devel
 BuildRequires:  libusb1-devel
 BuildRequires:  alsa-lib-devel
 BuildRequires:  autoconf
-BuildRequires:  make
 BuildRequires:  bison
 BuildRequires:  coreutils
 BuildRequires:  cups-devel
@@ -129,6 +134,7 @@ BuildRequires:  libXcursor-devel
 BuildRequires:  libXext-devel
 BuildRequires:  libXi-devel
 BuildRequires:  libXinerama-devel
+BuildRequires:  libxkbcommon-devel
 # BuildRequires:  libxml2-devel
 BuildRequires:  libXmu-devel
 BuildRequires:  libXrandr-devel
@@ -144,11 +150,13 @@ BuildRequires:  unixODBC-devel
 BuildRequires:  unzip
 BuildRequires:  util-linux
 # BuildRequires:  zlib-devel
-BuildRequires:  patch
 
+%if 0%{?fedora_version} < 40
 %ifarch x86_64
 %package -n %{wine}
 %endif
+%endif
+
 Summary:    WINE Is Not An Emulator - runs MS Windows programs
 Group:      Emulators
 %ifarch x86_64
@@ -156,7 +164,9 @@ Conflicts:  %{name}
 %else
 Conflicts:  %{name}64
 %endif
+%if 0%{?fedora_version} < 40
 Requires:   %{name}-common = %{epoch}:%{version}-%{release}
+%endif
 Provides:   %{lib_name} = %{epoch}:%{version}-%{release}
 Obsoletes:  %{lib_name} <= %{epoch}:%{version}-%{release}
 Provides:   %{name}-bin = %{epoch}:%{version}-%{release}
@@ -196,7 +206,9 @@ Requires:   %dlopenreq Xrandr
 Requires:   %dlopenreq Xrender
 # Requires:   %dlopenreq xslt
 Requires:   %dlopenreq Xxf86vm
+%if 0%{?fedora_version}
 Suggests:   sane-frontends
+%endif
 Requires(post): desktop-file-utils
 Requires(postun): desktop-file-utils
 
@@ -259,7 +271,7 @@ the default Wine version.
 
 # apply wine staging patch set on top of the wine release.
 tar xf %{SOURCE100}
-./wine-staging-%{stagingver}/staging/patchinstall.py --all
+./wine-staging-%{stagingver}/staging/patchinstall.py --all -W Compiler_Warnings -W shell32-IconCache
 
 %build
 %define debug_package %{nil}
@@ -273,9 +285,7 @@ autoreconf -i -f
     --with-gstreamer \
     --disable-tests \
     --with-xattr \
-%ifarch x86_64
-    --enable-win64 \
-%endif
+    --enable-archs=i386,x86_64 \
     --with-x
 
 make -j4
@@ -288,11 +298,6 @@ mkdir -p "%{buildroot}/usr/bin"
 for _file in $(ls "%{buildroot}/%{_bindir}"); do \
     ln -s "%{_bindir}/$_file" "%{buildroot}/usr/bin/$_file"; \
 done
-%ifarch x86_64
-for _file in wine wine-preloader; do \
-    ln -s "%{_prefix}/bin/$_file" "%{buildroot}/usr/bin/$_file"; \
-done
-%endif
 
 # Compat symlinks for desktop file
 mkdir -p "%{buildroot}/usr/share/applications"
@@ -301,6 +306,7 @@ for _file in $(ls "%{buildroot}/%{_datadir}/applications"); do \
 done
 
 # Compat manpages
+%if  0%{?fedora_version} || 0%{?scientificlinux_version} || 0%{?centos_version} >= 700 || 0%{?rhel_version} >= 700
 for _dir in man1 de.UTF-8/man1 fr.UTF-8/man1 pl.UTF-8/man1; do \
 	if [ -d "%{buildroot}/%{_mandir}/$_dir" ]; then \
         mkdir -p "$(dirname "%{buildroot}/usr/share/man/$_dir")"; \
@@ -309,6 +315,11 @@ for _dir in man1 de.UTF-8/man1 fr.UTF-8/man1 pl.UTF-8/man1; do \
 		mkdir -p "%{buildroot}/usr/share/man/$_dir"; \
 	fi; \
 done
+%else
+for _dir in man1 de.UTF-8/man1 fr.UTF-8/man1 pl.UTF-8/man1; do \
+        mkdir -p "%{buildroot}/usr/share/man/$_dir"; \
+done
+%endif
 
 %ifarch x86_64
 install -p -m 0644 loader/wine.man          "%{buildroot}/usr/share/man/man1/wine.1"
@@ -319,9 +330,12 @@ install -p -m 0644 loader/wine.pl.UTF-8.man "%{buildroot}/usr/share/man/pl.UTF-8
 
 %files -n %{wine}
 %doc ANNOUNCE.md AUTHORS README.md
+
+%if 0%{?fedora_version} < 40
 %ifarch x86_64
 %{_bindir}/wine64
 %{_bindir}/wine64-preloader
+%endif
 %endif
 %{_bindir}/function_grep.pl
 %{_bindir}/msidb
@@ -379,6 +393,7 @@ install -p -m 0644 loader/wine.pl.UTF-8.man "%{buildroot}/usr/share/man/pl.UTF-8
 %{_datadir}/wine/fonts/*
 # %{_datadir}/wine/color/*
 
+%if 0%{?fedora_version} < 40
 %ifarch %{ix86}
 %files -n %{name}-common
 %{_bindir}/wine
@@ -388,12 +403,26 @@ install -p -m 0644 loader/wine.pl.UTF-8.man "%{buildroot}/usr/share/man/pl.UTF-8
 %lang(fr) %{_mandir}/fr.UTF-8/man?/wine.?*
 %lang(pl) %{_mandir}/pl.UTF-8/man?/wine.?*
 %endif
+%else
+%{_bindir}/wine
+%{_bindir}/wine-preloader
+%{_mandir}/man?/wine.?*
+%lang(de) %{_mandir}/de.UTF-8/man?/wine.?*
+%lang(fr) %{_mandir}/fr.UTF-8/man?/wine.?*
+%lang(pl) %{_mandir}/pl.UTF-8/man?/wine.?*
+%endif
 
+%if 0%{?fedora_version} < 40
 %ifarch %{ix86}
 %{_libdir}/wine/i386-unix/*.*
 %{_libdir}/wine/i386-windows/*.*
 %endif
 %ifarch x86_64
+%{_libdir}/wine/x86_64-unix/*.*
+%{_libdir}/wine/x86_64-windows/*.*
+%endif
+%else
+%{_libdir}/wine/i386-windows/*.*
 %{_libdir}/wine/x86_64-unix/*.*
 %{_libdir}/wine/x86_64-windows/*.*
 %endif
