@@ -38,23 +38,11 @@ License:    LGPLv2+
 Group:      Emulators
 URL:        https://www.winehq.org/
 
-%if 0%{?fedora_version} < 40
-%ifarch x86_64
-%define wine    %{name}64
-%define mark64  ()(64bit)
-%else
-%define wine    %{name}
-%define mark64  %{nil}
-%endif
-%endif
-
-%if 0%{?fedora_version} >= 40
 %define wine    %{name}
 %ifarch x86_64
 %define mark64  ()(64bit)
 %else
 %define mark64  %{nil}
-%endif
 %endif
 
 Source0:	https://dl.winehq.org/wine/source/9.x/wine-%{realver}.tar.xz
@@ -151,21 +139,12 @@ BuildRequires:  unzip
 BuildRequires:  util-linux
 # BuildRequires:  zlib-devel
 
-%if 0%{?fedora_version} < 40
-%ifarch x86_64
-%package -n %{wine}
-%endif
-%endif
-
 Summary:    WINE Is Not An Emulator - runs MS Windows programs
 Group:      Emulators
 %ifarch x86_64
 Conflicts:  %{name}
 %else
 Conflicts:  %{name}64
-%endif
-%if 0%{?fedora_version} < 40
-Requires:   %{name}-common = %{epoch}:%{version}-%{release}
 %endif
 Provides:   %{lib_name} = %{epoch}:%{version}-%{release}
 Obsoletes:  %{lib_name} <= %{epoch}:%{version}-%{release}
@@ -331,12 +310,6 @@ install -p -m 0644 loader/wine.pl.UTF-8.man "%{buildroot}/usr/share/man/pl.UTF-8
 %files -n %{wine}
 %doc ANNOUNCE.md AUTHORS README.md
 
-%if 0%{?fedora_version} < 40
-%ifarch x86_64
-%{_bindir}/wine64
-%{_bindir}/wine64-preloader
-%endif
-%endif
 %{_bindir}/function_grep.pl
 %{_bindir}/msidb
 %{_bindir}/msiexec
@@ -393,39 +366,17 @@ install -p -m 0644 loader/wine.pl.UTF-8.man "%{buildroot}/usr/share/man/pl.UTF-8
 %{_datadir}/wine/fonts/*
 # %{_datadir}/wine/color/*
 
-%if 0%{?fedora_version} < 40
-%ifarch %{ix86}
-%files -n %{name}-common
 %{_bindir}/wine
 %{_bindir}/wine-preloader
 %{_mandir}/man?/wine.?*
 %lang(de) %{_mandir}/de.UTF-8/man?/wine.?*
 %lang(fr) %{_mandir}/fr.UTF-8/man?/wine.?*
 %lang(pl) %{_mandir}/pl.UTF-8/man?/wine.?*
-%endif
-%else
-%{_bindir}/wine
-%{_bindir}/wine-preloader
-%{_mandir}/man?/wine.?*
-%lang(de) %{_mandir}/de.UTF-8/man?/wine.?*
-%lang(fr) %{_mandir}/fr.UTF-8/man?/wine.?*
-%lang(pl) %{_mandir}/pl.UTF-8/man?/wine.?*
-%endif
 
-%if 0%{?fedora_version} < 40
-%ifarch %{ix86}
-%{_libdir}/wine/i386-unix/*.*
-%{_libdir}/wine/i386-windows/*.*
-%endif
-%ifarch x86_64
-%{_libdir}/wine/x86_64-unix/*.*
-%{_libdir}/wine/x86_64-windows/*.*
-%endif
-%else
+
 %{_libdir}/wine/i386-windows/*.*
 %{_libdir}/wine/x86_64-unix/*.*
 %{_libdir}/wine/x86_64-windows/*.*
-%endif
 
 %files -n %{wine}-devel
 %{_includedir}/*

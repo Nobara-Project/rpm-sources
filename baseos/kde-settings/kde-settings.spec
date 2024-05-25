@@ -14,7 +14,6 @@ Url:     https://pagure.io/fedora-kde/kde-settings
 Source0: https://pagure.io/fedora-kde/kde-settings/archive/%{version}/kde-settings-%{version}.tar.gz
 Source1: COPYING
 Patch0:  set-dark-global.patch
-Patch1:  https://pagure.io/fedora-kde/kde-settings/c/0cdfac2a2dc46c038660272e1a4bf9873c55607c.patch
 
 BuildArch: noarch
 
@@ -25,6 +24,12 @@ BuildRequires: xdg-user-dirs
 # ssh-agent.service
 BuildRequires: systemd-rpm-macros
 Source10: ssh-agent.sh
+
+%if ! 0%{?bootstrap}
+# for f33+ , consider merging version_maj with version, ie, use Version: 33 --rex
+%global  version_maj %(echo %{version} | cut -d. -f1)
+BuildRequires: f%{version_maj}-backgrounds-kde
+%endif
 
 # when kdebugrc was moved here
 Conflicts: kf5-kdelibs4support < 5.7.0-3
