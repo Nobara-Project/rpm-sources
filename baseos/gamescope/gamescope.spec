@@ -1,7 +1,7 @@
 %global libliftoff_minver 0.4.1
 
 # latest git
-%define commit 312e25b14640f3fa88469b57e898a4b2c069a186
+%define commit 420eb91387a484fd7b1ea71449091f0480d9e538
 
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global _default_patch_fuzz 2
@@ -10,7 +10,7 @@
 %global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           gamescope
-Version:        3.14.16
+Version:        3.14.18
 Release:        %{rel_build}
 Summary:        Micro-compositor for video games on Wayland
 
@@ -27,8 +27,6 @@ Patch2:         disable-steam-touch-click-atom.patch
 Patch3:         external-rotation.patch
 Patch4:         panel-type.patch
 Patch5:         deckhd.patch
-# disabled for now
-#Patch6:         gestures.patch
 
 BuildRequires:  meson >= 0.54.0
 BuildRequires:  ninja-build
@@ -126,6 +124,7 @@ cd gamescope
 %license gamescope/LICENSE
 %doc gamescope/README.md
 %{_bindir}/gamescope
+%{_bindir}/gamescopestream
 
 %files libs
 %{_libdir}/*.so
