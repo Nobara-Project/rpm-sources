@@ -9,7 +9,7 @@
 %global ms_version   0.4.2
 
 # For rpmdev-bumpspec and releng automation
-%global baserelease 1
+%global baserelease 2
 
 #global snapdate   20210107
 #global gitcommit  b17db2cebc1a5ab2c01851d29c05f79cd2f262bb
@@ -78,15 +78,11 @@ Source1:        pipewire.sysusers
 
 ## upstream patches
 
-# Holo: TODO: Bug reference
-Patch0:         bc435841c141ad38768b6cb1a7ad45e8bb13c7d2.patch
-# Holo: TODO: Bug reference
-Patch1:         acf7c0af0bf31b937c41e916a73c67ae0a253632.patch
 # Holo: upstream MR 1792
-Patch2:         0001-Bluez5-backend-native-HSP-AG-release-SCO-link-on-AT-.patch
+Patch0:         0001-pipewire-bluez5-backend-native-Enable-SCO-offload.patch
 
-Patch3:         0001-Revert-spa-libcamera-bump-minimum-supported-version-.patch
-Patch4:         0002-Revert-spa-libcamera-use-CameraConfiguration-orienta.patch
+Patch1:         0001-Revert-spa-libcamera-bump-minimum-supported-version-.patch
+Patch2:         0002-Revert-spa-libcamera-use-CameraConfiguration-orienta.patch
 
 ## upstreamable patches
 
