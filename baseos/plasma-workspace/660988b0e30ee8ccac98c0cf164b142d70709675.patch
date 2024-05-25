@@ -1,0 +1,347 @@
+From 660988b0e30ee8ccac98c0cf164b142d70709675 Mon Sep 17 00:00:00 2001
+From: David Edmundson <kde@davidedmundson.co.uk>
+Date: Tue, 20 Feb 2024 14:06:05 +0000
+Subject: [PATCH] Reopen running apps on startup
+
+On wayland we have no session restore that works. Gnome's implementation is
+non-standard, there's nothing in Qt6. There is definitely nothing that
+can be done in time for 6.0.
+
+Even on X11 not all apps have good support, and with Flatpak requiring additional
+permissions for XSMP it's getting worse.
+
+So we need something to use as a fallback for both now, and for apps without support.
+
+This is a simplistic solution that simply relaunch any wayland applications running at the time of shutdown.
+X11 apps can restore as before through ksmserver as before.
+
+It's not a smart solution, there's nothing that brings back the exact
+same session or handles multiple windows.
+---
+ libtaskmanager/waylandtasksmodel.cpp          |  1 +
+ startkde/CMakeLists.txt                       |  2 +-
+ startkde/plasma-shutdown/CMakeLists.txt       |  1 +
+ startkde/plasma-shutdown/config.h.cmake       |  6 ++
+ startkde/plasma-shutdown/shutdown.cpp         |  8 ++
+ startkde/session-restore/CMakeLists.txt       | 35 ++++++++
+ ...plasma-fallback-session-restore.desktop.in |  9 +++
+ ...de.plasma-fallback-session-save.desktop.in | 11 +++
+ startkde/session-restore/restore.cpp          | 79 +++++++++++++++++++
+ startkde/session-restore/save.cpp             | 67 ++++++++++++++++
+ 10 files changed, 218 insertions(+), 1 deletion(-)
+ create mode 100644 startkde/plasma-shutdown/config.h.cmake
+ create mode 100644 startkde/session-restore/CMakeLists.txt
+ create mode 100644 startkde/session-restore/org.kde.plasma-fallback-session-restore.desktop.in
+ create mode 100644 startkde/session-restore/org.kde.plasma-fallback-session-save.desktop.in
+ create mode 100644 startkde/session-restore/restore.cpp
+ create mode 100644 startkde/session-restore/save.cpp
+
+diff --git a/libtaskmanager/waylandtasksmodel.cpp b/libtaskmanager/waylandtasksmodel.cpp
+index 8e4acfcb554..06c74f3e95a 100644
+--- a/libtaskmanager/waylandtasksmodel.cpp
++++ b/libtaskmanager/waylandtasksmodel.cpp
+@@ -341,6 +341,7 @@ public:
+                 wl_proxy_destroy(reinterpret_cast<wl_proxy *>(object()));
+             }
+         });
++        initialize();
+     }
+     ~PlasmaWindowManagement()
+     {
+diff --git a/startkde/CMakeLists.txt b/startkde/CMakeLists.txt
+index ce44609cc8d..7a50ddbbea7 100644
+--- a/startkde/CMakeLists.txt
++++ b/startkde/CMakeLists.txt
+@@ -44,7 +44,7 @@ target_link_libraries(startplasma-wayland PRIVATE
+ add_subdirectory(plasma-session)
+ add_subdirectory(plasma-shutdown)
+ add_subdirectory(session-shortcuts)
+-
++add_subdirectory(session-restore)
+ 
+ #FIXME: reconsider, looks fishy
+ if(NOT CMAKE_INSTALL_PREFIX STREQUAL "/usr")
+diff --git a/startkde/plasma-shutdown/CMakeLists.txt b/startkde/plasma-shutdown/CMakeLists.txt
+index 4455af13108..49c8a61d44a 100644
+--- a/startkde/plasma-shutdown/CMakeLists.txt
++++ b/startkde/plasma-shutdown/CMakeLists.txt
+@@ -2,6 +2,7 @@ set(plasma_shutdown_SRCS
+     main.cpp
+     shutdown.cpp
+ )
++configure_file(config.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config.h)
+ 
+ ecm_qt_declare_logging_category(plasma_shutdown_SRCS  HEADER debug.h IDENTIFIER PLASMA_SESSION CATEGORY_NAME org.kde.plasma.shutdown
+     DESCRIPTION "plasma shutdown"
+diff --git a/startkde/plasma-shutdown/config.h.cmake b/startkde/plasma-shutdown/config.h.cmake
+new file mode 100644
+index 00000000000..57095ff9930
+--- /dev/null
++++ b/startkde/plasma-shutdown/config.h.cmake
+@@ -0,0 +1,6 @@
++/*
++    SPDX-FileCopyrightText: 2023 David Edmundson <davidedmundson@kde.org>
++    SPDX-License-Identifier: LGPL-2.1-or-later
++*/
++
++#define PLASMA_FALLBACK_SESSION_SAVE_BIN "${CMAKE_INSTALL_FULL_LIBEXECDIR}/plasma-fallback-session-save"
+diff --git a/startkde/plasma-shutdown/shutdown.cpp b/startkde/plasma-shutdown/shutdown.cpp
+index 2db603c5ccb..3dd7275f10e 100644
+--- a/startkde/plasma-shutdown/shutdown.cpp
++++ b/startkde/plasma-shutdown/shutdown.cpp
+@@ -12,6 +12,8 @@
+ #include "kwin_interface.h"
+ #include "sessionmanagementbackend.h"
+ 
++#include "config.h"
++
+ Shutdown::Shutdown(QObject *parent)
+     : QObject(parent)
+ {
+@@ -62,6 +64,12 @@ void Shutdown::startLogout(KWorkSpace::ShutdownType shutdownType)
+ 
+ void Shutdown::ksmServerComplete()
+ {
++    // Now record windows that are not session managed
++    int ret = QProcess::execute(QStringLiteral(PLASMA_FALLBACK_SESSION_SAVE_BIN));
++    if (ret) {
++        qCWarning(PLASMA_SESSION) << "plasma-fallback-session-save failed with return code" << ret;
++    }
++
+     OrgKdeKWinSessionInterface kwinInterface(QStringLiteral("org.kde.KWin"), QStringLiteral("/Session"), QDBusConnection::sessionBus());
+     kwinInterface.setTimeout(INT32_MAX);
+     auto reply = kwinInterface.closeWaylandWindows();
+diff --git a/startkde/session-restore/CMakeLists.txt b/startkde/session-restore/CMakeLists.txt
+new file mode 100644
+index 00000000000..ec52b2dd21e
+--- /dev/null
++++ b/startkde/session-restore/CMakeLists.txt
+@@ -0,0 +1,35 @@
++# SPDX-FileCopyrightText: 2023 David Edmundson <davidedmundson@kde.org>
++# SPDX-License-Identifier: BSD-2-Clause
++
++ecm_qt_declare_logging_category(shared_debug_SRCS HEADER debug.h IDENTIFIER FALLBACK_SESSION_RESTORE CATEGORY_NAME org.kde.plasma-fallback-session-restore)
++
++
++add_executable(plasma-fallback-session-save
++    save.cpp
++    ${shared_debug_SRCS}
++)
++target_link_libraries(plasma-fallback-session-save
++    Qt6::Core
++    KF6::KIOGui
++    KF6::ConfigCore
++    PW::LibTaskManager
++    Qt6::GuiPrivate
++    Wayland::Client
++)
++
++add_executable( plasma-fallback-session-restore
++    restore.cpp
++    ${shared_debug_SRCS}
++)
++
++target_link_libraries( plasma-fallback-session-restore
++    Qt6::Core
++    KF6::KIOGui
++    KF6::ConfigCore
++)
++
++install(TARGETS plasma-fallback-session-restore DESTINATION ${KDE_INSTALL_FULL_LIBEXECDIR})
++install(TARGETS plasma-fallback-session-save DESTINATION ${KDE_INSTALL_FULL_LIBEXECDIR})
++
++ecm_install_configured_files(INPUT org.kde.plasma-fallback-session-save.desktop.in @ONLY DESTINATION ${KDE_INSTALL_APPDIR})
++ecm_install_configured_files(INPUT org.kde.plasma-fallback-session-restore.desktop.in @ONLY DESTINATION ${KDE_INSTALL_AUTOSTARTDIR})
+diff --git a/startkde/session-restore/org.kde.plasma-fallback-session-restore.desktop.in b/startkde/session-restore/org.kde.plasma-fallback-session-restore.desktop.in
+new file mode 100644
+index 00000000000..caa593d5323
+--- /dev/null
++++ b/startkde/session-restore/org.kde.plasma-fallback-session-restore.desktop.in
+@@ -0,0 +1,9 @@
++[Desktop Entry]
++Exec=@KDE_INSTALL_FULL_LIBEXECDIR@/plasma-fallback-session-restore
++Name=Plasma Session Restore
++Icon=plasmashell
++OnlyShowIn=KDE;
++Type=Application
++X-KDE-StartupNotify=false
++NoDisplay=true
++
+diff --git a/startkde/session-restore/org.kde.plasma-fallback-session-save.desktop.in b/startkde/session-restore/org.kde.plasma-fallback-session-save.desktop.in
+new file mode 100644
+index 00000000000..b6ca204d5d5
+--- /dev/null
++++ b/startkde/session-restore/org.kde.plasma-fallback-session-save.desktop.in
+@@ -0,0 +1,11 @@
++[Desktop Entry]
++Exec=@KDE_INSTALL_FULL_LIBEXECDIR@/plasma-fallback-session-save
++Name=Plasma Session Save
++Icon=plasmashell
++Type=Application
++X-KDE-StartupNotify=false
++OnlyShowIn=KDE;
++NoDisplay=true
++X-KDE-Wayland-Interfaces=org_kde_plasma_window_management
++
++
+diff --git a/startkde/session-restore/restore.cpp b/startkde/session-restore/restore.cpp
+new file mode 100644
+index 00000000000..3e70635fb08
+--- /dev/null
++++ b/startkde/session-restore/restore.cpp
+@@ -0,0 +1,79 @@
++/*
++ SPDX-FileCopyrightText: 2023 David Edmundson <davidedmundson@kde.org>
++ SPDX-FileCopyrightText: 2023 David Redondo <kde@david-redondo.de>
++
++SPDX-License-Identifier: LGPL-2.1-or-later
++*/
++
++#include <QGuiApplication>
++
++#include <KConfigGroup>
++#include <KIO/ApplicationLauncherJob>
++#include <KService>
++#include <KSharedConfig>
++
++#include "debug.h"
++#include "qdir.h"
++
++using namespace Qt::StringLiterals;
++
++int main(int argc, char *argv[])
++{
++    QGuiApplication a(argc, argv);
++    a.setDesktopSettingsAware(false);
++    a.setApplicationName(u"plasmasessionrestore"_s);
++
++    KSharedConfig::Ptr ksmserverConfig = KSharedConfig::openConfig(u"ksmserverrc"_s);
++    if (ksmserverConfig->group(u"General"_s).readEntry("loginMode", u"restorePreviousLogout"_s) != u"restorePreviousLogout"_s) {
++        return 0;
++    }
++
++    KSharedConfig::Ptr config = KSharedConfig::openStateConfig();
++
++    QList<KJob *> jobs;
++    QEventLoop e;
++
++    // Make a list of all autostart .desktop files for subsequent filtering
++    QSet<QString> autoStartFiles;
++    const QStringList dirs = QStandardPaths::locateAll(QStandardPaths::GenericConfigLocation, QStringLiteral("autostart"), QStandardPaths::LocateDirectory);
++    for (const QString &dir : dirs) {
++        const QDir d(dir);
++        const QFileInfoList files = d.entryInfoList(QStringList() << QStringLiteral("*.desktop"));
++        for (const QFileInfo &file : files) {
++            autoStartFiles.insert(file.completeBaseName());
++        }
++    }
++
++    for (const QString &groupName : config->groupList()) {
++        const QString appId = config->group(groupName).readEntry("appId");
++        auto service = KService::serviceByMenuId(appId);
++        if (!service || !service->isValid()) {
++            qCDebug(FALLBACK_SESSION_RESTORE) << "skipping " << appId << "no service found.";
++            continue;
++        }
++
++        if (service->noDisplay()) {
++            continue;
++        }
++        if (autoStartFiles.contains(service->desktopEntryName())) {
++            continue;
++        }
++
++        qCDebug(FALLBACK_SESSION_RESTORE) << "launching " << service->name();
++        auto job = new KIO::ApplicationLauncherJob(service);
++
++        QObject::connect(job, &KJob::finished, &e, [job, &jobs, &e]() {
++            jobs.removeOne(job);
++            if (jobs.isEmpty()) {
++                e.quit();
++            }
++        });
++        jobs << job;
++        job->start();
++    }
++    if (!jobs.isEmpty()) {
++        e.exec();
++    }
++
++    return EXIT_SUCCESS;
++}
+diff --git a/startkde/session-restore/save.cpp b/startkde/session-restore/save.cpp
+new file mode 100644
+index 00000000000..6de49831319
+--- /dev/null
++++ b/startkde/session-restore/save.cpp
+@@ -0,0 +1,67 @@
++/*
++ SPDX-FileCopyrightText: 2023 David Edmundson <davidedmundson@kde.org>
++ SPDX-FileCopyrightText: 2023 David Redondo <kde@david-redondo.de>
++
++SPDX-License-Identifier: LGPL-2.1-or-later
++*/
++
++#include <chrono>
++
++#include <QEventLoop>
++#include <QGuiApplication>
++#include <QTimer>
++#include <cstdlib>
++#include <qpa/qplatformnativeinterface.h>
++
++#include <wayland-client-core.h>
++
++#include <abstracttasksmodel.h>
++#include <windowtasksmodel.h>
++
++#include <KConfigGroup>
++#include <KSharedConfig>
++
++#include "debug.h"
++
++using namespace Qt::StringLiterals;
++
++int main(int argc, char *argv[])
++{
++    QGuiApplication::setDesktopFileName(u"plasma-fallback-session-save"_s);
++    QGuiApplication a(argc, argv);
++    a.setApplicationName(u"plasmasessionrestore"_s);
++
++    a.setDesktopSettingsAware(false);
++
++    TaskManager::WindowTasksModel tasksModel(&a);
++
++    //
++    auto native = qGuiApp->platformNativeInterface();
++    auto display = static_cast<struct ::wl_display *>(native->nativeResourceForIntegration("wl_display"));
++    if (display) {
++        // fetch all window IDs
++        wl_display_roundtrip(display);
++        // fetch all window properties
++        wl_display_roundtrip(display);
++    }
++
++    KSharedConfig::Ptr config = KSharedConfig::openStateConfig();
++
++    const QStringList groupList = config->groupList();
++    for (const QString &group : groupList) {
++        config->deleteGroup(group);
++    }
++
++    for (int i = 0; i < tasksModel.rowCount(); ++i) {
++        const QModelIndex index = tasksModel.index(i, 0);
++        QString appId = tasksModel.data(index, TaskManager::AbstractTasksModel::AppId).toString();
++        auto group = config->group(QString::number(i));
++        qCDebug(FALLBACK_SESSION_RESTORE) << "Saving" << group.name() << appId;
++        group.writeEntry("appId", appId);
++    }
++
++    config->sync();
++    return EXIT_SUCCESS;
++}
++
++#include "save.moc"
+-- 
+GitLab
+

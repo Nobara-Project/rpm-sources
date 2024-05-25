@@ -1,9 +1,14 @@
+%global scim 1
+%if 0%{?rhel} && 0%{?rhel} > 7
+%undefine scim
+%endif
+
 Name:    plasma-desktop
 Summary: Plasma Desktop shell
-Version: 6.0.3
+Version: 6.0.4
 Release: 1%{?dist}
 
-License: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LicenseRef-KDE-Accepted-GPL AND LicenseRef-KDE-Accepted-LGPL
+License: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only)
 URL:     https://invent.kde.org/plasma/%{name}
 Source0: https://download.kde.org/stable/plasma/%{version}/%{name}-%{version}.tar.xz
 
@@ -27,7 +32,6 @@ BuildRequires:  pkgconfig(xkeyboard-config)
 
 BuildRequires:  qt6-qtbase-devel
 BuildRequires:  qt6-qtbase-private-devel
-%{?_qt6:Requires: %{_qt6}%{?_isa} = %{_qt6_version}}
 BuildRequires:  qt6-qtsvg-devel
 BuildRequires:  qt6-qtdeclarative-devel
 BuildRequires:  qt6-qtwayland-devel
@@ -36,11 +40,12 @@ BuildRequires:  cmake(Phonon4Qt6)
 BuildRequires:  wayland-protocols-devel
 
 BuildRequires:  ibus-devel
+%if 0%{?scim}
 BuildRequires:  scim-devel
+%endif
 
 BuildRequires:  kf6-rpm-macros
 BuildRequires:  extra-cmake-modules
-BuildRequires:  cmake(Plasma)
 BuildRequires:  cmake(KF6DocTools)
 BuildRequires:  cmake(KF6I18n)
 BuildRequires:  cmake(KF6KCMUtils)
@@ -60,36 +65,42 @@ BuildRequires:  cmake(KF6GuiAddons)
 BuildRequires:  cmake(KF6DBusAddons)
 BuildRequires:  cmake(KF6Sonnet)
 BuildRequires:  cmake(KF6Svg)
-BuildRequires:  cmake(Plasma5Support)
 BuildRequires:  cmake(KF6ItemModels)
 BuildRequires:  cmake(KF6KDED)
 BuildRequires:  cmake(KF6KIO)
-BuildRequires:  cmake(KF6Auth)
-BuildRequires:  cmake(KF6XmlGui)
 
 BuildRequires:  cmake(KSysGuard)
+BuildRequires:  cmake(Plasma5Support)
 BuildRequires:  kscreenlocker-devel
 BuildRequires:  kwin-devel
 BuildRequires:  plasma-breeze-qt6
 BuildRequires:  plasma-workspace-devel
 
-BuildRequires:  cmake(AppStreamQt)
-BuildRequires:  cmake(KAccounts6)
-BuildRequires:  cmake(AccountsQt6)
-BuildRequires:  intltool
-BuildRequires:  cmake(KF6UserFeedback)
-BuildRequires:  PackageKit-Qt6-devel
 BuildRequires:  cmake(PlasmaActivities)
 BuildRequires:  cmake(PlasmaActivitiesStats)
+BuildRequires:  cmake(Plasma)
+
+# Optional
+%if 0%{?fedora}
+BuildRequires:  cmake(AppStreamQt)
+%endif
+BuildRequires:  intltool
+BuildRequires:  cmake(KAccounts6)
+BuildRequires:  PackageKit-Qt6-devel
 BuildRequires:  libcanberra-devel
+BuildRequires:  boost-devel
 BuildRequires:  pulseaudio-libs-devel
 BuildRequires:  SDL2-devel
+BuildRequires:  chrpath
 BuildRequires:  desktop-file-utils
 
 BuildRequires:  xdg-user-dirs
 
 # xorg-x11 doesn't have hw_server and disable for s390/s390x
 %ifnarch s390 s390x
+# KCM touchpad has been merged to plasma-desktop in 5.3
+Provides:       kcm_touchpad = %{version}-%{release}
+Obsoletes:      kcm_touchpad < 5.3.0
 # for xserver-properties
 BuildRequires:  xorg-x11-server-devel
 Requires:       kf6-kded
@@ -111,7 +122,7 @@ Requires:       accountsservice
 Requires:       plasma-workspace
 
 # xdg-utils integration
-Requires:       xdg-utils >= 1.1.3^1
+Requires:       xdg-utils >= 1.2.0~
 Requires:       kde-cli-tools
 
 # Qt Integration (brings in Breeze)
@@ -128,8 +139,6 @@ Requires:       kwin
 # kickoff -> edit applications (#1229393)
 Requires:       kmenuedit
 
-Requires:	plasma-discover
-
 BuildRequires:  cmake(KF6Kirigami)
 Requires:       kf6-kirigami%{?_isa}
 BuildRequires:  cmake(KF6KirigamiAddons)
@@ -141,7 +150,6 @@ Requires:       kpipewire%{?_isa}
 BuildRequires:  signon-plugin-oauth2-devel
 Requires:       signon-plugin-oauth2%{?_isa}
 
-Requires:       shared-mime-info
 
 # for kimpanel-ibus-panel and kimpanel-ibus-panel-launcher
 Recommends: ibus
@@ -150,7 +158,22 @@ Recommends: ibus
 Provides:       plasmashell(desktop) = %{version}-%{release}
 Provides:       plasmashell = %{version}-%{release}
 
-Conflicts:      kde-settings < 39.1-2
+Obsoletes:      kde-workspace < 5.0.0-1
+
+Obsoletes:      kactivities-workspace < 5.6.0
+Provides:       kactivities-workspace = %{version}-%{release}
+
+Obsoletes:      plasma-user-manager < 5.19.50
+Provides:       plasma-user-manager = %{version}-%{release}
+
+# kimpanel moved here from kdeplasma-addons-5.5.x
+Conflicts:      kdeplasma-addons < 5.6.0
+
+# kcm_activities.mo moved here (#1325724)
+Conflicts:      kde-l10n < 15.12.3-4
+
+# See https://pagure.io/fedora-kde/SIG/issue/455 for more information
+Conflicts:      kde-settings < 39.1-7
 
 %description
 %{summary}.
@@ -164,15 +187,19 @@ method framework.
 
 %package        doc
 Summary:        Documentation and user manuals for %{name}
-BuildArch:      noarch
+# when conflicting HTML docs were removed
+Conflicts:      kcm_colors < 1:4.11.16-10
+# when conflicting HTML docs were removed
+Conflicts:      kde-runtime-docs < 17.08.3-6
+# when made noarch
+Obsoletes: plasma-desktop-doc < 5.3.1-2
+BuildArch: noarch
 %description    doc
 %{summary}.
 
 
 %prep
 %autosetup -p1
-
-sed '/falkon\|debian/d' -i kde-mimeapps.list
 
 
 %build
@@ -194,7 +221,11 @@ cat  %{name}.lang %{name}-doc.lang | sort | uniq -u > plasmadesktop6.lang
 
 
 %check
-desktop-file-validate %{buildroot}/%{_datadir}/applications/*.desktop
+desktop-file-validate %{buildroot}/%{_datadir}/applications/kcm_{keyboard,access,clock,splashscreen,landingpage,keys,smserver,desktoppaths,gamecontroller,activities,recentFiles,componentchooser,kded,krunnersettings,plasmasearch,qtquicksettings,tablet,touchscreen,workspace,baloofile,solid_actions,mouse,touchpad}.desktop
+desktop-file-validate %{buildroot}/%{_datadir}/applications/kcmspellchecking.desktop
+desktop-file-validate %{buildroot}/%{_datadir}/applications/org.kde.knetattach.desktop
+desktop-file-validate %{buildroot}/%{_datadir}/applications/org.kde.plasma.emojier.desktop
+desktop-file-validate %{buildroot}/%{_datadir}/applications/kaccess.desktop
 
 %files -f plasmadesktop6.lang
 %license LICENSES
@@ -208,17 +239,18 @@ desktop-file-validate %{buildroot}/%{_datadir}/applications/*.desktop
 %{_libexecdir}/kimpanel-ibus-panel
 %{_libexecdir}/kimpanel-ibus-panel-launcher
 %{_kf6_qmldir}/org/kde/plasma/private
+%{_kf6_qtplugindir}/attica_kde.so
 %{_kf6_qtplugindir}/plasma/kcms/desktop/kcm_krunnersettings.so
 %{_kf6_qtplugindir}/plasma/kcms/systemsettings/*.so
 %{_kf6_qtplugindir}/plasma/kcms/systemsettings_qwidgets/*.so
 %{_kf6_qtplugindir}/plasma/kcminit/kcm_touchpad_init.so
-%{_kf6_qtplugindir}/attica_kde.so
 %{_kf6_plugindir}/kded/*.so
 %{_kf6_plugindir}/krunner/krunner*.so
 %{_kf6_qmldir}/org/kde/plasma/activityswitcher
 %{_kf6_qmldir}/org/kde/plasma/emoji/
 %{_kf6_qmldir}/org/kde/private/desktopcontainment/*
 %{_kf6_datadir}/plasma/*
+%{_kf6_datadir}/applications/kde-mimeapps.list
 %ifnarch s390 s390x
 # kcminput
 %{_kf6_bindir}/kapplymousetheme
@@ -237,15 +269,14 @@ desktop-file-validate %{buildroot}/%{_datadir}/applications/*.desktop
 %{_kf6_datadir}/solid/devices/*.desktop
 %{_kf6_datadir}/dbus-1/system.d/*.conf
 %{_kf6_datadir}/knotifications6/*.notifyrc
-%{_kf6_datadir}/accounts/services/kde/opendesktop-rating.service
-%{_kf6_datadir}/accounts/providers/kde/opendesktop.provider
 %{_datadir}/icons/hicolor/*/*/*
 %{_kf6_metainfodir}/*.xml
 %{_datadir}/applications/*.desktop
-%{_datadir}/applications/kde-mimeapps.list
 %{_datadir}/dbus-1/system-services/*.service
 %{_datadir}/polkit-1/actions/org.kde.kcontrol.kcmclock.policy
 %{_sysconfdir}/xdg/autostart/*.desktop
+%{_kf6_datadir}/accounts/providers/kde/*.provider
+%{_kf6_datadir}/accounts/services/kde/*.service
 
 # How to include these in the .lang file?
 %{_kf6_datadir}/locale/sr/LC_SCRIPTS/kfontinst/kfontinst.js
@@ -253,15 +284,76 @@ desktop-file-validate %{buildroot}/%{_datadir}/applications/*.desktop
 %{_kf6_datadir}/locale/sr@ijekavianlatin/LC_SCRIPTS/kfontinst/kfontinst.js
 %{_kf6_datadir}/locale/sr@latin/LC_SCRIPTS/kfontinst/kfontinst.js
 
+
+%if 0%{?scim}
 %files kimpanel-scim
 %{_libexecdir}/kimpanel-scim-panel
+%endif
 
 %files doc -f %{name}-doc.lang
 
 
 %changelog
-* Wed Mar 20 2024 Pavel Solovev <daron439@gmail.com> - 6.0.2-2
-- qmlcache rebuild
+* Tue Apr 16 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.0.4-1
+- 6.0.4
+
+* Thu Apr 04 2024 Jan Grulich <jgrulich@redhat.com> - 6.0.3-2
+- Rebuild (qt6)
+
+* Tue Mar 26 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.0.3-1
+- 6.0.3
+
+* Tue Mar 12 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.0.2-1
+- 6.0.2
+
+* Wed Mar 06 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.0.1-1
+- 6.0.1
+
+* Tue Feb 27 2024 Marie Loise Nolden <loise@kde.org> - 6.0.0-2
+- minor BR fixes
+
+* Wed Feb 21 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.0.0-1
+- 6.0.0
+
+* Fri Feb 16 2024 Jan Grulich <jgrulich@redhat.com> - 5.93.0-2
+- Rebuild (qt6)
+
+* Wed Jan 31 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 5.93.0-1
+- 5.93.0
+
+* Wed Jan 31 2024 Pete Walter <pwalter@fedoraproject.org> - 5.92.0-4
+- Rebuild for ICU 74
+
+* Thu Jan 25 2024 Fedora Release Engineering <releng@fedoraproject.org> - 5.92.0-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Sun Jan 21 2024 Fedora Release Engineering <releng@fedoraproject.org> - 5.92.0-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Wed Jan 10 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 5.92.0-1
+- 5.92.0
+
+* Tue Dec 26 2023 Alessandro Astone <ales.astone@gmail.com> - 5.91.0-2
+- Re-enable optional dependency on KAccounts6
+- Add missing QML dependency on org.kde.pipewire
+
+* Thu Dec 21 2023 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 5.91.0-1
+- 5.91.0
+
+* Tue Dec 19 2023 Neal Gompa <ngompa@fedoraproject.org> - 5.90.0-2
+- Refresh and apply default favorites patch
+
+* Sun Dec 03 2023 Justin Zobel <justin.zobel@gmail.com> - 5.90.0-1
+- Update to 5.90.0
+
+* Wed Nov 29 2023 Jan Grulich <jgrulich@redhat.com> - 5.27.80-5
+- Rebuild (qt6)
+
+* Mon Nov 27 2023 Alessandro Astone <ales.astone@gmail.com> - 5.27.80-4
+- Backport patch to fix desktop settings shortcut
+
+* Sat Nov 25 2023 Alessandro Astone <ales.astone@gmail.com> - 5.27.80-3
+- kio-extras is KF6
 
 * Sat Nov 18 2023 Alessandro Astone <ales.astone@gmail.com> - 5.27.80-2
 - Fix Plasma 6 runtime requirements
