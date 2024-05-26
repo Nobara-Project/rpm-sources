@@ -2,16 +2,16 @@
 ## (rpmautospec version 0.3.5)
 ## RPMAUTOSPEC: autorelease, autochangelog
 %define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
-    release_number = 1;
+    release_number = 2;
     base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
     print(release_number + base_release_number - 1);
 }%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
 ## END: Set by rpmautospec
 
-%define release_name Thirty Nine
+%define release_name Fourty
 %define is_rawhide 0
 
-%define eol_date 2024-05-14
+%define eol_date 2025-05-13
 
 %define dist_version 40
 %define rhel_dist_version 10
