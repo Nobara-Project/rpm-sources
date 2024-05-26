@@ -28,9 +28,8 @@
 %global openh264_soversion 7
 
 
-%global obswebsocket_version 5.3.5
-
-%global obsbrowser_commit e873fb05f97083359a1d222590dc07ec62036643
+%global obswebsocket_version 5.4.2
+%global obsbrowser_commit 996b5a7bc43d912f1f4992e0032d4f263ac8b060
 %global cef_version 5060
 
 #global commit ad859a3f66daac0d30eebcc9b07b0c2004fb6040
@@ -56,9 +55,7 @@ License:        GPL-2.0-or-later and MIT and BSD-1-Clause and BSD-2-Clause and B
 URL:            https://obsproject.com/
 Source0:        https://github.com/obsproject/obs-studio/archive/%{commit}/%{name}-%{shortcommit}.tar.gz
 Source1:        https://github.com/obsproject/obs-websocket/archive/%{obswebsocket_version}/obs-websocket-%{obswebsocket_version}.tar.gz
-
 Source2:        https://github.com/obsproject/obs-browser/archive/%{obsbrowser_commit}/obs-browser-%{obsbrowser_commit}.tar.gz
-
 # CMake snippets for finding systemwide obs-cef
 Source3:        FindCEF.cmake
 
@@ -98,11 +95,14 @@ Patch0103:      0003-UI-Add-support-for-OpenH264-as-the-worst-case-fallba.patch
 
 # Downstream Fedora patches
 ## Use fdk-aac by default
-Patch1002:      obs-studio-UI-use-fdk-aac-by-default.patch
+Patch1001:      obs-studio-UI-use-fdk-aac-by-default.patch
+## Fix error: passing argument 4 of ‘query_dmabuf_modifiers’ from
+##            incompatible pointer type [-Wincompatible-pointer-types]
+Patch1003:      obs-studio-fix-incompatible-pointer-type.patch
 
 
 BuildRequires:  gcc
-BuildRequires:  cmake >= 3.20
+BuildRequires:  cmake >= 3.22
 BuildRequires:  ninja-build
 BuildRequires:  libappstream-glib
 BuildRequires:  desktop-file-utils
@@ -401,11 +401,19 @@ mkdir -p %{buildroot}%{_libexecdir}/obs-plugins
 find %{buildroot} -name ".keepme" -delete
 find %{buildroot} -name ".gitkeep" -delete
 
+
 %check
 desktop-file-validate %{buildroot}/%{_datadir}/applications/com.obsproject.Studio.desktop
 appstream-util validate-relax --nonet %{buildroot}%{_datadir}/metainfo/*.metainfo.xml
 
+
 %changelog
+* Thu Apr 04 2024 Jan Grulich <jgrulich@redhat.com> - 30.1.1-2
+- Rebuild (qt6)
+
+* Tue Apr 02 2024 Neal Gompa <ngompa@fedoraproject.org> - 30.1.1-1
+- Update to 30.1.1
+
 * Fri Feb 16 2024 Jan Grulich <jgrulich@redhat.com> - 30.0.0-9
 - Rebuild (qt6)
 

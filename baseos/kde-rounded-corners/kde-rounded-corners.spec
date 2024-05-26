@@ -1,18 +1,18 @@
 Name:           kde-rounded-corners
-Version:        0.6.1
-Release:        7%{?dist}
+Version:        0.6.5
+Release:        2%{?dist}
 Summary:        Rounds the corners of your windows in KDE Plasma
 
 License:        GPL-3.0-only
 URL:            https://github.com/matinlotfali/KDE-Rounded-Corners
 Source:         %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
 Patch0:         0001-use-some-sane-default-shadows-and-outlines.patch
-Patch1:         0001-fix-https-github.com-matinlotfali-KDE-Rounded-Corner.patch
 
 BuildRequires:  cmake
 BuildRequires:  extra-cmake-modules
 BuildRequires:  gcc-c++
 BuildRequires:  kf6-rpm-macros
+BuildRequires:  wayland-devel
 
 BuildRequires:  cmake(KF6Config)
 BuildRequires:  cmake(KF6ConfigWidgets)
@@ -29,7 +29,6 @@ BuildRequires:  cmake(Qt6OpenGL)
 BuildRequires:  cmake(Qt6Widgets)
 BuildRequires:  cmake(Qt6Xml)
 BuildRequires:  qt6-qtbase-private-devel
-BuildRequires:  wayland-devel
 
 BuildRequires:  cmake(KWin)
 BuildRequires:  cmake(KWinDBusInterface)
@@ -58,5 +57,14 @@ Obsoletes:  plasma-rounded-corners
 %{_qt6_plugindir}/kwin/effects/plugins/kwin4_effect_shapecorners.so
 
 %changelog
+* Thu May 23 2024 Pavel Solovev <daron439@gmail.com> - 0.6.5-2
+- rebuilt
+
+* Tue Apr 16 2024 Pavel Solovev <daron439@gmail.com> - 0.6.1-7
+- rebuilt
+
+* Wed Mar 27 2024 Pavel Solovev <daron439@gmail.com> - 0.6.1-6
+- rebuilt
+
 * Fri Jan 12 2024 Pavel Solovev <daron439@gmail.com>
 - Initial build

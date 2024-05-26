@@ -3,7 +3,7 @@
 Summary:        Nobara package repositories
 Name:           nobara-repos
 Version:        39
-Release:        19%{?eln:.eln%{eln}}
+Release:        20%{?eln:.eln%{eln}}
 License:        MIT
 URL:            https://fedoraproject.org/
 
@@ -24,11 +24,12 @@ Source2:       nobara.repo
 Source3:       RPM-GPG-KEY-nobara-appstream-pubkey
 Source4:       RPM-GPG-KEY-nobara-baseos-pubkey-38
 Source5:       RPM-GPG-KEY-nobara-baseos-pubkey-39
-Source6:       RPM-GPG-KEY-nobara-multimedia-pubkey
-Source7:       nobara-nvidia-new-feature.repo
-Source8:       RPM-GPG-KEY-nobara-nvidia-new-feature-pubkey
-Source9:       RPM-GPG-KEY-nobara-kde6-pubkey
-Source10:      RPM-GPG-KEY-nobara-kde6-overrides-pubkey
+Source6:       RPM-GPG-KEY-nobara-baseos-pubkey-40
+Source7:       RPM-GPG-KEY-nobara-multimedia-pubkey
+Source8:       nobara-nvidia-new-feature.repo
+Source9:       RPM-GPG-KEY-nobara-nvidia-new-feature-pubkey
+Source10:      RPM-GPG-KEY-nobara-kde6-pubkey
+Source11:      RPM-GPG-KEY-nobara-kde6-overrides-pubkey
 
 %description
 Nobara package repository files for yum and dnf along with gpg public keys.

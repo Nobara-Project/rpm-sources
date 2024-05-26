@@ -1,15 +1,19 @@
+%if 0%{?fedora} >= 40 || 0%{?rhel} >= 10
+%bcond initialsetup_gui_backend 1
+%else
+%bcond initialsetup_gui_backend 0
+%endif
+
 Summary: Config files for KDE
 Name:    kde-settings
-Version: 39.1
-Release: 3%{?dist}
+Version: 40.0
+Release: 1%{?dist}
 
 License: MIT
 Url:     https://pagure.io/fedora-kde/kde-settings
 Source0: https://pagure.io/fedora-kde/kde-settings/archive/%{version}/kde-settings-%{version}.tar.gz
 Source1: COPYING
 Patch0:  set-dark-global.patch
-Patch1:  0001-Revert-kwinrc-Disable-the-Blur-plugin-in-kwin-by-def.patch
-Patch2:  https://pagure.io/fedora-kde/kde-settings/c/0cdfac2a2dc46c038660272e1a4bf9873c55607c.patch
 
 BuildArch: noarch
 
@@ -20,6 +24,12 @@ BuildRequires: xdg-user-dirs
 # ssh-agent.service
 BuildRequires: systemd-rpm-macros
 Source10: ssh-agent.sh
+
+%if ! 0%{?bootstrap}
+# for f33+ , consider merging version_maj with version, ie, use Version: 33 --rex
+%global  version_maj %(echo %{version} | cut -d. -f1)
+BuildRequires: f%{version_maj}-backgrounds-kde
+%endif
 
 # when kdebugrc was moved here
 Conflicts: kf5-kdelibs4support < 5.7.0-3
@@ -35,6 +45,8 @@ Requires: pam
 Requires: xdg-user-dirs
 ## add breeze deps here? probably, need more too -- rex
 Requires: breeze-icon-theme
+# Baseline mimeapps associations, e.g. LibreOffice
+Requires: shared-mime-info
 
 %description
 %{summary}.
@@ -88,6 +100,22 @@ Summary: Configuration files for Qt
 %description -n qt-settings
 %{summary}.
 
+%if %{with initialsetup_gui_backend}
+%package -n initial-setup-gui-wayland-plasma
+Summary: Run initial-setup GUI on Plasma Wayland
+Provides: firstboot(gui-backend)
+Conflicts: firstboot(gui-backend)
+Requires: kwin-wayland
+Requires: maliit-keyboard
+Requires: xorg-x11-server-Xwayland
+Requires: initial-setup-gui >= 0.3.99
+Supplements: ((initial-setup or initial-setup-gui) and kwin-wayland)
+Enhances: (initial-setup-gui and kwin-wayland)
+
+%description -n initial-setup-gui-wayland-plasma
+%{summary}.
+%endif
+
 
 %prep
 %autosetup -p1
@@ -133,8 +161,11 @@ sed -e "s/Noto Sans Mono/Noto Mono/g" \
 # for ssh-agent.serivce, set SSH_AUTH_SOCK
 install -p -m644 -D %{SOURCE10} %{buildroot}%{_sysconfdir}/xdg/plasma-workspace/env/ssh-agent.sh
 
+%if ! %{with initialsetup_gui_backend}
+rm -rv %{buildroot}%{_libexecdir}/initial-setup
+%endif
+
 ## unpackaged files
-rm %{buildroot}%{_datadir}/applications/kde-mimeapps.list
 rm -Rf %{buildroot}%{_datadir}/plasma/look-and-feel/
 
 %check
@@ -193,13 +224,35 @@ test -f %{_datadir}/wallpapers/F%{version_maj} || ls -l %{_datadir}/wallpapers
 %license COPYING
 %config(noreplace) %{_sysconfdir}/Trolltech.conf
 
+%if %{with initialsetup_gui_backend}
+%files -n initial-setup-gui-wayland-plasma
+%{_libexecdir}/initial-setup/run-gui-backend
+%endif
+
 
 %changelog
-* Tue Feb 13 2024 Pavel Solovev <daron439@gmail.com> - 39.1-1.2
-- Drop kde-mimeapps.list (provided by plasma-desktop now)
+* Thu Mar 07 2024 Neal Gompa <ngompa@fedoraproject.org> - 40.0-1
+- Bump for F40 backgrounds
+- Enable login/logout sounds for a11y
 
-* Fri Feb 02 2024 Alessandro Astone <ales.astone@gmail.com> - 39.1-1.1
+* Tue Feb 20 2024 Alessandro Astone <ales.astone@gmail.com> - 39.1-7
+- Enable maliit-keyboard by default
+- Provide default mimeapps associations overrides over plasma-desktop
+
+* Fri Feb 02 2024 Alessandro Astone <ales.astone@gmail.com> - 39.1-6
 - Re-enable kwin blur plugin
+
+* Wed Jan 24 2024 Fedora Release Engineering <releng@fedoraproject.org> - 39.1-5
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Sun Jan 21 2024 Fedora Release Engineering <releng@fedoraproject.org> - 39.1-4
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Fri Jan 05 2024 Alessandro Astone <ales.astone@gmail.com> - 39.1-3
+- Fix initial-setup-gui version requirement
+
+* Wed Jan 03 2024 Neal Gompa <ngompa@fedoraproject.org> - 39.1-2
+- Add initial-setup-gui-wayland-plasma subpackage for f40+/epel10+
 
 * Wed Jan 03 2024 Neal Gompa <ngompa@fedoraproject.org> - 39.1-1
 - Add fontconfig snippet to enable RGBA subpixel rendering for KDE

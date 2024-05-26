@@ -1,12 +1,12 @@
 %global app_id dk.yumex.Yumex
 %global app_build debug
 %global dnf_backend DNF4
-%global gitcommit 9a85ac2c1cbeb337af1fcb19bd8e1e8c4eb31a75
-%global shortcommit 9a85ac2
+%global gitcommit 645173b12efdf77027b14c1d845107118e58da42
+%global shortcommit 645173b
 
 Name:     yumex
 Version:  4.99.4
-Release:  0.15.git.%{shortcommit}%{?dist}
+Release:  0.16.git.%{shortcommit}%{?dist}
 Summary:  Yum Extender graphical package management tool
 
 Group:    Applications/System
