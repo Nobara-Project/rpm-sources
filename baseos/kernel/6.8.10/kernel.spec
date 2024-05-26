@@ -164,13 +164,13 @@ Summary: The Linux kernel
 %define specrpmversion 6.8.10
 %define specversion 6.8.10
 %define patchversion 6.8
-%define pkgrelease 202
+%define pkgrelease 203
 %define kversion 6
 %define tarfile_release 6.8.10
 # This is needed to do merge window version magic
 %define patchlevel 8
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease 202%{?buildid}%{?dist}
+%define specrelease 203%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 6.8.10
 
@@ -1078,7 +1078,7 @@ Patch1001: steamdeck-oled-wifi.patch
 Patch1003: steamdeck-oled-audio.patch
 Patch1004: steamdeck-oled-hw-quirks.patch
 Patch1005: steamdeck-oled-refresh-rate.patch
-# Patch1006: steamdeck-oled-legion-go-bluetooth-hang.patch
+Patch1006: steamdeck-oled-legion-go-bluetooth-hang.patch
 
 # t2 macbook patches
 Patch1007: t2linux.patch
@@ -1992,7 +1992,7 @@ ApplyOptionalPatch steamdeck-oled-wifi.patch
 ApplyOptionalPatch steamdeck-oled-audio.patch
 ApplyOptionalPatch steamdeck-oled-hw-quirks.patch
 ApplyOptionalPatch steamdeck-oled-refresh-rate.patch
-# ApplyOptionalPatch steamdeck-oled-legion-go-bluetooth-hang.patch
+ApplyOptionalPatch steamdeck-oled-legion-go-bluetooth-hang.patch
 
 
 # t2 macbook patches
