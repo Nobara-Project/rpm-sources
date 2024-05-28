@@ -1,10 +1,10 @@
-%global commit 4f99388d491cd5c1155c0df88316bd22aae40d8c
-%global commitdate 20240405
+%global commit 2d44c2f3a33844dfd9928dc536288283289bbc34
+%global commitdate 20240524
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 Name:           v4l2loopback
 Summary:        Utils for V4L2 loopback devices
-Version:        0.13.1^%{commitdate}g%{shortcommit}
+Version:        0.13.2^%{commitdate}g%{shortcommit}
 Release:        1%{?dist}
 License:        GPLv2+
 

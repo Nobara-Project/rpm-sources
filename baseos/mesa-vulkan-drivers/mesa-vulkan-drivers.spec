@@ -1,6 +1,6 @@
 %global _default_patch_fuzz 2
 
-%global commit e511ffea4b9e298217813a2148f86910a4cdcd8b
+%global commit d963fd596eaa2462dec55f354ed48f92010b0722
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build git.%{build_timestamp}.%{shortcommit}%{?dist}
@@ -69,7 +69,7 @@
 
 Name:           mesa-vulkan-drivers
 Summary:        The mesa graphics vulkan driver stack.
-%global ver 24.1.0
+%global ver 24.2.0
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %{rel_build}
 License:        MIT
@@ -82,20 +82,15 @@ Source0:        https://gitlab.freedesktop.org/mesa/mesa/-/archive/%{commit}/mes
 Source1:        Mesa-MLAA-License-Clarification-Email.txt
 
 # Performance bump
-# Original:
-# https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/25352
-# Proposed alternative:
 # https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/25576
-Patch2: 25352.patch
-# Disabled, currently has problem: https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/25352#note_2145943
-#Patch2: 25576.patch
+Patch2: 25576.patch
 
 # https://gitlab.com/evlaV/mesa/
 Patch3: valve.patch
 
 Patch10:        gnome-shell-glthread-disable.patch
 
-BuildRequires:  meson >= 1.2.0
+BuildRequires:  meson >= 1.3.0
 BuildRequires:  cbindgen
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
@@ -135,6 +130,7 @@ BuildRequires:  pkgconfig(glproto) >= 1.4.14
 BuildRequires:  pkgconfig(xcb-xfixes)
 BuildRequires:  pkgconfig(xcb-randr)
 BuildRequires:  pkgconfig(xrandr) >= 1.3
+BuildRequires:  python3-pycparser
 BuildRequires:  bison
 BuildRequires:  flex
 BuildRequires:  lm_sensors-devel
@@ -178,7 +174,7 @@ BuildRequires:  glslang
 %if 0%{?with_vulkan_hw}
 BuildRequires:  pkgconfig(vulkan)
 %endif
-BuildRequires:  rust-syn-devel
+
 
 %description
 %{summary}.
@@ -201,6 +197,7 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
 %define inst_crate_nameversion() %(basename %{cargo_registry}/%{1}-*)
 %define rewrite_wrap_file() sed -e "/source.*/d" -e "s/%{1}-.*/%{inst_crate_nameversion %{1}}/" -i subprojects/%{1}.wrap
 
+%rewrite_wrap_file paste
 %rewrite_wrap_file proc-macro2
 %rewrite_wrap_file quote
 %rewrite_wrap_file syn
@@ -258,6 +255,9 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
   -Dbuild-tests=false \
   -Dselinux=true \
   -Dandroid-libbacktrace=disabled \
+%ifarch %{ix86}
+  -Dglx-read-only-text=true \
+%endif
   -Dlmsensors=enabled \
   -Dxlib-lease=enabled \
   %{nil}
@@ -280,7 +280,8 @@ ln -s %{_libdir}/libGLX_mesa.so.0 %{buildroot}%{_libdir}/libGLX_system.so.0
 
 # this keeps breaking, check it early.  note that the exit from eu-ftr is odd.
 pushd %{buildroot}%{_libdir}
-for i in libOSMesa*.so libGL.so ; do
+for i in libOSMesa*.so libGL*.so ; do
+    sleep 1
     eu-findtextrel $i && exit 1
 done
 popd
@@ -429,16 +430,16 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 * Tue May 30 2023 Dave Airlie <airlied@redhat.com> - 23.1.1-1
 - Update to mesa 23.1.1
 
-* Fri May 05 2023 Kamil Páral <kparal@redhat.com> - 23.0.3-5
+* Fri May 05 2023 Kamil PÃ¡ral <kparal@redhat.com> - 23.0.3-5
 - Prevent partial updates (rhbz#2193135)
 
-* Wed May 03 2023 Michel Dänzer <mdaenzer@redhat.com> - 23.0.3-4
+* Wed May 03 2023 Michel DÃ¤nzer <mdaenzer@redhat.com> - 23.0.3-4
 - Do not enable intel-clc for ELN/RHEL
 
-* Mon May 01 2023 Michel Dänzer <mdaenzer@redhat.com> - 23.0.3-3
+* Mon May 01 2023 Michel DÃ¤nzer <mdaenzer@redhat.com> - 23.0.3-3
 - Enable intel-clc for ANV ray tracing support
 
-* Fri Apr 28 2023 Michel Dänzer <mdaenzer@redhat.com> - 23.0.3-2
+* Fri Apr 28 2023 Michel DÃ¤nzer <mdaenzer@redhat.com> - 23.0.3-2
 - Remove superfluous meson parameters for rusticl
 - Dllvm=enabled is already there unconditionally further down.
 
@@ -457,7 +458,7 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 * Thu Apr 13 2023 Pete Walter <pwalter@fedoraproject.org> - 23.0.1-3
 - Tighten mesa-va-drivers recommends again (rhbz#2161338)
 
-* Mon Apr 03 2023 František Zatloukal <fzatlouk@redhat.com> - 23.0.1-2
+* Mon Apr 03 2023 FrantiÅ¡ek Zatloukal <fzatlouk@redhat.com> - 23.0.1-2
 - Rebuild for LLVM 16
 
 * Sat Mar 25 2023 Pete Walter <pwalter@fedoraproject.org> - 23.0.1-1

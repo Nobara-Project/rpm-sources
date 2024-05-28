@@ -2,7 +2,7 @@
 ## (rpmautospec version 0.3.5)
 ## RPMAUTOSPEC: autorelease, autochangelog
 %define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
-    release_number = 1;
+    release_number = 2;
     base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
     print(release_number + base_release_number - 1);
 }%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
@@ -70,11 +70,11 @@
 %bcond_with valgrind
 %endif
 
-%global vulkan_drivers swrast%{?base_vulkan}%{?intel_platform_vulkan}%{?extra_platform_vulkan}%{?with_nvk:,nouveau-experimental}
+%global vulkan_drivers swrast%{?base_vulkan}%{?intel_platform_vulkan}%{?extra_platform_vulkan}%{?with_nvk:,nouveau}
 
 Name:           mesa
 Summary:        Mesa graphics libraries
-%global ver 24.0.6
+%global ver 24.1.0
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
@@ -87,22 +87,16 @@ Source1:        Mesa-MLAA-License-Clarification-Email.txt
 
 Patch0:         gnome-shell-glthread-disable.patch
 
-# explicit sync
-Patch1:         25709.patch
-
 # Performance bump
-# Original:
-# https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/25352
-# Proposed alternative:
 # https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/25576
-Patch2: 25352.patch
-# Disabled, currently has problem: https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/25352#note_2145943
-#Patch2: 25576.patch
+Patch2: 25576.patch
+
 
 # https://gitlab.com/evlaV/mesa/
 Patch3: valve.patch
 
-BuildRequires:  meson >= 1.2.0
+BuildRequires:  meson >= 1.3.0
+BuildRequires:  cbindgen
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
 BuildRequires:  gettext
@@ -143,6 +137,7 @@ BuildRequires:  pkgconfig(glproto) >= 1.4.14
 BuildRequires:  pkgconfig(xcb-xfixes)
 BuildRequires:  pkgconfig(xcb-randr)
 BuildRequires:  pkgconfig(xrandr) >= 1.3
+BuildRequires:  python3-pycparser
 BuildRequires:  bison
 BuildRequires:  flex
 %if 0%{?with_lmsensors}
@@ -169,6 +164,7 @@ BuildRequires:  pkgconfig(SPIRV-Tools)
 BuildRequires:  pkgconfig(LLVMSPIRVLib)
 %endif
 %if 0%{?with_nvk}
+BuildRequires:  (crate(paste/default) >= 1.0.0 with crate(paste/default) < 2.0.0~)
 BuildRequires:  (crate(proc-macro2) >= 1.0.56 with crate(proc-macro2) < 2)
 BuildRequires:  (crate(quote) >= 1.0.25 with crate(quote) < 2)
 BuildRequires:  (crate(syn/clone-impls) >= 2.0.15 with crate(syn/clone-impls) < 3)
@@ -187,6 +183,7 @@ BuildRequires:  glslang
 %if 0%{?with_vulkan_hw}
 BuildRequires:  pkgconfig(vulkan)
 %endif
+
 
 %description
 %{summary}.
@@ -213,7 +210,6 @@ Requires:       %{name}-libGL%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
 Requires:       libglvnd-devel%{?_isa} >= 1:1.3.2
 Provides:       libGL-devel
 Provides:       libGL-devel%{?_isa}
-Recommends:     gl-manpages
 
 %description libGL-devel
 %{summary}.
@@ -224,6 +220,7 @@ Requires:       libglvnd-egl%{?_isa} >= 1:1.3.2
 Requires:       %{name}-libgbm%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
 Requires:       %{name}-libglapi%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
 Recommends:     %{name}-dri-drivers%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
+Obsoletes:      egl-icd < %{?epoch:%{epoch}:}%{version}-%{release}
 
 %description libEGL
 %{summary}.
@@ -263,7 +260,7 @@ Requires:       %{name}-filesystem%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{rel
 %package        va-drivers
 Summary:        Mesa-based VA-API video acceleration drivers
 Requires:       %{name}-filesystem%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
-Obsoletes:      %{name}-vaapi-drivers < 22.2.0-5
+Obsoletes:      %{name}-vaapi-drivers < 22.3.0-0.24
 
 %description va-drivers
 %{summary}.
@@ -395,6 +392,7 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
 %define inst_crate_nameversion() %(basename %{cargo_registry}/%{1}-*)
 %define rewrite_wrap_file() sed -e "/source.*/d" -e "s/%{1}-.*/%{inst_crate_nameversion %{1}}/" -i subprojects/%{1}.wrap
 
+%rewrite_wrap_file paste
 %rewrite_wrap_file proc-macro2
 %rewrite_wrap_file quote
 %rewrite_wrap_file syn
@@ -431,9 +429,12 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
   -Dgbm=enabled \
   -Dglx=dri \
   -Degl=enabled \
-  -Dglvnd=true \
+  -Dglvnd=enabled \
 %if 0%{?with_intel_clc}
   -Dintel-clc=enabled \
+%endif
+%ifnarch x86_64
+  -Dintel-rt=disabled \
 %endif
   -Dmicrosoft-clc=disabled \
   -Dllvm=enabled \
@@ -472,7 +473,8 @@ ln -s %{_libdir}/libGLX_mesa.so.0 %{buildroot}%{_libdir}/libGLX_system.so.0
 
 # this keeps breaking, check it early.  note that the exit from eu-ftr is odd.
 pushd %{buildroot}%{_libdir}
-for i in libOSMesa*.so libGL.so ; do
+for i in libOSMesa*.so libGL*.so ; do
+    sleep 1
     eu-findtextrel $i && exit 1
 done
 popd
@@ -659,14 +661,18 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-mesa-defaults.conf
 %{_libdir}/dri/meson_dri.so
 %{_libdir}/dri/mi0283qt_dri.so
 %{_libdir}/dri/panel-mipi-dbi_dri.so
+%{_libdir}/dri/panthor_dri.so
 %{_libdir}/dri/pl111_dri.so
 %{_libdir}/dri/repaper_dri.so
 %{_libdir}/dri/rockchip_dri.so
+%{_libdir}/dri/rzg2l-du_dri.so
+%{_libdir}/dri/ssd130x_dri.so
 %{_libdir}/dri/st7586_dri.so
 %{_libdir}/dri/st7735r_dri.so
 %{_libdir}/dri/sti_dri.so
 %{_libdir}/dri/sun4i-drm_dri.so
 %{_libdir}/dri/udl_dri.so
+%{_libdir}/dri/zynqmp-dpsub_dri.so
 %endif
 %if 0%{?with_vulkan_hw}
 %{_libdir}/dri/zink_dri.so

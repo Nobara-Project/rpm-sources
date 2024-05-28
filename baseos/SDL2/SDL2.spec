@@ -9,8 +9,8 @@
 %global libdecor_majver 0
 
 Name:           SDL2
-Version:        2.26.5
-Release:        2%{?dist}
+Version:        2.30.3
+Release:        1%{?dist}
 Summary:        Cross-platform multimedia library
 License:        Zlib AND MIT AND Apache-2.0 AND (Apache-2.0 OR MIT)
 URL:            http://www.libsdl.org/
@@ -35,7 +35,8 @@ BuildRequires:  libX11-devel
 BuildRequires:  libXi-devel
 BuildRequires:  libXrandr-devel
 BuildRequires:  libXrender-devel
-BuildRequires:  libXScrnSaver-devel
+# While SDL2 supports this, Xwayland does not expose XScrnSaver.
+# BuildRequires:  libXScrnSaver-devel
 BuildRequires:  libXinerama-devel
 BuildRequires:  libXcursor-devel
 BuildRequires:  systemd-devel
@@ -98,6 +99,7 @@ Static libraries for SDL2.
 
 %prep
 %autosetup -S git
+#autopatch 0
 sed -i -e 's/\r//g' TODO.txt README.md WhatsNew.txt BUGS.txt LICENSE.txt CREDITS.txt README-SDL.txt
 
 %build
@@ -156,6 +158,7 @@ install -p -m 644 %{SOURCE2} %{buildroot}%{_includedir}/SDL2/SDL_revision.h
 %{_libdir}/cmake/SDL2/SDL2Config*.cmake
 %{_libdir}/cmake/SDL2/SDL2Targets*.cmake
 %{_libdir}/cmake/SDL2/SDL2mainTargets*.cmake
+%{_libdir}/cmake/SDL2/sdlfind.cmake
 %{_includedir}/SDL2
 %{_datadir}/aclocal/*
 %{_libdir}/libSDL2_test.a
@@ -167,6 +170,25 @@ install -p -m 644 %{SOURCE2} %{buildroot}%{_includedir}/SDL2/SDL_revision.h
 %{_libdir}/cmake/SDL2/SDL2staticTargets*.cmake
 
 %changelog
+* Sun May 19 2024 Tom Callaway <spot@fedoraproject.org> - 2.30.3-1
+- update to 2.30.3
+- drop BR on libXScrnSaver (thanks to Niels De Graef)
+
+* Mon Mar 25 2024 Ding-Yi Chen <dchen@fedoraproject.org> - 2.30.1-1
+- Update to 2.30.1
+
+* Mon Jan 22 2024 Fedora Release Engineering <releng@fedoraproject.org> - 2.28.5-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Fri Jan 19 2024 Fedora Release Engineering <releng@fedoraproject.org> - 2.28.5-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Sun Nov  5 2023 Tom Callaway <spot@fedoraproject.org> - 2.28.5-1
+- update to 2.28.5
+
+* Mon Oct  2 2023 Tom Callaway <spot@fedoraproject.org> - 2.28.4-1
+- update to 2.28.4
+
 * Wed Jul 19 2023 Fedora Release Engineering <releng@fedoraproject.org> - 2.26.5-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_39_Mass_Rebuild
 

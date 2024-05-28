@@ -1,0 +1,115 @@
+From 0de15b2952e834c39298a4a415d0d30977a4a5b4 Mon Sep 17 00:00:00 2001
+From: Adam Williamson <awilliam@redhat.com>
+Date: Thu, 5 Oct 2023 13:09:46 -0700
+Subject: [PATCH] Revert "x11: Use input region from frame window for decorated
+ windows"
+
+This reverts commit d991961ae2a5c8cf2e58ff1072239f4902b0f767. It
+seems to cause the broken mouse interaction bug reported in
+https://bugzilla.redhat.com/show_bug.cgi?id=2239128 .
+
+Closes: https://gitlab.gnome.org/GNOME/mutter/-/issues/3068
+---
+ src/core/frame.c     |  7 -------
+ src/x11/window-x11.c | 29 ++++++++++-------------------
+ 2 files changed, 10 insertions(+), 26 deletions(-)
+
+diff --git a/src/core/frame.c b/src/core/frame.c
+index 3d6e7ab78..bb62c848b 100644
+--- a/src/core/frame.c
++++ b/src/core/frame.c
+@@ -34,7 +34,6 @@
+ #include "x11/window-props.h"
+ 
+ #include <X11/Xatom.h>
+-#include <X11/extensions/shape.h>
+ 
+ #define EVENT_MASK (SubstructureRedirectMask |                     \
+                     StructureNotifyMask | SubstructureNotifyMask | \
+@@ -108,9 +107,6 @@ meta_window_set_frame_xwindow (MetaWindow *window,
+   XChangeWindowAttributes (x11_display->xdisplay,
+ 			   frame->xwindow, CWEventMask, &attrs);
+ 
+-  if (META_X11_DISPLAY_HAS_SHAPE (x11_display))
+-    XShapeSelectInput (x11_display->xdisplay, frame->xwindow, ShapeNotifyMask);
+-
+   meta_x11_display_register_x_window (x11_display, &frame->xwindow, window);
+ 
+   if (window->mapped)
+@@ -219,9 +215,6 @@ meta_window_destroy_frame (MetaWindow *window)
+       window->reparents_pending += 1;
+     }
+ 
+-  if (META_X11_DISPLAY_HAS_SHAPE (x11_display))
+-    XShapeSelectInput (x11_display->xdisplay, frame->xwindow, NoEventMask);
+-
+   XDeleteProperty (x11_display->xdisplay,
+                    window->xwindow,
+                    x11_display->atom__MUTTER_NEEDS_FRAME);
+diff --git a/src/x11/window-x11.c b/src/x11/window-x11.c
+index 7ae5d8059..f7512bc10 100644
+--- a/src/x11/window-x11.c
++++ b/src/x11/window-x11.c
+@@ -2118,10 +2118,6 @@ meta_window_x11_constructed (GObject *object)
+   window->hidden = FALSE;
+   priv->border_width = attrs.border_width;
+ 
+-  g_signal_connect (window, "notify::decorated",
+-                    G_CALLBACK (meta_window_x11_update_input_region),
+-                    window);
+-
+   G_OBJECT_CLASS (meta_window_x11_parent_class)->constructed (object);
+ }
+ 
+@@ -2430,21 +2426,16 @@ meta_window_x11_update_input_region (MetaWindow *window)
+   cairo_region_t *region = NULL;
+   MetaWindowX11 *window_x11 = META_WINDOW_X11 (window);
+   MetaWindowX11Private *priv = meta_window_x11_get_instance_private (window_x11);
+-  Window xwindow;
+ 
++  /* Decorated windows don't have an input region, because
++     we don't shape the frame to match the client windows
++     (so the events are blocked by the frame anyway)
++  */
+   if (window->decorated)
+     {
+-      if (!window->frame)
+-        {
+-          if (window->input_region)
+-            meta_window_set_input_region (window, NULL);
+-          return;
+-        }
+-      xwindow = window->frame->xwindow;
+-    }
+-  else
+-    {
+-      xwindow = window->xwindow;
++      if (window->input_region)
++        meta_window_set_input_region (window, NULL);
++      return;
+     }
+ 
+   if (META_X11_DISPLAY_HAS_SHAPE (x11_display))
+@@ -2456,7 +2447,7 @@ meta_window_x11_update_input_region (MetaWindow *window)
+ 
+       meta_x11_error_trap_push (x11_display);
+       rects = XShapeGetRectangles (x11_display->xdisplay,
+-                                   xwindow,
++                                   window->xwindow,
+                                    ShapeInput,
+                                    &n_rects,
+                                    &ordering);
+@@ -2510,8 +2501,8 @@ meta_window_x11_update_input_region (MetaWindow *window)
+ 
+       client_area.x = 0;
+       client_area.y = 0;
+-      client_area.width = window->buffer_rect.width;
+-      client_area.height = window->buffer_rect.height;
++      client_area.width = priv->client_rect.width;
++      client_area.height = priv->client_rect.height;
+ 
+       /* The shape we get back from the client may have coordinates
+        * outside of the frame. The X SHAPE Extension requires that
+-- 
+2.41.0
+

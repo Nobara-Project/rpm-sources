@@ -1,20 +1,21 @@
 %bcond cloudproviders %{undefined rhel}
 
-%global glib2_version 2.77.0
+%global glib2_version 2.79.0
 %global gnome_autoar_version 0.4.4
-%global gtk4_version 4.11.2
+%global gtk4_version 4.13.6
 %global libadwaita_version 1.4~alpha
 
 %global tarball_version %%(echo %{version} | tr '~' '.')
 
 Name:           nautilus
-Version:        45.2.1
-Release:        1%{?dist}
+Version:        46.1
+Release:        2%{?dist}
 Summary:        File manager for GNOME
 
-License:        GPL-3.0-or-later
-URL:            https://wiki.gnome.org/Apps/Nautilus
-Source0:        https://download.gnome.org/sources/%{name}/45/%{name}-%{tarball_version}.tar.xz
+# Sources are GPL-3.0-or-later and Appdata is CC0-1.0.
+License:        GPL-3.0-or-later AND CC0-1.0
+URL:            https://apps.gnome.org/Nautilus/
+Source0:        https://download.gnome.org/sources/%{name}/46/%{name}-%{tarball_version}.tar.xz
 Patch1:		nautilus-restore-typeahead.patch
 Patch2:		0001-patch-re-add-breadcrumb-address-bar-toggle.patch
 
@@ -105,7 +106,7 @@ sed -i '/-Werror/d' meson.build
 %find_lang %{name}
 
 %check
-appstream-util validate-relax --nonet $RPM_BUILD_ROOT%{_metainfodir}/org.gnome.Nautilus.appdata.xml
+appstream-util validate-relax --nonet $RPM_BUILD_ROOT%{_metainfodir}/org.gnome.Nautilus.metainfo.xml
 desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 
 %files  -f %{name}.lang
@@ -129,7 +130,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 %{_datadir}/tracker3/domain-ontologies/org.gnome.Nautilus.domain.rule
 %{_libdir}/nautilus/extensions-4/libnautilus-image-properties.so
 %{_libdir}/nautilus/extensions-4/libtotem-properties-page.so
-%{_metainfodir}/org.gnome.Nautilus.appdata.xml
+%{_metainfodir}/org.gnome.Nautilus.metainfo.xml
 
 %files extensions
 %license libnautilus-extension/LICENSE
@@ -146,6 +147,33 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 %doc %{_datadir}/doc/nautilus/
 
 %changelog
+* Sun Apr 21 2024 David King <amigadave@amigadave.com> - 46.1-1
+- Update to 46.1
+
+* Sun Apr 14 2024 Adam Williamson <awilliam@redhat.com> - 46.0-2
+- Backport MR #1488 to fix crash when compressing files and folders
+
+* Tue Mar 19 2024 David King <amigadave@amigadave.com> - 46.0-1
+- Update to 46.0
+
+* Fri Mar 08 2024 David King <amigadave@amigadave.com> - 46~rc-1
+- Update to 46.rc
+
+* Wed Feb 14 2024 David King <amigadave@amigadave.com> - 46~beta-1
+- Update to 46.beta
+
+* Mon Jan 29 2024 David King <amigadave@amigadave.com> - 46~alpha.1-1
+- Update to 46.alpha.1
+
+* Thu Jan 25 2024 Fedora Release Engineering <releng@fedoraproject.org> - 46~alpha.0-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Mon Jan 22 2024 David King <amigadave@amigadave.com> - 46~alpha.0-1
+- Update to 46.alpha.0
+
+* Sun Jan 21 2024 Fedora Release Engineering <releng@fedoraproject.org> - 45.2.1-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
 * Wed Dec 06 2023 Kalev Lember <klember@redhat.com> - 45.2.1-1
 - Update to 45.2.1
 
@@ -989,7 +1017,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 - Also obsolete eel2-devel (#583722)
 
 * Tue Apr 13 2010 Seth Vidal <skvidal at fedoraproject.org> - 2.30.0-2
-- fix obsoletes/provides for eel2 to not include pkg name in ver/rel
+- fix obsoletes/provides for eel2 to not include pkg name in ver/rel 
 
 * Mon Mar 29 2010 Tomas Bzatek <tbzatek@redhat.com> - 2.30.0-1
 - Update to 2.30.0
@@ -1159,7 +1187,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 - Update to 2.25.2
 - Clean up Requires
 - Obsolete eel2
-- Drop hard dependency on gvfs backends.
+- Drop hard dependency on gvfs backends. 
   These are pulled in by comps, anyway
 
 * Fri Dec  5 2008 Matthias Clasen <mclasen@redhat.com> - 2.25.1-5
@@ -1260,7 +1288,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 - Update to 2.23.3
 
 * Fri May 30 2008 Tomas Bzatek <tbzatek@redhat.com> - 2.23.2-3
-- Add DnD support to drop files onto archive files with help
+- Add DnD support to drop files onto archive files with help 
   of file-roller (gnomebz #377157)
 - Add fix preventing crash on bad GFileInfos (gnomebz #519743)
 
@@ -1377,7 +1405,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 - Backport fixes for async thumbnail loading from svn
 
 * Fri Sep 28 2007 Ray Strode <rstrode@redhat.com> - 2.20.0-2
-- drop redhat-artwork dep. Alex says we don't need it anymore
+- drop redhat-artwork dep. Alex says we don't need it anymore 
 
 * Tue Sep 18 2007 Matthias Clasen <mclasen@redhat.com> - 2.20.0-1
 - Update to 2.20.0
@@ -1475,7 +1503,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 * Tue Nov  7 2006 Alexander Larsson <alexl@redhat.com> - 2.16.2-2.fc7
 - Update to 2.16.2
 
-* Sat Oct 21 2006 Matthias Clasen <mclasen@redhat.com> - 2.16.1-1
+* Sat Oct 21 2006 Matthias Clasen <mclasen@redhat.com> - 2.16.1-1 
 - Update to 2.16.1
 
 * Wed Oct 18 2006 Matthias Clasen <mclasen@redhat.com> - 2.16.0-6
@@ -1521,7 +1549,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 - Spec file cleanups
 
 * Wed Jul 12 2006 Matthias Clasen <mclasen@redhat.com> - 2.15.4-2
-- Don't require nautilus-cd-burner, to avoid a
+- Don't require nautilus-cd-burner, to avoid a 
   BuildRequires-Requires loop
 
 * Wed Jul 12 2006 Matthias Clasen <mclasen@redhat.com> - 2.15.4-1
@@ -1607,7 +1635,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 * Wed Sep  7 2005 Matthias Clasen <mclasen@redhat.com> 2.12.0-1
 - Update to 2.12.0
 
-* Tue Aug 16 2005 Matthias Clasen <mclasen@redhat.com>
+* Tue Aug 16 2005 Matthias Clasen <mclasen@redhat.com> 
 - New upstream release
 
 * Wed Aug  3 2005 Matthias Clasen <mclasen@redhat.com> 2.11.90-1
@@ -1868,7 +1896,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 * Tue Jan 14 2003 Havoc Pennington <hp@redhat.com>
 - perl-munge the icon names in a couple desktop files
   to find redhat-network-server.png and redhat-file-manager.png.
-  Upstream icon names here were weird and seem broken.
+  Upstream icon names here were weird and seem broken. 
 
 * Thu Jan  9 2003 Alexander Larsson <alexl@redhat.com>
 - 2.1.6
@@ -1884,7 +1912,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 
 * Tue Dec  3 2002 Havoc Pennington <hp@redhat.com>
 - add explicit startup-notification dependency because build system is
-  dumb
+  dumb 
 - 2.1.3
 
 * Wed Nov 13 2002 Havoc Pennington <hp@redhat.com>
@@ -1911,7 +1939,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 * Sat Aug 31 2002 Havoc Pennington <hp@redhat.com>
 - require newer redhat-artwork, -menus, eel2, gnome-vfs2 to avoid
   bogus bug reports
-- add hack for HTML mime type handling in a web browser, not
+- add hack for HTML mime type handling in a web browser, not 
   nautilus
 
 * Thu Aug 29 2002 Alexander Larsson <alexl@redhat.com>
@@ -1919,7 +1947,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 - Added patch that fixes #72410
 
 * Wed Aug 28 2002 Owen Taylor <otaylor@redhat.com>
-- Add a simple patch so that redhat-config-packages can disable
+- Add a simple patch so that redhat-config-packages can disable 
   the new window behavior for mounted CDs behavior.
 
 * Wed Aug 28 2002 Alexander Larsson <alexl@redhat.com> 2.0.5-4
@@ -2052,7 +2080,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 - copy in 1.0.5 help component to avoid large risky patch
 - remove .la files
 - drop mozilla from ia64 again
-- remove oaf file from nautilus-mozilla that was also in the base
+- remove oaf file from nautilus-mozilla that was also in the base 
   package
 
 * Mon Jan 28 2002 Bill Nottingham <notting@redhat.com>
@@ -2091,7 +2119,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
   fixes mentioned. This build should contain them.
 
 * Wed Aug 22 2001 Havoc Pennington <hp@redhat.com>
-- fix bug causing 32000 stats or so in large directories,
+- fix bug causing 32000 stats or so in large directories, 
   should speed things up somewhat
 - fix #52104 via gruesome kdesktop-detection hack and setting
   window type hint on our desktop window
@@ -2141,7 +2169,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 
 * Thu Aug 02 2001 Havoc Pennington <hp@redhat.com>
 - Sync our CVS version; fixes some MUSTFIX
-  (the one about drawing background on startup,
+  (the one about drawing background on startup, 
    properly translate desktop files, etc.)
 
 * Wed Aug  1 2001 Alexander Larsson <alexl@redhat.com> 1.0.4-24
@@ -2175,7 +2203,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
   read)
 
 * Tue Jul 24 2001 Havoc Pennington <hp@redhat.com>
-- sync new tarball from our CVS branch,
+- sync new tarball from our CVS branch, 
   fixes some drag-and-drop, changes URI scheme names,
   etc.
 
@@ -2199,7 +2227,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 - add newline to ends of .desktop files that were missing them
 
 * Tue Jul 10 2001 Havoc Pennington <hp@redhat.com>
-- update to my latest 'cvs diff -u' (adds default
+- update to my latest 'cvs diff -u' (adds default 
   Start Here link, displays .directory name in sidebar)
 - include /etc/X11/* links (starthere, sysconfig, serverconfig)
 

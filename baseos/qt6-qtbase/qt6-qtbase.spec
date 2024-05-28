@@ -2,7 +2,7 @@
 %global multilib_archs x86_64 %{ix86} %{?mips} ppc64 ppc s390x s390 sparc64 sparcv9
 %global multilib_basearchs x86_64 %{?mips64} ppc64 s390x sparc64
 
-%ifarch s390x ppc64le aarch64 armv7hl
+%ifarch s390x ppc64le aarch64 armv7hl riscv64
 %global no_sse2  1
 %endif
 
@@ -10,6 +10,14 @@
 %ifarch %{ix86}
 %global no_sse2  1
 %endif
+%endif
+
+%if 0%{?rhel} >= 10
+# Use mutter on RHEL 10+ since it's the only shipped compositor
+%global wlheadless_compositor mutter
+%else
+# Use the simple reference compositor to simplify dependencies
+%global wlheadless_compositor weston
 %endif
 
 %global platform linux-g++
@@ -37,8 +45,8 @@ BuildRequires: pkgconfig(libsystemd)
 
 Name:    qt6-qtbase
 Summary: Qt6 - QtBase components
-Version: 6.6.2
-Release: 1%{?dist}
+Version: 6.7.0
+Release: 5%{?dist}
 
 License: LGPL-3.0-only OR GPL-3.0-only WITH Qt-GPL-exception-1.0
 Url:     http://qt-project.org/
@@ -102,12 +110,14 @@ Patch59: 0001-fix-underlined-text-in-dock-widget-titles-rendering-.patch
 # FIXME: this change seems to completely break font rendering for some people
 # Patch60: qtbase-cache-emoji-font.patch
 
-%if 0%{?fedora} < 39
+%if 0%{?fedora} && 0%{?fedora} < 39
 # Latest QGnomePlatform needs to be specified to be used
 Patch100: qtbase-use-qgnomeplatform-as-default-platform-theme-on-gnome.patch
 %endif
 
 ## upstream patches
+Patch200: qtbase-use-ifdefs-instead-if-for-cpp-lib-span.patch
+Patch201: qtbase-qgtk3theme-add-support-for-xdp-to-get-color-scheme.patch
 
 # Do not check any files in %%{_qt6_plugindir}/platformthemes/ for requires.
 # Those themes are there for platform integration. If the required libraries are
@@ -128,7 +138,11 @@ BuildRequires: ninja-build
 BuildRequires: cups-devel
 BuildRequires: desktop-file-utils
 BuildRequires: findutils
+%if 0%{?fedora} || 0%{?epel}
 BuildRequires: double-conversion-devel
+%else
+Provides:      bundled(double-conversion)
+%endif
 %if 0%{?fedora} || 0%{?epel}
 BuildRequires: libb2-devel
 %else
@@ -197,7 +211,7 @@ BuildRequires: qt6-rpm-macros
 BuildRequires: dbus-x11
 BuildRequires: mesa-dri-drivers
 BuildRequires: time
-BuildRequires: xorg-x11-server-Xvfb
+BuildRequires: (wlheadless-run and %{wlheadless_compositor})
 %endif
 
 Requires: %{name}-common = %{version}-%{release}
@@ -394,6 +408,7 @@ export MAKEFLAGS="%{?_smp_mflags}"
  %{?sqlite:-DQT_FEATURE_system_sqlite=ON} \
  -DBUILD_SHARED_LIBS=ON \
  -DQT_BUILD_EXAMPLES=%{?examples:ON}%{!?examples:OFF} \
+ -DQT_INSTALL_EXAMPLES_SOURCES=%{?examples:ON}%{!?examples:OFF} \
  -DQT_BUILD_TESTS=%{?tests:ON}%{!?tests:OFF} \
  -DQT_QMAKE_TARGET_MKSPEC=%{platform}
 
@@ -431,7 +446,7 @@ translationdir=%{_qt6_translationdir}
 
 Name: Qt6
 Description: Qt6 Configuration
-Version: 6.6.2
+Version: 6.7.0
 EOF
 
 # rpm macros
@@ -507,7 +522,7 @@ export LD_LIBRARY_PATH=%{buildroot}%{_qt6_libdir}
 # dbus tests error out when building if session bus is not available
 dbus-launch --exit-with-session \
 %make_build sub-tests  -k ||:
-xvfb-run -a --server-args="-screen 0 1280x1024x32" \
+wlheadless-run -c %{wlheadless_compositor} -- \
 dbus-launch --exit-with-session \
 time \
 make check -k ||:
@@ -555,6 +570,8 @@ make check -k ||:
 %{_qt6_plugindir}/sqldrivers/libqsqlite.so
 %{_qt6_plugindir}/tls/libqcertonlybackend.so
 %{_qt6_plugindir}/tls/libqopensslbackend.so
+%{_bindir}/qtpaths*
+%{_qt6_bindir}/qtpaths*
 
 %files common
 # mostly empty for now, consider: filesystem/dir ownership, licenses
@@ -604,7 +621,6 @@ make check -k ||:
 %{_bindir}/qdbuscpp2xml*
 %{_bindir}/qdbusxml2cpp*
 %{_bindir}/qmake*
-%{_bindir}/qtpaths*
 %{_bindir}/qt-cmake
 %{_bindir}/qt-cmake-create
 %{_bindir}/qt-configure-module
@@ -615,7 +631,6 @@ make check -k ||:
 %{_qt6_bindir}/qdbuscpp2xml
 %{_qt6_bindir}/qdbusxml2cpp
 %{_qt6_bindir}/qmake
-%{_qt6_bindir}/qtpaths*
 %{_qt6_bindir}/qt-cmake
 %{_qt6_bindir}/qt-cmake-create
 %{_qt6_bindir}/qt-configure-module
@@ -625,7 +640,6 @@ make check -k ||:
 %{_qt6_libexecdir}/qt-internal-configure-tests
 %{_qt6_libexecdir}/sanitizer-testrunner.py
 %{_qt6_libexecdir}/syncqt
-%{_qt6_libexecdir}/android_emulator_launcher.sh
 %{_qt6_libexecdir}/moc
 %{_qt6_libexecdir}/tracegen
 %{_qt6_libexecdir}/tracepointgen
@@ -680,7 +694,7 @@ make check -k ||:
 %{_qt6_libdir}/libQt6Widgets.prl
 %{_qt6_libdir}/libQt6Widgets.so
 %{_qt6_libdir}/libQt6XcbQpa.prl
-%{_qt6_libdir}/libQt6XcbQpa.so 
+%{_qt6_libdir}/libQt6XcbQpa.so
 %{_qt6_libdir}/libQt6Xml.prl
 %{_qt6_libdir}/libQt6Xml.so
 %{_qt6_libdir}/libQt6EglFSDeviceIntegration.prl
@@ -713,6 +727,7 @@ make check -k ||:
 %{_qt6_libdir}/cmake/Qt6BuildInternals/QtStandaloneTestTemplateProject/Main.cmake
 %{_qt6_libdir}/cmake/Qt6Concurrent/*.cmake
 %{_qt6_libdir}/cmake/Qt6Core/*.cmake
+%{_qt6_libdir}/cmake/Qt6Core/Qt6CoreResourceInit.in.cpp
 %{_qt6_libdir}/cmake/Qt6Core/Qt6CoreConfigureFileTemplate.in
 %{_qt6_libdir}/cmake/Qt6CoreTools/*.cmake
 %{_qt6_libdir}/cmake/Qt6DBus/*.cmake
@@ -740,7 +755,7 @@ make check -k ||:
 %{_qt6_libdir}/cmake/Qt6XcbQpaPrivate/*.cmake
 %{_qt6_libdir}/cmake/Qt6Xml/*.cmake
 %{_qt6_libdir}/qt6/metatypes/*.json
-%{_qt6_libdir}/qt6/objects-RelWithDebInfo/ExampleIconsPrivate_resources_1/.rcc/qrc_example_icons.cpp.o
+%{_qt6_libdir}/qt6/objects-RelWithDebInfo/ExampleIconsPrivate_resources_1/.rcc/qrc_example_icons_init.cpp.o
 %{_qt6_libdir}/pkgconfig/*.pc
 
 %if 0%{?egl}
@@ -848,6 +863,39 @@ make check -k ||:
 
 
 %changelog
+* Tue May 07 2024 Jan Grulich <jgrulich@redhat.com> - 6.7.0-5
+- QGtk3Theme: Add support for xdg-desktop-portal to get color scheme
+
+* Wed Apr 24 2024 Jan Grulich <jgrulich@redhat.com> - 6.7.0-4
+- Use bundled double-conversion in RHEL builds
+
+* Fri Apr 12 2024 Jan Grulich <jgrulich@redhat.com> - 6.7.0-3
+- Rebuild (gcc rhbz#2272758)
+
+* Mon Apr 08 2024 Jan Grulich <jgrulich@redhat.com> - 6.7.0-2
+- Upstream backport: Use ifdef instead of if for __cpp_lib_span
+
+* Tue Apr 02 2024 Jan Grulich <jgrulich@redhat.com> - 6.7.0-1
+- 6.7.0
+
+* Thu Apr 11 2024 Adam Williamson <awilliam@redhat.com> - 6.6.2-7
+- Rebuild with fixed gcc to fix stray AVX instructions (#2272758)
+
+* Sat Mar 09 2024 Alessandro Astone <ales.astone@gmail.com> - 6.6.2-6
+- Move /usr/bin/qtpaths-qt6 to main package
+
+* Fri Mar 01 2024 David Abdurachmanov <davidlt@rivosinc.com> - 6.6.2-5
+- Disable SSE2 on riscv64
+
+* Fri Feb 23 2024 Neal Gompa <ngompa@fedoraproject.org> - 6.6.2-4
+- Use wlheadless-run for tests instead of xvfb-run
+
+* Mon Feb 19 2024 Jan Grulich <jgrulich@redhat.com> - 6.6.2-3
+- Examples: also install source files
+
+* Mon Feb 19 2024 Jan Grulich <jgrulich@redhat.com> - 6.6.2-2
+- Examples: also install source files
+
 * Thu Feb 15 2024 Jan Grulich <jgrulich@redhat.com> - 6.6.2-1
 - 6.6.2
 
@@ -921,7 +969,7 @@ make check -k ||:
 * Fri Apr 7 2023 Marie Loise Nolden <loise@kde.org> - 6.5.0-2
 - fix xcb plugin with new dependency xcb-cursor instead of Xcursor
   introduction with qt 6.5, add firebird sql plugin cleanly, clean up spec file
-  
+
 * Mon Apr 03 2023 Jan Grulich <jgrulich@redhat.com> - 6.5.0-1
 - 6.5.0
 

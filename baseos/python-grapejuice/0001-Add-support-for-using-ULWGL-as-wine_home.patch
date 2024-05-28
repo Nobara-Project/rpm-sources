@@ -1,7 +1,7 @@
 From 1fa0188390398fd189eb4438d76dfaed1ef25ef7 Mon Sep 17 00:00:00 2001
 From: GloriousEggroll <gloriouseggroll@gmail.com>
 Date: Sun, 4 Feb 2024 08:55:41 -0700
-Subject: [PATCH] Add support for using ULWGL as wine_home
+Subject: [PATCH] Add support for using UMU as wine_home
 
 ---
  .../models/wineprefix_configuration_model.py  |  3 ++
@@ -16,9 +16,9 @@ index 1930902..ad00540 100644
      "XDG_DATA_HOME",  # Required for MangoHud to function
      "LD_LIBRARY_PATH",  # Additional system libraries
      "LD_PRELOAD",  # Preloaded libraries, often used for hotfixes
-+    "GAMEID", # Required for ULWGL, auto-set to ulwgl-roblox when ULWGL is used
-+    "STORE", # Required for ULWGL, auto-set to none when ULWGL is used
-+    "PROTONPATH", # Required for ULWGL, ULWGL sets its own proton version if not defined.
++    "GAMEID", # Required for UMU, auto-set to UMU-roblox when UMU is used
++    "STORE", # Required for UMU, auto-set to none when UMU is used
++    "PROTONPATH", # Required for UMU, UMU sets its own proton version if not defined.
      "MANGOHUD"  # Commonly used performance monitoring app
  ]
  
@@ -31,7 +31,7 @@ index c3afa98..b40c522 100644
          raise WineHomeInvalid(home_path, "The Wine home must be a directory")
  
 -    wine_bin = home_path / "bin"
-+    if "ulwgl" not in str(home_path).lower():
++    if "UMU" not in str(home_path).lower():
 +        wine_bin = home_path / "bin"
  
 -    if not wine_bin.exists():
@@ -52,7 +52,7 @@ index c3afa98..b40c522 100644
  
 -        wine_binary = self.wine_bin / f"wine{arch}"
 -        log.info(f"Resolved wine binary path: {wine_binary}")
-+        if "ulwgl" in str(self.wine_home).lower():
++        if "UMU" in str(self.wine_home).lower():
 +            wine_binary = self.wine_home/"gamelauncher.sh"
 +        else:
 +            wine_binary = self.wine_bin / f"wine{arch}"
@@ -68,15 +68,15 @@ index c3afa98..b40c522 100644
          if self.dxvk_enabled:
              dll_overrides.extend(self.dxvk_dll_overrides)
  
-+        ulwgl_env = dict()
++        umu_env = dict()
 +
-+        if "ulwgl" in str(self.wine_home).lower():
-+            ulwgl_env = {
-+                **ulwgl_env,
-+                "GAMEID": "ulwgl-roblox",
++        if "UMU" in str(self.wine_home).lower():
++            umu_env = {
++                **umu_env,
++                "GAMEID": "umu-roblox",
 +                "STORE": "none"
 +            }
-+            log.info(f"ULWGL environment variables: {json.dumps(ulwgl_env)}")
++            log.info(f"UMU environment variables: {json.dumps(umu_env)}")
 +
          # Inherit system environment
          if sanitize_environment:
@@ -85,7 +85,7 @@ index c3afa98..b40c522 100644
              **user_env,
              "WINEPREFIX": str(self._prefix_paths.base_directory),
              "WINEARCH": "win64",
-+            **(ulwgl_env if "ulwgl" in str(self.wine_home).lower() else dict()),
++            **(umu_env if "umu" in str(self.wine_home).lower() else dict()),
              **(self._dri_prime_variables() if accelerate_graphics else dict()),
              **_legacy_hardware_variables(self._configuration)
          }

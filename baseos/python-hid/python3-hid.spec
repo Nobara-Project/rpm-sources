@@ -1,5 +1,5 @@
 %global pypi_name hid
-%global pypi_version 1.0.5
+%global pypi_version 1.0.6
 
 Name:           python-%{pypi_name}
 Version:        %{pypi_version}

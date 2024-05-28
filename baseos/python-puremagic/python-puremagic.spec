@@ -3,7 +3,7 @@
 %global scrname  puremagic
 
 Name:           python-%{scrname}
-Version:        1.11
+Version:        1.23
 Release:        1%{?dist}
 Summary:        identify a file based off it's magic numbers
 

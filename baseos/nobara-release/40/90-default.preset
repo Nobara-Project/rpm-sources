@@ -1,0 +1,410 @@
+# See https://docs.fedoraproject.org/en-US/packaging-guidelines/DefaultServices/
+# for the Fedora policy.
+
+# On Fedora we deviate from some upstream defaults
+disable systemd-timesyncd.service
+disable systemd-networkd.service
+disable systemd-networkd-wait-online.service
+# We want to update systemd-boot from packaging scriptlets after updates.
+disable systemd-boot-update.service
+
+# https://fedoraproject.org/wiki/Changes/systemd-resolved
+enable systemd-resolved.service
+
+# https://fedoraproject.org/wiki/Changes/EnableSystemdOomd
+enable systemd-oomd.service
+
+# These presets were last validated en-masse on 2015-09-09
+# https://fedorahosted.org/fesco/ticket/1472
+
+# System stuff
+# https://fedoraproject.org/w/index.php?title=Starting_services_by_default&oldid=377748
+enable dbus.socket
+enable dbus-broker.service
+enable sshd.service
+
+# Locally-running services
+enable atd.*
+enable crond.*
+
+# Approved by FESCo - https://fedorahosted.org/fesco/ticket/636
+enable chronyd.service
+
+# https://fedoraproject.org/w/index.php?title=Starting_services_by_default&oldid=377748
+# https://bugzilla.redhat.com/show_bug.cgi?id=1455704
+enable NetworkManager.service
+enable NetworkManager-wait-online.service
+enable NetworkManager-dispatcher.service
+enable ModemManager.service
+
+# Approved by FESCo - https://fedorahosted.org/fesco/ticket/1311
+enable auditd.service
+
+# Locally-running service
+enable restorecond.service
+
+# Approved by FESCo - https://fedorahosted.org/fesco/ticket/1166
+enable bluetooth.*
+
+# https://fedoraproject.org/w/index.php?title=Starting_services_by_default&oldid=377748
+enable avahi-daemon.*
+
+# Default configuration is locally-running only
+# CUPS is now socket-activatable for local use-cases, so don't enable cups.service
+# https://pagure.io/fesco/issue/1701
+enable cups.socket
+enable cups.path
+
+# The various syslog implementations
+enable rsyslog.*
+enable syslog-ng.*
+enable sysklogd.*
+
+# Network facing
+# https://fedoraproject.org/w/index.php?title=Starting_services_by_default&oldid=377748
+enable firewalld.service
+
+# Approved by FESCo - https://fedorahosted.org/fesco/ticket/2627
+# Virtualization driver specific daemons. Start by default at boot for VM
+# autostart, but shutdown after 2 mins and socket activated thereafter
+enable virtqemud.service
+enable virtxend.service
+enable virtlxcd.service
+
+# Compatibility with libvirtd sockets for old clients and expose TCP sockets
+enable virtproxyd.socket
+
+# Secondary drivers providing supporting functionality to main virtualization
+# drivers, socket activated only when required
+enable virtinterfaced.socket
+enable virtnetworkd.socket
+enable virtnodedevd.socket
+enable virtnwfilterd.socket
+enable virtsecretd.socket
+enable virtstoraged.socket
+
+# https://fedoraproject.org/w/index.php?title=Starting_services_by_default&oldid=377748
+enable xinetd.service
+
+# Storage
+# Approved by FESCo - https://fedorahosted.org/fesco/ticket/391
+enable multipathd.service
+
+# Approved by FESCo - https://fedorahosted.org/fesco/ticket/876
+enable libstoragemgmt.service
+
+# Approved by FESCo - https://pagure.io/fesco/issue/2386
+enable iscsid.socket
+enable iscsiuio.socket
+
+# Approved by FESCo - https://pagure.io/fesco/issue/2943
+enable iscsi-starter.service
+
+# iSCSI support for early-boot
+# https://bugzilla.redhat.com/show_bug.cgi?id=1930470
+enable iscsi-onboot.service
+
+# Locally-running services
+enable lvm2-monitor.*
+enable lvm2-lvmetad.*
+enable dm-event.*
+enable dmraid-activation.service
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=855372
+enable mdmonitor.service
+enable mdmonitor-takeover.service
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=1817491
+enable raid-check.timer
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=876237
+enable spice-vdagentd.service
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=885406
+enable qemu-guest-agent.service
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=928726
+enable dnf-makecache.timer
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=1995495
+enable rpm-ostree-countme.timer
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=957135
+enable vmtoolsd.service
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=976315
+enable dkms.service
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=961878
+enable ipmi.service
+enable ipmievd.service
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=1039351
+enable x509watch.timer
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=1060754
+enable dnssec-triggerd.service
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=1095353
+enable uuidd.socket
+
+# Hardware
+# Locally-running service
+enable gpm.*
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=1066421
+enable gpsd.socket
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=1141607
+enable x2gocleansessions.service
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=1215641
+enable unbound-anchor.timer
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=1222495
+enable lvm2-lvmpolld.*
+
+# https://fedoraproject.org/wiki/Changes/UEFISecureBootBlacklistUpdates
+enable dbxtool.service
+
+# Locally-running services
+enable irqbalance.service
+enable lm_sensors.service
+enable mcelog.*
+enable smartd.service
+enable pcscd.socket
+enable rngd.service
+
+# Other stuff
+# Approved by FESCo - https://fedorahosted.org/fesco/ticket/937
+# Note: abrt-ccpp.service is excluded in favor of systemd-coredump.
+enable abrtd.service
+enable abrt-journal-core.service
+enable abrt-oops.service
+enable abrt-xorg.service
+enable abrt-vmcore.service
+
+# Locally-running services
+enable ksm.service
+enable ksmtuned.service
+enable rootfs-resize.service
+enable sysstat.service
+enable sysstat-collect.timer
+enable sysstat-summary.timer
+enable uuidd.service
+enable xendomains.service
+enable xenstored.service
+enable xenconsoled.service
+
+# Desktop stuff
+# Locally-running services
+enable accounts-daemon.service
+enable rtkit-daemon.service
+enable upower.service
+enable udisks2.service
+enable polkit.service
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=1187072
+enable timedatex.service
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=1231745
+enable mlocate-updatedb.timer
+
+# https://src.fedoraproject.org/rpms/fedora-release/pull-request/204
+enable plocate-updatedb.timer
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=1218999
+enable sa-update.timer
+
+# Hyper-V guest support daemons
+# https://bugzilla.redhat.com/show_bug.cgi?id=1279322
+enable vmtoolsd.service
+
+# mcelog is a utility that collects and decodes Machine Check Exception data
+# on x86-32 and x86-64 systems.
+# https://bugzilla.redhat.com/show_bug.cgi?id=1302179
+enable mcelog.service
+
+# OPAL-prd is a utility specific to ppc64le systems
+# It is the "OPAL Processor Recovery Diagnostics Daemon"
+# https://bugzilla.redhat.com/show_bug.cgi?id=1312018
+enable opal-prd.service
+
+# lircd is the Linux Infrared Control daemon
+# Starting with version 0.9.4, it requires no manual configuration
+# https://bugzilla.redhat.com/show_bug.cgi?id=1340061
+enable lircd.socket
+
+# IPSec management
+# https://bugzilla.redhat.com/show_bug.cgi?id=1276285
+enable pluto.socket
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=1367932
+# Automatically refresh installed snaps
+enable snapd.refresh.timer
+# Socket activated daemon to manage snaps
+enable snapd.socket
+
+# Support for dual-GPU systems
+# https://bugzilla.redhat.com/show_bug.cgi?id=1389762
+enable switcheroo-control.service
+
+# Support for the DRBD link-cleaning service
+# https://bugzilla.redhat.com/show_bug.cgi?id=1399387
+enable drbdlinksclean.service
+
+# Enable the System Security Services Daemon
+# https://bugzilla.redhat.com/show_bug.cgi?id=1427649
+enable sssd.service
+
+# Enable ostree-remount on ostree-based systems
+# (Does nothing on non-ostree systems)
+# https://bugzilla.redhat.com/show_bug.cgi?id=1451458
+enable ostree-remount.service
+
+# Enable Performance Co-Pilot services
+# https://bugzilla.redhat.com/show_bug.cgi?id=1472350
+enable pmcd.service
+enable pmlogger.service
+enable pmie.service
+
+# Enable SSSD Kerberos Credential Cache Server
+# https://bugzilla.redhat.com/show_bug.cgi?id=1475999
+enable sssd-kcm.socket
+
+# sssd-secrets.socket was previously enabled, but as of
+# SSSD 2.0 it is not longer needed
+# https://bugzilla.redhat.com/show_bug.cgi?id=1615584
+
+# A mechanism to transfer state between the initramfs and the real
+# system. Obsolete since /run was introduced, but still used by some
+# services.
+# https://bugzilla.redhat.com/show_bug.cgi?id=1493479
+# https://bugzilla.redhat.com/show_bug.cgi?id=1584645
+enable import-state.service
+
+# An initscripts mechanism for readonly root
+# https://bugzilla.redhat.com/show_bug.cgi?id=1493479
+# https://bugzilla.redhat.com/show_bug.cgi?id=1584645
+enable readonly-root.service
+
+# Ensure that any installed kmods are built for the currently-running
+# kernel at boot
+# https://bugzilla.redhat.com/show_bug.cgi?id=1518258
+enable akmods.service
+
+# virtualbox-guest-additions service, yet another virtual-machine guest
+# integration agent, this is a locally-running service, Note this has a
+# "ConditionVirtualization=|oracle" so it will only run under VirtualBox
+# https://bugzilla.redhat.com/show_bug.cgi?id=1534595
+enable vboxservice.service
+
+# Mark the system for SELinux autorelabel when appropriate
+# https://bugzilla.redhat.com/show_bug.cgi?id=1589720
+enable selinux-autorelabel-mark.service
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=1623901
+enable cpi.service
+
+# Initialize persistent devices on s390x
+enable device_cio_free.service
+
+# Enable the stratis daemon for managing stratis storage
+# https://bugzilla.redhat.com/show_bug.cgi?id=1630514
+enable stratisd.service
+
+# Enable a service to finalize staged OSTree changes at shutdown
+# https://bugzilla.redhat.com/show_bug.cgi?id=1639372
+enable ostree-finalize-staged.path
+
+# Enable the Docker daemon socket
+# https://bugzilla.redhat.com/show_bug.cgi?id=1655602
+enable docker.socket
+
+# Enable the service for adding Fedora OCI repos to flatpak
+# https://bugzilla.redhat.com/show_bug.cgi?id=1696225
+enable flatpak-add-fedora-repos.service
+
+# Run fstrim weekly on filesystems listed in fstab
+enable fstrim.timer
+
+# oneshot to generate kata VM appliance at host bootup
+# for the booted kernel
+enable kata-osbuilder-generate.service
+
+# Enable rotation of system log files
+# https://bugzilla.redhat.com/show_bug.cgi?id=1655153#c4
+enable logrotate.timer
+
+# Enable regular update of SpamAssassin data files
+# https://bugzilla.redhat.com/show_bug.cgi?id=1651002
+enable sa-update.timer
+
+# Enable service to automatically rebuild the RPM database
+# on startup when /var/lib/rpm/.rebuilddb exists
+# https://bugzilla.redhat.com/show_bug.cgi?id=1826658
+enable rpmdb-rebuild.service
+
+# Enable service to automatically migrate the RPM database to /usr
+# on startup when /var/lib/rpm/.migratedb exists
+# https://bugzilla.redhat.com/show_bug.cgi?id=2044061
+enable rpmdb-migrate.service
+
+# Support services for Google Cloud
+# Approved by FESCo: https://pagure.io/fesco/issue/2578
+enable google-guest-agent.service
+enable google-startup-scripts.service
+enable google-shutdown-scripts.service
+
+# Certbot (Let's Encrypt)
+# https://bugzilla.redhat.com/show_bug.cgi?id=1940211
+enable certbot-renew.timer
+
+# enable thermald by default for desktops
+# https://pagure.io/fedora-workstation/issue/71
+enable thermald.service
+
+# enable uresourced by default for desktops
+# https://pagure.io/fesco/issue/2457
+enable uresourced.service
+
+# enable power-profiles-daemon
+# https://pagure.io/fedora-workstation/issue/191
+enable power-profiles-daemon.service
+
+# Enable clevis-luks-askpass.path
+# https://bugzilla.redhat.com/show_bug.cgi?id=2101719
+enable clevis-luks-askpass.path
+
+# Enable livesys services for live media
+# https://bugzilla.redhat.com/show_bug.cgi?id=2148790
+enable livesys.service
+enable livesys-late.service
+
+# Enable Waydroid
+# https://bugzilla.redhat.com/show_bug.cgi?id=2157810
+enable waydroid-container.service
+
+# Enable nmstate to apply network configuration from /etc/nmstate/*.yml
+# https://github.com/coreos/fedora-coreos-tracker/issues/1175
+# https://github.com/coreos/fedora-coreos-config/pull/2269
+enable nmstate.service
+
+# Enable nfs-client.target
+# https://bugzilla.redhat.com/show_bug.cgi?id=2218006
+enable nfs-client.target
+
+# Enable cloud-init services
+# https://bugzilla.redhat.com/show_bug.cgi?id=2233948
+enable cloud-config.service
+enable cloud-final.service
+enable cloud-init.service
+enable cloud-init-local.service
+
+# Enable  kernel-bootcfg-boot-successful.service
+# https://bugzilla.redhat.com/show_bug.cgi?id=2239607
+enable kernel-bootcfg-boot-successful.service
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=2230575
+enable grub-boot-indeterminate.service
+enable grub2-systemd-integration.service

@@ -1,15 +1,31 @@
-%bcond x11 1
+# X11 session is not shipped anymore
+%bcond x11 0
 
 Name:    kwin
-Version: 6.0.4
-Release: 2%{?dist}
+Version: 6.0.5
+Release: 1%{?dist}
 Summary: KDE Window manager
 
-License: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LicenseRef-KDE-Accepted-GPL AND LicenseRef-KDE-Accepted-LGPL AND MIT
+License: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only) AND MIT
 URL:     https://userbase.kde.org/KWin
-Source0:  kwin-6.0.4.tar.xz
-Patch:   https://invent.kde.org/plasma/kwin/-/commit/fbd780186c76764617dba0365b9ca3de7cfe2f86.patch
+
+%global plasma_version %(echo %{version} | cut -d. -f1-3)
+Source0: http://download.kde.org/%{stable_kf6}/plasma/%{plasma_version}/%{name}-%{version}.tar.xz
+
+# 6.0: Backport Wayland DRM syncobj v1 support
+# https://invent.kde.org/plasma/kwin/-/merge_requests/5511
+Patch0:  backport-linux-drm-syncobj-v1-support.patch
+
 ## upstream patches
+# https://bugs.kde.org/show_bug.cgi?id=482142
+# https://invent.kde.org/plasma/kwin/-/merge_requests/5733
+Patch10: wayland-send-dndFinished-to-source-if-target-fails-to-do-so.patch
+
+# fixes libextest being needed in steam
+# https://invent.kde.org/plasma/kwin/-/merge_requests/5496
+Patch11: 5496.patch
+
+## proposed patches
 
 # Base
 BuildRequires:  extra-cmake-modules
@@ -19,11 +35,12 @@ BuildRequires:  systemd-rpm-macros
 # Qt
 BuildRequires:  cmake(QAccessibilityClient6)
 BuildRequires:  qt6-qtbase-devel
+BuildRequires:  qt6-qtbase-static
 # KWinQpaPlugin (and others?)
 BuildRequires:  qt6-qtbase-private-devel
-%{?_qt6:Requires: %{_qt6}%{?_isa} = %{_qt6_version}}
 BuildRequires:  qt6-qtsensors-devel
 BuildRequires:  qt6-qttools-devel
+BuildRequires:  qt6-qttools-static
 BuildRequires:  qt6-qtwayland-devel
 BuildRequires:  cmake(Qt6Core5Compat)
 
@@ -53,12 +70,12 @@ BuildRequires:  glib2-devel
 BuildRequires:  pipewire-devel
 
 # Wayland
-BuildRequires:  cmake(KWayland)
 BuildRequires:  wayland-devel
 BuildRequires:  wayland-protocols-devel
 BuildRequires:  libxkbcommon-devel >= 0.4
 BuildRequires:  pkgconfig(libinput) >= 0.10
 BuildRequires:  pkgconfig(libudev)
+BuildRequires:  pkgconfig(xwayland)
 
 # KF6
 BuildRequires:  cmake(KF6Completion)
@@ -68,27 +85,23 @@ BuildRequires:  cmake(KF6CoreAddons)
 BuildRequires:  cmake(KF6Crash)
 BuildRequires:  cmake(KF6DBusAddons)
 BuildRequires:  cmake(KF6GlobalAccel)
+BuildRequires:  cmake(KF6GuiAddons)
 BuildRequires:  cmake(KF6I18n)
 BuildRequires:  cmake(KF6KIO)
 BuildRequires:  cmake(KF6Notifications)
 BuildRequires:  cmake(KF6Service)
-BuildRequires:  cmake(Plasma)
 BuildRequires:  cmake(KF6WidgetsAddons)
 BuildRequires:  cmake(KF6WindowSystem)
 BuildRequires:  cmake(KF6DocTools)
 BuildRequires:  cmake(KF6KCMUtils)
 BuildRequires:  cmake(KF6NewStuff)
-BuildRequires:  cmake(PlasmaActivities)
 BuildRequires:  cmake(KF6Declarative)
 BuildRequires:  cmake(KF6IconThemes)
 BuildRequires:  cmake(KF6IdleTime)
 BuildRequires:  cmake(KF6TextWidgets)
-BuildRequires:  cmake(KF6Kirigami)
+BuildRequires:  cmake(KF6Kirigami2)
 BuildRequires:  cmake(KF6Runner)
 BuildRequires:  cmake(KF6Svg)
-BuildRequires:  cmake(KF6GuiAddons)
-BuildRequires:  cmake(KF6Auth)
-BuildRequires:  cmake(KF6XmlGui)
 
 BuildRequires:  cmake(KDecoration2)
 BuildRequires:  kscreenlocker-devel
@@ -96,23 +109,29 @@ BuildRequires:  plasma-breeze-devel
 BuildRequires:  plasma-wayland-protocols-devel
 BuildRequires:  cmake(KGlobalAccelD)
 BuildRequires:  libdisplay-info-devel
-BuildRequires:  pkgconfig(freetype2)
-BuildRequires:  pkgconfig(fontconfig)
+
+BuildRequires:  cmake(KWayland)
+BuildRequires:  cmake(Plasma)
+BuildRequires:  cmake(PlasmaActivities)
 
 ## Runtime deps
 Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
 Requires:       %{name}-common%{?_isa} = %{version}-%{release}
+Requires:       kscreenlocker%{?_isa}
+Requires:       kf6-kirigami2%{?_isa}
 Requires:       kf6-kdeclarative%{?_isa}
-Requires:       kf6-kirigami%{?_isa}
-Requires:       kscreenlocker%{?_isa} >= %{basever}
-Requires:       plasma-framework%{?_isa} >= %{basever}
-Requires:       qt6-qt5compat%{?_isa}
-Requires:       qt6-qtdeclarative%{?_isa}
+Requires:       libplasma%{?_isa} >= %{plasma_version}
 Requires:       qt6-qtmultimedia%{?_isa}
+Requires:       qt6-qtdeclarative%{?_isa}
 
-# http://bugzilla.redhat.com/605675
-# until initial-setup is fixed... (#1197135)
-Provides: firstboot(windowmanager) = kwin
+# Before kwin was split out from kde-workspace into a subpackage
+Conflicts:      kde-workspace%{?_isa} < 4.11.14-2
+
+Obsoletes:      kwin-gles < 5
+Obsoletes:      kwin-gles-libs < 5
+
+# Split of X11 variant into subpackage
+Obsoletes: kwin < 5.19.5-3
 
 Requires:   %{name}-wayland = %{version}-%{release}
 
@@ -123,14 +142,25 @@ Requires:   %{name}-wayland = %{version}-%{release}
 Summary:        KDE Window Manager with Wayland support
 Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
 Requires:       %{name}-common%{?_isa} = %{version}-%{release}
-Requires:       kwayland-integration%{?_isa} >= %{basever}
-BuildRequires:  pkgconfig(xwayland)
+Requires:       kwayland-integration%{?_isa}
+%if ! 0%{?bootstrap}
+BuildRequires:  xorg-x11-server-Xwayland
+%endif
 Requires:       xorg-x11-server-Xwayland
-# http://bugzilla.redhat.com/605675
-Provides:       firstboot(windowmanager) = kwin_wayland
+# KWinQpaPlugin (and others?)
+
+# Obsolete kwin-wayland-nvidia package as this is now done automatically
+# by kwin-wayland
+Obsoletes:      %{name}-wayland-nvidia < 5.20.2-2
+Provides:       %{name}-wayland-nvidia = %{version}-%{release}
 %if ! %{with x11}
 # Obsolete kwin-x11 as we are dropping the package
+%if 0%{?fedora}
+Obsoletes:      %{name}-x11 < 5.92.0
+%else
 Obsoletes:      %{name}-x11 < %{version}-%{release}
+Conflicts:      %{name}-x11 < %{version}-%{release}
+%endif
 %endif
 %description    wayland
 %{summary}.
@@ -141,6 +171,8 @@ Summary:        KDE Window Manager with X11 support
 Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
 Requires:       %{name}-common%{?_isa} = %{version}-%{release}
 Requires:       xorg-x11-server-Xorg
+# Plasma X11 is deprecated and will be removed with Plasma 6.0
+Provides:       deprecated()
 # http://bugzilla.redhat.com/605675
 Provides:       firstboot(windowmanager) = kwin_x11
 # KWinX11Platform (and others?)
@@ -152,12 +184,16 @@ Provides:       firstboot(windowmanager) = kwin_x11
 %package        common
 Summary:        Common files for KWin X11 and KWin Wayland
 Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
-Requires:       kwayland%{?_isa} >= %{basever}
+Requires:       kwayland%{?_isa}
+# Split of X11 variant into subpackage
+Obsoletes:      %{name}-common < 5.19.5-3
 %description    common
 %{summary}.
 
 %package        libs
 Summary:        KWin runtime libraries
+# Before kwin-libs was split out from kde-workspace into a subpackage
+Conflicts:      kde-workspace-libs%{?_isa} < 4.11.14-2
 %description    libs
 %{summary}.
 
@@ -165,13 +201,10 @@ Summary:        KWin runtime libraries
 Summary:        Development files for %{name}
 Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
 Requires:       %{name}-common%{?_isa} = %{version}-%{release}
-Requires:       cmake(Qt6Core)
-Requires:       cmake(Qt6Gui)
-Requires:       cmake(Qt6Quick)
-Requires:       cmake(KF6Config)
-Requires:       cmake(KF6CoreAddons)
-Requires:       cmake(KF6WindowSystem)
-Requires:       pkgconfig(wayland-server)
+Requires:       kf6-kconfig-devel
+Requires:       kf6-kservice-devel
+Requires:       kf6-kwindowsystem-devel
+Conflicts:      kde-workspace-devel < 5.0.0-1
 %description    devel
 The %{name}-devel package contains libraries and header files for
 developing applications that use %{name}.
@@ -212,34 +245,34 @@ rm -v %{buildroot}%{_kf6_bindir}/kwin_x11 %{buildroot}%{_userunitdir}/plasma-kwi
 %{_bindir}/kwin
 
 %files common -f kwin6.lang
-%{_kf6_datadir}/applications/*.desktop
-%{_kf6_datadir}/config.kcfg/kwin.kcfg
-%{_kf6_datadir}/config.kcfg/kwindecorationsettings.kcfg
-%{_kf6_datadir}/config.kcfg/nightcolorsettings.kcfg
-%{_kf6_datadir}/config.kcfg/virtualdesktopssettings.kcfg
-%{_kf6_datadir}/icons/hicolor/*/apps/kwin.*
-%{_kf6_datadir}/kconf_update/kwin.upd
-%{_kf6_datadir}/knotifications6/kwin.notifyrc
-%{_kf6_datadir}/knsrcfiles/*.knsrc
-%{_kf6_datadir}/krunner/dbusplugins/kwin-runner-windows.desktop
-%{_kf6_datadir}/kwin/
+%{_datadir}/kwin
+%{_kf6_qtplugindir}/plasma/kcms/systemsettings/*.so
+%{_kf6_qtplugindir}/plasma/kcms/systemsettings_qwidgets/*.so
+%{_kf6_qtplugindir}/kwin/
+%{_kf6_qtplugindir}/kf6/packagestructure/kwin_*.so
+%{_qt6_plugindir}/org.kde.kdecoration2.kcm/kcm_auroraedecoration.so
+%{_kf6_qtplugindir}/org.kde.kdecoration2/*.so
+%{_qt6_qmldir}/org/kde/kwin
+%{_kf6_libdir}/kconf_update_bin/kwin5_update_default_rules
 %{_kf6_libdir}/kconf_update_bin/kwin-6.0-delete-desktop-switching-shortcuts
 %{_kf6_libdir}/kconf_update_bin/kwin-6.0-remove-breeze-tabbox-default
 %{_kf6_libdir}/kconf_update_bin/kwin-6.0-reset-active-mouse-screen
-%{_kf6_libdir}/kconf_update_bin/kwin5_update_default_rules
-%{_kf6_qtplugindir}/kf6/packagestructure/kwin_*.so
-%{_kf6_qtplugindir}/kwin/
-%{_kf6_qtplugindir}/org.kde.kdecoration2/*.so
-%{_kf6_qtplugindir}/plasma/kcms/systemsettings_qwidgets/*.so
-%{_kf6_qtplugindir}/plasma/kcms/systemsettings/*.so
 %{_libexecdir}/kwin_killer_helper
 %{_libexecdir}/kwin-applywindowdecoration
-%{_qt6_plugindir}/org.kde.kdecoration2.kcm/kcm_auroraedecoration.so
-%{_qt6_qmldir}/org/kde/kwin/
+%{_datadir}/kconf_update/kwin.upd
+%{_kf6_datadir}/knotifications6/kwin.notifyrc
+%{_kf6_datadir}/config.kcfg/kwin.kcfg
+%{_kf6_datadir}/config.kcfg/kwindecorationsettings.kcfg
+%{_kf6_datadir}/config.kcfg/virtualdesktopssettings.kcfg
+%{_kf6_datadir}/config.kcfg/nightcolorsettings.kcfg
+%{_datadir}/icons/hicolor/*/apps/kwin.*
+%{_datadir}/knsrcfiles/*.knsrc
+%{_datadir}/krunner/dbusplugins/kwin-runner-windows.desktop
+%{_datadir}/applications/*.desktop
 
 %files wayland
-%{_kf6_bindir}/kwin_wayland
-%{_kf6_bindir}/kwin_wayland_wrapper
+%{_bindir}/kwin_wayland_wrapper
+%caps(cap_sys_nice=ep) %{_kf6_bindir}/kwin_wayland
 %{_userunitdir}/plasma-kwin_wayland.service
 
 %if %{with x11}
@@ -250,34 +283,104 @@ rm -v %{buildroot}%{_kf6_bindir}/kwin_x11 %{buildroot}%{_userunitdir}/plasma-kwi
 
 %files libs
 %{_kf6_datadir}/qlogging-categories6/org_kde_kwin.categories
-%{_kf6_libdir}/libkcmkwincommon.so.%{basever}
-%{_kf6_libdir}/libkcmkwincommon.so.6
-%{_kf6_libdir}/libkwin.so.%{basever}
-%{_kf6_libdir}/libkwin.so.6
+%{_libdir}/libkwin.so.*
+%{_libdir}/libkcmkwincommon.so.*
 
 %files devel
-%{_includedir}/kwin/
-%{_kf6_datadir}/dbus-1/interfaces/*.xml
-%{_kf6_libdir}/cmake/KWin
-%{_kf6_libdir}/cmake/KWinDBusInterface
-%{_kf6_libdir}/libkwin.so
+%{_datadir}/dbus-1/interfaces/*.xml
+%{_libdir}/cmake/KWinDBusInterface
+%{_includedir}/kwin
+%{_libdir}/cmake/KWin
+%{_libdir}/libkwin.so
 
 %files doc -f %{name}-doc.lang
 %license LICENSES/*.txt
 
 
 %changelog
-* Tue Apr 16 2024 Pavel Solovev <daron439@gmail.com> - 6.0.4-1
-- Update to 6.0.4
+* Wed May 22 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.0.5-1
+- 6.0.5
 
-* Wed Mar 27 2024 Pavel Solovev <daron439@gmail.com> - 6.0.3.1-1
-- Update to 6.0.3.1
+* Mon May 20 2024 Jan Grulich <jgrulich@redhat.com> - 6.0.4.1-4
+- Backport fix for drag and drop causing Chrome to freeze
 
-* Tue Mar 26 2024 Pavel Solovev <daron439@gmail.com> - 6.0.3-1
-- Update to 6.0.3
+* Tue May 14 2024 Steve Cossette <farchord@gmail.com> - 6.0.4.1-3
+- backport linux-drm-syncobj-v1 support
 
-* Wed Mar 20 2024 Pavel Solovev <daron439@gmail.com> - 6.0.2-2
-- qmlcache rebuild
+* Sat May 04 2024 Neal Gompa <ngompa@fedoraproject.org> - 6.0.4.1-2
+- Persist CAP_SYS_NICE capability for kwin_wayland binary
+
+* Mon Apr 22 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.0.4.1-1
+- 6.0.4.1
+
+* Tue Apr 16 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.0.4-1
+- 6.0.4
+
+* Thu Apr 04 2024 Jan Grulich <jgrulich@redhat.com> - 6.0.3.1-3
+- Rebuild (qt6)
+
+* Sun Mar 31 2024 Neal Gompa <ngompa@fedoraproject.org> - 6.0.3.1-2
+- Fix libplasma dependency (Kevin Kofler)
+
+* Wed Mar 27 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.0.3.1-1
+- 6.0.3.1
+
+* Tue Mar 26 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.0.3-1
+- 6.0.3
+
+* Tue Mar 12 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.0.2-1
+- 6.0.2
+
+* Wed Mar 06 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.0.1-1
+- 6.0.1
+
+* Fri Mar 1 2024 Marie Loise Nolden <loise@kde.org> - 6.0.0-2
+- use BuildRequires: cmake(QAccessibilityClient6) for Qt6 version
+
+* Wed Feb 21 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.0.0-1
+- 6.0.0
+
+* Fri Feb 16 2024 Jan Grulich <jgrulich@redhat.com> - 5.93.0-5
+- Rebuild (qt6)
+
+* Thu Feb 15 2024 Alessandro Astone <ales.astone@gmail.com> - 5.93.0-4
+- Stricter x11 obsoletes version
+
+* Thu Feb 15 2024 Alessandro Astone <ales.astone@gmail.com> - 5.93.0-3
+- Backport patch to fix window screencasts being vertically mirrored
+
+* Sat Feb 03 2024 Steve Cossette <farchord@gmail.com> - 5.93.0-2
+- Added patch that fixes kwin glitch with HDR and some other issues
+
+* Wed Jan 31 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 5.93.0-1
+- 5.93.0
+
+* Thu Jan 25 2024 Fedora Release Engineering <releng@fedoraproject.org> - 5.92.0-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Sun Jan 21 2024 Fedora Release Engineering <releng@fedoraproject.org> - 5.92.0-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Wed Jan 10 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 5.92.0-1
+- 5.92.0
+
+* Wed Jan 03 2024 Alessandro Astone <ales.astone@gmail.com> - 5.91.0-2
+- Only provide firstboot(windowmanager) with kwin-x11
+
+* Thu Dec 21 2023 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 5.91.0-1
+- 5.91.0
+
+* Mon Dec 18 2023 Neal Gompa <ngompa@fedoraproject.org> - 5.90.0-3
+- Add BR for xwayland
+
+* Mon Dec 04 2023 Alessandro Astone <ales.astone@gmail.com> - 5.90.0-2
+- Enable kactivities support
+
+* Sun Dec 03 2023 Justin Zobel <justin.zobel@gmail.com> - 5.90.0-1
+- Update to 5.90.0
+
+* Wed Nov 29 2023 Jan Grulich <jgrulich@redhat.com> - 5.27.80-6
+- Rebuild (qt6)
 
 * Fri Nov 24 2023 Alessandro Astone <ales.astone@gmail.com> - 5.27.80-5
 - Explicit QML runtime dependencies

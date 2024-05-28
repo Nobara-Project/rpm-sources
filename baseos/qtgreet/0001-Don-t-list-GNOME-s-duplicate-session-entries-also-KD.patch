@@ -9,13 +9,13 @@ Subject: [PATCH] Don't list GNOME's duplicate session entries, also KDE
  1 file changed, 11 insertions(+), 3 deletions(-)
 
 diff --git a/src/widgets/session/session.cpp b/src/widgets/session/session.cpp
-index 7709db9..0697cfd 100644
+index 64c62be..95153b9 100644
 --- a/src/widgets/session/session.cpp
 +++ b/src/widgets/session/session.cpp
 @@ -90,7 +90,9 @@ Sessions getSessions( bool custom ) {
                      s.name += " (Wayland)";
                  }
- 
+
 -                mSessions << s;
 +                if ( not s.name.contains( "gnome-wayland", Qt::CaseInsensitive ) ) {
 +                    mSessions << s;
@@ -23,18 +23,10 @@ index 7709db9..0697cfd 100644
              }
          }
      }
-@@ -114,14 +116,20 @@ Sessions getSessions( bool custom ) {
- 
-             if ( isAvailable ) {
-                 Session s = Session{
--                    session.value( "Desktop Entry/Name" ).toString() + " (X11)",
-+                    session.value( "Desktop Entry/Name" ).toString(),
-                     session.value( "Desktop Entry/Icon", ":/icons/session.png" ).toString(),
-                     "X11",
-                     session.value( "Desktop Entry/Exec" ).toString(),
+@@ -135,7 +137,13 @@ Sessions getSessions( bool custom ) {
                      sess.absoluteFilePath()
                  };
- 
+
 -                mSessions << s;
 +                if ( not s.name.contains( "(X11)", Qt::CaseInsensitive ) ) {
 +                    s.name += " (X11)";

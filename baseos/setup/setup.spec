@@ -1,7 +1,7 @@
 Summary: A set of system configuration and setup files
 Name: setup
-Version: 2.14.4
-Release: 8%{?dist}
+Version: 2.14.5
+Release: 3%{?dist}
 License: LicenseRef-Fedora-Public-Domain
 Group: System Environment/Base
 URL: https://pagure.io/setup/
@@ -65,6 +65,7 @@ rm -f %{buildroot}/etc/uidgidlint
 rm -f %{buildroot}/etc/generate-sysusers-fragments.sh
 rm -f %{buildroot}/etc/shadowconvert.sh
 rm -f %{buildroot}/etc/setup.spec
+rm -f %{buildroot}/etc/profile.orig
 rm -rf %{buildroot}/etc/contrib
 
 # make setup a protected package
@@ -133,6 +134,15 @@ end
 /etc/dnf/protected.d/%{name}.conf
 
 %changelog
+* Sat Jan 27 2024 Fedora Release Engineering <releng@fedoraproject.org> - 2.14.5-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Wed Nov 29 2023 Martin Osvald <mosvald@redhat.com> - 2.14.5-1
+- bashrc: switch PROMPT_COMMAND to be an array (rhbz#2097525)
+- profile: don't overwrite the HISTSIZE environment variable
+- hosts: use "example.org" as example domain (rhbz#2246220)
+- csh.login: source csh.local (RHEL-17226)
+
 * Tue Jul 25 2023 Martin Osvald <mosvald@redhat.com> - 2.14.4-1
 - protocols: add mptcp (262)
 - setup.spec: make setup protected package (rhbz#2155547)
@@ -245,15 +255,15 @@ end
 - use full path for non-builtins in profile and lang.sh (#1648589)
 
 * Mon Dec 10 2018 Robert Fairley <rfairley@redhat.com> - 2.12.4-1
-- own /etc/motd.d 
+- own /etc/motd.d
 
 * Fri Oct 26 2018 Ondrej Vasik <ovasik@redhat.com> - 2.12.3-1
-- inputrc - replace quoted-insert with overwrite-mode 
+- inputrc - replace quoted-insert with overwrite-mode
   for the "Insert" key
 
 * Mon Sep 10 2018 Ondrej Vasik <ovasik@redhat.com> - 2.12.2-1
 - fix lang.csh script so it doesn't break tcsh -e scripts (#1620004)
- 
+
 * Fri Jul 13 2018 Ondrej Vasik <ovasik@redhat.com> - 2.12.1-1
 - fix cut&paste error in lang.csh script (#1598268)
 
@@ -294,7 +304,7 @@ end
 - updated IANA services based on input from K.Vogel
 
 * Thu Aug 10 2017 Ondrej Vasik <ovasik@redhat.com> - 2.10.6-1
-- create contrib directory, 
+- create contrib directory,
   add IANA parser script by V.Skyttä (#1380333)
 
 * Thu Jul 27 2017 Fedora Release Engineering <releng@fedoraproject.org> - 2.10.5-3
@@ -329,7 +339,7 @@ end
 
 * Fri Jan 30 2015 Ondrej Vasik <ovasik@redhat.com> - 2.9.5-1
 - assign uidgid for systemd-network(192:192) - FPC 481,bz#1102002
-- assign uidgid for systemd-resolve(193:193) - FPC 481,bz#1102002 
+- assign uidgid for systemd-resolve(193:193) - FPC 481,bz#1102002
 
 * Wed Jan 07 2015 Ondrej Vasik <ovasik@redhat.com> - 2.9.4-1
 - group tape should use 33 and not 30 (#1179585)

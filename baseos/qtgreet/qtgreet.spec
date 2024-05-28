@@ -1,13 +1,13 @@
-%global commit  274e439dc1f2fcf39186f867a7a863269e236244
+%global commit  9803a186d5a60ce6dc5d510459b493afd38c6704
 
 Name:           qtgreet
-Version:        2.0.1
+Version:        2.0.2
 Release:        2%{?dist}
 Summary:        Qt based greeter for greetd
 
 License:        GPL-3.0-or-later
 URL:            https://gitlab.com/marcusbritanicus/QtGreet
-Source:         %{url}/-/archive/v%{version}/QtGreet-%{version}.tar.gz
+Source:         %{url}/-/archive/main/QtGreet-main.tar.gz
 Patch0:         0001-Don-t-list-GNOME-s-duplicate-session-entries-also-KD.patch
 
 BuildRequires:  dfl-ipc-devel
@@ -65,7 +65,7 @@ Provides:       greetd-%{name} = %{version}-%{release}
 
 
 %prep
-%autosetup -p1 -n QtGreet-v%{version}-%{commit}
+%autosetup -p1 -n QtGreet-main
 
 
 %build

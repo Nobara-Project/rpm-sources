@@ -1,0 +1,94 @@
+From c559e8fab90a52652d0dd1c1a99db1dc2e815755 Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Sat, 18 May 2024 10:24:03 -0600
+Subject: [PATCH] update circlebuf to deque
+
+---
+ src/media-playlist-source.c | 18 +++++++++---------
+ src/media-playlist-source.h |  8 ++++----
+ 2 files changed, 13 insertions(+), 13 deletions(-)
+
+diff --git a/src/media-playlist-source.c b/src/media-playlist-source.c
+index 9001cb7..ff56417 100644
+--- a/src/media-playlist-source.c
++++ b/src/media-playlist-source.c
+@@ -368,12 +368,12 @@ void mps_audio_callback(void *data, obs_source_t *source,
+ 	pthread_mutex_lock(&mps->audio_mutex);
+ 	size_t size = audio_data->frames * sizeof(float);
+ 	for (size_t i = 0; i < mps->num_channels; i++) {
+-		circlebuf_push_back(&mps->audio_data[i], audio_data->data[i],
++		deque_push_back(&mps->audio_data[i], audio_data->data[i],
+ 				    size);
+ 	}
+-	circlebuf_push_back(&mps->audio_frames, &audio_data->frames,
++	deque_push_back(&mps->audio_frames, &audio_data->frames,
+ 			    sizeof(audio_data->frames));
+-	circlebuf_push_back(&mps->audio_timestamps, &audio_data->timestamp,
++	deque_push_back(&mps->audio_timestamps, &audio_data->timestamp,
+ 			    sizeof(audio_data->timestamp));
+ 	pthread_mutex_unlock(&mps->audio_mutex);
+ }
+@@ -709,10 +709,10 @@ static void mps_destroy(void *data)
+ 	shuffler_destroy(&mps->shuffler);
+ 	free_files(&mps->files.da);
+ 	for (size_t i = 0; i < MAX_AUDIO_CHANNELS; i++) {
+-		circlebuf_free(&mps->audio_data[i]);
++		deque_free(&mps->audio_data[i]);
+ 	}
+-	circlebuf_free(&mps->audio_frames);
+-	circlebuf_free(&mps->audio_timestamps);
++	deque_free(&mps->audio_frames);
++	deque_free(&mps->audio_timestamps);
+ 	pthread_mutex_destroy(&mps->mutex);
+ 	pthread_mutex_destroy(&mps->audio_mutex);
+ 	bfree(mps->current_media_filename);
+@@ -851,9 +851,9 @@ static void mps_video_tick(void *data, float seconds)
+ 		audio.format = aoi->format;
+ 		audio.samples_per_sec = aoi->samples_per_sec;
+ 		audio.speakers = aoi->speakers;
+-		circlebuf_pop_front(&mps->audio_frames, &audio.frames,
++		deque_pop_front(&mps->audio_frames, &audio.frames,
+ 				    sizeof(audio.frames));
+-		circlebuf_pop_front(&mps->audio_timestamps, &audio.timestamp,
++		deque_pop_front(&mps->audio_timestamps, &audio.timestamp,
+ 				    sizeof(audio.timestamp));
+ 		for (size_t i = 0; i < mps->num_channels; i++) {
+ 			audio.data[i] = (uint8_t *)mps->audio_data[i].data +
+@@ -861,7 +861,7 @@ static void mps_video_tick(void *data, float seconds)
+ 		}
+ 		obs_source_output_audio(mps->source, &audio);
+ 		for (size_t i = 0; i < mps->num_channels; i++) {
+-			circlebuf_pop_front(&mps->audio_data[i], NULL,
++			deque_pop_front(&mps->audio_data[i], NULL,
+ 					    audio.frames * sizeof(float));
+ 		}
+ 	}
+diff --git a/src/media-playlist-source.h b/src/media-playlist-source.h
+index 7012d27..b2292eb 100644
+--- a/src/media-playlist-source.h
++++ b/src/media-playlist-source.h
+@@ -23,7 +23,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
+ #include <util/platform.h>
+ #include <util/darray.h>
+ #include <util/dstr.h>
+-#include <util/circlebuf.h>
++#include <util/deque.h>
+ #include <plugin-support.h>
+ #include "playlist.h"
+ #include "shuffler.h"
+@@ -72,9 +72,9 @@ struct media_playlist_source {
+ 	enum visibility_behavior visibility_behavior;
+ 	enum restart_behavior restart_behavior;
+ 
+-	struct circlebuf audio_data[MAX_AUDIO_CHANNELS];
+-	struct circlebuf audio_frames;
+-	struct circlebuf audio_timestamps;
++	struct deque audio_data[MAX_AUDIO_CHANNELS];
++	struct deque audio_frames;
++	struct deque audio_timestamps;
+ 	size_t num_channels;
+ 	pthread_mutex_t audio_mutex;
+ };
+-- 
+2.44.0
+

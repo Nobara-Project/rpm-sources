@@ -1,0 +1,326 @@
+From ee45ea823bb4ccd59769f6a60f4a94b09bbe5f7d Mon Sep 17 00:00:00 2001
+From: Logan Rathbone <poprocks@gmail.com>
+Date: Mon, 22 Jan 2024 02:04:13 -0500
+Subject: [PATCH 1/3] colview: Return if nth item of row exceeds num items in
+ row
+
+Fixes: #82
+---
+ src/zenity-tree-column-view.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/src/zenity-tree-column-view.c b/src/zenity-tree-column-view.c
+index cb79b413..f7226e2f 100644
+--- a/src/zenity-tree-column-view.c
++++ b/src/zenity-tree-column-view.c
+@@ -586,6 +586,11 @@ factory_bind_cb (ZenityTreeColumnView *self,
+ 	GtkWidget *item_child;
+ 	const char *item_text;
+ 
++	if (col_index >= zenity_tree_row_get_n_items (row)) {
++		g_debug ("%s: col_index exceeds number of items in row; ignoring", __func__);
++		return;
++	}
++
+ 	item = zenity_tree_row_get_item (row, col_index);
+ 	item_child = zenity_tree_item_get_child (item);
+ 	item_text = zenity_tree_item_get_text (item);
+-- 
+GitLab
+
+
+From 27a1d74a5a4b5c137b6f8b6f762226da24289c8c Mon Sep 17 00:00:00 2001
+From: Logan Rathbone <poprocks@gmail.com>
+Date: Mon, 22 Jan 2024 02:30:21 -0500
+Subject: [PATCH 2/3] colview: Add more g_return_*if_fail checks
+
+Technically this is private API, but STDIN influences the calling of
+this API, so more checks should be inserted.
+---
+ src/zenity-tree-column-view.c | 44 +++++++++++++++++++++++++++++++++--
+ src/zenity-tree-column-view.h |  6 ++---
+ 2 files changed, 45 insertions(+), 5 deletions(-)
+
+diff --git a/src/zenity-tree-column-view.c b/src/zenity-tree-column-view.c
+index f7226e2f..94ef4dd5 100644
+--- a/src/zenity-tree-column-view.c
++++ b/src/zenity-tree-column-view.c
+@@ -138,18 +138,24 @@ zenity_tree_item_class_init (ZenityTreeItemClass *klass)
+ GtkWidget *
+ zenity_tree_item_get_child (ZenityTreeItem *item)
+ {
++	g_return_val_if_fail (ZENITY_IS_TREE_ITEM (item), NULL);
++
+ 	return item->child;
+ }
+ 
+ const char *
+ zenity_tree_item_get_text (ZenityTreeItem *item)
+ {
++	g_return_val_if_fail (ZENITY_IS_TREE_ITEM (item), NULL);
++
+ 	return item->text;
+ }
+ 
+ void
+ zenity_tree_item_set_text (ZenityTreeItem *self, const char *text)
+ {
++	g_return_if_fail (ZENITY_IS_TREE_ITEM (self));
++
+ 	g_clear_pointer (&self->text, g_free);
+ 	self->text = g_strdup (text);
+ 
+@@ -159,6 +165,8 @@ zenity_tree_item_set_text (ZenityTreeItem *self, const char *text)
+ void
+ zenity_tree_item_set_child (ZenityTreeItem *self, GtkWidget *child)
+ {
++	g_return_if_fail (ZENITY_IS_TREE_ITEM (self));
++
+ 	if (self->child)
+ 		g_object_unref (self->child);
+ 
+@@ -212,18 +220,23 @@ zenity_tree_row_new (void)
+ void
+ zenity_tree_row_add (ZenityTreeRow *row, ZenityTreeItem *item)
+ {
++	g_return_if_fail (ZENITY_IS_TREE_ROW (row));
++
+ 	g_ptr_array_add (row->items, item);
+ }
+ 
+ guint
+ zenity_tree_row_get_n_items (ZenityTreeRow *row)
+ {
++	g_return_val_if_fail (ZENITY_IS_TREE_ROW (row), 0);
++
+ 	return row->items->len;
+ }
+ 
+ ZenityTreeItem *
+ zenity_tree_row_get_item (ZenityTreeRow *row, guint index)
+ {
++	g_return_val_if_fail (ZENITY_IS_TREE_ROW (row), NULL);
+ 	g_return_val_if_fail (index < row->items->len, NULL);
+ 
+ 	return row->items->pdata[index];
+@@ -275,7 +288,7 @@ eval_str (ZenityTreeRow *row)
+ {
+ 	GString *gstring;
+ 
+-	g_return_val_if_fail (ZENITY_TREE_IS_ROW (row), NULL);
++	g_return_val_if_fail (ZENITY_IS_TREE_ROW (row), NULL);
+ 
+ 	gstring = g_string_new (NULL);
+ 
+@@ -293,9 +306,10 @@ zenity_tree_column_view_set_model (ZenityTreeColumnView *self, GListModel *model
+ {
+ 	GtkStringFilter *filter;
+ 	GtkFilterListModel *filter_model;
+-
+ 	GtkExpression *expr;
+ 
++	g_return_if_fail (ZENITY_IS_TREE_COLUMN_VIEW (self));
++
+ 	/* This tells the column view to use a callback with 'this' (ZenityTreeRow)
+ 	 * as the instance and no other params or user_data, with a string retval.
+ 	 */
+@@ -333,6 +347,8 @@ zenity_tree_column_view_set_model (ZenityTreeColumnView *self, GListModel *model
+ GListModel *
+ zenity_tree_column_view_get_model (ZenityTreeColumnView *self)
+ {
++	g_return_val_if_fail (ZENITY_IS_TREE_COLUMN_VIEW (self), NULL);
++
+ 	return self->model;
+ }
+ 
+@@ -343,6 +359,8 @@ zenity_tree_column_view_get_model (ZenityTreeColumnView *self)
+ GtkSelectionModel *
+ zenity_tree_column_view_get_selection_model (ZenityTreeColumnView *self)
+ {
++	g_return_val_if_fail (ZENITY_IS_TREE_COLUMN_VIEW (self), NULL);
++
+ 	return gtk_column_view_get_model (self->child_cv);
+ }
+ 
+@@ -398,6 +416,8 @@ zenity_tree_column_view_set_hide_header (ZenityTreeColumnView *self, gboolean hi
+ void
+ zenity_tree_column_view_set_list_type (ZenityTreeColumnView *self, ZenityTreeListType type)
+ {
++	g_return_if_fail (ZENITY_IS_TREE_COLUMN_VIEW (self));
++
+ 	self->list_type = type;
+ 
+ 	g_clear_signal_handler (&self->child_cv_activate_handler_id, self->child_cv);
+@@ -427,18 +447,24 @@ zenity_tree_column_view_set_list_type (ZenityTreeColumnView *self, ZenityTreeLis
+ ZenityTreeListType
+ zenity_tree_column_view_get_list_type (ZenityTreeColumnView *self)
+ {
++	g_return_val_if_fail (ZENITY_IS_TREE_COLUMN_VIEW (self), ZENITY_TREE_LIST_NONE);
++
+ 	return self->list_type;
+ }
+ 
+ gboolean
+ zenity_tree_column_view_get_multi (ZenityTreeColumnView *self)
+ {
++	g_return_val_if_fail (ZENITY_IS_TREE_COLUMN_VIEW (self), FALSE);
++
+ 	return self->multi;
+ }
+ 
+ gboolean
+ zenity_tree_column_view_get_hide_header (ZenityTreeColumnView *self)
+ {
++	g_return_val_if_fail (ZENITY_IS_TREE_COLUMN_VIEW (self), FALSE);
++
+ 	return self->hide_header;
+ }
+ 
+@@ -655,6 +681,8 @@ factory_bind_cb (ZenityTreeColumnView *self,
+ void
+ zenity_tree_column_view_add_column (ZenityTreeColumnView *self, const char *col_name)
+ {
++	g_return_if_fail (ZENITY_IS_TREE_COLUMN_VIEW (self));
++
+ 	int new_col_index;
+ 	GtkListItemFactory *factory;
+ 	GtkColumnViewColumn *column;
+@@ -686,6 +714,8 @@ zenity_tree_column_view_add_column (ZenityTreeColumnView *self, const char *col_
+ void
+ zenity_tree_column_view_foreach_item (ZenityTreeColumnView *self, GFunc func, gpointer user_data)
+ {
++	g_return_if_fail (ZENITY_IS_TREE_COLUMN_VIEW (self));
++
+ 	for (guint i = 0; i < g_list_model_get_n_items (self->model); ++i)
+ 	{
+ 		ZenityTreeRow *row = g_list_model_get_item (self->model, i);
+@@ -702,6 +732,8 @@ zenity_tree_column_view_foreach_item (ZenityTreeColumnView *self, GFunc func, gp
+ void
+ zenity_tree_column_view_foreach_row (ZenityTreeColumnView *self, GFunc func, gpointer user_data)
+ {
++	g_return_if_fail (ZENITY_IS_TREE_COLUMN_VIEW (self));
++
+ 	for (guint i = 0; i < g_list_model_get_n_items (self->model); ++i)
+ 	{
+ 		ZenityTreeRow *row = g_list_model_get_item (self->model, i);
+@@ -712,24 +744,32 @@ zenity_tree_column_view_foreach_row (ZenityTreeColumnView *self, GFunc func, gpo
+ int
+ zenity_tree_column_view_get_n_columns (ZenityTreeColumnView *self)
+ {
++	g_return_val_if_fail (ZENITY_IS_TREE_COLUMN_VIEW (self), -1);
++
+ 	return g_list_model_get_n_items (gtk_column_view_get_columns (self->child_cv));
+ }
+ 
+ gboolean
+ zenity_tree_column_view_is_selected (ZenityTreeColumnView *self, guint pos)
+ {
++	g_return_val_if_fail (ZENITY_IS_TREE_COLUMN_VIEW (self), FALSE);
++
+ 	return gtk_selection_model_is_selected (gtk_column_view_get_model (self->child_cv), pos);
+ }
+ 
+ void
+ zenity_tree_column_view_set_search (ZenityTreeColumnView *self, const char *search_str)
+ {
++	g_return_if_fail (ZENITY_IS_TREE_COLUMN_VIEW (self));
++
+ 	gtk_string_filter_set_search (self->filter, search_str);
+ }
+ 
+ void
+ zenity_tree_column_view_show_column (ZenityTreeColumnView *self, guint pos, gboolean show)
+ {
++	g_return_if_fail (ZENITY_IS_TREE_COLUMN_VIEW (self));
++
+ 	GListModel *cols = gtk_column_view_get_columns (self->child_cv);
+ 	GtkColumnViewColumn *col = g_list_model_get_item (cols, pos);
+ 
+diff --git a/src/zenity-tree-column-view.h b/src/zenity-tree-column-view.h
+index 6238ac89..b5560f19 100644
+--- a/src/zenity-tree-column-view.h
++++ b/src/zenity-tree-column-view.h
+@@ -40,7 +40,7 @@ typedef enum
+ /* ZenityTreeItem */
+ 
+ #define ZENITY_TREE_TYPE_ITEM (zenity_tree_item_get_type ())
+-G_DECLARE_FINAL_TYPE (ZenityTreeItem, zenity_tree_item, ZENITY_TREE, ITEM, GObject)
++G_DECLARE_FINAL_TYPE (ZenityTreeItem, zenity_tree_item, ZENITY, TREE_ITEM, GObject)
+ 
+ ZenityTreeItem * zenity_tree_item_new (const char *text, GtkWidget *child);
+ GtkWidget * zenity_tree_item_get_child (ZenityTreeItem *item);
+@@ -51,7 +51,7 @@ void zenity_tree_item_set_child (ZenityTreeItem *item, GtkWidget *child);
+ /* ZenityTreeRow */
+ 
+ #define ZENITY_TREE_TYPE_ROW (zenity_tree_row_get_type ())
+-G_DECLARE_FINAL_TYPE (ZenityTreeRow, zenity_tree_row, ZENITY_TREE, ROW, GObject)
++G_DECLARE_FINAL_TYPE (ZenityTreeRow, zenity_tree_row, ZENITY, TREE_ROW, GObject)
+ 
+ ZenityTreeRow * zenity_tree_row_new (void);
+ void zenity_tree_row_add (ZenityTreeRow *row, ZenityTreeItem *item);
+@@ -61,7 +61,7 @@ ZenityTreeItem * zenity_tree_row_get_item (ZenityTreeRow *row, guint index);
+ /* ZenityTreeColumnView */
+ 
+ #define ZENITY_TREE_TYPE_COLUMN_VIEW (zenity_tree_column_view_get_type ())
+-G_DECLARE_FINAL_TYPE (ZenityTreeColumnView, zenity_tree_column_view, ZENITY_TREE, COLUMN_VIEW, GtkWidget)
++G_DECLARE_FINAL_TYPE (ZenityTreeColumnView, zenity_tree_column_view, ZENITY, TREE_COLUMN_VIEW, GtkWidget)
+ 
+ void zenity_tree_column_view_set_model (ZenityTreeColumnView *self, GListModel *model);
+ GListModel * zenity_tree_column_view_get_model (ZenityTreeColumnView *self);
+-- 
+GitLab
+
+
+From d68c897b21baefaa71cdabcbf1d52e2eddc649d6 Mon Sep 17 00:00:00 2001
+From: Logan Rathbone <poprocks@gmail.com>
+Date: Mon, 22 Jan 2024 12:05:54 -0500
+Subject: [PATCH 3/3] tree: Don't try to print nonexisting items
+
+Related: #82
+---
+ src/tree.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/src/tree.c b/src/tree.c
+index b52b44b1..3aede58c 100644
+--- a/src/tree.c
++++ b/src/tree.c
+@@ -442,6 +442,8 @@ zenity_tree_dialog_get_selected (void)
+ 			{
+ 				item = zenity_tree_row_get_item (row, j);
+ 
++				if (!item) continue;
++
+ 				selected = g_slist_append (selected,
+ 						g_strdup (zenity_tree_item_get_text (item)));
+ 			}
+@@ -454,6 +456,8 @@ zenity_tree_dialog_get_selected (void)
+ 				 * arrays, so account for that here with -1. */
+ 				item = zenity_tree_row_get_item (row, print_columns[j] - 1);
+ 
++				if (!item) continue;
++
+ 				selected = g_slist_append (selected,
+ 						g_strdup (zenity_tree_item_get_text (item)));
+ 			}
+@@ -480,6 +484,8 @@ zenity_tree_dialog_toggle_get_selected (ZenityTreeRow *row, gpointer unused)
+ 		{
+ 			item = zenity_tree_row_get_item (row, i);
+ 
++			if (!item) continue;
++
+ 			selected = g_slist_append (selected,
+ 					g_strdup (zenity_tree_item_get_text (item)));
+ 		}
+@@ -491,6 +497,8 @@ zenity_tree_dialog_toggle_get_selected (ZenityTreeRow *row, gpointer unused)
+ 			/* columns in CLI count from 1 and are allocated as 0-terminated
+ 			 * arrays, so account for that here with -1. */
+ 			item = zenity_tree_row_get_item (row, print_columns[i] - 1);
++
++			if (!item) continue;
+ 			
+ 			selected = g_slist_append (selected,
+ 					g_strdup (zenity_tree_item_get_text (item)));
+-- 
+GitLab
+

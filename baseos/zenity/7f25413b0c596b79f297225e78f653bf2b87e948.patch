@@ -1,0 +1,47 @@
+From 7f25413b0c596b79f297225e78f653bf2b87e948 Mon Sep 17 00:00:00 2001
+From: Logan Rathbone <poprocks@gmail.com>
+Date: Tue, 12 Mar 2024 17:51:36 -0400
+Subject: [PATCH] filesel: Passing a dir with trailing '/' should open that dir
+
+This emulates the behaviour of zenity3. Although this was not documented
+in zenity3, this was pretty clearly stipulated in the zenity3 source
+code and may be expected behaviour for zenity 3->4 migration.
+
+Fixes: #85
+---
+ src/fileselection.c | 24 +++++++++++++++++++-----
+ 1 file changed, 19 insertions(+), 5 deletions(-)
+
+diff --git a/src/fileselection.c b/src/fileselection.c
+index 4e5a3ba..ca50976 100644
+--- a/src/fileselection.c
++++ b/src/fileselection.c
+@@ -80,13 +80,26 @@ zenity_fileselection (ZenityData *data, ZenityFileData *file_data)
+ 	{
+ 		g_autoptr(GFile) file = g_file_new_for_commandline_arg (file_data->uri);
+ 		g_autoptr(GError) local_error = NULL;
++		g_autofree char *dir = g_path_get_dirname (file_data->uri);
++		g_autoptr(GFile) dir_gfile = g_file_new_for_path (dir);
+ 
++		if (file_data->uri[strlen (file_data->uri) - 1] == '/' && g_path_is_absolute (file_data->uri))
++		{
++				gtk_file_chooser_set_current_folder (GTK_FILE_CHOOSER(dialog), dir_gfile, &local_error);
++
++				if (local_error)
++						g_warning ("%s", local_error->message);
++
++				goto done_uri_processing;
++		}
+ 		gtk_file_chooser_set_file (GTK_FILE_CHOOSER(dialog), file, &local_error);
+ 
+ 		if (local_error)
+ 			g_warning ("%s", local_error->message);
+ 	}
+ 
++done_uri_processing:
++
+ 	if (file_data->multi)
+ 		gtk_file_chooser_set_select_multiple (GTK_FILE_CHOOSER(dialog), TRUE);
+ 
+--
+GitLab

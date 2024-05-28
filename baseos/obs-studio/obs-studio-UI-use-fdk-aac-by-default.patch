@@ -1,0 +1,36 @@
+From 841fd01b7a529b7c1d0e0a509190a26eb1220d5a Mon Sep 17 00:00:00 2001
+From: Neal Gompa <neal@gompa.dev>
+Date: Thu, 4 May 2023 13:52:01 -0400
+Subject: [PATCH] UI: Default to fdk-aac for AAC when auto-configuring settings
+
+We always have the FDK-AAC codec available, and it's a better
+codec anyway.
+---
+ UI/window-basic-auto-config-test.cpp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/UI/window-basic-auto-config-test.cpp b/UI/window-basic-auto-config-test.cpp
+index c791c8b8b..7dabfd93f 100644
+--- a/UI/window-basic-auto-config-test.cpp
++++ b/UI/window-basic-auto-config-test.cpp
+@@ -202,7 +202,7 @@ void AutoConfigTestPage::TestBandwidthThread()
+ 		(wiz->x264Available ? "obs_x264" : "ffmpeg_openh264"),
+ 		"test_h264", nullptr, nullptr);
+ 	OBSEncoderAutoRelease aencoder = obs_audio_encoder_create(
+-		"ffmpeg_aac", "test_aac", nullptr, 0, nullptr);
++		"libfdk_aac", "test_aac", nullptr, 0, nullptr);
+ 	OBSServiceAutoRelease service = obs_service_create(
+ 		serverType, "test_service", nullptr, nullptr);
+ 
+@@ -572,7 +572,7 @@ bool AutoConfigTestPage::TestSoftwareEncoding()
+ 		(wiz->x264Available ? "obs_x264" : "ffmpeg_openh264"),
+ 		"test_h264", nullptr, nullptr);
+ 	OBSEncoderAutoRelease aencoder = obs_audio_encoder_create(
+-		"ffmpeg_aac", "test_aac", nullptr, 0, nullptr);
++		"libfdk_aac", "test_aac", nullptr, 0, nullptr);
+ 	OBSOutputAutoRelease output =
+ 		obs_output_create("null_output", "null", nullptr, nullptr);
+ 
+-- 
+2.40.0
+

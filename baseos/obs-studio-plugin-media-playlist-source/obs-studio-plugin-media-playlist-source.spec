@@ -1,12 +1,12 @@
 Name:           obs-studio-plugin-media-playlist-source
-Version:        0.0.4
+Version:        0.0.6
 Release:        1%{?dist}
 Summary:        An OBS Plugin that serves as an alternative to VLC Video Source. It uses the Media Source internally.
 
 License:        GPL-2.0-or-later
 URL:            https://github.com/CodeYan01/media-playlist-source
-Source0:        https://github.com/CodeYan01/media-playlist-source/archive/refs/tags/0.0.4.tar.gz
-
+Source0:        https://github.com/CodeYan01/media-playlist-source/archive/refs/tags/%{version}.tar.gz
+Patch0:         0001-update-circlebuf-to-deque.patch
 BuildRequires:  cmake
 BuildRequires:  gcc-c++
 
@@ -19,7 +19,7 @@ Supplements:    obs-studio%{?_isa}
 %{name}.
 
 %prep
-%autosetup -n media-playlist-source-0.0.4 -p1
+%autosetup -n media-playlist-source-%{version} -p1
 
 
 %build
@@ -29,12 +29,6 @@ Supplements:    obs-studio%{?_isa}
 
 %install
 %cmake_install
-
-mkdir -p %{buildroot}%{_libdir}/obs-plugins/
-mkdir -p %{buildroot}%{_datadir}/obs/obs-plugins/
-
-mv %{buildroot}/usr/obs-plugins/64bit/media-playlist-source.so %{buildroot}%{_libdir}/obs-plugins/
-mv %{buildroot}/usr/data/obs-plugins/media-playlist-source/ %{buildroot}%{_datadir}/obs/obs-plugins/
 
 %files
 %license LICENSE

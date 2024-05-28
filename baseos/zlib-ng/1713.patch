@@ -1,0 +1,1268 @@
+From db3c9ad46046fa566b24ae9d1cc8d0055e01d0d2 Mon Sep 17 00:00:00 2001
+From: Ilya Leoshkevich <iii@linux.ibm.com>
+Date: Tue, 21 May 2024 14:42:12 +0200
+Subject: [PATCH 1/5] Prepare DFLTCC changes for new malloc system
+
+---
+ arch/s390/dfltcc_common.h  | 9 +++++++++
+ arch/s390/dfltcc_deflate.h | 2 ++
+ arch/s390/dfltcc_detail.h  | 2 --
+ arch/s390/dfltcc_inflate.h | 2 ++
+ deflate.c                  | 2 ++
+ inflate_p.h                | 2 ++
+ 6 files changed, 17 insertions(+), 2 deletions(-)
+
+diff --git a/arch/s390/dfltcc_common.h b/arch/s390/dfltcc_common.h
+index 5acef291f8..8aec9e9453 100644
+--- a/arch/s390/dfltcc_common.h
++++ b/arch/s390/dfltcc_common.h
+@@ -95,6 +95,15 @@ void Z_INTERNAL PREFIX(dfltcc_free_window)(PREFIX3(streamp) strm, void *w);
+ 
+ #define TRY_FREE_WINDOW PREFIX(dfltcc_free_window)
+ 
++/*
++   History buffer size.
++ */
++#define HB_BITS 15
++#define HB_SIZE (1 << HB_BITS)
++
++/*
++   Sizes of deflate block parts.
++ */
+ #define DFLTCC_BLOCK_HEADER_BITS 3
+ #define DFLTCC_HLITS_COUNT_BITS 5
+ #define DFLTCC_HDISTS_COUNT_BITS 5
+diff --git a/arch/s390/dfltcc_deflate.h b/arch/s390/dfltcc_deflate.h
+index 02c6714203..35e2fd3f62 100644
+--- a/arch/s390/dfltcc_deflate.h
++++ b/arch/s390/dfltcc_deflate.h
+@@ -53,4 +53,6 @@ int Z_INTERNAL PREFIX(dfltcc_deflate_get_dictionary)(PREFIX3(streamp) strm, unsi
+ 
+ #define DEFLATE_CAN_SET_REPRODUCIBLE PREFIX(dfltcc_can_set_reproducible)
+ 
++#define DEFLATE_ADJUST_WINDOW_SIZE(n) MAX(n, HB_SIZE)
++
+ #endif
+diff --git a/arch/s390/dfltcc_detail.h b/arch/s390/dfltcc_detail.h
+index 4977530699..ae6001ba38 100644
+--- a/arch/s390/dfltcc_detail.h
++++ b/arch/s390/dfltcc_detail.h
+@@ -100,8 +100,6 @@ typedef enum {
+ #define DFLTCC_XPND 4
+ #define HBT_CIRCULAR (1 << 7)
+ #define DFLTCC_FN_MASK ((1 << 7) - 1)
+-#define HB_BITS 15
+-#define HB_SIZE (1 << HB_BITS)
+ 
+ /* Return lengths of high (starting at param->ho) and low (starting at 0) fragments of the circular history buffer. */
+ static inline void get_history_lengths(struct dfltcc_param_v0 *param, size_t *hl_high, size_t *hl_low) {
+diff --git a/arch/s390/dfltcc_inflate.h b/arch/s390/dfltcc_inflate.h
+index 8fcab1d77c..3623f8ed7f 100644
+--- a/arch/s390/dfltcc_inflate.h
++++ b/arch/s390/dfltcc_inflate.h
+@@ -62,4 +62,6 @@ int Z_INTERNAL PREFIX(dfltcc_inflate_get_dictionary)(PREFIX3(streamp) strm,
+             return PREFIX(dfltcc_inflate_get_dictionary)((strm), (dict), (dict_len)); \
+     } while (0)
+ 
++#define INFLATE_ADJUST_WINDOW_SIZE(n) MAX(n, HB_SIZE)
++
+ #endif
+diff --git a/deflate.c b/deflate.c
+index b66255e910..696551ba72 100644
+--- a/deflate.c
++++ b/deflate.c
+@@ -75,6 +75,8 @@ const char PREFIX(deflate_copyright)[] = " deflate 1.3.1 Copyright 1995-2024 Jea
+ /* Memory management for the window. Useful for allocation the aligned window. */
+ #  define ZALLOC_WINDOW(strm, items, size) ZALLOC(strm, items, size)
+ #  define TRY_FREE_WINDOW(strm, addr) TRY_FREE(strm, addr)
++/* Adjust the window size for the arch-specific deflate code. */
++#  define DEFLATE_ADJUST_WINDOW_SIZE(n) (n)
+ /* Invoked at the beginning of deflateSetDictionary(). Useful for checking arch-specific window data. */
+ #  define DEFLATE_SET_DICTIONARY_HOOK(strm, dict, dict_len) do {} while (0)
+ /* Invoked at the beginning of deflateGetDictionary(). Useful for adjusting arch-specific window data. */
+diff --git a/inflate_p.h b/inflate_p.h
+index c3123931f7..ce25531eed 100644
+--- a/inflate_p.h
++++ b/inflate_p.h
+@@ -15,6 +15,8 @@
+ #  define ZALLOC_WINDOW(strm, items, size) ZALLOC(strm, items, size)
+ #  define ZCOPY_WINDOW(dest, src, n) memcpy(dest, src, n)
+ #  define ZFREE_WINDOW(strm, addr) ZFREE(strm, addr)
++/* Adjust the window size for the arch-specific inflate code. */
++#  define INFLATE_ADJUST_WINDOW_SIZE(n) (n)
+ /* Invoked at the end of inflateResetKeep(). Useful for initializing arch-specific extension blocks. */
+ #  define INFLATE_RESET_KEEP_HOOK(strm) do {} while (0)
+ /* Invoked at the beginning of inflatePrime(). Useful for updating arch-specific buffers. */
+
+From 5c7a066d63bfb2ca313530c817490fb4e35c407e Mon Sep 17 00:00:00 2001
+From: Hans Kristian Rosbach <hk-git@circlestorm.org>
+Date: Sun, 14 Apr 2024 17:29:51 +0200
+Subject: [PATCH 2/5] Rewrite deflate memory allocation. Deflate used to call
+ allocate 5 times during init.
+
+- 5 calls to external alloc function now becomes 1
+- Handling alignment of allocated buffers is simplified
+  - Efforts to align the allocated buffer now needs to happen only once.
+  - Individual buffers are ordered so that they have natural sequential alignment.
+- Due to reduced losses to alignment, we allocate less memory in total.
+- While doing alloc(), we now store pointer to corresponding free(), avoiding crashes
+  with applications that incorrectly set alloc/free pointers after running init function.
+- Removed need for extra padding after window, chunked reads can now go beyond the window
+  buffer without causing a segfault.
+
+Co-authored-by: Ilya Leoshkevich <iii@linux.ibm.com>
+---
+ CMakeLists.txt |  16 +++++
+ configure      |  18 +++++
+ deflate.c      | 176 +++++++++++++++++++++++++++++++++++++------------
+ deflate.h      |  16 ++++-
+ zbuild.h       |  18 +++++
+ 5 files changed, 198 insertions(+), 46 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 6cab13ce2e..060f6cf56e 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -484,6 +484,22 @@ if(HAVE_ATTRIBUTE_ALIGNED)
+     add_definitions(-DHAVE_ATTRIBUTE_ALIGNED)
+ endif()
+ 
++#
++# Check for __builtin_assume_aligned(x,n) support in the compiler
++#
++check_c_source_compiles(
++    "char *test(char *buffer) {
++        char *abuffer = __builtin_assume_aligned(buffer,64);
++        return abuffer;
++    }
++    int main() {
++        return 0;
++    }"
++    HAVE_BUILTIN_ASSUME_ALIGNED)
++if(HAVE_BUILTIN_ASSUME_ALIGNED)
++    add_definitions(-DHAVE_BUILTIN_ASSUME_ALIGNED)
++endif()
++
+ #
+ # check for __builtin_ctz() support in the compiler
+ #
+diff --git a/configure b/configure
+index 620aebd534..4efe9cbd87 100755
+--- a/configure
++++ b/configure
+@@ -977,6 +977,24 @@ else
+     echo "Checking for attribute(aligned) ... No." | tee -a configure.log
+ fi
+ 
++# Check for __builtin_assume_aligned(x,n) support in compiler
++cat > $test.c << EOF
++char *test(char *buffer) {
++    char *abuffer = __builtin_assume_aligned(buffer,64);
++    return abuffer;
++}
++int main() {
++    return 0;
++}
++EOF
++if try ${CC} ${CFLAGS} $test.c $LDSHAREDLIBC; then
++    echo "Checking for __builtin_assume_aligned() ... Yes." | tee -a configure.log
++    CFLAGS="$CFLAGS -DHAVE_BUILTIN_ASSUME_ALIGNED"
++    SFLAGS="$SFLAGS -DHAVE_BUILTIN_ASSUME_ALIGNED"
++else
++    echo "Checking for __builtin_assume_aligned() ... No." | tee -a configure.log
++fi
++
+ # Check for __builtin_ctz() support in compiler
+ cat > $test.c << EOF
+ long f(unsigned int x) { return __builtin_ctz(x); }
+diff --git a/deflate.c b/deflate.c
+index 696551ba72..66b5506a52 100644
+--- a/deflate.c
++++ b/deflate.c
+@@ -71,10 +71,14 @@ const char PREFIX(deflate_copyright)[] = " deflate 1.3.1 Copyright 1995-2024 Jea
+  */
+ #ifdef S390_DFLTCC_DEFLATE
+ #  include "arch/s390/dfltcc_deflate.h"
++/* DFLTCC instructions require window to be page-aligned */
++#  define PAD_WINDOW            PAD_4096
++#  define WINDOW_PAD_SIZE       4096
++#  define HINT_ALIGNED_WINDOW   HINT_ALIGNED_4096
+ #else
+-/* Memory management for the window. Useful for allocation the aligned window. */
+-#  define ZALLOC_WINDOW(strm, items, size) ZALLOC(strm, items, size)
+-#  define TRY_FREE_WINDOW(strm, addr) TRY_FREE(strm, addr)
++#  define PAD_WINDOW            PAD_64
++#  define WINDOW_PAD_SIZE       64
++#  define HINT_ALIGNED_WINDOW   HINT_ALIGNED_64
+ /* Adjust the window size for the arch-specific deflate code. */
+ #  define DEFLATE_ADJUST_WINDOW_SIZE(n) (n)
+ /* Invoked at the beginning of deflateSetDictionary(). Useful for checking arch-specific window data. */
+@@ -179,12 +183,106 @@ static const config configuration_table[10] = {
+     memset((unsigned char *)s->head, 0, HASH_SIZE * sizeof(*s->head)); \
+   } while (0)
+ 
+-/* ========================================================================= */
+-/* This function is hidden in ZLIB_COMPAT builds. */
++
++#ifdef DEF_ALLOC_DEBUG
++#  include <stdio.h>
++#  define LOGSZ(name,size)           fprintf(stderr, "%s is %d bytes\n", name, size)
++#  define LOGSZP(name,size,loc,pad)  fprintf(stderr, "%s is %d bytes, offset %d, padded %d\n", name, size, loc, pad)
++#  define LOGSZPL(name,size,loc,pad) fprintf(stderr, "%s is %d bytes, offset %ld, padded %d\n", name, size, loc, pad)
++#else
++#  define LOGSZ(name,size)
++#  define LOGSZP(name,size,loc,pad)
++#  define LOGSZPL(name,size,loc,pad)
++#endif
++
++/* ===========================================================================
++ * Allocate a big buffer and divide it up into the various buffers deflate needs.
++ * Handles alignment of allocated buffer and alignment of individual buffers.
++ */
++Z_INTERNAL deflate_allocs* alloc_deflate(PREFIX3(stream) *strm, int windowBits, int lit_bufsize) {
++    int curr_size = 0;
++
++    /* Define sizes */
++    int window_size = DEFLATE_ADJUST_WINDOW_SIZE((1 << windowBits) * 2);
++    int prev_size = (1 << windowBits) * sizeof(Pos);
++    int head_size = HASH_SIZE * sizeof(Pos);
++    int pending_size = lit_bufsize * LIT_BUFS;
++    int state_size = sizeof(deflate_state);
++    int alloc_size = sizeof(deflate_allocs);
++
++    /* Calculate relative buffer positions and paddings */
++    LOGSZP("window", window_size, PAD_WINDOW(curr_size), PADSZ(curr_size,WINDOW_PAD_SIZE));
++    int window_pos = PAD_WINDOW(curr_size);
++    curr_size = window_pos + window_size;
++
++    LOGSZP("prev", prev_size, PAD_64(curr_size), PADSZ(curr_size,64));
++    int prev_pos = PAD_64(curr_size);
++    curr_size = prev_pos + prev_size;
++
++    LOGSZP("head", head_size, PAD_64(curr_size), PADSZ(curr_size,64));
++    int head_pos = PAD_64(curr_size);
++    curr_size = head_pos + head_size;
++
++    LOGSZP("pending", pending_size, PAD_64(curr_size), PADSZ(curr_size,64));
++    int pending_pos = PAD_64(curr_size);
++    curr_size = pending_pos + pending_size;
++
++    LOGSZP("state", state_size, PAD_64(curr_size), PADSZ(curr_size,64));
++    int state_pos = PAD_64(curr_size);
++    curr_size = state_pos + state_size;
++
++    LOGSZP("alloc", alloc_size, PAD_16(curr_size), PADSZ(curr_size,16));
++    int alloc_pos = PAD_16(curr_size);
++    curr_size = alloc_pos + alloc_size;
++
++    /* Add 64-1 or 4096-1 to allow window alignment, and round size of buffer up to multiple of 64 */
++    int total_size = PAD_64(curr_size + (WINDOW_PAD_SIZE - 1));
++
++    /* Allocate buffer, align to 64-byte cacheline, and zerofill the resulting buffer */
++    char *original_buf = strm->zalloc(strm->opaque, 1, total_size);
++    if (original_buf == NULL)
++        return NULL;
++
++    char *buff = (char *)HINT_ALIGNED_WINDOW((char *)PAD_WINDOW(original_buf));
++    LOGSZPL("Buffer alloc", total_size, PADSZ((uintptr_t)original_buf,WINDOW_PAD_SIZE), PADSZ(curr_size,WINDOW_PAD_SIZE));
++
++    /* Initialize alloc_bufs */
++    deflate_allocs *alloc_bufs  = (struct deflate_allocs_s *)(buff + alloc_pos);
++    alloc_bufs->buf_start = (char *)original_buf;
++    alloc_bufs->zfree = strm->zfree;
++
++    /* Assign buffers */
++    alloc_bufs->window = (unsigned char *)HINT_ALIGNED_WINDOW(buff + window_pos);
++    alloc_bufs->prev = (Pos *)HINT_ALIGNED_64(buff + prev_pos);
++    alloc_bufs->head = (Pos *)HINT_ALIGNED_64(buff + head_pos);
++    alloc_bufs->pending_buf = (unsigned char *)HINT_ALIGNED_64(buff + pending_pos);
++    alloc_bufs->state = (deflate_state *)HINT_ALIGNED_16(buff + state_pos);
++
++    memset((char *)alloc_bufs->prev, 0, prev_size);
++
++    return alloc_bufs;
++}
++
++/* ===========================================================================
++ * Free all allocated deflate buffers
++ */
++static inline void free_deflate(PREFIX3(stream) *strm) {
++    deflate_state *state = (deflate_state *)strm->state;
++
++    if (state->alloc_bufs != NULL) {
++        deflate_allocs *alloc_bufs = state->alloc_bufs;
++        alloc_bufs->zfree(strm->opaque, alloc_bufs->buf_start);
++        strm->state = NULL;
++    }
++}
++
++/* ===========================================================================
++ * Initialize deflate state and buffers.
++ * This function is hidden in ZLIB_COMPAT builds.
++ */
+ int32_t ZNG_CONDEXPORT PREFIX(deflateInit2)(PREFIX3(stream) *strm, int32_t level, int32_t method, int32_t windowBits,
+                                             int32_t memLevel, int32_t strategy) {
+     /* Todo: ignore strm->next_in if we use it as window */
+-    uint32_t window_padding = 0;
+     deflate_state *s;
+     int wrap = 1;
+ 
+@@ -224,9 +322,19 @@ int32_t ZNG_CONDEXPORT PREFIX(deflateInit2)(PREFIX3(stream) *strm, int32_t level
+     if (windowBits == 8)
+         windowBits = 9;  /* until 256-byte window bug fixed */
+ 
+-    s = ZALLOC(strm, 1, sizeof(deflate_state));
+-    if (s == NULL)
++    /* Allocate buffers */
++    int lit_bufsize = 1 << (memLevel + 6);
++    deflate_allocs *alloc_bufs = alloc_deflate(strm, windowBits, lit_bufsize);
++    if (alloc_bufs == NULL)
+         return Z_MEM_ERROR;
++
++    s = alloc_bufs->state;
++    s->alloc_bufs = alloc_bufs;
++    s->window = alloc_bufs->window;
++    s->prev = alloc_bufs->prev;
++    s->head = alloc_bufs->head;
++    s->pending_buf = alloc_bufs->pending_buf;
++
+     strm->state = (struct internal_state *)s;
+     s->strm = strm;
+     s->status = INIT_STATE;     /* to pass state test in deflateReset() */
+@@ -237,18 +345,9 @@ int32_t ZNG_CONDEXPORT PREFIX(deflateInit2)(PREFIX3(stream) *strm, int32_t level
+     s->w_size = 1 << s->w_bits;
+     s->w_mask = s->w_size - 1;
+ 
+-#ifdef X86_PCLMULQDQ_CRC
+-    window_padding = 8;
+-#endif
+-
+-    s->window = (unsigned char *) ZALLOC_WINDOW(strm, s->w_size + window_padding, 2*sizeof(unsigned char));
+-    s->prev   = (Pos *)  ZALLOC(strm, s->w_size, sizeof(Pos));
+-    memset(s->prev, 0, s->w_size * sizeof(Pos));
+-    s->head   = (Pos *)  ZALLOC(strm, HASH_SIZE, sizeof(Pos));
+-
+     s->high_water = 0;      /* nothing written to s->window yet */
+ 
+-    s->lit_bufsize = 1 << (memLevel + 6); /* 16K elements by default */
++    s->lit_bufsize = lit_bufsize; /* 16K elements by default */
+ 
+     /* We overlay pending_buf and sym_buf. This works since the average size
+      * for length/distance pairs over any compressed block is assured to be 31
+@@ -289,7 +388,6 @@ int32_t ZNG_CONDEXPORT PREFIX(deflateInit2)(PREFIX3(stream) *strm, int32_t level
+      * symbols from which it is being constructed.
+      */
+ 
+-    s->pending_buf = (unsigned char *) ZALLOC(strm, s->lit_bufsize, LIT_BUFS);
+     s->pending_buf_size = s->lit_bufsize * 4;
+ 
+     if (s->window == NULL || s->prev == NULL || s->head == NULL || s->pending_buf == NULL) {
+@@ -298,6 +396,7 @@ int32_t ZNG_CONDEXPORT PREFIX(deflateInit2)(PREFIX3(stream) *strm, int32_t level
+         PREFIX(deflateEnd)(strm);
+         return Z_MEM_ERROR;
+     }
++
+ #ifdef LIT_MEM
+     s->d_buf = (uint16_t *)(s->pending_buf + (s->lit_bufsize << 1));
+     s->l_buf = s->pending_buf + (s->lit_bufsize << 2);
+@@ -348,7 +447,7 @@ static int deflateStateCheck(PREFIX3(stream) *strm) {
+     if (strm == NULL || strm->zalloc == (alloc_func)0 || strm->zfree == (free_func)0)
+         return 1;
+     s = strm->state;
+-    if (s == NULL || s->strm != strm || (s->status < INIT_STATE || s->status > MAX_STATE))
++    if (s == NULL || s->alloc_bufs == NULL || s->strm != strm || (s->status < INIT_STATE || s->status > MAX_STATE))
+         return 1;
+     return 0;
+ }
+@@ -1015,21 +1114,13 @@ int32_t Z_EXPORT PREFIX(deflate)(PREFIX3(stream) *strm, int32_t flush) {
+ 
+ /* ========================================================================= */
+ int32_t Z_EXPORT PREFIX(deflateEnd)(PREFIX3(stream) *strm) {
+-    int32_t status;
+-
+     if (deflateStateCheck(strm))
+         return Z_STREAM_ERROR;
+ 
+-    status = strm->state->status;
++    int32_t status = strm->state->status;
+ 
+-    /* Deallocate in reverse order of allocations: */
+-    TRY_FREE(strm, strm->state->pending_buf);
+-    TRY_FREE(strm, strm->state->head);
+-    TRY_FREE(strm, strm->state->prev);
+-    TRY_FREE_WINDOW(strm, strm->state->window);
+-
+-    ZFREE(strm, strm->state);
+-    strm->state = NULL;
++    /* Free allocated buffers */
++    free_deflate(strm);
+ 
+     return status == BUSY_STATE ? Z_DATA_ERROR : Z_OK;
+ }
+@@ -1040,7 +1131,6 @@ int32_t Z_EXPORT PREFIX(deflateEnd)(PREFIX3(stream) *strm) {
+ int32_t Z_EXPORT PREFIX(deflateCopy)(PREFIX3(stream) *dest, PREFIX3(stream) *source) {
+     deflate_state *ds;
+     deflate_state *ss;
+-    uint32_t window_padding = 0;
+ 
+     if (deflateStateCheck(source) || dest == NULL)
+         return Z_STREAM_ERROR;
+@@ -1049,28 +1139,28 @@ int32_t Z_EXPORT PREFIX(deflateCopy)(PREFIX3(stream) *dest, PREFIX3(stream) *sou
+ 
+     memcpy((void *)dest, (void *)source, sizeof(PREFIX3(stream)));
+ 
+-    ds = ZALLOC(dest, 1, sizeof(deflate_state));
+-    if (ds == NULL)
++    deflate_allocs *alloc_bufs = alloc_deflate(dest, ss->w_bits, ss->lit_bufsize);
++    if (alloc_bufs == NULL)
+         return Z_MEM_ERROR;
++
++    ds = alloc_bufs->state;
++
+     dest->state = (struct internal_state *) ds;
+     memcpy(ds, ss, sizeof(deflate_state));
+     ds->strm = dest;
+ 
+-#ifdef X86_PCLMULQDQ_CRC
+-    window_padding = 8;
+-#endif
+-
+-    ds->window = (unsigned char *) ZALLOC_WINDOW(dest, ds->w_size + window_padding, 2*sizeof(unsigned char));
+-    ds->prev   = (Pos *)  ZALLOC(dest, ds->w_size, sizeof(Pos));
+-    ds->head   = (Pos *)  ZALLOC(dest, HASH_SIZE, sizeof(Pos));
+-    ds->pending_buf = (unsigned char *) ZALLOC(dest, ds->lit_bufsize, LIT_BUFS);
++    ds->alloc_bufs = alloc_bufs;
++    ds->window = alloc_bufs->window;
++    ds->prev = alloc_bufs->prev;
++    ds->head = alloc_bufs->head;
++    ds->pending_buf = alloc_bufs->pending_buf;
+ 
+     if (ds->window == NULL || ds->prev == NULL || ds->head == NULL || ds->pending_buf == NULL) {
+         PREFIX(deflateEnd)(dest);
+         return Z_MEM_ERROR;
+     }
+ 
+-    memcpy(ds->window, ss->window, ds->w_size * 2 * sizeof(unsigned char));
++    memcpy(ds->window, ss->window, DEFLATE_ADJUST_WINDOW_SIZE(ds->w_size * 2 * sizeof(unsigned char)));
+     memcpy((void *)ds->prev, (void *)ss->prev, ds->w_size * sizeof(Pos));
+     memcpy((void *)ds->head, (void *)ss->head, HASH_SIZE * sizeof(Pos));
+     memcpy(ds->pending_buf, ss->pending_buf, ds->lit_bufsize * LIT_BUFS);
+diff --git a/deflate.h b/deflate.h
+index 6a6198625d..e122ae1aad 100644
+--- a/deflate.h
++++ b/deflate.h
+@@ -130,7 +130,18 @@ uint32_t update_hash_roll        (uint32_t h, uint32_t val);
+ void     insert_string_roll      (deflate_state *const s, uint32_t str, uint32_t count);
+ Pos      quick_insert_string_roll(deflate_state *const s, uint32_t str);
+ 
+-struct ALIGNED_(16) internal_state {
++/* Struct for memory allocation handling */
++typedef struct deflate_allocs_s {
++    char            *buf_start;
++    free_func        zfree;
++    deflate_state   *state;
++    unsigned char   *window;
++    unsigned char   *pending_buf;
++    Pos             *prev;
++    Pos             *head;
++} deflate_allocs;
++
++struct ALIGNED_(64) internal_state {
+     PREFIX3(stream)      *strm;            /* pointer back to this zlib stream */
+     unsigned char        *pending_buf;     /* output still pending */
+     unsigned char        *pending_out;     /* next pending byte to output to the stream */
+@@ -299,8 +310,7 @@ struct ALIGNED_(16) internal_state {
+     unsigned long compressed_len; /* total bit length of compressed file mod 2^32 */
+     unsigned long bits_sent;      /* bit length of compressed data sent mod 2^32 */
+ 
+-    /* Reserved for future use and alignment purposes */
+-    char *reserved_p;
++    deflate_allocs *alloc_bufs;
+ 
+ #ifdef HAVE_ARCH_DEFLATE_STATE
+     arch_deflate_state arch;      /* architecture-specific extensions */
+diff --git a/zbuild.h b/zbuild.h
+index 206eed2312..9157eef9e3 100644
+--- a/zbuild.h
++++ b/zbuild.h
+@@ -202,6 +202,24 @@
+ #  define ALIGNED_(x) __declspec(align(x))
+ #endif
+ 
++#ifdef HAVE_BUILTIN_ASSUME_ALIGNED
++#  define HINT_ALIGNED(p,n) __builtin_assume_aligned((void *)(p),(n))
++#else
++#  define HINT_ALIGNED(p,n) (p)
++#endif
++#define HINT_ALIGNED_16(p) HINT_ALIGNED((p),16)
++#define HINT_ALIGNED_64(p) HINT_ALIGNED((p),64)
++#define HINT_ALIGNED_4096(p) HINT_ALIGNED((p),4096)
++
++/* PADSZ returns needed bytes to pad bpos to pad size
++ * PAD_NN calculates pad size and adds it to bpos, returning the result.
++ * All take an integer or a pointer as bpos input.
++ */
++#define PADSZ(bpos, pad) (((pad) - ((uintptr_t)(bpos) % (pad))) % (pad))
++#define PAD_16(bpos) ((bpos) + PADSZ((bpos),16))
++#define PAD_64(bpos) ((bpos) + PADSZ((bpos),64))
++#define PAD_4096(bpos) ((bpos) + PADSZ((bpos),4096))
++
+ /* Diagnostic functions */
+ #ifdef ZLIB_DEBUG
+ #  include <stdio.h>
+
+From 2983eb630536ff3a9fdf8fbeb67cc0e21addcbe6 Mon Sep 17 00:00:00 2001
+From: Hans Kristian Rosbach <hk-git@circlestorm.org>
+Date: Tue, 16 Apr 2024 22:20:03 +0200
+Subject: [PATCH 3/5] Rewrite inflate memory allocation. Inflate used to
+ allocate state during init, but window would be allocated when/if needed and
+ could be resized and that required a new free/alloc round.
+
+- Now, we allocate state and a 32K window during init, allowing the latency cost
+  of allocs to be done during init instead of at one or more times later.
+- Total memory allocation is about the same when requesting a 32K window, but
+  if now window or a smaller window was requested, then it is an increase.
+- While doing alloc(), we now store pointer to corresponding free(), avoiding crashes
+  with applications that incorrectly set alloc/free pointers after running init function.
+- After init has succeeded, inflate will no longer possibly fail due to a failing malloc.
+
+Co-authored-by: Ilya Leoshkevich <iii@linux.ibm.com>
+---
+ infback.c       |  15 +++--
+ inflate.c       | 149 ++++++++++++++++++++++++++++++++++--------------
+ inflate.h       |  14 ++++-
+ inflate_p.h     |  11 ++--
+ test/infcover.c |   7 ---
+ 5 files changed, 137 insertions(+), 59 deletions(-)
+
+diff --git a/infback.c b/infback.c
+index 929c638100..307d05ca3c 100644
+--- a/infback.c
++++ b/infback.c
+@@ -43,10 +43,15 @@ int32_t ZNG_CONDEXPORT PREFIX(inflateBackInit)(PREFIX3(stream) *strm, int32_t wi
+     }
+     if (strm->zfree == NULL)
+         strm->zfree = PREFIX(zcfree);
+-    state = ZALLOC(strm, 1, sizeof(struct inflate_state));
+-    if (state == NULL)
++
++    inflate_allocs *alloc_bufs = alloc_inflate(strm);
++    if (alloc_bufs == NULL)
+         return Z_MEM_ERROR;
++
++    state = alloc_bufs->state;
++    state->alloc_bufs = alloc_bufs;
+     Tracev((stderr, "inflate: allocated\n"));
++
+     strm->state = (struct internal_state *)state;
+     state->dmax = 32768U;
+     state->wbits = (unsigned int)windowBits;
+@@ -504,8 +509,10 @@ int32_t Z_EXPORT PREFIX(inflateBack)(PREFIX3(stream) *strm, in_func in, void *in
+ int32_t Z_EXPORT PREFIX(inflateBackEnd)(PREFIX3(stream) *strm) {
+     if (strm == NULL || strm->state == NULL || strm->zfree == NULL)
+         return Z_STREAM_ERROR;
+-    ZFREE(strm, strm->state);
+-    strm->state = NULL;
++
++    /* Free allocated buffers */
++    free_inflate(strm);
++
+     Tracev((stderr, "inflate: end\n"));
+     return Z_OK;
+ }
+diff --git a/inflate.c b/inflate.c
+index 0ae495c0bc..bf25fffc9f 100644
+--- a/inflate.c
++++ b/inflate.c
+@@ -53,7 +53,7 @@ static int inflateStateCheck(PREFIX3(stream) *strm) {
+     if (strm == NULL || strm->zalloc == NULL || strm->zfree == NULL)
+         return 1;
+     state = (struct inflate_state *)strm->state;
+-    if (state == NULL || state->strm != strm || state->mode < HEAD || state->mode > SYNC)
++    if (state == NULL || state->alloc_bufs == NULL || state->strm != strm || state->mode < HEAD || state->mode > SYNC)
+         return 1;
+     return 0;
+ }
+@@ -120,13 +120,9 @@ int32_t Z_EXPORT PREFIX(inflateReset2)(PREFIX3(stream) *strm, int32_t windowBits
+ #endif
+     }
+ 
+-    /* set number of window bits, free window if different */
++    /* set number of window bits */
+     if (windowBits && (windowBits < MIN_WBITS || windowBits > MAX_WBITS))
+         return Z_STREAM_ERROR;
+-    if (state->window != NULL && state->wbits != (unsigned)windowBits) {
+-        ZFREE_WINDOW(strm, state->window);
+-        state->window = NULL;
+-    }
+ 
+     /* update state and reset the rest of it */
+     state->wrap = wrap;
+@@ -134,7 +130,88 @@ int32_t Z_EXPORT PREFIX(inflateReset2)(PREFIX3(stream) *strm, int32_t windowBits
+     return PREFIX(inflateReset)(strm);
+ }
+ 
+-/* This function is hidden in ZLIB_COMPAT builds. */
++#ifdef INF_ALLOC_DEBUG
++#  include <stdio.h>
++#  define LOGSZ(name,size)           fprintf(stderr, "%s is %d bytes\n", name, size)
++#  define LOGSZP(name,size,loc,pad)  fprintf(stderr, "%s is %d bytes, offset %d, padded %d\n", name, size, loc, pad)
++#  define LOGSZPL(name,size,loc,pad) fprintf(stderr, "%s is %d bytes, offset %ld, padded %d\n", name, size, loc, pad)
++#else
++#  define LOGSZ(name,size)
++#  define LOGSZP(name,size,loc,pad)
++#  define LOGSZPL(name,size,loc,pad)
++#endif
++
++/* ===========================================================================
++ * Allocate a big buffer and divide it up into the various buffers inflate needs.
++ * Handles alignment of allocated buffer and alignment of individual buffers.
++ */
++Z_INTERNAL inflate_allocs* alloc_inflate(PREFIX3(stream) *strm) {
++    int curr_size = 0;
++
++    /* Define sizes */
++    int window_size = INFLATE_ADJUST_WINDOW_SIZE((1 << MAX_WBITS) + 64); /* 64B padding for chunksize */
++    int state_size = sizeof(inflate_state);
++    int alloc_size = sizeof(inflate_allocs);
++
++    /* Calculate relative buffer positions and paddings */
++    LOGSZP("window", window_size, PAD_WINDOW(curr_size), PADSZ(curr_size,WINDOW_PAD_SIZE));
++    int window_pos = PAD_WINDOW(curr_size);
++    curr_size = window_pos + window_size;
++
++    LOGSZP("state", state_size, PAD_64(curr_size), PADSZ(curr_size,64));
++    int state_pos = PAD_64(curr_size);
++    curr_size = state_pos + state_size;
++
++    LOGSZP("alloc", alloc_size, PAD_16(curr_size), PADSZ(curr_size,16));
++    int alloc_pos = PAD_16(curr_size);
++    curr_size = alloc_pos + alloc_size;
++
++    /* Add 64-1 or 4096-1 to allow window alignment, and round size of buffer up to multiple of 64 */
++    int total_size = PAD_64(curr_size + (WINDOW_PAD_SIZE - 1));
++
++    /* Allocate buffer, align to 64-byte cacheline, and zerofill the resulting buffer */
++    char *original_buf = strm->zalloc(strm->opaque, 1, total_size);
++    if (original_buf == NULL)
++        return NULL;
++
++    char *buff = (char *)HINT_ALIGNED_WINDOW((char *)PAD_WINDOW(original_buf));
++    LOGSZPL("Buffer alloc", total_size, PADSZ((uintptr_t)original_buf,WINDOW_PAD_SIZE), PADSZ(curr_size,WINDOW_PAD_SIZE));
++
++    /* Initialize alloc_bufs */
++    inflate_allocs *alloc_bufs  = (struct inflate_allocs_s *)(buff + alloc_pos);
++    alloc_bufs->buf_start = (char *)original_buf;
++    alloc_bufs->zfree = strm->zfree;
++
++    alloc_bufs->window =  (unsigned char *)HINT_ALIGNED_WINDOW((buff + window_pos));
++    alloc_bufs->state = (inflate_state *)HINT_ALIGNED_64((buff + state_pos));
++
++#ifdef Z_MEMORY_SANITIZER
++    /* This is _not_ to subvert the memory sanitizer but to instead unposion some
++       data we willingly and purposefully load uninitialized into vector registers
++       in order to safely read the last < chunksize bytes of the window. */
++    __msan_unpoison(alloc_bufs->window + window_size, 64);
++#endif
++
++    return alloc_bufs;
++}
++
++/* ===========================================================================
++ * Free all allocated inflate buffers
++ */
++Z_INTERNAL void free_inflate(PREFIX3(stream) *strm) {
++    struct inflate_state *state = (struct inflate_state *)strm->state;
++
++    if (state->alloc_bufs != NULL) {
++        inflate_allocs *alloc_bufs = state->alloc_bufs;
++        alloc_bufs->zfree(strm->opaque, alloc_bufs->buf_start);
++        strm->state = NULL;
++    }
++}
++
++/* ===========================================================================
++ * Initialize inflate state and buffers.
++ * This function is hidden in ZLIB_COMPAT builds.
++ */
+ int32_t ZNG_CONDEXPORT PREFIX(inflateInit2)(PREFIX3(stream) *strm, int32_t windowBits) {
+     int32_t ret;
+     struct inflate_state *state;
+@@ -151,19 +228,23 @@ int32_t ZNG_CONDEXPORT PREFIX(inflateInit2)(PREFIX3(stream) *strm, int32_t windo
+     }
+     if (strm->zfree == NULL)
+         strm->zfree = PREFIX(zcfree);
+-    state = ZALLOC(strm, 1, sizeof(struct inflate_state));
+-    if (state == NULL)
++
++    inflate_allocs *alloc_bufs = alloc_inflate(strm);
++    if (alloc_bufs == NULL)
+         return Z_MEM_ERROR;
++
++    state = alloc_bufs->state;
++    state->window = alloc_bufs->window;
++    state->alloc_bufs = alloc_bufs;
+     Tracev((stderr, "inflate: allocated\n"));
++
+     strm->state = (struct internal_state *)state;
+     state->strm = strm;
+-    state->window = NULL;
+     state->mode = HEAD;     /* to pass state test in inflateReset2() */
+     state->chunksize = FUNCTABLE_CALL(chunksize)();
+     ret = PREFIX(inflateReset2)(strm, windowBits);
+     if (ret != Z_OK) {
+-        ZFREE(strm, state);
+-        strm->state = NULL;
++        free_inflate(strm);
+     }
+     return ret;
+ }
+@@ -223,20 +304,6 @@ void Z_INTERNAL PREFIX(fixedtables)(struct inflate_state *state) {
+ }
+ 
+ int Z_INTERNAL PREFIX(inflate_ensure_window)(struct inflate_state *state) {
+-    /* if it hasn't been done already, allocate space for the window */
+-    if (state->window == NULL) {
+-        unsigned wsize = 1U << state->wbits;
+-        state->window = (unsigned char *)ZALLOC_WINDOW(state->strm, wsize + state->chunksize, sizeof(unsigned char));
+-        if (state->window == NULL)
+-            return Z_MEM_ERROR;
+-#ifdef Z_MEMORY_SANITIZER
+-        /* This is _not_ to subvert the memory sanitizer but to instead unposion some
+-           data we willingly and purposefully load uninitialized into vector registers
+-           in order to safely read the last < chunksize bytes of the window. */
+-        __msan_unpoison(state->window + wsize, state->chunksize);
+-#endif
+-    }
+-
+     /* if window not in use yet, initialize */
+     if (state->wsize == 0) {
+         state->wsize = 1U << state->wbits;
+@@ -1142,14 +1209,12 @@ int32_t Z_EXPORT PREFIX(inflate)(PREFIX3(stream) *strm, int32_t flush) {
+ }
+ 
+ int32_t Z_EXPORT PREFIX(inflateEnd)(PREFIX3(stream) *strm) {
+-    struct inflate_state *state;
+     if (inflateStateCheck(strm))
+         return Z_STREAM_ERROR;
+-    state = (struct inflate_state *)strm->state;
+-    if (state->window != NULL)
+-        ZFREE_WINDOW(strm, state->window);
+-    ZFREE(strm, strm->state);
+-    strm->state = NULL;
++
++    /* Free allocated buffers */
++    free_inflate(strm);
++
+     Tracev((stderr, "inflate: end\n"));
+     return Z_OK;
+ }
+@@ -1332,13 +1397,16 @@ int32_t Z_EXPORT PREFIX(inflateCopy)(PREFIX3(stream) *dest, PREFIX3(stream) *sou
+         return Z_STREAM_ERROR;
+     state = (struct inflate_state *)source->state;
+ 
++    /* copy stream */
++    memcpy((void *)dest, (void *)source, sizeof(PREFIX3(stream)));
++
+     /* allocate space */
+-    copy = ZALLOC(source, 1, sizeof(struct inflate_state));
+-    if (copy == NULL)
++    inflate_allocs *alloc_bufs = alloc_inflate(dest);
++    if (alloc_bufs == NULL)
+         return Z_MEM_ERROR;
++    copy = alloc_bufs->state;
+ 
+     /* copy state */
+-    memcpy((void *)dest, (void *)source, sizeof(PREFIX3(stream)));
+     memcpy(copy, state, sizeof(struct inflate_state));
+     copy->strm = dest;
+     if (state->lencode >= state->codes && state->lencode <= state->codes + ENOUGH - 1) {
+@@ -1346,16 +1414,11 @@ int32_t Z_EXPORT PREFIX(inflateCopy)(PREFIX3(stream) *dest, PREFIX3(stream) *sou
+         copy->distcode = copy->codes + (state->distcode - state->codes);
+     }
+     copy->next = copy->codes + (state->next - state->codes);
++    copy->window = alloc_bufs->window;
++    copy->alloc_bufs = alloc_bufs;
+ 
+     /* window */
+-    copy->window = NULL;
+-    if (state->window != NULL) {
+-        if (PREFIX(inflate_ensure_window)(copy)) {
+-            ZFREE(source, copy);
+-            return Z_MEM_ERROR;
+-        }
+-        ZCOPY_WINDOW(copy->window, state->window, (size_t)state->wsize);
+-    }
++    memcpy(copy->window, state->window, INFLATE_ADJUST_WINDOW_SIZE((size_t)state->wsize));
+ 
+     dest->state = (struct internal_state *)copy;
+     return Z_OK;
+diff --git a/inflate.h b/inflate.h
+index 573f6d7a32..cf2a101109 100644
+--- a/inflate.h
++++ b/inflate.h
+@@ -85,10 +85,19 @@ typedef enum {
+     Process trailer:
+         CHECK -> LENGTH -> DONE
+  */
++typedef struct inflate_state inflate_state;
++
++/* Struct for memory allocation handling */
++typedef struct inflate_allocs_s {
++    char            *buf_start;
++    free_func        zfree;
++    inflate_state   *state;
++    unsigned char   *window;
++} inflate_allocs;
+ 
+ /* State maintained between inflate() calls -- approximately 7K bytes, not
+    including the allocated sliding window, which is up to 32K bytes. */
+-struct inflate_state {
++struct ALIGNED_(64) inflate_state {
+     PREFIX3(stream) *strm;             /* pointer back to this zlib stream */
+     inflate_mode mode;          /* current inflate mode */
+     int last;                   /* true if processing last block */
+@@ -136,6 +145,7 @@ struct inflate_state {
+     int back;                   /* bits back of last unprocessed length/lit */
+     unsigned was;               /* initial length of match */
+     uint32_t chunksize;         /* size of memory copying chunk */
++    inflate_allocs *alloc_bufs; /* struct for handling memory allocations */
+ #ifdef HAVE_ARCH_INFLATE_STATE
+     arch_inflate_state arch;    /* architecture-specific extensions */
+ #endif
+@@ -143,5 +153,7 @@ struct inflate_state {
+ 
+ int Z_INTERNAL PREFIX(inflate_ensure_window)(struct inflate_state *state);
+ void Z_INTERNAL PREFIX(fixedtables)(struct inflate_state *state);
++Z_INTERNAL inflate_allocs* alloc_inflate(PREFIX3(stream) *strm);
++Z_INTERNAL void free_inflate(PREFIX3(stream) *strm);
+ 
+ #endif /* INFLATE_H_ */
+diff --git a/inflate_p.h b/inflate_p.h
+index ce25531eed..c324b0486a 100644
+--- a/inflate_p.h
++++ b/inflate_p.h
+@@ -10,11 +10,14 @@
+ /* Architecture-specific hooks. */
+ #ifdef S390_DFLTCC_INFLATE
+ #  include "arch/s390/dfltcc_inflate.h"
++/* DFLTCC instructions require window to be page-aligned */
++#  define PAD_WINDOW            PAD_4096
++#  define WINDOW_PAD_SIZE       4096
++#  define HINT_ALIGNED_WINDOW   HINT_ALIGNED_4096
+ #else
+-/* Memory management for the window. Useful for allocation the aligned window. */
+-#  define ZALLOC_WINDOW(strm, items, size) ZALLOC(strm, items, size)
+-#  define ZCOPY_WINDOW(dest, src, n) memcpy(dest, src, n)
+-#  define ZFREE_WINDOW(strm, addr) ZFREE(strm, addr)
++#  define PAD_WINDOW            PAD_64
++#  define WINDOW_PAD_SIZE       64
++#  define HINT_ALIGNED_WINDOW   HINT_ALIGNED_64
+ /* Adjust the window size for the arch-specific inflate code. */
+ #  define INFLATE_ADJUST_WINDOW_SIZE(n) (n)
+ /* Invoked at the end of inflateResetKeep(). Useful for initializing arch-specific extension blocks. */
+diff --git a/test/infcover.c b/test/infcover.c
+index 6606d222a9..6a9999e0f0 100644
+--- a/test/infcover.c
++++ b/test/infcover.c
+@@ -319,9 +319,6 @@ static void inf(char *hex, char *what, unsigned step, int win, unsigned len, int
+         if (ret == Z_NEED_DICT) {
+             ret = PREFIX(inflateSetDictionary)(&strm, in, 1);
+                                                 assert(ret == Z_DATA_ERROR);
+-            mem_limit(&strm, 1);
+-            ret = PREFIX(inflateSetDictionary)(&strm, out, 0);
+-                                                assert(ret == Z_MEM_ERROR);
+             mem_limit(&strm, 0);
+             ((struct inflate_state *)strm.state)->mode = DICT;
+             ret = PREFIX(inflateSetDictionary)(&strm, out, 0);
+@@ -418,10 +415,6 @@ static void cover_wrap(void) {
+     strm.next_in = (void *)"\x63";
+     strm.avail_out = 1;
+     strm.next_out = (void *)&ret;
+-    mem_limit(&strm, 1);
+-    ret = PREFIX(inflate)(&strm, Z_NO_FLUSH);   assert(ret == Z_MEM_ERROR);
+-    ret = PREFIX(inflate)(&strm, Z_NO_FLUSH);   assert(ret == Z_MEM_ERROR);
+-    mem_limit(&strm, 0);
+     memset(dict, 0, 257);
+     ret = PREFIX(inflateSetDictionary)(&strm, dict, 257);
+                                                 assert(ret == Z_OK);
+
+From 6d3f8b59a40a9c5d973e6c662d22965d56459eb3 Mon Sep 17 00:00:00 2001
+From: Hans Kristian Rosbach <hk-git@circlestorm.org>
+Date: Thu, 18 Apr 2024 15:28:56 +0200
+Subject: [PATCH 4/5] Clean up memory allocation functions that are no longer
+ used, and its tests.
+
+Co-authored-by: Ilya Leoshkevich <iii@linux.ibm.com>
+---
+ CMakeLists.txt             |  3 ---
+ arch/s390/Makefile.in      |  6 -----
+ arch/s390/README.md        |  7 +++---
+ arch/s390/dfltcc_common.c  | 40 -------------------------------
+ arch/s390/dfltcc_common.h  | 12 ----------
+ configure                  |  5 ----
+ test/CMakeLists.txt        |  1 -
+ test/test_aligned_alloc.cc | 48 --------------------------------------
+ test/test_compare256.cc    |  8 +++----
+ zutil.c                    | 48 --------------------------------------
+ zutil.h                    |  8 -------
+ 11 files changed, 8 insertions(+), 178 deletions(-)
+ delete mode 100644 arch/s390/dfltcc_common.c
+ delete mode 100644 test/test_aligned_alloc.cc
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 060f6cf56e..719673fbf3 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -851,9 +851,6 @@ if(WITH_OPTIM)
+                 list(APPEND ZLIB_ARCH_SRCS ${ARCHDIR}/s390_features.c)
+             endif()
+         endif()
+-        if(WITH_DFLTCC_DEFLATE OR WITH_DFLTCC_INFLATE)
+-            list(APPEND ZLIB_ARCH_SRCS ${ARCHDIR}/dfltcc_common.c)
+-        endif()
+         if(WITH_DFLTCC_DEFLATE)
+             add_definitions(-DS390_DFLTCC_DEFLATE)
+             list(APPEND ZLIB_ARCH_SRCS ${ARCHDIR}/dfltcc_deflate.c)
+diff --git a/arch/s390/Makefile.in b/arch/s390/Makefile.in
+index 6b4fba7775..e994157df2 100644
+--- a/arch/s390/Makefile.in
++++ b/arch/s390/Makefile.in
+@@ -20,12 +20,6 @@ s390_features.o:
+ s390_features.lo:
+ 	$(CC) $(SFLAGS) $(INCLUDES) -c -o $@ $(SRCDIR)/s390_features.c
+ 
+-dfltcc_common.o:
+-	$(CC) $(CFLAGS) $(INCLUDES) -c -o $@ $(SRCDIR)/dfltcc_common.c
+-
+-dfltcc_common.lo:
+-	$(CC) $(SFLAGS) $(INCLUDES) -c -o $@ $(SRCDIR)/dfltcc_common.c
+-
+ dfltcc_deflate.o:
+ 	$(CC) $(CFLAGS) $(INCLUDES) -c -o $@ $(SRCDIR)/dfltcc_deflate.c
+ 
+diff --git a/arch/s390/README.md b/arch/s390/README.md
+index 0f3329108d..57e9ee8f14 100644
+--- a/arch/s390/README.md
++++ b/arch/s390/README.md
+@@ -62,9 +62,10 @@ integrated with the rest of zlib-ng using hook macros.
+ 
+ DFLTCC takes as arguments a parameter block, an input buffer, an output
+ buffer, and a window. Parameter blocks are stored alongside zlib states;
+-buffers are forwarded from the caller; and window (which must be page-aligned)
+-is managed using `ZALLOC_WINDOW()`, `ZCOPY_WINDOW()` and `TRY_FREE_WINDOW()`
+-macros.
++buffers are forwarded from the caller; and window - which must be
++4k-aligned and is always 64k large, is managed using the `PAD_WINDOW()`,
++`WINDOW_PAD_SIZE`, `HINT_ALIGNED_WINDOW` and `DEFLATE_ADJUST_WINDOW_SIZE()`
++and `INFLATE_ADJUST_WINDOW_SIZE()` hooks.
+ 
+ Software and hardware window formats do not match, therefore,
+ `deflateSetDictionary()`, `deflateGetDictionary()`, `inflateSetDictionary()`
+diff --git a/arch/s390/dfltcc_common.c b/arch/s390/dfltcc_common.c
+deleted file mode 100644
+index 78be718114..0000000000
+--- a/arch/s390/dfltcc_common.c
++++ /dev/null
+@@ -1,40 +0,0 @@
+-/* dfltcc_deflate.c - IBM Z DEFLATE CONVERSION CALL general support. */
+-
+-#include "zbuild.h"
+-#include "dfltcc_common.h"
+-#include "dfltcc_detail.h"
+-
+-/*
+-   Memory management.
+-
+-   DFLTCC requires parameter blocks and window to be aligned. zlib-ng allows
+-   users to specify their own allocation functions, so using e.g.
+-   `posix_memalign' is not an option. Thus, we overallocate and take the
+-   aligned portion of the buffer.
+-*/
+-
+-static const int PAGE_ALIGN = 0x1000;
+-
+-void Z_INTERNAL *PREFIX(dfltcc_alloc_window)(PREFIX3(streamp) strm, uInt items, uInt size) {
+-    void *p;
+-    void *w;
+-
+-    /* To simplify freeing, we store the pointer to the allocated buffer right
+-     * before the window. Note that DFLTCC always uses HB_SIZE bytes.
+-     */
+-    p = ZALLOC(strm, sizeof(void *) + MAX(items * size, HB_SIZE) + PAGE_ALIGN, sizeof(unsigned char));
+-    if (p == NULL)
+-        return NULL;
+-    w = ALIGN_UP((char *)p + sizeof(void *), PAGE_ALIGN);
+-    *(void **)((char *)w - sizeof(void *)) = p;
+-    return w;
+-}
+-
+-void Z_INTERNAL PREFIX(dfltcc_copy_window)(void *dest, const void *src, size_t n) {
+-    memcpy(dest, src, MAX(n, HB_SIZE));
+-}
+-
+-void Z_INTERNAL PREFIX(dfltcc_free_window)(PREFIX3(streamp) strm, void *w) {
+-    if (w)
+-        ZFREE(strm, *(void **)((unsigned char *)w - sizeof(void *)));
+-}
+diff --git a/arch/s390/dfltcc_common.h b/arch/s390/dfltcc_common.h
+index 8aec9e9453..a6527ab5df 100644
+--- a/arch/s390/dfltcc_common.h
++++ b/arch/s390/dfltcc_common.h
+@@ -83,18 +83,6 @@ typedef struct {
+     struct dfltcc_state common;
+ } arch_inflate_state;
+ 
+-void Z_INTERNAL *PREFIX(dfltcc_alloc_window)(PREFIX3(streamp) strm, uInt items, uInt size);
+-void Z_INTERNAL PREFIX(dfltcc_copy_window)(void *dest, const void *src, size_t n);
+-void Z_INTERNAL PREFIX(dfltcc_free_window)(PREFIX3(streamp) strm, void *w);
+-
+-#define ZALLOC_WINDOW PREFIX(dfltcc_alloc_window)
+-
+-#define ZCOPY_WINDOW PREFIX(dfltcc_copy_window)
+-
+-#define ZFREE_WINDOW PREFIX(dfltcc_free_window)
+-
+-#define TRY_FREE_WINDOW PREFIX(dfltcc_free_window)
+-
+ /*
+    History buffer size.
+  */
+diff --git a/configure b/configure
+index 4efe9cbd87..6cf61da20f 100755
+--- a/configure
++++ b/configure
+@@ -1832,11 +1832,6 @@ EOF
+                 ARCH_SHARED_OBJS="${ARCH_SHARED_OBJS} s390_features.lo"
+             fi
+ 
+-            if test $builddfltccdeflate -eq 1 -o $builddfltccinflate -eq 1; then
+-                ARCH_STATIC_OBJS="${ARCH_STATIC_OBJS} dfltcc_common.o"
+-                ARCH_SHARED_OBJS="${ARCH_SHARED_OBJS} dfltcc_common.lo"
+-            fi
+-
+             if test $builddfltccdeflate -eq 1; then
+                 CFLAGS="${CFLAGS} -DS390_DFLTCC_DEFLATE"
+                 SFLAGS="${SFLAGS} -DS390_DFLTCC_DEFLATE"
+diff --git a/test/CMakeLists.txt b/test/CMakeLists.txt
+index 3f0d023eb0..a57fb61802 100644
+--- a/test/CMakeLists.txt
++++ b/test/CMakeLists.txt
+@@ -189,7 +189,6 @@ if(WITH_GTEST)
+         if(ZLIBNG_ENABLE_TESTS)
+             list(APPEND TEST_SRCS
+                 test_adler32.cc             # adler32_neon(), etc
+-                test_aligned_alloc.cc       # zng_alloc_aligned()
+                 test_compare256.cc          # compare256_neon(), etc
+                 test_crc32.cc               # crc32_acle(), etc
+                 test_inflate_sync.cc        # expects a certain compressed block layout
+diff --git a/test/test_aligned_alloc.cc b/test/test_aligned_alloc.cc
+deleted file mode 100644
+index 07f99a9da0..0000000000
+--- a/test/test_aligned_alloc.cc
++++ /dev/null
+@@ -1,48 +0,0 @@
+-/* test_aligned_alloc.cc - Test zng_alloc_aligned and zng_free_aligned */
+-
+-#include <stdlib.h>
+-#include <errno.h>
+-#include <stdio.h>
+-
+-extern "C" {
+-#  include "zbuild.h"
+-#  include "zutil.h"
+-}
+-
+-#include <gtest/gtest.h>
+-
+-#include "test_shared.h"
+-
+-void *zng_calloc_unaligned(void *opaque, unsigned items, unsigned size) {
+-    uint8_t *pointer = (uint8_t *)calloc(1, (items * size) + 2);
+-    Z_UNUSED(opaque);
+-    if (pointer == NULL)
+-        return pointer;
+-    /* Store whether or not our allocation is aligned */
+-    *pointer = ((uint64_t)(intptr_t)pointer + 1) % 2 == 0;
+-    pointer++;
+-    if (*pointer) {
+-        /* Return pointer that is off by one */
+-        pointer++;
+-    }
+-    return (void *)pointer;
+-}
+-
+-void zng_cfree_unaligned(void *opaque, void *ptr) {
+-    uint8_t *pointer = (uint8_t *)ptr;
+-    Z_UNUSED(opaque);
+-    pointer--;
+-    /* Get whether or not our original memory pointer was aligned */
+-    if (*pointer) {
+-        /* Return original aligned pointer to free() */
+-        pointer--;
+-    }
+-    free(pointer);
+-}
+-
+-TEST(zalloc, aligned_64) {
+-    void *return_ptr = PREFIX3(alloc_aligned)(zng_calloc_unaligned, 0, 1, 100, 64);
+-    ASSERT_TRUE(return_ptr != NULL);
+-    EXPECT_EQ((intptr_t)return_ptr % 64, 0);
+-    PREFIX3(free_aligned)(zng_cfree_unaligned, 0, return_ptr);
+-}
+diff --git a/test/test_compare256.cc b/test/test_compare256.cc
+index ec2136aeba..e1662cdf04 100644
+--- a/test/test_compare256.cc
++++ b/test/test_compare256.cc
+@@ -27,11 +27,11 @@ static inline void compare256_match_check(compare256_func compare256) {
+     uint8_t *str1;
+     uint8_t *str2;
+ 
+-    str1 = (uint8_t *)PREFIX3(alloc_aligned)(NULL, NULL, 1, MAX_COMPARE_SIZE, 64);
++    str1 = (uint8_t *)PREFIX(zcalloc)(NULL, 1, MAX_COMPARE_SIZE);
+     ASSERT_TRUE(str1 != NULL);
+     memset(str1, 'a', MAX_COMPARE_SIZE);
+ 
+-    str2 = (uint8_t *)PREFIX3(alloc_aligned)(NULL, NULL, 1, MAX_COMPARE_SIZE, 64);
++    str2 = (uint8_t *)PREFIX(zcalloc)(NULL, 1, MAX_COMPARE_SIZE);
+     ASSERT_TRUE(str2 != NULL);
+     memset(str2, 'a', MAX_COMPARE_SIZE);
+ 
+@@ -46,8 +46,8 @@ static inline void compare256_match_check(compare256_func compare256) {
+             str2[i] = 'a';
+     }
+ 
+-    PREFIX3(free_aligned)(NULL, NULL, str1);
+-    PREFIX3(free_aligned)(NULL, NULL, str2);
++    PREFIX(zcfree)(NULL, str1);
++    PREFIX(zcfree)(NULL, str2);
+ }
+ 
+ #define TEST_COMPARE256(name, func, support_flag) \
+diff --git a/zutil.c b/zutil.c
+index ce620e36ba..3dba7f78fd 100644
+--- a/zutil.c
++++ b/zutil.c
+@@ -109,51 +109,3 @@ void Z_INTERNAL PREFIX(zcfree)(void *opaque, void *ptr) {
+     Z_UNUSED(opaque);
+     zng_free(ptr);
+ }
+-
+-/* Since we support custom memory allocators, some which might not align memory as we expect,
+- * we have to ask for extra memory and return an aligned pointer. */
+-void Z_INTERNAL *PREFIX3(alloc_aligned)(zng_calloc_func zalloc, void *opaque, unsigned items, unsigned size, unsigned align) {
+-    uintptr_t return_ptr, original_ptr;
+-    uint32_t alloc_size, align_diff;
+-    void *ptr;
+-
+-    /* If no custom calloc function used then call zlib-ng's aligned calloc */
+-    if (zalloc == NULL || zalloc == PREFIX(zcalloc))
+-        return PREFIX(zcalloc)(opaque, items, size);
+-
+-    /* Allocate enough memory for proper alignment and to store the original memory pointer */
+-    alloc_size = sizeof(void *) + (items * size) + align;
+-    ptr = zalloc(opaque, 1, alloc_size);
+-    if (!ptr)
+-        return NULL;
+-
+-    /* Calculate return pointer address with space enough to store original pointer */
+-    align_diff = align - ((uintptr_t)ptr % align);
+-    return_ptr = (uintptr_t)ptr + align_diff;
+-    if (align_diff < sizeof(void *))
+-        return_ptr += align;
+-
+-    /* Store the original pointer for free() */
+-    original_ptr = return_ptr - sizeof(void *);
+-    memcpy((void *)original_ptr, &ptr, sizeof(void *));
+-
+-    /* Return properly aligned pointer in allocation */
+-    return (void *)return_ptr;
+-}
+-
+-void Z_INTERNAL PREFIX3(free_aligned)(zng_cfree_func zfree, void *opaque, void *ptr) {
+-    /* If no custom cfree function used then call zlib-ng's aligned cfree */
+-    if (zfree == NULL || zfree == PREFIX(zcfree)) {
+-        PREFIX(zcfree)(opaque, ptr);
+-        return;
+-    }
+-    if (!ptr)
+-        return;
+-
+-    /* Calculate offset to original memory allocation pointer */
+-    void *original_ptr = (void *)((uintptr_t)ptr - sizeof(void *));
+-    void *free_ptr = *(void **)original_ptr;
+-
+-    /* Free original memory allocation */
+-    zfree(opaque, free_ptr);
+-}
+diff --git a/zutil.h b/zutil.h
+index fb27c08ee7..a6284502d0 100644
+--- a/zutil.h
++++ b/zutil.h
+@@ -137,12 +137,4 @@ void Z_INTERNAL  PREFIX(zcfree)(void *opaque, void *ptr);
+ typedef void *zng_calloc_func(void *opaque, unsigned items, unsigned size);
+ typedef void  zng_cfree_func(void *opaque, void *ptr);
+ 
+-void Z_INTERNAL *PREFIX3(alloc_aligned)(zng_calloc_func zalloc, void *opaque, unsigned items, unsigned size, unsigned align);
+-void Z_INTERNAL  PREFIX3(free_aligned)(zng_cfree_func zfree, void *opaque, void *ptr);
+-
+-#define ZALLOC(strm, items, size) PREFIX3(alloc_aligned)((strm)->zalloc, (strm)->opaque, (items), (size), 64)
+-#define ZFREE(strm, addr)         PREFIX3(free_aligned)((strm)->zfree, (strm)->opaque, (void *)(addr))
+-
+-#define TRY_FREE(s, p)            {if (p) ZFREE(s, p);}
+-
+ #endif /* ZUTIL_H_ */
+
+From 9645b45f7296eaebbb3306ca350e24481a11142d Mon Sep 17 00:00:00 2001
+From: Hans Kristian Rosbach <hk-git@circlestorm.org>
+Date: Sat, 25 May 2024 20:43:00 +0200
+Subject: [PATCH 5/5] Update PORTING.md to document zlib-ng memory allocation
+ details.
+
+---
+ PORTING.md | 32 ++++++++++++++++++++++++++++++++
+ 1 file changed, 32 insertions(+)
+
+diff --git a/PORTING.md b/PORTING.md
+index c48522e3a0..208f6ee9e7 100644
+--- a/PORTING.md
++++ b/PORTING.md
+@@ -4,6 +4,38 @@ Porting applications to use zlib-ng
+ Zlib-ng can be used/compiled in two different modes, that require some
+ consideration by the application developer.
+ 
++Changes from zlib affecting native and compat modes
++---------------------------------------------------
++Zlib-ng is not as conservative with memory allocation as Zlib is.
++
++Where Zlib's inflate will allocate a lower amount of memory depending on
++compression level and window size, zlib-ng will always allocate the maximum
++amount of memory and possibly leave parts of it unused.
++Zlib-ng's deflate will however allocate a lower amount of memory depending
++on compression level and window size.
++
++Zlib-ng also allocates one "big" buffer instead of doing multiple smaller
++allocations. This is faster, can lead to better cache locality and reduces
++space lost to alignment padding.
++
++At the time of writing, by default zlib-ng allocates the following amounts
++of memory on a 64-bit system (except on S390x that requires ~4KiB more):
++-  Deflate: 350.272 Bytes
++-  Inflate:  42.112 Bytes
++
++**Advantages:**
++- All memory is allocated during DeflateInit or InflateInit functions,
++  leaving the actual deflate/inflate functions free from allocations.
++- Zlib-ng can only fail from memory allocation errors during init.
++- Time spent doing memory allocation systemcalls is all done during init,
++  allowing applications to do prepare this before doing latency-sensitive
++  deflate/inflate later.
++- Can reduce wasted memory due to buffer alignment padding both by OS and zlib-ng.
++- Potentially improved memory locality.
++
++**Disadvantages:**
++- Zlib-ng allocates a little more memory than zlib does.
++
+ zlib-compat mode
+ ----------------
+ Zlib-ng can be compiled in zlib-compat mode, suitable for zlib-replacement

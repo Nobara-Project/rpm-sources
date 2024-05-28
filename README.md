@@ -23,7 +23,7 @@ Make any modifications you want here. New patches, spec sheet modifications, etc
 
 After making your modifications, create a .src.rpm file from the spec sheet, sources, and patches/files in the folder. Replace '39' in f39 with whatever version you're building -- ie f38, f39, f40. The 'f' does not change for Nobara:
 
-`fedpkg --release f39 srpm`
+`fedpkg --release f40 srpm`
 
 Now we're ready to build the resulting .src.rpm file.
 
@@ -43,11 +43,11 @@ Use mock to build the rpm. Mock config files are in the mock folder. Most packag
 
 64 bit package:
 
-`mock -r /path/to/mock/folder/nobara-39-x86_64.cfg --rebuild --enable-network *.src.rpm`
+`mock -r /path/to/mock/folder/nobara-40-x86_64.cfg --rebuild --enable-network *.src.rpm`
 
 32 bit package:
 
-`mock -r /path/to/mock/folder/nobara-39-i686.cfg --rebuild --enable-network *.src.rpm`
+`mock -r /path/to/mock/folder/nobara-40-i686.cfg --rebuild --enable-network *.src.rpm`
 
 
 > Think you will be doing a lot of local builds? You can also move the  
@@ -56,21 +56,21 @@ Use mock to build the rpm. Mock config files are in the mock folder. Most packag
 >
 >64 bit package: 
 >
->`mock -r nobara-39-x86_64 --rebuild --enable-network *.src.rpm`
+>`mock -r nobara-40-x86_64 --rebuild --enable-network *.src.rpm`
 >
 >32 bit package: 
 >
->`mock -r nobara-39-i686 --rebuild --enable-network *.src.rpm`
+>`mock -r nobara-40-i686 --rebuild --enable-network *.src.rpm`
 
 After the mock build finishes, move the results folder to the current directory:
 
 64 bit package:
 
-`mv /var/lib/mock/nobara-39-x86_64/result .`
+`mv /var/lib/mock/nobara-40-x86_64/result .`
 
 32 bit package:
 
-`mv /var/lib/mock/nobara-39-i686/result .`
+`mv /var/lib/mock/nobara-40-i686/result .`
 
 
 Optionally install or upgrade using the new rpms in the result folder:
@@ -97,7 +97,7 @@ Create a new file on your system at `~/.config/copr` with the pasted copr api gr
 Go here, make a new project:
 https://copr.fedorainfracloud.org/coprs/USERNAME-GOES-HERE/
 
-On the new project settings, check boxes of the chroots you want. For example, `fedora-39-x86_64` and `fedora-39-i386`. Check `Enable internet access during builds`. Check `Follow Fedora branching`. Check `Multilib support`.
+On the new project settings, check boxes of the chroots you want. For example, `fedora-40-x86_64` and `fedora-40-i386`. Check `Enable internet access during builds`. Check `Follow Fedora branching`. Check `Multilib support`.
 
 Navigate to the folder containing your `.src.rpm` file you generated with `fedpkg`, and submit it.
 
@@ -116,11 +116,11 @@ All chroots:
 
 64 bit:
 
-`copr-cli build nobara --nowait --chroot=fedora-39-x86_64 --timeout=36000 *.src.rpm`
+`copr-cli build nobara --nowait --chroot=fedora-40-x86_64 --timeout=36000 *.src.rpm`
 
 32 bit:
 
-`copr-cli build nobara --nowait --chroot=fedora-39-i386 --timeout=36000 *.src.rpm`
+`copr-cli build nobara --nowait --chroot=fedora-40-i386 --timeout=36000 *.src.rpm`
 
 Once the build is finished you can install it from copr like any other copr repo:
 

@@ -1,15 +1,18 @@
 Name: opentabletdriver
-Version: 0.6.3.0
+Version: 0.6.4.0
 Release: 1%{?dist}
 Summary: A cross-platform open-source tablet driver
 
-Source0: opentabletdriver-0.6.3.0.tar.gz
+# This needs to be cloned from git recursively due to submodules
+Source0: opentabletdriver-%{version}.tar.gz
 
 License: LGPLv3
 URL: https://opentabletdriver.net
 
 BuildRequires: dotnet-sdk-6.0
 Requires: dotnet-runtime-6.0
+BuildRequires: git
+BuildRequires: jq
 Requires: gtk3
 Requires: udev
 Requires(post): grep
@@ -41,7 +44,7 @@ OpenTabletDriver has support for multiple tablets from the following (non-exhaus
 %global __os_install_post %{nil}
 
 %prep
-%autosetup
+%autosetup -n OpenTabletDriver-%{version}
 
 %build
 ./eng/linux/package.sh --output bin
