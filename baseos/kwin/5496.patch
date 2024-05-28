@@ -1,0 +1,1167 @@
+From 9ba95ecd5dc328310fcd8d8ae4e5440db1ce5f50 Mon Sep 17 00:00:00 2001
+From: David Redondo <kde@david-redondo.de>
+Date: Tue, 26 Mar 2024 14:36:25 +0100
+Subject: [PATCH 1/3] Export KeyboardLayout
+
+---
+ src/keyboard_layout.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/keyboard_layout.h b/src/keyboard_layout.h
+index 55b6f2a14aa..7251b41b01b 100644
+--- a/src/keyboard_layout.h
++++ b/src/keyboard_layout.h
+@@ -31,7 +31,7 @@ namespace KeyboardLayoutSwitching
+ class Policy;
+ }
+ 
+-class KeyboardLayout : public QObject, public InputEventSpy
++class KWIN_EXPORT KeyboardLayout : public QObject, public InputEventSpy
+ {
+     Q_OBJECT
+ public:
+-- 
+GitLab
+
+
+From 2120e18729d9dd04ae607f9def88cca52ceccd8d Mon Sep 17 00:00:00 2001
+From: David Redondo <kde@david-redondo.de>
+Date: Tue, 26 Mar 2024 11:41:14 +0100
+Subject: [PATCH 2/3] Make InputRedirection::addInputBackend public
+
+This allows plugins to register additional input backends.
+---
+ src/input.h | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/src/input.h b/src/input.h
+index 44fa99b45f5..f584ea169c6 100644
+--- a/src/input.h
++++ b/src/input.h
+@@ -250,6 +250,10 @@ public:
+     void enableTouchpads();
+     void disableTouchpads();
+ 
++    void addInputDevice(InputDevice *device);
++    void removeInputDevice(InputDevice *device);
++    void addInputBackend(std::unique_ptr<InputBackend> &&inputBackend);
++
+ Q_SIGNALS:
+     void deviceAdded(InputDevice *device);
+     void deviceRemoved(InputDevice *device);
+@@ -297,10 +301,6 @@ Q_SIGNALS:
+     void hasTouchChanged(bool set);
+     void hasTabletModeSwitchChanged(bool set);
+ 
+-public Q_SLOTS:
+-    void addInputDevice(InputDevice *device);
+-    void removeInputDevice(InputDevice *device);
+-
+ private Q_SLOTS:
+     void handleInputConfigChanged(const KConfigGroup &group);
+     void updateScreens();
+@@ -313,7 +313,6 @@ private:
+     void installInputEventFilter(InputEventFilter *filter);
+     void updateLeds(LEDs leds);
+     void updateAvailableInputDevices();
+-    void addInputBackend(std::unique_ptr<InputBackend> &&inputBackend);
+     KeyboardInputRedirection *m_keyboard;
+     PointerInputRedirection *m_pointer;
+     TabletInputRedirection *m_tablet;
+-- 
+GitLab
+
+
+From 499d006e3a31f83b5fb25481c30025cde9b6b64f Mon Sep 17 00:00:00 2001
+From: David Redondo <kde@david-redondo.de>
+Date: Thu, 21 Mar 2024 12:11:16 +0100
+Subject: [PATCH 3/3] Add a libeis input backend plugin
+
+This adds a libeis backend via plugin which supports clients sending
+emulated input events. No public listening socket is exposed,
+clients are expected to go through the RemoteDesktop portal.
+In order to restrict the device types available to clients
+according to what was approved via the portal a separate eis
+context per portal request is created. The communication with
+the portal happens through a simple dbus interface where cookies
+are  handed out for each eis context so the portal can inform KWin
+when the portal session is closed/should end.
+---
+ CMakeLists.txt                     |   4 +
+ cmake/modules/FindLibeis-1.0.cmake |  37 ++++
+ src/input.cpp                      |   1 +
+ src/keyboard_input.cpp             |   5 +
+ src/keyboard_input.h               |   1 +
+ src/plugins/CMakeLists.txt         |   3 +
+ src/plugins/eis/CMakeLists.txt     |  21 ++
+ src/plugins/eis/eisbackend.cpp     | 166 +++++++++++++++
+ src/plugins/eis/eisbackend.h       |  52 +++++
+ src/plugins/eis/eiscontext.cpp     | 326 +++++++++++++++++++++++++++++
+ src/plugins/eis/eiscontext.h       |  47 +++++
+ src/plugins/eis/eisdevice.cpp      | 125 +++++++++++
+ src/plugins/eis/eisdevice.h        |  56 +++++
+ src/plugins/eis/eisplugin.cpp      |  15 ++
+ src/plugins/eis/eisplugin.h        |  17 ++
+ src/plugins/eis/main.cpp           |  32 +++
+ src/plugins/eis/metadata.json      |   5 +
+ 18 files changed, 914 insertions(+), 1 deletion(-)
+ create mode 100644 cmake/modules/FindLibeis-1.0.cmake
+ create mode 100644 src/plugins/eis/CMakeLists.txt
+ create mode 100644 src/plugins/eis/eisbackend.cpp
+ create mode 100644 src/plugins/eis/eisbackend.h
+ create mode 100644 src/plugins/eis/eiscontext.cpp
+ create mode 100644 src/plugins/eis/eiscontext.h
+ create mode 100644 src/plugins/eis/eisdevice.cpp
+ create mode 100644 src/plugins/eis/eisdevice.h
+ create mode 100644 src/plugins/eis/eisplugin.cpp
+ create mode 100644 src/plugins/eis/eisplugin.h
+ create mode 100644 src/plugins/eis/main.cpp
+ create mode 100644 src/plugins/eis/metadata.json
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index da65bfe..065da91 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -237,6 +237,9 @@ add_feature_info(XKBX11 XKBX11_FOUND "Required for handling keyboard events in X
+ find_package(Libinput 1.19)
+ set_package_properties(Libinput PROPERTIES TYPE REQUIRED PURPOSE "Required for input handling on Wayland.")
+
++find_package(Libeis-1.0)
++set_package_properties(Libeis PROPERTIES TYPE OPTIONAL PURPOSE "Required for emulated input handling.")
++
+ find_package(UDev)
+ set_package_properties(UDev PROPERTIES
+     URL "https://www.freedesktop.org/wiki/Software/systemd/"
+@@ -377,6 +380,7 @@ ecm_find_qmlmodule(org.kde.plasma.components 2.0)
+ ########### configure tests ###############
+ cmake_dependent_option(KWIN_BUILD_ACTIVITIES "Enable building of KWin with kactivities support" ON "PlasmaActivities_FOUND" OFF)
+ option(KWIN_BUILD_RUNNERS "Enable building of KWin with krunner support" ON)
++cmake_dependent_option(KWIN_BUILD_EIS "Enable building KWin with libeis support" ON "Libeis-1.0_FOUND" OFF)
+
+ set(HAVE_GLX ${epoxy_HAS_GLX})
+ get_target_property(QT_DISABLED_FEATURES Qt6::Gui QT_DISABLED_PUBLIC_FEATURES)
+diff --git a/cmake/modules/FindLibeis-1.0.cmake b/cmake/modules/FindLibeis-1.0.cmake
+new file mode 100644
+index 00000000000..e1a841d5fac
+--- /dev/null
++++ b/cmake/modules/FindLibeis-1.0.cmake
+@@ -0,0 +1,37 @@
++# SPDX-FileCopyrightText: 2024 David Redondo <kde@david-redono.de>
++# SPDX-License-Identifier: BSD-3-Clause
++
++find_package(PkgConfig)
++pkg_check_modules(PKG_Libeis QUIET libeis-1.0)
++
++find_path(Libeis_INCLUDE_DIR
++  NAMES libeis.h
++  HINTS ${PKG_Libeis_INCLUDE_DIRS}
++)
++find_library(Libeis_LIBRARY
++  NAMES eis
++  PATHS ${PKG_Libeis_LIBRARY_DIRS}
++)
++
++set(Libeis_VERSION ${PKG_Libeis_VERSION})
++
++
++include(FindPackageHandleStandardArgs)
++find_package_handle_standard_args(Libeis-1.0
++  FOUND_VAR Libeis-1.0_FOUND
++  REQUIRED_VARS
++    Libeis_LIBRARY
++    Libeis_INCLUDE_DIR
++  VERSION_VAR Libeis_VERSION
++)
++
++if(Libeis-1.0_FOUND AND NOT TARGET Libeis::Libeis)
++  add_library(Libeis::Libeis UNKNOWN IMPORTED)
++  set_target_properties(Libeis::Libeis PROPERTIES
++    IMPORTED_LOCATION "${Libeis_LIBRARY}"
++    INTERFACE_COMPILE_OPTIONS "${PKG_Libeis_CFLAGS_OTHER}"
++    INTERFACE_INCLUDE_DIRECTORIES "${Libeis_INCLUDE_DIR}"
++  )
++endif()
++
++mark_as_advanced(Libeis_INCLUDE_DIR Libeis_LIBRARY)
+diff --git a/src/input.cpp b/src/input.cpp
+index 144d85dde7a..edf58e22179 100644
+--- a/src/input.cpp
++++ b/src/input.cpp
+@@ -2665,6 +2665,7 @@ InputRedirection::InputRedirection(QObject *parent)
+     qRegisterMetaType<InputRedirection::PointerButtonState>();
+     qRegisterMetaType<InputRedirection::PointerAxis>();
+     setupInputBackends();
++
+     connect(kwinApp(), &Application::workspaceCreated, this, &InputRedirection::setupWorkspace);
+ }
+ 
+diff --git a/src/keyboard_input.cpp b/src/keyboard_input.cpp
+index 8f9325cd9a0..a1dc7ac4cdf 100644
+--- a/src/keyboard_input.cpp
++++ b/src/keyboard_input.cpp
+@@ -64,6 +64,11 @@ Qt::KeyboardModifiers KeyboardInputRedirection::modifiersRelevantForGlobalShortc
+     return m_xkb->modifiersRelevantForGlobalShortcuts();
+ }
+ 
++KeyboardLayout *KeyboardInputRedirection::keyboardLayout() const
++{
++    return m_keyboardLayout;
++}
++
+ class KeyStateChangedSpy : public InputEventSpy
+ {
+ public:
+diff --git a/src/keyboard_input.h b/src/keyboard_input.h
+index 14d5cce9337..46d4f8e6b79 100644
+--- a/src/keyboard_input.h
++++ b/src/keyboard_input.h
+@@ -57,6 +57,7 @@ public:
+     Xkb *xkb() const;
+     Qt::KeyboardModifiers modifiers() const;
+     Qt::KeyboardModifiers modifiersRelevantForGlobalShortcuts() const;
++    KeyboardLayout *keyboardLayout() const;
+ 
+ Q_SIGNALS:
+     void ledsChanged(KWin::LEDs);
+diff --git a/src/plugins/CMakeLists.txt b/src/plugins/CMakeLists.txt
+index 0a8de26c15f..7be67562e16 100644
+--- a/src/plugins/CMakeLists.txt
++++ b/src/plugins/CMakeLists.txt
+@@ -126,3 +126,6 @@ endif()
+ if(TARGET K::KGlobalAccelD)
+     add_subdirectory(kglobalaccel)
+ endif()
++if (KWIN_BUILD_EIS)
++    add_subdirectory(eis)
++endif()
+diff --git a/src/plugins/eis/CMakeLists.txt b/src/plugins/eis/CMakeLists.txt
+new file mode 100644
+index 00000000000..557925f2414
+--- /dev/null
++++ b/src/plugins/eis/CMakeLists.txt
+@@ -0,0 +1,21 @@
++# SPDX-FileCopyrightText: 2024 David Redondo <kde@david-redono.de>
++# SPDX-License-Identifier: BSD-3-Clause
++
++kcoreaddons_add_plugin(eis INSTALL_NAMESPACE "kwin/plugins")
++
++ecm_qt_declare_logging_category(eis
++    HEADER libeis_logging.h
++    IDENTIFIER KWIN_EIS
++    CATEGORY_NAME kwin_libeis
++    DEFAULT_SEVERITY Debug
++)
++
++target_sources(eis PRIVATE
++    main.cpp
++    eisdevice.cpp
++    eisbackend.cpp
++    eiscontext.cpp
++    eisplugin.cpp
++)
++
++target_link_libraries(eis PRIVATE kwin Libeis::Libeis XKB::XKB)
+diff --git a/src/plugins/eis/eisbackend.cpp b/src/plugins/eis/eisbackend.cpp
+new file mode 100644
+index 00000000000..43eca32d4b9
+--- /dev/null
++++ b/src/plugins/eis/eisbackend.cpp
+@@ -0,0 +1,166 @@
++/*
++    SPDX-FileCopyrightText: 2024 David Redondo <kde@david-redondo>
++
++    SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
++*/
++
++#include "eisbackend.h"
++
++#include "eiscontext.h"
++#include "eisdevice.h"
++#include "libeis_logging.h"
++
++#include "core/output.h"
++#include "input.h"
++#include "keyboard_input.h"
++#include "keyboard_layout.h"
++#include "main.h"
++#include "workspace.h"
++#include "xkb.h"
++
++#include <QDBusConnection>
++#include <QDBusMessage>
++#include <QDBusServiceWatcher>
++#include <QFlags>
++#include <QSocketNotifier>
++
++#include <libeis.h>
++
++#include <ranges>
++
++namespace KWin
++{
++
++EisBackend::EisBackend(QObject *parent)
++    : KWin::InputBackend(parent)
++    , m_serviceWatcher(new QDBusServiceWatcher(this))
++{
++    m_serviceWatcher->setConnection(QDBusConnection::sessionBus());
++    m_serviceWatcher->setWatchMode(QDBusServiceWatcher::WatchForUnregistration);
++    connect(m_serviceWatcher, &QDBusServiceWatcher::serviceUnregistered, this, [this](const QString &service) {
++        std::erase_if(m_contexts, [&service](const std::unique_ptr<EisContext> &context) {
++            return context->dbusService == service;
++        });
++        m_serviceWatcher->removeWatchedService(service);
++    });
++}
++
++EisBackend::~EisBackend()
++{
++}
++
++void EisBackend::initialize()
++{
++    const QByteArray keyMap = input()->keyboard()->xkb()->keymapContents();
++    m_keymapFile = RamFile("eis keymap", keyMap.data(), keyMap.size(), RamFile::Flag::SealWrite);
++    connect(input()->keyboard()->keyboardLayout(), &KeyboardLayout::layoutsReconfigured, this, [this] {
++        const QByteArray keyMap = input()->keyboard()->xkb()->keymapContents();
++        m_keymapFile = RamFile("eis keymap", keyMap.data(), keyMap.size(), RamFile::Flag::SealWrite);
++        for (const auto &context : m_contexts) {
++            context->updateKeymap();
++        }
++    });
++
++    QDBusConnection::sessionBus().registerObject("/org/kde/KWin/EIS/RemoteDesktop", "org.kde.KWin.EIS.RemoteDesktop", this, QDBusConnection::ExportAllInvokables);
++}
++
++void EisBackend::updateScreens()
++{
++    for (const auto &context : m_contexts) {
++        context->updateScreens();
++    }
++}
++
++QDBusUnixFileDescriptor EisBackend::connectToEIS(const int &capabilities, int &cookie)
++{
++    constexpr int keyboardPortal = 1;
++    constexpr int pointerPortal = 2;
++    constexpr int touchPortal = 4;
++    QFlags<eis_device_capability> eisCapabilities;
++    if (capabilities & keyboardPortal) {
++        eisCapabilities |= EIS_DEVICE_CAP_KEYBOARD;
++    }
++    if (capabilities & pointerPortal) {
++        eisCapabilities |= EIS_DEVICE_CAP_POINTER;
++        eisCapabilities |= EIS_DEVICE_CAP_POINTER_ABSOLUTE;
++        eisCapabilities |= EIS_DEVICE_CAP_BUTTON;
++        eisCapabilities |= EIS_DEVICE_CAP_SCROLL;
++    }
++    if (capabilities & touchPortal) {
++        eisCapabilities |= EIS_DEVICE_CAP_TOUCH;
++    }
++    const QString dbusService = message().service();
++    static int s_cookie = 0;
++    cookie = ++s_cookie;
++    m_contexts.push_back(std::make_unique<EisContext>(this, eisCapabilities, cookie, dbusService));
++    m_serviceWatcher->addWatchedService(dbusService);
++    return QDBusUnixFileDescriptor(m_contexts.back()->addClient());
++}
++
++void EisBackend::disconnect(int cookie)
++{
++    auto it = std::ranges::find(m_contexts, cookie, [](const std::unique_ptr<EisContext> &context) {
++        return context->cookie;
++    });
++    if (it != std::ranges::end(m_contexts)) {
++        m_contexts.erase(it);
++    }
++}
++
++eis_device *createDevice(eis_seat *seat, const QByteArray &name)
++{
++    auto device = eis_seat_new_device(seat);
++
++    auto client = eis_seat_get_client(seat);
++    const char *clientName = eis_client_get_name(client);
++    const QByteArray deviceName = clientName + (' ' + name);
++    eis_device_configure_name(device, deviceName);
++    return device;
++}
++
++eis_device *EisBackend::createPointer(eis_seat *seat)
++{
++    auto device = createDevice(seat, "eis pointer");
++    eis_device_configure_capability(device, EIS_DEVICE_CAP_POINTER);
++    eis_device_configure_capability(device, EIS_DEVICE_CAP_SCROLL);
++    eis_device_configure_capability(device, EIS_DEVICE_CAP_BUTTON);
++    return device;
++}
++
++eis_device *EisBackend::createAbsoluteDevice(eis_seat *seat)
++{
++    auto device = createDevice(seat, "eis absolute device");
++    auto eisDevice = device;
++    eis_device_configure_capability(eisDevice, EIS_DEVICE_CAP_POINTER_ABSOLUTE);
++    eis_device_configure_capability(eisDevice, EIS_DEVICE_CAP_SCROLL);
++    eis_device_configure_capability(eisDevice, EIS_DEVICE_CAP_BUTTON);
++    eis_device_configure_capability(eisDevice, EIS_DEVICE_CAP_TOUCH);
++
++    const auto outputs = workspace()->outputs();
++    for (const auto output : outputs) {
++        auto region = eis_device_new_region(eisDevice);
++        const QRect outputGeometry = output->geometry();
++        eis_region_set_offset(region, outputGeometry.x(), outputGeometry.y());
++        eis_region_set_size(region, outputGeometry.width(), outputGeometry.height());
++        eis_region_set_physical_scale(region, output->scale());
++        eis_region_add(region);
++        eis_region_unref(region);
++    };
++
++    return device;
++}
++
++eis_device *EisBackend::createKeyboard(eis_seat *seat)
++{
++    auto device = createDevice(seat, "eis keyboard");
++    eis_device_configure_capability(device, EIS_DEVICE_CAP_KEYBOARD);
++
++    if (m_keymapFile.isValid()) {
++        auto keymap = eis_device_new_keymap(device, EIS_KEYMAP_TYPE_XKB, m_keymapFile.fd(), m_keymapFile.size());
++        eis_keymap_add(keymap);
++        eis_keymap_unref(keymap);
++    }
++
++    return device;
++}
++}
+diff --git a/src/plugins/eis/eisbackend.h b/src/plugins/eis/eisbackend.h
+new file mode 100644
+index 00000000000..a34d40369be
+--- /dev/null
++++ b/src/plugins/eis/eisbackend.h
+@@ -0,0 +1,52 @@
++/*
++    SPDX-FileCopyrightText: 2024 David Redondo <kde@david-redondo>
++
++    SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
++*/
++
++#pragma once
++
++#include "core/inputbackend.h"
++#include "utils/ramfile.h"
++
++#include <QDBusContext>
++#include <QDBusUnixFileDescriptor>
++
++#include <memory>
++
++extern "C" {
++struct eis;
++struct eis_device;
++struct eis_seat;
++}
++
++class QDBusServiceWatcher;
++
++namespace KWin
++{
++class EisContext;
++
++class EisBackend : public KWin::InputBackend, public QDBusContext
++{
++    Q_OBJECT
++public:
++    explicit EisBackend(QObject *parent = nullptr);
++    ~EisBackend() override;
++    void initialize() override;
++
++    void updateScreens() override;
++
++    Q_INVOKABLE QDBusUnixFileDescriptor connectToEIS(const int &capabilities, int &cookie);
++    Q_INVOKABLE void disconnect(int cookie);
++
++    eis_device *createKeyboard(eis_seat *seat);
++    eis_device *createPointer(eis_seat *seat);
++    eis_device *createAbsoluteDevice(eis_seat *seat);
++
++private:
++    QDBusServiceWatcher *m_serviceWatcher;
++    RamFile m_keymapFile;
++    std::vector<std::unique_ptr<EisContext>> m_contexts;
++};
++
++}
+diff --git a/src/plugins/eis/eiscontext.cpp b/src/plugins/eis/eiscontext.cpp
+new file mode 100644
+index 00000000000..51b33670b7a
+--- /dev/null
++++ b/src/plugins/eis/eiscontext.cpp
+@@ -0,0 +1,326 @@
++/*
++    SPDX-FileCopyrightText: 2024 David Redondo <kde@david-redondo>
++
++    SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
++*/
++
++#include "eiscontext.h"
++#include "eisbackend.h"
++#include "eisdevice.h"
++#include "libeis_logging.h"
++
++namespace KWin
++{
++
++static void eis_log_handler(eis *eis, eis_log_priority priority, const char *message, eis_log_context *context)
++{
++    switch (priority) {
++    case EIS_LOG_PRIORITY_DEBUG:
++        qCDebug(KWIN_EIS) << "Libeis:" << message;
++        break;
++    case EIS_LOG_PRIORITY_INFO:
++        qCInfo(KWIN_EIS) << "Libeis:" << message;
++        break;
++    case EIS_LOG_PRIORITY_WARNING:
++        qCWarning(KWIN_EIS) << "Libeis:" << message;
++        break;
++    case EIS_LOG_PRIORITY_ERROR:
++        qCritical(KWIN_EIS) << "Libeis:" << message;
++        break;
++    }
++}
++
++struct EisClient
++{
++public:
++    EisClient(eis_client *client, eis_seat *seat)
++        : handle(client)
++        , seat(seat)
++    {
++        eis_seat_set_user_data(seat, this);
++        eis_client_set_user_data(client, this);
++    }
++    ~EisClient()
++    {
++        eis_seat_unref(seat);
++        eis_client_disconnect(handle);
++    }
++    eis_client *handle;
++    eis_seat *seat;
++    std::unique_ptr<EisDevice> absoluteDevice;
++    std::unique_ptr<EisDevice> pointer;
++    std::unique_ptr<EisDevice> keyboard;
++};
++
++EisContext::EisContext(KWin::EisBackend *backend, QFlags<eis_device_capability> allowedCapabilities, int cookie, const QString &dbusService)
++    : cookie(cookie)
++    , dbusService(dbusService)
++    , m_backend(backend)
++    , m_eisContext(eis_new(this))
++    , m_allowedCapabilities(allowedCapabilities)
++    , m_socketNotifier(eis_get_fd(m_eisContext), QSocketNotifier::Read)
++{
++    eis_setup_backend_fd(m_eisContext);
++    eis_log_set_priority(m_eisContext, EIS_LOG_PRIORITY_DEBUG);
++    eis_log_set_handler(m_eisContext, eis_log_handler);
++    QObject::connect(&m_socketNotifier, &QSocketNotifier::activated, [this] {
++        handleEvents();
++    });
++}
++
++EisContext::~EisContext()
++{
++    for (const auto &client : m_clients) {
++        if (client->absoluteDevice) {
++            Q_EMIT m_backend->deviceRemoved(client->absoluteDevice.get());
++        }
++        if (client->pointer) {
++            Q_EMIT m_backend->deviceRemoved(client->pointer.get());
++        }
++        if (client->keyboard) {
++            Q_EMIT m_backend->deviceRemoved(client->keyboard.get());
++        }
++    }
++}
++
++void EisContext::updateScreens()
++{
++    for (const auto &client : m_clients) {
++        if (client->absoluteDevice) {
++            client->absoluteDevice->changeDevice(m_backend->createAbsoluteDevice(client->seat));
++        }
++    }
++}
++
++void EisContext::updateKeymap()
++{
++    for (const auto &client : m_clients) {
++        if (client->keyboard) {
++            client->keyboard->changeDevice(m_backend->createKeyboard(client->seat));
++        }
++    }
++}
++
++int EisContext::addClient()
++{
++    return eis_backend_fd_add_client(m_eisContext);
++}
++
++static std::chrono::microseconds currentTime()
++{
++    return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch());
++}
++
++void EisContext::handleEvents()
++{
++    auto eventDevice = [](eis_event *event) {
++        return static_cast<EisDevice *>(eis_device_get_user_data(eis_event_get_device(event)));
++    };
++
++    eis_dispatch(m_eisContext);
++
++    while (eis_event *const event = eis_get_event(m_eisContext)) {
++        switch (eis_event_get_type(event)) {
++        case EIS_EVENT_CLIENT_CONNECT: {
++            auto client = eis_event_get_client(event);
++            const char *clientName = eis_client_get_name(client);
++            if (!eis_client_is_sender(client)) {
++                qCDebug(KWIN_EIS) << "disconnecting receiving client" << clientName;
++                eis_client_disconnect(client);
++                break;
++            }
++            eis_client_connect(client);
++
++            auto seat = eis_client_new_seat(client, QByteArrayLiteral(" seat").prepend(clientName));
++            constexpr std::array allCapabilities{EIS_DEVICE_CAP_POINTER, EIS_DEVICE_CAP_POINTER_ABSOLUTE, EIS_DEVICE_CAP_KEYBOARD, EIS_DEVICE_CAP_TOUCH, EIS_DEVICE_CAP_SCROLL, EIS_DEVICE_CAP_BUTTON};
++            for (auto capability : allCapabilities) {
++                if (m_allowedCapabilities & capability) {
++                    eis_seat_configure_capability(seat, capability);
++                }
++            }
++
++            eis_seat_add(seat);
++            m_clients.emplace_back(std::make_unique<EisClient>(client, seat));
++            qCDebug(KWIN_EIS) << "New eis client" << clientName;
++            break;
++        }
++        case EIS_EVENT_CLIENT_DISCONNECT: {
++            auto client = eis_event_get_client(event);
++            qCDebug(KWIN_EIS) << "Client disconnected" << eis_client_get_name(client);
++            if (auto seat = static_cast<EisClient *>(eis_client_get_user_data(client))) {
++                m_clients.erase(std::ranges::find(m_clients, seat, &std::unique_ptr<EisClient>::get));
++            }
++            break;
++        }
++        case EIS_EVENT_SEAT_BIND: {
++            auto seat = eis_event_get_seat(event);
++            auto clientSeat = static_cast<EisClient *>(eis_seat_get_user_data(seat));
++            qCDebug(KWIN_EIS) << "Client" << eis_client_get_name(eis_event_get_client(event)) << "bound to seat" << eis_seat_get_name(seat);
++            auto updateDevice = [event, this](std::unique_ptr<EisDevice> &device, auto &&createFunc, bool shouldHave) {
++                if (shouldHave) {
++                    if (!device) {
++                        device = std::make_unique<EisDevice>(std::invoke(createFunc, m_backend, (eis_event_get_seat(event))));
++                        device->setEnabled(true);
++                        Q_EMIT m_backend->deviceAdded(device.get());
++                    }
++                } else if (device) {
++                    Q_EMIT m_backend->deviceRemoved(device.get());
++                    device.reset();
++                }
++            };
++            updateDevice(clientSeat->absoluteDevice, &EisBackend::createAbsoluteDevice, eis_event_seat_has_capability(event, EIS_DEVICE_CAP_POINTER_ABSOLUTE) || eis_event_seat_has_capability(event, EIS_DEVICE_CAP_TOUCH));
++            updateDevice(clientSeat->pointer, &EisBackend::createPointer, eis_event_seat_has_capability(event, EIS_DEVICE_CAP_POINTER));
++            updateDevice(clientSeat->keyboard, &EisBackend::createKeyboard, eis_event_seat_has_capability(event, EIS_DEVICE_CAP_KEYBOARD));
++            break;
++        }
++        case EIS_EVENT_DEVICE_CLOSED: {
++            auto device = eventDevice(event);
++            qCDebug(KWIN_EIS) << "Device" << device->name() << "closed by client";
++            Q_EMIT m_backend->deviceRemoved(device);
++            auto seat = static_cast<EisClient *>(eis_seat_get_user_data(eis_device_get_seat(device->handle())));
++            if (device == seat->absoluteDevice.get()) {
++                seat->absoluteDevice.reset();
++            } else if (device == seat->keyboard.get()) {
++                seat->keyboard.reset();
++            } else if (device == seat->pointer.get()) {
++                seat->pointer.reset();
++            }
++            break;
++        }
++        case EIS_EVENT_FRAME: {
++            auto device = eventDevice(event);
++            qCDebug(KWIN_EIS) << "Frame for device" << device->name();
++            if (device->isTouch()) {
++                Q_EMIT device->touchFrame(device);
++            }
++            if (device->isPointer()) {
++                Q_EMIT device->pointerFrame(device);
++            }
++            break;
++        }
++        case EIS_EVENT_DEVICE_START_EMULATING: {
++            auto device = eventDevice(event);
++            qCDebug(KWIN_EIS) << "Device" << device->name() << "starts emulating";
++            break;
++        }
++        case EIS_EVENT_DEVICE_STOP_EMULATING: {
++            auto device = eventDevice(event);
++            qCDebug(KWIN_EIS) << "Device" << device->name() << "stops emulating";
++            break;
++        }
++        case EIS_EVENT_POINTER_MOTION: {
++            auto device = eventDevice(event);
++            const double x = eis_event_pointer_get_dx(event);
++            const double y = eis_event_pointer_get_dy(event);
++            qCDebug(KWIN_EIS) << device->name() << "pointer motion" << x << y;
++            const QPointF delta(x, y);
++            Q_EMIT device->pointerMotion(delta, delta, currentTime(), device);
++            break;
++        }
++        case EIS_EVENT_POINTER_MOTION_ABSOLUTE: {
++            auto device = eventDevice(event);
++            const double x = eis_event_pointer_get_absolute_x(event);
++            const double y = eis_event_pointer_get_absolute_y(event);
++            qCDebug(KWIN_EIS) << device->name() << "pointer motion absolute" << x << y;
++            Q_EMIT device->pointerMotionAbsolute({x, y}, currentTime(), device);
++            break;
++        }
++        case EIS_EVENT_BUTTON_BUTTON: {
++            auto device = eventDevice(event);
++            const quint32 button = eis_event_button_get_button(event);
++            const bool press = eis_event_button_get_is_press(event);
++            qCDebug(KWIN_EIS) << device->name() << "button" << button << press;
++            if (press) {
++                device->pressedButtons.push_back(button);
++            } else {
++                std::erase(device->pressedButtons, button);
++            }
++            Q_EMIT device->pointerButtonChanged(button, press ? InputRedirection::PointerButtonPressed : InputRedirection::PointerButtonReleased, currentTime(), device);
++            break;
++        }
++        case EIS_EVENT_SCROLL_DELTA: {
++            auto device = eventDevice(event);
++            const auto x = eis_event_scroll_get_dx(event);
++            const auto y = eis_event_scroll_get_dy(event);
++            qCDebug(KWIN_EIS) << device->name() << "scroll" << x << y;
++            if (x != 0) {
++                Q_EMIT device->pointerAxisChanged(InputRedirection::PointerAxisHorizontal, x, 0, InputRedirection::PointerAxisSourceUnknown, currentTime(), device);
++            }
++            if (y != 0) {
++                Q_EMIT device->pointerAxisChanged(InputRedirection::PointerAxisVertical, y, 0, InputRedirection::PointerAxisSourceUnknown, currentTime(), device);
++            }
++            break;
++        }
++        case EIS_EVENT_SCROLL_STOP:
++        case EIS_EVENT_SCROLL_CANCEL: {
++            auto device = eventDevice(event);
++            if (eis_event_scroll_get_stop_x(event)) {
++                qCDebug(KWIN_EIS) << device->name() << "scroll x" << (eis_event_get_type(event) == EIS_EVENT_SCROLL_STOP ? "stop" : "cancel");
++                Q_EMIT device->pointerAxisChanged(InputRedirection::PointerAxisHorizontal, 0, 0, InputRedirection::PointerAxisSourceUnknown, currentTime(), device);
++            }
++            if (eis_event_scroll_get_stop_y(event)) {
++                qCDebug(KWIN_EIS) << device->name() << "scroll y" << (eis_event_get_type(event) == EIS_EVENT_SCROLL_STOP ? "stop" : "cancel");
++                Q_EMIT device->pointerAxisChanged(InputRedirection::PointerAxisVertical, 0, 0, InputRedirection::PointerAxisSourceUnknown, currentTime(), device);
++            }
++            break;
++        }
++        case EIS_EVENT_SCROLL_DISCRETE: {
++            auto device = eventDevice(event);
++            const double x = eis_event_scroll_get_discrete_dx(event);
++            const double y = eis_event_scroll_get_discrete_dy(event);
++            qCDebug(KWIN_EIS) << device->name() << "scroll discrete" << x << y;
++            // otherwise no scroll event
++            constexpr auto anglePer120Step = 15 / 120.0;
++            if (x != 0) {
++                Q_EMIT device->pointerAxisChanged(InputRedirection::PointerAxisHorizontal, x * anglePer120Step, x, InputRedirection::PointerAxisSourceUnknown, currentTime(), device);
++            }
++            if (y != 0) {
++                Q_EMIT device->pointerAxisChanged(InputRedirection::PointerAxisVertical, y * anglePer120Step, y, InputRedirection::PointerAxisSourceUnknown, currentTime(), device);
++            }
++            break;
++        }
++        case EIS_EVENT_KEYBOARD_KEY: {
++            auto device = eventDevice(event);
++            const quint32 key = eis_event_keyboard_get_key(event);
++            const bool press = eis_event_keyboard_get_key_is_press(event);
++            qCDebug(KWIN_EIS) << device->name() << "key" << key << press;
++            if (press) {
++                device->pressedButtons.push_back(key);
++            } else {
++                std::erase(device->pressedButtons, key);
++            }
++            Q_EMIT device->keyChanged(key, press ? InputRedirection::KeyboardKeyPressed : InputRedirection::KeyboardKeyReleased, currentTime(), device);
++            break;
++        }
++        case EIS_EVENT_TOUCH_DOWN: {
++            auto device = eventDevice(event);
++            const auto x = eis_event_touch_get_x(event);
++            const auto y = eis_event_touch_get_y(event);
++            const auto id = eis_event_touch_get_id(event);
++            qCDebug(KWIN_EIS) << device->name() << "touch down" << id << x << y;
++            device->activeTouches.push_back(id);
++            Q_EMIT device->touchDown(id, {x, y}, currentTime(), device);
++            break;
++        }
++        case EIS_EVENT_TOUCH_UP: {
++            auto device = eventDevice(event);
++            const auto id = eis_event_touch_get_id(event);
++            qCDebug(KWIN_EIS) << device->name() << "touch up" << id;
++            std::erase(device->activeTouches, id);
++            Q_EMIT device->touchUp(id, currentTime(), device);
++            break;
++        }
++        case EIS_EVENT_TOUCH_MOTION: {
++            auto device = eventDevice(event);
++            const auto x = eis_event_touch_get_x(event);
++            const auto y = eis_event_touch_get_y(event);
++            const auto id = eis_event_touch_get_id(event);
++            qCDebug(KWIN_EIS) << device->name() << "touch move" << id << x << y;
++            Q_EMIT device->touchMotion(id, {x, y}, currentTime(), device);
++            break;
++        }
++        }
++        eis_event_unref(event);
++    }
++}
++}
+diff --git a/src/plugins/eis/eiscontext.h b/src/plugins/eis/eiscontext.h
+new file mode 100644
+index 00000000000..fd8f676a4f3
+--- /dev/null
++++ b/src/plugins/eis/eiscontext.h
+@@ -0,0 +1,47 @@
++/*
++    SPDX-FileCopyrightText: 2024 David Redondo <kde@david-redondo>
++
++    SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
++*/
++
++#pragma once
++
++#include <QFlag>
++#include <QSocketNotifier>
++#include <QString>
++
++#include <libeis.h>
++
++#include <memory>
++#include <vector>
++
++namespace KWin
++{
++
++class EisBackend;
++struct EisClient;
++
++class EisContext
++{
++public:
++    EisContext(EisBackend *backend, QFlags<eis_device_capability> allowedCapabilities, int cookie, const QString &dbusService);
++    ~EisContext();
++
++    int addClient();
++    void updateScreens();
++    void updateKeymap();
++
++    const int cookie;
++    const QString dbusService;
++
++private:
++    void handleEvents();
++
++    EisBackend *m_backend;
++    eis *m_eisContext;
++    QFlags<eis_device_capability> m_allowedCapabilities;
++    QSocketNotifier m_socketNotifier;
++    std::vector<std::unique_ptr<EisClient>> m_clients;
++};
++
++}
+diff --git a/src/plugins/eis/eisdevice.cpp b/src/plugins/eis/eisdevice.cpp
+new file mode 100644
+index 00000000000..3303a5da13d
+--- /dev/null
++++ b/src/plugins/eis/eisdevice.cpp
+@@ -0,0 +1,125 @@
++/*
++    SPDX-FileCopyrightText: 2024 David Redondo <kde@david-redondo>
++
++    SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
++*/
++
++#include "eisdevice.h"
++
++#include <libeis.h>
++
++namespace KWin
++{
++
++static std::chrono::microseconds currentTime()
++{
++    return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch());
++}
++
++EisDevice::EisDevice(eis_device *device, QObject *parent)
++    : InputDevice(parent)
++    , m_device(device)
++{
++    eis_device_set_user_data(device, this);
++    eis_device_add(device);
++}
++
++EisDevice::~EisDevice()
++{
++    for (const auto button : pressedButtons) {
++        Q_EMIT pointerButtonChanged(button, InputRedirection::PointerButtonReleased, currentTime(), this);
++    }
++    for (const auto key : pressedKeys) {
++        Q_EMIT keyChanged(key, InputRedirection::KeyboardKeyReleased, currentTime(), this);
++    }
++    if (!activeTouches.empty()) {
++        Q_EMIT touchCanceled(this);
++    }
++    eis_device_remove(m_device);
++    eis_device_unref(m_device);
++}
++
++void EisDevice::changeDevice(eis_device *device)
++{
++    eis_device_set_user_data(m_device, nullptr);
++    eis_device_remove(m_device);
++    eis_device_unref(m_device);
++    m_device = device;
++    eis_device_set_user_data(device, this);
++    eis_device_add(device);
++    if (m_enabled) {
++        eis_device_resume(device);
++    }
++}
++
++QString EisDevice::sysName() const
++{
++    return QString();
++}
++
++QString EisDevice::name() const
++{
++    return QString::fromUtf8(eis_device_get_name(m_device));
++}
++
++bool EisDevice::isEnabled() const
++{
++    return m_enabled;
++}
++
++void EisDevice::setEnabled(bool enabled)
++{
++    m_enabled = enabled;
++    enabled ? eis_device_resume(m_device) : eis_device_pause(m_device);
++}
++
++LEDs EisDevice::leds() const
++{
++    return LEDs();
++}
++
++void EisDevice::setLeds(LEDs leds)
++{
++}
++
++bool EisDevice::isKeyboard() const
++{
++    return eis_device_has_capability(m_device, EIS_DEVICE_CAP_KEYBOARD);
++}
++
++bool EisDevice::isPointer() const
++{
++    return eis_device_has_capability(m_device, EIS_DEVICE_CAP_POINTER) || eis_device_has_capability(m_device, EIS_DEVICE_CAP_POINTER_ABSOLUTE);
++}
++
++bool EisDevice::isTouchpad() const
++{
++    return false;
++}
++
++bool EisDevice::isTouch() const
++{
++    return eis_device_has_capability(m_device, EIS_DEVICE_CAP_TOUCH);
++}
++
++bool EisDevice::isTabletTool() const
++{
++    return false;
++}
++
++bool EisDevice::isTabletPad() const
++{
++    return false;
++}
++
++bool EisDevice::isTabletModeSwitch() const
++{
++    return false;
++}
++
++bool EisDevice::isLidSwitch() const
++{
++    return false;
++}
++
++}
+diff --git a/src/plugins/eis/eisdevice.h b/src/plugins/eis/eisdevice.h
+new file mode 100644
+index 00000000000..ed24f90a881
+--- /dev/null
++++ b/src/plugins/eis/eisdevice.h
+@@ -0,0 +1,56 @@
++/*
++    SPDX-FileCopyrightText: 2024 David Redondo <kde@david-redondo>
++
++    SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
++*/
++
++#pragma once
++
++#include "core/inputdevice.h"
++
++struct eis_device;
++
++namespace KWin
++{
++
++class EisDevice : public InputDevice
++{
++    Q_OBJECT
++public:
++    explicit EisDevice(eis_device *device, QObject *parent = nullptr);
++    ~EisDevice() override;
++
++    eis_device *handle() const
++    {
++        return m_device;
++    }
++    void changeDevice(eis_device *device);
++
++    std::vector<quint32> pressedButtons;
++    std::vector<quint32> pressedKeys;
++    std::vector<int> activeTouches;
++
++    QString sysName() const override;
++    QString name() const override;
++
++    bool isEnabled() const override;
++    void setEnabled(bool enabled) override;
++
++    LEDs leds() const override;
++    void setLeds(LEDs leds) override;
++
++    bool isKeyboard() const override;
++    bool isPointer() const override;
++    bool isTouchpad() const override;
++    bool isTouch() const override;
++    bool isTabletTool() const override;
++    bool isTabletPad() const override;
++    bool isTabletModeSwitch() const override;
++    bool isLidSwitch() const override;
++
++private:
++    eis_device *m_device;
++    bool m_enabled;
++};
++
++}
+diff --git a/src/plugins/eis/eisplugin.cpp b/src/plugins/eis/eisplugin.cpp
+new file mode 100644
+index 00000000000..561835cd00a
+--- /dev/null
++++ b/src/plugins/eis/eisplugin.cpp
+@@ -0,0 +1,15 @@
++#include "eisplugin.h"
++
++#include "eisbackend.h"
++
++#include "input.h"
++
++EisPlugin::EisPlugin()
++    : Plugin()
++{
++    KWin::input()->addInputBackend(std::make_unique<KWin::EisBackend>());
++}
++
++EisPlugin::~EisPlugin()
++{
++}
+diff --git a/src/plugins/eis/eisplugin.h b/src/plugins/eis/eisplugin.h
+new file mode 100644
+index 00000000000..56d58a02346
+--- /dev/null
++++ b/src/plugins/eis/eisplugin.h
+@@ -0,0 +1,17 @@
++/*
++    SPDX-FileCopyrightText: 2024 David Redondo <kde@david-redono.de>
++
++    SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
++*/
++
++#pragma once
++
++#include "plugin.h"
++
++class EisPlugin : public KWin::Plugin
++{
++    Q_OBJECT
++public:
++    EisPlugin();
++    ~EisPlugin() override;
++};
+diff --git a/src/plugins/eis/main.cpp b/src/plugins/eis/main.cpp
+new file mode 100644
+index 00000000000..3a21a5c5efc
+--- /dev/null
++++ b/src/plugins/eis/main.cpp
+@@ -0,0 +1,32 @@
++/*
++    SPDX-FileCopyrightText: 2024 David Redondo <kde@david-redono.de>
++
++    SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
++*/
++
++#include "main.h"
++#include "plugin.h"
++
++#include "eisplugin.h"
++
++class KWIN_EXPORT EisPluginFactory : public KWin::PluginFactory
++{
++    Q_OBJECT
++    Q_PLUGIN_METADATA(IID PluginFactory_iid FILE "metadata.json")
++    Q_INTERFACES(KWin::PluginFactory)
++
++public:
++    std::unique_ptr<KWin::Plugin> create() const override
++    {
++        switch (KWin::kwinApp()->operationMode()) {
++        case KWin::Application::OperationModeXwayland:
++        case KWin::Application::OperationModeWaylandOnly:
++            return std::make_unique<EisPlugin>();
++        case KWin::Application::OperationModeX11:
++        default:
++            return nullptr;
++        }
++    }
++};
++
++#include "main.moc"
+diff --git a/src/plugins/eis/metadata.json b/src/plugins/eis/metadata.json
+new file mode 100644
+index 00000000000..aa304f40935
+--- /dev/null
++++ b/src/plugins/eis/metadata.json
+@@ -0,0 +1,5 @@
++{
++    "KPlugin": {
++        "EnabledByDefault": true
++    }
++}
+-- 
+GitLab
+

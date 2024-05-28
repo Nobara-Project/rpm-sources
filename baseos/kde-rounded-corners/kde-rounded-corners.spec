@@ -1,11 +1,13 @@
+%global gitcommit 9bc9d96aad32b2aed1f35525048df95965fbcec8
+
 Name:           kde-rounded-corners
 Version:        0.6.5
-Release:        2%{?dist}
+Release:        5%{?dist}
 Summary:        Rounds the corners of your windows in KDE Plasma
 
 License:        GPL-3.0-only
 URL:            https://github.com/matinlotfali/KDE-Rounded-Corners
-Source:         %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
+Source:         https://github.com/matinlotfali/KDE-Rounded-Corners/archive/refs/heads/master.tar.gz
 Patch0:         0001-use-some-sane-default-shadows-and-outlines.patch
 
 BuildRequires:  cmake
@@ -40,7 +42,7 @@ Obsoletes:  plasma-rounded-corners
 %{summary}.
 
 %prep
-%autosetup -n KDE-Rounded-Corners-%{version} -p1
+%autosetup -n KDE-Rounded-Corners-master -p1
 
 %build
 %cmake_kf6 -DQT_MAJOR_VERSION=6

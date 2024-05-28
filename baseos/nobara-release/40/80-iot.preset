@@ -1,0 +1,24 @@
+#
+# Fedora IoT
+#
+
+# greenboot generic health checking framework
+enable greenboot-grub2-set-counter.service
+enable greenboot-grub2-set-success.service
+enable greenboot-healthcheck.service
+enable greenboot-rpm-ostree-grub2-check-fallback.service
+enable greenboot-status.service
+enable greenboot-task-runner.service
+enable greenboot-loading-message.service
+enable redboot-auto-reboot.service
+enable redboot-task-runner.service
+
+# PARSEC services
+enable parsec.service
+enable dbus-parsec.service
+
+# zezere_ignition provides first-boot provisioning and configuration
+enable zezere_ignition.timer
+
+# https://fedoraproject.org/wiki/Changes/EnableFwupdRefreshByDefault
+enable fwupd-refresh.timer

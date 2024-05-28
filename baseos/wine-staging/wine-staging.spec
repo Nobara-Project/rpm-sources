@@ -31,19 +31,17 @@
 
 Name:       %pkg
 Version:    %ver
-Release:    10.1
-Epoch:      1
+Release:    14
+Epoch:      2
 Summary:    WINE Is Not An Emulator - runs MS Windows programs
 License:    LGPLv2+
 Group:      Emulators
 URL:        https://www.winehq.org/
 
 %define wine    %{name}
-%ifarch x86_64
+
 %define mark64  ()(64bit)
-%else
-%define mark64  %{nil}
-%endif
+
 
 Source0:	https://dl.winehq.org/wine/source/9.x/wine-%{realver}.tar.xz
 Source1:	https://dl.winehq.org/wine/source/9.x/wine-%{realver}.tar.xz.sign
@@ -141,21 +139,14 @@ BuildRequires:  util-linux
 
 Summary:    WINE Is Not An Emulator - runs MS Windows programs
 Group:      Emulators
-%ifarch x86_64
-Conflicts:  %{name}
-%else
-Conflicts:  %{name}64
-%endif
+Provides:  %{name}
+Provides:  %{name}64
+Obsoletes:  %{name}64
+Provides:  %{name}-common
 Provides:   %{lib_name} = %{epoch}:%{version}-%{release}
 Obsoletes:  %{lib_name} <= %{epoch}:%{version}-%{release}
 Provides:   %{name}-bin = %{epoch}:%{version}-%{release}
 
-%ifarch %{ix86}
-%package -n %{name}-common
-Summary:    WINE Is Not An Emulator - runs MS Windows programs (32-bit common files)
-Group:      Emulators
-Requires:   %{name}-bin = %{epoch}:%{version}-%{release}
-%endif
 
 %define dlopenreq() %(F=/usr/%{_lib}/lib%{1}.so;[ -e $F ] && (file $F|grep -q ASCII && grep -o 'lib[^ ]*' $F|sed -e "s/\$/%{mark64}/"||objdump -p $F | grep SONAME | awk '{ print $2 "%{mark64}" }') || echo "wine-missing-buildrequires-on-%{1}")
 Requires:   %dlopenreq asound
@@ -201,27 +192,14 @@ be used for porting Win32 code into native Unix executables.
 %description
 %desc
 
-%ifarch x86_64
 %description -n %{wine}
 %desc
-%else
-%description -n %{name}-common
-Wine is a program which allows running Microsoft Windows programs
-(including DOS, Windows 3.x and Win32 executables) on Unix.
-
-This package contains the files needed to support 32-bit Windows
-programs, and is used by both %{name} and %{name}64.
-%endif
 
 %package -n %{wine}-devel
 Summary:    Static libraries and headers for %{name} (64-bit)
 Group:      Development/C
 Requires:   %{wine} = %{epoch}:%{version}-%{release}
-%ifarch x86_64
-Conflicts:  %{name}-devel
-%else
-Conflicts:  %{name}64-devel
-%endif
+Obsoletes:  %{name}64-devel
 Provides:   %{lib_name_devel} = %{epoch}:%{version}-%{release}
 Obsoletes:  %{lib_name_devel} <= %{epoch}:%{version}-%{release}
 %description -n %{wine}-devel
@@ -254,11 +232,7 @@ tar xf %{SOURCE100}
 
 %build
 %define debug_package %{nil}
-%ifarch x86_64
 export CFLAGS="$(echo "%{optflags}" | sed -e 's/-O2//' -e 's/-Wp,-D_FORTIFY_SOURCE=2//' -e 's/-fcf-protection//' -e 's/-fstack-protector-strong//' -e 's/-fstack-clash-protection//') -O2"
-%else
-export CFLAGS="$(echo "%{optflags}" | sed -e 's/-Wp,-D_FORTIFY_SOURCE=2//' -e 's/-fcf-protection//' -e 's/-fstack-protector-strong//' -e 's/-fstack-clash-protection//')"
-%endif
 autoreconf -i -f
 %configure \
     --with-gstreamer \
@@ -300,12 +274,11 @@ for _dir in man1 de.UTF-8/man1 fr.UTF-8/man1 pl.UTF-8/man1; do \
 done
 %endif
 
-%ifarch x86_64
 install -p -m 0644 loader/wine.man          "%{buildroot}/usr/share/man/man1/wine.1"
 install -p -m 0644 loader/wine.de.UTF-8.man "%{buildroot}/usr/share/man/de.UTF-8/man1/wine.1"
 install -p -m 0644 loader/wine.fr.UTF-8.man "%{buildroot}/usr/share/man/fr.UTF-8/man1/wine.1"
 install -p -m 0644 loader/wine.pl.UTF-8.man "%{buildroot}/usr/share/man/pl.UTF-8/man1/wine.1"
-%endif
+
 
 %files -n %{wine}
 %doc ANNOUNCE.md AUTHORS README.md

@@ -1,0 +1,30 @@
+# Enable the D-Bus service (including its socket for socket activation)
+# unconditionally. It is used throughout Fedora and required on all machines.
+# https://src.fedoraproject.org/rpms/fedora-release/pull-request/4
+# https://fedoraproject.org/w/index.php?title=Starting_services_by_default&oldid=377748
+enable dbus.socket
+enable dbus-broker.service
+
+# Socket-activated pipewire service for individual user sessions
+# https://bugzilla.redhat.com/show_bug.cgi?id=1592434
+enable pipewire.socket
+
+# Enable the PipeWire PulseAudio compatibility socket interface
+# https://bugzilla.redhat.com/show_bug.cgi?id=1904239
+# https://bugzilla.redhat.com/show_bug.cgi?id=1907906
+# https://fedoraproject.org/wiki/Changes/DefaultPipeWire
+enable pipewire-pulse.socket
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=1976006
+enable pipewire-media-session.service
+# https://bugzilla.redhat.com/show_bug.cgi?id=1979419
+enable wireplumber.service
+
+# Enable the session agent for snaps
+# https://bugzilla.redhat.com/show_bug.cgi?id=1734371
+enable snapd.session-agent.socket
+
+# https://src.fedoraproject.org/rpms/fedora-release/pull-request/80
+enable obex.service
+enable grub-boot-success.timer
+enable pulseaudio.socket
