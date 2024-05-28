@@ -8,6 +8,7 @@
 
 Summary:   Xwayland
 Name:      xorg-x11-server-Xwayland
+
 Version:   24.1.0
 Release:   1%{?gitdate:.%{gitdate}git%{shortcommit}}%{?dist}
 

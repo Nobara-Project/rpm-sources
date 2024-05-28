@@ -1,16 +1,16 @@
 %global libliftoff_minver 0.4.1
 
 # latest git
-%define commit c7ef7c42997c4da51bd8b336b0021062fe5d534c
+%define commit 420eb91387a484fd7b1ea71449091f0480d9e538
 
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global _default_patch_fuzz 2
 %global build_timestamp %(date +"%Y%m%d")
 
-%global rel_build 4.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           gamescope
-Version:        3.14.11
+Version:        3.14.18
 Release:        %{rel_build}
 Summary:        Micro-compositor for video games on Wayland
 
@@ -19,6 +19,14 @@ URL:            https://github.com/ValveSoftware/gamescope
 
 # Create stb.pc to satisfy dependency('stb')
 Source0:        stb.pc
+
+# hardware patchset from ChimeraOS and Bazzite
+Patch0:         hardware.patch
+Patch1:         720p.patch
+Patch2:         disable-steam-touch-click-atom.patch
+Patch3:         external-rotation.patch
+Patch4:         panel-type.patch
+Patch5:         deckhd.patch
 
 BuildRequires:  meson >= 0.54.0
 BuildRequires:  ninja-build
@@ -30,7 +38,9 @@ BuildRequires:  google-benchmark-devel
 BuildRequires:  libXmu-devel
 BuildRequires:  libXcursor-devel
 BuildRequires:  libeis-devel
+BuildRequires:  pixman-devel
 BuildRequires:  pkgconfig(libdisplay-info)
+BuildRequires:  pkgconfig(pixman-1)
 BuildRequires:  pkgconfig(x11)
 BuildRequires:  pkgconfig(xdamage)
 BuildRequires:  pkgconfig(xcomposite)
@@ -103,7 +113,7 @@ sed -i 's^../thirdparty/SPIRV-Headers/include/spirv/^/usr/include/spirv/^' src/m
 %build
 cd gamescope
 export PKG_CONFIG_PATH=pkgconfig
-%meson -Dpipewire=enabled -Dinput_emulation=enabled -Ddrm_backend=enabled -Drt_cap=enabled -Davif_screenshots=enabled -Dsdl2_backend=enabled -Dforce_fallback_for=vkroots
+%meson -Dpipewire=enabled -Dinput_emulation=enabled -Ddrm_backend=enabled -Drt_cap=enabled -Davif_screenshots=enabled -Dsdl2_backend=enabled -Dforce_fallback_for=vkroots,wlroots,libliftoff
 %meson_build
 
 %install
@@ -114,6 +124,7 @@ cd gamescope
 %license gamescope/LICENSE
 %doc gamescope/README.md
 %{_bindir}/gamescope
+%{_bindir}/gamescopestream
 
 %files libs
 %{_libdir}/*.so
