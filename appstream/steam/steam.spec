@@ -5,7 +5,7 @@
 
 Name:           steam
 Version:        1.0.0.79
-Release:        10%{?dist}
+Release:        11%{?dist}
 Summary:        Installer for the Steam software distribution service
 # Redistribution and repackaging for Linux is allowed, see license file. udev rules are MIT.
 License:        Steam License Agreement and MIT
@@ -51,12 +51,6 @@ BuildRequires:  desktop-file-utils
 BuildRequires:  libappstream-glib
 BuildRequires:  make
 BuildRequires:  systemd
-# for libextest
-BuildRequires:  git
-BuildRequires:  glibc-devel(x86-32)
-BuildRequires:  cmake
-BuildRequires:  make
-BuildRequires:  gcc
 
 # Required to run the initial setup
 Requires:       tar
@@ -158,18 +152,6 @@ This package contains the necessary permissions for gaming devices.
 
 cp %{SOURCE5} .
 
-# The Steam Deck controller's touchpad breaks cursor movement when steam is opened on wayland
-# To fix this we use the following workaround:
-# https://github.com/Supreeeme/extest
-# We compile this manually and provide the result
-git clone https://github.com/Supreeeme/extest
-cd extest
-curl https://sh.rustup.rs -sSf | sh -s -- -y
-source "$HOME/.cargo/env"
-rustup target add i686-unknown-linux-gnu
-cargo build --release
-cd ..
-
 %build
 # Nothing to build
 
@@ -194,9 +176,6 @@ mkdir -p %{buildroot}%{_bindir}/
 install -m 644 -p %{SOURCE7} %{buildroot}%{_prefix}/lib/systemd/system.conf.d/
 install -m 644 -p %{SOURCE7} %{buildroot}%{_prefix}/lib/systemd/user.conf.d/
 install -m 775 -p %{SOURCE11} %{buildroot}%{_bindir}/steamrestart
-
-# install libextest
-cp extest/target/i686-unknown-linux-gnu/release/libextest.so %{buildroot}%{_libdir}/%{name}/
 
 # Fixes steam open/close loop bug:
 # https://github.com/ValveSoftware/steam-for-linux/issues/8179
@@ -233,7 +212,6 @@ appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/%{appstream_id
 %{_datadir}/pixmaps/%{name}.png
 %{_datadir}/pixmaps/%{name}_tray_mono.png
 %{_libdir}/%{name}/
-%{_libdir}/%{name}/libextest.so
 %{_sysconfdir}/skel/Desktop/*
 %{_mandir}/man6/%{name}.*
 %{_metainfodir}/%{appstream_id}.metainfo.xml
