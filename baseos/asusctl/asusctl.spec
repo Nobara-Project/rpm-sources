@@ -21,13 +21,13 @@
 %endif
 
 %define specrelease %{?dist}
-%define pkg_release 2%{specrelease}
-%define vendor_upload_hash 15f94f447c4cec063923c8d356f47695
+%define pkg_release 3%{specrelease}
+%define vendor_upload_hash 9ed4417d95f99585d013a27d2aa6dce7
 
 # Use hardening ldflags.
 %global rustflags -Clink-arg=-Wl,-z,relro,-z,now
 Name:           asusctl
-Version:        5.0.10
+Version:        6.0.10
 Release: %{pkg_release}
 Summary:        Control fan speeds, LEDs, graphics modes, and charge levels for ASUS notebooks
 License:        MPLv2
@@ -36,8 +36,8 @@ Group:          System Environment/Kernel
 
 URL:            https://gitlab.com/asus-linux/asusctl
 Source:         %{URL}/-/archive/%{version}/%{name}-%{version}.tar.gz
-Source1:        %{URL}/uploads/%{vendor_upload_hash}/vendor_%{name}_.tar.xz
-Source2:        cargo_config
+Source1:        %{URL}/uploads/%{vendor_upload_hash}/vendor_%{name}_%{version}.tar.xz
+Source2:        cargo-config
 
 BuildRequires:  cargo
 BuildRequires:  rust-packaging
@@ -46,8 +46,15 @@ BuildRequires:  clang-devel
 BuildRequires:  cmake
 BuildRequires:  rust
 BuildRequires:  rust-std-static
+BuildRequires:  pkgconfig(expat)
+BuildRequires:  pkgconfig(gbm)
 BuildRequires:  pkgconfig(dbus-1)
+BuildRequires:  pkgconfig(libdrm)
+BuildRequires:  pkgconfig(libinput)
+BuildRequires:  pkgconfig(libseat)
 BuildRequires:  pkgconfig(libudev)
+BuildRequires:  pkgconfig(xkbcommon)
+BuildRequires:  pkgconfig(libzstd)
 BuildRequires:  pkgconfig(gtk+-3.0)
 BuildRequires:  pkgconfig(gdk-3.0)
 BuildRequires:  desktop-file-utils
