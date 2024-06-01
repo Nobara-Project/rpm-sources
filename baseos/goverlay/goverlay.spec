@@ -1,7 +1,7 @@
 ## START: Set by rpmautospec
 ## (rpmautospec version 0.3.0)
 %define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
-    release_number = 1;
+    release_number = 2;
     base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
     print(release_number + base_release_number - 1);
 }%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
@@ -11,6 +11,7 @@
 Name:           goverlay
 Version:        1.1.1
 Release:        %autorelease
+Epoch:          2
 Summary:        Project that aims to create a Graphical UI to help manage Linux overlays
 ExclusiveArch:  %{fpc_arches}
 
@@ -52,7 +53,7 @@ really likes Linux and Gaming.
 
 
 %prep
-%autosetup -n %{name}-%{version}
+%autosetup -p1 -n %{name}-%{version}
 
 
 %build

@@ -1,6 +1,6 @@
 %global majorversion 1
 %global minorversion 0
-%global microversion 6
+%global microversion 7
 
 %global apiversion   0.3
 %global spaversion   0.2
