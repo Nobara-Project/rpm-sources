@@ -1,0 +1,229 @@
+From: Jonathan LoBue <jlobue10@gmail.com>
+
+Adds a description of the duplicate ACPI identifier issue
+between devices using bmc150 and bmi323.
+
+Tested-by: Hans de Goede <hdegoede@redhat.com>
+Reviewed-by: Hans de Goede <hdegoede@redhat.com>
+Reviewed-by: Andy Shevchenko <andy.shevchenko@gmail.com>
+Co-developed-by: Luke D. Jones <luke@ljones.dev>
+Signed-off-by: Luke D. Jones <luke@ljones.dev>
+Co-developed-by: Denis Benato <benato.denis96@gmail.com>
+Signed-off-by: Denis Benato <benato.denis96@gmail.com>
+Co-developed-by: Antheas Kapenekakis <lkml@antheas.dev>
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+Signed-off-by: Jonathan LoBue <jlobue10@gmail.com>
+---
+ drivers/iio/accel/bmc150-accel-i2c.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/drivers/iio/accel/bmc150-accel-i2c.c b/drivers/iio/accel/bmc150-accel-i2c.c
+index ee1ba134ad42..353271e23235 100644
+--- a/drivers/iio/accel/bmc150-accel-i2c.c
++++ b/drivers/iio/accel/bmc150-accel-i2c.c
+@@ -224,6 +224,19 @@ static const struct acpi_device_id bmc150_accel_acpi_match[] = {
+ 	{"BMA250E"},
+ 	{"BMC150A"},
+ 	{"BMI055A"},
++	/*
++ 	 * The "BOSC0200" identifier used here is not unique to devices using
++ 	 * bmc150. The same "BOSC0200" identifier is found in the ACPI tables of
++ 	 * the ASUS ROG ALLY and Ayaneo AIR Plus which both use a Bosch BMI323
++ 	 * chip. This creates a conflict with duplicate ACPI identifiers which
++ 	 * multiple drivers want to use. Fortunately, when the bmc150 driver
++ 	 * starts to load on the ASUS ROG ALLY, the chip ID check portion fails
++ 	 * (correctly) because the chip IDs received (via i2c) are unique between
++ 	 * bmc150 and bmi323 and a dmesg output similar to this:
++ 	 * "bmc150_accel_i2c i2c-BOSC0200:00: Invalid chip 0" can be seen.
++ 	 * This allows the bmi323 driver to take over for ASUS ROG ALLY, and
++ 	 * other devices using the bmi323 chip.
++ 	 */
+ 	{"BOSC0200"},
+ 	{"BSBA0150"},
+ 	{"DUAL250E"},
+From: Jonathan LoBue <jlobue10@gmail.com>
+
+Adds the ACPI match table for ASUS ROG ALLY to load the bmi323
+driver with an ACPI match of "BOSC0200", and a comment about duplicate
+ACPI identifiers between devices using the bmc150 and bmi323 chips.
+
+Tested-by: Hans de Goede <hdegoede@redhat.com>
+Reviewed-by: Hans de Goede <hdegoede@redhat.com>
+Reviewed-by: Andy Shevchenko <andy.shevchenko@gmail.com>
+Co-developed-by: Luke D. Jones <luke@ljones.dev>
+Signed-off-by: Luke D. Jones <luke@ljones.dev>
+Co-developed-by: Denis Benato <benato.denis96@gmail.com>
+Signed-off-by: Denis Benato <benato.denis96@gmail.com>
+Co-developed-by: Antheas Kapenekakis <lkml@antheas.dev>
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+Signed-off-by: Jonathan LoBue <jlobue10@gmail.com>
+---
+ drivers/iio/imu/bmi323/bmi323_i2c.c | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/drivers/iio/imu/bmi323/bmi323_i2c.c b/drivers/iio/imu/bmi323/bmi323_i2c.c
+index 20a8001b9956..f7550503e47e 100644
+--- a/drivers/iio/imu/bmi323/bmi323_i2c.c
++++ b/drivers/iio/imu/bmi323/bmi323_i2c.c
+@@ -93,6 +93,25 @@ static int bmi323_i2c_probe(struct i2c_client *i2c)
+ 	return bmi323_core_probe(dev);
+ }
+
++static const struct acpi_device_id bmi323_acpi_match[] = {
++	/*
++ 	 * The "BOSC0200" identifier used here is not unique to bmi323 devices.
++ 	 * The same "BOSC0200" identifier is found in the ACPI tables of devices
++ 	 * using the bmc150 chip. This creates a conflict with duplicate ACPI
++ 	 * identifiers which multiple drivers want to use. If a non-bmi323 device
++ 	 * starts to load with this "BOSC0200" ACPI match here, then the chip
++ 	 * ID check portion should fail because the chip IDs received (via i2c) are
++ 	 * unique between bmc150 and bmi323 and the driver should relinquish the
++ 	 * device. If and when a different driver (such as bmc150) starts to load
++ 	 * with the "BOSC0200" ACPI match, a short reset should ensure that the
++ 	 * device is not in a bad state during that driver initialization. This
++ 	 * device reset does occur in both the bmi323 and bmc150 init sequences.
++ 	 */
++	{ "BOSC0200" },
++	{ }
++};
++MODULE_DEVICE_TABLE(acpi, bmi323_acpi_match);
++
+ static const struct i2c_device_id bmi323_i2c_ids[] = {
+ 	{ "bmi323" },
+ 	{ }
+@@ -109,6 +128,7 @@ static struct i2c_driver bmi323_i2c_driver = {
+ 	.driver = {
+ 		.name = "bmi323",
+ 		.of_match_table = bmi323_of_i2c_match,
++		.acpi_match_table = bmi323_acpi_match,
+ 	},
+ 	.probe = bmi323_i2c_probe,
+ 	.id_table = bmi323_i2c_ids,
+From: Jonathan LoBue <jlobue10@gmail.com>
+Date: Sun, 25 Feb 2024 14:43:01 -0800
+Subject: [PATCH] iio: imu: bmi323: Implement ACPI method ROTM for mount matrix
+
+Retrieve mount matrix from ACPI ROTM table.
+
+---
+ drivers/iio/imu/bmi323/bmi323_core.c | 79 ++++++++++++++++++++++++++--
+ 1 file changed, 76 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/iio/imu/bmi323/bmi323_core.c b/drivers/iio/imu/bmi323/bmi323_core.c
+index 183af482828f..bb9f05183814 100644
+--- a/drivers/iio/imu/bmi323/bmi323_core.c
++++ b/drivers/iio/imu/bmi323/bmi323_core.c
+@@ -7,6 +7,7 @@
+  * Datasheet: https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bmi323-ds000.pdf
+  */
+
++#include <linux/acpi.h>
+ #include <linux/bitfield.h>
+ #include <linux/cleanup.h>
+ #include <linux/device.h>
+@@ -1997,6 +1998,76 @@ static int bmi323_set_bw(struct bmi323_data *data,
+ 				  FIELD_PREP(BMI323_ACC_GYRO_CONF_BW_MSK, bw));
+ }
+
++static bool bmi323_acpi_orientation(struct device *dev,
++				 struct iio_mount_matrix *orientation)
++{
++	struct acpi_buffer buffer = { ACPI_ALLOCATE_BUFFER, NULL };
++	struct acpi_device *adev = ACPI_COMPANION(dev);
++	char *str;
++	union acpi_object *obj, *elements;
++	acpi_status status;
++	int i, j, val[3];
++	bool ret = false;
++
++	if (!acpi_has_method(adev->handle, "ROTM"))
++		return false;
++
++	status = acpi_evaluate_object(adev->handle, "ROTM", NULL, &buffer);
++	if (ACPI_FAILURE(status)) {
++		dev_err(dev, "Failed to get ACPI mount matrix: %d\n", status);
++		return false;
++	}
++
++	obj = buffer.pointer;
++	if (obj->type != ACPI_TYPE_PACKAGE || obj->package.count != 3) {
++		dev_err(dev, "Unknown ACPI mount matrix package format\n");
++		goto out_free_buffer;
++	}
++
++	elements = obj->package.elements;
++	for (i = 0; i < 3; i++) {
++		if (elements[i].type != ACPI_TYPE_STRING) {
++			dev_err(dev, "Unknown ACPI mount matrix element format\n");
++			goto out_free_buffer;
++		}
++
++		str = elements[i].string.pointer;
++		if (sscanf(str, "%d %d %d", &val[0], &val[1], &val[2]) != 3) {
++			dev_err(dev, "Incorrect ACPI mount matrix string format\n");
++			goto out_free_buffer;
++		}
++
++		for (j = 0; j < 3; j++) {
++			switch (val[j]) {
++			case -1: str = "-1"; break;
++			case 0:  str = "0";  break;
++			case 1:  str = "1";  break;
++			default:
++				dev_err(dev, "Invalid value in ACPI mount matrix: %d\n", val[j]);
++				goto out_free_buffer;
++			}
++			orientation->rotation[i * 3 + j] = str;
++		}
++	}
++
++	ret = true;
++
++out_free_buffer:
++	kfree(buffer.pointer);
++	return ret;
++}
++
++static bool bmi323_apply_acpi_orientation(struct device *dev,
++					  struct iio_mount_matrix *orientation)
++{
++	struct acpi_device *adev = ACPI_COMPANION(dev);
++
++	if (adev)
++		return bmi323_acpi_orientation(dev, orientation);
++
++	return false;
++}
++
+ static int bmi323_init(struct bmi323_data *data)
+ {
+ 	int ret, val;
+@@ -2099,9 +2170,11 @@ int bmi323_core_probe(struct device *dev)
+ 	if (ret)
+ 		return -EINVAL;
+
+-	ret = iio_read_mount_matrix(dev, &data->orientation);
+-	if (ret)
+-		return ret;
++	if (!bmi323_apply_acpi_orientation(dev, &data->orientation)) {
++		ret = iio_read_mount_matrix(dev, &data->orientation);
++		if (ret)
++			return ret;
++	}
+
+ 	indio_dev->name = "bmi323-imu";
+ 	indio_dev->info = &bmi323_info;
+diff --git a/drivers/iio/imu/bmi323/bmi323_core.c b/drivers/iio/imu/bmi323/bmi323_core.c
+index 0bd5ded..ded8596 100644
+--- a/drivers/iio/imu/bmi323/bmi323_core.c
++++ b/drivers/iio/imu/bmi323/bmi323_core.c
+@@ -285,6 +286,9 @@ static const int bmi323_acc_gyro_odr[][2] = {
+ 	{ 200, 0 },
+ 	{ 400, 0 },
+ 	{ 800, 0 },
++	{ 1600, 0},
++	{ 3200, 0},
++	{ 6400, 0},
+ };
+
+ static const int bmi323_acc_gyro_odrns[] = {
