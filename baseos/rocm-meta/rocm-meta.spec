@@ -1,6 +1,6 @@
 %global ROCM_MAJOR_VERSION 6
-%global ROCM_MINOR_VERSION 0
-%global ROCM_PATCH_VERSION 0
+%global ROCM_MINOR_VERSION 1
+%global ROCM_PATCH_VERSION 1
 
 Requires:      libc.so.6()(64bit)
 Requires:      libc.so.6(GLIBC_2.2.5)(64bit)
