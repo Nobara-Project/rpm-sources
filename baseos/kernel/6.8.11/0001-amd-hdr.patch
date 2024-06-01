@@ -1,0 +1,209 @@
+From 2f33df4d9d3e86546d7c67453ae799306d55b7f5 Mon Sep 17 00:00:00 2001
+From: Melissa Wen <mwen@igalia.com>
+Date: Sat, 22 Apr 2023 14:08:47 -0100
+Subject: [PATCH] HACK: add KConfig to enable driver-specific color mgmt props
+
+We are enabling a large set of color calibration features to enhance KMS
+color mgmt but these properties are specific of AMD display HW, and
+cannot be provided by other vendors. Therefore, set a config option to
+enable AMD driver-private properties used on Steam Deck color mgmt
+pipeline. Replace the agreed name `AMD_PRIVATE_COLOR` with
+our downstream version `CONFIG_DRM_AMD_COLOR_STEAMDECK`.
+
+Signed-off-by: Melissa Wen <mwen@igalia.com>
+---
+ drivers/gpu/drm/amd/display/Kconfig                     | 7 +++++++
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c       | 2 +-
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_color.c | 2 +-
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crtc.c  | 6 +++---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_plane.c | 6 +++---
+ 5 files changed, 15 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/Kconfig b/drivers/gpu/drm/amd/display/Kconfig
+index 901d1961b7392..49523fa82f92a 100644
+--- a/drivers/gpu/drm/amd/display/Kconfig
++++ b/drivers/gpu/drm/amd/display/Kconfig
+@@ -51,4 +51,11 @@ config DRM_AMD_SECURE_DISPLAY
+ 	  This option enables the calculation of crc of specific region via
+ 	  debugfs. Cooperate with specific DMCU FW.
+
++config DRM_AMD_COLOR_STEAMDECK
++	bool "Enable color calibration features for Steam Deck"
++	depends on DRM_AMD_DC
++	help
++	  Choose this option if you want to use AMDGPU features for broader
++	  color management support on Steam Deck.
++
+ endmenu
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 5853cf0229176..1718ddfe75083 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -4074,7 +4074,7 @@ static int amdgpu_dm_mode_config_init(struct amdgpu_device *adev)
+ 		return r;
+ 	}
+
+-#ifdef AMD_PRIVATE_COLOR
++#ifdef CONFIG_DRM_AMD_COLOR_STEAMDECK
+ 	if (amdgpu_dm_create_color_properties(adev))
+ 		return -ENOMEM;
+ #endif
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_color.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_color.c
+index 21e0efc42a34c..8f8d2a8fb2921 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_color.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_color.c
+@@ -97,7 +97,7 @@ static inline struct fixed31_32 amdgpu_dm_fixpt_from_s3132(__u64 x)
+ 	return val;
+ }
+
+-#ifdef AMD_PRIVATE_COLOR
++#ifdef CONFIG_DRM_AMD_COLOR_STEAMDECK
+ /* Pre-defined Transfer Functions (TF)
+  *
+  * AMD driver supports pre-defined mathematical functions for transferring
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crtc.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crtc.c
+index 6e715ef3a5566..ab9992f24ae21 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crtc.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crtc.c
+@@ -290,7 +290,7 @@ static int amdgpu_dm_crtc_late_register(struct drm_crtc *crtc)
+ }
+ #endif
+
+-#ifdef AMD_PRIVATE_COLOR
++#ifdef CONFIG_DRM_AMD_COLOR_STEAMDECK
+ /**
+  * dm_crtc_additional_color_mgmt - enable additional color properties
+  * @crtc: DRM CRTC
+@@ -372,7 +372,7 @@ static const struct drm_crtc_funcs amdgpu_dm_crtc_funcs = {
+ #if defined(CONFIG_DEBUG_FS)
+ 	.late_register = amdgpu_dm_crtc_late_register,
+ #endif
+-#ifdef AMD_PRIVATE_COLOR
++#ifdef CONFIG_DRM_AMD_COLOR_STEAMDECK
+ 	.atomic_set_property = amdgpu_dm_atomic_crtc_set_property,
+ 	.atomic_get_property = amdgpu_dm_atomic_crtc_get_property,
+ #endif
+@@ -551,7 +551,7 @@ int amdgpu_dm_crtc_init(struct amdgpu_display_manager *dm,
+
+ 	drm_mode_crtc_set_gamma_size(&acrtc->base, MAX_COLOR_LEGACY_LUT_ENTRIES);
+
+-#ifdef AMD_PRIVATE_COLOR
++#ifdef CONFIG_DRM_AMD_COLOR_STEAMDECK
+ 	dm_crtc_additional_color_mgmt(&acrtc->base);
+ #endif
+ 	return 0;
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_plane.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_plane.c
+index 8a4c40b4c27e4..5d87c24f0461f 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_plane.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_plane.c
+@@ -1468,7 +1468,7 @@ static void amdgpu_dm_plane_drm_plane_destroy_state(struct drm_plane *plane,
+ 	drm_atomic_helper_plane_destroy_state(plane, state);
+ }
+
+-#ifdef AMD_PRIVATE_COLOR
++#ifdef CONFIG_DRM_AMD_COLOR_STEAMDECK
+ static void
+ dm_atomic_plane_attach_color_mgmt_properties(struct amdgpu_display_manager *dm,
+ 					     struct drm_plane *plane)
+@@ -1659,7 +1659,7 @@ static const struct drm_plane_funcs dm_plane_funcs = {
+ 	.atomic_duplicate_state = amdgpu_dm_plane_drm_plane_duplicate_state,
+ 	.atomic_destroy_state = amdgpu_dm_plane_drm_plane_destroy_state,
+ 	.format_mod_supported = amdgpu_dm_plane_format_mod_supported,
+-#ifdef AMD_PRIVATE_COLOR
++#ifdef CONFIG_DRM_AMD_COLOR_STEAMDECK
+ 	.atomic_set_property = dm_atomic_plane_set_property,
+ 	.atomic_get_property = dm_atomic_plane_get_property,
+ #endif
+@@ -1742,7 +1742,7 @@ int amdgpu_dm_plane_init(struct amdgpu_display_manager *dm,
+
+ 	drm_plane_helper_add(plane, &dm_plane_helper_funcs);
+
+-#ifdef AMD_PRIVATE_COLOR
++#ifdef CONFIG_DRM_AMD_COLOR_STEAMDECK
+ 	dm_atomic_plane_attach_color_mgmt_properties(dm, plane);
+ #endif
+ 	/* Create (reset) the plane state */
+--
+GitLab
+
+From b938468f07222b4faab5ae5cf5391eccd9532bb0 Mon Sep 17 00:00:00 2001
+From: Bouke Sybren Haarsma <boukehaarsma23@gmail.com>
+Date: Fri, 15 Dec 2023 11:14:58 +0100
+Subject: [PATCH] Don't create color_mgmt_properties on asics < SIENNA_CICHLID
+
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_plane.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_plane.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_plane.c
+index 2ed20e6e439bb5..65ee8745e96540 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_plane.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_plane.c
+@@ -1742,7 +1742,8 @@ int amdgpu_dm_plane_init(struct amdgpu_display_manager *dm,
+ 	drm_plane_helper_add(plane, &dm_plane_helper_funcs);
+
+ #ifdef CONFIG_DRM_AMD_COLOR_STEAMDECK
+-	dm_atomic_plane_attach_color_mgmt_properties(dm, plane);
++	if (dm->adev->asic_type >= CHIP_SIENNA_CICHLID)
++		dm_atomic_plane_attach_color_mgmt_properties(dm, plane);
+ #endif
+ 	/* Create (reset) the plane state */
+ 	if (plane->funcs->reset)
+--
+2.43.0
+
+From: Joshua Ashton @ 2024-04-10 22:13 UTC (permalink / raw)
+  To: amd-gfx; +Cc: Joshua Ashton, Harry Wentland, Xaver Hugl, Melissa Wen, Ethan Lee
+
+The comment here states "no OGAM in DPP since DCN1", yet that is not
+true.
+
+Testing on an RX 7900XTX (dcn32), it actually does exist in hardware and
+works fine.
+My best guess is the comment is confused with OGAM ROM for DPP, rather
+than OGAM RAM.
+
+I did not test dcn35/351 as I do not have that hardware, but I assume
+the same follows there given the seemingly erroneous comment.
+Someone at AMD should check that before merging this commit.
+
+Signed-off-by: Joshua Ashton <joshua@froggi.es>
+
+Cc: Harry Wentland <harry.wentland@amd.com>
+Cc: Xaver Hugl <xaver.hugl@gmail.com>
+Cc: Melissa Wen <mwen@igalia.com>
+Cc: Ethan Lee <flibitijibibo@gmail.com>
+---
+ drivers/gpu/drm/amd/display/dc/resource/dcn32/dcn32_resource.c  | 2 +-
+ drivers/gpu/drm/amd/display/dc/resource/dcn35/dcn35_resource.c  | 2 +-
+ .../gpu/drm/amd/display/dc/resource/dcn351/dcn351_resource.c    | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/resource/dcn32/dcn32_resource.c b/drivers/gpu/drm/amd/display/dc/resource/dcn32/dcn32_resource.c
+index 9aa39bd25be9..94f5d2b5aadf 100644
+--- a/drivers/gpu/drm/amd/display/dc/resource/dcn32/dcn32_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/resource/dcn32/dcn32_resource.c
+@@ -2182,7 +2182,7 @@ static bool dcn32_resource_construct(
+ 	dc->caps.color.dpp.dgam_rom_for_yuv = 0;
+
+ 	dc->caps.color.dpp.hw_3d_lut = 1;
+-	dc->caps.color.dpp.ogam_ram = 0;  // no OGAM in DPP since DCN1
++	dc->caps.color.dpp.ogam_ram = 1;
+ 	// no OGAM ROM on DCN2 and later ASICs
+ 	dc->caps.color.dpp.ogam_rom_caps.srgb = 0;
+ 	dc->caps.color.dpp.ogam_rom_caps.bt2020 = 0;
+diff --git a/drivers/gpu/drm/amd/display/dc/resource/dcn35/dcn35_resource.c b/drivers/gpu/drm/amd/display/dc/resource/dcn35/dcn35_resource.c
+index 25ac450944e7..708d63cc3f7f 100644
+--- a/drivers/gpu/drm/amd/display/dc/resource/dcn35/dcn35_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/resource/dcn35/dcn35_resource.c
+@@ -1861,7 +1861,7 @@ static bool dcn35_resource_construct(
+ 	dc->caps.color.dpp.dgam_rom_for_yuv = 0;
+
+ 	dc->caps.color.dpp.hw_3d_lut = 1;
+-	dc->caps.color.dpp.ogam_ram = 0;  // no OGAM in DPP since DCN1
++	dc->caps.color.dpp.ogam_ram = 1;
+ 	// no OGAM ROM on DCN301
+ 	dc->caps.color.dpp.ogam_rom_caps.srgb = 0;
+ 	dc->caps.color.dpp.ogam_rom_caps.bt2020 = 0;
+--
+2.44.0

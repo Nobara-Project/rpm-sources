@@ -1,0 +1,303 @@
+From 5426751e00c32e914ff9aa37af934cf3873cccf4 Mon Sep 17 00:00:00 2001
+From: Matthew Schwartz <njtransit215@gmail.com>
+Date: Thu, 18 Apr 2024 11:36:01 -0700
+Subject: [PATCH 0/7] revert series of drivers/bluetooth/hci commits to fix Galileo/OLED Deck + Legion Go failing to suspend on 6.8 kernels
+
+Revert series of commits that causes a bluetooth regression where toggling Bluetooth on the Galileo/OLED Deck and Legion Go can cause the device to fail to suspend properly. Instead, the display turns dims for 5-10s before waking up automatically again.
+
+Logs show:
+
+"Failed to add UUID: Failed (0x03)"
+"Failed to set mode: Authentication Failed (0x05)"
+
+hci0: Retry BT power ON:0
+hci0: command tx timeout
+hci0: Reading QCA version information failed (-110)
+
+`sudo rmmod hci_uart` was a workaround, while this patch removes the need for that until it is sorted out upstream.
+
+Matthew Schwartz (7):
+  Revert "Bluetooth: qca: fix device-address endianness"
+  Reapply "Bluetooth: hci_qca: Set BDA quirk bit if fwnode exists in DT"
+  Revert "Bluetooth: btrtl: fix out of bounds memory access"
+  Revert "Bluetooth: hci_h5: Add ability to allocate memory for private
+    data"
+  Revert "Bluetooth: hci_qca: don't use IS_ERR_OR_NULL() with
+    gpiod_get_optional()"
+  Revert "Bluetooth: qca: Fix triggering coredump implementation"
+  Revert "Bluetooth: hci_qca: Set BDA quirk bit if fwnode exists in DT"
+
+ drivers/bluetooth/btqca.c       |  8 ++------
+ drivers/bluetooth/hci_h5.c      |  5 +----
+ drivers/bluetooth/hci_qca.c     | 25 ++++++++-----------------
+ drivers/bluetooth/hci_serdev.c  |  9 ++++-----
+ drivers/bluetooth/hci_uart.h    | 12 +-----------
+ 5 files changed, 16 insertions(+), 43 deletions(-)
+
+-- 
+2.44.0
+
+From 20d1173a7118bc540870a6a95b3d8830f323705e Mon Sep 17 00:00:00 2001
+From: Matthew Schwartz <njtransit215@gmail.com>
+Date: Thu, 18 Apr 2024 11:30:27 -0700
+Subject: [PATCH 1/7] Revert "Bluetooth: qca: fix device-address endianness"
+
+This reverts commit a5425a30739fb1eab3c39ac8a8a9e6795c681fe8.
+---
+ drivers/bluetooth/btqca.c   |  8 ++------
+ drivers/bluetooth/hci_qca.c | 10 ----------
+ 2 files changed, 2 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/bluetooth/btqca.c b/drivers/bluetooth/btqca.c
+index 19cfc342fc7b..b40b32fa7f1c 100644
+--- a/drivers/bluetooth/btqca.c
++++ b/drivers/bluetooth/btqca.c
+@@ -826,15 +826,11 @@ EXPORT_SYMBOL_GPL(qca_uart_setup);
+ 
+ int qca_set_bdaddr(struct hci_dev *hdev, const bdaddr_t *bdaddr)
+ {
+-	bdaddr_t bdaddr_swapped;
+ 	struct sk_buff *skb;
+ 	int err;
+ 
+-	baswap(&bdaddr_swapped, bdaddr);
+-
+-	skb = __hci_cmd_sync_ev(hdev, EDL_WRITE_BD_ADDR_OPCODE, 6,
+-				&bdaddr_swapped, HCI_EV_VENDOR,
+-				HCI_INIT_TIMEOUT);
++	skb = __hci_cmd_sync_ev(hdev, EDL_WRITE_BD_ADDR_OPCODE, 6, bdaddr,
++				HCI_EV_VENDOR, HCI_INIT_TIMEOUT);
+ 	if (IS_ERR(skb)) {
+ 		err = PTR_ERR(skb);
+ 		bt_dev_err(hdev, "QCA Change address cmd failed (%d)", err);
+diff --git a/drivers/bluetooth/hci_qca.c b/drivers/bluetooth/hci_qca.c
+index ecbc52eaf101..4ecbcb1644cc 100644
+--- a/drivers/bluetooth/hci_qca.c
++++ b/drivers/bluetooth/hci_qca.c
+@@ -225,7 +225,6 @@ struct qca_serdev {
+ 	struct qca_power *bt_power;
+ 	u32 init_speed;
+ 	u32 oper_speed;
+-	bool bdaddr_property_broken;
+ 	const char *firmware_name;
+ };
+ 
+@@ -1843,7 +1842,6 @@ static int qca_setup(struct hci_uart *hu)
+ 	const char *firmware_name = qca_get_firmware_name(hu);
+ 	int ret;
+ 	struct qca_btsoc_version ver;
+-	struct qca_serdev *qcadev;
+ 	const char *soc_name;
+ 
+ 	ret = qca_check_speeds(hu);
+@@ -1908,10 +1908,6 @@
+ 	case QCA_WCN6750:
+ 	case QCA_WCN6855:
+ 	case QCA_WCN7850:
+-		qcadev = serdev_device_get_drvdata(hu->serdev);
+-		if (qcadev->bdaddr_property_broken)
+-			set_bit(HCI_QUIRK_BDADDR_PROPERTY_BROKEN, &hdev->quirks);
+-
+ 		hci_set_aosp_capable(hdev);
+ 
+ 		ret = qca_read_soc_version(hdev, &ver, soc_type);
+@@ -2291,9 +2284,6 @@ static int qca_serdev_probe(struct serdev_device *serdev)
+ 	if (!qcadev->oper_speed)
+ 		BT_DBG("UART will pick default operating speed");
+ 
+-	qcadev->bdaddr_property_broken = device_property_read_bool(&serdev->dev,
+-			"qcom,local-bd-address-broken");
+-
+ 	if (data)
+ 		qcadev->btsoc_type = data->soc_type;
+ 	else
+-- 
+2.44.0
+
+
+From 4406334f2f6736f390508c0e3c916484e7e4e0f7 Mon Sep 17 00:00:00 2001
+From: Matthew Schwartz <njtransit215@gmail.com>
+Date: Thu, 18 Apr 2024 11:30:39 -0700
+Subject: [PATCH 3/7] Revert "Bluetooth: btrtl: fix out of bounds memory
+ access"
+
+This reverts commit 0c657e641df1e77d6087688190f632cad9c0439b.
+---
+ drivers/bluetooth/hci_h5.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/bluetooth/hci_h5.c b/drivers/bluetooth/hci_h5.c
+index c0436881a533..b66136348bd6 100644
+--- a/drivers/bluetooth/hci_h5.c
++++ b/drivers/bluetooth/hci_h5.c
+@@ -1072,7 +1072,6 @@ static struct h5_vnd rtl_vnd = {
+ 	.suspend	= h5_btrtl_suspend,
+ 	.resume		= h5_btrtl_resume,
+ 	.acpi_gpio_map	= acpi_btrtl_gpios,
+-	.sizeof_priv    = sizeof(struct btrealtek_data),
+ };
+ 
+ static const struct h5_device_data h5_data_rtl8822cs = {
+-- 
+2.44.0
+
+
+From af2120f2a4f714215f5c576dfc1cee2fe0c1e842 Mon Sep 17 00:00:00 2001
+From: Matthew Schwartz <njtransit215@gmail.com>
+Date: Thu, 18 Apr 2024 11:30:43 -0700
+Subject: [PATCH 4/7] Revert "Bluetooth: hci_h5: Add ability to allocate memory
+ for private data"
+
+This reverts commit 46a7d9aa6e456c161746744cc08961bb83dc97b3.
+---
+ drivers/bluetooth/hci_h5.c     |  4 +---
+ drivers/bluetooth/hci_serdev.c |  9 ++++-----
+ drivers/bluetooth/hci_uart.h   | 12 +-----------
+ 3 files changed, 6 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/bluetooth/hci_h5.c b/drivers/bluetooth/hci_h5.c
+index b66136348bd6..71e748a9477e 100644
+--- a/drivers/bluetooth/hci_h5.c
++++ b/drivers/bluetooth/hci_h5.c
+@@ -113,7 +113,6 @@ struct h5_vnd {
+ 	int (*suspend)(struct h5 *h5);
+ 	int (*resume)(struct h5 *h5);
+ 	const struct acpi_gpio_mapping *acpi_gpio_map;
+-	int sizeof_priv;
+ };
+ 
+ struct h5_device_data {
+@@ -864,8 +863,7 @@ static int h5_serdev_probe(struct serdev_device *serdev)
+ 	if (IS_ERR(h5->device_wake_gpio))
+ 		return PTR_ERR(h5->device_wake_gpio);
+ 
+-	return hci_uart_register_device_priv(&h5->serdev_hu, &h5p,
+-					     h5->vnd->sizeof_priv);
++	return hci_uart_register_device(&h5->serdev_hu, &h5p);
+ }
+ 
+ static void h5_serdev_remove(struct serdev_device *serdev)
+diff --git a/drivers/bluetooth/hci_serdev.c b/drivers/bluetooth/hci_serdev.c
+index 214fff876eae..39c8b567da3c 100644
+--- a/drivers/bluetooth/hci_serdev.c
++++ b/drivers/bluetooth/hci_serdev.c
+@@ -300,9 +300,8 @@ static const struct serdev_device_ops hci_serdev_client_ops = {
+ 	.write_wakeup = hci_uart_write_wakeup,
+ };
+ 
+-int hci_uart_register_device_priv(struct hci_uart *hu,
+-			     const struct hci_uart_proto *p,
+-			     int sizeof_priv)
++int hci_uart_register_device(struct hci_uart *hu,
++			     const struct hci_uart_proto *p)
+ {
+ 	int err;
+ 	struct hci_dev *hdev;
+@@ -326,7 +325,7 @@ int hci_uart_register_device_priv(struct hci_uart *hu,
+ 	set_bit(HCI_UART_PROTO_READY, &hu->flags);
+ 
+ 	/* Initialize and register HCI device */
+-	hdev = hci_alloc_dev_priv(sizeof_priv);
++	hdev = hci_alloc_dev();
+ 	if (!hdev) {
+ 		BT_ERR("Can't allocate HCI device");
+ 		err = -ENOMEM;
+@@ -395,7 +394,7 @@ int hci_uart_register_device_priv(struct hci_uart *hu,
+ 	percpu_free_rwsem(&hu->proto_lock);
+ 	return err;
+ }
+-EXPORT_SYMBOL_GPL(hci_uart_register_device_priv);
++EXPORT_SYMBOL_GPL(hci_uart_register_device);
+ 
+ void hci_uart_unregister_device(struct hci_uart *hu)
+ {
+diff --git a/drivers/bluetooth/hci_uart.h b/drivers/bluetooth/hci_uart.h
+index 68c8c7e95d64..fb4a2d0d8cc8 100644
+--- a/drivers/bluetooth/hci_uart.h
++++ b/drivers/bluetooth/hci_uart.h
+@@ -97,17 +97,7 @@ struct hci_uart {
+ 
+ int hci_uart_register_proto(const struct hci_uart_proto *p);
+ int hci_uart_unregister_proto(const struct hci_uart_proto *p);
+-
+-int hci_uart_register_device_priv(struct hci_uart *hu,
+-				  const struct hci_uart_proto *p,
+-				  int sizeof_priv);
+-
+-static inline int hci_uart_register_device(struct hci_uart *hu,
+-					   const struct hci_uart_proto *p)
+-{
+-	return hci_uart_register_device_priv(hu, p, 0);
+-}
+-
++int hci_uart_register_device(struct hci_uart *hu, const struct hci_uart_proto *p);
+ void hci_uart_unregister_device(struct hci_uart *hu);
+ 
+ int hci_uart_tx_wakeup(struct hci_uart *hu);
+-- 
+2.44.0
+
+
+From b224374f230579fe13fdb363f11171bc15e22a77 Mon Sep 17 00:00:00 2001
+From: Matthew Schwartz <njtransit215@gmail.com>
+Date: Thu, 18 Apr 2024 11:30:50 -0700
+Subject: [PATCH 5/7] Revert "Bluetooth: hci_qca: don't use IS_ERR_OR_NULL()
+ with gpiod_get_optional()"
+
+This reverts commit d8c7785e8104359f139cdfa99e2511575c4d4823.
+---
+ drivers/bluetooth/hci_qca.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/bluetooth/hci_qca.c b/drivers/bluetooth/hci_qca.c
+index 8a60ad7acd70..edd2a81b4d5e 100644
+--- a/drivers/bluetooth/hci_qca.c
++++ b/drivers/bluetooth/hci_qca.c
+@@ -2342,7 +2342,7 @@
+ 
+ 		qcadev->sw_ctrl = devm_gpiod_get_optional(&serdev->dev, "swctrl",
+ 					       GPIOD_IN);
+-		if (IS_ERR(qcadev->sw_ctrl) &&
++		if (IS_ERR_OR_NULL(qcadev->sw_ctrl) &&
+ 		    (data->soc_type == QCA_WCN6750 ||
+ 		     data->soc_type == QCA_WCN6855 ||
+ 		     data->soc_type == QCA_WCN7850)) {
+-- 
+2.44.0
+
+
+From 804d00250b22aa2976278047bbefe5cec6e69c6b Mon Sep 17 00:00:00 2001
+From: Matthew Schwartz <njtransit215@gmail.com>
+Date: Thu, 18 Apr 2024 11:30:54 -0700
+Subject: [PATCH 6/7] Revert "Bluetooth: qca: Fix triggering coredump
+ implementation"
+
+This reverts commit 6abf9dd26bb1699c17d601b9a292577d01827c0e.
+---
+ drivers/bluetooth/hci_qca.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/bluetooth/hci_qca.c b/drivers/bluetooth/hci_qca.c
+index edd2a81b4d5e..06193546ebb6 100644
+--- a/drivers/bluetooth/hci_qca.c
++++ b/drivers/bluetooth/hci_qca.c
+@@ -1807,12 +1807,13 @@ static int qca_power_on(struct hci_dev *hdev)
+ 
+ static void hci_coredump_qca(struct hci_dev *hdev)
+ {
+-	int err;
+ 	static const u8 param[] = { 0x26 };
++	struct sk_buff *skb;
+ 
+-	err = __hci_cmd_send(hdev, 0xfc0c, 1, param);
+-	if (err < 0)
+-		bt_dev_err(hdev, "%s: trigger crash failed (%d)", __func__, err);
++	skb = __hci_cmd_sync(hdev, 0xfc0c, 1, param, HCI_CMD_TIMEOUT);
++	if (IS_ERR(skb))
++		bt_dev_err(hdev, "%s: trigger crash failed (%ld)", __func__, PTR_ERR(skb));
++	kfree_skb(skb);
+ }
+ 
+ static int qca_get_data_path_id(struct hci_dev *hdev, __u8 *data_path_id)
+-- 
+2.44.0
