@@ -8,8 +8,8 @@
 %global tarball_version %%(echo %{version} | tr '~' '.')
 
 Name:           nautilus
-Version:        46.1
-Release:        2%{?dist}
+Version:        46.2
+Release:        1%{?dist}
 Summary:        File manager for GNOME
 
 # Sources are GPL-3.0-or-later and Appdata is CC0-1.0.
@@ -147,6 +147,9 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 %doc %{_datadir}/doc/nautilus/
 
 %changelog
+* Tue May 28 2024 David King <amigadave@amigadave.com> - 46.2-1
+- Update to 46.2
+
 * Sun Apr 21 2024 David King <amigadave@amigadave.com> - 46.1-1
 - Update to 46.1
 
