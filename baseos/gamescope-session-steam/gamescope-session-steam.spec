@@ -1,6 +1,6 @@
 Name:           gamescope-session-steam
 Version:        0.2.git.201.5538cd66
-Release:        48%{?dist}
+Release:        49%{?dist}
 Summary:        Steam Deck Mode session
 
 License:        MIT
