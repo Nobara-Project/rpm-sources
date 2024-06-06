@@ -1,7 +1,7 @@
-From 9b56e050fff4e632cd39065b930bb2906631c820 Mon Sep 17 00:00:00 2001
+From 3f5b90a80f62c208b503ba91b7bb985f6c06c994 Mon Sep 17 00:00:00 2001
 From: GloriousEggroll <gloriouseggroll@gmail.com>
-Date: Fri, 12 Jan 2024 23:00:14 -0700
-Subject: [PATCH] 0001-Defaults
+Date: Tue, 4 Jun 2024 14:56:40 -0600
+Subject: [PATCH] nobara changes
 
 ---
  settings.conf                                 | 18 +++++----
@@ -138,7 +138,7 @@ index 9679f66..215cfad 100644
  # Optionally install a copy of the GRUB EFI bootloader as the EFI
  # fallback loader (either bootia32.efi or bootx64.efi depending on
 diff --git a/src/modules/bootloader/main.py b/src/modules/bootloader/main.py
-index 1899028..1e21767 100644
+index 0a9e965..cc9752e 100644
 --- a/src/modules/bootloader/main.py
 +++ b/src/modules/bootloader/main.py
 @@ -41,6 +41,8 @@ _ = gettext.translation("calamares-python",
@@ -150,7 +150,7 @@ index 1899028..1e21767 100644
  
  def pretty_name():
      return _("Install bootloader.")
-@@ -772,8 +774,7 @@ def install_secureboot(efi_directory):
+@@ -777,8 +779,7 @@ def install_secureboot(efi_directory):
      # The input file /etc/default/grub should already be filled out by the
      # grubcfg job module.
      check_target_env_call([libcalamares.job.configuration["grubMkconfig"],
@@ -296,10 +296,10 @@ index f185fc1..1526f43 100644
  # Alternate form:
  # groupsUrl: [ local ]
 diff --git a/src/modules/packages/packages.conf b/src/modules/packages/packages.conf
-index 6e62f4b..87b4d5a 100644
+index b9777f6..3637a01 100644
 --- a/src/modules/packages/packages.conf
 +++ b/src/modules/packages/packages.conf
-@@ -35,7 +35,7 @@
+@@ -36,7 +36,7 @@
  # Not actually a package manager, but suitable for testing:
  #  - dummy       - Dummy manager, only logs
  #
@@ -308,7 +308,7 @@ index 6e62f4b..87b4d5a 100644
  
  #
  # Often package installation needs an internet connection.
-@@ -59,7 +59,7 @@ backend: dummy
+@@ -60,7 +60,7 @@ backend: dummy
  # Therefore set also "update_system" to 'true'.
  #
  skip_if_no_internet: false
@@ -317,7 +317,7 @@ index 6e62f4b..87b4d5a 100644
  update_system: false
  
  # pacman specific options
-@@ -202,12 +202,8 @@ pacman:
+@@ -203,12 +203,8 @@ pacman:
  # of packages, this can lead to a considerable time savings.
  #
  operations:
@@ -380,10 +380,10 @@ index b5fb0ca..b633e80 100644
          if ( gs->contains( "swapPartitionName" ) )
          {
 diff --git a/src/modules/partition/core/PartitionLayout.cpp b/src/modules/partition/core/PartitionLayout.cpp
-index 4575a68..0354bb5 100644
+index b476a31..ed1804e 100644
 --- a/src/modules/partition/core/PartitionLayout.cpp
 +++ b/src/modules/partition/core/PartitionLayout.cpp
-@@ -308,17 +308,35 @@ PartitionLayout::createPartitions( Device* dev,
+@@ -311,17 +311,35 @@ PartitionLayout::createPartitions( Device* dev,
                                                     KPM_PARTITION_FLAG( None ) );
          }
          else
@@ -431,7 +431,7 @@ index 4575a68..0354bb5 100644
  
          // For zfs, we need to make the passphrase available to later modules
 diff --git a/src/modules/partition/partition.conf b/src/modules/partition/partition.conf
-index ca94ef3..cc91ee4 100644
+index 0975179..09cbafd 100644
 --- a/src/modules/partition/partition.conf
 +++ b/src/modules/partition/partition.conf
 @@ -41,7 +41,7 @@ efi:
@@ -479,7 +479,7 @@ index ca94ef3..cc91ee4 100644
  
  # Selectable filesystem type, used when "erase" is done.
  #
-@@ -316,3 +316,12 @@ defaultFileSystemType:  "ext4"
+@@ -319,3 +319,12 @@ defaultFileSystemType:  "ext4"
  #                  the welcome module, **and** configure this value in
  #                  `welcome.conf`, not here.
  # requiredStorage: 3.5
@@ -536,10 +536,10 @@ index 105f247..b9105d1 100644
  # You can pre-select one of the themes; it is not applied
  # immediately, but its radio-button is switched on to indicate
 diff --git a/src/modules/shellprocess/shellprocess.conf b/src/modules/shellprocess/shellprocess.conf
-index 9ff8322..3e449b4 100644
+index 87e31c5..8ae262e 100644
 --- a/src/modules/shellprocess/shellprocess.conf
 +++ b/src/modules/shellprocess/shellprocess.conf
-@@ -73,11 +73,11 @@ dontChroot: false
+@@ -93,11 +93,11 @@ dontChroot: false
  # Script may be a list of items (if the touch command fails, it is
  # ignored; the slowloris command has a different timeout from the
  # other commands in the list):
@@ -556,7 +556,7 @@ index 9ff8322..3e449b4 100644
  
  # You can change the description of the job (as it is displayed in the
  # progress bar during installation) by defining an *i18n* key, which
-@@ -90,3 +90,18 @@ script:
+@@ -110,3 +110,18 @@ script:
  #     name: "Shell process"
  #     name[nl]: "Schelpenpad"
  #     name[en_GB]: "Just a moment"
@@ -617,7 +617,7 @@ index d12110b..6d07324 100644
 +        sourcefs: "ext4"
 +        destination: ""
 diff --git a/src/modules/users/users.conf b/src/modules/users/users.conf
-index 669cac0..6c9acbd 100644
+index e6910bc..8fb48c9 100644
 --- a/src/modules/users/users.conf
 +++ b/src/modules/users/users.conf
 @@ -40,8 +40,7 @@ defaultGroups:
@@ -669,7 +669,7 @@ index 669cac0..6c9acbd 100644
 +  template: "nobara-pc"
    forbidden_names: [ localhost ]
  
- presets:
+ # Enable Active Directory enrollment support (opt-in)
 diff --git a/src/modules/welcome/welcome.conf b/src/modules/welcome/welcome.conf
 index b988eb2..9055b5e 100644
 --- a/src/modules/welcome/welcome.conf
@@ -718,5 +718,18 @@ index b988eb2..9055b5e 100644
  # User interface
  #
 -- 
-2.43.0
+2.45.1
+diff --git a/src/calamares/CMakeLists.txt b/src/calamares/CMakeLists.txt
+index 3be6b92..965653c 100644
+--- a/src/calamares/CMakeLists.txt
++++ b/src/calamares/CMakeLists.txt
+@@ -50,7 +50,7 @@ install(TARGETS calamares_bin BUNDLE DESTINATION . RUNTIME DESTINATION ${CMAKE_I
+
+ install(
+     FILES ${CMAKE_SOURCE_DIR}/data/images/squid.svg
+-    RENAME calamares.svg
++    RENAME calamares-nobara.svg
+     DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
+ )
+
 

@@ -1,14 +1,11 @@
-# Plasma module not yet ported to Plasma 6
-%global plasma_module 0
-
 Name:           calamares
-Version:        3.3.0
-Release:        1%{?dist}
+Version:        3.3.6
+Release:        6%{?dist}
 Summary:        Installer from a live CD/DVD/USB to disk
 
 License:        GPL-3.0-or-later
 URL:            https://calamares.io/
-Source0:        https://github.com/calamares/calamares/%{?snaphash:archive}%{!?snaphash:releases/download}/%{?snaphash}%{!?snaphash:v%{version_no_tilde}}/calamares-%{?snaphash}%{!?snaphash:%{version_no_tilde}}.tar.gz
+Source0:        https://github.com/calamares/calamares/releases/download/v%{version}/%{name}-%{version}.tar.gz
 Source2:        show.qml
 # Run:
 # lupdate-qt6 show.qml -ts calamares-auto_fr.ts
@@ -23,19 +20,19 @@ Source4:        calamares-auto_de.ts
 # then translate the template in linguist-qt6.
 Source5:        calamares-auto_it.ts
 
+# Use a custom install icon for nobara
+Source6:        install-icon.svg
+
 # adjust some default settings (default shipped .conf files)
 Patch1:         0001-Apply-default-settings-for-Fedora.patch
 
-# use custom installer icon
-Patch2:         0002-Change-icon-to-custom-installer-icon.patch
-
 ## use kdesu instead of pkexec (works around #1171779)
-Patch1002:       calamares-3.3.0-kdesu.patch
+Patch1002:       calamares-3.3.3-kdesu.patch
 
 
 # Calamares is only supported where live images (and GRUB) are. (#1171380)
 # This list matches the arches where grub2-efi is used to boot the system
-ExclusiveArch:  %{ix86} x86_64 aarch64
+ExclusiveArch:  %{ix86} x86_64 aarch64 riscv64
 
 # Macros
 BuildRequires:  git-core
@@ -134,9 +131,6 @@ Requires:       hicolor-icon-theme
 Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
 # webview module is no longer available
 Obsoletes:      %{name}-webview < 3.0.0~
-%if ! %{plasma_module}
-Obsoletes:      %{name}-plasmalnf < %{version}-%{release}
-%endif
 
 
 %description
@@ -166,7 +160,6 @@ Optional interactiveterminal module for the Calamares installer, based on the
 KonsolePart (from Konsole 6)
 
 
-%if %{plasma_module}
 %package        plasmalnf
 Summary:        Calamares plasmalnf module
 Requires:       %{name} = %{version}-%{release}
@@ -176,7 +169,6 @@ Requires:       plasma-desktop
 %description    plasmalnf
 Optional plasmalnf module for the Calamares installer, based on the KDE Plasma
 Desktop Workspace and its KDE Frameworks (KConfig, KPackage, Plasma)
-%endif
 
 
 %package        devel
@@ -190,7 +182,13 @@ developing custom modules for Calamares.
 
 
 %prep
-%autosetup -S git_am -n %{name}-%{version_no_tilde}
+%autosetup -p1 -n %{name}-%{version}
+
+cp %{SOURCE6} ./data/images/squid.svg
+sed -i '/^Icon/ s/calamares/org.fedoraproject.AnacondaInstaller/g' ./calamares.desktop
+sed -i '/^Icon\[.*$/d' ./calamares.desktop
+sed -i '/^Icon/ s/calamares/org.fedoraproject.AnacondaInstaller/g' ./calamares.desktop.in
+sed -i '/^Icon\[.*$/d' ./calamares.desktop.in
 
 %build
 %{cmake_kf6} -DCMAKE_BUILD_TYPE:STRING="RelWithDebInfo" \
@@ -225,8 +223,6 @@ rm -f %{buildroot}%{_datadir}/locale/*/LC_MESSAGES/calamares-dummypythonqt.mo
 desktop-file-validate %{buildroot}%{_datadir}/applications/calamares.desktop
 
 %post
-/bin/touch --no-create %{_datadir}/icons/hicolor &>/dev/null || :
-
 # generate the "auto" branding
 . %{_sysconfdir}/os-release
 
@@ -294,7 +290,7 @@ style:
    SidebarBackground:    "#292F34"
    SidebarText:          "#FFFFFF"
    SidebarTextCurrent:    "#292F34"
-   SidebarBackgroundCurrent: "#1a5fb4"
+   SidebarBackgroundCurrent: "#760da6"
 EOF
 
 %files -f calamares-python.lang
@@ -311,12 +307,10 @@ EOF
 %{_datadir}/calamares/branding/auto/lang/
 %{_datadir}/calamares/modules/
 %exclude %{_datadir}/calamares/modules/interactiveterminal.conf
-%if %{plasma_module}
 %exclude %{_datadir}/calamares/modules/plasmalnf.conf
-%endif
 %{_datadir}/calamares/qml/
 %{_datadir}/applications/calamares.desktop
-%{_datadir}/icons/hicolor/scalable/apps/calamares.svg
+%{_datadir}/icons/hicolor/scalable/apps/calamares-nobara.svg
 %{_mandir}/man8/calamares.8*
 %{_sysconfdir}/calamares/
 
@@ -325,19 +319,15 @@ EOF
 %{_libdir}/libcalamaresui.so.*
 %{_libdir}/calamares/
 %exclude %{_libdir}/calamares/modules/interactiveterminal/
-%if %{plasma_module}
 %exclude %{_libdir}/calamares/modules/plasmalnf/
-%endif
 
 %files interactiveterminal
 %{_datadir}/calamares/modules/interactiveterminal.conf
 %{_libdir}/calamares/modules/interactiveterminal/
 
-%if %{plasma_module}
 %files plasmalnf
 %{_datadir}/calamares/modules/plasmalnf.conf
 %{_libdir}/calamares/modules/plasmalnf/
-%endif
 
 %files devel
 %{_includedir}/libcalamares/
@@ -347,6 +337,31 @@ EOF
 
 
 %changelog
+* Wed Mar 13 2024 Neal Gompa <ngompa@fedoraproject.org> - 3.3.5-1
+- Update to 3.3.5
+
+* Mon Feb 26 2024 Neal Gompa <ngompa@fedoraproject.org> - 3.3.4-1
+- Update to 3.3.4
+
+* Sat Feb 24 2024 Neal Gompa <ngompa@fedoraproject.org> - 3.3.3-1
+- Update to 3.3.3
+- Backport fixes for Python module
+
+* Wed Jan 31 2024 Pete Walter <pwalter@fedoraproject.org> - 3.3.1-5
+- Rebuild for ICU 74
+
+* Tue Jan 23 2024 Fedora Release Engineering <releng@fedoraproject.org> - 3.3.1-4
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Fri Jan 19 2024 Fedora Release Engineering <releng@fedoraproject.org> - 3.3.1-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Thu Jan 18 2024 Jonathan Wakely <jwakely@redhat.com> - 3.3.1-2
+- Rebuilt for Boost 1.83
+
+* Mon Jan 15 2024 Neal Gompa <ngompa@fedoraproject.org> - 3.3.1-1
+- Update to 3.3.1
+
 * Sat Dec 30 2023 Neal Gompa <ngompa@fedoraproject.org> - 3.3.0-1
 - Update to 3.3.0 final
 
