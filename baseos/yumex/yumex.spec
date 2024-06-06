@@ -6,7 +6,7 @@
 
 Name:     yumex
 Version:  4.99.4
-Release:  0.17.git.%{shortcommit}%{?dist}
+Release:  0.18.git.%{shortcommit}%{?dist}
 Summary:  Yum Extender graphical package management tool
 
 Group:    Applications/System
@@ -16,6 +16,7 @@ Source0:  https://github.com/timlau/yumex-ng/archive/%{gitcommit}.zip#/%{name}-%
 Source1:  dk.yumex.Yumex.svg
 Patch0:   rename-desktop-shortcut.patch
 Patch1:   0001-add-nobara-update-system-button.patch
+Patch2:   0001-Respect-repository-priority-ordering-when-displaying.patch
 
 BuildArch: noarch
 BuildRequires: python3-devel
