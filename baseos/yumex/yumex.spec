@@ -1,20 +1,21 @@
 %global app_id dk.yumex.Yumex
 %global app_build debug
 %global dnf_backend DNF4
-%global gitcommit 645173b12efdf77027b14c1d845107118e58da42
-%global shortcommit 645173b
+%global gitcommit 788d4453587a260f5b46a8d64863debeaf7e3984
+%global shortcommit 788d445
 
 Name:     yumex
 Version:  4.99.4
-Release:  0.16.git.%{shortcommit}%{?dist}
+Release:  0.17.git.%{shortcommit}%{?dist}
 Summary:  Yum Extender graphical package management tool
 
 Group:    Applications/System
 License:  GPLv3+
 URL:      http://yumex.dk
 Source0:  https://github.com/timlau/yumex-ng/archive/%{gitcommit}.zip#/%{name}-%{shortcommit}.tar.gz
-Source1:  rename-desktop-shortcut.patch
-Source2:  0001-add-nobara-update-system-button.patch
+Source1:  dk.yumex.Yumex.svg
+Patch0:   rename-desktop-shortcut.patch
+Patch1:   0001-add-nobara-update-system-button.patch
 
 BuildArch: noarch
 BuildRequires: python3-devel
@@ -51,16 +52,12 @@ Graphical package tool for maintain packages on the system
 
 
 %prep
-%setup -q -n %{name}-ng-%{gitcommit}
-patch -Np1 < %{SOURCE1}
-patch -Np1 < %{SOURCE2}
+%autosetup -n %{name}-ng-%{gitcommit} -p1
+cp %{SOURCE1} ./data/icons/hicolor/scalable/apps/
 
 %check
 appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/*.metainfo.xml
 desktop-file-validate %{buildroot}/%{_datadir}/applications/%{app_id}.desktop
-# hack so we don't have to recompile gnome and kde packages for default taskbar applications
-mv %{buildroot}/%{_datadir}/applications/%{app_id}.desktop %{buildroot}/%{_datadir}/applications/yumex-dnf.desktop
-
 
 %build
 %meson --buildtype=%{app_build} -Ddnf_backend=%{dnf_backend}
@@ -91,7 +88,7 @@ update-desktop-database %{_datadir}/applications &> /dev/null || :
 %{_datadir}/%{name}
 %{_bindir}/%{name}
 %{python3_sitelib}/%{name}/
-%{_datadir}/applications/yumex-dnf.desktop
+%{_datadir}/applications/%{app_id}.desktop
 %{_datadir}/icons/hicolor/
 %{_metainfodir}/%{app_id}.metainfo.xml
 %{_datadir}/glib-2.0/schemas/%{app_id}.gschema.xml
