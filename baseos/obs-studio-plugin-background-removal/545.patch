@@ -1,0 +1,165 @@
+From 201cc2b5a4288c4628028e30c965cf57a15b459d Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Wed, 5 Jun 2024 19:47:48 -0600
+Subject: [PATCH] ROCM support
+
+---
+ CMakeLists.txt                      | 26 +++++++---
+ docs/BUILDING-ROCM-UBUNTU.md        | 79 +++++++++++++++++++++++++++++
+ src/ort-utils/ort-session-utils.cpp | 10 +++-
+ 3 files changed, 107 insertions(+), 8 deletions(-)
+ create mode 100644 docs/BUILDING-ROCM-UBUNTU.md
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index d140acb..3625936 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -42,18 +42,32 @@ set(DISABLE_ONNXRUNTIME_GPU
+     OFF
+     CACHE STRING "Disables GPU support of ONNX Runtime (Only valid on Linux)")
+ 
++set(ENABLE_ROCM
++    OFF
++    CACHE STRING "Enables ROCm support (Only valid on Linux)")
++
+ if(DISABLE_ONNXRUNTIME_GPU)
+   target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE DISABLE_ONNXRUNTIME_GPU)
+ endif()
+ 
++if(ENABLE_ROCM)
++  target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE ENABLE_ROCM)
++endif()
++
+ if(USE_SYSTEM_ONNXRUNTIME)
+   if(OS_LINUX)
+-    find_package(Onnxruntime 1.16.3 REQUIRED)
+-    set(Onnxruntime_INCLUDE_PATH
+-        ${Onnxruntime_INCLUDE_DIR} ${Onnxruntime_INCLUDE_DIR}/onnxruntime
+-        ${Onnxruntime_INCLUDE_DIR}/onnxruntime/core/session ${Onnxruntime_INCLUDE_DIR}/onnxruntime/core/providers/cpu)
+-    target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE "${Onnxruntime_LIBRARIES}")
+-    target_include_directories(${CMAKE_PROJECT_NAME} SYSTEM PUBLIC "${Onnxruntime_INCLUDE_PATH}")
++    find_package(Onnxruntime 1.16.3)
++    if(Onnxruntime_FOUND)
++      set(Onnxruntime_INCLUDE_PATH
++          ${Onnxruntime_INCLUDE_DIR} ${Onnxruntime_INCLUDE_DIR}/onnxruntime
++          ${Onnxruntime_INCLUDE_DIR}/onnxruntime/core/session ${Onnxruntime_INCLUDE_DIR}/onnxruntime/core/providers/cpu)
++      target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE "${Onnxruntime_LIBRARIES}")
++      target_include_directories(${CMAKE_PROJECT_NAME} SYSTEM PUBLIC "${Onnxruntime_INCLUDE_PATH}")
++    else()
++      find_package(PkgConfig REQUIRED)
++      pkg_check_modules(Onnxruntime REQUIRED IMPORTED_TARGET libonnxruntime)
++      target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE PkgConfig::Onnxruntime)
++    endif()
+   else()
+     message(FATAL_ERROR "System ONNX Runtime is only supported on Linux!")
+   endif()
+diff --git a/docs/BUILDING-ROCM-UBUNTU.md b/docs/BUILDING-ROCM-UBUNTU.md
+new file mode 100644
+index 0000000..aa45423
+--- /dev/null
++++ b/docs/BUILDING-ROCM-UBUNTU.md
+@@ -0,0 +1,79 @@
++# Build with ROCm on Ubuntu
++
++
++## Prequisites
++
++- Linux Kernel 5 is required. 6 cannot install ROCm.
++- You must use Ubuntu 22.04 LTS to follow this instructions.
++- 50 GB+ space is required for building ONNX Runtime.
++
++## Install ROCm
++
++https://docs.amd.com/en/docs-5.4.0/deploy/linux/os-native/install.html
++
++
++```
++sudo mkdir --parents --mode=0755 /etc/apt/keyrings
++wget https://repo.radeon.com/rocm/rocm.gpg.key -O - | \
++    gpg --dearmor | sudo tee /etc/apt/keyrings/rocm.gpg > /dev/null
++echo 'deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/5.4/ubuntu jammy main' \
++    | sudo tee /etc/apt/sources.list.d/amdgpu.list
++sudo apt update
++sudo apt install amdgpu-dkms
++sudo reboot
++```
++
++```
++for ver in 5.3.3 5.4; do
++echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/$ver jammy main" \
++    | sudo tee --append /etc/apt/sources.list.d/rocm.list
++done
++echo -e 'Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600' \
++    | sudo tee /etc/apt/preferences.d/rocm-pin-600
++sudo apt update
++sudo apt install rocm-hip-sdk5.4.0 miopen-hip-dev5.4.0 roctracer-dev5.4.0 rocm-dev5.4.0
++```
++
++## Build and install ONNX Runtime
++
++```
++wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | \
++  gpg --dearmor - | sudo tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null
++echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ jammy main' | sudo tee /etc/apt/sources.list.d/kitware.list >/dev/null
++sudo apt update
++sudo apt install kitware-archive-keyring
++sudo apt install cmake
++```
++
++```
++sudo apt install build-essential libstdc++-12-dev
++git clone --recursive https://github.com/microsoft/onnxruntime.git -b v1.16.3
++cd onnxruntime
++./build.sh --config RelWithDebInfo --use_rocm --rocm_home /opt/rocm-5.4.0 --skip_tests --parallel --build_shared_lib
++sudo cmake --install build/Linux/RelWithDebInfo
++cd ..
++```
++
++## Build and install obs-backgroundremoval
++
++```
++sudo add-apt-repository ppa:obsproject/obs-studio
++sudo apt update
++sudo apt install obs-studio qt6-base-dev pkg-config libcurl4-openssl-dev
++```
++
++```
++git clone --recursive https://github.com/occ-ai/obs-backgroundremoval.git
++cd obs-backgroundremoval
++cmake . -B build_x86_64 \
++  -DCMAKE_INSTALL_PREFIX=/usr \
++  -DCMAKE_BUILD_TYPE=RelWithDebInfo \
++  -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
++  -DENABLE_FRONTEND_API=ON \
++  -DENABLE_QT=ON \
++  -DCMAKE_COMPILE_WARNING_AS_ERROR=ON \
++  -DUSE_SYSTEM_ONNXRUNTIME=ON \
++  -DENABLE_ROCM=ON
++cmake --build build_x86_64
++sudo cmake --install build_x86_64 --prefix /usr
++```
+\ No newline at end of file
+diff --git a/src/ort-utils/ort-session-utils.cpp b/src/ort-utils/ort-session-utils.cpp
+index bfd8295..678607e 100644
+--- a/src/ort-utils/ort-session-utils.cpp
++++ b/src/ort-utils/ort-session-utils.cpp
+@@ -61,8 +61,14 @@ int createOrtSession(filter_data *tf)
+ 	bfree(modelFilepath_rawPtr);
+ 
+ 	try {
+-#if defined(__linux__) && defined(__x86_64__) && \
+-	!defined(DISABLE_ONNXRUNTIME_GPU)
++#ifdef ENABLE_ROCM
++		if (tf->useGPU == USEGPU_TENSORRT) {
++			Ort::ThrowOnError(
++				OrtSessionOptionsAppendExecutionProvider_ROCM(
++					sessionOptions, 0));
++		}
++#elif defined(__linux__) && defined(__x86_64__) && \
++	!defined(DISABLE_ONNXRUNTIME_GPU) && !defined(ENABLE_ROCM)
+ 		if (tf->useGPU == USEGPU_TENSORRT) {
+ 			Ort::ThrowOnError(
+ 				OrtSessionOptionsAppendExecutionProvider_Tensorrt(
+-- 
+2.45.1
+
