@@ -6,7 +6,7 @@
 Name:    plasma-desktop
 Summary: Plasma Desktop shell
 Version: 6.0.5
-Release: 1%{?dist}
+Release: 4%{?dist}
 
 License: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only)
 URL:     https://invent.kde.org/plasma/%{name}
@@ -95,6 +95,8 @@ BuildRequires:  chrpath
 BuildRequires:  desktop-file-utils
 
 BuildRequires:  xdg-user-dirs
+
+Requires:       qt
 
 # xorg-x11 doesn't have hw_server and disable for s390/s390x
 %ifnarch s390 s390x
