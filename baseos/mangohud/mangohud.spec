@@ -2,7 +2,7 @@
 ## (rpmautospec version 0.3.5)
 ## RPMAUTOSPEC: autorelease, autochangelog
 %define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
-    release_number = 14;
+    release_number = 1;
     base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
     print(release_number + base_release_number - 1);
 }%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
@@ -10,29 +10,36 @@
 
 %global appname MangoHud
 
-%global imgui_ver 1.81
-%global imgui_wrap_ver  1
+%global imgui_ver 1.89.9
+%global imgui_wrap_ver 2
+%global vulkan_headers_ver 1.2.158
+%global vulkan_headers_wrap_ver 1
+%global implot_ver 0.16
+%global implot_wrap_ver 2
 
 %global tarball_version master
 
 # Tests requires bundled stuff. Disable for now.
-%bcond_with tests
-
-# NOBARA INTERNAL NOTE:
-# We are currently using upstream commit: 
-# bbf2872486fdbae7513e036d26b7e7078c17bde1
+%ifnarch s390x
+%bcond_without tests
+%endif
 
 Name:           mangohud
-Version:        0.7.1
+Version:        0.7.2
 Release:        %autorelease
 Summary:        Vulkan and OpenGL overlay for monitoring FPS, temperatures, CPU/GPU load
 
 License:        MIT
 URL:            https://github.com/flightlessmango/MangoHud
-Source0:        %{url}/archive/refs/heads/master.tar.gz
+# git clone --recurse-submodules https://github.com/flightlessmango/MangoHud MangoHud-master
+# tar -cvzf master.tar.gz MangoHud-master
+Source0:        master.tar.gz
 Source1:        https://github.com/ocornut/imgui/archive/v%{imgui_ver}/imgui-%{imgui_ver}.tar.gz
-Source2:        https://wrapdb.mesonbuild.com/v1/projects/imgui/%{imgui_ver}/%{imgui_wrap_ver}/get_zip#/imgui-%{imgui_ver}-%{imgui_wrap_ver}-wrap.zip
-Patch0:		mangoplot_python_fedora_fixup.patch
+Source2:        https://wrapdb.mesonbuild.com/v%{imgui_wrap_ver}/imgui_%{imgui_ver}-1/get_patch#/imgui-%{imgui_ver}-%{imgui_wrap_ver}-wrap.zip
+Source3:        https://github.com/epezent/implot/archive/v%{implot_ver}/implot-%{implot_ver}.tar.gz
+Source4:        https://wrapdb.mesonbuild.com/v%{implot_wrap_ver}/implot_%{implot_ver}-1/get_patch#/implot-%{implot_ver}-%{implot_wrap_ver}-wrap.zip
+Source5:        https://github.com/KhronosGroup/Vulkan-Headers/archive/v%{vulkan_headers_ver}/Vulkan-Headers-%{vulkan_headers_ver}.tar.gz
+Source6:        https://wrapdb.mesonbuild.com/v%{vulkan_headers_wrap_ver}/projects/vulkan-headers/%{vulkan_headers_ver}/%{vulkan_headers_wrap_ver}/get_zip#/vulkan-headers-%{vulkan_headers_ver}-%{vulkan_headers_wrap_ver}-wrap.zip
 
 BuildRequires:  appstream
 BuildRequires:  dbus-devel
@@ -46,6 +53,7 @@ BuildRequires:  libstdc++-static
 BuildRequires:  mesa-libGL-devel
 BuildRequires:  meson >= 0.60
 BuildRequires:  python3-mako
+BuildRequires:  spdlog-devel
 BuildRequires:  pkgconfig(dbus-1)
 BuildRequires:  pkgconfig(dri)
 BuildRequires:  pkgconfig(gl)
@@ -53,12 +61,14 @@ BuildRequires:  pkgconfig(glew)
 BuildRequires:  pkgconfig(glfw3)
 BuildRequires:  pkgconfig(libdrm)
 BuildRequires:  pkgconfig(xkbcommon)
-BuildRequires:  pkgconfig(spdlog)
 BuildRequires:  pkgconfig(nlohmann_json)
-BuildRequires:  pkgconfig(vulkan)
+# Tip and memo if upstream decide to unbundle vulkan-headers
+# BuildRequires:  pkgconfig(vulkan) < 1.3.241
 BuildRequires:  pkgconfig(wayland-client)
 BuildRequires:  pkgconfig(x11)
-BuildRequires:  cmake(VulkanHeaders)
+
+Requires:       python3-matplotlib
+Requires:       python3-numpy
 
 %if %{with tests}
 BuildRequires:  libcmocka-devel
@@ -72,6 +82,7 @@ Recommends:     (mangohud(x86-32) if glibc(x86-32))
 Suggests:       goverlay
 
 Provides:       bundled(imgui) = %{imgui_ver}
+Provides:       bundled(vulkan-headers) = %{vulkan_headers_ver}
 
 %global _description %{expand:
 A Vulkan and OpenGL overlay for monitoring FPS, temperatures, CPU/GPU load and
@@ -85,23 +96,34 @@ To install GUI front-end:
 
 
 %prep
-%autosetup -n %{appname}-master -p1
-%setup -qn %{appname}-master -DTa1
-%setup -qn %{appname}-master -DTa2
+%autosetup -n %{appname}-%{tarball_version} -p1
+%setup -qn %{appname}-%{tarball_version} -D -T -a1
+%setup -qn %{appname}-%{tarball_version} -D -T -a2
+%setup -qn %{appname}-%{tarball_version} -D -T -a3
+%setup -qn %{appname}-%{tarball_version} -D -T -a4
+%setup -qn %{appname}-%{tarball_version} -D -T -a5
+%setup -qn %{appname}-%{tarball_version} -D -T -a6
 
-mkdir subprojects/imgui
 mv imgui-%{imgui_ver} subprojects/
+mv implot-%{implot_ver} subprojects/
+mv Vulkan-Headers-%{vulkan_headers_ver} subprojects/
 
+%if %{with tests}
+# Use system cmocka instead of subproject
+# https://gitlab.archlinux.org/archlinux/packaging/packages/mangohud/-/blob/0.6.9.1-10/PKGBUILD?ref_type=tags#L32
+sed -i "s/  cmocka = subproject('cmocka')//g" meson.build
+sed -i "s/cmocka_dep = cmocka.get_variable('cmocka_dep')/cmocka_dep = dependency('cmocka')/g" meson.build
+%endif
 
 %build
 %meson \
-    --wrap-mode=forcefallback \
-    -Dinclude_doc=true \
-    -Dwith_wayland=enabled \
-    -Dwith_xnvctrl=disabled \
     -Dmangoapp=true \
     -Dmangoapp_layer=true \
     -Dmangohudctl=true \
+    -Dinclude_doc=true \
+    -Duse_system_spdlog=enabled \
+    -Dwith_wayland=enabled \
+    -Dwith_xnvctrl=disabled \
     %if %{with tests}
     -Dtests=enabled \
     %else
@@ -114,6 +136,9 @@ mv imgui-%{imgui_ver} subprojects/
 %install
 %meson_install
 
+# ERROR: ambiguous python shebang
+sed -i "s@#!/usr/bin/env python@#!/usr/bin/python3@" \
+    %{buildroot}%{_bindir}/mangoplot
 
 %check
 # https://github.com/flightlessmango/MangoHud/issues/812
@@ -138,7 +163,6 @@ mv imgui-%{imgui_ver} subprojects/
 %{_mandir}/man1/%{name}.1*
 %{_mandir}/man1/mangoapp.1*
 %{_metainfodir}/*.metainfo.xml
-%{_libdir}/%{name}/libMangoApp.so
 
 
 %changelog
