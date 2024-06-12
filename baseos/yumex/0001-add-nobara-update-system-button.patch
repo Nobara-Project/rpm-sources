@@ -1,6 +1,6 @@
-From c64cbde76fb8688a84f3be6c75ad8ce79860c12e Mon Sep 17 00:00:00 2001
+From 1e6148d9957f7979a320a6407283a5273a572a7a Mon Sep 17 00:00:00 2001
 From: GloriousEggroll <gloriouseggroll@gmail.com>
-Date: Sat, 8 Apr 2023 23:38:34 -0600
+Date: Tue, 11 Jun 2024 21:30:46 -0600
 Subject: [PATCH] add nobara update system button
 
 ---
@@ -11,7 +11,7 @@ Subject: [PATCH] add nobara update system button
  4 files changed, 22 insertions(+), 1 deletion(-)
 
 diff --git a/data/ui/shortcuts.blp b/data/ui/shortcuts.blp
-index 8736eee..8e8c37a 100644
+index a699b99..4fbc14a 100644
 --- a/data/ui/shortcuts.blp
 +++ b/data/ui/shortcuts.blp
 @@ -19,6 +19,10 @@ ShortcutsWindow help_overlay {
@@ -26,7 +26,7 @@ index 8736eee..8e8c37a 100644
          title: _("Close Dialog/Cancel");
          shortcut-type: accelerator;
 diff --git a/data/ui/window.blp b/data/ui/window.blp
-index 8b86298..d1d2705 100644
+index 0af835a..b5f2bdd 100644
 --- a/data/ui/window.blp
 +++ b/data/ui/window.blp
 @@ -66,7 +66,15 @@ template $YumexMainWindow : Adw.ApplicationWindow {
@@ -47,33 +47,33 @@ index 8b86298..d1d2705 100644
          Gtk.Box {
            orientation: vertical;
 diff --git a/yumex/main.py b/yumex/main.py
-index a950100..527c5f3 100644
+index 5f7b895..145ff0d 100644
 --- a/yumex/main.py
 +++ b/yumex/main.py
-@@ -90,6 +90,7 @@ class YumexApplication(Adw.Application):
-         self.create_action("flatpak_runtime", self.win.on_actions)
-
+@@ -91,6 +91,7 @@ class YumexApplication(Adw.Application):
+         self.create_action("flatpak_remove_unused", self.win.on_actions)
+ 
          self.create_action("apply_actions", self.win.on_actions, ["<Ctrl>Return"])
 +        self.create_action("update_actions", self.win.on_actions)
          self.create_action("page_one", self.win.on_actions, ["<Alt>1"])
          self.create_action("page_two", self.win.on_actions, ["<Alt>2"])
          self.create_action("page_three", self.win.on_actions, ["<Alt>3"])
 diff --git a/yumex/ui/window.py b/yumex/ui/window.py
-index c770b86..7274139 100644
+index c6ae5f4..cfa1ccd 100644
 --- a/yumex/ui/window.py
 +++ b/yumex/ui/window.py
 @@ -14,6 +14,7 @@
  # Copyright (C) 2024 Tim Lauridsen
-
+ 
  import re
 +import subprocess
-
+ 
  from gi.repository import Gtk, Adw, Gio  # type: ignore
-
+ 
 @@ -282,6 +283,11 @@ class YumexMainWindow(Adw.ApplicationWindow):
              self.select_page(Page.PACKAGES)
              self.load_packages(PackageFilter.INSTALLED)
-
+ 
 +    def on_update_actions_clicked(self, *_args):
 +        """handler for the Update System button"""
 +
@@ -91,6 +91,6 @@ index c770b86..7274139 100644
              case "flatpak_remove":
                  if self.active_page == Page.FLATPAKS:
                      self.flatpak_view.remove()
---
+-- 
 2.45.1
 
