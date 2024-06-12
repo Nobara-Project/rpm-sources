@@ -1,0 +1,37 @@
+From 313c86877db027c7f4d7b3e794123149f5618613 Mon Sep 17 00:00:00 2001
+From: David Redondo <kde@david-redondo.de>
+Date: Fri, 7 Jun 2024 11:03:23 +0200
+Subject: [PATCH] Send error replys not the original messages
+
+---
+ src/inputcapture.cpp | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/src/inputcapture.cpp b/src/inputcapture.cpp
+index 4c9ac9e0..51c2cd3e 100644
+--- a/src/inputcapture.cpp
++++ b/src/inputcapture.cpp
+@@ -287,16 +287,16 @@ InputCapturePortal::ConnectToEIS(const QDBusObjectPath &session_handle, const QS
+ 
+     if (session->state != State::Disabled) {
+         qCWarning(XdgDesktopPortalKdeInputCapture) << "Tried to call ConnectToEis on enabled session " << session_handle.path();
+-        message.createErrorReply(QDBusError::Failed, u"Session is enabled"_s);
+-        QDBusConnection::sessionBus().send(message);
++        auto error = message.createErrorReply(QDBusError::Failed, u"Session is enabled"_s);
++        QDBusConnection::sessionBus().send(error);
+         return QDBusUnixFileDescriptor();
+     }
+ 
+     QDBusReply<QDBusUnixFileDescriptor> reply = session->connectToEIS();
+     if (!reply.isValid()) {
+         qCWarning(XdgDesktopPortalKdeInputCapture) << "Failed to connect to eis" << reply.error();
+-        message.createErrorReply(QDBusError::Failed, u"Failed to connect to eis"_s);
+-        QDBusConnection::sessionBus().send(message);
++        auto error = message.createErrorReply(QDBusError::Failed, u"Failed to connect to eis"_s);
++        QDBusConnection::sessionBus().send(error);
+         return QDBusUnixFileDescriptor();
+     }
+ 
+-- 
+GitLab
+

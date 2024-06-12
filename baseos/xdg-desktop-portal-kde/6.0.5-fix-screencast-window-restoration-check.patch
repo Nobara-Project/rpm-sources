@@ -1,0 +1,32 @@
+From cc37d9414b83206f72f77d91b6ac1ffd03d112b1 Mon Sep 17 00:00:00 2001
+From: Nicolas Fella <nicolas.fella@gmx.de>
+Date: Sat, 1 Jun 2024 20:11:57 +0200
+Subject: [PATCH] Fix screencast window restoration check
+
+We are searching for a window by UUID. The model gives us a QVariant containing a QByteArray and we compare it to a QString
+
+This doesn't work and we never find any window
+
+Force the variant to QString to fix the comparison
+
+BUG: 485697
+---
+ src/screencast.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/screencast.cpp b/src/screencast.cpp
+index 928fd008..7fcbd394 100644
+--- a/src/screencast.cpp
++++ b/src/screencast.cpp
+@@ -178,7 +178,7 @@ uint ScreenCastPortal::Start(const QDBusObjectPath &handle,
+                     for (int i = 0, c = model.rowCount(); i < c; ++i) {
+                         const QModelIndex index = model.index(i, 0);
+ 
+-                        if (model.data(index, KWayland::Client::PlasmaWindowModel::Uuid) == windowUuid) {
++                        if (model.data(index, KWayland::Client::PlasmaWindowModel::Uuid).toString() == windowUuid) {
+                             selectedWindows << model.itemData(index);
+                         }
+                     }
+-- 
+GitLab
+

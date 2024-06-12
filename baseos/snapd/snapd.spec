@@ -86,7 +86,7 @@
 
 Name:           snapd
 Version:        2.62
-Release:        0%{?dist}
+Release:        2%{?dist}
 Summary:        A transactional software package manager
 License:        GPLv3
 URL:            https://%{provider_prefix}
@@ -913,6 +913,13 @@ if [ $1 -eq 1 ] ; then
    if systemctl -q is-enabled snapd.socket > /dev/null 2>&1 ; then
       systemctl start snapd.socket > /dev/null 2>&1 || :
    fi
+fi
+
+%posttrans
+# install snap store if it does not exist
+if [[ -z $(snap list | grep snap-store) ]]; then
+  sleep 5
+  snap install snap-store
 fi
 
 %preun

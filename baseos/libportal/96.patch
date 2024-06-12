@@ -1,0 +1,4078 @@
+From e9d2f5a976919cb0d79aa1de45d3d2f794b852aa Mon Sep 17 00:00:00 2001
+From: Peter Hutterer <peter.hutterer@who-t.net>
+Date: Tue, 29 Mar 2022 11:05:47 +1000
+Subject: [PATCH 1/4] Move the generic session declarations to a separate
+ header
+
+The Session is no longer unique to RemoteDesktop/ScreenCast and
+shouldn't be treated as such. Let's split this out so we can use the
+same object across other interfaces.
+
+The session state is a bit more difficult since it is also related to
+RD/SC only but it's more spaghettied in.
+---
+ libportal/meson.build       |   1 +
+ libportal/portal.h          |   1 +
+ libportal/remote.c          | 134 +++++++++++++++++++++++++++++-------
+ libportal/remote.h          |  56 +++++----------
+ libportal/session-private.h |   6 +-
+ libportal/session.c         | 116 ++++---------------------------
+ libportal/session.h         |  49 +++++++++++++
+ 7 files changed, 198 insertions(+), 165 deletions(-)
+ create mode 100644 libportal/session.h
+
+diff --git a/libportal/meson.build b/libportal/meson.build
+index 49e08571..ae47bd7c 100644
+--- a/libportal/meson.build
++++ b/libportal/meson.build
+@@ -19,6 +19,7 @@ headers = [
+   'print.h',
+   'remote.h',
+   'screenshot.h',
++  'session.h',
+   'spawn.h',
+   'trash.h',
+   'types.h',
+diff --git a/libportal/portal.h b/libportal/portal.h
+index bc7a09b1..a3fc790e 100644
+--- a/libportal/portal.h
++++ b/libportal/portal.h
+@@ -34,6 +34,7 @@
+ #include <libportal/print.h>
+ #include <libportal/remote.h>
+ #include <libportal/screenshot.h>
++#include <libportal/session.h>
+ #include <libportal/spawn.h>
+ #include <libportal/trash.h>
+ #include <libportal/types.h>
+diff --git a/libportal/remote.c b/libportal/remote.c
+index ce77927e..d24378b3 100644
+--- a/libportal/remote.c
++++ b/libportal/remote.c
+@@ -826,29 +826,6 @@ xdp_session_start_finish (XdpSession *session,
+   return g_task_propagate_boolean (G_TASK (result), error);
+ }
+ 
+-/**
+- * xdp_session_close:
+- * @session: an active [class@Session]
+- *
+- * Closes the session.
+- */
+-void
+-xdp_session_close (XdpSession *session)
+-{
+-  g_return_if_fail (XDP_IS_SESSION (session));
+-
+-  g_dbus_connection_call (session->portal->bus,
+-                          PORTAL_BUS_NAME,
+-                          session->id,
+-                          SESSION_INTERFACE,
+-                          "Close",
+-                          NULL,
+-                          NULL, 0, -1, NULL, NULL, NULL);
+-
+-  _xdp_session_set_session_state (session, XDP_SESSION_CLOSED);
+-  g_signal_emit_by_name (session, "closed");
+-}
+-
+ /**
+  * xdp_session_open_pipewire_remote:
+  * @session: a [class@Session]
+@@ -1319,3 +1296,114 @@ xdp_session_get_restore_token (XdpSession *session)
+ 
+   return g_strdup (session->restore_token);
+ }
++
++/**
++ * xdp_session_get_devices:
++ * @session: a [class@Session]
++ *
++ * Obtains the devices that the user selected.
++ *
++ * Unless the session is active, this function returns `XDP_DEVICE_NONE`.
++ *
++ * Returns: the selected devices
++ */
++XdpDeviceType
++xdp_session_get_devices (XdpSession *session)
++{
++  g_return_val_if_fail (XDP_IS_SESSION (session), XDP_DEVICE_NONE);
++
++  if (session->state != XDP_SESSION_ACTIVE)
++    return XDP_DEVICE_NONE;
++
++  return session->devices;
++}
++
++void
++_xdp_session_set_devices (XdpSession *session,
++                          XdpDeviceType devices)
++{
++  session->devices = devices;
++}
++
++/**
++ * xdp_session_get_streams:
++ * @session: a [class@Session]
++ *
++ * Obtains the streams that the user selected.
++ *
++ * The information in the returned [struct@GLib.Variant] has the format
++ * `a(ua{sv})`. Each item in the array is describing a stream. The first member
++ * is the pipewire node ID, the second is a dictionary of stream properties,
++ * including:
++ *
++ * - position, `(ii)`: a tuple consisting of the position `(x, y)` in the compositor
++ *     coordinate space. Note that the position may not be equivalent to a
++ *     position in a pixel coordinate space. Only available for monitor streams.
++ * - size, `(ii)`: a tuple consisting of (width, height). The size represents the size
++ *     of the stream as it is displayed in the compositor coordinate space.
++ *     Note that this size may not be equivalent to a size in a pixel coordinate
++ *     space. The size may differ from the size of the stream.
++ *
++ * Unless the session is active, this function returns `NULL`.
++ *
++ * Returns: the selected streams
++ */
++GVariant *
++xdp_session_get_streams (XdpSession *session)
++{
++  g_return_val_if_fail (XDP_IS_SESSION (session), NULL);
++
++  if (session->state != XDP_SESSION_ACTIVE)
++    return NULL;
++
++  return session->streams;
++}
++
++void
++_xdp_session_set_streams (XdpSession *session,
++                          GVariant *streams)
++{
++  if (session->streams)
++    g_variant_unref (session->streams);
++  session->streams = streams;
++  if (session->streams)
++    g_variant_ref (session->streams);
++}
++
++/**
++ * xdp_session_get_session_state:
++ * @session: an [class@Session]
++ *
++ * Obtains information about the state of the session that is represented
++ * by @session.
++ *
++ * Returns: the state of @session
++ */
++XdpSessionState
++xdp_session_get_session_state (XdpSession *session)
++{
++  g_return_val_if_fail (XDP_IS_SESSION (session), XDP_SESSION_CLOSED);
++
++  return session->state;
++}
++
++void
++_xdp_session_set_session_state (XdpSession *session,
++                                XdpSessionState state)
++{
++  session->state = state;
++
++  if (state == XDP_SESSION_INITIAL && session->state != XDP_SESSION_INITIAL)
++    {
++      g_warning ("Can't move a session back to initial state");
++      return;
++    }
++  if (session->state == XDP_SESSION_CLOSED && state != XDP_SESSION_CLOSED)
++    {
++      g_warning ("Can't move a session back from closed state");
++      return;
++    }
++
++  if (state == XDP_SESSION_CLOSED)
++    g_signal_emit_by_name (session, "closed", 0);
++}
+diff --git a/libportal/remote.h b/libportal/remote.h
+index a751861f..b466e4b1 100644
+--- a/libportal/remote.h
++++ b/libportal/remote.h
+@@ -20,13 +20,23 @@
+ #pragma once
+ 
+ #include <libportal/types.h>
++#include <libportal/session.h>
+ 
+ G_BEGIN_DECLS
+ 
+-#define XDP_TYPE_SESSION (xdp_session_get_type ())
+-
+-XDP_PUBLIC
+-G_DECLARE_FINAL_TYPE (XdpSession, xdp_session, XDP, SESSION, GObject)
++/**
++ * XdpSessionState:
++ * @XDP_SESSION_INITIAL: the session has not been started.
++ * @XDP_SESSION_ACTIVE: the session is active.
++ * @XDP_SESSION_CLOSED: the session is no longer active.
++ *
++ * The state of a session.
++ */
++typedef enum {
++  XDP_SESSION_INITIAL,
++  XDP_SESSION_ACTIVE,
++  XDP_SESSION_CLOSED
++} XdpSessionState;
+ 
+ /**
+  * XdpOutputType:
+@@ -60,32 +70,6 @@ typedef enum {
+   XDP_DEVICE_TOUCHSCREEN = 1 << 2
+ } XdpDeviceType;
+ 
+-/**
+- * XdpSessionType:
+- * @XDP_SESSION_SCREENCAST: a screencast session.
+- * @XDP_SESSION_REMOTE_DESKTOP: a remote desktop session.
+- *
+- * The type of a session.
+- */
+-typedef enum {
+-  XDP_SESSION_SCREENCAST,
+-  XDP_SESSION_REMOTE_DESKTOP
+-} XdpSessionType;
+-
+-/**
+- * XdpSessionState:
+- * @XDP_SESSION_INITIAL: the session has not been started.
+- * @XDP_SESSION_ACTIVE: the session is active.
+- * @XDP_SESSION_CLOSED: the session is no longer active.
+- *
+- * The state of a session.
+- */
+-typedef enum {
+-  XDP_SESSION_INITIAL,
+-  XDP_SESSION_ACTIVE,
+-  XDP_SESSION_CLOSED
+-} XdpSessionState;
+-
+ /**
+  * XdpScreencastFlags:
+  * @XDP_SCREENCAST_FLAG_NONE: No options
+@@ -169,6 +153,9 @@ XdpSession *xdp_portal_create_remote_desktop_session_finish (XdpPortal
+                                                              GAsyncResult           *result,
+                                                              GError                **error);
+ 
++XDP_PUBLIC
++XdpSessionState xdp_session_get_session_state (XdpSession *session);
++
+ XDP_PUBLIC
+ void        xdp_session_start                (XdpSession           *session,
+                                               XdpParent            *parent,
+@@ -181,18 +168,9 @@ gboolean    xdp_session_start_finish         (XdpSession           *session,
+                                               GAsyncResult         *result,
+                                               GError              **error);
+ 
+-XDP_PUBLIC
+-void        xdp_session_close                (XdpSession           *session);
+-
+ XDP_PUBLIC
+ int         xdp_session_open_pipewire_remote (XdpSession           *session);
+ 
+-XDP_PUBLIC
+-XdpSessionType  xdp_session_get_session_type  (XdpSession *session);
+-
+-XDP_PUBLIC
+-XdpSessionState xdp_session_get_session_state (XdpSession *session);
+-
+ XDP_PUBLIC
+ XdpDeviceType   xdp_session_get_devices       (XdpSession *session);
+ 
+diff --git a/libportal/session-private.h b/libportal/session-private.h
+index c21661bd..2f73babe 100644
+--- a/libportal/session-private.h
++++ b/libportal/session-private.h
+@@ -24,18 +24,22 @@
+ struct _XdpSession {
+   GObject parent_instance;
+ 
++  /* Generic Session implementation */
+   XdpPortal *portal;
+   char *id;
+   XdpSessionType type;
++  guint signal_id;
++
++  /* RemoteDesktop/ScreenCast */
+   XdpSessionState state;
+   XdpDeviceType devices;
+   GVariant *streams;
+ 
+   XdpPersistMode persist_mode;
+   char *restore_token;
++
+   gboolean uses_eis;
+ 
+-  guint signal_id;
+ };
+ 
+ XdpSession * _xdp_session_new (XdpPortal *portal,
+diff --git a/libportal/session.c b/libportal/session.c
+index 0b1f02a7..54d593e8 100644
+--- a/libportal/session.c
++++ b/libportal/session.c
+@@ -147,112 +147,24 @@ xdp_session_get_session_type (XdpSession *session)
+ }
+ 
+ /**
+- * xdp_session_get_session_state:
+- * @session: an [class@Session]
+- *
+- * Obtains information about the state of the session that is represented
+- * by @session.
++ * xdp_session_close:
++ * @session: an active [class@Session]
+  *
+- * Returns: the state of @session
++ * Closes the session.
+  */
+-XdpSessionState
+-xdp_session_get_session_state (XdpSession *session)
+-{
+-  g_return_val_if_fail (XDP_IS_SESSION (session), XDP_SESSION_CLOSED);
+-
+-  return session->state;
+-}
+-
+-void
+-_xdp_session_set_session_state (XdpSession *session,
+-                                XdpSessionState state)
+-{
+-  session->state = state;
+-
+-  if (state == XDP_SESSION_INITIAL && session->state != XDP_SESSION_INITIAL)
+-    {
+-      g_warning ("Can't move a session back to initial state");
+-      return;
+-    }
+-  if (session->state == XDP_SESSION_CLOSED && state != XDP_SESSION_CLOSED)
+-    {
+-      g_warning ("Can't move a session back from closed state");
+-      return;
+-    }
+-
+-  if (state == XDP_SESSION_CLOSED)
+-    g_signal_emit (session, signals[CLOSED], 0);
+-}
+-
+-/**
+- * xdp_session_get_devices:
+- * @session: a [class@Session]
+- *
+- * Obtains the devices that the user selected.
+- *
+- * Unless the session is active, this function returns `XDP_DEVICE_NONE`.
+- *
+- * Returns: the selected devices
+- */
+-XdpDeviceType
+-xdp_session_get_devices (XdpSession *session)
+-{
+-  g_return_val_if_fail (XDP_IS_SESSION (session), XDP_DEVICE_NONE);
+-
+-  if (session->state != XDP_SESSION_ACTIVE)
+-    return XDP_DEVICE_NONE;
+-
+-  return session->devices;
+-}
+-
+ void
+-_xdp_session_set_devices (XdpSession *session,
+-                          XdpDeviceType devices)
++xdp_session_close (XdpSession *session)
+ {
+-  session->devices = devices;
+-}
++  g_return_if_fail (XDP_IS_SESSION (session));
+ 
+-/**
+- * xdp_session_get_streams:
+- * @session: a [class@Session]
+- *
+- * Obtains the streams that the user selected.
+- *
+- * The information in the returned [struct@GLib.Variant] has the format
+- * `a(ua{sv})`. Each item in the array is describing a stream. The first member
+- * is the pipewire node ID, the second is a dictionary of stream properties,
+- * including:
+- *
+- * - position, `(ii)`: a tuple consisting of the position `(x, y)` in the compositor
+- *     coordinate space. Note that the position may not be equivalent to a
+- *     position in a pixel coordinate space. Only available for monitor streams.
+- * - size, `(ii)`: a tuple consisting of (width, height). The size represents the size
+- *     of the stream as it is displayed in the compositor coordinate space.
+- *     Note that this size may not be equivalent to a size in a pixel coordinate
+- *     space. The size may differ from the size of the stream.
+- *
+- * Unless the session is active, this function returns `NULL`.
+- *
+- * Returns: the selected streams
+- */
+-GVariant *
+-xdp_session_get_streams (XdpSession *session)
+-{
+-  g_return_val_if_fail (XDP_IS_SESSION (session), NULL);
++  g_dbus_connection_call (session->portal->bus,
++                          PORTAL_BUS_NAME,
++                          session->id,
++                          SESSION_INTERFACE,
++                          "Close",
++                          NULL,
++                          NULL, 0, -1, NULL, NULL, NULL);
+ 
+-  if (session->state != XDP_SESSION_ACTIVE)
+-    return NULL;
+-
+-  return session->streams;
+-}
+-
+-void
+-_xdp_session_set_streams (XdpSession *session,
+-                          GVariant *streams)
+-{
+-  if (session->streams)
+-    g_variant_unref (session->streams);
+-  session->streams = streams;
+-  if (session->streams)
+-    g_variant_ref (session->streams);
++  _xdp_session_set_session_state (session, XDP_SESSION_CLOSED);
++  _xdp_session_close (session);
+ }
+diff --git a/libportal/session.h b/libportal/session.h
+new file mode 100644
+index 00000000..3d85bacf
+--- /dev/null
++++ b/libportal/session.h
+@@ -0,0 +1,49 @@
++/*
++ * Copyright (C) 2018, Matthias Clasen
++ *
++ * This file is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU Lesser General Public License as
++ * published by the Free Software Foundation, version 3.0 of the
++ * License.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ *
++ * SPDX-License-Identifier: LGPL-3.0-only
++ */
++
++#pragma once
++
++#include <libportal/types.h>
++
++G_BEGIN_DECLS
++
++#define XDP_TYPE_SESSION (xdp_session_get_type ())
++
++XDP_PUBLIC
++G_DECLARE_FINAL_TYPE (XdpSession, xdp_session, XDP, SESSION, GObject)
++
++/**
++ * XdpSessionType:
++ * @XDP_SESSION_SCREENCAST: a screencast session.
++ * @XDP_SESSION_REMOTE_DESKTOP: a remote desktop session.
++ *
++ * The type of a session.
++ */
++typedef enum {
++  XDP_SESSION_SCREENCAST,
++  XDP_SESSION_REMOTE_DESKTOP,
++} XdpSessionType;
++
++XDP_PUBLIC
++void            xdp_session_close             (XdpSession *session);
++
++XDP_PUBLIC
++XdpSessionType  xdp_session_get_session_type  (XdpSession *session);
++
++G_END_DECLS
+
+From 6f2efcd8c0be63536ffa120d520bd45ffa1ac5d5 Mon Sep 17 00:00:00 2001
+From: Peter Hutterer <peter.hutterer@who-t.net>
+Date: Tue, 30 Aug 2022 09:37:54 +1000
+Subject: [PATCH 2/4] session: implement a generic close/closed handling
+
+Disentangle the generic Session is-closed state from the
+ScreenCast/RemoteDesktop-specific case.
+
+The more detailed SessionState is specific to SC/RD - INITIAL and CLOSED
+is generic enough that we can make it a generic API.
+---
+ libportal/remote.c          |  2 +-
+ libportal/session-private.h |  3 +++
+ libportal/session.c         | 10 ++++++++++
+ 3 files changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/libportal/remote.c b/libportal/remote.c
+index d24378b3..ef69d121 100644
+--- a/libportal/remote.c
++++ b/libportal/remote.c
+@@ -1405,5 +1405,5 @@ _xdp_session_set_session_state (XdpSession *session,
+     }
+ 
+   if (state == XDP_SESSION_CLOSED)
+-    g_signal_emit_by_name (session, "closed", 0);
++    _xdp_session_close (session);
+ }
+diff --git a/libportal/session-private.h b/libportal/session-private.h
+index 2f73babe..d4c2fce1 100644
+--- a/libportal/session-private.h
++++ b/libportal/session-private.h
+@@ -27,6 +27,7 @@ struct _XdpSession {
+   /* Generic Session implementation */
+   XdpPortal *portal;
+   char *id;
++  gboolean is_closed;
+   XdpSessionType type;
+   guint signal_id;
+ 
+@@ -54,3 +55,5 @@ void         _xdp_session_set_devices (XdpSession *session,
+ 
+ void         _xdp_session_set_streams (XdpSession *session,
+                                        GVariant   *streams);
++
++void         _xdp_session_close (XdpSession *session);
+diff --git a/libportal/session.c b/libportal/session.c
+index 54d593e8..7de9278d 100644
+--- a/libportal/session.c
++++ b/libportal/session.c
+@@ -129,6 +129,16 @@ _xdp_session_new (XdpPortal *portal,
+   return session;
+ }
+ 
++void
++_xdp_session_close (XdpSession *session)
++{
++  if (session->is_closed)
++    return;
++
++  session->is_closed = TRUE;
++  g_signal_emit_by_name (session, "closed");
++}
++
+ /**
+  * xdp_session_get_session_type:
+  * @session: an [class@Session]
+
+From ce7fc03fd50d26579b8990c6b5f0107b60a789f0 Mon Sep 17 00:00:00 2001
+From: Peter Hutterer <peter.hutterer@who-t.net>
+Date: Tue, 30 Aug 2022 09:00:08 +1000
+Subject: [PATCH 3/4] Implement support for the InputCapture portal
+
+This patch adds a new XdpSession type for the input capture protocol as
+well as as the methods provided by that portal to work on that session.
+
+Two helper objects are available now too: XdpInputCaptureZone and
+XdpInputCapturePointerBarrier
+---
+ libportal/inputcapture-pointerbarrier.c      |  248 ++++
+ libportal/inputcapture-pointerbarrier.h      |   31 +
+ libportal/inputcapture-private.h             |   30 +
+ libportal/inputcapture-zone.c                |  238 ++++
+ libportal/inputcapture-zone.h                |   31 +
+ libportal/inputcapture.c                     | 1203 ++++++++++++++++++
+ libportal/inputcapture.h                     |  103 ++
+ libportal/meson.build                        |    6 +
+ libportal/portal.h                           |    1 +
+ libportal/session-private.h                  |    3 +
+ libportal/session.c                          |    4 +
+ libportal/session.h                          |    2 +
+ portal-test/gtk3/portal-test-win.c           |  102 +-
+ portal-test/gtk3/portal-test-win.ui          |   62 +
+ tests/pyportaltest/templates/inputcapture.py |  365 ++++++
+ tests/pyportaltest/test_inputcapture.py      |  592 +++++++++
+ 16 files changed, 3014 insertions(+), 7 deletions(-)
+ create mode 100644 libportal/inputcapture-pointerbarrier.c
+ create mode 100644 libportal/inputcapture-pointerbarrier.h
+ create mode 100644 libportal/inputcapture-private.h
+ create mode 100644 libportal/inputcapture-zone.c
+ create mode 100644 libportal/inputcapture-zone.h
+ create mode 100644 libportal/inputcapture.c
+ create mode 100644 libportal/inputcapture.h
+ create mode 100644 tests/pyportaltest/templates/inputcapture.py
+ create mode 100644 tests/pyportaltest/test_inputcapture.py
+
+diff --git a/libportal/inputcapture-pointerbarrier.c b/libportal/inputcapture-pointerbarrier.c
+new file mode 100644
+index 00000000..d904a6c4
+--- /dev/null
++++ b/libportal/inputcapture-pointerbarrier.c
+@@ -0,0 +1,248 @@
++/*
++ * Copyright (C) 2022, Red Hat, Inc.
++ *
++ * This file is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU Lesser General Public License as
++ * published by the Free Software Foundation, version 3.0 of the
++ * License.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ *
++ * SPDX-License-Identifier: LGPL-3.0-only
++ */
++
++#include "config.h"
++
++#include "portal-private.h"
++#include "session-private.h"
++#include "inputcapture-pointerbarrier.h"
++#include "inputcapture-private.h"
++
++/**
++ * XdpInputCapturePointerBarrier
++ *
++ * A representation of a pointer barrier on an [class@InputCaptureZone].
++ * Barriers can be assigned with
++ * [method@InputCaptureSession.set_pointer_barriers], once the Portal
++ * interaction is complete the barrier's "is-active" state indicates whether
++ * the barrier is active. Barriers can only be used once, subsequent calls to
++ * [method@InputCaptureSession.set_pointer_barriers] will invalidate all
++ * current barriers.
++ */
++
++enum
++{
++  PROP_0,
++
++  PROP_X1,
++  PROP_X2,
++  PROP_Y1,
++  PROP_Y2,
++  PROP_ID,
++  PROP_IS_ACTIVE,
++
++  N_PROPERTIES
++};
++
++enum
++{
++  LAST_SIGNAL
++};
++
++enum barrier_state
++{
++  BARRIER_STATE_NEW,
++  BARRIER_STATE_ACTIVE,
++  BARRIER_STATE_FAILED,
++};
++
++static GParamSpec *properties[N_PROPERTIES] = { NULL, };
++
++struct  _XdpInputCapturePointerBarrier {
++    GObject parent_instance;
++
++    unsigned int id;
++    int x1, y1;
++    int x2, y2;
++
++    enum barrier_state state;
++};
++
++G_DEFINE_TYPE (XdpInputCapturePointerBarrier, xdp_input_capture_pointer_barrier, G_TYPE_OBJECT)
++
++static void
++xdp_input_capture_pointer_barrier_get_property (GObject      *object,
++                                                unsigned int  property_id,
++                                                GValue       *value,
++                                                GParamSpec   *pspec)
++{
++  XdpInputCapturePointerBarrier *barrier = XDP_INPUT_CAPTURE_POINTER_BARRIER (object);
++
++  switch (property_id)
++    {
++    case PROP_X1:
++      g_value_set_int (value, barrier->x1);
++      break;
++    case PROP_Y1:
++      g_value_set_int (value, barrier->y1);
++      break;
++    case PROP_X2:
++      g_value_set_int (value, barrier->x2);
++      break;
++    case PROP_Y2:
++      g_value_set_int (value, barrier->y2);
++      break;
++    case PROP_ID:
++      g_value_set_uint (value, barrier->id);
++      break;
++    case PROP_IS_ACTIVE:
++      g_value_set_boolean (value, barrier->state == BARRIER_STATE_ACTIVE);
++      break;
++    default:
++      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
++      break;
++    }
++}
++
++static void
++xdp_input_capture_pointer_barrier_set_property (GObject      *object,
++                                                unsigned int  property_id,
++                                                const GValue *value,
++                                                GParamSpec   *pspec)
++{
++  XdpInputCapturePointerBarrier *pointerbarrier = XDP_INPUT_CAPTURE_POINTER_BARRIER (object);
++
++  switch (property_id)
++    {
++    case PROP_X1:
++      pointerbarrier->x1 = g_value_get_int (value);
++      break;
++    case PROP_Y1:
++      pointerbarrier->y1 = g_value_get_int (value);
++      break;
++    case PROP_X2:
++      pointerbarrier->x2 = g_value_get_int (value);
++      break;
++    case PROP_Y2:
++      pointerbarrier->y2 = g_value_get_int (value);
++      break;
++    case PROP_ID:
++      pointerbarrier->id = g_value_get_uint (value);
++      break;
++    default:
++      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
++      break;
++    }
++}
++
++static void
++xdp_input_capture_pointer_barrier_class_init (XdpInputCapturePointerBarrierClass *klass)
++{
++  GObjectClass *object_class = G_OBJECT_CLASS (klass);
++
++  object_class->get_property = xdp_input_capture_pointer_barrier_get_property;
++  object_class->set_property = xdp_input_capture_pointer_barrier_set_property;
++
++  /**
++   * XdpInputCapturePointerBarrier:x1:
++   *
++   * The pointer barrier x offset in logical pixels
++   */
++  properties[PROP_X1] =
++    g_param_spec_int ("x1",
++                      "Pointer barrier x offset",
++                      "The pointer barrier x offset in logical pixels",
++                      INT_MIN, INT_MAX, 0,
++                      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE);
++
++  /**
++   * XdpInputCapturePointerBarrier:y1:
++   *
++   * The pointer barrier y offset in logical pixels
++   */
++  properties[PROP_Y1] =
++    g_param_spec_int ("y1",
++                      "Pointer barrier y offset",
++                      "The pointer barrier y offset in logical pixels",
++                      INT_MIN, INT_MAX, 0,
++                      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE);
++  /**
++   * XdpInputCapturePointerBarrier:x2:
++   *
++   * The pointer barrier x offset in logical pixels
++   */
++  properties[PROP_X2] =
++    g_param_spec_int ("x2",
++                      "Pointer barrier x offset",
++                      "The pointer barrier x offset in logical pixels",
++                      INT_MIN, INT_MAX, 0,
++                      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE);
++  /**
++   * XdpInputCapturePointerBarrier:y2:
++   *
++   * The pointer barrier y offset in logical pixels
++   */
++  properties[PROP_Y2] =
++    g_param_spec_int ("y2",
++                      "Pointer barrier y offset",
++                      "The pointer barrier y offset in logical pixels",
++                      INT_MIN, INT_MAX, 0,
++                      G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE);
++  /**
++   * XdpInputCapturePointerBarrier:id:
++   *
++   * The caller-assigned unique id of this barrier
++   */
++  properties[PROP_ID] =
++    g_param_spec_uint ("id",
++                       "Pointer barrier unique id",
++                       "The id assigned to this barrier by the caller",
++                       0, UINT_MAX, 0,
++                       G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE);
++  /**
++   * XdpInputCapturePointerBarrier:is-active:
++   *
++   * A boolean indicating whether this barrier is active. A barrier cannot
++   * become active once it failed to apply, barriers that are not active can
++   * be thus cleaned up by the caller.
++   */
++  properties[PROP_IS_ACTIVE] =
++    g_param_spec_boolean ("is-active",
++                          "true if active, false otherwise",
++                          "true if active, false otherwise",
++                          FALSE,
++                          G_PARAM_READABLE);
++
++  g_object_class_install_properties (object_class, N_PROPERTIES, properties);
++}
++
++static void
++xdp_input_capture_pointer_barrier_init (XdpInputCapturePointerBarrier *barrier)
++{
++    barrier->state = BARRIER_STATE_NEW;
++}
++
++unsigned int
++_xdp_input_capture_pointer_barrier_get_id (XdpInputCapturePointerBarrier *barrier)
++{
++  return barrier->id;
++}
++
++void
++_xdp_input_capture_pointer_barrier_set_is_active (XdpInputCapturePointerBarrier *barrier, gboolean active)
++{
++  g_return_if_fail (barrier->state == BARRIER_STATE_NEW);
++
++  if (active)
++    barrier->state = BARRIER_STATE_ACTIVE;
++  else
++    barrier->state = BARRIER_STATE_FAILED;
++
++  g_object_notify_by_pspec (G_OBJECT (barrier), properties[PROP_IS_ACTIVE]);
++}
+diff --git a/libportal/inputcapture-pointerbarrier.h b/libportal/inputcapture-pointerbarrier.h
+new file mode 100644
+index 00000000..52db9bbf
+--- /dev/null
++++ b/libportal/inputcapture-pointerbarrier.h
+@@ -0,0 +1,31 @@
++/*
++ * Copyright (C) 2022, Red Hat, Inc.
++ *
++ * This file is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU Lesser General Public License as
++ * published by the Free Software Foundation, version 3.0 of the
++ * License.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ *
++ * SPDX-License-Identifier: LGPL-3.0-only
++ */
++
++#pragma once
++
++#include <libportal/portal-helpers.h>
++
++G_BEGIN_DECLS
++
++#define XDP_TYPE_INPUT_CAPTURE_POINTER_BARRIER (xdp_input_capture_pointer_barrier_get_type ())
++
++XDP_PUBLIC
++G_DECLARE_FINAL_TYPE (XdpInputCapturePointerBarrier, xdp_input_capture_pointer_barrier, XDP, INPUT_CAPTURE_POINTER_BARRIER, GObject)
++
++G_END_DECLS
+diff --git a/libportal/inputcapture-private.h b/libportal/inputcapture-private.h
+new file mode 100644
+index 00000000..e554df2c
+--- /dev/null
++++ b/libportal/inputcapture-private.h
+@@ -0,0 +1,30 @@
++/*
++ * Copyright (C) 2022, Red Hat, Inc.
++ *
++ * This file is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU Lesser General Public License as
++ * published by the Free Software Foundation, version 3.0 of the
++ * License.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ *
++ * SPDX-License-Identifier: LGPL-3.0-only
++ */
++
++#include "inputcapture-pointerbarrier.h"
++#include "inputcapture-zone.h"
++
++guint
++_xdp_input_capture_pointer_barrier_get_id (XdpInputCapturePointerBarrier *barrier);
++
++void
++_xdp_input_capture_pointer_barrier_set_is_active (XdpInputCapturePointerBarrier *barrier, gboolean active);
++
++void
++_xdp_input_capture_zone_invalidate_and_free  (XdpInputCaptureZone *zone);
+diff --git a/libportal/inputcapture-zone.c b/libportal/inputcapture-zone.c
+new file mode 100644
+index 00000000..7b27ede9
+--- /dev/null
++++ b/libportal/inputcapture-zone.c
+@@ -0,0 +1,238 @@
++/*
++ * Copyright (C) 2022, Red Hat, Inc.
++ *
++ * This file is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU Lesser General Public License as
++ * published by the Free Software Foundation, version 3.0 of the
++ * License.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ *
++ * SPDX-License-Identifier: LGPL-3.0-only
++ */
++
++#include "config.h"
++
++#include "inputcapture-zone.h"
++
++/**
++ * XdpInputCaptureZone
++ *
++ * A representation of a zone that supports input capture.
++ *
++ * The [class@XdpInputCaptureZone] object is used to represent a zone on the
++ * user-visible desktop that may be used to set up
++ * [class@XdpInputCapturePointerBarrier] objects. In most cases, the set of
++ * [class@XdpInputCaptureZone] objects represent the available monitors but the
++ * exact implementation is up to the implementation.
++ */
++
++enum
++{
++  PROP_0,
++
++  PROP_WIDTH,
++  PROP_HEIGHT,
++  PROP_X,
++  PROP_Y,
++  PROP_ZONE_SET,
++  PROP_IS_VALID,
++
++  N_PROPERTIES
++};
++
++static GParamSpec *zone_properties[N_PROPERTIES] = { NULL, };
++
++struct  _XdpInputCaptureZone {
++    GObject parent_instance;
++
++    unsigned int width;
++    unsigned int height;
++    int x;
++    int y;
++
++    unsigned int zone_set;
++
++    gboolean is_valid;
++};
++
++G_DEFINE_TYPE (XdpInputCaptureZone, xdp_input_capture_zone, G_TYPE_OBJECT)
++
++static void
++xdp_input_capture_zone_get_property (GObject      *object,
++                                     unsigned int  property_id,
++                                     GValue       *value,
++                                     GParamSpec   *pspec)
++{
++
++  XdpInputCaptureZone *zone = XDP_INPUT_CAPTURE_ZONE (object);
++
++  switch (property_id)
++    {
++    case PROP_WIDTH:
++      g_value_set_uint (value, zone->width);
++      break;
++    case PROP_HEIGHT:
++      g_value_set_uint (value, zone->height);
++      break;
++    case PROP_X:
++      g_value_set_int (value, zone->x);
++      break;
++    case PROP_Y:
++      g_value_set_int (value, zone->y);
++      break;
++    case PROP_ZONE_SET:
++      g_value_set_uint (value, zone->zone_set);
++      break;
++    case PROP_IS_VALID:
++      g_value_set_boolean (value, zone->is_valid);
++      break;
++    default:
++      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
++      break;
++    }
++}
++
++static void
++xdp_input_capture_zone_set_property (GObject      *object,
++                                     unsigned int  property_id,
++                                     const GValue *value,
++                                     GParamSpec     *pspec)
++{
++  XdpInputCaptureZone *zone = XDP_INPUT_CAPTURE_ZONE (object);
++
++  switch (property_id)
++    {
++    case PROP_WIDTH:
++      zone->width = g_value_get_uint (value);
++      break;
++    case PROP_HEIGHT:
++      zone->height = g_value_get_uint (value);
++      break;
++    case PROP_X:
++      zone->x =  g_value_get_int (value);
++      break;
++    case PROP_Y:
++      zone->y = g_value_get_int (value);
++      break;
++    case PROP_ZONE_SET:
++      zone->zone_set = g_value_get_uint (value);
++      break;
++    case PROP_IS_VALID:
++      zone->is_valid = g_value_get_boolean (value);
++      break;
++    default:
++      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
++      break;
++    }
++}
++
++static void
++xdp_input_capture_zone_class_init (XdpInputCaptureZoneClass *klass)
++{
++  GObjectClass *object_class = G_OBJECT_CLASS (klass);
++
++  object_class->get_property = xdp_input_capture_zone_get_property;
++  object_class->set_property = xdp_input_capture_zone_set_property;
++
++  /**
++   * XdpInputCaptureZone:width:
++   *
++   * The width of this zone in logical pixels
++   */
++  zone_properties[PROP_WIDTH] =
++        g_param_spec_uint ("width",
++                           "zone width",
++                           "The zone width in logical pixels",
++                           0, UINT_MAX, 0,
++                           G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE);
++
++  /**
++   * XdpInputCaptureZone:height:
++   *
++   * The height of this zone in logical pixels
++   */
++  zone_properties[PROP_HEIGHT] =
++        g_param_spec_uint ("height",
++                           "zone height",
++                           "The zone height in logical pixels",
++                           0, UINT_MAX, 0,
++                           G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE);
++
++  /**
++   * XdpInputCaptureZone:x:
++   *
++   * The x offset of this zone in logical pixels
++   */
++  zone_properties[PROP_X] =
++        g_param_spec_int ("x",
++                          "zone x offset",
++                          "The zone x offset in logical pixels",
++                          INT_MIN, INT_MAX, 0,
++                          G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE);
++  /**
++   * XdpInputCaptureZone:y:
++   *
++   * The x offset of this zone in logical pixels
++   */
++  zone_properties[PROP_Y] =
++        g_param_spec_int ("y",
++                          "zone y offset",
++                          "The zone y offset in logical pixels",
++                          INT_MIN, INT_MAX, 0,
++                          G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE);
++
++  /**
++   * XdpInputCaptureZone:zone_set:
++   *
++   * The unique zone_set number assigned to this set of zones. A set of zones as
++   * returned by [method@InputCaptureSession.get_zones] have the same zone_set
++   * number and only one set of zones may be valid at any time (the most
++   * recently returned set).
++   */
++  zone_properties[PROP_ZONE_SET] =
++        g_param_spec_uint ("zone_set",
++                           "zone set number",
++                           "The zone_set number when this zone was retrieved",
++                           0, UINT_MAX, 0,
++                           G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE);
++
++  /**
++   * XdpInputCaptureZone:is-valid:
++   *
++   * A boolean indicating whether this zone is currently valid. Zones are
++   * invalidated by the Portal's ZonesChanged signal, see
++   * [signal@InputCaptureSession::zones-changed].
++   *
++   * Once invalidated, a Zone can be discarded by the caller, it cannot become
++   * valid again.
++   */
++  zone_properties[PROP_IS_VALID] =
++        g_param_spec_boolean ("is-valid",
++                              "validity check",
++                              "True if this zone is currently valid",
++                              TRUE,
++                              G_PARAM_READWRITE);
++
++  g_object_class_install_properties (object_class,
++                                     N_PROPERTIES,
++                                     zone_properties);
++}
++
++static void
++xdp_input_capture_zone_init (XdpInputCaptureZone *zone)
++{
++}
++
++void
++_xdp_input_capture_zone_invalidate_and_free (XdpInputCaptureZone *zone)
++{
++  g_object_set (zone, "is-valid", FALSE, NULL);
++  g_object_unref (zone);
++}
+diff --git a/libportal/inputcapture-zone.h b/libportal/inputcapture-zone.h
+new file mode 100644
+index 00000000..88bfb513
+--- /dev/null
++++ b/libportal/inputcapture-zone.h
+@@ -0,0 +1,31 @@
++/*
++ * Copyright (C) 2022, Red Hat, Inc.
++ *
++ * This file is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU Lesser General Public License as
++ * published by the Free Software Foundation, version 3.0 of the
++ * License.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ *
++ * SPDX-License-Identifier: LGPL-3.0-only
++ */
++
++#pragma once
++
++#include <libportal/portal-helpers.h>
++
++G_BEGIN_DECLS
++
++#define XDP_TYPE_INPUT_CAPTURE_ZONE (xdp_input_capture_zone_get_type ())
++
++XDP_PUBLIC
++G_DECLARE_FINAL_TYPE (XdpInputCaptureZone, xdp_input_capture_zone, XDP, INPUT_CAPTURE_ZONE, GObject)
++
++G_END_DECLS
+diff --git a/libportal/inputcapture.c b/libportal/inputcapture.c
+new file mode 100644
+index 00000000..d20eeed7
+--- /dev/null
++++ b/libportal/inputcapture.c
+@@ -0,0 +1,1203 @@
++/*
++ * Copyright (C) 2022, Red Hat, Inc.
++ *
++ * This file is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU Lesser General Public License as
++ * published by the Free Software Foundation, version 3.0 of the
++ * License.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ *
++ * SPDX-License-Identifier: LGPL-3.0-only
++ */
++
++#include "config.h"
++
++#include <gio/gunixfdlist.h>
++#include <stdlib.h>
++#include <errno.h>
++
++#include "inputcapture.h"
++#include "inputcapture-private.h"
++#include "portal-private.h"
++#include "session-private.h"
++
++/**
++ * XdpInputCaptureSession
++ *
++ * A representation of a long-lived input capture portal interaction.
++ *
++ * The [class@InputCaptureSession] object is used to represent portal
++ * interactions with the input capture desktop portal that extend over
++ * multiple portal calls. Usually a caller creates an input capture session,
++ * requests the available zones and sets up pointer barriers on those zones
++ * before enabling the session.
++ *
++ * To find available zones, call [method@InputCaptureSession.get_zones].
++ * These [class@InputCaptureZone] object represent the accessible desktop area
++ * for input capturing. [class@InputCapturePointerBarrier] objects can be set
++ * up on these zones to trigger input capture.
++ *
++ * The [class@InputCaptureSession] wraps a [class@Session] object.
++ */
++
++enum {
++  SIGNAL_CLOSED,
++  SIGNAL_ACTIVATED,
++  SIGNAL_DEACTIVATED,
++  SIGNAL_ZONES_CHANGED,
++  SIGNAL_DISABLED,
++  SIGNAL_LAST_SIGNAL
++};
++
++static guint signals[SIGNAL_LAST_SIGNAL];
++
++struct _XdpInputCaptureSession
++{
++  GObject parent_instance;
++  XdpSession *parent_session; /* strong ref */
++
++  GList *zones;
++
++  guint signal_ids[SIGNAL_LAST_SIGNAL];
++  guint zone_serial;
++  guint zone_set;
++};
++
++G_DEFINE_TYPE (XdpInputCaptureSession, xdp_input_capture_session, G_TYPE_OBJECT)
++
++static gboolean
++_xdp_input_capture_session_is_valid (XdpInputCaptureSession *session)
++{
++  return XDP_IS_INPUT_CAPTURE_SESSION (session) && session->parent_session != NULL;
++}
++
++static void
++parent_session_destroy (gpointer data, GObject *old_session)
++{
++  XdpInputCaptureSession *session = XDP_INPUT_CAPTURE_SESSION (data);
++
++  g_critical ("XdpSession destroyed before XdpInputCaptureSesssion, you lost count of your session refs");
++
++  session->parent_session = NULL;
++}
++
++static void
++xdp_input_capture_session_finalize (GObject *object)
++{
++  XdpInputCaptureSession *session = XDP_INPUT_CAPTURE_SESSION (object);
++  XdpSession *parent_session = session->parent_session;
++
++  if (parent_session == NULL)
++    {
++      g_critical ("XdpSession destroyed before XdpInputCaptureSesssion, you lost count of your session refs");
++    }
++  else
++    {
++      for (guint i = 0; i < SIGNAL_LAST_SIGNAL; i++)
++        {
++          guint signal_id = session->signal_ids[i];
++          if (signal_id > 0)
++            g_dbus_connection_signal_unsubscribe (parent_session->portal->bus, signal_id);
++        }
++
++      g_object_weak_unref (G_OBJECT (parent_session), parent_session_destroy, session);
++      session->parent_session->input_capture_session = NULL;
++      g_clear_pointer (&session->parent_session, g_object_unref);
++    }
++
++  g_list_free_full (g_steal_pointer (&session->zones), g_object_unref);
++
++  G_OBJECT_CLASS (xdp_input_capture_session_parent_class)->finalize (object);
++}
++
++static void
++xdp_input_capture_session_class_init (XdpInputCaptureSessionClass *klass)
++{
++  GObjectClass *object_class = G_OBJECT_CLASS (klass);
++
++  object_class->finalize = xdp_input_capture_session_finalize;
++
++  /**
++   * XdpInputCaptureSession::zones-changed:
++   * @session: the [class@InputCaptureSession]
++   * @options: a GVariant with the signal options
++   *
++   * Emitted when an InputCapture session's zones have changed. When this
++   * signal is emitted, all current zones will have their
++   * [property@InputCaptureZone:is-valid] property set to %FALSE and all
++   * internal references to those zones have been released. This signal is
++   * sent after libportal has fetched the updated zones, a caller should call
++   * xdp_input_capture_session_get_zones() to retrieve the new zones.
++   */
++  signals[SIGNAL_ZONES_CHANGED] =
++    g_signal_new ("zones-changed",
++                  G_TYPE_FROM_CLASS (object_class),
++                  G_SIGNAL_RUN_CLEANUP | G_SIGNAL_NO_RECURSE | G_SIGNAL_NO_HOOKS,
++                  0,
++                  NULL, NULL,
++                  NULL,
++                  G_TYPE_NONE, 1,
++                  G_TYPE_VARIANT);
++  /**
++   * XdpInputCaptureSession::activated:
++   * @session: the [class@InputCaptureSession]
++   * @activation_id: the unique activation_id to identify this input capture
++   * @options: a GVariant with the signal options
++   *
++   * Emitted when an InputCapture session activates and sends events. When this
++   * signal is emitted, events will appear on the transport layer.
++   */
++  signals[SIGNAL_ACTIVATED] =
++    g_signal_new ("activated",
++                  G_TYPE_FROM_CLASS (object_class),
++                  G_SIGNAL_RUN_CLEANUP | G_SIGNAL_NO_RECURSE | G_SIGNAL_NO_HOOKS,
++                  0,
++                  NULL, NULL,
++                  NULL,
++                  G_TYPE_NONE, 2,
++                  G_TYPE_UINT,
++                  G_TYPE_VARIANT);
++  /**
++   * XdpInputCaptureSession::deactivated:
++   * @session: the [class@InputCaptureSession]
++   * @activation_id: the unique activation_id to identify this input capture
++   * @options: a GVariant with the signal options
++   *
++   * Emitted when an InputCapture session deactivates and no longer sends
++   * events.
++   */
++  signals[SIGNAL_DEACTIVATED] =
++    g_signal_new ("deactivated",
++                  G_TYPE_FROM_CLASS (object_class),
++                  G_SIGNAL_RUN_CLEANUP | G_SIGNAL_NO_RECURSE | G_SIGNAL_NO_HOOKS,
++                  0,
++                  NULL, NULL,
++                  NULL,
++                  G_TYPE_NONE, 2,
++                  G_TYPE_UINT,
++                  G_TYPE_VARIANT);
++
++  /**
++   * XdpInputCaptureSession::disabled:
++   * @session: the [class@InputCaptureSession]
++   * @options: a GVariant with the signal options
++   *
++   * Emitted when an InputCapture session is disabled. This signal
++   * is emitted when capturing was disabled by the server.
++   */
++  signals[SIGNAL_DISABLED] =
++    g_signal_new ("disabled",
++                  G_TYPE_FROM_CLASS (object_class),
++                  G_SIGNAL_RUN_CLEANUP | G_SIGNAL_NO_RECURSE | G_SIGNAL_NO_HOOKS,
++                  0,
++                  NULL, NULL,
++                  NULL,
++                  G_TYPE_NONE, 1,
++                  G_TYPE_VARIANT);
++}
++
++static void
++xdp_input_capture_session_init (XdpInputCaptureSession *session)
++{
++  session->parent_session = NULL;
++  session->zones = NULL;
++  session->zone_set = 0;
++  for (guint i = 0; i < SIGNAL_LAST_SIGNAL; i++)
++    session->signal_ids[i] = 0;
++}
++
++/* A request-based method call */
++typedef struct {
++  XdpPortal *portal;
++  char *session_path; /* object path for session */
++  GTask *task;
++  guint signal_id; /* Request::Response signal */
++  char *request_path; /* object path for request */
++  guint cancelled_id; /* signal id for cancelled gobject signal */
++
++  /* CreateSession only */
++  XdpParent *parent;
++  char *parent_handle;
++  XdpInputCapability capabilities;
++
++  /* GetZones only */
++  XdpInputCaptureSession *session;
++
++  /* SetPointerBarrier only */
++  GList *barriers;
++
++} Call;
++
++static void create_session (Call *call);
++static void get_zones (Call *call);
++
++static void
++call_free (Call *call)
++{
++  /* CreateSesssion */
++  if (call->parent)
++    {
++      call->parent->parent_unexport (call->parent);
++      xdp_parent_free (call->parent);
++    }
++  g_free (call->parent_handle);
++
++  /* Generic */
++  if (call->signal_id)
++    g_dbus_connection_signal_unsubscribe (call->portal->bus, call->signal_id);
++
++  if (call->cancelled_id)
++    g_signal_handler_disconnect (g_task_get_cancellable (call->task), call->cancelled_id);
++
++  g_free (call->request_path);
++
++  g_clear_object (&call->portal);
++  g_clear_object (&call->task);
++  g_clear_object (&call->session);
++
++  g_free (call->session_path);
++
++  g_free (call);
++}
++
++static void
++call_returned (GObject *object,
++               GAsyncResult *result,
++               gpointer data)
++{
++  Call *call = data;
++  GError *error = NULL;
++  g_autoptr(GVariant) ret;
++
++  ret = g_dbus_connection_call_finish (G_DBUS_CONNECTION (object), result, &error);
++  if (error)
++    {
++      if (call->cancelled_id)
++        {
++          g_signal_handler_disconnect (g_task_get_cancellable (call->task), call->cancelled_id);
++          call->cancelled_id = 0;
++        }
++      g_task_return_error (call->task, error);
++      call_free (call);
++    }
++}
++
++static gboolean
++handle_matches_session (XdpInputCaptureSession *session, const char *id)
++{
++  const char *sid = session->parent_session->id;
++
++  return g_str_equal (sid, id);
++}
++
++static void
++set_zones (XdpInputCaptureSession *session, GVariant *zones, guint zone_set)
++{
++  GList *list = NULL;
++  gsize nzones = g_variant_n_children (zones);
++
++  for (gsize i = 0; i < nzones; i++)
++    {
++        guint width, height;
++        gint x, y;
++        XdpInputCaptureZone *z;
++
++        g_variant_get_child (zones, i, "(uuii)", &width, &height, &x, &y);
++
++        z = g_object_new (XDP_TYPE_INPUT_CAPTURE_ZONE,
++                          "width", width,
++                          "height", height,
++                          "x", x,
++                          "y", y,
++                          "zone-set", zone_set,
++                          "is-valid", TRUE,
++                          NULL);
++        list = g_list_append (list, z);
++    }
++
++  g_list_free_full (g_steal_pointer (&session->zones), (GDestroyNotify)_xdp_input_capture_zone_invalidate_and_free);
++  session->zones = list;
++  session->zone_set = zone_set;
++}
++
++
++static void
++prep_call (Call *call, GDBusSignalCallback callback, GVariantBuilder *options, void *userdata)
++{
++  g_autofree char *token = NULL;
++
++  token = g_strdup_printf ("portal%d", g_random_int_range (0, G_MAXINT));
++  call->request_path = g_strconcat (REQUEST_PATH_PREFIX, call->portal->sender, "/", token, NULL);
++  call->signal_id = g_dbus_connection_signal_subscribe (call->portal->bus,
++                                                        PORTAL_BUS_NAME,
++                                                        REQUEST_INTERFACE,
++                                                        "Response",
++                                                        call->request_path,
++                                                        NULL,
++                                                        G_DBUS_SIGNAL_FLAGS_NO_MATCH_RULE,
++                                                        callback,
++                                                        call,
++                                                        userdata);
++
++  g_variant_builder_init (options, G_VARIANT_TYPE_VARDICT);
++  g_variant_builder_add (options, "{sv}", "handle_token", g_variant_new_string (token));
++}
++
++static void
++zones_changed_emit_signal (GObject *source_object,
++                           GAsyncResult *res,
++                           gpointer data)
++{
++  XdpInputCaptureSession *session = XDP_INPUT_CAPTURE_SESSION (data);
++  GVariantBuilder options;
++
++  g_variant_builder_init (&options, G_VARIANT_TYPE_VARDICT);
++  g_variant_builder_add (&options, "{sv}", "zone_set", g_variant_new_uint32 (session->zone_set - 1));
++
++  g_signal_emit (session, signals[SIGNAL_ZONES_CHANGED], 0, g_variant_new ("a{sv}", &options));
++}
++
++static void
++zones_changed (GDBusConnection *bus,
++               const char      *sender_name,
++               const char      *object_path,
++               const char      *interface_name,
++               const char      *signal_name,
++               GVariant        *parameters,
++               gpointer         data)
++{
++  XdpInputCaptureSession *session = XDP_INPUT_CAPTURE_SESSION (data);
++  XdpPortal *portal = session->parent_session->portal;
++  g_autoptr(GVariant) options = NULL;
++  const char *handle = NULL;
++  Call *call;
++
++  g_variant_get(parameters, "(o@a{sv})", &handle, &options);
++
++  if (!handle_matches_session (session, handle))
++    return;
++
++  /* Zones have changed, but let's fetch the new zones before we notify the
++   * caller so they're already available by the time they get notified */
++  call = g_new0 (Call, 1);
++  call->portal = g_object_ref (portal);
++  call->task = g_task_new (portal, NULL, zones_changed_emit_signal, session);
++  call->session = g_object_ref (session);
++
++  get_zones (call);
++}
++
++static void
++activated (GDBusConnection *bus,
++           const char      *sender_name,
++           const char      *object_path,
++           const char      *interface_name,
++           const char      *signal_name,
++           GVariant        *parameters,
++           gpointer         data)
++{
++  XdpInputCaptureSession *session = XDP_INPUT_CAPTURE_SESSION (data);
++  g_autoptr(GVariant) options = NULL;
++  guint32 activation_id = 0;
++  const char *handle = NULL;
++
++  g_variant_get (parameters, "(o@a{sv})", &handle, &options);
++
++  /* FIXME: we should remove the activation_id from options, but ... meh? */
++  if (!g_variant_lookup (options, "activation_id", "u", &activation_id))
++    g_warning ("Portal bug: activation_id missing from Activated signal");
++
++  if (!handle_matches_session (session, handle))
++    return;
++
++  g_signal_emit (session, signals[SIGNAL_ACTIVATED], 0, activation_id, options);
++}
++
++static void
++deactivated (GDBusConnection *bus,
++             const char        *sender_name,
++             const char        *object_path,
++             const char        *interface_name,
++             const char        *signal_name,
++             GVariant          *parameters,
++             gpointer           data)
++{
++  XdpInputCaptureSession *session = XDP_INPUT_CAPTURE_SESSION (data);
++  g_autoptr(GVariant) options = NULL;
++  guint32 activation_id = 0;
++  const char *handle = NULL;
++
++  g_variant_get(parameters, "(o@a{sv})", &handle, &options);
++
++  /* FIXME: we should remove the activation_id from options, but ... meh? */
++  if (!g_variant_lookup (options, "activation_id", "u", &activation_id))
++    g_warning ("Portal bug: activation_id missing from Deactivated signal");
++
++  if (!handle_matches_session (session, handle))
++    return;
++
++  g_signal_emit (session, signals[SIGNAL_DEACTIVATED], 0, activation_id, options);
++}
++
++static void
++disabled (GDBusConnection *bus,
++          const char      *sender_name,
++          const char      *object_path,
++          const char      *interface_name,
++          const char      *signal_name,
++          GVariant        *parameters,
++          gpointer         data)
++{
++  XdpInputCaptureSession *session = XDP_INPUT_CAPTURE_SESSION (data);
++  g_autoptr(GVariant) options = NULL;
++  const char *handle = NULL;
++
++  g_variant_get(parameters, "(o@a{sv})", &handle, &options);
++
++  if (!handle_matches_session (session, handle))
++      return;
++
++  g_signal_emit (session, signals[SIGNAL_DISABLED], 0, options);
++}
++
++static XdpInputCaptureSession *
++_xdp_input_capture_session_new (XdpPortal *portal, const char *session_path)
++{
++  g_autoptr(XdpSession) parent_session = _xdp_session_new (portal, session_path, XDP_SESSION_INPUT_CAPTURE);
++  g_autoptr(XdpInputCaptureSession) session = g_object_new (XDP_TYPE_INPUT_CAPTURE_SESSION, NULL);
++
++  parent_session->input_capture_session = session; /* weak ref */
++  g_object_weak_ref (G_OBJECT (parent_session), parent_session_destroy, session);
++  session->parent_session = g_object_ref(parent_session); /* strong ref */
++
++  return g_object_ref(session);
++}
++
++static void
++get_zones_done (GDBusConnection *bus,
++                const char *sender_name,
++                const char *object_path,
++                const char *interface_name,
++                const char *signal_name,
++                GVariant *parameters,
++                gpointer data)
++{
++  Call *call = data;
++  guint32 response;
++  g_autoptr(GVariant) ret = NULL;
++
++  g_variant_get (parameters, "(u@a{sv})", &response, &ret);
++
++  if (response != 0 && call->cancelled_id)
++    {
++      g_signal_handler_disconnect (g_task_get_cancellable (call->task), call->cancelled_id);
++      call->cancelled_id = 0;
++    }
++
++  if (response == 0)
++    {
++      GVariant *zones = NULL;
++      guint32 zone_set;
++      XdpInputCaptureSession *session = call->session;
++
++      g_dbus_connection_signal_unsubscribe (call->portal->bus, call->signal_id);
++      call->signal_id = 0;
++
++      if (session == NULL)
++        {
++          session = _xdp_input_capture_session_new (call->portal, call->session_path);
++          session->signal_ids[SIGNAL_ZONES_CHANGED] =
++            g_dbus_connection_signal_subscribe (bus,
++                                                PORTAL_BUS_NAME,
++                                                "org.freedesktop.portal.InputCapture",
++                                                "ZonesChanged",
++                                                PORTAL_OBJECT_PATH,
++                                                NULL,
++                                                G_DBUS_SIGNAL_FLAGS_NO_MATCH_RULE,
++                                                zones_changed,
++                                                session,
++                                                NULL);
++
++          session->signal_ids[SIGNAL_ACTIVATED] =
++            g_dbus_connection_signal_subscribe (bus,
++                                                PORTAL_BUS_NAME,
++                                                "org.freedesktop.portal.InputCapture",
++                                                "Activated",
++                                                PORTAL_OBJECT_PATH,
++                                                NULL,
++                                                G_DBUS_SIGNAL_FLAGS_NO_MATCH_RULE,
++                                                activated,
++                                                session,
++                                                NULL);
++
++          session->signal_ids[SIGNAL_DEACTIVATED] =
++            g_dbus_connection_signal_subscribe (bus,
++                                                PORTAL_BUS_NAME,
++                                                "org.freedesktop.portal.InputCapture",
++                                                "Deactivated",
++                                                PORTAL_OBJECT_PATH,
++                                                NULL,
++                                                G_DBUS_SIGNAL_FLAGS_NO_MATCH_RULE,
++                                                deactivated,
++                                                session,
++                                                NULL);
++
++          session->signal_ids[SIGNAL_DISABLED] =
++            g_dbus_connection_signal_subscribe (bus,
++                                                PORTAL_BUS_NAME,
++                                                "org.freedesktop.portal.InputCapture",
++                                                "Disabled",
++                                                PORTAL_OBJECT_PATH,
++                                                NULL,
++                                                G_DBUS_SIGNAL_FLAGS_NO_MATCH_RULE,
++                                                disabled,
++                                                session,
++                                                NULL);
++        }
++
++      if (g_variant_lookup (ret, "zone_set", "u", &zone_set) &&
++          g_variant_lookup (ret, "zones", "@a(uuii)", &zones))
++        {
++          set_zones (session, zones, zone_set);
++          g_task_return_pointer (call->task, session, g_object_unref);
++        }
++      else
++        {
++          g_warning("Faulty portal implementation, missing GetZone's zone_set or zones");
++          response = 2;
++        }
++    }
++
++  if (response == 1)
++    g_task_return_new_error (call->task, G_IO_ERROR, G_IO_ERROR_CANCELLED, "InputCapture GetZones() canceled");
++  else if (response == 2)
++    g_task_return_new_error (call->task, G_IO_ERROR, G_IO_ERROR_FAILED, "InputCapture GetZones() failed");
++
++  if (response != 0)
++    call_free (call);
++}
++
++static void
++get_zones (Call *call)
++{
++  GVariantBuilder options;
++  const char *session_id;
++
++  /* May be called after CreateSession before we have an XdpInputCaptureSession, or by the
++   * ZoneChanged signal when we do have a session */
++  session_id = call->session ? call->session->parent_session->id : call->session_path;
++
++  prep_call (call, get_zones_done, &options, NULL);
++  g_dbus_connection_call (call->portal->bus,
++                          PORTAL_BUS_NAME,
++                          PORTAL_OBJECT_PATH,
++                          "org.freedesktop.portal.InputCapture",
++                          "GetZones",
++                          g_variant_new ("(oa{sv})", session_id, &options),
++                          NULL,
++                          G_DBUS_CALL_FLAGS_NONE,
++                          -1,
++                          g_task_get_cancellable (call->task),
++                          call_returned,
++                          call);
++}
++
++static void
++session_created (GDBusConnection *bus,
++                 const char *sender_name,
++                 const char *object_path,
++                 const char *interface_name,
++                 const char *signal_name,
++                 GVariant *parameters,
++                 gpointer data)
++{
++  Call *call = data;
++  guint32 response;
++  g_autoptr(GVariant) ret = NULL;
++
++  g_variant_get (parameters, "(u@a{sv})", &response, &ret);
++
++  if (response != 0 && call->cancelled_id)
++    {
++      g_signal_handler_disconnect (g_task_get_cancellable (call->task), call->cancelled_id);
++      call->cancelled_id = 0;
++    }
++
++  if (response == 0)
++    {
++      g_dbus_connection_signal_unsubscribe (call->portal->bus, call->signal_id);
++      call->signal_id = 0;
++
++      if (!g_variant_lookup (ret, "session_handle", "o", &call->session_path))
++        {
++          g_task_return_new_error (call->task, G_IO_ERROR, G_IO_ERROR_FAILED, "CreateSession failed to return a session handle");
++          response = 2;
++        }
++      else
++        get_zones (call);
++    }
++  else if (response == 1)
++    g_task_return_new_error (call->task, G_IO_ERROR, G_IO_ERROR_CANCELLED, "CreateSession canceled");
++  else if (response == 2)
++    g_task_return_new_error (call->task, G_IO_ERROR, G_IO_ERROR_FAILED, "CreateSession failed");
++
++  if (response != 0)
++    call_free (call);
++}
++
++static void
++call_cancelled_cb (GCancellable *cancellable,
++                   gpointer data)
++{
++  Call *call = data;
++
++  g_dbus_connection_call (call->portal->bus,
++                          PORTAL_BUS_NAME,
++                          call->request_path,
++                          REQUEST_INTERFACE,
++                          "Close",
++                          NULL,
++                          NULL,
++                          G_DBUS_CALL_FLAGS_NONE,
++                          -1,
++                          NULL, NULL, NULL);
++}
++
++static void
++parent_exported (XdpParent *parent,
++                 const char *handle,
++                 gpointer data)
++{
++  Call *call = data;
++  call->parent_handle = g_strdup (handle);
++  create_session (call);
++}
++
++static void
++create_session (Call *call)
++{
++  GVariantBuilder options;
++  g_autofree char *session_token = NULL;
++  GCancellable *cancellable;
++
++  if (call->parent_handle == NULL)
++    {
++      call->parent->parent_export (call->parent, parent_exported, call);
++      return;
++    }
++
++  cancellable = g_task_get_cancellable (call->task);
++  if (cancellable)
++    call->cancelled_id = g_signal_connect (cancellable, "cancelled", G_CALLBACK (call_cancelled_cb), call);
++
++  session_token = g_strdup_printf ("portal%d", g_random_int_range (0, G_MAXINT));
++
++  prep_call (call, session_created, &options, NULL);
++  g_variant_builder_add (&options, "{sv}", "session_handle_token", g_variant_new_string (session_token));
++  g_variant_builder_add (&options, "{sv}", "capabilities", g_variant_new_uint32 (call->capabilities));
++
++  g_dbus_connection_call (call->portal->bus,
++                          PORTAL_BUS_NAME,
++                          PORTAL_OBJECT_PATH,
++                          "org.freedesktop.portal.InputCapture",
++                          "CreateSession",
++                          g_variant_new ("(sa{sv})", call->parent_handle, &options),
++                          NULL,
++                          G_DBUS_CALL_FLAGS_NONE,
++                          -1,
++                          cancellable,
++                          call_returned,
++                          call);
++}
++
++/**
++ * xdp_portal_create_input_capture_session:
++ * @portal: a [class@Portal]
++ * @parent: (nullable): parent window information
++ * @capabilities: which kinds of capabilities to request
++ * @cancellable: (nullable): optional [class@Gio.Cancellable]
++ * @callback: (scope async): a callback to call when the request is done
++ * @data: (closure): data to pass to @callback
++ *
++ * Creates a session for input capture
++ *
++ * When the request is done, @callback will be called. You can then
++ * call [method@Portal.create_input_capture_session_finish] to get the results.
++ */
++void
++xdp_portal_create_input_capture_session (XdpPortal *portal,
++                                         XdpParent *parent,
++                                         XdpInputCapability capabilities,
++                                         GCancellable *cancellable,
++                                         GAsyncReadyCallback callback,
++                                         gpointer data)
++{
++  Call *call;
++
++  g_return_if_fail (XDP_IS_PORTAL (portal));
++
++  call = g_new0 (Call, 1);
++  call->portal = g_object_ref (portal);
++  call->task = g_task_new (portal, cancellable, callback, data);
++
++  if (parent)
++    call->parent = xdp_parent_copy (parent);
++  else
++    call->parent_handle = g_strdup ("");
++
++  call->capabilities = capabilities;
++
++  create_session (call);
++}
++
++/**
++ * xdp_portal_create_input_capture_session_finish:
++ * @portal: a [class@Portal]
++ * @result: a [iface@Gio.AsyncResult]
++ * @error: return location for an error
++ *
++ * Finishes the InputCapture CreateSession request, and returns a
++ * [class@InputCaptureSession]. To get to the [class@Session] within use
++ * xdp_input_capture_session_get_session().
++ *
++ * Returns: (transfer full): a [class@InputCaptureSession]
++ */
++XdpInputCaptureSession *
++xdp_portal_create_input_capture_session_finish (XdpPortal *portal,
++                                                GAsyncResult *result,
++                                                GError **error)
++{
++  XdpInputCaptureSession *session;
++
++  g_return_val_if_fail (XDP_IS_PORTAL (portal), NULL);
++  g_return_val_if_fail (g_task_is_valid (result, portal), NULL);
++
++  session = g_task_propagate_pointer (G_TASK (result), error);
++
++  if (session)
++    return session;
++  else
++    return NULL;
++}
++
++/**
++ * xdp_input_capture_session_get_session:
++ * @session: a [class@XdpInputCaptureSession]
++ *
++ * Return the [class@XdpSession] for this InputCapture session.
++ *
++ * Returns: (transfer none): a [class@Session] object
++ */
++XdpSession *
++xdp_input_capture_session_get_session (XdpInputCaptureSession *session)
++{
++  return session->parent_session;
++}
++
++/**
++ * xdp_input_capture_session_get_zones:
++ * @session: a [class@InputCaptureSession]
++ *
++ * Obtains the current set of [class@InputCaptureZone] objects.
++ *
++ * The returned object is valid until the zones are invalidated by the
++ * [signal@InputCaptureSession::zones-changed] signal.
++ *
++ * Unless the session is active, this function returns `NULL`.
++ *
++ * Returns: (element-type XdpInputCaptureZone) (transfer none): the available
++ * zones. The caller must keep a reference to the list or the elements if used
++ * outside the immediate scope.
++ */
++GList *
++xdp_input_capture_session_get_zones (XdpInputCaptureSession *session)
++{
++  g_return_val_if_fail (_xdp_input_capture_session_is_valid (session), NULL);
++
++  return session->zones;
++}
++
++/**
++ * xdp_input_capture_session_connect_to_eis:
++ * @session: a [class@InputCaptureSession]
++ * @error: return location for a #GError pointer
++ *
++ * Connect this session to an EIS implementation and return the fd.
++ * This fd can be passed into ei_setup_backend_fd(). See the libei
++ * documentation for details.
++ *
++ * This is a sync DBus invocation.
++ *
++ * Returns: a socket to the EIS implementation for this input capture
++ * session or a negative errno on failure.
++ */
++int
++xdp_input_capture_session_connect_to_eis (XdpInputCaptureSession  *session,
++                                          GError                 **error)
++{
++  GVariantBuilder options;
++  g_autoptr(GVariant) ret = NULL;
++  g_autoptr(GUnixFDList) fd_list = NULL;
++  int fd_out;
++  XdpPortal *portal;
++  XdpSession *parent_session = session->parent_session;
++
++  if (!_xdp_input_capture_session_is_valid (session))
++    {
++      g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT, "Session is not an InputCapture session");
++      return -1;
++    }
++
++  g_variant_builder_init (&options, G_VARIANT_TYPE_VARDICT);
++
++  portal = parent_session->portal;
++  ret = g_dbus_connection_call_with_unix_fd_list_sync (portal->bus,
++                                                       PORTAL_BUS_NAME,
++                                                       PORTAL_OBJECT_PATH,
++                                                       "org.freedesktop.portal.InputCapture",
++                                                       "ConnectToEIS",
++                                                       g_variant_new ("(oa{sv})",
++                                                                      parent_session->id,
++                                                                      &options),
++                                                       NULL,
++                                                       G_DBUS_CALL_FLAGS_NONE,
++                                                       -1,
++                                                       NULL,
++                                                       &fd_list,
++                                                       NULL,
++                                                       error);
++
++  if (!ret)
++    return -1;
++
++  g_variant_get (ret, "(h)", &fd_out);
++
++  return g_unix_fd_list_get (fd_list, fd_out, NULL);
++}
++
++static void
++free_barrier_list (GList *list)
++{
++  g_list_free_full (list, g_object_unref);
++}
++
++static void
++set_pointer_barriers_done (GDBusConnection *bus,
++                           const char *sender_name,
++                           const char *object_path,
++                           const char *interface_name,
++                           const char *signal_name,
++                           GVariant *parameters,
++                           gpointer data)
++{
++  Call *call = data;
++  guint32 response;
++  g_autoptr(GVariant) ret = NULL;
++  GVariant *failed = NULL;
++  GList *failed_list = NULL;
++
++  g_variant_get (parameters, "(u@a{sv})", &response, &ret);
++
++  if (g_variant_lookup (ret, "failed_barriers", "@au", &failed))
++    {
++      const guint *failed_barriers = NULL;
++      gsize n_elements;
++      GList *it = call->barriers;
++
++      failed_barriers = g_variant_get_fixed_array (failed, &n_elements, sizeof (guint32));
++
++      while (it)
++        {
++          XdpInputCapturePointerBarrier *b = it->data;
++          gboolean is_failed = FALSE;
++
++          for (gsize i = 0; !is_failed && i < n_elements; i++)
++            is_failed = _xdp_input_capture_pointer_barrier_get_id (b) == failed_barriers[i];
++
++          _xdp_input_capture_pointer_barrier_set_is_active (b, !is_failed);
++
++          if (is_failed)
++            failed_list = g_list_append (failed_list, g_object_ref(b));
++
++          it = it->next;
++        }
++    }
++
++  /* all failed barriers have an extra ref in failed_list, so we can unref all barriers
++     in our original list */
++  free_barrier_list (call->barriers);
++  call->barriers = NULL;
++  g_task_return_pointer (call->task, failed_list,  (GDestroyNotify)free_barrier_list);
++}
++
++static void
++convert_barrier (gpointer data, gpointer user_data)
++{
++  XdpInputCapturePointerBarrier *barrier = data;
++  GVariantBuilder *builder = user_data;
++  GVariantBuilder dict;
++  int id, x1, x2, y1, y2;
++
++  g_object_get (barrier, "id", &id, "x1", &x1, "x2", &x2, "y1", &y1, "y2", &y2, NULL);
++
++  g_variant_builder_init (&dict, G_VARIANT_TYPE_VARDICT);
++  g_variant_builder_add (&dict, "{sv}", "barrier_id", g_variant_new_uint32 (id));
++  g_variant_builder_add (&dict, "{sv}", "position",
++                         g_variant_new("(iiii)", x1, y1, x2, y2));
++  g_variant_builder_add (builder, "a{sv}", &dict);
++}
++
++static void
++set_pointer_barriers (Call *call)
++{
++  GVariantBuilder options;
++  GVariantBuilder barriers;
++  g_autoptr(GVariantType) vtype;
++
++  prep_call (call, set_pointer_barriers_done, &options, NULL);
++
++  vtype = g_variant_type_new ("aa{sv}");
++
++  g_variant_builder_init (&barriers, vtype);
++  g_list_foreach (call->barriers, convert_barrier, &barriers);
++
++  g_dbus_connection_call (call->portal->bus,
++                          PORTAL_BUS_NAME,
++                          PORTAL_OBJECT_PATH,
++                          "org.freedesktop.portal.InputCapture",
++                          "SetPointerBarriers",
++                          g_variant_new ("(oa{sv}aa{sv}u)",
++                                         call->session->parent_session->id,
++                                         &options,
++                                         &barriers,
++                                         call->session->zone_set),
++                          NULL,
++                          G_DBUS_CALL_FLAGS_NONE,
++                          -1,
++                          g_task_get_cancellable (call->task),
++                          call_returned,
++                          call);
++}
++
++static void
++gobject_ref_wrapper (gpointer data, gpointer user_data)
++{
++  g_object_ref (G_OBJECT (data));
++}
++
++/**
++ * xdp_input_capture_session_set_pointer_barriers:
++ * @session: a [class@InputCaptureSession]
++ * @barriers: (element-type XdpInputCapturePointerBarrier) (transfer container): the pointer barriers to apply
++ *
++ * Sets the pointer barriers for this session. When the request is done,
++ * @callback will be called. You can then call
++ * [method@InputCaptureSession.set_pointer_barriers_finish] to
++ * get the results. The result of this request is the list of pointer barriers
++ * that failed to apply - barriers not present in the returned list are active.
++ *
++ * Once the pointer barrier is
++ * applied (i.e. the reply to the DBus Request has been received), the
++ * the [property@InputCapturePointerBarrier:is-active] property is changed on
++ * that barrier. Failed barriers have the property set to a %FALSE value.
++ */
++void
++xdp_input_capture_session_set_pointer_barriers (XdpInputCaptureSession         *session,
++                                                GList                          *barriers,
++                                                GCancellable                   *cancellable,
++                                                GAsyncReadyCallback             callback,
++                                                gpointer                        data)
++{
++  Call *call;
++  XdpPortal *portal;
++
++  g_return_if_fail (_xdp_input_capture_session_is_valid (session));
++  g_return_if_fail (barriers != NULL);
++
++  portal = session->parent_session->portal;
++
++  /* The list is ours, but we ref each object so we can create the list for the
++   * returned barriers during _finish*/
++  g_list_foreach (barriers, gobject_ref_wrapper, NULL);
++
++  call = g_new0 (Call, 1);
++  call->portal = g_object_ref (portal);
++  call->session = g_object_ref (session);
++  call->task = g_task_new (session, cancellable, callback, data);
++  call->barriers = barriers;
++
++  set_pointer_barriers (call);
++}
++
++/**
++ * xdp_input_capture_session_set_pointer_barriers_finish:
++ * @session: a [class@InputCaptureSession]
++ * @result: a [iface@Gio.AsyncResult]
++ * @error: return location for an error
++ *
++ * Finishes the set-pointer-barriers request, and returns a GList with the pointer
++ * barriers that failed to apply and should be cleaned up by the caller.
++ *
++ * Returns: (element-type XdpInputCapturePointerBarrier) (transfer full): a list of failed pointer barriers
++ */
++
++GList *
++xdp_input_capture_session_set_pointer_barriers_finish (XdpInputCaptureSession *session,
++                                                       GAsyncResult           *result,
++                                                       GError                **error)
++{
++  g_return_val_if_fail (_xdp_input_capture_session_is_valid (session), NULL);
++  g_return_val_if_fail (g_task_is_valid (result, session), NULL);
++
++  return g_task_propagate_pointer (G_TASK (result), error);
++}
++
++/**
++ * xdp_input_capture_session_enable:
++ * @session: a [class@InputCaptureSession]
++ *
++ * Enables this input capture session. In the future, this client may receive
++ * input events.
++ */
++void
++xdp_input_capture_session_enable (XdpInputCaptureSession *session)
++{
++  XdpPortal *portal;
++  GVariantBuilder options;
++
++  g_return_if_fail (_xdp_input_capture_session_is_valid (session));
++
++  portal = session->parent_session->portal;
++
++  g_variant_builder_init (&options, G_VARIANT_TYPE_VARDICT);
++
++  g_dbus_connection_call  (portal->bus,
++                           PORTAL_BUS_NAME,
++                           PORTAL_OBJECT_PATH,
++                           "org.freedesktop.portal.InputCapture",
++                           "Enable",
++                           g_variant_new ("(oa{sv})",
++                                          session->parent_session->id,
++                                          &options),
++                           NULL,
++                           G_DBUS_CALL_FLAGS_NONE,
++                           1,
++                           NULL,
++                           NULL,
++                           NULL);
++}
++
++/**
++ * xdp_input_capture_session_disable:
++ * @session: a [class@InputCaptureSession]
++ *
++ * Disables this input capture session.
++ */
++void
++xdp_input_capture_session_disable (XdpInputCaptureSession *session)
++{
++  XdpPortal *portal;
++  GVariantBuilder options;
++
++  g_return_if_fail (_xdp_input_capture_session_is_valid (session));
++
++  g_variant_builder_init (&options, G_VARIANT_TYPE_VARDICT);
++
++  portal = session->parent_session->portal;
++  g_dbus_connection_call (portal->bus,
++                          PORTAL_BUS_NAME,
++                          PORTAL_OBJECT_PATH,
++                          "org.freedesktop.portal.InputCapture",
++                          "Disable",
++                          g_variant_new ("(oa{sv})",
++                                         session->parent_session->id,
++                                         &options),
++                          NULL,
++                          G_DBUS_CALL_FLAGS_NONE,
++                          -1,
++                          NULL,
++                          NULL,
++                          NULL);
++}
++
++static void
++release_session (XdpInputCaptureSession   *session,
++                 guint                     activation_id,
++                 gboolean                  with_position,
++                 gdouble                   x,
++                 gdouble                   y)
++{
++  XdpPortal *portal;
++  GVariantBuilder options;
++
++  g_return_if_fail (_xdp_input_capture_session_is_valid (session));
++
++  g_variant_builder_init (&options, G_VARIANT_TYPE_VARDICT);
++  g_variant_builder_add (&options, "{sv}", "activation_id", g_variant_new_uint32 (activation_id));
++
++  if (with_position)
++    {
++      g_variant_builder_add (&options,
++                             "{sv}",
++                             "cursor_position",
++                             g_variant_new ("(dd)", x, y));
++    }
++
++  portal = session->parent_session->portal;
++  g_dbus_connection_call (portal->bus,
++                          PORTAL_BUS_NAME,
++                          PORTAL_OBJECT_PATH,
++                          "org.freedesktop.portal.InputCapture",
++                          "Release",
++                          g_variant_new ("(oa{sv})",
++                                         session->parent_session->id,
++                                        &options),
++                          NULL,
++                          G_DBUS_CALL_FLAGS_NONE,
++                          -1,
++                          NULL,
++                          NULL,
++                          NULL);
++}
++
++/**
++ * xdp_input_capture_session_release:
++ * @session: a [class@InputCaptureSession]
++ *
++ * Releases this input capture session without a suggested cursor position.
++ */
++void
++xdp_input_capture_session_release (XdpInputCaptureSession *session,
++                                   guint                   activation_id)
++{
++  g_return_if_fail (_xdp_input_capture_session_is_valid (session));
++
++  release_session (session, activation_id, FALSE, 0, 0);
++}
++
++/**
++ * xdp_input_capture_session_release_at:
++ * @session: a [class@InputCaptureSession]
++ * @cursor_x_position: the suggested cursor x position once capture has been released
++ * @cursor_y_position: the suggested cursor y position once capture has been released
++ *
++ * Releases this input capture session with a suggested cursor position.
++ * Note that the implementation is not required to honour this position.
++ */
++void
++xdp_input_capture_session_release_at (XdpInputCaptureSession *session,
++                                      guint                   activation_id,
++                                      gdouble                 cursor_x_position,
++                                      gdouble                 cursor_y_position)
++{
++  g_return_if_fail (_xdp_input_capture_session_is_valid (session));
++
++  release_session (session, activation_id, TRUE, cursor_x_position, cursor_y_position);
++}
+diff --git a/libportal/inputcapture.h b/libportal/inputcapture.h
+new file mode 100644
+index 00000000..fff94687
+--- /dev/null
++++ b/libportal/inputcapture.h
+@@ -0,0 +1,103 @@
++/*
++ * Copyright (C) 2018, Matthias Clasen
++ *
++ * This file is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU Lesser General Public License as
++ * published by the Free Software Foundation, version 3.0 of the
++ * License.
++ *
++ * This file is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ *
++ * SPDX-License-Identifier: LGPL-3.0-only
++ */
++
++#pragma once
++
++#include <libportal/portal-helpers.h>
++#include <libportal/session.h>
++#include <libportal/inputcapture-zone.h>
++#include <libportal/inputcapture-pointerbarrier.h>
++#include <stdint.h>
++
++G_BEGIN_DECLS
++
++#define XDP_TYPE_INPUT_CAPTURE_SESSION (xdp_input_capture_session_get_type ())
++
++XDP_PUBLIC
++G_DECLARE_FINAL_TYPE (XdpInputCaptureSession, xdp_input_capture_session, XDP, INPUT_CAPTURE_SESSION, GObject)
++
++/**
++ * XdpInputCapability:
++ * @XDP_INPUT_CAPABILITY_NONE: no device
++ * @XDP_INPUT_CAPABILITY_KEYBOARD: capture the keyboard
++ * @XDP_INPUT_CAPABILITY_POINTER: capture pointer events
++ * @XDP_INPUT_CAPABILITY_TOUCHSCREEN: capture touchscreen events
++ *
++ * Flags to specify what input device capabilities should be captured
++ */
++typedef enum {
++  XDP_INPUT_CAPABILITY_NONE         = 0,
++  XDP_INPUT_CAPABILITY_KEYBOARD     = 1 << 0,
++  XDP_INPUT_CAPABILITY_POINTER      = 1 << 1,
++  XDP_INPUT_CAPABILITY_TOUCHSCREEN  = 1 << 2
++} XdpInputCapability;
++
++
++XDP_PUBLIC
++void        xdp_portal_create_input_capture_session (XdpPortal            *portal,
++                                                     XdpParent            *parent,
++                                                     XdpInputCapability    capabilities,
++                                                     GCancellable         *cancellable,
++                                                     GAsyncReadyCallback   callback,
++                                                     gpointer              data);
++
++XDP_PUBLIC
++XdpInputCaptureSession * xdp_portal_create_input_capture_session_finish (XdpPortal     *portal,
++                                                                         GAsyncResult  *result,
++                                                                         GError       **error);
++
++XDP_PUBLIC
++XdpSession  *xdp_input_capture_session_get_session (XdpInputCaptureSession *session);
++
++XDP_PUBLIC
++GList *     xdp_input_capture_session_get_zones (XdpInputCaptureSession *session);
++
++XDP_PUBLIC
++void        xdp_input_capture_session_set_pointer_barriers (XdpInputCaptureSession         *session,
++                                                            GList                          *barriers,
++                                                            GCancellable                   *cancellable,
++                                                            GAsyncReadyCallback             callback,
++                                                            gpointer                        data);
++
++XDP_PUBLIC
++GList *     xdp_input_capture_session_set_pointer_barriers_finish (XdpInputCaptureSession  *session,
++                                                                   GAsyncResult            *result,
++                                                                   GError                 **error);
++
++XDP_PUBLIC
++void        xdp_input_capture_session_enable (XdpInputCaptureSession *session);
++
++XDP_PUBLIC
++void        xdp_input_capture_session_disable (XdpInputCaptureSession *session);
++
++XDP_PUBLIC
++void        xdp_input_capture_session_release_at (XdpInputCaptureSession *session,
++                                                  guint                   activation_id,
++                                                  gdouble                 cursor_x_position,
++                                                  gdouble                 cursor_y_position);
++
++XDP_PUBLIC
++void        xdp_input_capture_session_release (XdpInputCaptureSession *session,
++                                               guint activation_id);
++
++XDP_PUBLIC
++int        xdp_input_capture_session_connect_to_eis (XdpInputCaptureSession  *session,
++                                                     GError                 **error);
++
++G_END_DECLS
+diff --git a/libportal/meson.build b/libportal/meson.build
+index ae47bd7c..7128a990 100644
+--- a/libportal/meson.build
++++ b/libportal/meson.build
+@@ -12,6 +12,9 @@ headers = [
+   'email.h',
+   'filechooser.h',
+   'inhibit.h',
++  'inputcapture.h',
++  'inputcapture-zone.h',
++  'inputcapture-pointerbarrier.h',
+   'location.h',
+   'notification.h',
+   'openuri.h',
+@@ -44,6 +47,9 @@ src = [
+   'email.c',
+   'filechooser.c',
+   'inhibit.c',
++  'inputcapture.c',
++  'inputcapture-zone.c',
++  'inputcapture-pointerbarrier.c',
+   'location.c',
+   'notification.c',
+   'openuri.c',
+diff --git a/libportal/portal.h b/libportal/portal.h
+index a3fc790e..3618b81e 100644
+--- a/libportal/portal.h
++++ b/libportal/portal.h
+@@ -27,6 +27,7 @@
+ #include <libportal/email.h>
+ #include <libportal/filechooser.h>
+ #include <libportal/inhibit.h>
++#include <libportal/inputcapture.h>
+ #include <libportal/location.h>
+ #include <libportal/notification.h>
+ #include <libportal/openuri.h>
+diff --git a/libportal/session-private.h b/libportal/session-private.h
+index d4c2fce1..c4525204 100644
+--- a/libportal/session-private.h
++++ b/libportal/session-private.h
+@@ -20,6 +20,7 @@
+ #pragma once
+ 
+ #include <libportal/remote.h>
++#include <libportal/inputcapture.h>
+ 
+ struct _XdpSession {
+   GObject parent_instance;
+@@ -41,6 +42,8 @@ struct _XdpSession {
+ 
+   gboolean uses_eis;
+ 
++  /* InputCapture */
++  XdpInputCaptureSession *input_capture_session; /* weak ref */
+ };
+ 
+ XdpSession * _xdp_session_new (XdpPortal *portal,
+diff --git a/libportal/session.c b/libportal/session.c
+index 7de9278d..a068851f 100644
+--- a/libportal/session.c
++++ b/libportal/session.c
+@@ -58,6 +58,9 @@ xdp_session_finalize (GObject *object)
+   g_clear_pointer (&session->restore_token, g_free);
+   g_clear_pointer (&session->id, g_free);
+   g_clear_pointer (&session->streams, g_variant_unref);
++  if (session->input_capture_session != NULL)
++    g_critical ("XdpSession destroyed before XdpInputCaptureSesssion, you lost count of your session refs");
++  session->input_capture_session = NULL;
+ 
+   G_OBJECT_CLASS (xdp_session_parent_class)->finalize (object);
+ }
+@@ -115,6 +118,7 @@ _xdp_session_new (XdpPortal *portal,
+   session->id = g_strdup (id);
+   session->type = type;
+   session->state = XDP_SESSION_INITIAL;
++  session->input_capture_session = NULL;
+ 
+   session->signal_id = g_dbus_connection_signal_subscribe (portal->bus,
+                                                            PORTAL_BUS_NAME,
+diff --git a/libportal/session.h b/libportal/session.h
+index 3d85bacf..e9f02145 100644
+--- a/libportal/session.h
++++ b/libportal/session.h
+@@ -32,12 +32,14 @@ G_DECLARE_FINAL_TYPE (XdpSession, xdp_session, XDP, SESSION, GObject)
+  * XdpSessionType:
+  * @XDP_SESSION_SCREENCAST: a screencast session.
+  * @XDP_SESSION_REMOTE_DESKTOP: a remote desktop session.
++ * @XDP_SESSION_INPUT_CAPTURE: an input capture session.
+  *
+  * The type of a session.
+  */
+ typedef enum {
+   XDP_SESSION_SCREENCAST,
+   XDP_SESSION_REMOTE_DESKTOP,
++  XDP_SESSION_INPUT_CAPTURE,
+ } XdpSessionType;
+ 
+ XDP_PUBLIC
+diff --git a/portal-test/gtk3/portal-test-win.c b/portal-test/gtk3/portal-test-win.c
+index 74b0fefa..eeff9df7 100644
+--- a/portal-test/gtk3/portal-test-win.c
++++ b/portal-test/gtk3/portal-test-win.c
+@@ -63,6 +63,9 @@ struct _PortalTestWin
+   GtkWidget *screencast_label;
+   GtkWidget *screencast_toggle;
+ 
++  GtkWidget *inputcapture_label;
++  GtkWidget *inputcapture_toggle;
++
+   GFileMonitor *update_monitor;
+   GtkWidget *update_dialog;
+   GtkWidget *update_dialog2;
+@@ -156,7 +159,7 @@ update_available (XdpPortal *portal,
+                   PortalTestWin *win)
+ {
+   g_message ("Update  available");
+-   
++
+   gtk_label_set_label (GTK_LABEL (win->update_label), "Update available");
+   gtk_progress_bar_set_fraction (GTK_PROGRESS_BAR (win->update_progressbar), 0.0);
+ 
+@@ -188,7 +191,7 @@ update_progress (XdpPortal *portal,
+     }
+ 
+   if (status != XDP_UPDATE_STATUS_RUNNING)
+-    g_signal_handlers_disconnect_by_func (win->portal, update_progress, win); 
++    g_signal_handlers_disconnect_by_func (win->portal, update_progress, win);
+ }
+ 
+ static void
+@@ -298,7 +301,7 @@ opened_uri (GObject *object,
+   gboolean res;
+ 
+   open_dir = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (win->open_local_dir));
+- 
++
+   if (open_dir)
+     res = xdp_portal_open_directory_finish (portal, result, &error);
+   else
+@@ -561,6 +564,87 @@ take_screenshot (GtkButton *button,
+   xdp_parent_free (parent);
+ }
+ 
++static void
++inputcapture_session_created (GObject *source,
++                              GAsyncResult *result,
++                              gpointer data)
++{
++  XdpPortal *portal = XDP_PORTAL (source);
++  PortalTestWin *win = data;
++  g_autoptr(GError) error = NULL;
++  GList *zones;
++  g_autoptr (GString) s = NULL;
++  XdpInputCaptureSession *ic;
++
++  ic = xdp_portal_create_input_capture_session_finish (portal, result, &error);
++  if (ic == NULL)
++    {
++      g_warning ("Failed to create inputcapture session: %s", error->message);
++      return;
++    }
++  win->session = XDP_SESSION (ic);
++
++  zones = xdp_input_capture_session_get_zones (XDP_INPUT_CAPTURE_SESSION (win->session));
++  s = g_string_new ("");
++  for (GList *elem = g_list_first (zones); elem; elem = g_list_next (elem))
++    {
++      XdpInputCaptureZone *zone = elem->data;
++      guint w, h;
++      gint x, y;
++
++      g_object_get (zone,
++		    "width", &w,
++		    "height", &h,
++		    "x", &x,
++		    "y", &y,
++		    NULL);
++
++      g_string_append_printf (s, "%ux%u@%d,%d ", w, h, x, y);
++    }
++  gtk_label_set_label (GTK_LABEL (win->inputcapture_label), s->str);
++}
++
++static void
++start_input_capture (PortalTestWin *win)
++{
++  g_clear_object (&win->session);
++
++  xdp_portal_create_input_capture_session (win->portal,
++                                           NULL,
++                                           XDP_INPUT_CAPABILITY_POINTER | XDP_INPUT_CAPABILITY_KEYBOARD,
++                                           NULL,
++                                           inputcapture_session_created,
++                                           win);
++}
++
++static void
++stop_input_capture (PortalTestWin *win)
++{
++  if (win->session != NULL)
++    {
++      xdp_session_close (win->session);
++      g_clear_object (&win->session);
++      gtk_label_set_label (GTK_LABEL (win->inputcapture_label), "");
++    }
++}
++
++static void
++capture_input (GtkButton *button,
++               PortalTestWin *win)
++{
++  if (gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (button)))
++    start_input_capture (win);
++  else
++    stop_input_capture (win);
++}
++
++static void
++capture_input_release (GtkButton *button,
++                       PortalTestWin *win)
++{
++  /* FIXME */
++}
++
+ static void
+ session_started (GObject *source,
+                  GAsyncResult *result,
+@@ -599,7 +683,7 @@ session_started (GObject *source,
+ 
+   gtk_label_set_label (GTK_LABEL (win->screencast_label), s->str);
+ }
+-  
++
+ static void
+ session_created (GObject *source,
+                  GAsyncResult *result,
+@@ -616,7 +700,7 @@ session_created (GObject *source,
+       g_warning ("Failed to create screencast session: %s", error->message);
+       return;
+     }
+-  
++
+   parent = xdp_parent_new_gtk (GTK_WINDOW (win));
+   xdp_session_start (win->session, parent, NULL, session_started, win);
+   xdp_parent_free (parent);
+@@ -650,7 +734,7 @@ stop_screencast (PortalTestWin *win)
+ }
+ 
+ static void
+-screencast_toggled (GtkToggleButton *button, 
++screencast_toggled (GtkToggleButton *button,
+                     PortalTestWin *win)
+ {
+   if (gtk_toggle_button_get_active (button))
+@@ -726,7 +810,7 @@ compose_email_called (GObject *source,
+   PortalTestWin *win = data;
+   g_autoptr(GError) error = NULL;
+ 
+-  if (!xdp_portal_compose_email_finish (win->portal, result, &error)) 
++  if (!xdp_portal_compose_email_finish (win->portal, result, &error))
+     {
+       g_warning ("Email error: %s", error->message);
+       return;
+@@ -1247,6 +1331,8 @@ portal_test_win_class_init (PortalTestWinClass *class)
+   gtk_widget_class_bind_template_callback (widget_class, open_directory);
+   gtk_widget_class_bind_template_callback (widget_class, open_local);
+   gtk_widget_class_bind_template_callback (widget_class, take_screenshot);
++  gtk_widget_class_bind_template_callback (widget_class, capture_input);
++  gtk_widget_class_bind_template_callback (widget_class, capture_input_release);
+   gtk_widget_class_bind_template_callback (widget_class, screencast_toggled);
+   gtk_widget_class_bind_template_callback (widget_class, notify_me);
+   gtk_widget_class_bind_template_callback (widget_class, print_cb);
+@@ -1269,6 +1355,8 @@ portal_test_win_class_init (PortalTestWinClass *class)
+   gtk_widget_class_bind_template_child (widget_class, PortalTestWin, inhibit_logout);
+   gtk_widget_class_bind_template_child (widget_class, PortalTestWin, inhibit_suspend);
+   gtk_widget_class_bind_template_child (widget_class, PortalTestWin, inhibit_switch);
++  gtk_widget_class_bind_template_child (widget_class, PortalTestWin, inputcapture_label);
++  gtk_widget_class_bind_template_child (widget_class, PortalTestWin, inputcapture_toggle);
+   gtk_widget_class_bind_template_child (widget_class, PortalTestWin, username);
+   gtk_widget_class_bind_template_child (widget_class, PortalTestWin, realname);
+   gtk_widget_class_bind_template_child (widget_class, PortalTestWin, avatar);
+diff --git a/portal-test/gtk3/portal-test-win.ui b/portal-test/gtk3/portal-test-win.ui
+index 7112a190..e449c298 100644
+--- a/portal-test/gtk3/portal-test-win.ui
++++ b/portal-test/gtk3/portal-test-win.ui
+@@ -726,6 +726,68 @@
+             <property name="top-attach">19</property>
+           </packing>
+         </child>
++
++        <child>
++          <object class="GtkLabel">
++            <property name="visible">1</property>
++            <property name="halign">end</property>
++            <property name="label">Input Capture</property>
++          </object>
++          <packing>
++            <property name="left-attach">0</property>
++            <property name="top-attach">20</property>
++          </packing>
++        </child>
++        <child>
++          <object class="GtkLabel" id="inputcapture_label">
++            <property name="visible">1</property>
++            <property name="halign">end</property>
++          </object>
++          <packing>
++            <property name="left-attach">2</property>
++            <property name="top-attach">20</property>
++          </packing>
++        </child>
++        <child>
++          <object class="GtkBox">
++            <property name="visible">1</property>
++            <property name="hexpand">0</property>
++            <property name="orientation">horizontal</property>
++            <property name="spacing">6</property>
++            <child>
++              <object class="GtkToggleButton" id="inputcapture_toggle">
++                <property name="visible">1</property>
++                <property name="hexpand">1</property>
++                <property name="label">Input Capture</property>
++                <signal name="clicked" handler="capture_input"/>
++              </object>
++            </child>
++            <child>
++              <object class="GtkCheckButton" id="enable">
++                <property name="visible">1</property>
++                <property name="tooltip-text">Enable</property>
++              </object>
++            </child>
++          </object>
++          <packing>
++            <property name="left-attach">1</property>
++            <property name="top-attach">20</property>
++         </packing>
++        </child>
++        <child>
++          <object class="GtkButton">
++            <property name="visible">1</property>
++            <property name="hexpand">1</property>
++            <property name="label">Release</property>
++            <signal name="clicked" handler="capture_input_release"/>
++          </object>
++          <packing>
++            <property name="left-attach">2</property>
++            <property name="top-attach">20</property>
++          </packing>
++        </child>
++
++
+       </object>
+     </child>
+   </template>
+diff --git a/tests/pyportaltest/templates/inputcapture.py b/tests/pyportaltest/templates/inputcapture.py
+new file mode 100644
+index 00000000..de610b21
+--- /dev/null
++++ b/tests/pyportaltest/templates/inputcapture.py
+@@ -0,0 +1,365 @@
++# SPDX-License-Identifier: LGPL-3.0-only
++#
++# This file is formatted with Python Black
++
++"""xdg desktop portals mock template"""
++
++from pyportaltest.templates import Request, Response, ASVType, Session
++from typing import Callable, Dict, List, Tuple, Iterator
++from itertools import count
++
++import dbus
++import dbus.service
++import logging
++import sys
++
++from gi.repository import GLib
++
++BUS_NAME = "org.freedesktop.portal.Desktop"
++MAIN_OBJ = "/org/freedesktop/portal/desktop"
++SYSTEM_BUS = False
++MAIN_IFACE = "org.freedesktop.portal.InputCapture"
++
++logger = logging.getLogger(f"templates.{__name__}")
++logger.setLevel(logging.DEBUG)
++
++zone_set = None
++eis_serial = None
++
++
++def load(mock, parameters={}):
++    logger.debug(f"Loading parameters: {parameters}")
++
++    # Delay before Request.response, applies to all functions
++    mock.delay: int = parameters.get("delay", 0)
++
++    # EIS serial number, < 0 means "don't send a serial"
++    eis_serial_start = parameters.get("eis-serial", 0)
++    if eis_serial_start >= 0:
++        global eis_serial
++        eis_serial = count(start=eis_serial_start)
++
++    # Zone set number, < 0 means "don't send a zone_set"
++    zone_set_start = parameters.get("zone-set", 0)
++    if zone_set_start >= 0:
++        global zone_set
++        zone_set = count(start=zone_set_start)
++        mock.current_zone_set = next(zone_set)
++    else:
++        mock.current_zone_set = None
++
++    # An all-zeroes zone means "don't send a zone"
++    mock.current_zones = parameters.get("zones", ((1920, 1080, 0, 0),))
++    if mock.current_zones[0] == (0, 0, 0, 0):
++        mock.current_zones = None
++
++    # second set of zones after the change signal
++    mock.changed_zones = parameters.get("changed-zones", ((0, 0, 0, 0),))
++    if mock.changed_zones[0] == (0, 0, 0, 0):
++        mock.changed_zones = None
++
++    # milliseconds until the zones change to the changed_zones
++    mock.change_zones_after = parameters.get("change-zones-after", 0)
++
++    # List of barrier ids to fail
++    mock.failed_barriers = parameters.get("failed-barriers", [])
++
++    # When to send the Activated signal (in ms after Enable), 0 means no
++    # signal
++    mock.activated_after = parameters.get("activated-after", 0)
++
++    # Barrier ID that triggers Activated (-1 means don't add barrier id)
++    mock.activated_barrier = parameters.get("activated-barrier", None)
++
++    # Position tuple for Activated signal, None means don't add position
++    mock.activated_position = parameters.get("activated-position", None)
++
++    # When to send the Deactivated signal (in ms after Activated), 0 means no
++    # signal
++    mock.deactivated_after = parameters.get("deactivated-after", 0)
++
++    # Position tuple for Deactivated signal, None means don't add position
++    mock.deactivated_position = parameters.get("deactivated-position", None)
++
++    # When to send the Disabled signal (in ms after Enabled), 0 means no
++    # signal
++    mock.disabled_after = parameters.get("disabled-after", 0)
++
++    mock.AddProperties(
++        MAIN_IFACE,
++        dbus.Dictionary(
++            {
++                "version": dbus.UInt32(parameters.get("version", 1)),
++                "SupportedCapabilities": dbus.UInt32(
++                    parameters.get("capabilities", 0xF)
++                ),
++            }
++        ),
++    )
++
++    mock.active_sessions: Dict[str, Session] = {}
++
++
++@dbus.service.method(
++    MAIN_IFACE,
++    sender_keyword="sender",
++    in_signature="sa{sv}",
++    out_signature="o",
++)
++def CreateSession(self, parent_window: str, options: ASVType, sender: str):
++    try:
++        request = Request(bus_name=self.bus_name, sender=sender, options=options)
++        session = Session(bus_name=self.bus_name, sender=sender, options=options)
++
++        response = Response(
++            0,
++            {
++                "capabilities": dbus.UInt32(0xF, variant_level=1),
++                "session_handle": dbus.ObjectPath(session.handle),
++            },
++        )
++        self.active_sessions[session.handle] = session
++
++        logger.debug(f"CreateSession with response {response}")
++        request.respond(response, delay=self.delay)
++
++        return request.handle
++    except Exception as e:
++        logger.critical(e)
++
++
++@dbus.service.method(
++    MAIN_IFACE,
++    sender_keyword="sender",
++    in_signature="oa{sv}",
++    out_signature="h",
++)
++def ConnectToEIS(self, session_handle: str, options: ASVType, sender: str):
++    try:
++        import socket
++
++        sockets = socket.socketpair()
++        # Write some random data down so it'll break anything that actually
++        # expects the socket to be a real EIS socket
++        sockets[0].send(b"VANILLA")
++        fd = sockets[1]
++        logger.debug(f"ConnectToEIS with fd {fd.fileno()}")
++        return dbus.types.UnixFd(fd)
++    except Exception as e:
++        logger.critical(e)
++
++
++@dbus.service.method(
++    MAIN_IFACE,
++    sender_keyword="sender",
++    in_signature="oa{sv}",
++    out_signature="o",
++)
++def GetZones(self, session_handle: str, options: ASVType, sender: str):
++    try:
++        request = Request(bus_name=self.bus_name, sender=sender, options=options)
++
++        if session_handle not in self.active_sessions:
++            request.respond(Response(2, {}, delay=self.delay))
++            return request.handle
++
++        zone_set = self.current_zone_set
++        zones = self.current_zones
++
++        results = {}
++        if zone_set is not None:
++            results["zone_set"] = dbus.UInt32(zone_set, variant_level=1)
++        if zones is not None:
++            results["zones"] = dbus.Array(
++                [dbus.Struct(z, signature="uuii") for z in zones],
++                signature="(uuii)",
++                variant_level=1,
++            )
++
++        response = Response(response=0, results=results)
++
++        logger.debug(f"GetZones with response {response}")
++        request.respond(response, delay=self.delay)
++
++        if self.change_zones_after > 0:
++
++            def change_zones():
++                global zone_set
++
++                logger.debug("Changing Zones")
++                opts = {"zone_set": dbus.UInt32(self.current_zone_set, variant_level=1)}
++                self.current_zone_set = next(zone_set)
++                self.current_zones = self.changed_zones
++                self.EmitSignalDetailed(
++                    "",
++                    "ZonesChanged",
++                    "oa{sv}",
++                    [dbus.ObjectPath(session_handle), opts],
++                    details={"destination": sender},
++                )
++
++            GLib.timeout_add(self.change_zones_after, change_zones)
++
++            self.change_zones_after = 0  # Zones only change once
++
++        return request.handle
++    except Exception as e:
++        logger.critical(e)
++
++
++@dbus.service.method(
++    MAIN_IFACE,
++    sender_keyword="sender",
++    in_signature="oa{sv}aa{sv}u",
++    out_signature="o",
++)
++def SetPointerBarriers(
++    self,
++    session_handle: str,
++    options: ASVType,
++    barriers: List[ASVType],
++    zone_set: int,
++    sender: str,
++):
++    try:
++        request = Request(bus_name=self.bus_name, sender=sender, options=options)
++
++        if (
++            session_handle not in self.active_sessions
++            or zone_set != self.current_zone_set
++        ):
++            response = Response(2, {})
++        else:
++            results = {
++                "failed_barriers": dbus.Array(
++                    self.failed_barriers, signature="u", variant_level=1
++                )
++            }
++            response = Response(0, results)
++
++        logger.debug(f"SetPointerBarriers with response {response}")
++        request.respond(response, delay=self.delay)
++
++        return request.handle
++    except Exception as e:
++        logger.critical(e)
++
++
++@dbus.service.method(
++    MAIN_IFACE,
++    sender_keyword="sender",
++    in_signature="oa{sv}",
++    out_signature="",
++)
++def Enable(self, session_handle, options, sender):
++    try:
++        logger.debug(f"Enable with options {options}")
++        allowed_options = []
++
++        if not all([k in allowed_options for k in options]):
++            logger.error("Enable does not support options")
++
++        if self.activated_after > 0:
++            current_eis_serial = next(eis_serial) if eis_serial else None
++
++            def send_activated():
++                opts = {}
++                if current_eis_serial is not None:
++                    opts["activation_id"] = dbus.UInt32(
++                        current_eis_serial, variant_level=1
++                    )
++
++                if self.activated_position is not None:
++                    opts["cursor_position"] = dbus.Struct(
++                        self.activated_position, signature="dd", variant_level=1
++                    )
++                if self.activated_barrier is not None:
++                    opts["barrier_id"] = dbus.UInt32(
++                        self.activated_barrier, variant_level=1
++                    )
++
++                self.EmitSignalDetailed(
++                    "",
++                    "Activated",
++                    "oa{sv}",
++                    [dbus.ObjectPath(session_handle), opts],
++                    details={"destination": sender},
++                )
++
++            GLib.timeout_add(self.activated_after, send_activated)
++
++            if self.deactivated_after > 0:
++
++                def send_deactivated():
++                    opts = {}
++                    if current_eis_serial:
++                        opts["activation_id"] = dbus.UInt32(
++                            current_eis_serial, variant_level=1
++                        )
++
++                    if self.deactivated_position is not None:
++                        opts["cursor_position"] = dbus.Struct(
++                            self.deactivated_position, signature="dd", variant_level=1
++                        )
++
++                    self.EmitSignalDetailed(
++                        "",
++                        "Deactivated",
++                        "oa{sv}",
++                        [dbus.ObjectPath(session_handle), opts],
++                        details={"destination": sender},
++                    )
++
++                GLib.timeout_add(
++                    self.activated_after + self.deactivated_after, send_deactivated
++                )
++
++        if self.disabled_after > 0:
++
++            def send_disabled():
++                self.EmitSignalDetailed(
++                    "",
++                    "Disabled",
++                    "oa{sv}",
++                    [dbus.ObjectPath(session_handle), {}],
++                    details={"destination": sender},
++                )
++
++            GLib.timeout_add(self.disabled_after, send_disabled)
++
++    except Exception as e:
++        logger.critical(e)
++
++
++@dbus.service.method(
++    MAIN_IFACE,
++    sender_keyword="sender",
++    in_signature="oa{sv}",
++    out_signature="",
++)
++def Disable(self, session_handle, options, sender):
++    try:
++        logger.debug(f"Disable with options {options}")
++        allowed_options = []
++
++        if not all([k in allowed_options for k in options]):
++            logger.error("Disable does not support options")
++    except Exception as e:
++        logger.critical(e)
++
++
++@dbus.service.method(
++    MAIN_IFACE,
++    sender_keyword="sender",
++    in_signature="oa{sv}",
++    out_signature="",
++)
++def Release(self, session_handle, options, sender):
++    try:
++        logger.debug(f"Release with options {options}")
++        allowed_options = ["cursor_position"]
++
++        if not all([k in allowed_options for k in options]):
++            logger.error("Invalid options for Release")
++    except Exception as e:
++        logger.critical(e)
+diff --git a/tests/pyportaltest/test_inputcapture.py b/tests/pyportaltest/test_inputcapture.py
+new file mode 100644
+index 00000000..372138e2
+--- /dev/null
++++ b/tests/pyportaltest/test_inputcapture.py
+@@ -0,0 +1,592 @@
++# SPDX-License-Identifier: LGPL-3.0-only
++#
++# This file is formatted with Python Black
++
++from . import PortalTest
++from typing import List, Optional
++
++import gi
++import logging
++import pytest
++import os
++
++gi.require_version("Xdp", "1.0")
++from gi.repository import GLib, Gio, Xdp
++
++logger = logging.getLogger(f"test.{__name__}")
++logger.setLevel(logging.DEBUG)
++
++
++class SessionSetup:
++    def __init__(
++        self,
++        session: Xdp.InputCaptureSession = None,
++        zones: Optional[List[Xdp.InputCaptureZone]] = None,
++        barriers: Optional[List[Xdp.InputCapturePointerBarrier]] = None,
++        failed_barriers: Optional[List[Xdp.InputCapturePointerBarrier]] = None,
++    ):
++        self.session = session
++        self.zones = zones or []
++        self.barriers = barriers or []
++        self.failed_barriers = failed_barriers or []
++
++
++class SessionCreationFailed(Exception):
++    def __init__(self, glib_error):
++        self.glib_error = glib_error
++
++    def __str__(self):
++        return f"SessionCreationFailed: {self.glib_error}"
++
++
++class TestInputCapture(PortalTest):
++    def create_session_with_barriers(
++        self,
++        params=None,
++        parent=None,
++        capabilities=Xdp.InputCapability.POINTER,
++        barriers=None,
++        allow_failed_barriers=False,
++        cancellable=None,
++    ) -> SessionSetup:
++        """
++        Session creation helper. This function creates a session and sets up
++        pointer barriers, with defaults for everything.
++        """
++        params = params or {}
++        self.setup_daemon(params)
++
++        xdp = Xdp.Portal.new()
++        assert xdp is not None
++
++        session, session_error = None, None
++        create_session_done_invoked = False
++
++        def create_session_done(portal, task, data):
++            nonlocal session, session_error
++            nonlocal create_session_done_invoked
++
++            create_session_done_invoked = True
++            try:
++                session = portal.create_input_capture_session_finish(task)
++                if session is None:
++                    session_error = Exception("XdpSession is NULL")
++            except GLib.GError as e:
++                session_error = e
++            self.mainloop.quit()
++
++        xdp.create_input_capture_session(
++            parent=parent,
++            capabilities=capabilities,
++            cancellable=cancellable,
++            callback=create_session_done,
++            data=None,
++        )
++
++        self.mainloop.run()
++        assert create_session_done_invoked
++        if session_error is not None:
++            raise SessionCreationFailed(session_error)
++        assert session is not None
++
++        zones = session.get_zones()
++
++        if barriers is None:
++            barriers = [Xdp.InputCapturePointerBarrier(id=1, x1=0, x2=1920, y1=0, y2=0)]
++
++        # Check that we get the notify:is-active for each barrier
++        active_barriers = []
++        inactive_barriers = []
++
++        def notify_active_cb(barrier, pspec):
++            nonlocal active_barriers, inactive_barriers
++
++            if barrier.props.is_active:
++                active_barriers.append(barrier)
++            else:
++                inactive_barriers.append(barrier)
++
++        for b in barriers:
++            b.connect("notify::is-active", notify_active_cb)
++
++        failed_barriers = None
++
++        def set_pointer_barriers_done(session, task, data):
++            nonlocal session_error, failed_barriers
++            nonlocal set_pointer_barriers_done_invoked
++
++            set_pointer_barriers_done_invoked = True
++            try:
++                failed_barriers = session.set_pointer_barriers_finish(task)
++            except GLib.GError as e:
++                session_error = e
++            self.mainloop.quit()
++
++        set_pointer_barriers_done_invoked = False
++        session.set_pointer_barriers(
++            barriers=barriers,
++            cancellable=None,
++            callback=set_pointer_barriers_done,
++            data=None,
++        )
++        self.mainloop.run()
++
++        if session_error is not None:
++            raise SessionCreationFailed(session_error)
++
++        assert set_pointer_barriers_done_invoked
++        assert sorted(active_barriers + inactive_barriers) == sorted(barriers)
++
++        if not allow_failed_barriers:
++            assert (
++                failed_barriers == []
++            ), "Barriers failed but allow_failed_barriers was not set"
++
++        return SessionSetup(
++            session=session,
++            zones=zones,
++            barriers=active_barriers,
++            failed_barriers=failed_barriers,
++        )
++
++    def test_version(self):
++        """This tests the test suite setup rather than libportal"""
++        params = {}
++        self.setup_daemon(params)
++        assert self.properties_interface.Get(self.INTERFACE_NAME, "version") == 1
++
++    def test_session_create(self):
++        """
++        The basic test of successful create and zone check
++        """
++        params = {
++            "zones": [(1920, 1080, 0, 0), (1080, 1920, 1920, 1080)],
++            "zone-set": 1234,
++        }
++        self.setup_daemon(params)
++
++        capabilities = Xdp.InputCapability.POINTER | Xdp.InputCapability.KEYBOARD
++
++        setup = self.create_session_with_barriers(params, capabilities=capabilities)
++        assert setup.session is not None
++        zones = setup.zones
++        assert len(zones) == 2
++        z1 = zones[0]
++        assert z1.props.width == 1920
++        assert z1.props.height == 1080
++        assert z1.props.x == 0
++        assert z1.props.y == 0
++        assert z1.props.zone_set == 1234
++
++        z2 = zones[1]
++        assert z2.props.width == 1080
++        assert z2.props.height == 1920
++        assert z2.props.x == 1920
++        assert z2.props.y == 1080
++        assert z2.props.zone_set == 1234
++
++        # Now verify our DBus calls were correct
++        method_calls = self.mock_interface.GetMethodCalls("CreateSession")
++        assert len(method_calls) == 1
++        _, args = method_calls.pop(0)
++        parent, options = args
++        assert list(options.keys()) == [
++            "handle_token",
++            "session_handle_token",
++            "capabilities",
++        ]
++        assert options["capabilities"] == capabilities
++
++        method_calls = self.mock_interface.GetMethodCalls("GetZones")
++        assert len(method_calls) == 1
++        _, args = method_calls.pop(0)
++        session_handle, options = args
++        assert list(options.keys()) == ["handle_token"]
++
++    def test_session_create_cancel_during_create(self):
++        """
++        Create a session but cancel while waiting for the CreateSession request
++        """
++        params = {"delay": 1000}
++        self.setup_daemon(params)
++        cancellable = Gio.Cancellable()
++        GLib.timeout_add(300, cancellable.cancel)
++
++        with pytest.raises(SessionCreationFailed) as e:
++            self.create_session_with_barriers(params=params, cancellable=cancellable)
++            assert "Operation was cancelled" in e.glib_error.message
++
++    def test_session_create_cancel_during_getzones(self):
++        """
++        Create a session but cancel while waiting for the GetZones request
++        """
++        # libportal issues two requests: CreateSession and GetZones,
++        # param is set for each to delay 500 ms so if we cancel after 700, the
++        # one that is cancelled should be the GetZones one.
++        # Can't guarantee it but this is the best we can do
++        params = {"delay": 500}
++        self.setup_daemon(params)
++        cancellable = Gio.Cancellable()
++        GLib.timeout_add(700, cancellable.cancel)
++
++        with pytest.raises(SessionCreationFailed) as e:
++            self.create_session_with_barriers(params=params, cancellable=cancellable)
++            assert "Operation was cancelled" in e.glib_error.message
++
++    def test_session_create_no_serial_on_getzones(self):
++        """
++        Test buggy portal implementation not replying with a zone_set in
++        GetZones
++        """
++        params = {
++            "zone-set": -1,
++        }
++
++        self.setup_daemon(params)
++        with pytest.raises(SessionCreationFailed):
++            self.create_session_with_barriers(params)
++
++    def test_session_create_no_zones_on_getzones(self):
++        """
++        Test buggy portal implementation not replying with a zone
++        GetZones
++        """
++        params = {
++            "zones": [(0, 0, 0, 0)],
++        }
++
++        self.setup_daemon(params)
++        with pytest.raises(SessionCreationFailed):
++            self.create_session_with_barriers(params)
++
++    def _test_session_create_without_subref(self):
++        """
++        Create a new InputCapture session but never access the actual
++        input capture session.
++        """
++        self.setup_daemon({})
++
++        xdp = Xdp.Portal.new()
++        assert xdp is not None
++
++        parent_session, session_error = None, None
++        create_session_done_invoked = False
++
++        def create_session_done(portal, task, data):
++            nonlocal parent_session, session_error
++            nonlocal create_session_done_invoked
++
++            create_session_done_invoked = True
++            try:
++                parent_session = portal.create_input_capture_session_finish(task)
++                if parent_session is None:
++                    session_error = Exception("XdpSession is NULL")
++            except GLib.GError as e:
++                session_error = e
++            self.mainloop.quit()
++
++        capabilities = Xdp.InputCapability.POINTER | Xdp.InputCapability.KEYBOARD
++        xdp.create_input_capture_session(
++            parent=None,
++            capabilities=capabilities,
++            cancellable=None,
++            callback=create_session_done,
++            data=None,
++        )
++
++        self.mainloop.run()
++        assert create_session_done_invoked
++
++        # Explicitly don't call parent_session.get_input_capture_session()
++        # since that would cause python to g_object_ref the IC session.
++        # By not doing so we never ref that object and can test for the correct
++        # cleanup
++
++    def test_connect_to_eis(self):
++        """
++        The basic test of retrieving the EIS handle
++        """
++        params = {}
++        self.setup_daemon(params)
++        setup = self.create_session_with_barriers(params)
++        assert setup.session is not None
++
++        handle = setup.session.connect_to_eis()
++        assert handle >= 0
++
++        fd = os.fdopen(handle)
++        buf = fd.read()
++        assert buf == "VANILLA"  # template sends this by default
++
++        # Now verify our DBus calls were correct
++        method_calls = self.mock_interface.GetMethodCalls("ConnectToEIS")
++        assert len(method_calls) == 1
++        _, args = method_calls.pop(0)
++        parent, options = args
++        assert "handle_token" not in options  # This is not a Request
++        assert list(options.keys()) == []
++
++    def test_pointer_barriers_success(self):
++        """
++        Some successful pointer barriers
++        """
++        b1 = Xdp.InputCapturePointerBarrier(id=1, x1=0, x2=1920, y1=0, y2=0)
++        b2 = Xdp.InputCapturePointerBarrier(id=2, x1=1920, x2=1920, y1=0, y2=1080)
++
++        params = {}
++        self.setup_daemon(params)
++        setup = self.create_session_with_barriers(params, barriers=[b1, b2])
++        assert setup.barriers == [b1, b2]
++
++        # Now verify our DBus calls were correct
++        method_calls = self.mock_interface.GetMethodCalls("SetPointerBarriers")
++        assert len(method_calls) == 1
++        _, args = method_calls.pop(0)
++        session_handle, options, barriers, zone_set = args
++        assert list(options.keys()) == ["handle_token"]
++        for b in barriers:
++            assert "barrier_id" in b
++            assert "position" in b
++            assert b["barrier_id"] in [1, 2]
++            x1, y1, x2, y2 = [int(x) for x in b["position"]]
++            if b["barrier_id"] == 1:
++                assert (x1, y1, x2, y2) == (0, 0, 1920, 0)
++            if b["barrier_id"] == 2:
++                assert (x1, y1, x2, y2) == (1920, 0, 1920, 1080)
++
++    def test_pointer_barriers_failures(self):
++        """
++        Test with some barriers failing
++        """
++        b1 = Xdp.InputCapturePointerBarrier(id=1, x1=0, x2=1920, y1=0, y2=0)
++        b2 = Xdp.InputCapturePointerBarrier(id=2, x1=1, x2=2, y1=3, y2=4)
++        b3 = Xdp.InputCapturePointerBarrier(id=3, x1=1, x2=2, y1=3, y2=4)
++        b4 = Xdp.InputCapturePointerBarrier(id=4, x1=1920, x2=1920, y1=0, y2=1080)
++
++        params = {"failed-barriers": [2, 3]}
++        self.setup_daemon(params)
++        setup = self.create_session_with_barriers(
++            params, barriers=[b1, b2, b3, b4], allow_failed_barriers=True
++        )
++        assert setup.barriers == [b1, b4]
++        assert setup.failed_barriers == [b2, b3]
++
++        # Now verify our DBus calls were correct
++        method_calls = self.mock_interface.GetMethodCalls("SetPointerBarriers")
++        assert len(method_calls) == 1
++        _, args = method_calls.pop(0)
++        session_handle, options, barriers, zone_set = args
++        assert list(options.keys()) == ["handle_token"]
++        for b in barriers:
++            assert "barrier_id" in b
++            assert "position" in b
++            assert b["barrier_id"] in [1, 2, 3, 4]
++            x1, y1, x2, y2 = [int(x) for x in b["position"]]
++            if b["barrier_id"] == 1:
++                assert (x1, y1, x2, y2) == (0, 0, 1920, 0)
++            if b["barrier_id"] in [2, 3]:
++                assert (x1, y1, x2, y2) == (1, 3, 2, 4)
++            if b["barrier_id"] == 4:
++                assert (x1, y1, x2, y2) == (1920, 0, 1920, 1080)
++
++    def test_enable_disable_release(self):
++        """
++        Test enable/disable calls
++        """
++        params = {}
++        self.setup_daemon(params)
++
++        setup = self.create_session_with_barriers(params)
++        session = setup.session
++
++        session.enable()
++        session.disable()
++        session.release(activation_id=456)  # fake id, doesn't matter here
++
++        self.mainloop.run()
++
++        # Now verify our DBus calls were correct
++        method_calls = self.mock_interface.GetMethodCalls("Enable")
++        assert len(method_calls) == 1
++        _, args = method_calls.pop(0)
++        session_handle, options = args
++        assert list(options.keys()) == []
++
++        method_calls = self.mock_interface.GetMethodCalls("Disable")
++        assert len(method_calls) == 1
++        _, args = method_calls.pop(0)
++        session_handle, options = args
++        assert list(options.keys()) == []
++
++        method_calls = self.mock_interface.GetMethodCalls("Release")
++        assert len(method_calls) == 1
++        _, args = method_calls.pop(0)
++        session_handle, options = args
++        assert list(options.keys()) == ["activation_id"]
++
++    def test_release_at(self):
++        """
++        Test the release_at call with a cursor position
++        """
++        params = {}
++        self.setup_daemon(params)
++
++        setup = self.create_session_with_barriers(params)
++        session = setup.session
++
++        # libportal allows us to call Release without Enable first,
++        # we just fake an activation_id
++        session.release_at(
++            activation_id=456, cursor_x_position=10, cursor_y_position=10
++        )
++        self.mainloop.run()
++
++        # Now verify our DBus calls were correct
++        method_calls = self.mock_interface.GetMethodCalls("Release")
++        assert len(method_calls) == 1
++        _, args = method_calls.pop(0)
++        session_handle, options = args
++        assert list(options.keys()) == ["activation_id", "cursor_position"]
++        cursor_position = options["cursor_position"]
++        assert cursor_position == (10.0, 10.0)
++
++    def test_activated(self):
++        """
++        Test the Activated signal
++        """
++        params = {
++            "eis-serial": 123,
++            "activated-after": 20,
++            "activated-barrier": 1,
++            "activated-position": (10.0, 20.0),
++            "deactivated-after": 20,
++            "deactivated-position": (20.0, 30.0),
++        }
++        self.setup_daemon(params)
++
++        setup = self.create_session_with_barriers(params)
++        session = setup.session
++
++        session_activated_signal_received = False
++        session_deactivated_signal_received = False
++        signal_activated_options = None
++        signal_deactivated_options = None
++        signal_activation_id = None
++        signal_deactivation_id = None
++
++        def session_activated(session, activation_id, opts):
++            nonlocal session_activated_signal_received
++            nonlocal signal_activation_id, signal_activated_options
++            session_activated_signal_received = True
++            signal_activated_options = opts
++            signal_activation_id = activation_id
++
++        def session_deactivated(session, activation_id, opts):
++            nonlocal session_deactivated_signal_received
++            nonlocal signal_deactivation_id, signal_deactivated_options
++            session_deactivated_signal_received = True
++            signal_deactivated_options = opts
++            signal_deactivation_id = activation_id
++            self.mainloop.quit()
++
++        session.connect("activated", session_activated)
++        session.connect("deactivated", session_deactivated)
++        session.enable()
++
++        self.mainloop.run()
++
++        assert session_activated_signal_received
++        assert signal_activated_options is not None
++        assert signal_activation_id == 123
++        assert list(signal_activated_options.keys()) == [
++            "activation_id",
++            "cursor_position",
++            "barrier_id",
++        ]
++        assert signal_activated_options["barrier_id"] == 1
++        assert signal_activated_options["cursor_position"] == (10.0, 20.0)
++        assert signal_activated_options["activation_id"] == 123
++
++        assert session_deactivated_signal_received
++        assert signal_deactivated_options is not None
++        assert signal_deactivation_id == 123
++        assert list(signal_deactivated_options.keys()) == [
++            "activation_id",
++            "cursor_position",
++        ]
++        assert signal_deactivated_options["cursor_position"] == (20.0, 30.0)
++        assert signal_deactivated_options["activation_id"] == 123
++
++    def test_zones_changed(self):
++        """
++        Test the ZonesChanged signal
++        """
++        params = {
++            "zones": [(1920, 1080, 0, 0), (1080, 1920, 1920, 1080)],
++            "changed-zones": [(1024, 768, 0, 0)],
++            "change-zones-after": 200,
++            "zone-set": 567,
++        }
++        self.setup_daemon(params)
++
++        setup = self.create_session_with_barriers(params)
++        session = setup.session
++
++        signal_received = False
++        signal_options = None
++        zone_props = {z: None for z in setup.zones}
++
++        def zones_changed(session, opts):
++            nonlocal signal_received, signal_options, zone_props
++            signal_received = True
++            signal_options = opts
++            if signal_received and all([v == False for v in zone_props.values()]):
++                self.mainloop.quit()
++
++        session.connect("zones-changed", zones_changed)
++
++        def zones_is_valid_changed(zone, pspec):
++            nonlocal zone_props, signal_received
++            zone_props[zone] = zone.props.is_valid
++            if signal_received and all([v == False for v in zone_props.values()]):
++                self.mainloop.quit()
++
++        for z in setup.zones:
++            z.connect("notify::is-valid", zones_is_valid_changed)
++
++        self.mainloop.run()
++
++        assert signal_received
++        assert signal_options is not None
++        assert list(signal_options.keys()) == ["zone_set"]
++        assert signal_options["zone_set"] == 567
++
++        assert all([z.props.zone_set == 568 for z in session.get_zones()])
++        assert all([v == False for v in zone_props.values()])
++
++    def test_disabled(self):
++        """
++        Test the Disabled signal
++        """
++        params = {
++            "disabled-after": 20,
++        }
++        self.setup_daemon(params)
++
++        setup = self.create_session_with_barriers(params)
++        session = setup.session
++
++        disabled_signal_received = False
++
++        def session_disabled(session, options):
++            nonlocal disabled_signal_received
++            disabled_signal_received = True
++            self.mainloop.quit()
++
++        session.connect("disabled", session_disabled)
++
++        session.enable()
++
++        self.mainloop.run()
++
++        assert disabled_signal_received
+
+From 3e6c1bf9b34e73729ddeda9d58f050ab1bcc633c Mon Sep 17 00:00:00 2001
+From: Peter Hutterer <peter.hutterer@who-t.net>
+Date: Fri, 6 Oct 2023 14:01:43 +1000
+Subject: [PATCH 4/4] tests: add session close tests for the inputcapture
+ portal
+
+This also fixes the invocation of EmitSignalDetailed() which dated back
+to an earlier version of that dbusmock feature. Since we never used it,
+the wrong invocation got past the tests.
+---
+ tests/pyportaltest/templates/__init__.py      |  2 +-
+ tests/pyportaltest/templates/inputcapture.py  |  7 ++
+ tests/pyportaltest/templates/remotedesktop.py |  7 +-
+ tests/pyportaltest/test_inputcapture.py       | 67 +++++++++++++++++++
+ tests/pyportaltest/test_remotedesktop.py      | 22 ++++++
+ 5 files changed, 103 insertions(+), 2 deletions(-)
+
+diff --git a/tests/pyportaltest/templates/__init__.py b/tests/pyportaltest/templates/__init__.py
+index dc8f3ac6..d74c92a7 100644
+--- a/tests/pyportaltest/templates/__init__.py
++++ b/tests/pyportaltest/templates/__init__.py
+@@ -113,7 +113,7 @@ def close(self, details: ASVType, delay: int = 0):
+         def respond():
+             logger.debug(f"Session.Closed on {self.handle}: {details}")
+             self.mock.EmitSignalDetailed(
+-                "", "Closed", "a{sv}", [details], destination=self.sender
++                "", "Closed", "a{sv}", [details], details={"destination": self.sender}
+             )
+ 
+         if delay > 0:
+diff --git a/tests/pyportaltest/templates/inputcapture.py b/tests/pyportaltest/templates/inputcapture.py
+index de610b21..2cd0b327 100644
+--- a/tests/pyportaltest/templates/inputcapture.py
++++ b/tests/pyportaltest/templates/inputcapture.py
+@@ -85,6 +85,9 @@ def load(mock, parameters={}):
+     # signal
+     mock.disabled_after = parameters.get("disabled-after", 0)
+ 
++    # How many ms to signal Session.Closed after Start
++    mock.close_after_enable = parameters.get("close-after-enable", 0)
++
+     mock.AddProperties(
+         MAIN_IFACE,
+         dbus.Dictionary(
+@@ -327,6 +330,10 @@ def send_disabled():
+ 
+             GLib.timeout_add(self.disabled_after, send_disabled)
+ 
++        if self.close_after_enable > 0:
++            session = self.active_sessions[session_handle]
++            session.close({}, self.close_after_enable)
++
+     except Exception as e:
+         logger.critical(e)
+ 
+diff --git a/tests/pyportaltest/templates/remotedesktop.py b/tests/pyportaltest/templates/remotedesktop.py
+index ebf03400..f4189388 100644
+--- a/tests/pyportaltest/templates/remotedesktop.py
++++ b/tests/pyportaltest/templates/remotedesktop.py
+@@ -22,7 +22,7 @@
+ 
+ 
+ def load(mock, parameters):
+-    logger.debug(f"loading {MAIN_IFACE} template")
++    logger.debug(f"loading {MAIN_IFACE} template with params {parameters}")
+ 
+     params = MockParams.get(mock, MAIN_IFACE)
+     params.delay = 500
+@@ -30,6 +30,7 @@ def load(mock, parameters):
+     params.response = parameters.get("response", 0)
+     params.devices = parameters.get("devices", 0b111)
+     params.sessions: Dict[str, Session] = {}
++    params.close_after_start = parameters.get("close-after-start", 0)
+ 
+     mock.AddProperties(
+         MAIN_IFACE,
+@@ -108,6 +109,10 @@ def Start(self, session_handle, parent_window, options, sender):
+ 
+         request.respond(response, delay=params.delay)
+ 
++        if params.close_after_start > 0:
++            session = params.sessions[session_handle]
++            session.close({}, params.close_after_start)
++
+         return request.handle
+     except Exception as e:
+         logger.critical(e)
+diff --git a/tests/pyportaltest/test_inputcapture.py b/tests/pyportaltest/test_inputcapture.py
+index 372138e2..0c22727c 100644
+--- a/tests/pyportaltest/test_inputcapture.py
++++ b/tests/pyportaltest/test_inputcapture.py
+@@ -24,11 +24,13 @@ def __init__(
+         zones: Optional[List[Xdp.InputCaptureZone]] = None,
+         barriers: Optional[List[Xdp.InputCapturePointerBarrier]] = None,
+         failed_barriers: Optional[List[Xdp.InputCapturePointerBarrier]] = None,
++        session_handle_token: Optional[str] = None,
+     ):
+         self.session = session
+         self.zones = zones or []
+         self.barriers = barriers or []
+         self.failed_barriers = failed_barriers or []
++        self.session_handle_token = session_handle_token
+ 
+ 
+ class SessionCreationFailed(Exception):
+@@ -88,6 +90,17 @@ def create_session_done(portal, task, data):
+         if session_error is not None:
+             raise SessionCreationFailed(session_error)
+         assert session is not None
++        assert session.get_session().get_session_type() == Xdp.SessionType.INPUT_CAPTURE
++
++        # Extract our expected session id. This isn't available from
++        # XdpSession so we need to go around it. We can't easily get the
++        # sender id so the full path is hard. Let's just extract the token and
++        # pretend that's good enough.
++        method_calls = self.mock_interface.GetMethodCalls("CreateSession")
++        assert len(method_calls) >= 1
++        _, args = method_calls.pop()  # Assume the latest has our session
++        (_, options) = args
++        session_handle = options["session_handle_token"]
+ 
+         zones = session.get_zones()
+ 
+@@ -147,6 +160,7 @@ def set_pointer_barriers_done(session, task, data):
+             zones=zones,
+             barriers=active_barriers,
+             failed_barriers=failed_barriers,
++            session_handle_token=session_handle,
+         )
+ 
+     def test_version(self):
+@@ -590,3 +604,56 @@ def session_disabled(session, options):
+         self.mainloop.run()
+ 
+         assert disabled_signal_received
++
++    def test_close_session(self):
++        """
++        Ensure that closing our session explicitly closes the session on DBus.
++        """
++        setup = self.create_session_with_barriers()
++        session = setup.session
++        xdp_session = setup.session.get_session()
++
++        was_closed = False
++
++        def method_called(method_name, method_args, path):
++            nonlocal was_closed
++
++            if method_name == "Close" and path.endswith(setup.session_handle_token):
++                was_closed = True
++                self.mainloop.quit()
++
++        bus = self.get_dbus()
++        bus.add_signal_receiver(
++            handler_function=method_called,
++            signal_name="MethodCalled",
++            dbus_interface="org.freedesktop.DBus.Mock",
++            path_keyword="path",
++        )
++
++        xdp_session.close()
++        self.mainloop.run()
++
++        assert was_closed is True
++
++    def test_close_session_signal(self):
++        """
++        Ensure that we get the GObject signal when our session is closed
++        externally.
++        """
++        params = {"close-after-enable": 500}
++        setup = self.create_session_with_barriers(params)
++        session = setup.session
++        xdp_session = setup.session.get_session()
++
++        session_closed_signal_received = False
++
++        def session_closed(session):
++            nonlocal session_closed_signal_received
++            session_closed_signal_received = True
++
++        xdp_session.connect("closed", session_closed)
++
++        session.enable()
++        self.mainloop.run()
++
++        assert session_closed_signal_received is True
+diff --git a/tests/pyportaltest/test_remotedesktop.py b/tests/pyportaltest/test_remotedesktop.py
+index 4250141b..bb36db47 100644
+--- a/tests/pyportaltest/test_remotedesktop.py
++++ b/tests/pyportaltest/test_remotedesktop.py
+@@ -490,3 +490,25 @@ def method_called(method_name, method_args, path):
+         self.mainloop.run()
+ 
+         assert was_closed is True
++
++    def test_close_session_signal(self):
++        """
++        Ensure that we get the GObject signal when our session is closed
++        externally.
++        """
++        params = {"close-after-start": 500}
++        setup = self.create_session(params=params)
++        session = setup.session
++
++        session_closed_signal_received = False
++
++        def session_closed(session):
++            nonlocal session_closed_signal_received
++            session_closed_signal_received = True
++            self.mainloop.quit()
++
++        session.connect("closed", session_closed)
++
++        self.mainloop.run()
++
++        assert session_closed_signal_received is True

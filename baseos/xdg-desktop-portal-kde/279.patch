@@ -1,0 +1,162 @@
+From 6db5e8488409c53b9c79ff856d870e79e519d7e1 Mon Sep 17 00:00:00 2001
+From: David Redondo <kde@david-redondo.de>
+Date: Mon, 4 Mar 2024 15:51:05 +0100
+Subject: [PATCH] Implement RemoteDesktop::ConnectToEIS
+
+We already claim support for version 2 of the remote desktop
+portal but do not implement it at all not even in a dummy way.
+Just fetch a FD from KWin where the interesting things happen.
+---
+ src/remotedesktop.cpp | 52 +++++++++++++++++++++++++++++++++++++++++++
+ src/remotedesktop.h   |  5 +++++
+ src/session.cpp       | 10 +++++++++
+ src/session.h         |  4 ++++
+ 4 files changed, 71 insertions(+)
+
+diff --git a/src/remotedesktop.cpp b/src/remotedesktop.cpp
+index 99ce57fb..659322f3 100644
+--- a/src/remotedesktop.cpp
++++ b/src/remotedesktop.cpp
+@@ -17,10 +17,30 @@
+ #include "waylandintegration.h"
+ #include <KLocalizedString>
+ #include <KNotification>
++#include <QDBusConnection>
++#include <QDBusMessage>
++#include <QDBusReply>
+ #include <QGuiApplication>
+ #include <QRegion>
+ #include <QScreen>
+ 
++using namespace Qt::StringLiterals;
++
++static QString kwinService()
++{
++    return QStringLiteral("org.kde.KWin");
++}
++
++static QString kwinRemoteDesktopPath()
++{
++    return QStringLiteral("/org/kde/KWin/EIS/RemoteDesktop");
++}
++
++static QString kwinRemoteDesktopInterface()
++{
++    return QStringLiteral("org.kde.KWin.EIS.RemoteDesktop");
++}
++
+ RemoteDesktopPortal::RemoteDesktopPortal(QObject *parent)
+     : QDBusAbstractAdaptor(parent)
+ {
+@@ -60,6 +80,11 @@ uint RemoteDesktopPortal::CreateSession(const QDBusObjectPath &handle,
+         for (const WaylandIntegration::Stream &stream : streams) {
+             WaylandIntegration::stopStreaming(stream.nodeId);
+         }
++        if (remoteDesktopSession->eisCookie()) {
++            auto msg = QDBusMessage::createMethodCall(kwinService(), kwinRemoteDesktopPath(), kwinRemoteDesktopInterface(), QStringLiteral("disconnect"));
++            msg.setArguments({remoteDesktopSession->eisCookie()});
++            QDBusConnection::sessionBus().send(msg);
++        }
+     });
+ 
+     return 0;
+@@ -367,3 +392,30 @@ void RemoteDesktopPortal::NotifyTouchUp(const QDBusObjectPath &session_handle, c
+ 
+     WaylandIntegration::requestTouchUp(slot);
+ }
++
++QDBusUnixFileDescriptor
++RemoteDesktopPortal::ConnectToEIS(const QDBusObjectPath &session_handle, const QString &app_id, const QVariantMap &options, const QDBusMessage &message)
++{
++    Q_UNUSED(options)
++    Q_UNUSED(app_id)
++
++    RemoteDesktopSession *session = qobject_cast<RemoteDesktopSession *>(Session::getSession(session_handle.path()));
++    if (!session) {
++        qCWarning(XdgDesktopPortalKdeRemoteDesktop) << "Tried to call ConnectToEis on non-existing session " << session_handle.path();
++        return QDBusUnixFileDescriptor();
++    }
++
++    auto msg = QDBusMessage::createMethodCall(kwinService(), kwinRemoteDesktopPath(), kwinRemoteDesktopInterface(), QStringLiteral("connectToEIS"));
++    msg.setArguments({static_cast<int>(session->deviceTypes())});
++    // Using pending reply for multiple return values
++    QDBusPendingReply<QDBusUnixFileDescriptor, int> reply = QDBusConnection::sessionBus().call(msg);
++    reply.waitForFinished();
++    if (reply.isError()) {
++        qCWarning(XdgDesktopPortalKdeRemoteDesktop) << "Failed to connect to EIS:" << reply.error();
++        auto error = message.createErrorReply(QDBusError::Failed, QStringLiteral("Failed to connect to to EIS"));
++        QDBusConnection::sessionBus().send(error);
++        return QDBusUnixFileDescriptor();
++    }
++    session->setEisCookie(reply.argumentAt<1>());
++    return reply.argumentAt<0>();
++}
+diff --git a/src/remotedesktop.h b/src/remotedesktop.h
+index c4ef0782..9e45290d 100644
+--- a/src/remotedesktop.h
++++ b/src/remotedesktop.h
+@@ -11,6 +11,9 @@
+ 
+ #include <QDBusAbstractAdaptor>
+ #include <QDBusObjectPath>
++#include <QDBusUnixFileDescriptor>
++
++class QDBusMessage;
+ 
+ class RemoteDesktopPortal : public QDBusAbstractAdaptor
+ {
+@@ -79,6 +82,8 @@ public Q_SLOTS:
+     void NotifyTouchMotion(const QDBusObjectPath &session_handle, const QVariantMap &options, uint stream, uint slot, int x, int y);
+ 
+     void NotifyTouchUp(const QDBusObjectPath &session_handle, const QVariantMap &options, uint slot);
++
++    QDBusUnixFileDescriptor ConnectToEIS(const QDBusObjectPath &session_handle, const QString &app_id, const QVariantMap &options, const QDBusMessage &message);
+ };
+ Q_DECLARE_OPERATORS_FOR_FLAGS(RemoteDesktopPortal::DeviceTypes)
+ 
+diff --git a/src/session.cpp b/src/session.cpp
+index f3d37c64..6c6fb042 100644
+--- a/src/session.cpp
++++ b/src/session.cpp
+@@ -251,6 +251,16 @@ void RemoteDesktopSession::setScreenSharingEnabled(bool enabled)
+     m_screenSharingEnabled = enabled;
+ }
+ 
++void RemoteDesktopSession::setEisCookie(int cookie)
++{
++    m_cookie = cookie;
++}
++
++int RemoteDesktopSession::eisCookie() const
++{
++    return m_cookie;
++}
++
+ void RemoteDesktopSession::acquireStreamingInput()
+ {
+     WaylandIntegration::acquireStreamingInput(true);
+diff --git a/src/session.h b/src/session.h
+index b84dd08a..5f2b44c4 100644
+--- a/src/session.h
++++ b/src/session.h
+@@ -139,6 +139,9 @@ public:
+     void acquireStreamingInput();
+     void refreshDescription() override;
+ 
++    void setEisCookie(int cookie);
++    int eisCookie() const;
++
+     SessionType type() const override
+     {
+         return SessionType::RemoteDesktop;
+@@ -148,6 +151,7 @@ private:
+     bool m_screenSharingEnabled;
+     RemoteDesktopPortal::DeviceTypes m_deviceTypes;
+     bool m_acquired = false;
++    int m_cookie = 0;
+ };
+ 
+ class GlobalShortcutsSession : public Session
+-- 
+GitLab
+

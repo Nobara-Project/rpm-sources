@@ -1,0 +1,41 @@
+From 06fa093cc2d135d52fc68039255774d11b1e883f Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Sat, 8 Jun 2024 14:34:13 -0600
+Subject: [PATCH] fixup missing inputdevice override in eis plugin
+
+---
+ src/plugins/eis/eisdevice.cpp | 5 +++++
+ src/plugins/eis/eisdevice.h   | 1 +
+ 2 files changed, 6 insertions(+)
+
+diff --git a/src/plugins/eis/eisdevice.cpp b/src/plugins/eis/eisdevice.cpp
+index 3303a5d..92790b8 100644
+--- a/src/plugins/eis/eisdevice.cpp
++++ b/src/plugins/eis/eisdevice.cpp
+@@ -87,6 +87,11 @@ bool EisDevice::isKeyboard() const
+     return eis_device_has_capability(m_device, EIS_DEVICE_CAP_KEYBOARD);
+ }
+ 
++bool EisDevice::isAlphaNumericKeyboard() const
++{
++    return true;
++}
++
+ bool EisDevice::isPointer() const
+ {
+     return eis_device_has_capability(m_device, EIS_DEVICE_CAP_POINTER) || eis_device_has_capability(m_device, EIS_DEVICE_CAP_POINTER_ABSOLUTE);
+diff --git a/src/plugins/eis/eisdevice.h b/src/plugins/eis/eisdevice.h
+index ed24f90..69b7eb0 100644
+--- a/src/plugins/eis/eisdevice.h
++++ b/src/plugins/eis/eisdevice.h
+@@ -40,6 +40,7 @@ public:
+     void setLeds(LEDs leds) override;
+ 
+     bool isKeyboard() const override;
++    bool isAlphaNumericKeyboard() const override;
+     bool isPointer() const override;
+     bool isTouchpad() const override;
+     bool isTouch() const override;
+-- 
+2.45.1
+

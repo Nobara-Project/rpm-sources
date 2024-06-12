@@ -10,7 +10,7 @@ Summary:   Xwayland
 Name:      xorg-x11-server-Xwayland
 
 Version:   24.1.0
-Release:   1%{?gitdate:.%{gitdate}git%{shortcommit}}%{?dist}
+Release:   2%{?gitdate:.%{gitdate}git%{shortcommit}}%{?dist}
 
 URL:       http://www.x.org
 %if 0%{?gitdate}
@@ -102,7 +102,7 @@ The development package provides the developmental files which are
 necessary for developing Wayland compositors using Xwayland.
 
 %prep
-%autosetup -S git_am -n %{pkgname}-%{?gitdate:%{commit}}%{!?gitdate:%{version}}
+%autosetup -p1 -n %{pkgname}-%{?gitdate:%{commit}}%{!?gitdate:%{version}}
 
 %if ! 0%{?gitdate}
 # We can't autopatch this because we have to add the header first:
@@ -119,6 +119,7 @@ cp %{SOURCE1} hw/xfree86/common/
         -Dserverconfigdir=%{_datadir}/xwayland \
         -Dxcsecurity=true \
         -Dglamor=true \
+        -Dxwayland_ei=auto \
         -Ddri3=true
 
 %meson_build

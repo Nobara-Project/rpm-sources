@@ -3,7 +3,7 @@
 
 Name:    kwin
 Version: 6.0.5
-Release: 2%{?dist}
+Release: 3%{?dist}
 Summary: KDE Window manager
 
 License: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND GPL-3.0-or-later AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only) AND MIT
@@ -24,9 +24,11 @@ Patch10: wayland-send-dndFinished-to-source-if-target-fails-to-do-so.patch
 # fixes libextest being needed in steam
 # https://invent.kde.org/plasma/kwin/-/merge_requests/5496
 Patch11: 5496.patch
+Patch12: 5742.patch
+Patch13: 0001-fixup-missing-inputdevice-override-in-eis-plugin.patch
 
 # fixes gtk apps on plasma
-Patch12: 5780.patch
+Patch14: 5780.patch
 
 ## proposed patches
 
@@ -116,6 +118,8 @@ BuildRequires:  libdisplay-info-devel
 BuildRequires:  cmake(KWayland)
 BuildRequires:  cmake(Plasma)
 BuildRequires:  cmake(PlasmaActivities)
+BuildRequires:  libeis-devel
+
 
 ## Runtime deps
 Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
@@ -126,6 +130,7 @@ Requires:       kf6-kdeclarative%{?_isa}
 Requires:       libplasma%{?_isa} >= %{plasma_version}
 Requires:       qt6-qtmultimedia%{?_isa}
 Requires:       qt6-qtdeclarative%{?_isa}
+Requires:       libeis
 
 # Before kwin was split out from kde-workspace into a subpackage
 Conflicts:      kde-workspace%{?_isa} < 4.11.14-2

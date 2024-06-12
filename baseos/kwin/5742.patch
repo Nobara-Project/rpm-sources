@@ -1,0 +1,1077 @@
+From d737d1dbcba94870616e1f0fa67cba97a10a815f Mon Sep 17 00:00:00 2001
+From: David Redondo <kde@david-redondo.de>
+Date: Thu, 16 May 2024 14:24:14 +0200
+Subject: [PATCH] Add support for input capturing for the portal
+
+This is the backend that will be used by the portal to enable
+the functionality of the input capture portal.
+When the cursor tries to move out of the workarea across a barrier
+that the portal registered all input events are filtered out
+and forwarded via eis.
+---
+ src/plugins/eis/CMakeLists.txt             |  10 +
+ src/plugins/eis/eisinputcapture.cpp        | 326 +++++++++++++++++++++
+ src/plugins/eis/eisinputcapture.h          |  72 +++++
+ src/plugins/eis/eisinputcapturefilter.cpp  | 233 +++++++++++++++
+ src/plugins/eis/eisinputcapturefilter.h    |  56 ++++
+ src/plugins/eis/eisinputcapturemanager.cpp | 195 ++++++++++++
+ src/plugins/eis/eisinputcapturemanager.h   |  60 ++++
+ src/plugins/eis/eisplugin.cpp              |   2 +
+ src/plugins/eis/eisplugin.h                |   8 +
+ 9 files changed, 962 insertions(+)
+ create mode 100644 src/plugins/eis/eisinputcapture.cpp
+ create mode 100644 src/plugins/eis/eisinputcapture.h
+ create mode 100644 src/plugins/eis/eisinputcapturefilter.cpp
+ create mode 100644 src/plugins/eis/eisinputcapturefilter.h
+ create mode 100644 src/plugins/eis/eisinputcapturemanager.cpp
+ create mode 100644 src/plugins/eis/eisinputcapturemanager.h
+
+diff --git a/src/plugins/eis/CMakeLists.txt b/src/plugins/eis/CMakeLists.txt
+index 557925f2414..7e55d886d2c 100644
+--- a/src/plugins/eis/CMakeLists.txt
++++ b/src/plugins/eis/CMakeLists.txt
+@@ -10,12 +10,22 @@ ecm_qt_declare_logging_category(eis
+     DEFAULT_SEVERITY Debug
+ )
+ 
++ecm_qt_declare_logging_category(eis
++    HEADER inputcapture_logging.h
++    IDENTIFIER KWIN_INPUTCAPTURE
++    CATEGORY_NAME kwin_inputcapture
++    DEFAULT_SEVERITY Debug
++)
++
+ target_sources(eis PRIVATE
+     main.cpp
+     eisdevice.cpp
+     eisbackend.cpp
+     eiscontext.cpp
+     eisplugin.cpp
++    eisinputcapture.cpp
++    eisinputcapturemanager.cpp
++    eisinputcapturefilter.cpp
+ )
+ 
+ target_link_libraries(eis PRIVATE kwin Libeis::Libeis XKB::XKB)
+diff --git a/src/plugins/eis/eisinputcapture.cpp b/src/plugins/eis/eisinputcapture.cpp
+new file mode 100644
+index 00000000000..be69a693d61
+--- /dev/null
++++ b/src/plugins/eis/eisinputcapture.cpp
+@@ -0,0 +1,326 @@
++/*
++    SPDX-FileCopyrightText: 2024 David Redondo <kde@david-redondo>
++
++    SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
++*/
++
++#include "eisinputcapture.h"
++
++#include "eisinputcapturemanager.h"
++#include "inputcapture_logging.h"
++
++#include "core/output.h"
++#include "cursor.h"
++#include "input.h"
++#include "input_event.h"
++#include "input_event_spy.h"
++#include "workspace.h"
++
++#include <QDBusConnection>
++#include <QDBusMessage>
++
++namespace KWin
++{
++
++static void eis_log_handler(eis *eis, eis_log_priority priority, const char *message, eis_log_context *context)
++{
++    switch (priority) {
++    case EIS_LOG_PRIORITY_DEBUG:
++        qCDebug(KWIN_INPUTCAPTURE) << "Libeis:" << message;
++        break;
++    case EIS_LOG_PRIORITY_INFO:
++        qCInfo(KWIN_INPUTCAPTURE) << "Libeis:" << message;
++        break;
++    case EIS_LOG_PRIORITY_WARNING:
++        qCWarning(KWIN_INPUTCAPTURE) << "Libeis:" << message;
++        break;
++    case EIS_LOG_PRIORITY_ERROR:
++        qCritical(KWIN_INPUTCAPTURE) << "Libeis:" << message;
++        break;
++    }
++}
++
++static eis_device *createDevice(eis_seat *seat, const QByteArray &name)
++{
++    auto device = eis_seat_new_device(seat);
++
++    auto client = eis_seat_get_client(seat);
++    const char *clientName = eis_client_get_name(client);
++    const QByteArray deviceName = clientName + (' ' + name);
++    eis_device_configure_name(device, deviceName);
++    return device;
++}
++
++static eis_device *createPointer(eis_seat *seat)
++{
++    auto device = createDevice(seat, "capture pointer");
++    eis_device_configure_capability(device, EIS_DEVICE_CAP_POINTER);
++    eis_device_configure_capability(device, EIS_DEVICE_CAP_SCROLL);
++    eis_device_configure_capability(device, EIS_DEVICE_CAP_BUTTON);
++    eis_device_add(device);
++    eis_device_resume(device);
++    return device;
++}
++
++static eis_device *createAbsoluteDevice(eis_seat *seat)
++{
++    auto device = createDevice(seat, "capture absolute device");
++    auto eisDevice = device;
++    eis_device_configure_capability(eisDevice, EIS_DEVICE_CAP_POINTER_ABSOLUTE);
++    eis_device_configure_capability(eisDevice, EIS_DEVICE_CAP_SCROLL);
++    eis_device_configure_capability(eisDevice, EIS_DEVICE_CAP_BUTTON);
++    eis_device_configure_capability(eisDevice, EIS_DEVICE_CAP_TOUCH);
++
++    const auto outputs = workspace()->outputs();
++    for (const auto output : outputs) {
++        auto region = eis_device_new_region(eisDevice);
++        const QRect outputGeometry = output->geometry();
++        eis_region_set_offset(region, outputGeometry.x(), outputGeometry.y());
++        eis_region_set_size(region, outputGeometry.width(), outputGeometry.height());
++        eis_region_set_physical_scale(region, output->scale());
++        eis_region_add(region);
++        eis_region_unref(region);
++    };
++    eis_device_add(device);
++    eis_device_resume(device);
++    return device;
++}
++
++static eis_device *createKeyboard(eis_seat *seat, const RamFile &keymap)
++{
++    auto device = createDevice(seat, "capture keyboard");
++    eis_device_configure_capability(device, EIS_DEVICE_CAP_KEYBOARD);
++
++    if (keymap.isValid()) {
++        auto eisKeymap = eis_device_new_keymap(device, EIS_KEYMAP_TYPE_XKB, keymap.fd(), keymap.size());
++        eis_keymap_add(eisKeymap);
++        eis_keymap_unref(eisKeymap);
++    }
++
++    eis_device_add(device);
++    eis_device_resume(device);
++    return device;
++}
++
++EisInputCapture::EisInputCapture(EisInputCaptureManager *manager, const QString &dbusService, QFlags<eis_device_capability> allowedCapabilities)
++    : dbusService(dbusService)
++    , m_manager(manager)
++    , m_allowedCapabilities(allowedCapabilities)
++    , m_eis(eis_new(this))
++    , m_socketNotifier(eis_get_fd(m_eis), QSocketNotifier::Read)
++{
++    eis_setup_backend_fd(m_eis);
++    eis_log_set_priority(m_eis, EIS_LOG_PRIORITY_DEBUG);
++    eis_log_set_handler(m_eis, eis_log_handler);
++    connect(&m_socketNotifier, &QSocketNotifier::activated, this, &EisInputCapture::handleEvents);
++    static int counter = 0;
++    m_dbusPath = QStringLiteral("/org/kde/KWin/EIS/InputCapture/%1").arg(++counter);
++    QDBusConnection::sessionBus().registerObject(m_dbusPath, "org.kde.KWin.EIS.InputCapture", this, QDBusConnection::ExportAllInvokables | QDBusConnection::ExportAllSignals);
++}
++
++EisInputCapture::~EisInputCapture()
++{
++    if (m_absoluteDevice) {
++        eis_device_unref(m_absoluteDevice);
++    }
++    if (m_pointer) {
++        eis_device_unref(m_pointer);
++    }
++    if (m_keyboard) {
++        eis_device_unref(m_keyboard);
++    }
++    if (m_seat) {
++        eis_seat_unref(m_seat);
++    }
++    if (m_client) {
++        eis_client_disconnect(m_client);
++    }
++    eis_unref(m_eis);
++}
++
++QString EisInputCapture::dbusPath() const
++{
++    return m_dbusPath;
++}
++
++QList<EisInputCaptureBarrier> EisInputCapture::barriers() const
++{
++    return m_barriers;
++}
++
++eis_device *EisInputCapture::pointer() const
++{
++    return m_pointer;
++}
++
++eis_device *EisInputCapture::keyboard() const
++{
++    return m_keyboard;
++}
++
++eis_device *EisInputCapture::absoluteDevice() const
++{
++    return m_absoluteDevice;
++}
++
++void EisInputCapture::activate(const QPointF &position)
++{
++    Q_EMIT activated(++m_activationId, position);
++    if (m_pointer) {
++        eis_device_start_emulating(m_pointer, m_activationId);
++    }
++    if (m_keyboard) {
++        eis_device_start_emulating(m_keyboard, m_activationId);
++    }
++    if (m_absoluteDevice) {
++        eis_device_start_emulating(m_absoluteDevice, m_activationId);
++    }
++}
++
++void EisInputCapture::deactivate()
++{
++    Q_EMIT deactivated(m_activationId);
++    if (m_pointer) {
++        eis_device_stop_emulating(m_pointer);
++    }
++    if (m_keyboard) {
++        eis_device_stop_emulating(m_keyboard);
++    }
++    if (m_absoluteDevice) {
++        eis_device_stop_emulating(m_absoluteDevice);
++    }
++}
++
++void EisInputCapture::enable(const QList<QPair<QPoint, QPoint>> &barriers)
++{
++    m_barriers.clear();
++    m_barriers.reserve(barriers.size());
++    for (const auto &[p1, p2] : barriers) {
++        if (p1.x() == p2.x()) {
++            m_barriers.push_back({.orientation = Qt::Vertical, .position = p1.x(), .start = p1.y(), .end = p2.y()});
++        } else if (p1.y() == p2.y()) {
++            m_barriers.push_back({.orientation = Qt::Horizontal, .position = p1.y(), .start = p1.x(), .end = p2.x()});
++        }
++    }
++}
++
++void EisInputCapture::disable()
++{
++    if (m_manager->activeCapture() == this) {
++        deactivate();
++    }
++    m_barriers.clear();
++    Q_EMIT disabled();
++}
++
++void EisInputCapture::release(const QPointF &cursorPosition, bool applyPosition)
++{
++    if (m_manager->activeCapture() != this) {
++        return;
++    }
++    if (applyPosition) {
++        Cursors::self()->mouse()->setPos(cursorPosition);
++    }
++    deactivate();
++}
++
++QDBusUnixFileDescriptor EisInputCapture::connectToEIS()
++{
++    return QDBusUnixFileDescriptor(eis_backend_fd_add_client(m_eis));
++}
++
++void EisInputCapture::handleEvents()
++{
++    eis_dispatch(m_eis);
++    while (eis_event *const event = eis_get_event(m_eis)) {
++        switch (eis_event_get_type(event)) {
++        case EIS_EVENT_CLIENT_CONNECT: {
++            auto client = eis_event_get_client(event);
++            const char *clientName = eis_client_get_name(client);
++            if (eis_client_is_sender(client)) {
++                qCWarning(KWIN_INPUTCAPTURE) << "disconnecting receiving client" << clientName;
++                eis_client_disconnect(client);
++                break;
++            }
++            if (m_client) {
++                qCWarning(KWIN_INPUTCAPTURE) << "unexpected client connection" << clientName;
++                eis_client_disconnect(client);
++                break;
++            }
++            eis_client_connect(client);
++
++            m_client = client;
++            m_seat = eis_client_new_seat(client, QByteArrayLiteral(" input capture seat").prepend(clientName));
++            constexpr std::array allCapabilities{EIS_DEVICE_CAP_POINTER, EIS_DEVICE_CAP_POINTER_ABSOLUTE, EIS_DEVICE_CAP_KEYBOARD, EIS_DEVICE_CAP_TOUCH, EIS_DEVICE_CAP_SCROLL, EIS_DEVICE_CAP_BUTTON};
++            for (auto capability : allCapabilities) {
++                if (m_allowedCapabilities & capability) {
++                    eis_seat_configure_capability(m_seat, capability);
++                }
++            }
++
++            eis_seat_add(m_seat);
++            qCDebug(KWIN_INPUTCAPTURE) << "New eis client" << clientName;
++            break;
++        }
++        case EIS_EVENT_CLIENT_DISCONNECT: {
++            auto client = eis_event_get_client(event);
++            if (client != m_client) {
++                break;
++            }
++            qCDebug(KWIN_INPUTCAPTURE) << "Client disconnected" << eis_client_get_name(client);
++            eis_seat_unref(std::exchange(m_seat, nullptr));
++            eis_client_unref(std::exchange(m_client, nullptr));
++            break;
++        }
++        case EIS_EVENT_SEAT_BIND: {
++            auto seat = eis_event_get_seat(event);
++            qCDebug(KWIN_INPUTCAPTURE) << "Client" << eis_client_get_name(eis_event_get_client(event)) << "bound to seat" << eis_seat_get_name(seat);
++            if (eis_event_seat_has_capability(event, EIS_DEVICE_CAP_POINTER_ABSOLUTE) || eis_event_seat_has_capability(event, EIS_DEVICE_CAP_TOUCH)) {
++                if (!m_absoluteDevice) {
++                    m_absoluteDevice = createAbsoluteDevice(seat);
++                }
++            } else if (m_absoluteDevice) {
++                eis_device_remove(m_absoluteDevice);
++                eis_device_unref(std::exchange(m_absoluteDevice, nullptr));
++            }
++            if (eis_event_seat_has_capability(event, EIS_DEVICE_CAP_POINTER)) {
++                if (!m_pointer) {
++                    m_pointer = createPointer(seat);
++                }
++            } else if (m_pointer) {
++                eis_device_remove(m_pointer);
++                eis_device_unref(std::exchange(m_pointer, nullptr));
++            }
++            if (eis_event_seat_has_capability(event, EIS_DEVICE_CAP_KEYBOARD)) {
++                if (!m_keyboard) {
++                    m_keyboard = createKeyboard(seat, m_manager->keyMap());
++                }
++            } else if (m_keyboard) {
++                eis_device_remove(m_keyboard);
++                eis_device_unref(std::exchange(m_keyboard, nullptr));
++            }
++            break;
++        }
++        case EIS_EVENT_DEVICE_CLOSED: {
++            auto device = eis_event_get_device(event);
++            qCDebug(KWIN_INPUTCAPTURE) << "Device" << eis_device_get_name(device) << "closed by client";
++            if (device == m_pointer) {
++                m_pointer = nullptr;
++            } else if (device == m_keyboard) {
++                m_keyboard = nullptr;
++            } else if (device == m_absoluteDevice) {
++                m_absoluteDevice = nullptr;
++            }
++            eis_device_remove(device);
++            eis_device_unref(device);
++            break;
++        }
++        default:
++            qCDebug(KWIN_INPUTCAPTURE) << "Unexpected event" << eis_event_get_type(event);
++            break;
++        }
++        eis_event_unref(event);
++    }
++}
++
++}
+diff --git a/src/plugins/eis/eisinputcapture.h b/src/plugins/eis/eisinputcapture.h
+new file mode 100644
+index 00000000000..7fdd1cbb14a
+--- /dev/null
++++ b/src/plugins/eis/eisinputcapture.h
+@@ -0,0 +1,72 @@
++/*
++    SPDX-FileCopyrightText: 2024 David Redondo <kde@david-redondo>
++
++    SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
++*/
++
++#pragma once
++
++#include <QDBusContext>
++#include <QDBusUnixFileDescriptor>
++#include <QObject>
++#include <QSocketNotifier>
++
++#include "eisinputcapturemanager.h"
++#include "input_event_spy.h"
++
++#include <libeis.h>
++
++#include <memory>
++
++namespace KWin
++{
++class BarrierSpy;
++
++class EisInputCapture : public QObject
++{
++    Q_OBJECT
++    Q_CLASSINFO("D-Bus Interface", "org.kde.KWin.EIS.InputCapture")
++public:
++    EisInputCapture(EisInputCaptureManager *manager, const QString &dbusService, QFlags<eis_device_capability> allowedCapabilities);
++    ~EisInputCapture();
++
++    const QString dbusService;
++
++    QList<EisInputCaptureBarrier> barriers() const;
++    QString dbusPath() const;
++
++    eis_device *pointer() const;
++    eis_device *keyboard() const;
++    eis_device *absoluteDevice() const;
++
++    void activate(const QPointF &position);
++
++    Q_INVOKABLE QDBusUnixFileDescriptor connectToEIS();
++    Q_INVOKABLE void enable(const QList<QPair<QPoint, QPoint>> &barriers);
++    Q_INVOKABLE void disable();
++    Q_INVOKABLE void release(const QPointF &cursorPosition, bool applyPosition);
++Q_SIGNALS:
++    void disabled();
++    void activated(int activationId, const QPointF &cursorPosition);
++    void deactivated(int activationId);
++
++private:
++    void handleEvents();
++    void createDevice();
++    void deactivate();
++
++    EisInputCaptureManager *m_manager;
++    QList<EisInputCaptureBarrier> m_barriers;
++    QString m_dbusPath;
++    QFlags<eis_device_capability> m_allowedCapabilities;
++    eis *m_eis;
++    QSocketNotifier m_socketNotifier;
++    eis_client *m_client = nullptr;
++    eis_seat *m_seat = nullptr;
++    eis_device *m_pointer = nullptr;
++    eis_device *m_keyboard = nullptr;
++    eis_device *m_absoluteDevice = nullptr;
++    int m_activationId = 0;
++};
++
++}
+diff --git a/src/plugins/eis/eisinputcapturefilter.cpp b/src/plugins/eis/eisinputcapturefilter.cpp
+new file mode 100644
+index 00000000000..6c76797579b
+--- /dev/null
++++ b/src/plugins/eis/eisinputcapturefilter.cpp
+@@ -0,0 +1,233 @@
++/*
++    SPDX-FileCopyrightText: 2024 David Redondo <kde@david-redondo>
++
++    SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
++*/
++
++#include "eisinputcapturefilter.h"
++
++#include "eisinputcapture.h"
++#include "eisinputcapturemanager.h"
++
++#include "input_event.h"
++
++#include <libeis.h>
++
++namespace KWin
++{
++EisInputCaptureFilter::EisInputCaptureFilter(EisInputCaptureManager *manager)
++    : m_manager(manager)
++{
++}
++
++void EisInputCaptureFilter::clearTouches()
++{
++    for (const auto touch : m_touches) {
++        eis_touch_unref(touch);
++    }
++    m_touches.clear();
++}
++
++bool EisInputCaptureFilter::pointerEvent(MouseEvent *event, quint32 nativeButton)
++{
++    if (!m_manager->activeCapture()) {
++        return false;
++    }
++    if (const auto pointer = m_manager->activeCapture()->pointer()) {
++        if (event->type() == QMouseEvent::MouseMove) {
++            eis_device_pointer_motion(pointer, event->delta().x(), event->delta().y());
++        } else if (event->type() == QMouseEvent::MouseButtonPress || event->type() == QMouseEvent::MouseButtonRelease) {
++            eis_device_button_button(pointer, nativeButton, event->type() == QMouseEvent::MouseButtonPress);
++        }
++    }
++    return true;
++}
++
++bool EisInputCaptureFilter::pointerFrame()
++{
++    if (!m_manager->activeCapture()) {
++        return false;
++    }
++    if (const auto pointer = m_manager->activeCapture()->pointer()) {
++        eis_device_frame(pointer, std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
++    }
++    return true;
++}
++
++bool EisInputCaptureFilter::wheelEvent(WheelEvent *event)
++{
++    if (!m_manager->activeCapture()) {
++        return false;
++    }
++    if (const auto pointer = m_manager->activeCapture()->pointer()) {
++        if (event->delta()) {
++            if (event->deltaV120()) {
++                if (event->orientation() == Qt::Horizontal) {
++                    eis_device_scroll_discrete(pointer, event->deltaV120(), 0);
++                } else {
++                    eis_device_scroll_discrete(pointer, 0, event->deltaV120());
++                }
++            } else {
++                if (event->orientation() == Qt::Horizontal) {
++                    eis_device_scroll_delta(pointer, event->delta(), 0);
++                } else {
++                    eis_device_scroll_delta(pointer, 0, event->delta());
++                }
++            }
++        } else {
++            if (event->orientation() == Qt::Horizontal) {
++                eis_device_scroll_stop(pointer, true, false);
++            } else {
++                eis_device_scroll_stop(pointer, false, true);
++            }
++        }
++    }
++    return true;
++}
++
++bool EisInputCaptureFilter::keyEvent(KeyEvent *event)
++{
++    if (!m_manager->activeCapture()) {
++        return false;
++    }
++    if (const auto keyboard = m_manager->activeCapture()->keyboard()) {
++        eis_device_keyboard_key(keyboard, event->nativeScanCode(), event->type() == QKeyEvent::KeyPress);
++        eis_device_frame(keyboard, std::chrono::duration_cast<std::chrono::milliseconds>(event->timestamp()).count());
++    }
++    return true;
++}
++
++bool EisInputCaptureFilter::touchDown(qint32 id, const QPointF &pos, std::chrono::microseconds time)
++{
++    if (!m_manager->activeCapture()) {
++        return false;
++    }
++    if (const auto abs = m_manager->activeCapture()->absoluteDevice()) {
++        auto touch = eis_device_touch_new(abs);
++        m_touches.insert(id, touch);
++        eis_touch_down(touch, pos.x(), pos.y());
++    }
++    return true;
++}
++
++bool EisInputCaptureFilter::touchMotion(qint32 id, const QPointF &pos, std::chrono::microseconds time)
++{
++    if (!m_manager->activeCapture()) {
++        return false;
++    }
++    if (auto touch = m_touches.value(id)) {
++        eis_touch_motion(touch, pos.x(), pos.y());
++    }
++    return true;
++}
++
++bool EisInputCaptureFilter::touchUp(qint32 id, std::chrono::microseconds time)
++{
++    if (!m_manager->activeCapture()) {
++        return false;
++    }
++    if (auto touch = m_touches.take(id)) {
++        eis_touch_up(touch);
++        eis_touch_unref(touch);
++    }
++    return false;
++}
++bool EisInputCaptureFilter::touchCancel()
++{
++    if (!m_manager->activeCapture()) {
++        return false;
++    }
++    return true;
++}
++bool EisInputCaptureFilter::touchFrame()
++{
++    if (!m_manager->activeCapture()) {
++        return false;
++    }
++    if (const auto abs = m_manager->activeCapture()->absoluteDevice()) {
++        eis_device_frame(abs, std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
++    }
++    return true;
++}
++
++bool EisInputCaptureFilter::pinchGestureBegin(int fingerCount, std::chrono::microseconds time)
++{
++    if (!m_manager->activeCapture()) {
++        return false;
++    }
++    return true;
++}
++bool EisInputCaptureFilter::pinchGestureUpdate(qreal scale, qreal angleDelta, const QPointF &delta, std::chrono::microseconds time)
++{
++    if (!m_manager->activeCapture()) {
++        return false;
++    }
++    return true;
++}
++
++bool EisInputCaptureFilter::pinchGestureEnd(std::chrono::microseconds time)
++{
++    if (!m_manager->activeCapture()) {
++        return false;
++    }
++    return true;
++}
++bool EisInputCaptureFilter::pinchGestureCancelled(std::chrono::microseconds time)
++{
++    if (!m_manager->activeCapture()) {
++        return false;
++    }
++    return true;
++}
++
++bool EisInputCaptureFilter::swipeGestureBegin(int fingerCount, std::chrono::microseconds time)
++{
++    if (!m_manager->activeCapture()) {
++        return false;
++    }
++    return true;
++}
++bool EisInputCaptureFilter::swipeGestureUpdate(const QPointF &delta, std::chrono::microseconds time)
++{
++    if (!m_manager->activeCapture()) {
++        return false;
++    }
++    return true;
++}
++bool EisInputCaptureFilter::swipeGestureEnd(std::chrono::microseconds time)
++{
++    if (!m_manager->activeCapture()) {
++        return false;
++    }
++    return true;
++}
++bool EisInputCaptureFilter::swipeGestureCancelled(std::chrono::microseconds time)
++{
++    if (!m_manager->activeCapture()) {
++        return false;
++    }
++    return true;
++}
++
++bool EisInputCaptureFilter::holdGestureBegin(int fingerCount, std::chrono::microseconds time)
++{
++    if (!m_manager->activeCapture()) {
++        return false;
++    }
++    return true;
++}
++bool EisInputCaptureFilter::holdGestureEnd(std::chrono::microseconds time)
++{
++    if (!m_manager->activeCapture()) {
++        return false;
++    }
++    return true;
++}
++bool EisInputCaptureFilter::holdGestureCancelled(std::chrono::microseconds time)
++{
++    if (!m_manager->activeCapture()) {
++        return false;
++    }
++    return true;
++}
++}
+diff --git a/src/plugins/eis/eisinputcapturefilter.h b/src/plugins/eis/eisinputcapturefilter.h
+new file mode 100644
+index 00000000000..def9f17d144
+--- /dev/null
++++ b/src/plugins/eis/eisinputcapturefilter.h
+@@ -0,0 +1,56 @@
++/*
++    SPDX-FileCopyrightText: 2024 David Redondo <kde@david-redondo>
++
++    SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
++*/
++
++#pragma once
++
++#include "input.h"
++
++extern "C" {
++struct eis_touch;
++};
++
++namespace KWin
++{
++class EisInputCaptureManager;
++
++class EisInputCaptureFilter : public InputEventFilter
++{
++public:
++    EisInputCaptureFilter(EisInputCaptureManager *m_manager);
++
++    void clearTouches();
++
++    bool pointerEvent(MouseEvent *event, quint32 nativeButton) override;
++    bool pointerFrame() override;
++    bool wheelEvent(WheelEvent *event) override;
++
++    bool keyEvent(KeyEvent *event) override;
++
++    bool touchDown(qint32 id, const QPointF &pos, std::chrono::microseconds time) override;
++    bool touchMotion(qint32 id, const QPointF &pos, std::chrono::microseconds time) override;
++    bool touchUp(qint32 id, std::chrono::microseconds time) override;
++    bool touchCancel() override;
++    bool touchFrame() override;
++
++    bool pinchGestureBegin(int fingerCount, std::chrono::microseconds time) override;
++    bool pinchGestureUpdate(qreal scale, qreal angleDelta, const QPointF &delta, std::chrono::microseconds time) override;
++    bool pinchGestureEnd(std::chrono::microseconds time) override;
++    bool pinchGestureCancelled(std::chrono::microseconds time) override;
++
++    bool swipeGestureBegin(int fingerCount, std::chrono::microseconds time) override;
++    bool swipeGestureUpdate(const QPointF &delta, std::chrono::microseconds time) override;
++    bool swipeGestureEnd(std::chrono::microseconds time) override;
++    bool swipeGestureCancelled(std::chrono::microseconds time) override;
++
++    bool holdGestureBegin(int fingerCount, std::chrono::microseconds time) override;
++    bool holdGestureEnd(std::chrono::microseconds time) override;
++    bool holdGestureCancelled(std::chrono::microseconds time) override;
++
++private:
++    EisInputCaptureManager *m_manager;
++    QHash<qint32, eis_touch *> m_touches;
++};
++}
+diff --git a/src/plugins/eis/eisinputcapturemanager.cpp b/src/plugins/eis/eisinputcapturemanager.cpp
+new file mode 100644
+index 00000000000..20cca4144af
+--- /dev/null
++++ b/src/plugins/eis/eisinputcapturemanager.cpp
+@@ -0,0 +1,195 @@
++/*
++    SPDX-FileCopyrightText: 2024 David Redondo <kde@david-redondo>
++
++    SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
++*/
++
++#include "eisinputcapturemanager.h"
++
++#include "eisinputcapture.h"
++#include "eisinputcapturefilter.h"
++#include "inputcapture_logging.h"
++
++#include "core/output.h"
++#include "cursor.h"
++#include "input_event.h"
++#include "input_event_spy.h"
++#include "keyboard_input.h"
++#include "keyboard_layout.h"
++#include "workspace.h"
++#include "xkb.h"
++
++#include <QDBusConnection>
++#include <QDBusMessage>
++#include <QDBusMetaType>
++#include <QDBusServiceWatcher>
++
++#include <libeis.h>
++
++namespace KWin
++{
++
++class BarrierSpy : public InputEventSpy
++{
++public:
++    BarrierSpy(EisInputCaptureManager *manager)
++        : manager(manager)
++    {
++    }
++    void pointerEvent(KWin::MouseEvent *event) override
++    {
++        if (manager->activeCapture()) {
++            return;
++        }
++        for (const auto &capture : manager->m_inputCaptures) {
++            for (const auto &barrier : capture->barriers()) {
++                // Detect the user trying to move out of the workArea and across the barrier:
++                // Both current and previous positions are on the barrier but there was an orthogonal delta
++                if (barrier.hitTest(event->pos()) && barrier.hitTest(previousPos) && ((barrier.orientation == Qt::Vertical && event->delta().x() != 0) || (barrier.orientation == Qt::Horizontal && event->delta().y() != 0))) {
++                    qCDebug(KWIN_INPUTCAPTURE) << "Activating input capture, crossing"
++                                               << "barrier(" << barrier.orientation << barrier.position << "[" << barrier.start << "," << barrier.end << "])"
++                                               << "at" << event->pos() << "with" << event->delta();
++                    manager->barrierHit(capture.get(), event->pos() + event->delta());
++                    break;
++                }
++            }
++        }
++        previousPos = event->pos();
++    }
++    void keyEvent(KWin::KeyEvent *event) override
++    {
++        if (manager->activeCapture() && event->key() == Qt::Key_Escape && event->modifiers() == (Qt::ControlModifier | Qt::ShiftModifier)) {
++            manager->activeCapture()->disable();
++        }
++    }
++
++private:
++    QKeyCombination currentCombination;
++    EisInputCaptureManager *manager;
++    QPoint previousPos;
++};
++
++bool EisInputCaptureBarrier::hitTest(const QPoint &point) const
++{
++    if (orientation == Qt::Vertical) {
++        return point.x() == position && start <= point.y() && point.y() <= end;
++    }
++    return point.y() == position && start <= point.x() && point.x() <= end;
++}
++
++EisInputCaptureManager::EisInputCaptureManager()
++    : m_serviceWatcher(new QDBusServiceWatcher(this))
++    , m_barrierSpy(std::make_unique<BarrierSpy>(this))
++    , m_inputFilter(std::make_unique<EisInputCaptureFilter>(this))
++{
++    qDBusRegisterMetaType<QPair<QPoint, QPoint>>();
++    qDBusRegisterMetaType<QList<QPair<QPoint, QPoint>>>();
++
++    const auto keymap = input()->keyboard()->xkb()->keymapContents();
++    m_keymapFile = RamFile("input capture keymap", keymap.data(), keymap.size(), RamFile::Flag::SealWrite);
++    connect(input()->keyboard()->keyboardLayout(), &KeyboardLayout::layoutChanged, this, [this] {
++        const auto keymap = input()->keyboard()->xkb()->keymapContents();
++        m_keymapFile = RamFile("input capture keymap", keymap.data(), keymap.size(), RamFile::Flag::SealWrite);
++    });
++
++    m_serviceWatcher->setConnection(QDBusConnection::sessionBus());
++    m_serviceWatcher->setWatchMode(QDBusServiceWatcher::WatchForUnregistration);
++    connect(m_serviceWatcher, &QDBusServiceWatcher::serviceUnregistered, this, [this](const QString &service) {
++        if (m_activeCapture && m_activeCapture->dbusService == service) {
++            deactivate();
++        }
++        std::erase_if(m_inputCaptures, [&service](const std::unique_ptr<EisInputCapture> &capture) {
++            return capture->dbusService == service;
++        });
++        m_serviceWatcher->removeWatchedService(service);
++    });
++
++    QDBusConnection::sessionBus().registerObject("/org/kde/KWin/EIS/InputCapture", "org.kde.KWin.EIS.InputCaptureManager", this, QDBusConnection::ExportAllInvokables | QDBusConnection::ExportAllSignals);
++}
++
++EisInputCaptureManager::~EisInputCaptureManager()
++{
++    if (input()) {
++        input()->uninstallInputEventFilter(m_inputFilter.get());
++        input()->uninstallInputEventSpy(m_barrierSpy.get());
++    }
++}
++
++const RamFile &EisInputCaptureManager::keyMap() const
++{
++    return m_keymapFile;
++}
++
++void EisInputCaptureManager::removeInputCapture(const QDBusObjectPath &capture)
++{
++    auto it = std::ranges::find(m_inputCaptures, capture.path(), &EisInputCapture::dbusPath);
++    if (it == std::ranges::end(m_inputCaptures)) {
++        return;
++    }
++    if (m_activeCapture == it->get()) {
++        deactivate();
++    }
++    m_inputCaptures.erase(it);
++    if (m_inputCaptures.empty()) {
++        input()->uninstallInputEventSpy(m_barrierSpy.get());
++    }
++}
++
++QDBusObjectPath EisInputCaptureManager::addInputCapture(int capabilities)
++{
++    constexpr int keyboardPortal = 1;
++    constexpr int pointerPortal = 2;
++    constexpr int touchPortal = 4;
++    QFlags<eis_device_capability> eisCapabilities;
++    if (capabilities & keyboardPortal) {
++        eisCapabilities |= EIS_DEVICE_CAP_KEYBOARD;
++    }
++    if (capabilities & pointerPortal) {
++        eisCapabilities |= EIS_DEVICE_CAP_POINTER;
++        eisCapabilities |= EIS_DEVICE_CAP_POINTER_ABSOLUTE;
++        eisCapabilities |= EIS_DEVICE_CAP_BUTTON;
++        eisCapabilities |= EIS_DEVICE_CAP_SCROLL;
++    }
++    if (capabilities & touchPortal) {
++        eisCapabilities |= EIS_DEVICE_CAP_TOUCH;
++    }
++
++    const QString dbusService = message().service();
++    m_serviceWatcher->addWatchedService(dbusService);
++
++    if (m_inputCaptures.empty()) {
++        input()->installInputEventSpy(m_barrierSpy.get());
++    }
++    auto &capture = m_inputCaptures.emplace_back(std::make_unique<EisInputCapture>(this, dbusService, eisCapabilities));
++    connect(capture.get(), &EisInputCapture::deactivated, this, [this] {
++        deactivate();
++    });
++    return QDBusObjectPath(capture->dbusPath());
++}
++
++void EisInputCaptureManager::barrierHit(KWin::EisInputCapture *capture, const QPointF &position)
++{
++    if (m_activeCapture) {
++        return;
++    }
++    m_activeCapture = capture;
++    capture->activate(position);
++    input()->prependInputEventFilter(m_inputFilter.get());
++    // Even though the input events are filtered out the cursor is updated on screen which looks weird
++    Cursors::self()->hideCursor();
++}
++
++void EisInputCaptureManager::deactivate()
++{
++    m_activeCapture = nullptr;
++    m_inputFilter->clearTouches();
++    input()->uninstallInputEventFilter(m_inputFilter.get());
++    Cursors::self()->showCursor();
++}
++
++EisInputCapture *EisInputCaptureManager::activeCapture()
++{
++    return m_activeCapture;
++}
++
++}
+diff --git a/src/plugins/eis/eisinputcapturemanager.h b/src/plugins/eis/eisinputcapturemanager.h
+new file mode 100644
+index 00000000000..9d7b919de35
+--- /dev/null
++++ b/src/plugins/eis/eisinputcapturemanager.h
+@@ -0,0 +1,60 @@
++/*
++    SPDX-FileCopyrightText: 2024 David Redondo <kde@david-redondo>
++
++    SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
++*/
++
++#pragma once
++
++#include "utils/ramfile.h"
++
++#include <QDBusContext>
++#include <QDBusObjectPath>
++#include <QDBusUnixFileDescriptor>
++#include <QObject>
++
++#include <memory>
++
++class QDBusServiceWatcher;
++
++namespace KWin
++{
++class BarrierSpy;
++class EisInputCapture;
++class EisInputCaptureFilter;
++
++struct EisInputCaptureBarrier
++{
++    const Qt::Orientation orientation;
++    const int position;
++    const int start;
++    const int end;
++    bool hitTest(const QPoint &point) const;
++};
++
++class EisInputCaptureManager : public QObject, public QDBusContext
++{
++    Q_OBJECT
++public:
++    EisInputCaptureManager();
++    ~EisInputCaptureManager();
++
++    Q_INVOKABLE QDBusObjectPath addInputCapture(int capabilities);
++    Q_INVOKABLE void removeInputCapture(const QDBusObjectPath &capture);
++
++    const RamFile &keyMap() const;
++
++    void barrierHit(EisInputCapture *capture, const QPointF &position);
++    EisInputCapture *activeCapture();
++    void deactivate();
++
++private:
++    RamFile m_keymapFile;
++    QDBusServiceWatcher *m_serviceWatcher;
++    std::unique_ptr<BarrierSpy> m_barrierSpy;
++    std::unique_ptr<EisInputCaptureFilter> m_inputFilter;
++    std::vector<std::unique_ptr<EisInputCapture>> m_inputCaptures;
++    EisInputCapture *m_activeCapture = nullptr;
++    friend class BarrierSpy;
++};
++}
+diff --git a/src/plugins/eis/eisplugin.cpp b/src/plugins/eis/eisplugin.cpp
+index 1de09a735e1..d2e16f47313 100644
+--- a/src/plugins/eis/eisplugin.cpp
++++ b/src/plugins/eis/eisplugin.cpp
+@@ -7,11 +7,13 @@
+ #include "eisplugin.h"
+ 
+ #include "eisbackend.h"
++#include "eisinputcapturemanager.h"
+ 
+ #include "input.h"
+ 
+ EisPlugin::EisPlugin()
+     : Plugin()
++    , m_inputCapture(std::make_unique<KWin::EisInputCaptureManager>())
+ {
+     KWin::input()->addInputBackend(std::make_unique<KWin::EisBackend>());
+ }
+diff --git a/src/plugins/eis/eisplugin.h b/src/plugins/eis/eisplugin.h
+index 56d58a02346..b1b1ef936e9 100644
+--- a/src/plugins/eis/eisplugin.h
++++ b/src/plugins/eis/eisplugin.h
+@@ -8,10 +8,18 @@
+ 
+ #include "plugin.h"
+ 
++namespace KWin
++{
++class EisInputCaptureManager;
++};
++
+ class EisPlugin : public KWin::Plugin
+ {
+     Q_OBJECT
+ public:
+     EisPlugin();
+     ~EisPlugin() override;
++
++private:
++    std::unique_ptr<KWin::EisInputCaptureManager> m_inputCapture;
+ };
+-- 
+GitLab
+
