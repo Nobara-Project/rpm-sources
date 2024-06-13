@@ -36,17 +36,17 @@
 #global snapdate 202303261743
 #global shortcommit %(c=%{commit}; echo ${c:0:7})
 
-%define version_string 30.1.2
+%define version_string 30.2.0
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build %{build_timestamp}.%{shortcommit}%{?dist}
 %global _default_patch_fuzz 2
 # obs version and commit
-%define commit 69d274074e8d1a6bdcf6777a0feba8596a8ee9b0
+%define commit e454f488aa8da1b2d22fae3062d94eb592d90f36
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 Name:           obs-studio
 Version:        %{version_string}
-Release:        1.%{rel_build}
+Release:        1.beta2.%{rel_build}
 Summary:        Open Broadcaster Software Studio
 
 # OBS itself is GPL-2.0-or-later, while various plugin dependencies are of various other licenses
@@ -69,8 +69,6 @@ Patch0:         add-plugins.patch
 
 ## Pipewire audio capture
 Patch1:         6207.patch
-## NVENC AV1
-Patch4:         8794.patch
 
 ## Encoder name cleanup
 Patch8:         encoder-rename.patch
@@ -153,6 +151,9 @@ BuildRequires:  swig
 BuildRequires:  systemd-devel
 BuildRequires:  wayland-devel
 BuildRequires:  websocketpp-devel
+BuildRequires:  uthash-devel
+BuildRequires:  nv-codec-headers
+
 %if %{with x264}
 BuildRequires:  x264-devel
 %endif
@@ -196,8 +197,6 @@ Provides:      bundled(blake2)
 Provides:      bundled(json11)
 ## License: MIT
 Provides:      bundled(libcaption)
-## License: BSD-1-Clause
-Provides:      bundled(uthash)
 ## License: BSD-3-Clause
 Provides:      bundled(rnnoise)
 ## License: LGPL-2.1-or-later and LicenseRef-Fedora-Public-Domain
@@ -361,7 +360,6 @@ cp plugins/obs-outputs/librtmp/COPYING .fedora-rpm/licenses/deps/librtmp-COPYING
 cp deps/json11/LICENSE.txt .fedora-rpm/licenses/deps/json11-LICENSE.txt
 cp deps/libcaption/LICENSE.txt .fedora-rpm/licenses/deps/libcaption-LICENSE.txt
 cp plugins/obs-qsv11/QSV11-License-Clarification-Email.txt .fedora-rpm/licenses/plugins/QSV11-License-Clarification-Email.txt
-cp deps/uthash/uthash/LICENSE .fedora-rpm/licenses/deps/uthash-LICENSE
 cp deps/blake2/LICENSE.blake2 .fedora-rpm/licenses/deps/
 cp deps/media-playback/LICENSE.media-playback .fedora-rpm/licenses/deps/
 cp libobs/graphics/libnsgif/LICENSE.libnsgif .fedora-rpm/licenses/deps/
@@ -380,10 +378,12 @@ cp plugins/obs-qsv11/obs-qsv11-LICENSE.txt .fedora-rpm/licenses/plugins/
        -DENABLE_JACK=ON \
        -DENABLE_LIBFDK=ON \
        -DENABLE_AJA=OFF \
+       -DFTL_FOUND=OFF \
 %if ! %{with lua_scripting}
        -DDISABLE_LUA=ON \
 %endif
-       -DOpenGL_GL_PREFERENCE=GLVND
+       -DOpenGL_GL_PREFERENCE=GLVND \
+       -Wno-dev
 %cmake_build
 
 
