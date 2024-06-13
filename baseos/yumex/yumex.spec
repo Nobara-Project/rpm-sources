@@ -1,12 +1,12 @@
 %global app_id dk.yumex.Yumex
 %global app_build debug
 %global dnf_backend DNF4
-%global gitcommit 5c35923f950ab3b8e96dc1422b4ce0e72466c7a9
-%global shortcommit 5c35923
+%global gitcommit a1287e456ebc2c0b2884ee0cb6302795d4edea3b
+%global shortcommit a1287e4
 
 Name:     yumex
 Version:  5.0.0
-Release:  3.git.%{shortcommit}%{?dist}
+Release:  4.git.%{shortcommit}%{?dist}
 Summary:  Yum Extender graphical package management tool
 
 Group:    Applications/System
@@ -39,7 +39,8 @@ Requires: libadwaita
 Requires: gtk4
 Requires: flatpak-libs
 Requires: nobara-welcome
-Requires: python-dbus
+Requires: python3-dbus
+Requires: libappindicator-gtk3
 
 # support for dnf5 backend
 %if "%{dnf_backend}" == "DNF5"

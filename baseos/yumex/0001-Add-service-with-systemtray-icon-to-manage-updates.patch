@@ -1,4 +1,4 @@
-From d8abdc5111c01329c930dd6ac781889ee2fbf019 Mon Sep 17 00:00:00 2001
+From 6dc10e4c3d2e1cbfae349f1d98c1678913afc594 Mon Sep 17 00:00:00 2001
 From: GloriousEggroll <gloriouseggroll@gmail.com>
 Date: Wed, 12 Jun 2024 02:44:54 -0600
 Subject: [PATCH] Add service with systemtray icon to manage updates
@@ -13,6 +13,10 @@ Subject: [PATCH] Add service with systemtray icon to manage updates
 ---
  .../apps/yumex-system-software-update.svg     |  12 ++
  data/icons/meson.build                        |   6 +-
+ data/meson.build                              |  26 ++++
+ data/service/50-yumex-updater-systray.preset  |   1 +
+ data/service/yumex-service.conf               |   4 +
+ data/service/yumex-updater-systray.service    |  14 ++
  meson.build                                   |   4 +-
  po/ca.po                                      |   6 +-
  po/da.po                                      |   8 +-
@@ -20,29 +24,26 @@ Subject: [PATCH] Add service with systemtray icon to manage updates
  po/it_IT.po                                   |   6 +-
  po/tr_TR.po                                   |   8 +-
  po/yumex.pot                                  |   2 +-
- yumex.spec                                    |  37 ++++-
+ yumex.spec                                    |  38 ++++-
  yumex/backend/dnf/dnf4.py                     |   2 +
  yumex/backend/dnf/dnf5.py                     |   2 +
- yumex/meson.build                             |  36 ++++-
- yumex/service/50-yumex-updater-systray.preset |   1 +
+ yumex/meson.build                             |  12 +-
  yumex/service/__init__.py                     |  14 ++
  yumex/service/dnf4.py                         |  44 ++++++
- yumex/service/dnf5.py                         |  58 +++++++
- yumex/service/yumex-service.conf              |   4 +
- yumex/service/yumex-updater-systray.service   |  14 ++
- yumex/service/yumex_updater_systray.py        | 145 ++++++++++++++++++
+ yumex/service/dnf5.py                         |  58 ++++++++
+ yumex/service/yumex_updater_systray.py        | 135 ++++++++++++++++++
  yumex/ui/flatpak_result.py                    |   2 +-
  yumex/ui/flatpak_view.py                      |  18 ++-
  yumex/ui/window.py                            |   4 +-
  yumex/utils/dbus.py                           |  39 +++++
- 24 files changed, 438 insertions(+), 40 deletions(-)
+ 25 files changed, 431 insertions(+), 40 deletions(-)
  create mode 100644 data/icons/hicolor/scalable/apps/yumex-system-software-update.svg
- create mode 100644 yumex/service/50-yumex-updater-systray.preset
+ create mode 100644 data/service/50-yumex-updater-systray.preset
+ create mode 100644 data/service/yumex-service.conf
+ create mode 100644 data/service/yumex-updater-systray.service
  create mode 100644 yumex/service/__init__.py
  create mode 100644 yumex/service/dnf4.py
  create mode 100644 yumex/service/dnf5.py
- create mode 100644 yumex/service/yumex-service.conf
- create mode 100644 yumex/service/yumex-updater-systray.service
  create mode 100755 yumex/service/yumex_updater_systray.py
  create mode 100644 yumex/utils/dbus.py
 
@@ -79,6 +80,77 @@ index f539718..01d7bc1 100644
 +  join_paths(scalable_dir, 'yumex-system-software-update.svg'),
 +  install_dir: join_paths(get_option('datadir'), 'icons', scalable_dir)
 +)
+diff --git a/data/meson.build b/data/meson.build
+index e8af76c..cdf6d84 100644
+--- a/data/meson.build
++++ b/data/meson.build
+@@ -67,3 +67,29 @@ if appstream_util.found()
+     args: ['validate', appstream_file.full_path()]
+   )
+ endif
++
++# Install systemd service file
++install_data(
++  'service/yumex-updater-systray.service',
++  install_dir: '/usr/lib/systemd/user/'
++)
++
++# Install systemd preset file
++install_data(
++  'service/50-yumex-updater-systray.preset',
++  install_dir: '/usr/lib/systemd/user-preset/'
++)
++
++# Install service config
++install_data(
++  'service/yumex-service.conf',
++  install_dir: '/usr/share/yumex/'
++)
++
++# Create a symlink in bindir to service/yumex_updater_systray.py
++install_symlink(
++  'yumex_updater_systray',
++  install_dir: get_option('bindir'),
++  pointing_to: join_paths(PY_INSTALLDIR.get_install_dir(), 'yumex', 'service/yumex_updater_systray.py')
++)
++
+diff --git a/data/service/50-yumex-updater-systray.preset b/data/service/50-yumex-updater-systray.preset
+new file mode 100644
+index 0000000..f33b37b
+--- /dev/null
++++ b/data/service/50-yumex-updater-systray.preset
+@@ -0,0 +1 @@
++enable yumex-updater-systray.service
+diff --git a/data/service/yumex-service.conf b/data/service/yumex-service.conf
+new file mode 100644
+index 0000000..f4eaa51
+--- /dev/null
++++ b/data/service/yumex-service.conf
+@@ -0,0 +1,4 @@
++[DEFAULT]
++custom_updater=
++always_hide=false
++update_sync_interval=3600
+diff --git a/data/service/yumex-updater-systray.service b/data/service/yumex-updater-systray.service
+new file mode 100644
+index 0000000..aeedc97
+--- /dev/null
++++ b/data/service/yumex-updater-systray.service
+@@ -0,0 +1,14 @@
++[Unit]
++Description=Service to monitor and manage system updates.
++After=graphical-session.target
++
++[Service]
++Type=simple
++ExecStart=/usr/bin/yumex_updater_systray
++RestartSec=5
++Restart=on-failure
++Environment=DISPLAY=:0
++Environment=XAUTHORITY=%h/.Xauthority
++
++[Install]
++WantedBy=default.target
 diff --git a/meson.build b/meson.build
 index cfff121..af21d57 100644
 --- a/meson.build
@@ -238,10 +310,10 @@ index 386e107..ef13743 100644
  
  #: yumex/ui/package_info.py:26 yumex/ui/package_info.py:33
 diff --git a/yumex.spec b/yumex.spec
-index cd91243..fc21c82 100644
+index cd91243..5b75a27 100644
 --- a/yumex.spec
 +++ b/yumex.spec
-@@ -24,12 +24,13 @@ BuildRequires: pkgconfig(glib-2.0)
+@@ -24,12 +24,14 @@ BuildRequires: pkgconfig(glib-2.0)
  BuildRequires: pkgconfig(gtk4)
  BuildRequires: pkgconfig(libadwaita-1)
  BuildRequires: pkgconfig(pygobject-3.0)
@@ -253,10 +325,11 @@ index cd91243..fc21c82 100644
  Requires: gtk4
  Requires: flatpak-libs
 +Requires: python3-dbus
++Requires: libappindicator-gtk3
  
  # dnf4 requirements
  %if "%{dnf_backend}" == "DNF4"
-@@ -92,6 +93,40 @@ update-desktop-database %{_datadir}/applications &> /dev/null || :
+@@ -92,6 +94,40 @@ update-desktop-database %{_datadir}/applications &> /dev/null || :
  %{_datadir}/icons/hicolor/
  %{_metainfodir}/%{app_id}.metainfo.xml
  %{_datadir}/glib-2.0/schemas/%{app_id}.gschema.xml
@@ -338,10 +411,10 @@ index c06fbca..0222401 100644
                  return self.get_packages_with_lowest_priority(packages)
              case other:
 diff --git a/yumex/meson.build b/yumex/meson.build
-index ace11e7..396900d 100644
+index ace11e7..9a2b2b3 100644
 --- a/yumex/meson.build
 +++ b/yumex/meson.build
-@@ -89,5 +89,39 @@ yumex_utils_modules = [
+@@ -89,5 +89,15 @@ yumex_utils_modules = [
    'utils/enums.py',
    'utils/storage.py',
    'utils/types.py',
@@ -359,37 +432,6 @@ index ace11e7..396900d 100644
 +]
 +PY_INSTALLDIR.install_sources(yumex_service_modules, subdir: 'yumex/service')
 +
-+# Install systemd service file
-+install_data(
-+  'service/yumex-updater-systray.service',
-+  install_dir: '/usr/lib/systemd/user/'
-+)
-+
-+# Install systemd preset file
-+install_data(
-+  'service/50-yumex-updater-systray.preset',
-+  install_dir: '/usr/lib/systemd/user-preset/'
-+)
-+
-+# Install service config
-+install_data(
-+  'service/yumex-service.conf',
-+  install_dir: '/usr/share/yumex/'
-+)
-+
-+# Create a symlink in bindir to service/yumex_updater_systray.py
-+install_symlink(
-+  'yumex_updater_systray',
-+  install_dir: get_option('bindir'),
-+  pointing_to: join_paths(PY_INSTALLDIR.get_install_dir(), 'yumex', 'service/yumex_updater_systray.py')
-+)
-diff --git a/yumex/service/50-yumex-updater-systray.preset b/yumex/service/50-yumex-updater-systray.preset
-new file mode 100644
-index 0000000..f33b37b
---- /dev/null
-+++ b/yumex/service/50-yumex-updater-systray.preset
-@@ -0,0 +1 @@
-+enable yumex-updater-systray.service
 diff --git a/yumex/service/__init__.py b/yumex/service/__init__.py
 new file mode 100644
 index 0000000..baa245f
@@ -524,42 +566,12 @@ index 0000000..b1c6bf4
 +                latest_versions[pkg.get_name()] = pkg
 +
 +    return list(latest_versions.values())
-diff --git a/yumex/service/yumex-service.conf b/yumex/service/yumex-service.conf
-new file mode 100644
-index 0000000..f4eaa51
---- /dev/null
-+++ b/yumex/service/yumex-service.conf
-@@ -0,0 +1,4 @@
-+[DEFAULT]
-+custom_updater=
-+always_hide=false
-+update_sync_interval=3600
-diff --git a/yumex/service/yumex-updater-systray.service b/yumex/service/yumex-updater-systray.service
-new file mode 100644
-index 0000000..aeedc97
---- /dev/null
-+++ b/yumex/service/yumex-updater-systray.service
-@@ -0,0 +1,14 @@
-+[Unit]
-+Description=Service to monitor and manage system updates.
-+After=graphical-session.target
-+
-+[Service]
-+Type=simple
-+ExecStart=/usr/bin/yumex_updater_systray
-+RestartSec=5
-+Restart=on-failure
-+Environment=DISPLAY=:0
-+Environment=XAUTHORITY=%h/.Xauthority
-+
-+[Install]
-+WantedBy=default.target
 diff --git a/yumex/service/yumex_updater_systray.py b/yumex/service/yumex_updater_systray.py
 new file mode 100755
-index 0000000..c932e85
+index 0000000..3302c0a
 --- /dev/null
 +++ b/yumex/service/yumex_updater_systray.py
-@@ -0,0 +1,145 @@
+@@ -0,0 +1,135 @@
 +#!/usr/bin/python3
 +
 +import gi
@@ -574,7 +586,6 @@ index 0000000..c932e85
 +import io
 +import os
 +import shutil
-+from PIL import Image
 +import threading
 +import time
 +import dbus
@@ -658,18 +669,9 @@ index 0000000..c932e85
 +        refresh_updates()
 +        time.sleep(update_sync_interval)
 +
-+
-+svg_path = Path("/usr/share/icons/hicolor/scalable/apps/yumex-system-software-update.svg")
-+png_data = cairosvg.svg2png(url=str(svg_path))
-+
-+image = Image.open(io.BytesIO(png_data))
-+cache_dir = os.path.expanduser("~/.cache")
-+image_path = os.path.join(cache_dir, "yumex-system-software-update.png")
-+image.save(image_path)
-+
 +indicator = AppIndicator3.Indicator.new(
-+    "test_icon",
-+    image_path,
++    'System Update Monitor',
++    "/usr/share/icons/hicolor/scalable/apps/yumex-system-software-update.svg",
 +    AppIndicator3.IndicatorCategory.APPLICATION_STATUS
 +)
 +indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
