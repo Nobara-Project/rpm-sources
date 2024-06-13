@@ -1,0 +1,42 @@
+diff --git a/drivers/hid/hid-multitouch.c b/drivers/hid/hid-multitouch.c
+index 1ae3438..c5654ec 100644
+--- a/drivers/hid/hid-multitouch.c
++++ b/drivers/hid/hid-multitouch.c
+@@ -1904,6 +1904,16 @@ static int mt_probe(struct hid_device *hdev, const struct hid_device_id *id)
+ 		}
+ 	}
+ 
++	ret = hid_parse(hdev);
++	if (ret != 0) {
++		unregister_pm_notifier(&td->pm_notifier);
++ 		return ret;
++	}
++	if (mtclass->name == MT_CLS_APPLE_TOUCHBAR &&
++	    !hid_find_field(hdev, HID_INPUT_REPORT,
++			    HID_DG_TOUCHPAD, HID_DG_TRANSDUCER_INDEX))
++		return -ENODEV;
++
+ 	td = devm_kzalloc(&hdev->dev, sizeof(struct mt_device), GFP_KERNEL);
+ 	if (!td) {
+ 		dev_err(&hdev->dev, "cannot allocate multitouch data\n");
+@@ -1954,16 +1964,14 @@ static int mt_probe(struct hid_device *hdev, const struct hid_device_id *id)
+ 
+ 	timer_setup(&td->release_timer, mt_expired_timeout, 0);
+ 
+-	ret = hid_parse(hdev);
+-	if (ret != 0)
+-		return ret;
+-
+ 	if (mtclass->quirks & MT_QUIRK_FIX_CONST_CONTACT_ID)
+ 		mt_fix_const_fields(hdev, HID_DG_CONTACTID);
+ 
+ 	ret = hid_hw_start(hdev, HID_CONNECT_DEFAULT);
+-	if (ret)
+-		return ret;
++	if (ret) {
++		unregister_pm_notifier(&td->pm_notifier);
++ 		return ret;
++	}
+ 
+ 	ret = sysfs_create_group(&hdev->dev.kobj, &mt_attribute_group);
+ 	if (ret)
