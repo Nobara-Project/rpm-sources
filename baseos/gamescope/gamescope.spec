@@ -1,13 +1,13 @@
 %global libliftoff_minver 0.4.1
 
 # latest git
-%define commit 420eb91387a484fd7b1ea71449091f0480d9e538
+%define commit 9badb5cb3d8fd6eb6b2ce46070cbf724cb7ff521
 
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global _default_patch_fuzz 2
 %global build_timestamp %(date +"%Y%m%d")
 
-%global rel_build 2.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 5.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           gamescope
 Version:        3.14.18
@@ -27,6 +27,10 @@ Patch2:         disable-steam-touch-click-atom.patch
 Patch3:         external-rotation.patch
 Patch4:         panel-type.patch
 Patch5:         deckhd.patch
+
+# Temporary patches
+# https://github.com/ValveSoftware/gamescope/issues/1369
+Patch6:         revert-299bc34.patch
 
 BuildRequires:  meson >= 0.54.0
 BuildRequires:  ninja-build
@@ -125,6 +129,7 @@ cd gamescope
 %doc gamescope/README.md
 %{_bindir}/gamescope
 %{_bindir}/gamescopestream
+%{_bindir}/gamescopectl
 
 %files libs
 %{_libdir}/*.so
