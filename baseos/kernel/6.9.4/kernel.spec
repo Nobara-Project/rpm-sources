@@ -164,13 +164,13 @@ Summary: The Linux kernel
 %define specrpmversion 6.9.4
 %define specversion 6.9.4
 %define patchversion 6.9
-%define pkgrelease 200
+%define pkgrelease 201
 %define kversion 6
 %define tarfile_release 6.9.4
 # This is needed to do merge window version magic
 %define patchlevel 9
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease 200%{?buildid}%{?dist}
+%define specrelease 201%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 6.9.4
 
@@ -810,7 +810,7 @@ BuildRequires: tpm2-tools
 # exact git commit you can run
 #
 # xzcat -qq ${TARBALL} | git get-tar-commit-id
-Source0: https://large-package-sources.nobaraproject.org/linux-%{tarfile_release}.tar.xz
+Source0: https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-%{tarfile_release}.tar.xz
 
 Source1: Makefile.rhelver
 Source2: kernel.changelog
@@ -1004,7 +1004,7 @@ Patch300: amdgpu-si-cik-default.patch
 Patch301: linux-surface.patch
 Patch302: steam-deck.patch
 Patch303: asus-linux.patch
-#sPatch304: lenovo-legion-laptop.patch
+Patch304: lenovo-legion-laptop.patch
 
 # CachyOS: https://github.com/CachyOS/kernel-patches
 Patch210: 0001-bore.patch
@@ -1930,7 +1930,7 @@ ApplyOptionalPatch 0009-ntsync.patch
 ApplyOptionalPatch linux-surface.patch
 ApplyOptionalPatch steam-deck.patch
 ApplyOptionalPatch asus-linux.patch
-#ApplyOptionalPatch lenovo-legion-laptop.patch
+ApplyOptionalPatch lenovo-legion-laptop.patch
 
 # hdr: https://github.com/CachyOS/kernel-patches
 ApplyOptionalPatch 0001-amd-hdr.patch
