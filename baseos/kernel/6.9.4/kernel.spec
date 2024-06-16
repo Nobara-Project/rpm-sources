@@ -810,7 +810,7 @@ BuildRequires: tpm2-tools
 # exact git commit you can run
 #
 # xzcat -qq ${TARBALL} | git get-tar-commit-id
-Source0: https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-%{tarfile_release}.tar.xz
+Source0: https://large-package-sources.nobaraproject.org/linux-%{tarfile_release}.tar.xz
 
 Source1: Makefile.rhelver
 Source2: kernel.changelog
