@@ -1,6 +1,6 @@
 %global _default_patch_fuzz 2
 
-%global commit 128cca21c0fd55952d28a3a613b146e879dd0fbb
+%global commit 09277c7ea60f0852f70b195e304f6ff7ac1f393a
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build git.%{build_timestamp}.%{shortcommit}%{?dist}
@@ -85,7 +85,7 @@ Source1:        Mesa-MLAA-License-Clarification-Email.txt
 # https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/25576
 # https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/29580
 Patch2: 25576.patch
-# Patch3: 29580.patch
+Patch3: 29580.patch
 
 # https://gitlab.com/evlaV/mesa/
 Patch4: valve.patch

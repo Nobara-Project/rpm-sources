@@ -1,0 +1,281 @@
+From ef78e23f095a312b250ddc869230d66e67eeaf21 Mon Sep 17 00:00:00 2001
+From: Matin Lotfaliei <matinlotfali@gmail.com>
+Date: Sat, 15 Jun 2024 12:19:12 -0700
+Subject: [PATCH 1/2] Add more conditions for the checkTiled function
+ recursion.
+
+---
+ src/Effect.cpp | 5 ++++-
+ src/Window.cpp | 1 -
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/src/Effect.cpp b/src/Effect.cpp
+index 6bfa29d..4821109 100644
+--- a/src/Effect.cpp
++++ b/src/Effect.cpp
+@@ -236,6 +236,9 @@ bool ShapeCorners::Effect::checkTiled(double window_start, const double& screen_
+     bool r = false;
+     for (auto& [w, window]: m_managed) {
+ 
++        if (!window.hasEffect())
++            continue;
++
+         if (firstGap) {
+             gap = std::get<vertical>(std::make_pair(w->x(), w->y())) - window_start;
+             if(gap > 40)        // There is no way that a window is tiled and has such a big gap.
+@@ -244,7 +247,7 @@ bool ShapeCorners::Effect::checkTiled(double window_start, const double& screen_
+         }
+ 
+         if (std::get<vertical>(std::make_pair(w->x(), w->y())) == window_start) {
+-            if (std::get<vertical>(std::make_pair(w->width(), w->height())) + gap > 0) {
++            if (std::get<vertical>(std::make_pair(w->width(), w->height())) > 0) {
+                 if (checkTiled<vertical>(window_start + std::get<vertical>(std::make_pair(w->width(), w->height())) + gap, screen_end, gap)) {
+                     window.isTiled = true;   // Mark every tile as you go back to the first.
+                     r = true;
+diff --git a/src/Window.cpp b/src/Window.cpp
+index 0b658ec..5aaec69 100644
+--- a/src/Window.cpp
++++ b/src/Window.cpp
+@@ -8,7 +8,6 @@
+ #include <qconfig.h>
+ #if QT_VERSION_MAJOR >= 6
+ #include <effect/effecthandler.h>
+-
+ #include <utility>
+ #else
+ #include <kwineffects.h>
+
+From cfba02776b98633fb4b476b32006fda55662b7ef Mon Sep 17 00:00:00 2001
+From: Matin Lotfaliei <matinlotfali@gmail.com>
+Date: Sun, 16 Jun 2024 14:26:31 -0700
+Subject: [PATCH 2/2] Refactoring Tile Checking in a separate class
+
+---
+ src/CMakeLists.txt  |  2 ++
+ src/Effect.cpp      | 48 +++------------------------------
+ src/Effect.h        |  4 +--
+ src/TileChecker.cpp | 66 +++++++++++++++++++++++++++++++++++++++++++++
+ src/TileChecker.h   | 41 ++++++++++++++++++++++++++++
+ 5 files changed, 114 insertions(+), 47 deletions(-)
+ create mode 100644 src/TileChecker.cpp
+ create mode 100644 src/TileChecker.h
+
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 4944dfe..0482261 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -5,6 +5,8 @@ set(effect_SRCS
+     Shader.cpp
+     Window.h
+     Window.cpp
++    TileChecker.h
++    TileChecker.cpp
+     Color.h
+     plugin.cpp
+ )
+diff --git a/src/Effect.cpp b/src/Effect.cpp
+index 4821109..0fcf986 100644
+--- a/src/Effect.cpp
++++ b/src/Effect.cpp
+@@ -223,57 +223,17 @@ QString ShapeCorners::Effect::get_window_titles() const {
+     return response.join("\n");
+ }
+ 
+-template<bool vertical>
+-bool ShapeCorners::Effect::checkTiled(double window_start, const double& screen_end, double gap) {
+-    if (window_start == screen_end) {
+-        return true;    // Found the last chain of tiles
+-    } else if (window_start > screen_end) {
+-        return false;
+-    }
+-
+-    const bool firstGap = (gap == -1);
+-
+-    bool r = false;
+-    for (auto& [w, window]: m_managed) {
+-
+-        if (!window.hasEffect())
+-            continue;
+-
+-        if (firstGap) {
+-            gap = std::get<vertical>(std::make_pair(w->x(), w->y())) - window_start;
+-            if(gap > 40)        // There is no way that a window is tiled and has such a big gap.
+-                continue;
+-            window_start += gap;
+-        }
+-
+-        if (std::get<vertical>(std::make_pair(w->x(), w->y())) == window_start) {
+-            if (std::get<vertical>(std::make_pair(w->width(), w->height())) > 0) {
+-                if (checkTiled<vertical>(window_start + std::get<vertical>(std::make_pair(w->width(), w->height())) + gap, screen_end, gap)) {
+-                    window.isTiled = true;   // Mark every tile as you go back to the first.
+-                    r = true;
+-                }
+-            }
+-        }
+-
+-        if(firstGap) {
+-            window_start -= gap;    // Revert changes.
+-        }
+-    }
+-    return r;
+-}
+-
+ void ShapeCorners::Effect::checkTiled() {
+-    for (auto& [ptr, window]: m_managed) {     // Delete tile memory.
+-        window.isTiled = false;
+-    }
++    TileChecker tileChecker (m_managed);
++    tileChecker.clearTiles();
++
+     if (!Config::disableRoundTile() && !Config::disableOutlineTile()) {
+         return;
+     }
+ 
+     for (const auto& screen: KWin::effects->screens()) {        // Per every screen
+         const auto& geometry = screen->geometry();
+-        checkTiled<false>(geometry.x(), geometry.x() + geometry.width()); // Check horizontally
+-        checkTiled<true>(geometry.y(), geometry.y() + geometry.height()); // Check vertically
++        tileChecker.checkTiles(geometry);
+     }
+ }
+ 
+diff --git a/src/Effect.h b/src/Effect.h
+index d29fd7e..7455fdd 100644
+--- a/src/Effect.h
++++ b/src/Effect.h
+@@ -21,6 +21,7 @@
+ 
+ #include "Shader.h"
+ #include "Window.h"
++#include "TileChecker.h"
+ 
+ #if QT_VERSION_MAJOR >= 6
+     #include <effect/offscreeneffect.h>
+@@ -69,8 +70,5 @@ namespace ShapeCorners {
+         Shader m_shaderManager;
+ 
+         void checkTiled();
+-
+-        template<bool vertical>
+-        bool checkTiled(double window_start, const double &screen_end, double gap = -1);
+     };
+ }
+diff --git a/src/TileChecker.cpp b/src/TileChecker.cpp
+new file mode 100644
+index 0000000..a6d7d0b
+--- /dev/null
++++ b/src/TileChecker.cpp
+@@ -0,0 +1,66 @@
++//
++// Created by matin on 16/06/24.
++//
++
++#include "TileChecker.h"
++#include "Window.h"
++
++#if QT_VERSION_MAJOR >= 6
++#include <effect/effecthandler.h>
++#include <utility>
++#else
++#include <kwineffects.h>
++#endif
++
++template<bool vertical>
++bool ShapeCorners::TileChecker::checkTiled_Recursive(double window_start, const uint8_t depth) {
++    if (window_start == screen_end)
++        return true;    // Found the last chain of tiles
++    if (window_start > screen_end)
++        return false;
++    if (depth > max_tile_depth)
++        return false;
++
++    bool r = false;
++    for (auto& [w, window]: m_managed) {
++
++        if (!window.hasEffect())
++            continue;
++
++        const auto x = std::get<vertical>(std::make_pair(w->x(), w->y()));
++        const auto width = std::get<vertical>(std::make_pair(w->width(), w->height()));
++
++        if (depth == 0) {
++            if(x - window_start > 40)        // There is no way that a window is tiled and has such a big gap.
++                continue;
++            gap = x - window_start;
++            window_start += gap;
++        }
++
++        if (x == window_start && width > 0) {
++            if (checkTiled_Recursive<vertical>(window_start + width + gap, depth+1)) {
++                window.isTiled = true;   // Mark every tile as you go back to the first.
++                r = true;
++            }
++        }
++
++        if(depth == 0) {
++            window_start -= gap;    // Revert changes.
++        }
++    }
++    return r;
++}
++
++void ShapeCorners::TileChecker::clearTiles() {
++    for (auto& [ptr, window]: m_managed) {     // Delete tile memory.
++        window.isTiled = false;
++    }
++}
++
++void ShapeCorners::TileChecker::checkTiles(const QRect& screen) {
++    screen_end = screen.x() + screen.width();
++    checkTiled_Recursive<false>(screen.x(), 0); // Check horizontally
++
++    screen_end = screen.y() + screen.height();
++    checkTiled_Recursive<true>(screen.y(), 0); // Check vertically
++}
+diff --git a/src/TileChecker.h b/src/TileChecker.h
+new file mode 100644
+index 0000000..4a3cc86
+--- /dev/null
++++ b/src/TileChecker.h
+@@ -0,0 +1,41 @@
++//
++// Created by matin on 16/06/24.
++//
++
++#ifndef KWIN4_EFFECT_SHAPECORNERS_TILECHECKER_H
++#define KWIN4_EFFECT_SHAPECORNERS_TILECHECKER_H
++
++#include <unordered_map>
++#include <cstdint>
++
++class QRect;
++namespace KWin {
++    class EffectWindow;
++}
++
++namespace ShapeCorners {
++    class Window;
++    using WindowList = std::unordered_map<const KWin::EffectWindow *, Window>;
++
++    class TileChecker {
++
++    public:
++        explicit TileChecker(WindowList& windowList): m_managed(windowList) {};
++
++        void clearTiles();
++        void checkTiles(const QRect& screen);
++
++    private:
++        constexpr static uint8_t max_tile_depth = 5;
++        WindowList& m_managed;
++
++        double screen_end = -1;
++        double gap = -1;
++
++        template<bool vertical>
++        bool checkTiled_Recursive(double window_start, uint8_t depth);
++    };
++}
++
++
++#endif //KWIN4_EFFECT_SHAPECORNERS_TILECHECKER_H

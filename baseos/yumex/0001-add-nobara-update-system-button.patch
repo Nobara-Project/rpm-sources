@@ -1,6 +1,6 @@
-From 1e6148d9957f7979a320a6407283a5273a572a7a Mon Sep 17 00:00:00 2001
+From 93e599e0ee5456aec209b7c4d7ce60479035e828 Mon Sep 17 00:00:00 2001
 From: GloriousEggroll <gloriouseggroll@gmail.com>
-Date: Tue, 11 Jun 2024 21:30:46 -0600
+Date: Fri, 14 Jun 2024 13:20:29 -0600
 Subject: [PATCH] add nobara update system button
 
 ---
@@ -26,7 +26,7 @@ index a699b99..4fbc14a 100644
          title: _("Close Dialog/Cancel");
          shortcut-type: accelerator;
 diff --git a/data/ui/window.blp b/data/ui/window.blp
-index 0af835a..b5f2bdd 100644
+index f79ac5c..c80131d 100644
 --- a/data/ui/window.blp
 +++ b/data/ui/window.blp
 @@ -66,7 +66,15 @@ template $YumexMainWindow : Adw.ApplicationWindow {
@@ -47,7 +47,7 @@ index 0af835a..b5f2bdd 100644
          Gtk.Box {
            orientation: vertical;
 diff --git a/yumex/main.py b/yumex/main.py
-index 5f7b895..145ff0d 100644
+index c18ad5c..8e06c48 100644
 --- a/yumex/main.py
 +++ b/yumex/main.py
 @@ -91,6 +91,7 @@ class YumexApplication(Adw.Application):
@@ -59,18 +59,18 @@ index 5f7b895..145ff0d 100644
          self.create_action("page_two", self.win.on_actions, ["<Alt>2"])
          self.create_action("page_three", self.win.on_actions, ["<Alt>3"])
 diff --git a/yumex/ui/window.py b/yumex/ui/window.py
-index c6ae5f4..cfa1ccd 100644
+index e143c18..c4c54c5 100644
 --- a/yumex/ui/window.py
 +++ b/yumex/ui/window.py
-@@ -14,6 +14,7 @@
- # Copyright (C) 2024 Tim Lauridsen
+@@ -15,6 +15,7 @@
  
+ from pathlib import Path
  import re
 +import subprocess
  
  from gi.repository import Gtk, Adw, Gio  # type: ignore
  
-@@ -282,6 +283,11 @@ class YumexMainWindow(Adw.ApplicationWindow):
+@@ -295,6 +296,11 @@ class YumexMainWindow(Adw.ApplicationWindow):
              self.select_page(Page.PACKAGES)
              self.load_packages(PackageFilter.INSTALLED)
  
@@ -82,7 +82,7 @@ index c6ae5f4..cfa1ccd 100644
      @Gtk.Template.Callback()
      def on_search_changed(self, widget):
          """handler for changes in the seach entry"""
-@@ -374,6 +380,8 @@ class YumexMainWindow(Adw.ApplicationWindow):
+@@ -387,6 +393,8 @@ class YumexMainWindow(Adw.ApplicationWindow):
              case "apply_actions":
                  if self.active_page in [Page.PACKAGES, Page.QUEUE]:
                      self.on_apply_actions_clicked()

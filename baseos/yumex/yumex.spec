@@ -1,12 +1,13 @@
 %global app_id dk.yumex.Yumex
-%global app_build debug
+%global app_build release
 %global dnf_backend DNF4
-%global gitcommit a1287e456ebc2c0b2884ee0cb6302795d4edea3b
-%global shortcommit a1287e4
+%global app_name yumex
+%global gitcommit 7a0e9d17518a0035629fdb80120000642a3b1020
+%global shortcommit 7a0e9d1
 
-Name:     yumex
+Name:     %{app_name}
 Version:  5.0.0
-Release:  4.git.%{shortcommit}%{?dist}
+Release:  6.git.%{shortcommit}%{?dist}
 Summary:  Yum Extender graphical package management tool
 
 Group:    Applications/System
@@ -16,7 +17,7 @@ Source0:  https://github.com/timlau/yumex-ng/archive/%{gitcommit}.zip#/%{name}-%
 Source1:  dk.yumex.Yumex.svg
 Patch0:   rename-desktop-shortcut.patch
 Patch1:   0001-add-nobara-update-system-button.patch
-Patch2:   0001-Add-service-with-systemtray-icon-to-manage-updates.patch
+Patch2:   0001-fix-memory-leak-in-yumex_updater_systray-service.patch
 
 BuildArch: noarch
 BuildRequires: python3-devel
@@ -31,10 +32,7 @@ BuildRequires: pkgconfig(libadwaita-1)
 BuildRequires: pkgconfig(pygobject-3.0)
 BuildRequires: systemd-rpm-macros
 
-
-Requires: python3-dnfdaemon
 Requires: python3-gobject
-Requires: python3-dnf
 Requires: libadwaita
 Requires: gtk4
 Requires: flatpak-libs
@@ -42,9 +40,17 @@ Requires: nobara-welcome
 Requires: python3-dbus
 Requires: libappindicator-gtk3
 
-# support for dnf5 backend
+# dnf4 requirements
+%if "%{dnf_backend}" == "DNF4"
+Requires: python3-dnfdaemon
+Requires: python3-dnf
+%endif
+
+# dnf5 requirements
 %if "%{dnf_backend}" == "DNF5"
 Requires: python3-libdnf5
+Requires: dnf5daemon-server
+Requires: python3-dasbus
 %endif
 
 Obsoletes: yumex-dnf <= 4.5.1
@@ -78,10 +84,8 @@ sed -i 's|custom_updater=|custom_updater=/usr/bin/nobara-sync|g'  %{buildroot}/%
 %post
 /bin/touch --no-create %{_datadir}/icons/hicolor &>/dev/null || :
 update-desktop-database %{_datadir}/applications &> /dev/null || :
+glib-compile-schemas /usr/share/glib-2.0/schemas/
 %systemd_user_post yumex-updater-systray.service
-
-%preun
-%systemd_user_preun yumex-updater-systray.service
 
 %postun
 if [ $1 -eq 0 ] ; then
@@ -90,9 +94,25 @@ if [ $1 -eq 0 ] ; then
 fi
 update-desktop-database %{_datadir}/applications &> /dev/null || :
 
+%files -f  %{app_name}.lang
+%doc README.md
+%license LICENSE
+%{_datadir}/%{app_name}
+%{_bindir}/%{app_name}
+%{python3_sitelib}/%{app_name}/
+%{_datadir}/applications/%{app_id}*.desktop
+%{_datadir}/icons/hicolor/
+%{_metainfodir}/%{app_id}.metainfo.xml
+%{_datadir}/glib-2.0/schemas/%{app_id}.gschema.xml
+%{_userunitdir}/*.service
+%{_prefix}/lib/systemd/user-preset/*.preset
+%{_bindir}/yumex_updater_systray
+
 %posttrans
+/usr/bin/gtk-update-icon-cache -f %{_datadir}/icons/hicolor &>/dev/null || :
 %systemd_user_post yumex-updater-systray.service
 
+# Iterate over all user sessions
 for session in $(loginctl list-sessions --no-legend | awk '{print $1}'); do
     uid=$(loginctl show-session $session -p User --value)
     user=$(getent passwd $uid | cut -d: -f1)
@@ -112,23 +132,20 @@ for session in $(loginctl list-sessions --no-legend | awk '{print $1}'); do
     su - $user -c "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS systemctl --user restart yumex-updater-systray.service" || echo "Failed to restart service for user $user"
 done
 
-
-%files -f  %{name}.lang
-%doc README.md
-%license LICENSE
-%{_datadir}/%{name}
-%{_bindir}/%{name}
-%{python3_sitelib}/%{name}/
-%{_datadir}/applications/%{app_id}.desktop
-%{_datadir}/icons/hicolor/
-%{_metainfodir}/%{app_id}.metainfo.xml
-%{_datadir}/glib-2.0/schemas/%{app_id}.gschema.xml
-%{_userunitdir}/*.service
-%{_prefix}/lib/systemd/user-preset/*.preset
-%{_datadir}/yumex/yumex-service.conf
-%{_bindir}/yumex_updater_systray
+%preun
+%systemd_user_preun yumex-updater-systray.service
 
 %changelog
+
+* Tue Jun 11 2024 Tim Lauridsen <timlau@fedoraproject.org> 5.0.0-2
+- added updater service
+- include all .desktop files
+
+* Tue Jun 11 2024 Tim Lauridsen <timlau@fedoraproject.org> 5.0.0-1
+- the 5.0.0 release
+
+* Thu Apr 20 2023 Tim Lauridsen <timlau@fedoraproject.org> 4.99.4-1
+- the 4.99.4 release
 
 * Sat Jan 21 2023 Tim Lauridsen <timlau@fedoraproject.org> 4.99.3-1
 - the 4.99.3 release

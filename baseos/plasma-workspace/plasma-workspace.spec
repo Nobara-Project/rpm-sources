@@ -4,7 +4,7 @@
 Name:    plasma-workspace
 Summary: Plasma workspace, applications and applets
 Version: 6.0.5
-Release: 1%{?dist}
+Release: 2%{?dist}
 
 License: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only) AND MIT
 URL:     https://invent.kde.org/plasma/%{name}
@@ -40,6 +40,7 @@ Patch109:       qtpaths-binary-name.patch
 
 # re-enable the view password button on sddm in breeze theme
 Patch110:	0001-fix-no-longer-needed-password-view-disable.patch
+Patch111:   4390.patch
 
 # udev
 BuildRequires:  zlib-devel

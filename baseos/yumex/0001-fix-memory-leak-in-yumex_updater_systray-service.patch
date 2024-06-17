@@ -1,0 +1,229 @@
+From c8610f432256b53cfa86cdfb27776be6f696e8fe Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Sun, 16 Jun 2024 02:54:15 -0600
+Subject: [PATCH] fix memory leak in yumex_updater_systray service
+
+---
+ yumex/service/dnf4.py       | 76 ++++++++++++++--------------
+ yumex/service/dnf5.py       | 99 +++++++++++++++++++------------------
+ yumex/yumex_updater_systray |  9 +++-
+ 3 files changed, 97 insertions(+), 87 deletions(-)
+
+diff --git a/yumex/service/dnf4.py b/yumex/service/dnf4.py
+index 0993927..22dc54e 100644
+--- a/yumex/service/dnf4.py
++++ b/yumex/service/dnf4.py
+@@ -3,42 +3,44 @@ from typing import List, Set
+ 
+ def UpdateChecker() -> List[dnf.package.Package]:
+     base = dnf.Base()
+-    base.read_all_repos()
+-
+-    def metadata_refresh(base: dnf.Base) -> None:
+-        for repo in base.repos.iter_enabled():
+-            repo.metadata_expire = 0
+-            repo.load()
+-
+-    def get_repo_priority(repo_name: str) -> int:
+-        repo = base.repos.get(repo_name)
+-        return repo.priority if repo else 99
+-
+-    def get_package_repos(package_name: str) -> List[str]:
+-        repos: Set[str] = set()
+-        query = base.sack.query().available().filter(name=package_name)
+-        for pkg in query.run():
+-            repos.add(pkg.reponame)
+-        return list(repos)
+-
+-    base.fill_sack(load_system_repo=True)
+-    q = base.sack.query()
+-    updates = q.upgrades().run()
+-
+-    metadata_refresh(base)
+-
+-    latest_versions = {}
+-    for pkg in updates:
+-        repos = get_package_repos(pkg.name)
+-        repo_priorities = [get_repo_priority(repo) for repo in repos]
+-        lowest_priority = min(repo_priorities) if repo_priorities else 99
+-        pkg_repo_priority = pkg.repo.priority
+-
+-        if pkg_repo_priority == lowest_priority:
+-            if pkg.name in latest_versions:
+-                if pkg.evr > latest_versions[pkg.name].evr:
++    try:
++        base.read_all_repos()
++        def metadata_refresh(base: dnf.Base) -> None:
++            for repo in base.repos.iter_enabled():
++                repo.metadata_expire = 0
++                repo.load()
++
++        def get_repo_priority(repo_name: str) -> int:
++            repo = base.repos.get(repo_name)
++            return repo.priority if repo else 99
++
++        def get_package_repos(package_name: str) -> List[str]:
++            repos: Set[str] = set()
++            query = base.sack.query().available().filter(name=package_name)
++            for pkg in query.run():
++                repos.add(pkg.reponame)
++            return list(repos)
++
++        base.fill_sack(load_system_repo=True)
++        q = base.sack.query()
++        updates = q.upgrades().run()
++
++        metadata_refresh(base)
++
++        latest_versions = {}
++        for pkg in updates:
++            repos = get_package_repos(pkg.name)
++            repo_priorities = [get_repo_priority(repo) for repo in repos]
++            lowest_priority = min(repo_priorities) if repo_priorities else 99
++            pkg_repo_priority = pkg.repo.priority
++
++            if pkg_repo_priority == lowest_priority:
++                if pkg.name in latest_versions:
++                    if pkg.evr > latest_versions[pkg.name].evr:
++                        latest_versions[pkg.name] = pkg
++                else:
+                     latest_versions[pkg.name] = pkg
+-            else:
+-                latest_versions[pkg.name] = pkg
+ 
+-    return list(latest_versions.values())
++        return list(latest_versions.values())
++    finally:
++        base.close()
+diff --git a/yumex/service/dnf5.py b/yumex/service/dnf5.py
+index b1c6bf4..5b79c3c 100644
+--- a/yumex/service/dnf5.py
++++ b/yumex/service/dnf5.py
+@@ -6,53 +6,56 @@ from typing import List
+ 
+ def UpdateChecker() -> List[Package]:
+     base = dnf.base.Base()
+-    cache_directory = base.get_config().get_cachedir_option().get_value()
+-    base.get_config().get_system_cachedir_option().set(cache_directory)
+-
+-    base.load_config()
+-    base.setup()
+-
+-    def reset_backend(base: dnf.base.Base) -> None:
+-        base.repo_sack = base.get_repo_sack()
+-        base.repo_sack.create_repos_from_system_configuration()
+-        base.repo_sack.update_and_load_enabled_repos(True)
+-
+-    reset_backend(base)
+-
+-    def get_repo_priority(base: dnf.base.Base, repo_name: str) -> int:
+-        repos_query = RepoQuery(base)
+-        for repo in repos_query:
+-            if repo.get_id() == repo_name:
+-                return repo.get_priority()
+-        return 99
+-
+-    def get_package_repos(base: dnf.base.Base, package_name: str) -> List[str]:
+-        repos = set()
+-        query = PackageQuery(base)
+-        query.filter_name([package_name])
+-        for pkg in query:
+-            repos.add(pkg.get_repo_id())
+-        return list(repos)
+-
+-    updates = PackageQuery(base)
+-    updates.filter_upgrades()
+-    updates.filter_arch(["src"], QueryCmp_NEQ)
+-    updates.filter_latest_evr()
+-
+-    updates_list = list(updates)
+-
+-    latest_versions = {}
+-    for pkg in updates_list:
+-        repos = get_package_repos(base, pkg.get_name())
+-        repo_priorities = [get_repo_priority(base, repo) for repo in repos]
+-        lowest_priority = min(repo_priorities) if repo_priorities else 99
+-        pkg_repo_priority = get_repo_priority(base, pkg.get_repo_id())
+-
+-        if pkg_repo_priority == lowest_priority:
+-            if pkg.get_name() in latest_versions:
+-                if pkg.get_evr() > latest_versions[pkg.get_name()].get_evr():
++    try:
++        cache_directory = base.get_config().get_cachedir_option().get_value()
++        base.get_config().get_system_cachedir_option().set(cache_directory)
++
++        base.load_config()
++        base.setup()
++
++        def reset_backend(base: dnf.base.Base) -> None:
++            base.repo_sack = base.get_repo_sack()
++            base.repo_sack.create_repos_from_system_configuration()
++            base.repo_sack.update_and_load_enabled_repos(True)
++
++        reset_backend(base)
++
++        def get_repo_priority(base: dnf.base.Base, repo_name: str) -> int:
++            repos_query = RepoQuery(base)
++            for repo in repos_query:
++                if repo.get_id() == repo_name:
++                    return repo.get_priority()
++            return 99
++
++        def get_package_repos(base: dnf.base.Base, package_name: str) -> List[str]:
++            repos = set()
++            query = PackageQuery(base)
++            query.filter_name([package_name])
++            for pkg in query:
++                repos.add(pkg.get_repo_id())
++            return list(repos)
++
++        updates = PackageQuery(base)
++        updates.filter_upgrades()
++        updates.filter_arch(["src"], QueryCmp_NEQ)
++        updates.filter_latest_evr()
++
++        updates_list = list(updates)
++
++        latest_versions = {}
++        for pkg in updates_list:
++            repos = get_package_repos(base, pkg.get_name())
++            repo_priorities = [get_repo_priority(base, repo) for repo in repos]
++            lowest_priority = min(repo_priorities) if repo_priorities else 99
++            pkg_repo_priority = get_repo_priority(base, pkg.get_repo_id())
++
++            if pkg_repo_priority == lowest_priority:
++                if pkg.get_name() in latest_versions:
++                    if pkg.get_evr() > latest_versions[pkg.get_name()].get_evr():
++                        latest_versions[pkg.get_name()] = pkg
++                else:
+                     latest_versions[pkg.get_name()] = pkg
+-            else:
+-                latest_versions[pkg.get_name()] = pkg
+ 
+-    return list(latest_versions.values())
++        return list(latest_versions.values())
++    finally:
++        del base
+diff --git a/yumex/yumex_updater_systray b/yumex/yumex_updater_systray
+index 2cc4d19..18eff90 100755
+--- a/yumex/yumex_updater_systray
++++ b/yumex/yumex_updater_systray
+@@ -80,8 +80,13 @@ def refresh_updates(widget: Gtk.Widget = None) -> None:
+     logger.debug("Refreshing updates")
+     sys_update_count = len(UpdateChecker())
+ 
+-    flatpak_user_count = len(Flatpak.Installation.new_user().list_installed_refs_for_update())
+-    flatpak_sys_count = len(Flatpak.Installation.new_system().list_installed_refs_for_update())
++    user_installation = Flatpak.Installation.new_user()
++    flatpak_user_count = len(user_installation.list_installed_refs_for_update())
++    del user_installation
++
++    system_installation = Flatpak.Installation.new_system()
++    flatpak_sys_count = len(system_installation.list_installed_refs_for_update())
++    del system_installation
+ 
+     update_count = sys_update_count + flatpak_user_count + flatpak_sys_count
+ 
+-- 
+2.45.2
+

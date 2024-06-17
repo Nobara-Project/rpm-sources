@@ -28,7 +28,7 @@
 %global openh264_soversion 7
 
 
-%global obswebsocket_version 5.4.2
+%global obswebsocket_version 5.5.1
 %global obsbrowser_commit 996b5a7bc43d912f1f4992e0032d4f263ac8b060
 %global cef_version 5060
 
@@ -41,12 +41,12 @@
 %global rel_build %{build_timestamp}.%{shortcommit}%{?dist}
 %global _default_patch_fuzz 2
 # obs version and commit
-%define commit e454f488aa8da1b2d22fae3062d94eb592d90f36
+%define commit 77d31fa33fa25fc3b66f823776ddbd3c1b9b3c96
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 Name:           obs-studio
 Version:        %{version_string}
-Release:        1.beta2.%{rel_build}
+Release:        3.beta3.%{rel_build}
 Summary:        Open Broadcaster Software Studio
 
 # OBS itself is GPL-2.0-or-later, while various plugin dependencies are of various other licenses
@@ -68,7 +68,7 @@ Source3:        FindCEF.cmake
 Patch0:         add-plugins.patch
 
 ## Pipewire audio capture
-Patch1:         6207.patch
+#Patch1:         6207.patch
 
 ## Encoder name cleanup
 Patch8:         encoder-rename.patch
@@ -258,6 +258,7 @@ Header files for Open Broadcaster Software
 %files devel
 %{_libdir}/cmake/libobs/
 %{_libdir}/cmake/obs-frontend-api/
+%{_libdir}/cmake/obs-websocket-api/
 %{_libdir}/pkgconfig/libobs.pc
 %{_includedir}/obs/
 
@@ -382,8 +383,7 @@ cp plugins/obs-qsv11/obs-qsv11-LICENSE.txt .fedora-rpm/licenses/plugins/
 %if ! %{with lua_scripting}
        -DDISABLE_LUA=ON \
 %endif
-       -DOpenGL_GL_PREFERENCE=GLVND \
-       -Wno-dev
+       -DOpenGL_GL_PREFERENCE=GLVND
 %cmake_build
 
 
