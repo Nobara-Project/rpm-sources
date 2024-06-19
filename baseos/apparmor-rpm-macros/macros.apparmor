@@ -1,0 +1,11 @@
+%apparmor_reload()\
+	if [ "$YAST_IS_RUNNING" != "instsys" -a -x /usr/bin/systemd-detect-virt -a -x /usr/bin/systemctl ]; then\
+                systemd-detect-virt --chroot --quiet \
+                NOT_IN_CHROOT=$? \
+                if [ $NOT_IN_CHROOT -gt 0 ]; then \
+			if /usr/bin/systemctl is-active --quiet apparmor.service; then\
+				/sbin/apparmor_parser -r -T -W %{?*} > /dev/null || :\
+			fi\
+		fi \
+	fi\
+%{nil}
