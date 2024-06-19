@@ -1,0 +1,27 @@
+diff --git a/release/release.go b/release/release.go
+index c4fbe3c..953ff3e 100644
+--- a/release/release.go
++++ b/release/release.go
+@@ -43,6 +43,9 @@ type OS struct {
+ // DistroLike checks if the distribution ID or ID_LIKE matches one of the given names.
+ func DistroLike(distros ...string) bool {
+ 	for _, distro := range distros {
++		if ReleaseInfo.ID == "nobara" {
++			ReleaseInfo.ID = "fedora"
++		}
+ 		if ReleaseInfo.ID == distro || strutil.ListContains(ReleaseInfo.IDLike, distro) {
+ 			return true
+ 		}
+diff --git a/cmd/autogen.sh b/cmd/autogen.sh
+index 21cdebc..5c73af9 100755
+--- a/cmd/autogen.sh
++++ b/cmd/autogen.sh
+@@ -42,7 +42,7 @@ case "$ID" in
+ 		fi
+ 		;;
+ 	fedora|centos|rhel)
+-		extra_opts="--libexecdir=/usr/libexec/snapd --with-snap-mount-dir=/var/lib/snapd/snap --enable-merged-usr --disable-apparmor --enable-selinux"
++		extra_opts="--libexecdir=/usr/libexec/snapd --with-snap-mount-dir=/var/lib/snapd/snap --enable-apparmor --enable-merged-usr"
+ 		;;
+ 	opensuse-tumbleweed)
+ 		  extra_opts="--libexecdir=/usr/libexec/snapd --enable-nvidia-biarch --with-32bit-libdir=/usr/lib --enable-merged-usr"
