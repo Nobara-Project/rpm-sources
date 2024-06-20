@@ -5,8 +5,8 @@
 
 Name:    plasma-desktop
 Summary: Plasma Desktop shell
-Version: 6.0.5
-Release: 6%{?dist}
+Version: 6.1.0
+Release: 3%{?dist}
 
 License: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only)
 URL:     https://invent.kde.org/plasma/%{name}
@@ -15,6 +15,13 @@ Source0: https://download.kde.org/stable/plasma/%{version}/%{name}-%{version}.ta
 ## downstream patches
 # default kickoff/kicker favorites: +kwrite +konsole
 Patch100: plasma-desktop-5.90.0-default_favorites.patch
+
+# Hide virtual keyboard indicator on sddm.
+# Do not remove this as it breaks Fedora's QA policy
+Patch101:       hide-virtual-keyboard-indicator-on-sddm.patch
+
+
+Patch102:       0001-fix-no-longer-needed-password-view-disable.patch
 
 ## upstreamable patches
 
@@ -200,6 +207,29 @@ BuildArch: noarch
 %{summary}.
 
 
+%package -n sddm-breeze
+Summary:        SDDM breeze theme
+Requires:       kde-settings-sddm
+# upgrade path, when sddm-breeze was split out
+Obsoletes: plasma-workspace < 5.3.2-8
+# theme files from breeze plasma
+Requires:       libplasma
+# QML imports:
+# QtQuick.VirtualKeyboard
+Requires:       qt6-qtvirtualkeyboard
+# QML imports:
+# org.kde.plasma.breeze.components
+# org.kde.plasma.*
+# The dependency is with 3 version numbers due to upstream occasional respins containing an etra number (i.e: 6.0.5.1)
+Requires:       plasma-workspace = %{maj_ver_kf6}.%{min_ver_kf6}.%{bug_ver_kf6}
+# /usr/share/backgrounds/default.png
+Requires:       desktop-backgrounds-compat
+BuildArch: noarch
+
+%description -n sddm-breeze
+%{summary}.
+
+
 %prep
 %autosetup -p1
 
@@ -287,6 +317,9 @@ desktop-file-validate %{buildroot}/%{_datadir}/applications/kaccess.desktop
 %{_kf6_datadir}/locale/sr@latin/LC_SCRIPTS/kfontinst/kfontinst.js
 
 
+%files -n sddm-breeze
+%{_datadir}/sddm/themes/breeze/
+
 %if 0%{?scim}
 %files kimpanel-scim
 %{_libexecdir}/kimpanel-scim-panel
@@ -296,6 +329,21 @@ desktop-file-validate %{buildroot}/%{_datadir}/applications/kaccess.desktop
 
 
 %changelog
+* Tue Jun 18 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.0-3
+- Rebuild to sort dependencies with plasma-workspace
+
+* Tue Jun 18 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.0-2
+- Soften dependency on plasma-workspace
+
+* Thu Jun 13 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.0-1
+- 6.1.0
+
+* Fri May 24 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.0.90-1
+- 6.0.90
+
+* Wed May 22 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.0.5-1
+- 6.0.5
+
 * Tue Apr 16 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.0.4-1
 - 6.0.4
 

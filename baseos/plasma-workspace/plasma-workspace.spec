@@ -3,8 +3,8 @@
 
 Name:    plasma-workspace
 Summary: Plasma workspace, applications and applets
-Version: 6.0.5
-Release: 2%{?dist}
+Version: 6.1.0
+Release: 3%{?dist}
 
 License: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only) AND MIT
 URL:     https://invent.kde.org/plasma/%{name}
@@ -15,6 +15,7 @@ Source100:      kde
 Source101:      kde-fingerprint
 Source102:      kde-smartcard
 
+
 ## systemd user service dependencies
 ## (debating whether these be owned here or somewhere better...
 ## in the repective pkgs themselves? -- rdieter)
@@ -22,25 +23,16 @@ Source40:       ssh-agent.conf
 Source41:       spice-vdagent.conf
 
 ## upstream patches
-# backport rudimentary auto-launch apps on reboot from 6.1 (drop with 6.1)
-Patch101:       https://invent.kde.org/plasma/plasma-workspace/-/commit/660988b0e30ee8ccac98c0cf164b142d70709675.patch
 
 ## upstreamable Patches
 
 ## downstream Patches
 # default to enable open terminal action
-Patch106:       plasma-workspace-6.0.0-enable-open-terminal-action.patch
+Patch106:       plasma-workspace-5.27.80-enable-open-terminal-action.patch
 # default to enable the lock/logout actions
-Patch107:       plasma-workspace-6.0.0-enable-lock-logout-action.patch
-# Hide virtual keyboard indicator on sddm.
-# Do not remove this as it breaks Fedora's QA policy
-Patch108:       hide-virtual-keyboard-indicator-on-sddm.patch
+Patch107:       plasma-workspace-5.27.80-enable-lock-logout-action.patch
 # /usr/bin/qtpaths-qt6
 Patch109:       qtpaths-binary-name.patch
-
-# re-enable the view password button on sddm in breeze theme
-Patch110:	0001-fix-no-longer-needed-password-view-disable.patch
-Patch111:   4390.patch
 
 # udev
 BuildRequires:  zlib-devel
@@ -155,6 +147,7 @@ BuildRequires:  cmake(PlasmaActivitiesStats)
 #  but this file does not exist.
 BuildRequires:  qt6-qtbase-static
 BuildRequires:  cmake(Qt6Core5Compat)
+BuildRequires:  cmake(QCoro6)
 BuildRequires:  pkgconfig(libxcrypt)
 
 BuildRequires:  wayland-protocols-devel
@@ -350,26 +343,6 @@ Requires: %{name}-geolocation = %{version}-%{release}
 %description geolocation-libs
 %{summary}.
 
-%package -n sddm-breeze
-Summary:        SDDM breeze theme
-Requires:       kde-settings-sddm
-# upgrade path, when sddm-breeze was split out
-Obsoletes: plasma-workspace < 5.3.2-8
-# theme files from breeze plasma
-Requires:       libplasma
-# QML imports:
-# QtQuick.VirtualKeyboard
-Requires:       qt6-qtvirtualkeyboard
-# QML imports:
-# org.kde.plasma.workspace.components
-# org.kde.plasma.workspace.keyboardlayout
-Requires:       %{name} = %{version}-%{release}
-# /usr/share/backgrounds/default.png
-Requires:       desktop-backgrounds-compat
-BuildArch: noarch
-%description -n sddm-breeze
-%{summary}.
-
 %package -n sddm-wayland-plasma
 Summary:        Plasma Wayland SDDM greeter configuration
 Provides:       sddm-greeter-displayserver
@@ -388,6 +361,7 @@ BuildArch:      noarch
 %description -n sddm-wayland-plasma
 This package contains configuration and dependencies for SDDM
 to use KWin for the Wayland compositor for the greeter.
+
 
 %package wayland
 Summary:        Wayland support for Plasma
@@ -530,6 +504,7 @@ fi
 %{_kf6_datadir}/plasma/avatars/
 %{_kf6_datadir}/plasma/plasmoids/
 %{_kf6_datadir}/plasma/wallpapers/
+%{_kf6_datadir}/plasma/weather/noaa_station_list.xml
 %dir %{_kf6_datadir}/plasma/look-and-feel/
 %{_kf6_datadir}/plasma/look-and-feel/org.kde.breeze.desktop/
 %{_kf6_datadir}/plasma/look-and-feel/org.kde.breezedark.desktop/
@@ -563,6 +538,7 @@ fi
 %{_kf6_datadir}/applications/org.kde.plasmashell.desktop
 %{_kf6_datadir}/applications/org.kde.kcolorschemeeditor.desktop
 %{_kf6_datadir}/applications/org.kde.kfontview.desktop
+%{_kf6_datadir}/applications/org.kde.kfontinst.desktop
 %{_kf6_datadir}/applications/org.kde.plasmawindowed.desktop
 %{_kf6_datadir}/applications/org.kde.plasma-fallback-session-save.desktop
 %{_kf6_datadir}/kio/servicemenus/installfont.desktop
@@ -591,6 +567,7 @@ fi
 
 %files libs
 %{_sysconfdir}/xdg/taskmanagerrulesrc
+%{_libdir}/libbatterycontrol.so.*
 %{_libdir}/libcolorcorrect.so.*
 %{_libdir}/libtaskmanager.so.*
 %{_libdir}/libweather_ion.so.*
@@ -646,6 +623,7 @@ fi
 %{_libdir}/libplasma-geolocation-interface.so.*
 
 %files devel
+%{_libdir}/libbatterycontrol.so
 %{_libdir}/libcolorcorrect.so
 %{_libdir}/libweather_ion.so
 %{_libdir}/libtaskmanager.so
@@ -670,9 +648,6 @@ fi
 %{_includedir}/plasma5support/weather/ion_export.h
 %{_libdir}/libkmpris.so
 
-%files -n sddm-breeze
-%{_datadir}/sddm/themes/breeze/
-
 %files -n sddm-wayland-plasma
 %{_prefix}/lib/sddm/sddm.conf.d/plasma-wayland.conf
 
@@ -688,6 +663,21 @@ fi
 %endif
 
 %changelog
+* Tue Jun 18 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.0-3
+- Rebuild to sort dependencies with plasma-desktop
+
+* Tue Jun 18 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.0-2
+- Rebuild due to upstream re-spin
+
+* Thu Jun 13 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.0-1
+- 6.1.0
+
+* Fri May 24 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.0.90-1
+- 6.0.90
+
+* Wed May 22 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.0.5-1
+- 6.0.5
+
 * Tue Apr 16 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.0.4-1
 - 6.0.4
 

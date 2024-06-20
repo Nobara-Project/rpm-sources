@@ -2,14 +2,14 @@
 #define  prever_dot .rc3
 #define  postver    a
 
-%define version_alsa_lib  1.2.11
-%define version_alsa_ucm  1.2.11
+%define version_alsa_lib  1.2.12
+%define version_alsa_ucm  1.2.12
 %define version_alsa_tplg 1.2.5
 
 Summary:  The Advanced Linux Sound Architecture (ALSA) library
 Name:     alsa-lib
 Version:  %{version_alsa_lib}
-Release:  2%{?prever_dot}%{?dist}
+Release:  1%{?prever_dot}%{?dist}
 License:  LGPL-2.1-or-later
 URL:      http://www.alsa-project.org/
 
@@ -20,7 +20,7 @@ Source10: asound.conf
 Source11: modprobe-dist-alsa.conf
 Source12: modprobe-dist-oss.conf
 Source40: alsa-ucm-conf.patch
-Patch0:   alsa-git.patch
+#Patch0:   alsa-git.patch
 Patch1:   alsa-lib-1.2.3.1-config.patch
 Patch2:   alsa-lib-1.2.10-glibc-open.patch
 
@@ -70,7 +70,7 @@ contains alsa-lib configuration of SoC topology
 
 %prep
 %setup -q -n %{name}-%{version}%{?prever}%{?postver}
-%patch -P0 -p1 -b .alsa-git
+#patch -P0 -p1 -b .alsa-git
 %patch -P1 -p1 -b .config
 %patch -P2 -p1 -b .glibc-open
 
@@ -171,8 +171,17 @@ rm %{buildroot}/%{_datadir}/alsa/ucm2/conf.d/acp5x/Valve-Jupiter-1.conf
 %{_datadir}/alsa/topology
 
 %changelog
+* Mon Jun 10 2024 Jaroslav Kysela <perex@perex.cz> - 1.2.12-1
+- update to 1.2.12
+
 * Mon Jan 29 2024 Jaroslav Kysela <perex@perex.cz> - 1.2.11-2
 - update to 1.2.11
+
+* Mon Jan 22 2024 Fedora Release Engineering <releng@fedoraproject.org> - 1.2.10-5
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Fri Jan 19 2024 Fedora Release Engineering <releng@fedoraproject.org> - 1.2.10-4
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
 
 * Mon Sep  4 2023 Jaroslav Kysela <perex@perex.cz> - 1.2.10-3
 - fix control.h header file (ump)
