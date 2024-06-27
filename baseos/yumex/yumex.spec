@@ -2,12 +2,12 @@
 %global app_build release
 %global dnf_backend DNF4
 %global app_name yumex
-%global gitcommit 7a0e9d17518a0035629fdb80120000642a3b1020
-%global shortcommit 7a0e9d1
+%global gitcommit e66d6a635ea66756c0273e17514af670f3c668d3
+%global shortcommit e66d6a6
 
 Name:     %{app_name}
-Version:  5.0.0
-Release:  6.git.%{shortcommit}%{?dist}
+Version:  5.0.2
+Release:  1.git.%{shortcommit}%{?dist}
 Summary:  Yum Extender graphical package management tool
 
 Group:    Applications/System
@@ -17,7 +17,6 @@ Source0:  https://github.com/timlau/yumex-ng/archive/%{gitcommit}.zip#/%{name}-%
 Source1:  dk.yumex.Yumex.svg
 Patch0:   rename-desktop-shortcut.patch
 Patch1:   0001-add-nobara-update-system-button.patch
-Patch2:   0001-fix-memory-leak-in-yumex_updater_systray-service.patch
 
 BuildArch: noarch
 BuildRequires: python3-devel
