@@ -1,11 +1,11 @@
 diff --git a/profile b/profile
-index 542add4..d40ad1d 100644
+index de8e9ab..c49f584 100644
 --- a/profile
 +++ b/profile
-@@ -80,3 +80,38 @@ then
+@@ -83,3 +83,47 @@ then
     . /etc/bashrc
  fi
-
+ 
 +# workaround for input issue https://github.com/ibus/ibus/issues/2618
 +export IBUS_ENABLE_SYNC_MODE=2
 +
@@ -39,5 +39,14 @@ index 542add4..d40ad1d 100644
 +else
 +    if [[ -z $(cat $HOME/.config/discord/settings.json | grep SKIP_HOST_UPDATE) ]]; then
 +        sed -i '2i \  "SKIP_HOST_UPDATE": true,' $HOME/.config/discord/settings.json
++    fi
++fi
++
++if [[ $(which starship) == "/usr/bin/starship" ]]; then
++    eval "$(starship init bash)"
++    if [ ! -f $HOME/.config/starship.toml ]; then
++        if [ -f /usr/share/starship/starship.toml ]; then
++            cp /usr/share/starship/starship.toml $HOME/.config/
++        fi
 +    fi
 +fi
