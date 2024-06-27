@@ -1,5 +1,5 @@
 Name:    kde-cli-tools
-Version: 6.1.0
+Version: 6.1.1
 Release: 1%{?dist}
 Summary: Tools based on KDE Frameworks 5 to better interact with the system
 

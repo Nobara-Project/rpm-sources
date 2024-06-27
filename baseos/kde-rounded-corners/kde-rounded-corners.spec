@@ -1,4 +1,4 @@
-%global gitcommit d3d51c8fd05affa48bc27f0f01f8e5bc709eb4a8
+%global gitcommit d9fea2e41a27995f86fba334f06ecac4b798df63
 
 Name:           kde-rounded-corners
 Version:        0.6.6

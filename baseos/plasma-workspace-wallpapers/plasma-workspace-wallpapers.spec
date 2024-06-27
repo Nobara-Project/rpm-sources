@@ -1,11 +1,11 @@
 Name:    plasma-workspace-wallpapers
-Version: 6.1.0
+Version: 6.1.1
 Release: 1%{?dist}
 Summary: Additional wallpapers for Plasma workspace
 License: LGPLv3
 URL:     https://cgit.kde.org/%{name}.git
 
-Source0: https://download.kde.org/%{stable_kf6}/plasma/%{version}/%{name}-%{version}.tar.xz
+Source0: https://download.kde.org/stable/plasma/%{version}/%{name}-%{version}.tar.xz
 BuildArch: noarch
 
 BuildRequires:  extra-cmake-modules
