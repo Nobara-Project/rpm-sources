@@ -1,0 +1,15 @@
+diff --git a/src/remotedesktop.cpp b/src/remotedesktop.cpp
+index 36110a1..d16cf6a 100644
+--- a/src/remotedesktop.cpp
++++ b/src/remotedesktop.cpp
+@@ -183,10 +183,6 @@ uint RemoteDesktopPortal::Start(const QDBusObjectPath &handle,
+         Utils::setParentWindow(remoteDesktopDialog->windowHandle(), parent_window);
+         Request::makeClosableDialogRequest(handle, remoteDesktopDialog.get());
+         connect(session, &Session::closed, remoteDesktopDialog.data(), &RemoteDesktopDialog::reject);
+-
+-        if (!remoteDesktopDialog->exec()) {
+-            return 1;
+-        }
+     }
+ 
+     if (session->screenSharingEnabled()) {
