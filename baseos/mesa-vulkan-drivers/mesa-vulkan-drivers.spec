@@ -1,6 +1,6 @@
 %global _default_patch_fuzz 2
 
-%global commit 09277c7ea60f0852f70b195e304f6ff7ac1f393a
+%global commit 9b775d26c49e22dad5da1021ff0b63103669bcae
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build git.%{build_timestamp}.%{shortcommit}%{?dist}
@@ -83,9 +83,7 @@ Source1:        Mesa-MLAA-License-Clarification-Email.txt
 
 # Performance bumps
 # https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/25576
-# https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/29580
 Patch2: 25576.patch
-Patch3: 29580.patch
 
 # https://gitlab.com/evlaV/mesa/
 Patch4: valve.patch
