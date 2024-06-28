@@ -7,7 +7,7 @@
 
 Name:     %{app_name}
 Version:  5.0.3
-Release:  2.git.%{shortcommit}%{?dist}
+Release:  3.git.%{shortcommit}%{?dist}
 Summary:  Yum Extender graphical package management tool
 
 Group:    Applications/System
@@ -17,6 +17,7 @@ Source0:  https://github.com/timlau/yumex-ng/archive/%{gitcommit}.zip#/%{name}-%
 Source1:  dk.yumex.Yumex.svg
 Patch0:   rename-desktop-shortcut.patch
 Patch1:   0001-add-nobara-update-system-button.patch
+Patch2:   0001-fixup-service-unit-error.patch
 
 BuildArch: noarch
 BuildRequires: python3-devel
