@@ -7,7 +7,7 @@
 
 Name:     %{app_name}
 Version:  5.0.3
-Release:  3.git.%{shortcommit}%{?dist}
+Release:  4.git.%{shortcommit}%{?dist}
 Summary:  Yum Extender graphical package management tool
 
 Group:    Applications/System
@@ -39,6 +39,7 @@ Requires: flatpak-libs
 Requires: nobara-welcome
 Requires: python3-dbus
 Requires: libappindicator-gtk3
+Requires: python3-dasbus
 
 # dnf4 requirements
 %if "%{dnf_backend}" == "DNF4"
@@ -50,7 +51,6 @@ Requires: python3-dnf
 %if "%{dnf_backend}" == "DNF5"
 Requires: python3-libdnf5
 Requires: dnf5daemon-server
-Requires: python3-dasbus
 %endif
 
 Obsoletes: yumex-dnf <= 4.5.1

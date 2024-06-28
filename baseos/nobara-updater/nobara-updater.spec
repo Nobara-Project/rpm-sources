@@ -1,6 +1,6 @@
 Name:          nobara-updater
 Version:       1.0.0
-Release:       4%{?dist}
+Release:       5%{?dist}
 License:       GPL-3.0-or-later
 Summary:       Nobara System Updater
 
@@ -29,6 +29,7 @@ Requires: python3-libdnf5
 Requires: python3-packaging
 Requires: flatpak
 Requires: gtk3
+Requires: python3-dasbus
 
 Requires: akmods
 Requires: dracut
