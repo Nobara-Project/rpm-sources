@@ -1,6 +1,6 @@
 Name:          nobara-driver-manager
-Version:       1.0
-Release:       3%{?dist}
+Version:       1.1
+Release:       1%{?dist}
 License:       GPLv2
 Group:         System Environment/Libraries
 Summary:       Nobara's Driver Manager
@@ -25,7 +25,6 @@ Requires:	gtk3
 Requires:	gtk4
 Requires:	libadwaita
 Requires: 	glib2
-Provides:	nobara-sync
 
 # App Deps
 Requires:	python3-gobject

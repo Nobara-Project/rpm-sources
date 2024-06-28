@@ -1,6 +1,6 @@
 Name:          nobara-welcome
-Version:       5.0.1
-Release:       7%{?dist}
+Version:       5.0.2
+Release:       3%{?dist}
 License:       GPLv2
 Group:         System Environment/Libraries
 Summary:       Nobara's Welcome App
@@ -24,7 +24,6 @@ Requires:	gtk3
 Requires:	gtk4
 Requires:	libadwaita
 Requires: 	glib2
-Provides:	nobara-sync
 
 # App Deps
 Requires:	python3-gobject
@@ -44,6 +43,7 @@ Requires: 	libappindicator-gtk3
 Requires: 	python-cairosvg
 Requires: 	python-pillow
 Requires: 	python3-dbus
+Requires: 	nobara-updater
 
 # Gnome Deps
 Suggests:	gnome-tweaks
@@ -60,14 +60,18 @@ DESTDIR=%{buildroot} make install
 # for legacy updater to detect changes
 mkdir -p %{buildroot}%{_sysconfdir}/nobara/scripts/nobara-welcome/
 mkdir -p %{buildroot}%{_sysconfdir}/nobara/scripts/nobara-updater/
-ln -s /usr/lib/nobara/nobara-welcome/scripts/updater/nobara-sync.sh %{buildroot}%{_sysconfdir}/nobara/scripts/nobara-welcome/updater.sh
-ln -s /usr/lib/nobara/nobara-welcome/scripts/updater/nobara-sync.sh %{buildroot}%{_sysconfdir}/nobara/scripts/nobara-updater/nobara-sync.sh
-
+ln -s /usr/lib/nobara/nobara-welcome/scripts/update-manager.sh %{buildroot}%{_sysconfdir}/nobara/scripts/nobara-welcome/updater.sh
+ln -s /usr/lib/nobara/nobara-welcome/scripts/update-manager.sh %{buildroot}%{_sysconfdir}/nobara/scripts/nobara-updater/nobara-sync.sh
+mkdir -p %{buildroot}%{_prefix}/lib/nobara/nobara-welcome/scripts/updater/
+cat << 'EOF' > %{buildroot}%{_prefix}/lib/nobara/nobara-welcome/scripts/updater/nobara-sync.sh
+#!/bin/bash
+echo "THE UPDATE SYSTEM APP HAS RECEIVED A MAJOR UPDATE. PLEASE CLOSE THIS WINDOW AND RUN THE UPDATE SYSTEM APP AGAIN."
+EOF
+chmod +x %{buildroot}%{_prefix}/lib/nobara/nobara-welcome/scripts/updater/nobara-sync.sh
 
 %description
 Nobara's Python3 & GTK3 built Welcome App
 %files
-%{_prefix}/lib/nobara/nobara-welcome/scripts/updater/*
 %{_prefix}/lib/nobara/nobara-welcome/scripts/*
 %{_bindir}/*
 %{_datadir}/applications/*
@@ -81,28 +85,3 @@ Nobara's Python3 & GTK3 built Welcome App
 
 %post
 glib-compile-schemas /usr/share/glib-2.0/schemas/
-%systemd_user_post nobara-updater-systray.service
-
-%posttrans
-# Debug statement to verify %posttrans execution
-echo "Running %posttrans scriptlet"
-
-# Iterate over all user sessions
-for session in $(loginctl list-sessions --no-legend | awk '{print $1}'); do
-    uid=$(loginctl show-session $session -p User --value)
-    user=$(getent passwd $uid | cut -d: -f1)
-
-    # Debug statement to verify user and UID
-    echo "Restarting service for user $user with UID $uid"
-
-    # Set environment variables for the user session
-    XDG_RUNTIME_DIR="/run/user/$uid"
-    DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
-
-    # Restart the user service for each user session
-    su - $user -c "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS systemctl --user daemon-reload" || echo "Failed to perform daemon-reload for user $user"
-    su - $user -c "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS systemctl --user stop nobara-updater-systray.service" || echo "Failed to restart service for user $user"
-done
-
-%preun
-%systemd_user_preun nobara-updater-systray.service
