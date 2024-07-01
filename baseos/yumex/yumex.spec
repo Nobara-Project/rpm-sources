@@ -2,22 +2,21 @@
 %global app_build release
 %global dnf_backend DNF4
 %global app_name yumex
-%global gitcommit 519933c70c18237b02584b2d08cc010bbb9e719b
-%global shortcommit 519933c
+%global gitcommit 01c576ecde907773b4a47bdb000d54e0a8fd2b1b
+%global shortcommit 01c576e
 
 Name:     %{app_name}
 Version:  5.0.3
-Release:  4.git.%{shortcommit}%{?dist}
+Release:  7.git.%{shortcommit}%{?dist}
 Summary:  Yum Extender graphical package management tool
 
 Group:    Applications/System
 License:  GPLv3+
 URL:      http://yumex.dk
 Source0:  https://github.com/timlau/yumex-ng/archive/%{gitcommit}.zip#/%{name}-%{shortcommit}.tar.gz
-Source1:  dk.yumex.Yumex.svg
+Source1:  nobara.package.manager.svg
 Patch0:   rename-desktop-shortcut.patch
 Patch1:   0001-add-nobara-update-system-button.patch
-Patch2:   0001-fixup-service-unit-error.patch
 
 BuildArch: noarch
 BuildRequires: python3-devel
@@ -76,8 +75,8 @@ desktop-file-validate %{buildroot}/%{_datadir}/applications/%{app_id}.desktop
 %install
 %meson_install
 
-# Add nobara-sync as custom_updater option
-sed -i 's|custom_updater=|custom_updater=/usr/bin/nobara-sync|g'  %{buildroot}/%{_datadir}/yumex/yumex-service.conf
+# Add nobara-updater as custom_updater option
+sed -i 's|custom_updater=|custom_updater=/usr/bin/nobara-updater|g'  %{buildroot}/%{_datadir}/yumex/yumex-service.conf
 
 %find_lang %name
 

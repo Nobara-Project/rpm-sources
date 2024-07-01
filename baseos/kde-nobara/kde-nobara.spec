@@ -1,6 +1,6 @@
 Name:           kde-nobara
 Version:        6.1.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        KDE Presets from NobaraProject Official
 License:    	GPLv2
 URL:            https://github.com/nobara-project/nobara-core-packages
@@ -9,7 +9,7 @@ BuildArch:      noarch
 
 Requires:		kde-filesystem
 Requires:       papirus-icon-theme
-Requires:       kde-rounded-corners
+Requires:       papirus-icon-theme-dark
 Requires:       starship
 Provides:       kde-nobara
 Provides: plasma-lookandfeel-nobara
@@ -61,10 +61,8 @@ Nobara sddm theme
 %build
 
 %install
-mkdir -p %{buildroot}%{_bindir}/
 mkdir -p %{buildroot}%{_datadir}/
 mkdir -p %{buildroot}%{_sysconfdir}/
-cp -rv usr/bin/* %{buildroot}%{_bindir}
 cp -rv usr/share/* %{buildroot}%{_datadir}
 cp -rv etc/* %{buildroot}%{_sysconfdir}
 
@@ -81,7 +79,6 @@ cp -rv etc/* %{buildroot}%{_sysconfdir}
 # are going to be installed into target system where the rpm is installed.
 %files
 %license LICENSE
-%{_bindir}/nobara-gtk
 %{_datadir}/color-schemes/Nobara.colors
 %{_datadir}/konsole/Nobara.colorscheme
 %{_datadir}/konsole/Nobara.profile
