@@ -67,7 +67,7 @@ Name:           %{srcname}-freeworld
 Summary:        Mesa graphics libraries
 %global ver 24.1.2
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
-Release:        2%{?dist}
+Release:        6%{?dist}
 License:        MIT
 URL:            http://www.mesa3d.org
 
@@ -78,6 +78,14 @@ Source0:        https://archive.mesa3d.org/%{srcname}-%{ver}.tar.xz
 Source1:        Mesa-MLAA-License-Clarification-Email.txt
 Source2:        org.mesa3d.vaapi.freeworld.metainfo.xml
 Source3:        org.mesa3d.vdpau.freeworld.metainfo.xml
+
+Patch0:         gnome-shell-glthread-disable.patch
+
+Patch1:        0001-llvmpipe-Init-eglQueryDmaBufModifiersEXT-num_modifie.patch
+Patch2:        0001-Revert-ac-radeonsi-remove-has_syncobj-has_fence_to_h.patch
+
+# s390x only
+Patch3:       fix-egl-on-s390x.patch
 
 BuildRequires:  meson >= 1.3.0
 BuildRequires:  gcc
