@@ -1,4 +1,4 @@
-%define commit 89a49751ffbeeed0beeba21ee9ba7fd7c94ce78f
+%define commit 86b84b754c0623c9cf76a0387043c2250dc36330
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 %global build_timestamp %(date +"%Y%m%d")
@@ -21,6 +21,7 @@ BuildRequires:  gcc-c++
 BuildRequires:  scdoc
 BuildRequires:  git
 
+Requires: python3-xlib
 
 %description
 %{name} A tool for launching non-steam games with proton
@@ -44,6 +45,7 @@ make DESTDIR=%{buildroot} install
 %{_bindir}/umu-run
 %{_datadir}/man/*
 %{_datadir}/umu/*
+%{_datadir}/steam/compatibilitytools.d/umu-launcher/
 
 %changelog
 
