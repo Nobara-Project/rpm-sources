@@ -1,18 +1,15 @@
 %global _firmwarepath   /usr/lib/firmware
 %define __os_install_post %{nil}
+%global _upstreamtag 1
+%global valvever 20240605.1
 
 Summary: Steam Deck OLED firmware for wifi and bluetooth
 Name: steamdeck-firmware
 Version: 1.0
-Release: 3%{?dist}
+Release: 5.%{valvever}%{?dist}
 License: Public Domain
 Group: System Environment/Base
-Source0: https://gitlab.com/evlaV/linux-firmware-neptune/-/archive/jupiter-20231113.1/linux-firmware-neptune-jupiter-20231113.1.tar.gz?path=ath11k/QCA206X#/ath11k.tar.gz
-Source1: https://gitlab.com/evlaV/linux-firmware-neptune/-/raw/jupiter-20231113.1/qca/hpbtfw21.tlv
-Source2: https://gitlab.com/evlaV/linux-firmware-neptune/-/raw/jupiter-20231113.1/qca/hpnv21.309
-Source3: https://gitlab.com/evlaV/linux-firmware-neptune/-/raw/jupiter-20231113.1/qca/hpnv21.bin
-Source4: https://gitlab.com/evlaV/linux-firmware-neptune/-/raw/jupiter-20231113.1/qca/hpnv21g.309
-Source5: https://gitlab.com/evlaV/linux-firmware-neptune/-/raw/jupiter-20231113.1/qca/hpnv21g.bin
+Source0: https://steamdeck-packages.steamos.cloud/archlinux-mirror/jupiter-main/os/x86_64/linux-firmware-neptune-jupiter.%{valvever}-%{_upstreamtag}-any.pkg.tar.zst
 
 BuildArch: noarch
 BuildRequires: filesystem
@@ -27,24 +24,40 @@ This package contains Steam Deck OLED firmware for wifi and bluetooth
 tar --strip-components 1 -xvf %{SOURCE0}
 rm -rf %{buildroot}
 
-install -d %{buildroot}%{_firmwarepath}/ath11k/QCA206X/hw2.1/
-install -m 0644 ath11k/QCA206X/hw2.1/Data.msc %{buildroot}%{_firmwarepath}/ath11k/QCA206X/hw2.1/Data.msc
-install -m 0644 ath11k/QCA206X/hw2.1/amss.bin %{buildroot}%{_firmwarepath}/ath11k/QCA206X/hw2.1/amss.bin
-install -m 0644 ath11k/QCA206X/hw2.1/board-2.bin %{buildroot}%{_firmwarepath}/ath11k/QCA206X/hw2.1/board-2.bin
-install -m 0644 ath11k/QCA206X/hw2.1/board.bin %{buildroot}%{_firmwarepath}/ath11k/QCA206X/hw2.1/board.bin
-install -m 0644 ath11k/QCA206X/hw2.1/boardg.bin %{buildroot}%{_firmwarepath}/ath11k/QCA206X/hw2.1/boardg.bin
-install -m 0644 ath11k/QCA206X/hw2.1/m3.bin %{buildroot}%{_firmwarepath}/ath11k/QCA206X/hw2.1/m3.bin
-install -m 0644 ath11k/QCA206X/hw2.1/regdb.bin %{buildroot}%{_firmwarepath}/ath11k/QCA206X/hw2.1/regdb.bin
+# Create necessary directories in buildroot
+install -d %{buildroot}%{_firmwarepath}/ath11k/QCA2066/hw2.1/
+install -m 0644 %{_builddir}/lib/firmware/ath11k/QCA206X/hw2.1/amss.bin.zst %{buildroot}%{_firmwarepath}/ath11k/QCA2066/hw2.1/amss.bin.zst
+install -m 0644 %{_builddir}/lib/firmware/ath11k/QCA206X/hw2.1/board-2.bin.zst %{buildroot}%{_firmwarepath}/ath11k/QCA2066/hw2.1/board-2.bin.zst
+install -m 0644 %{_builddir}/lib/firmware/ath11k/QCA206X/hw2.1/board.bin.zst %{buildroot}%{_firmwarepath}/ath11k/QCA2066/hw2.1/board.bin.zst
+install -m 0644 %{_builddir}/lib/firmware/ath11k/QCA206X/hw2.1/boardg.bin.zst %{buildroot}%{_firmwarepath}/ath11k/QCA2066/hw2.1/boardg.bin.zst
+install -m 0644 %{_builddir}/lib/firmware/ath11k/QCA206X/hw2.1/m3.bin.zst %{buildroot}%{_firmwarepath}/ath11k/QCA2066/hw2.1/m3.bin.zst
+install -m 0644 %{_builddir}/lib/firmware/ath11k/QCA206X/hw2.1/regdb.bin.zst %{buildroot}%{_firmwarepath}/ath11k/QCA2066/hw2.1/regdb.bin.zst
 
 install -d %{buildroot}%{_firmwarepath}/qca/
-install -m 0644 %{SOURCE1} %{buildroot}%{_firmwarepath}/qca/hpbtfw21.tlv
-install -m 0644 %{SOURCE2} %{buildroot}%{_firmwarepath}/qca/hpnv21.309
-install -m 0644 %{SOURCE3} %{buildroot}%{_firmwarepath}/qca/hpnv21.bin
-install -m 0644 %{SOURCE4} %{buildroot}%{_firmwarepath}/qca/hpnv21g.309
-install -m 0644 %{SOURCE5} %{buildroot}%{_firmwarepath}/qca/hpnv21g.bin
+install -m 0644 %{_builddir}/lib/firmware/qca/hpbtfw21.tlv.zst %{buildroot}%{_firmwarepath}/qca/hpbtfw21.tlv.zst
+install -m 0644 %{_builddir}/lib/firmware/qca/hpnv21.309.zst %{buildroot}%{_firmwarepath}/qca/hpnv21.309.zst
+install -m 0644 %{_builddir}/lib/firmware/qca/hpnv21.bin.zst %{buildroot}%{_firmwarepath}/qca/hpnv21.bin.zst
+install -m 0644 %{_builddir}/lib/firmware/qca/hpnv21g.309.zst %{buildroot}%{_firmwarepath}/qca/hpnv21g.309.zst
+install -m 0644 %{_builddir}/lib/firmware/qca/hpnv21g.bin.zst %{buildroot}%{_firmwarepath}/qca/hpnv21g.bin.zst
 
-rm -rf %{SOURCE0}
+# Decompress each .zst file and remove the compressed archive
+find %{buildroot}%{_firmwarepath}/ath11k/QCA2066/hw2.1/ -name '*.zst' -exec zstd -d {} --rm \;
+find %{buildroot}%{_firmwarepath}/qca/ -name '*.zst' -exec zstd -d {} --rm \;
 
+# Handle symlink creation
+%post
+if [ ! -L %{_firmwarepath}/ath11k/QCA206X ]; then
+    ln -s QCA2066 %{_firmwarepath}/ath11k/QCA206X
+fi
+
+%preun
+if [ $1 -eq 0 ]; then # Only execute on removal, not upgrade
+    if [ -L %{_firmwarepath}/ath11k/QCA206X ]; then
+        rm -f %{_firmwarepath}/ath11k/QCA206X
+    elif [ -d %{_firmwarepath}/ath11k/QCA206X ]; then
+        rm -rf %{_firmwarepath}/ath11k/QCA206X
+    fi
+fi
 
 %files
 %{_firmwarepath}/qca/*
@@ -52,6 +65,7 @@ rm -rf %{SOURCE0}
 
 
 %changelog
+* Sat May 25 2024 Matthew Schwartz <njtransit215@gmail.com> - 20240503.1
+- New version 20240503.1, switch to upstream Valve package instead of evlaV
 * Thu Nov 25 2021 Thomas Crider <gloriouseggroll@gmail.com> - 1.0.0
 - New version v1.0.0
-

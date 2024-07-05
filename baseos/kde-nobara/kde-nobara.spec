@@ -1,6 +1,6 @@
 Name:           kde-nobara
 Version:        6.1.1
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        KDE Presets from NobaraProject Official
 License:    	GPLv2
 URL:            https://github.com/nobara-project/nobara-core-packages
@@ -10,6 +10,7 @@ BuildArch:      noarch
 Requires:		kde-filesystem
 Requires:       papirus-icon-theme
 Requires:       papirus-icon-theme-dark
+Requires:       papirus-folders
 Requires:       starship
 Provides:       kde-nobara
 Provides: plasma-lookandfeel-nobara

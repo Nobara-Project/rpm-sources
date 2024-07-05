@@ -1,6 +1,6 @@
 Name:          nobara-updater
 Version:       1.0.0
-Release:       14%{?dist}
+Release:       18%{?dist}
 License:       GPL-3.0-or-later
 Summary:       Nobara System Updater
 
@@ -54,16 +54,12 @@ Nobara System Updater.
 %build
 make all DESTDIR=%{buildroot}
 
-# Legacy, remove in future
-cp %{buildroot}%{_datadir}/applications/nobara-updater.desktop %{buildroot}%{_datadir}/applications/nobara-sync.desktop
-
 %files
 %license %{_datadir}/licenses/nobara-updater/LICENSE
 %{python3_sitelib}/nobara_updater/
 %{_bindir}/nobara-sync
 %{_bindir}/nobara-updater
 %{_datadir}/applications/nobara-updater.desktop
-%{_datadir}/applications/nobara-sync.desktop
 %{_datadir}/icons/hicolor/64x64/apps/nobara-updater.svg
 
 %clean

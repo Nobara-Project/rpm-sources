@@ -1,13 +1,12 @@
 Name:           steamdeck-dsp
-Version:        0.0.git.1816.0520dcba
+Version:        0.49.2
 Release:        1%{?dist}
 Summary:        Steamdeck Audio Processing
 License:        GPLv2
 URL:            https://github.com/ublue-os/bazzite
-Source:         https://gitlab.com/evlaV/valve-hardware-audio-processing/-/archive/main/valve-hardware-audio-processing-main.tar.gz
-
+Source0:        https://gitlab.com/evlaV/valve-hardware-audio-processing/-/archive/main/valve-hardware-audio-processing-main.tar.gz
 Patch0:         fedora.patch
-Patch1:         bazzite.patch
+Patch1:         nobara.patch
 
 Requires:       pipewire-module-filter-chain-lv2
 Requires:       ladspa-noise-suppression-for-voice
@@ -41,10 +40,7 @@ mkdir -p %{buildroot}%{_datadir}/licenses/%{name}/
 cp LICENSE %{buildroot}%{_datadir}/licenses/%{name}/LICENSE
 xz --check=crc32 %{buildroot}%{_prefix}/lib/firmware/amd/sof/*
 xz --check=crc32 %{buildroot}%{_prefix}/lib/firmware/amd/sof-tplg/*
-rm -f %{buildroot}%{_unitdir}/multi-user.target.wants/wireplumber-sysconf.service
 rm -f %{buildroot}%{_sysconfdir}/wireplumber
-rm -f %{buildroot}%{_unitdir}/multi-user.target.wants/pipewire-sysconf.service
-rm -f %{buildroot}%{_sysconfdir}/pipewire
 mkdir -p %{buildroot}%{_libexecdir}/hwsupport
 mv %{buildroot}%{_datadir}/wireplumber/hardware-profiles/wireplumber-hwconfig %{buildroot}%{_libexecdir}/hwsupport/wireplumber-hwconfig
 mv %{buildroot}%{_datadir}/pipewire/hardware-profiles/pipewire-hwconfig %{buildroot}%{_libexecdir}/hwsupport/pipewire-hwconfig
@@ -58,15 +54,17 @@ rm %{buildroot}%{_datadir}/pipewire/hardware-profiles/default
 %{_prefix}/lib/firmware/amd/*
 %{_libexecdir}/hwsupport/wireplumber-hwconfig
 %{_libexecdir}/hwsupport/pipewire-hwconfig
-%{_libdir}/lv2/valve_*
+%{_libdir}/lv2/*
 %{_datadir}/alsa/ucm2/conf.d/acp5x/*.conf
 %{_datadir}/alsa/ucm2/conf.d/sof-nau8821-max/*.conf
 %{_datadir}/wireplumber/hardware-profiles/*
 %{_datadir}/wireplumber/main.lua.d/*.lua
 %{_datadir}/wireplumber/scripts/*.lua
-%{_unitdir}/wireplumber-sysconf.service
 %{_datadir}/pipewire/hardware-profiles/*
+%{_unitdir}/wireplumber-sysconf.service
+%{_unitdir}/multi-user.target.wants/wireplumber-sysconf.service
 %{_unitdir}/pipewire-sysconf.service
+%{_unitdir}/multi-user.target.wants/pipewire-sysconf.service
 
 %post
 %systemd_post wireplumber-sysconf.service

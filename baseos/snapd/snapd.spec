@@ -3,8 +3,6 @@
 # To use bundled stuff, use "--with vendorized" on rpmbuild
 %bcond_with vendorized
 
-%bcond_with snap_symlink
-
 # A switch to allow building the package with support for testkeys which
 # are used for the spread test suite of snapd.
 %bcond_with testkeys
@@ -17,6 +15,7 @@
 %global with_check 0
 %global with_unit_test 0
 %global with_test_keys 0
+%global with_snap_symlink 1
 
 # For the moment, we don't support all golang arches...
 %global with_goarches 0
@@ -90,7 +89,7 @@
 
 Name:           snapd
 Version:        2.63
-Release:        0%{?dist}
+Release:        1%{?dist}
 Summary:        A transactional software package manager
 License:        GPLv3
 URL:            https://%{provider_prefix}
@@ -669,7 +668,7 @@ touch %{buildroot}%{_sharedstatedir}/snapd/state.json
 touch %{buildroot}%{_sharedstatedir}/snapd/snap/README
 
 # When enabled, create a symlink for /snap to point to /var/lib/snapd/snap
-%if %{with snap_symlink}
+%if 0%{?with_snap_symlink}
 ln -sr %{buildroot}%{_sharedstatedir}/snapd/snap %{buildroot}/snap
 %endif
 
@@ -805,7 +804,7 @@ popd
 %dir %{_localstatedir}/snap
 %ghost %{_sharedstatedir}/snapd/state.json
 %ghost %{_sharedstatedir}/snapd/snap/README
-%if %{with snap_symlink}
+%if 0%{?with_snap_symlink}
 /snap
 %endif
 # this is typically owned by zsh, but we do not want to explicitly require zsh

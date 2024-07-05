@@ -2,7 +2,7 @@
 ## (rpmautospec version 0.3.5)
 ## RPMAUTOSPEC: autorelease, autochangelog
 %define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
-    release_number = 6;
+    release_number = 1;
     base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
     print(release_number + base_release_number - 1);
 }%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
@@ -74,7 +74,7 @@
 
 Name:           mesa
 Summary:        Mesa graphics libraries
-%global ver 24.1.2
+%global ver 24.1.3
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
@@ -86,12 +86,6 @@ Source0:        https://gitlab.freedesktop.org/mesa/mesa/-/archive/mesa-%{ver}/m
 Source1:        Mesa-MLAA-License-Clarification-Email.txt
 
 Patch0:         gnome-shell-glthread-disable.patch
-
-Patch1:        0001-llvmpipe-Init-eglQueryDmaBufModifiersEXT-num_modifie.patch
-Patch2:        0001-Revert-ac-radeonsi-remove-has_syncobj-has_fence_to_h.patch
-
-# s390x only
-Patch3:       fix-egl-on-s390x.patch
 
 # Performance bump
 # https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/25576
