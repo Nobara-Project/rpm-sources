@@ -6,7 +6,7 @@
 Summary: Steam Deck OLED firmware for wifi and bluetooth
 Name: steamdeck-firmware
 Version: 1.0
-Release: 5.%{valvever}%{?dist}
+Release: 6.%{valvever}%{?dist}
 License: Public Domain
 Group: System Environment/Base
 Source0: https://steamdeck-packages.steamos.cloud/archlinux-mirror/jupiter-main/os/x86_64/linux-firmware-neptune-jupiter.%{valvever}-%{_upstreamtag}-any.pkg.tar.zst
@@ -19,6 +19,16 @@ Obsoletes: steamdeck-oled-firmware
 
 %description
 This package contains Steam Deck OLED firmware for wifi and bluetooth
+
+%pre
+# Check if directories exist and remove them before installation
+if [ -d "%{_firmwarepath}/ath11k/QCA2066" ]; then
+    rm -rf "%{_firmwarepath}/ath11k/QCA206X"
+fi
+
+if [ -d "%{_firmwarepath}/ath11k/QCA206X" ]; then
+    rm -rf "%{_firmwarepath}/ath11k/QCA2066"
+fi
 
 %install
 tar --strip-components 1 -xvf %{SOURCE0}
@@ -33,6 +43,15 @@ install -m 0644 %{_builddir}/lib/firmware/ath11k/QCA206X/hw2.1/boardg.bin.zst %{
 install -m 0644 %{_builddir}/lib/firmware/ath11k/QCA206X/hw2.1/m3.bin.zst %{buildroot}%{_firmwarepath}/ath11k/QCA2066/hw2.1/m3.bin.zst
 install -m 0644 %{_builddir}/lib/firmware/ath11k/QCA206X/hw2.1/regdb.bin.zst %{buildroot}%{_firmwarepath}/ath11k/QCA2066/hw2.1/regdb.bin.zst
 
+# for backwards compatibility with pre-6.9 kernels
+install -d %{buildroot}%{_firmwarepath}/ath11k/QCA206X/hw2.1/
+install -m 0644 %{_builddir}/lib/firmware/ath11k/QCA206X/hw2.1/amss.bin.zst %{buildroot}%{_firmwarepath}/ath11k/QCA206X/hw2.1/amss.bin.zst
+install -m 0644 %{_builddir}/lib/firmware/ath11k/QCA206X/hw2.1/board-2.bin.zst %{buildroot}%{_firmwarepath}/ath11k/QCA206X/hw2.1/board-2.bin.zst
+install -m 0644 %{_builddir}/lib/firmware/ath11k/QCA206X/hw2.1/board.bin.zst %{buildroot}%{_firmwarepath}/ath11k/QCA206X/hw2.1/board.bin.zst
+install -m 0644 %{_builddir}/lib/firmware/ath11k/QCA206X/hw2.1/boardg.bin.zst %{buildroot}%{_firmwarepath}/ath11k/QCA206X/hw2.1/boardg.bin.zst
+install -m 0644 %{_builddir}/lib/firmware/ath11k/QCA206X/hw2.1/m3.bin.zst %{buildroot}%{_firmwarepath}/ath11k/QCA206X/hw2.1/m3.bin.zst
+install -m 0644 %{_builddir}/lib/firmware/ath11k/QCA206X/hw2.1/regdb.bin.zst %{buildroot}%{_firmwarepath}/ath11k/QCA206X/hw2.1/regdb.bin.zst
+
 install -d %{buildroot}%{_firmwarepath}/qca/
 install -m 0644 %{_builddir}/lib/firmware/qca/hpbtfw21.tlv.zst %{buildroot}%{_firmwarepath}/qca/hpbtfw21.tlv.zst
 install -m 0644 %{_builddir}/lib/firmware/qca/hpnv21.309.zst %{buildroot}%{_firmwarepath}/qca/hpnv21.309.zst
@@ -44,20 +63,6 @@ install -m 0644 %{_builddir}/lib/firmware/qca/hpnv21g.bin.zst %{buildroot}%{_fir
 find %{buildroot}%{_firmwarepath}/ath11k/QCA2066/hw2.1/ -name '*.zst' -exec zstd -d {} --rm \;
 find %{buildroot}%{_firmwarepath}/qca/ -name '*.zst' -exec zstd -d {} --rm \;
 
-# Handle symlink creation
-%post
-if [ ! -L %{_firmwarepath}/ath11k/QCA206X ]; then
-    ln -s QCA2066 %{_firmwarepath}/ath11k/QCA206X
-fi
-
-%preun
-if [ $1 -eq 0 ]; then # Only execute on removal, not upgrade
-    if [ -L %{_firmwarepath}/ath11k/QCA206X ]; then
-        rm -f %{_firmwarepath}/ath11k/QCA206X
-    elif [ -d %{_firmwarepath}/ath11k/QCA206X ]; then
-        rm -rf %{_firmwarepath}/ath11k/QCA206X
-    fi
-fi
 
 %files
 %{_firmwarepath}/qca/*
