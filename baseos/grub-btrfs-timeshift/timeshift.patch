@@ -1,0 +1,21 @@
+--- grub-btrfs.path
++++ grub-btrfs.path
+@@ -1,12 +1,12 @@
+ [Unit]
+ Description=Monitors for new snapshots
+ DefaultDependencies=no
+-Requires=\x2esnapshots.mount
+-After=\x2esnapshots.mount
+-BindsTo=\x2esnapshots.mount
++Requires=run-timeshift-backup.mount
++After=run-timeshift-backup.mount
++BindsTo=run-timeshift-backup.mount
+ 
+ [Path]
+-PathModified=/.snapshots
++PathModified=/run/timeshift/backup/timeshift-btrfs/snapshots
+ 
+ [Install]
+-WantedBy=\x2esnapshots.mount
++WantedBy=run-timeshift-backup.mount
+\ No newline at end of file
