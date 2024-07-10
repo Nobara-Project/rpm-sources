@@ -2,12 +2,12 @@
 %global app_build release
 %global dnf_backend DNF4
 %global app_name yumex
-%global gitcommit 01c576ecde907773b4a47bdb000d54e0a8fd2b1b
-%global shortcommit 01c576e
+%global gitcommit 0247b7c548e4c5d900204c548a1997492e13a21f
+%global shortcommit 0247b7c
 
 Name:     %{app_name}
 Version:  5.0.3
-Release:  7.git.%{shortcommit}%{?dist}
+Release:  15.git.%{shortcommit}%{?dist}
 Summary:  Yum Extender graphical package management tool
 
 Group:    Applications/System
@@ -17,6 +17,8 @@ Source0:  https://github.com/timlau/yumex-ng/archive/%{gitcommit}.zip#/%{name}-%
 Source1:  nobara.package.manager.svg
 Patch0:   rename-desktop-shortcut.patch
 Patch1:   0001-add-nobara-update-system-button.patch
+Patch2:   0001-add-missing-update_metadata_timestamp-import.-Fixes-.patch
+Patch3:   0001-don-t-force-display-and-xauth-envvars-in-user-servic.patch
 
 BuildArch: noarch
 BuildRequires: python3-devel
@@ -64,6 +66,9 @@ Graphical package tool for maintain packages on the system
 %autosetup -n %{name}-ng-%{gitcommit} -p1
 cp %{SOURCE1} ./data/icons/hicolor/scalable/apps/
 
+# Add nobara-updater as custom_updater option
+sed -i 's|""|"/usr/bin/python3 /usr/bin/nobara-updater"|g'  data/dk.yumex.Yumex.gschema.xml.in
+
 %check
 appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/*.metainfo.xml
 desktop-file-validate %{buildroot}/%{_datadir}/applications/%{app_id}.desktop
@@ -74,9 +79,6 @@ desktop-file-validate %{buildroot}/%{_datadir}/applications/%{app_id}.desktop
 
 %install
 %meson_install
-
-# Add nobara-updater as custom_updater option
-sed -i 's|custom_updater=|custom_updater=/usr/bin/nobara-updater|g'  %{buildroot}/%{_datadir}/yumex/yumex-service.conf
 
 %find_lang %name
 
@@ -110,26 +112,6 @@ update-desktop-database %{_datadir}/applications &> /dev/null || :
 %posttrans
 /usr/bin/gtk-update-icon-cache -f %{_datadir}/icons/hicolor &>/dev/null || :
 %systemd_user_post yumex-updater-systray.service
-
-# Iterate over all user sessions
-for session in $(loginctl list-sessions --no-legend | awk '{print $1}'); do
-    uid=$(loginctl show-session $session -p User --value)
-    user=$(getent passwd $uid | cut -d: -f1)
-
-    # Debug statement to verify user and UID
-    echo "Applying preset and restarting service for user $user with UID $uid"
-
-    # Set environment variables for the user session
-    XDG_RUNTIME_DIR="/run/user/$uid"
-    DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
-
-    # Apply the preset for the user session
-    su - $user -c "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS systemctl --user preset yumex-updater-systray.service" || echo "Failed to apply preset for user $user"
-
-    # Reload the user daemon and restart the service
-    su - $user -c "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS systemctl --user daemon-reload" || echo "Failed to perform daemon-reload for user $user"
-    su - $user -c "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS systemctl --user restart yumex-updater-systray.service" || echo "Failed to restart service for user $user"
-done
 
 %preun
 %systemd_user_preun yumex-updater-systray.service

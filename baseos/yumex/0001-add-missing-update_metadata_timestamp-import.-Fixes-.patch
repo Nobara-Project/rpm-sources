@@ -1,0 +1,25 @@
+From 910f269da0da8bbe7daeea37ec2e81c41d043bf1 Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Wed, 10 Jul 2024 09:17:55 -0600
+Subject: [PATCH] add missing update_metadata_timestamp import. Fixes #88
+
+---
+ yumex/backend/dnf/dnf4.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/yumex/backend/dnf/dnf4.py b/yumex/backend/dnf/dnf4.py
+index b328879..f508efa 100644
+--- a/yumex/backend/dnf/dnf4.py
++++ b/yumex/backend/dnf/dnf4.py
+@@ -35,7 +35,7 @@ from yumex.utils.enums import (
+     InfoType,
+     PackageFilter,
+ )
+-from yumex.backend.dnf import YumexPackage, reload_metadata_expired
++from yumex.backend.dnf import YumexPackage, reload_metadata_expired, update_metadata_timestamp
+ 
+ 
+ def create_package(pkg, state=PackageState.AVAILABLE, action=PackageAction.NONE) -> YumexPackage:
+-- 
+2.45.2
+

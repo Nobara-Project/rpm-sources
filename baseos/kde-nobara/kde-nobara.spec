@@ -1,12 +1,13 @@
 Name:           kde-nobara
 Version:        6.1.1
-Release:        3%{?dist}
+Release:        8%{?dist}
 Summary:        KDE Presets from NobaraProject Official
 License:    	GPLv2
 URL:            https://github.com/nobara-project/nobara-core-packages
 Source0:        %{URL}/releases/download/1.0/kde-nobara.tar.gz
 BuildArch:      noarch
 
+BuildRequires: systemd-rpm-macros
 Requires:		kde-filesystem
 Requires:       papirus-icon-theme
 Requires:       papirus-icon-theme-dark
@@ -64,17 +65,25 @@ Nobara sddm theme
 %install
 mkdir -p %{buildroot}%{_datadir}/
 mkdir -p %{buildroot}%{_sysconfdir}/
+mkdir -p %{buildroot}%{_userunitdir}/
 cp -rv usr/share/* %{buildroot}%{_datadir}
+cp -rv usr/lib/systemd/* %{buildroot}%{_prefix}/lib/systemd/*
 cp -rv etc/* %{buildroot}%{_sysconfdir}
 
 # Do post-installation
 %post
+%systemd_user_post nobara-clean-theme-login.service
+%systemd_user_post nobara-clean-theme-logout.service
 
 # Do before uninstallation
 %preun
 
 # Do after uninstallation
 %postun
+
+%posttrans
+%systemd_user_post nobara-clean-theme-login.service
+%systemd_user_post nobara-clean-theme-logout.service
 
 # This lists all the files that are included in the rpm package and that
 # are going to be installed into target system where the rpm is installed.
@@ -96,7 +105,9 @@ cp -rv etc/* %{buildroot}%{_sysconfdir}
 %{_datadir}/themes/Nobara/settings.ini
 %{_datadir}/themes/Nobara/window_decorations.css
 %{_datadir}/icons/*
+%{_datadir}/polkit-1/*
 %{_datadir}/aurorae/*
+%{_prefix}/lib/systemd/*
 %{_sysconfdir}/*
 
 %files extras-wallpapers
