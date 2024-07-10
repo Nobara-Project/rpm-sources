@@ -1,6 +1,6 @@
 Name:           gamescope-session-plus
 Version:        0.2.git.201.5538cd66
-Release:        47%{?dist}
+Release:        52%{?dist}
 Summary:        Gamescope session plus based on Valve's gamescope
 
 License:        MIT
@@ -87,7 +87,7 @@ fi
 %{_sysconfdir}/xdg/autostart/deckscale.desktop
 %{_sysconfdir}/gamescope-session-plus/*
 %{_userunitdir}/gamescope-session-plus@.service
-%{_libexecdir}/gs-thirdparty-services
+%{_libexecdir}/*
 
 # Finally, changes from the latest release of your application are generated from
 # your project's Git history. It will be empty until you make first annotated Git tag.
