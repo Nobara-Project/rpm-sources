@@ -1,6 +1,6 @@
 %global majorversion 1
-%global minorversion 0
-%global microversion 7
+%global minorversion 2
+%global microversion 0
 
 %global apiversion   0.3
 %global spaversion   0.2
@@ -9,7 +9,7 @@
 %global ms_version   0.4.2
 
 # For rpmdev-bumpspec and releng automation
-%global baserelease 1
+%global baserelease 3
 
 #global snapdate   20210107
 #global gitcommit  b17db2cebc1a5ab2c01851d29c05f79cd2f262bb
@@ -76,14 +76,8 @@ Source0:        https://gitlab.freedesktop.org/pipewire/pipewire/-/archive/%{ver
 Source1:        pipewire.sysusers
 
 ## upstream patches
-
-# Holo: TODO: Bug reference
-Patch0:         bc435841c141ad38768b6cb1a7ad45e8bb13c7d2.patch
-# Holo: TODO: Bug reference
-Patch1:         acf7c0af0bf31b937c41e916a73c67ae0a253632.patch
-# Holo: upstream MR 1792
-Patch2:         0001-Bluez5-backend-native-HSP-AG-release-SCO-link-on-AT-.patch
-
+Patch0001:	0001-impl-node-fix-required-state-for-async-driver-nodes.patch
+Patch0002:	0001-context-Fix-node-collect-with-groups-and-sync-enable.patch
 
 ## upstreamable patches
 
@@ -435,6 +429,7 @@ cp %{SOURCE1} subprojects/packagefiles/
 %endif
     -D session-managers=[] 							\
     -D rtprio-server=60 -D rtprio-client=55 -D rlimits-rtprio=70		\
+    -D snap=disabled								\
     %{!?with_jack:-D pipewire-jack=disabled} 					\
     %{!?with_jackserver_plugin:-D jack=disabled} 				\
     %{!?with_libcamera_plugin:-D libcamera=disabled} 				\
@@ -486,11 +481,6 @@ install -d -m 0755 %{buildroot}%{_datadir}/pipewire/pipewire-pulse.conf.d/
 %endif
 
 %find_lang %{name}
-
-# upstream should use udev.pc
-mkdir -p %{buildroot}%{_prefix}/lib/udev/rules.d
-mv -fv %{buildroot}/lib/udev/rules.d/90-pipewire-alsa.rules %{buildroot}%{_prefix}/lib/udev/rules.d
-
 
 %check
 %meson_test || TESTS_ERROR=$?
@@ -562,6 +552,7 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 %{_libdir}/pipewire-%{apiversion}/libpipewire-module-metadata.so
 %{_libdir}/pipewire-%{apiversion}/libpipewire-module-netjack2-driver.so
 %{_libdir}/pipewire-%{apiversion}/libpipewire-module-netjack2-manager.so
+%{_libdir}/pipewire-%{apiversion}/libpipewire-module-parametric-equalizer.so
 %{_libdir}/pipewire-%{apiversion}/libpipewire-module-pipe-tunnel.so
 %{_libdir}/pipewire-%{apiversion}/libpipewire-module-portal.so
 %{_libdir}/pipewire-%{apiversion}/libpipewire-module-profiler.so
@@ -577,6 +568,7 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 %{_libdir}/pipewire-%{apiversion}/libpipewire-module-rtp-source.so
 %{_libdir}/pipewire-%{apiversion}/libpipewire-module-rt.so
 %{_libdir}/pipewire-%{apiversion}/libpipewire-module-session-manager.so
+%{_libdir}/pipewire-%{apiversion}/libpipewire-module-snapcast-discover.so
 %{_libdir}/pipewire-%{apiversion}/libpipewire-module-spa-device-factory.so
 %{_libdir}/pipewire-%{apiversion}/libpipewire-module-spa-device.so
 %{_libdir}/pipewire-%{apiversion}/libpipewire-module-spa-node-factory.so
@@ -628,6 +620,7 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 %{_mandir}/man7/libpipewire-module-metadata.7.gz
 %{_mandir}/man7/libpipewire-module-netjack2-driver.7.gz
 %{_mandir}/man7/libpipewire-module-netjack2-manager.7.gz
+%{_mandir}/man7/libpipewire-module-parametric-equalizer.7.gz
 %{_mandir}/man7/libpipewire-module-pipe-tunnel.7.gz
 %{_mandir}/man7/libpipewire-module-portal.7.gz
 %{_mandir}/man7/libpipewire-module-profiler.7.gz
@@ -645,6 +638,7 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 %{_mandir}/man7/libpipewire-module-rtp-sink.7.gz
 %{_mandir}/man7/libpipewire-module-rtp-source.7.gz
 %{_mandir}/man7/libpipewire-module-session-manager.7.gz
+%{_mandir}/man7/libpipewire-module-snapcast-discover.7.gz
 %{_mandir}/man7/libpipewire-module-vban-recv.7.gz
 %{_mandir}/man7/libpipewire-module-vban-send.7.gz
 %{_mandir}/man7/libpipewire-module-x11-bell.7.gz
@@ -670,6 +664,7 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 %{_bindir}/pw-cat
 %{_bindir}/pw-cli
 %{_bindir}/pw-config
+%{_bindir}/pw-container
 %{_bindir}/pw-dot
 %{_bindir}/pw-dsdplay
 %{_bindir}/pw-dump
@@ -689,6 +684,7 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 %{_mandir}/man1/pw-cat.1*
 %{_mandir}/man1/pw-cli.1*
 %{_mandir}/man1/pw-config.1*
+%{_mandir}/man1/pw-container.1*
 %{_mandir}/man1/pw-dot.1*
 %{_mandir}/man1/pw-dump.1*
 %{_mandir}/man1/pw-link.1*
@@ -766,6 +762,7 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 %{_datadir}/pipewire/pipewire-pulse.conf
 %dir %{_datadir}/pipewire/pipewire-pulse.conf.d/
 %{_datadir}/pipewire/pipewire-pulse.conf.avail/20-upmix.conf
+%{_datadir}/glib-2.0/schemas/org.freedesktop.pulseaudio.gschema.xml
 %{_libdir}/pipewire-%{apiversion}/libpipewire-module-protocol-pulse.so
 %{_mandir}/man1/pipewire-pulse.1*
 %{_mandir}/man5/pipewire-pulse.conf.5.gz
@@ -773,6 +770,8 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 %{_mandir}/man7/pipewire-pulse-module-alsa-source.7.gz
 %{_mandir}/man7/pipewire-pulse-module-always-sink.7.gz
 %{_mandir}/man7/pipewire-pulse-module-combine-sink.7.gz
+%{_mandir}/man7/pipewire-pulse-module-device-manager.7.gz
+%{_mandir}/man7/pipewire-pulse-module-device-restore.7.gz
 %{_mandir}/man7/pipewire-pulse-module-echo-cancel.7.gz
 %{_mandir}/man7/pipewire-pulse-module-gsettings.7.gz
 %{_mandir}/man7/pipewire-pulse-module-jackdbus-detect.7.gz
@@ -792,6 +791,7 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 %{_mandir}/man7/pipewire-pulse-module-rtp-recv.7.gz
 %{_mandir}/man7/pipewire-pulse-module-rtp-send.7.gz
 %{_mandir}/man7/pipewire-pulse-module-simple-protocol-tcp.7.gz
+%{_mandir}/man7/pipewire-pulse-module-stream-restore.7.gz
 %{_mandir}/man7/pipewire-pulse-module-switch-on-connect.7.gz
 %{_mandir}/man7/pipewire-pulse-module-tunnel-sink.7.gz
 %{_mandir}/man7/pipewire-pulse-module-tunnel-source.7.gz
@@ -835,6 +835,27 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 %endif
 
 %changelog
+* Mon Jul 1 2024 Wim Taymans <wtaymans@redhat.com> - 1.2.0-3
+- Add patch for Ardour export regresssion.
+
+* Mon Jul 1 2024 Wim Taymans <wtaymans@redhat.com> - 1.2.0-2
+- Add patch for KODI regresssion.
+
+* Thu Jun 27 2024 Wim Taymans <wtaymans@redhat.com> - 1.2.0-1
+- Update version to 1.2.0
+
+* Tue Jun 18 2024 Wim Taymans <wtaymans@redhat.com> - 1.1.83-1
+- Update version to 1.1.83
+
+* Fri May 24 2024 Wim Taymans <wtaymans@redhat.com> - 1.1.82-1
+- Update version to 1.1.82
+
+* Thu May 23 2024 Peter Robinson <pbrobinson@fedoraproject.org> - 1.1.81-2
+- Rebuild for libcamera 0.3
+
+* Thu May 16 2024 Wim Taymans <wtaymans@redhat.com> - 1.1.81-1
+- Update version to 1.1.81
+
 * Thu May 09 2024 Wim Taymans <wtaymans@redhat.com> - 1.0.6-1
 - Update version to 1.0.6
 
