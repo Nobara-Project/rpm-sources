@@ -1,6 +1,6 @@
 Name:           gamescope-session-steam
 Version:        0.2.git.201.5538cd66
-Release:        50%{?dist}
+Release:        52%{?dist}
 Summary:        Steam Deck Mode session
 
 License:        MIT
@@ -11,6 +11,7 @@ BuildArch:      noarch
 
 Requires:       gamescope-session-plus
 Requires:       gamescope
+Requires:       gamescope-htpc-common
 Requires:       edid-decode
 Requires:       python3
 Requires:       pulseaudio-utils
@@ -36,6 +37,7 @@ mkdir -p %{buildroot}%{_datadir}/
 mkdir -p %{buildroot}%{_datadir}/gamescope-session-plus/
 mkdir -p %{buildroot}%{_libexecdir}/
 mkdir -p %{buildroot}%{_sysconfdir}/skel/Desktop/
+mkdir -p %{buildroot}%{_sysconfdir}/skel/.config/autostart/
 cp -rv gamescope-session-steam/usr/bin/* %{buildroot}%{_bindir}
 cp -rv gamescope-session-steam/usr/share/* %{buildroot}%{_datadir}
 cp -rf gamescope-session-steam/usr/libexec/* %{buildroot}%{_libexecdir}/
@@ -75,7 +77,7 @@ tar -xf %{_datadir}/gamescope-session-plus/bootstraplinux_ubuntu12_32.tar.xz -C 
 %{_datadir}/icons/hicolor/scalable/actions/*
 %{_datadir}/icons/hicolor/scalable/places/*
 %{_datadir}/icons/breeze-dark/*
-%{_sysconfdir}/xdg/autostart/steam.desktop
+%{_sysconfdir}/skel/.config/autostart/steam.desktop
 %{_sysconfdir}/skel/Desktop/Return.desktop
 %{_libexecdir}/os-session-select
 

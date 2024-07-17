@@ -1,6 +1,6 @@
 %global _default_patch_fuzz 2
 
-%global commit e9f63df2f2c0dafe0997dd69b60b7da99b5d91f4
+%global commit 4b366685758fd69bb2497b954ccba628ee78bfc3
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build git.%{build_timestamp}.%{shortcommit}%{?dist}
@@ -89,6 +89,9 @@ Patch2: 25576.patch
 Patch4: valve.patch
 
 Patch10:        gnome-shell-glthread-disable.patch
+
+# https://gitlab.freedesktop.org/mesa/mesa/-/issues/11480
+Patch11:        0001-Revert-c452a4d-https-gitlab.freedesktop.org-mesa-mes.patch
 
 BuildRequires:  meson >= 1.3.0
 BuildRequires:  cbindgen

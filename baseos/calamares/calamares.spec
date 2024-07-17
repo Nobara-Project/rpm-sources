@@ -1,6 +1,6 @@
 Name:           calamares
 Version:        3.3.6
-Release:        6%{?dist}
+Release:        7%{?dist}
 Summary:        Installer from a live CD/DVD/USB to disk
 
 License:        GPL-3.0-or-later
@@ -189,6 +189,11 @@ sed -i '/^Icon/ s/calamares/org.fedoraproject.AnacondaInstaller/g' ./calamares.d
 sed -i '/^Icon\[.*$/d' ./calamares.desktop
 sed -i '/^Icon/ s/calamares/org.fedoraproject.AnacondaInstaller/g' ./calamares.desktop.in
 sed -i '/^Icon\[.*$/d' ./calamares.desktop.in
+
+sed -i '/^Name/ s/Install System/Install Nobara/g' ./calamares.desktop
+sed -i '/^Name\[.*$/d' ./calamares.desktop
+sed -i '/^Name/ s/Install System/Install Nobara/g' ./calamares.desktop.in
+sed -i '/^Name\[.*$/d' ./calamares.desktop.in
 
 %build
 %{cmake_kf6} -DCMAKE_BUILD_TYPE:STRING="RelWithDebInfo" \

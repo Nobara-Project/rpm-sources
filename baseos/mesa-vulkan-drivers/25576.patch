@@ -155,28 +155,12 @@ GitLab
 From 491f788180e331c0de493d7047c973b3fc60c788 Mon Sep 17 00:00:00 2001
 From: Faith Ekstrand <faith.ekstrand@collabora.com>
 Date: Thu, 5 Oct 2023 17:02:00 -0500
-Subject: [PATCH 4/7] vulkan,nvk: Add a vk_queue_submit_has_bind() helper
+Subject: [PATCH 4/7] vulkan: Add a vk_queue_submit_has_bind() helper
 
 ---
- src/nouveau/vulkan/nvk_queue_drm_nouveau.c | 4 +---
  src/vulkan/runtime/vk_queue.h              | 8 ++++++++
  2 files changed, 9 insertions(+), 3 deletions(-)
 
-diff --git a/src/nouveau/vulkan/nvk_queue_drm_nouveau.c b/src/nouveau/vulkan/nvk_queue_drm_nouveau.c
-index a0087df592a49..17c1323fc4068 100644
---- a/src/nouveau/vulkan/nvk_queue_drm_nouveau.c
-+++ b/src/nouveau/vulkan/nvk_queue_drm_nouveau.c
-@@ -594,9 +594,7 @@ nvk_queue_submit_drm_nouveau(struct nvk_queue *queue,
-    if (result != VK_SUCCESS)
-       return result;
- 
--   const bool is_vmbind = submit->buffer_bind_count > 0 ||
--                          submit->image_bind_count > 0  ||
--                          submit->image_opaque_bind_count > 0;
-+   const bool is_vmbind = vk_queue_submit_has_bind(submit);
-    push_builder_init(queue, &pb, is_vmbind);
- 
-    if (!is_vmbind && upload_time_point > 0)
 diff --git a/src/vulkan/runtime/vk_queue.h b/src/vulkan/runtime/vk_queue.h
 index 23e10d9365925..7d96a4c559d35 100644
 --- a/src/vulkan/runtime/vk_queue.h

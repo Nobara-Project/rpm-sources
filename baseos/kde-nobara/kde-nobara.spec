@@ -1,6 +1,6 @@
 Name:           kde-nobara
 Version:        6.1.1
-Release:        8%{?dist}
+Release:        9%{?dist}
 Summary:        KDE Presets from NobaraProject Official
 License:    	GPLv2
 URL:            https://github.com/nobara-project/nobara-core-packages
@@ -44,6 +44,7 @@ Nobara extra wallpapers
 
 %package sddm
 Provides: kde-nobara-sddm
+Provides: plasma-lookandfeel-nobara-sddm
 Obsoletes: plasma-lookandfeel-nobara-sddm
 
 Summary: Nobara sddm theme
