@@ -1,7 +1,7 @@
 %global libliftoff_minver 0.4.1
 
 # latest git
-%define commit 7b592acd7eb6f4aad7009e313f2178b70a3ca355
+%define commit 96f141d8b8453f9c28872e8ffc94a29d81d0758d
 
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global _default_patch_fuzz 2
@@ -10,7 +10,7 @@
 %global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           gamescope
-Version:        3.14.23
+Version:        3.14.24
 Release:        %{rel_build}
 Summary:        Micro-compositor for video games on Wayland
 
@@ -31,9 +31,12 @@ Patch3:         drm-Separate-BOE-and-SDC-OLED-Deck-panel-rates.patch
 # https://github.com/ValveSoftware/gamescope/issues/1369
 Patch4:         revert-299bc34.patch
 # https://github.com/ValveSoftware/gamescope/pull/1335
-Patch5:         1335.patch
+# causes coredumps and hang on switch to desktop, drop for now
+# Patch5:         1335.patch
 # https://github.com/ValveSoftware/gamescope/pull/1231
 Patch6:         1231.patch
+# https://github.com/ValveSoftware/gamescope/pull/1430
+Patch7:         v2-0001-always-send-ctrl-1-2-to-steam-s-wayland-session.patch
 
 BuildRequires:  meson >= 0.54.0
 BuildRequires:  ninja-build
@@ -120,7 +123,10 @@ sed -i 's^../thirdparty/SPIRV-Headers/include/spirv/^/usr/include/spirv/^' src/m
 %build
 cd gamescope
 export PKG_CONFIG_PATH=pkgconfig
-%meson -Dpipewire=enabled -Dinput_emulation=enabled -Ddrm_backend=enabled -Drt_cap=enabled -Davif_screenshots=enabled -Dsdl2_backend=enabled -Dforce_fallback_for=vkroots,wlroots,libliftoff
+%meson \
+    -Dpipewire=enabled \
+    --auto-features=enabled \
+    -Dforce_fallback_for=vkroots,wlroots,libliftoff
 %meson_build
 
 %install
