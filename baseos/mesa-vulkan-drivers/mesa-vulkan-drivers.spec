@@ -1,6 +1,6 @@
 %global _default_patch_fuzz 2
 
-%global commit 4b366685758fd69bb2497b954ccba628ee78bfc3
+%global commit fd83fc4bfb75b1c4d028ac3c2395ecb29f37fb53
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build git.%{build_timestamp}.%{shortcommit}%{?dist}
@@ -134,6 +134,7 @@ BuildRequires:  pkgconfig(xcb-xfixes)
 BuildRequires:  pkgconfig(xcb-randr)
 BuildRequires:  pkgconfig(xrandr) >= 1.3
 BuildRequires:  python3-pycparser
+BuildRequires:  python3-pyyaml
 BuildRequires:  bison
 BuildRequires:  flex
 BuildRequires:  lm_sensors-devel
@@ -163,6 +164,7 @@ BuildRequires:  (crate(proc-macro2) >= 1.0.56 with crate(proc-macro2) < 2)
 BuildRequires:  (crate(quote) >= 1.0.25 with crate(quote) < 2)
 BuildRequires:  (crate(syn/clone-impls) >= 2.0.15 with crate(syn/clone-impls) < 3)
 BuildRequires:  (crate(unicode-ident) >= 1.0.6 with crate(unicode-ident) < 2)
+BuildRequires:  rustfmt
 %endif
 %if %{with valgrind}
 BuildRequires:  pkgconfig(valgrind)
@@ -367,6 +369,9 @@ rm -Rf %{buildroot}%{_libdir}/dri/swrast_dri.so
 rm -Rf %{buildroot}%{_libdir}/dri/virtio_gpu_dri.so
 rm -Rf %{buildroot}%{_libdir}/dri/crocus_dri.so
 rm -Rf %{buildroot}%{_libdir}/dri/virtio_gpu_drv_video.so
+rm -Rf %{buildroot}%{_libdir}/dri/libdril_dri.so
+rm -Rf %{buildroot}%{_libdir}/dri/libgallium.so
+rm -Rf %{buildroot}%{_libdir}/dri/libgallium_drv_video.so
 rm -Rf %{buildroot}%{_libdir}/bellagio/libomx_mesa.so
 rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_nouveau.so.1*
 rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_r300.so.1*
@@ -375,6 +380,7 @@ rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_radeonsi.so.1*
 rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_virtio_gpu.so.1
 rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_virtio_gpu.so.1.0
 rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_virtio_gpu.so.1.0.0
+rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_gallium.so.1.0.0
 rm -Rf %{buildroot}%{_libdir}/libRusticlOpenCL*
 rm -Rf %{buildroot}%{_sysconfdir}/OpenCL/vendors/rusticl.icd
 %ifarch %{ix86}

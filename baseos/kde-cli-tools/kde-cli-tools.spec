@@ -1,6 +1,6 @@
 Name:    kde-cli-tools
 Version: 6.1.1
-Release: 1%{?dist}
+Release: 2%{?dist}
 Summary: Tools based on KDE Frameworks 5 to better interact with the system
 
 License: Artistic-2.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-only AND LGPL-3.0-only AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only)
