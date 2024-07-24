@@ -1,6 +1,6 @@
 Name:           gamescope-session-steam
 Version:        0.2.git.201.5538cd66
-Release:        52%{?dist}
+Release:        54%{?dist}
 Summary:        Steam Deck Mode session
 
 License:        MIT
@@ -45,12 +45,6 @@ cp -rv gamescope-session-steam/etc/* %{buildroot}%{_sysconfdir}
 mv gamescope-session-steam/LICENSE .
 wget https://steamdeck-packages.steamos.cloud/archlinux-mirror/jupiter-main/os/x86_64/steam-jupiter-stable-1.0.0.79-1-x86_64.pkg.tar.zst -O /tmp/steam-jupiter.pkg.tar.zst
 tar -I zstd -xvf /tmp/steam-jupiter.pkg.tar.zst usr/lib/steam/bootstraplinux_ubuntu12_32.tar.xz -O > %{buildroot}%{_datadir}/gamescope-session-plus/bootstraplinux_ubuntu12_32.tar.xz
-
-# Do post-installation
-%post
-# steam bootstrap needed for gamescope-session first-run
-mkdir -p %{_sysconfdir}/skel/.local/share/Steam
-tar -xf %{_datadir}/gamescope-session-plus/bootstraplinux_ubuntu12_32.tar.xz -C %{_sysconfdir}/skel/.local/share/Steam
 
 # Do before uninstallation
 %preun
