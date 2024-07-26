@@ -1,7 +1,7 @@
 %global libliftoff_minver 0.4.1
 
 # latest git
-%define commit 96f141d8b8453f9c28872e8ffc94a29d81d0758d
+%define commit 7ae5e0d2a75de06e267c47ca3cd3cddedd1d7416
 
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global _default_patch_fuzz 2
