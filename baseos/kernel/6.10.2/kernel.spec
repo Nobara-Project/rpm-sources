@@ -1012,10 +1012,11 @@ Patch209: tkg-0014-OpenRGB.patch
 # device specific patches
 Patch300: amdgpu-si-cik-default.patch
 # Waiting for rebase
-#Patch301: linux-surface.patch
+Patch301: linux-surface.patch
 Patch302: steam-deck.patch
 Patch303: asus-linux.patch
 Patch304: lenovo-legion-laptop.patch
+Patch314: ps-logitech-wheel.patch
 
 # CachyOS: https://github.com/CachyOS/kernel-patches
 Patch211: 0008-ntsync.patch
@@ -1914,10 +1915,11 @@ ApplyOptionalPatch tkg-0014-OpenRGB.patch
 # device specific patches
 #ApplyOptionalPatch amdgpu-si-cik-default.patch
 # Waiting for rebase
-#ApplyOptionalPatch linux-surface.patch
+ApplyOptionalPatch linux-surface.patch
 ApplyOptionalPatch steam-deck.patch
 ApplyOptionalPatch asus-linux.patch
 ApplyOptionalPatch lenovo-legion-laptop.patch
+ApplyOptionalPatch ps-logitech-wheel.patch
 
 # CachyOS: https://github.com/CachyOS/kernel-patches
 ApplyOptionalPatch 0008-ntsync.patch
