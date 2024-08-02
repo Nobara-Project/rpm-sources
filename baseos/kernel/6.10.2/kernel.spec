@@ -659,6 +659,7 @@ Requires: kernel-modules-uname-r = %{KVERREL}
 Requires: kernel-modules-core-uname-r = %{KVERREL}
 Provides: installonlypkg(kernel)
 %endif
+Requires: scx-scheds
 
 
 #
