@@ -1,6 +1,6 @@
 %global majorversion 1
 %global minorversion 2
-%global microversion 0
+%global microversion 1
 
 %global apiversion   0.3
 %global spaversion   0.2
@@ -9,7 +9,7 @@
 %global ms_version   0.4.2
 
 # For rpmdev-bumpspec and releng automation
-%global baserelease 3
+%global baserelease 2
 
 #global snapdate   20210107
 #global gitcommit  b17db2cebc1a5ab2c01851d29c05f79cd2f262bb
@@ -76,8 +76,6 @@ Source0:        https://gitlab.freedesktop.org/pipewire/pipewire/-/archive/%{ver
 Source1:        pipewire.sysusers
 
 ## upstream patches
-Patch0001:	0001-impl-node-fix-required-state-for-async-driver-nodes.patch
-Patch0002:	0001-context-Fix-node-collect-with-groups-and-sync-enable.patch
 
 ## upstreamable patches
 
@@ -835,6 +833,12 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 %endif
 
 %changelog
+* Fri Jul 19 2024 Fedora Release Engineering <releng@fedoraproject.org> - 1.2.1-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_41_Mass_Rebuild
+
+* Fri Jul 12 2024 Wim Taymans <wtaymans@redhat.com> - 1.2.1-1
+- Update version to 1.2.1
+
 * Mon Jul 1 2024 Wim Taymans <wtaymans@redhat.com> - 1.2.0-3
 - Add patch for Ardour export regresssion.
 
