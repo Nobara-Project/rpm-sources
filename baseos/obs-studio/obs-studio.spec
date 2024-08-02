@@ -32,21 +32,17 @@
 %global obsbrowser_commit 996b5a7bc43d912f1f4992e0032d4f263ac8b060
 %global cef_version 5060
 
-#global commit ad859a3f66daac0d30eebcc9b07b0c2004fb6040
-#global snapdate 202303261743
-#global shortcommit %(c=%{commit}; echo ${c:0:7})
-
-%define version_string 30.2.0
+%define version_string 30.2.2
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build %{build_timestamp}.%{shortcommit}%{?dist}
 %global _default_patch_fuzz 2
 # obs version and commit
-%define commit 77d31fa33fa25fc3b66f823776ddbd3c1b9b3c96
+%global commit 5854f3b9e5861246ea57dd4a26d3d847a8552c4b
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 Name:           obs-studio
 Version:        %{version_string}
-Release:        3.beta3.%{rel_build}
+Release:        1.%{rel_build}
 Summary:        Open Broadcaster Software Studio
 
 # OBS itself is GPL-2.0-or-later, while various plugin dependencies are of various other licenses
@@ -169,14 +165,16 @@ Recommends:     libopenh264.so.%{openh264_soversion}%{?lib64_suffix}
 Requires:       x264
 %endif
 
-Requires:	obs-studio-plugin-vkcapture
-Requires:	obs-studio-plugin-vkcapture(x86-32)
 Recommends:	mesa-va-drivers
 Recommends:	mesa-vdpau-drivers
 Requires:	obs-ndi
 Requires:	libndi-sdk
 Requires:	obs-studio-plugin-media-playlist-source
 Obsoletes:	obs-studio-plugin-vlc-video
+Requires:	obs-studio-plugin-background-removal
+Requires:	obs-studio-plugin-pipewire-audio-capture
+Requires:	obs-studio-plugin-vkcapture
+Requires:	obs-studio-plugin-vkcapture(x86-32)
 
 
 # Ensure QtWayland is installed when libwayland-client is installed
