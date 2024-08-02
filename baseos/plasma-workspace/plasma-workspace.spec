@@ -3,8 +3,8 @@
 
 Name:    plasma-workspace
 Summary: Plasma workspace, applications and applets
-Version: 6.1.1
-Release: 1%{?dist}
+Version: 6.1.3
+Release: 5%{?dist}
 
 License: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only) AND MIT
 URL:     https://invent.kde.org/plasma/%{name}
@@ -21,8 +21,6 @@ Source102:      kde-smartcard
 ## in the repective pkgs themselves? -- rdieter)
 Source40:       ssh-agent.conf
 Source41:       spice-vdagent.conf
-
-## upstream patches
 
 ## upstreamable Patches
 
@@ -663,6 +661,27 @@ fi
 %endif
 
 %changelog
+* Thu Jul 25 2024 Timothée Ravier <tim@siosm.fr> - 6.1.3-4
+- Backport patch for https://pagure.io/fedora-kde/SIG/issue/539
+
+* Wed Jul 24 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.3-3
+- rebuilt
+
+* Fri Jul 19 2024 Fedora Release Engineering <releng@fedoraproject.org> - 6.1.3-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_41_Mass_Rebuild
+
+* Tue Jul 16 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.3-1
+- 6.1.3
+
+* Sat Jul 06 2024 Mukundan Ragavan <nonamedotc@gmail.com> - 6.1.2-2
+- rebuild for libqalculate soname update
+
+* Wed Jul 03 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.2-1
+- 6.1.2
+
+* Tue Jun 25 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.1-1
+- 6.1.1
+
 * Tue Jun 18 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.0-3
 - Rebuild to sort dependencies with plasma-desktop
 
