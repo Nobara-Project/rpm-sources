@@ -42,7 +42,7 @@
 
 Name:           obs-studio
 Version:        %{version_string}
-Release:        1.%{rel_build}
+Release:        2.%{rel_build}
 Summary:        Open Broadcaster Software Studio
 
 # OBS itself is GPL-2.0-or-later, while various plugin dependencies are of various other licenses
@@ -171,7 +171,7 @@ Requires:	obs-ndi
 Requires:	libndi-sdk
 Requires:	obs-studio-plugin-media-playlist-source
 Obsoletes:	obs-studio-plugin-vlc-video
-Requires:	obs-studio-plugin-background-removal
+Requires:	obs-studio-plugin-backgroundremoval
 Requires:	obs-studio-plugin-pipewire-audio-capture
 Requires:	obs-studio-plugin-vkcapture
 Requires:	obs-studio-plugin-vkcapture(x86-32)
