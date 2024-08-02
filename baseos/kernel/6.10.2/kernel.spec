@@ -164,13 +164,13 @@ Summary: The Linux kernel
 %define specrpmversion 6.10.2
 %define specversion 6.10.2
 %define patchversion 6.10
-%define pkgrelease 200
+%define pkgrelease 201
 %define kversion 6
 %define tarfile_release 6.10.2
 # This is needed to do merge window version magic
 %define patchlevel 10
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease 200%{?buildid}%{?dist}
+%define specrelease 201%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 6.10.2
 
@@ -1048,6 +1048,8 @@ Patch410: bmi160_ayaneo.patch
 Patch501: 0001-Revert-PCI-Add-a-REBAR-size-quirk-for-Sapphire-RX-56.patch
 Patch502: 0001-acpi-proc-idle-skip-dummy-wait.patch
 Patch503: 0001-drm-amd-display-fix-corruption-with-high-refresh-rat.patch
+# workaround for https://gitlab.freedesktop.org/drm/amd/-/issues/3441 while AMD/Igalia invesigate
+Patch504: dcn32-dcn301-dcn321-mpo-reverts.patch
 
 # Allow to set custom USB pollrate for specific devices like so:
 # usbcore.interrupt_interval_override=045e:00db:16,1bcf:0005:1
@@ -1950,6 +1952,8 @@ ApplyOptionalPatch bmi160_ayaneo.patch
 ApplyOptionalPatch 0001-Revert-PCI-Add-a-REBAR-size-quirk-for-Sapphire-RX-56.patch
 ApplyOptionalPatch 0001-acpi-proc-idle-skip-dummy-wait.patch
 ApplyOptionalPatch 0001-drm-amd-display-fix-corruption-with-high-refresh-rat.patch
+# workaround for https://gitlab.freedesktop.org/drm/amd/-/issues/3441 while AMD/Igalia invesigate
+ApplyOptionalPatch dcn32-dcn301-dcn321-mpo-reverts.patch
 
 # Allow to set custom USB pollrate for specific devices like so:
 # usbcore.interrupt_interval_override=045e:00db:16,1bcf:0005:1
