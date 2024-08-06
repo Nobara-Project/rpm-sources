@@ -164,13 +164,13 @@ Summary: The Linux kernel
 %define specrpmversion 6.10.2
 %define specversion 6.10.2
 %define patchversion 6.10
-%define pkgrelease 201
+%define pkgrelease 202
 %define kversion 6
 %define tarfile_release 6.10.2
 # This is needed to do merge window version magic
 %define patchlevel 10
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease 201%{?buildid}%{?dist}
+%define specrelease 202%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 6.10.2
 
@@ -1916,7 +1916,7 @@ ApplyOptionalPatch tkg-0013-optimize_harder_O3.patch
 ApplyOptionalPatch tkg-0014-OpenRGB.patch
 
 # device specific patches
-#ApplyOptionalPatch amdgpu-si-cik-default.patch
+ApplyOptionalPatch amdgpu-si-cik-default.patch
 # Waiting for rebase
 ApplyOptionalPatch linux-surface.patch
 ApplyOptionalPatch steam-deck.patch
