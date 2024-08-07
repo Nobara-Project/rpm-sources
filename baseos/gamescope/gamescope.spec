@@ -1,7 +1,9 @@
 %global libliftoff_minver 0.4.1
 
+%global toolchain clang
+
 # latest git
-%define commit 7ae5e0d2a75de06e267c47ca3cd3cddedd1d7416
+%define commit 4ccc6647815101549a3a8909038efb00488c10f4
 
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global _default_patch_fuzz 2
@@ -10,7 +12,7 @@
 %global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           gamescope
-Version:        3.14.24
+Version:        3.14.28
 Release:        %{rel_build}
 Summary:        Micro-compositor for video games on Wayland
 
@@ -20,14 +22,14 @@ URL:            https://github.com/ValveSoftware/gamescope
 # Create stb.pc to satisfy dependency('stb')
 Source0:        stb.pc
 
+# From Fedora
+Patch0:         0001-cstdint.patch
+
 # https://github.com/ChimeraOS/gamescope
-Patch0:         chimeraos.patch
+Patch1:         chimeraos.patch
 # https://hhd.dev/
-Patch1:         disable-steam-touch-click-atom.patch
-# https://github.com/ValveSoftware/gamescope/pull/1281
-Patch2:         deckhd.patch
-# https://github.com/ValveSoftware/gamescope/issues/1398
-Patch3:         drm-Separate-BOE-and-SDC-OLED-Deck-panel-rates.patch
+Patch2:         disable-steam-touch-click-atom.patch
+Patch3:         v2-0001-always-send-ctrl-1-2-to-steam-s-wayland-session.patch
 # https://github.com/ValveSoftware/gamescope/issues/1369
 Patch4:         revert-299bc34.patch
 # https://github.com/ValveSoftware/gamescope/pull/1335
@@ -35,16 +37,15 @@ Patch4:         revert-299bc34.patch
 # Patch5:         1335.patch
 # https://github.com/ValveSoftware/gamescope/pull/1231
 Patch6:         1231.patch
-# https://github.com/ValveSoftware/gamescope/pull/1430
-Patch7:         v2-0001-always-send-ctrl-1-2-to-steam-s-wayland-session.patch
+
 
 BuildRequires:  meson >= 0.54.0
 BuildRequires:  ninja-build
 BuildRequires:  cmake
-BuildRequires:  gcc
-BuildRequires:  gcc-c++
+BuildRequires:  clang
 BuildRequires:  glm-devel
 BuildRequires:  google-benchmark-devel
+BuildRequires:  lcms2-devel
 BuildRequires:  libXmu-devel
 BuildRequires:  libXcursor-devel
 BuildRequires:  libeis-devel
@@ -123,10 +124,17 @@ sed -i 's^../thirdparty/SPIRV-Headers/include/spirv/^/usr/include/spirv/^' src/m
 %build
 cd gamescope
 export PKG_CONFIG_PATH=pkgconfig
+%if %{__isa_bits} == 64
 %meson \
-    -Dpipewire=enabled \
     --auto-features=enabled \
     -Dforce_fallback_for=vkroots,wlroots,libliftoff
+%else
+%meson \
+    -Denable_gamescope=false \
+    -Denable_gamescope_wsi_layer=true \
+    --auto-features=enabled \
+    -Dforce_fallback_for=vkroots,wlroots,libliftoff
+%endif
 %meson_build
 
 %install
@@ -136,13 +144,15 @@ cd gamescope
 %files
 %license gamescope/LICENSE
 %doc gamescope/README.md
+%if %{__isa_bits} == 64
 %caps(cap_sys_nice=eip) %{_bindir}/gamescope
 %{_bindir}/gamescopectl
 %{_bindir}/gamescopestream
 %{_bindir}/gamescopereaper
+%endif
 
 %files libs
-%{_libdir}/*.so
-%{_datadir}/vulkan/implicit_layer.d/
+%{_libdir}/libVkLayer_FROG_gamescope_wsi_*.so
+%{_datadir}/vulkan/implicit_layer.d/VkLayer_FROG_gamescope_wsi.*.json
 
 %changelog
