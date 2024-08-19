@@ -1,4 +1,4 @@
-%define commit 4275fdb989930820babf5d9656a5375cad6aceed
+%define commit 96050f8bdd1b4b8d05d2f2cc36807bfa76e10484
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build git.%{build_timestamp}.%{shortcommit}%{?dist}
