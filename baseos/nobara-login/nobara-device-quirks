@@ -8,5 +8,10 @@ fi
 
 # Use hhd for ROG Ally controller mapping (for now).
 if grep -q "ROG Ally" /sys/devices/virtual/dmi/id/product_name; then
-        systemctl start hhd@$1.service
+        systemctl start inputplumber.service
+        echo 0 | sudo tee /sys/devices/platform/asus-nb-wmi/mcu_powersave
+        if grep -q "ROG Ally X" /sys/devices/virtual/dmi/id/product_name; then
+                modprobe -r amd_pmf
+                echo "blacklist amd_pmf" | sudo tee /etc/modprobe.d/hhd-blacklist.conf
+        fi
 fi
