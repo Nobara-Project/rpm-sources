@@ -1,7 +1,7 @@
 Summary: A set of scripts to run upon first user login
 Name: nobara-login
 Version: 1.1
-Release: 57%{?dist}
+Release: 59%{?dist}
 License: Public Domain
 Group: System Environment/Base
 Source0: hwcheck.sh
@@ -24,6 +24,8 @@ Source19: org.nobaraproject.automount.policy
 Source20: nobara-device-quirks
 Source21: 99-ntsync.rules
 Source22: 70-wooting.rules
+Source23: 71-sony-controllers.rules
+Source24: 70-drunkdeer.rules
 
 BuildArch: noarch
 BuildRequires: filesystem
@@ -86,6 +88,8 @@ install -m 0755 %{SOURCE19} $RPM_BUILD_ROOT%{_datadir}/polkit-1/actions/org.noba
 install -m 0755 %{SOURCE20} $RPM_BUILD_ROOT%{_bindir}/nobara-device-quirks
 install -m 0644 %{SOURCE21} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/99-ntsync.rules
 install -m 0644 %{SOURCE22} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/70-wooting.rules
+install -m 0644 %{SOURCE23} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/71-sony-controllers.rules
+install -m 0644 %{SOURCE24} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/70-drunkdeer.rules
 
 echo '# list of disabled automount partitions' > disabled.conf
 install -m 0755 disabled.conf $RPM_BUILD_ROOT%{_sysconfdir}/nobara/automount/disabled.conf
@@ -106,6 +110,8 @@ sysctl -p
 %{_sysconfdir}/udev/rules.d/60-ioschedulers.rules
 %{_sysconfdir}/udev/rules.d/99-ntsync.rules
 %{_sysconfdir}/udev/rules.d/70-wooting.rules
+%{_sysconfdir}/udev/rules.d/70-drunkdeer.rules
+%{_sysconfdir}/udev/rules.d/71-sony-controllers.rules
 %{_sysconfdir}/polkit-1/rules.d/90-corectrl.rules
 %{_sysconfdir}/login.conf.d/00-handheld-power.conf
 %config(noreplace) %{_sysconfdir}/nobara/automount/disabled.conf
