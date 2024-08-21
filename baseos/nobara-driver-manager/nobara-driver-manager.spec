@@ -1,6 +1,6 @@
 Name:          nobara-driver-manager
 Version:       1.1
-Release:       1%{?dist}
+Release:       3%{?dist}
 License:       GPLv2
 Group:         System Environment/Libraries
 Summary:       Nobara's Driver Manager
@@ -39,6 +39,9 @@ Requires: 	colorized-logs
 Requires: 	util-linux
 Requires: 	nobara-driver-manager
 Requires: 	vte291
+
+Provides: nobara-nvidia-wizard
+Obsoletes: nobara-nvidia-wizard
 
 # Gnome Deps
 Suggests:	gnome-tweaks
