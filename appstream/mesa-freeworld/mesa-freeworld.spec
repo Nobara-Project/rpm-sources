@@ -65,9 +65,9 @@ algorithms and decoding only VC1 algorithm.
 
 Name:           %{srcname}-freeworld
 Summary:        Mesa graphics libraries
-%global ver 24.1.5
+%global ver 24.1.6
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
-Release:        3%{?dist}
+Release:        4%{?dist}
 License:        MIT
 URL:            http://www.mesa3d.org
 
@@ -175,7 +175,7 @@ BuildRequires:  pkgconfig(vulkan)
 %package        -n %{srcname}-va-drivers-freeworld
 Summary:        Mesa-based VA-API drivers
 Requires:       %{srcname}-filesystem%{?_isa} = %{?epoch:%{epoch}:}%{version}
-Conflicts:      %{srcname}-va-drivers%{?_isa}
+Obsoletes:      %{srcname}-va-drivers
 
 %description    -n %{srcname}-va-drivers-freeworld
 %{_description}
@@ -185,7 +185,7 @@ Conflicts:      %{srcname}-va-drivers%{?_isa}
 %package        -n %{srcname}-vdpau-drivers-freeworld
 Summary:        Mesa-based VDPAU drivers
 Requires:       %{srcname}-filesystem%{?_isa} = %{?epoch:%{epoch}:}%{version}
-Conflicts:      %{srcname}-vdpau-drivers%{?_isa}
+Obsoletes:      %{srcname}-vdpau-drivers
 
 %description 	-n %{srcname}-vdpau-drivers-freeworld
 %{_description}
