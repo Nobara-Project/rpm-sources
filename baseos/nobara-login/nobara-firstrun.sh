@@ -5,7 +5,7 @@ WHO=$(whoami)
 
 newinstall=$(grep yes /etc/nobara/newinstall)
 
-if [[ $(which starship) == "/usr/bin/starship" ]]; then
+if which starship > /dev/null 2>&1; then
     eval "$(starship init bash)"
     if [ ! -f "$HOME/.config/starship.toml" ]; then
         if [ -f /usr/share/starship/starship.toml ]; then
