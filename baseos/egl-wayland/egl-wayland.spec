@@ -4,8 +4,8 @@
 %global tag %{version}
 
 Name:           egl-wayland
-Version:        1.1.13
-Release:        4%{!?tag:.%{date}git%{shortcommit0}}%{?dist}
+Version:        1.1.15
+Release:        1%{!?tag:.%{date}git%{shortcommit0}}%{?dist}
 Summary:        Wayland EGL External Platform library
 # SPDX
 License:        MIT
@@ -19,9 +19,6 @@ Source0:        %url/archive/%{commit0}/%{name}-%{shortcommit0}.tar.gz
 
 Source1:        10_nvidia_wayland.json
 Source2:        15_nvidia_gbm.json
-
-# disable explicit sync patch for now -- causes problems in plasmashell and firefox
-# Patch0:         104.patch
 
 BuildRequires:  meson
 BuildRequires:  libtool
