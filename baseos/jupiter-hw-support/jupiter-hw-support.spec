@@ -1,6 +1,6 @@
 Name:           jupiter-hw-support
 Version:        0.0.git.1256.484fa801
-Release:        25%{?dist}
+Release:        26%{?dist}
 Summary:        Steam Deck Hardware Support Package
 License:        MIT
 URL:            https://github.com/nobara-project/steamdeck-edition-packages
@@ -102,12 +102,12 @@ fi
 
 # Do post-installation
 %post -n gamescope-handheld-common
-grubby --update-kernel=ALL --args="amd_iommu=off amdgpu.gttsize=8128 spi_amd.speed_dev=1 audit=0 fbcon=vc:2-6 iomem=relaxed amdgpu.ppfeaturemask=0xffffffff"
+grubby --update-kernel=ALL --args="amdgpu.gttsize=8128 spi_amd.speed_dev=1 audit=0 fbcon=vc:2-6 iomem=relaxed amdgpu.ppfeaturemask=0xffffffff"
 grub2-mkconfig -o /boot/grub2/grub.cfg
 
 # Do after uninstallation
 %postun -n gamescope-handheld-common
-grubby --update-kernel=ALL --remove-args="amd_iommu=off amdgpu.gttsize=8128 spi_amd.speed_dev=1 audit=0 fbcon=vc:2-6 iomem=relaxed amdgpu.ppfeaturemask=0xffffffff"
+grubby --update-kernel=ALL --remove-args="amdgpu.gttsize=8128 spi_amd.speed_dev=1 audit=0 fbcon=vc:2-6 iomem=relaxed amdgpu.ppfeaturemask=0xffffffff"
 grub2-mkconfig -o /boot/grub2/grub.cfg
 
 # This lists all the files that are included in the rpm package and that
