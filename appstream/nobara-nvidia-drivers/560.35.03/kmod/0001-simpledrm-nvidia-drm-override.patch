@@ -1,0 +1,107 @@
+From b1912480539b4dd23ce8ba901b1a16e915561437 Mon Sep 17 00:00:00 2001
+From: Javier Martinez Canillas <javierm@redhat.com>
+Date: Fri, 18 Feb 2022 13:48:46 +0100
+Subject: [PATCH 1/2] nvidia-drm: remove existing generic drivers to take over
+ the device
+
+There are drivers that register framebuffer devices very early in the boot
+process and make use of the existing framebuffer as setup by the firmware.
+
+If one of those drivers has registered a fbdev, then the fallback fbdev of
+the DRM driver won't be bound to the framebuffer console. To avoid that,
+remove any existing generic driver and take over the graphics device.
+
+By doing that, the fb mapped to the console is switched correctly from the
+early fbdev (i.e: simpledrm) to the one registered by the real DRM drivers.
+
+Signed-off-by: Javier Martinez Canillas <javierm@redhat.com>
+---
+ kernel-open/nvidia-drm/nvidia-drm-drv.c | 16 ++++++++++++++++
+ kernel/nvidia-drm/nvidia-drm-drv.c      | 16 ++++++++++++++++
+ 2 files changed, 32 insertions(+)
+
+diff --git a/kernel-open/nvidia-drm/nvidia-drm-drv.c b/kernel-open/nvidia-drm/nvidia-drm-drv.c
+index 6c68d82..6e1c57d 100644
+--- a/kernel-open/nvidia-drm/nvidia-drm-drv.c
++++ b/kernel-open/nvidia-drm/nvidia-drm-drv.c
+@@ -60,6 +60,8 @@
+ #include <drm/drm_ioctl.h>
+ #endif
+ 
++#include <drm/drm_aperture.h>
++
+ #include <linux/pci.h>
+ 
+ /*
+@@ -1468,6 +1470,8 @@ static void nv_drm_register_drm_device(const nv_gpu_info_t *gpu_info)
+     struct drm_device *dev = NULL;
+     struct device *device = gpu_info->os_device_ptr;
+ 
++    int ret = 0;
++
+     DRM_DEBUG(
+         "Registering device for NVIDIA GPU ID 0x08%x",
+         gpu_info->gpu_id);
+@@ -1488,6 +1492,18 @@ static void nv_drm_register_drm_device(const nv_gpu_info_t *gpu_info)
+     mutex_init(&nv_dev->lock);
+ #endif
+ 
++    if (IS_ENABLED(CONFIG_DRM_SIMPLEDRM)) {
++	    /* Remove existing drivers that may own the framebuffer memory. */
++
++	    ret = drm_aperture_remove_framebuffers(&nv_drm_driver);
++	    if (ret) {
++		    NV_DRM_DEV_LOG_ERR(nv_dev,
++				       "Failed to remove existing framebuffers - %d.\n",
++				       ret);
++		    return;
++	    }
++    }
++
+     /* Allocate DRM device */
+ 
+     dev = drm_dev_alloc(&nv_drm_driver, device);
+diff --git a/kernel/nvidia-drm/nvidia-drm-drv.c b/kernel/nvidia-drm/nvidia-drm-drv.c
+index 6c68d82..6e1c57d 100644
+--- a/kernel/nvidia-drm/nvidia-drm-drv.c
++++ b/kernel/nvidia-drm/nvidia-drm-drv.c
+@@ -60,6 +60,8 @@
+ #include <drm/drm_ioctl.h>
+ #endif
+ 
++#include <drm/drm_aperture.h>
++
+ #include <linux/pci.h>
+ 
+ /*
+@@ -1468,6 +1470,8 @@ static void nv_drm_register_drm_device(const nv_gpu_info_t *gpu_info)
+     struct drm_device *dev = NULL;
+     struct device *device = gpu_info->os_device_ptr;
+ 
++    int ret = 0;
++
+     DRM_DEBUG(
+         "Registering device for NVIDIA GPU ID 0x08%x",
+         gpu_info->gpu_id);
+@@ -1488,6 +1492,18 @@ static void nv_drm_register_drm_device(const nv_gpu_info_t *gpu_info)
+     mutex_init(&nv_dev->lock);
+ #endif
+ 
++    if (IS_ENABLED(CONFIG_DRM_SIMPLEDRM)) {
++	    /* Remove existing drivers that may own the framebuffer memory. */
++
++	    ret = drm_aperture_remove_framebuffers(&nv_drm_driver);
++	    if (ret) {
++		    NV_DRM_DEV_LOG_ERR(nv_dev,
++				       "Failed to remove existing framebuffers - %d.\n",
++				       ret);
++		    return;
++	    }
++    }
++
+     /* Allocate DRM device */
+ 
+     dev = drm_dev_alloc(&nv_drm_driver, device);
+-- 
+2.43.0
+
