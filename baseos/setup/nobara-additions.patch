@@ -1,8 +1,8 @@
 diff --git a/profile b/profile
-index de8e9ab..c49f584 100644
+index de8e9ab..e3f75bf 100644
 --- a/profile
 +++ b/profile
-@@ -83,3 +83,47 @@ then
+@@ -83,3 +83,49 @@ then
     . /etc/bashrc
  fi
  
@@ -42,11 +42,13 @@ index de8e9ab..c49f584 100644
 +    fi
 +fi
 +
-+if [[ $(which starship) == "/usr/bin/starship" ]]; then
++if test "$BASH"; then
++  if [[ $(which starship) == "/usr/bin/starship" ]]; then
 +    eval "$(starship init bash)"
 +    if [ ! -f $HOME/.config/starship.toml ]; then
 +        if [ -f /usr/share/starship/starship.toml ]; then
 +            cp /usr/share/starship/starship.toml $HOME/.config/
 +        fi
 +    fi
++  fi
 +fi
