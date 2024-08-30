@@ -1,9 +1,7 @@
 %global libliftoff_minver 0.4.1
 
-%global toolchain clang
-
 # latest git
-%define commit 4ccc6647815101549a3a8909038efb00488c10f4
+%define commit f554d886093ad3fdc361b4642fe6cca4cdaa99b1
 
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global _default_patch_fuzz 2
@@ -12,7 +10,7 @@
 %global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           gamescope
-Version:        3.14.28
+Version:        3.15.1
 Release:        %{rel_build}
 Summary:        Micro-compositor for video games on Wayland
 
@@ -30,19 +28,18 @@ Patch1:         chimeraos.patch
 # https://hhd.dev/
 Patch2:         disable-steam-touch-click-atom.patch
 Patch3:         v2-0001-always-send-ctrl-1-2-to-steam-s-wayland-session.patch
-# https://github.com/ValveSoftware/gamescope/issues/1369
-Patch4:         revert-299bc34.patch
 # https://github.com/ValveSoftware/gamescope/pull/1335
 # causes coredumps and hang on switch to desktop, drop for now
-# Patch5:         1335.patch
+# Patch4:         1335.patch
 # https://github.com/ValveSoftware/gamescope/pull/1231
-Patch6:         1231.patch
+Patch5:         1231.patch
 
 
 BuildRequires:  meson >= 0.54.0
 BuildRequires:  ninja-build
 BuildRequires:  cmake
-BuildRequires:  clang
+BuildRequires:  gcc
+BuildRequires:  gcc-c++
 BuildRequires:  glm-devel
 BuildRequires:  google-benchmark-devel
 BuildRequires:  lcms2-devel
@@ -124,17 +121,9 @@ sed -i 's^../thirdparty/SPIRV-Headers/include/spirv/^/usr/include/spirv/^' src/m
 %build
 cd gamescope
 export PKG_CONFIG_PATH=pkgconfig
-%if %{__isa_bits} == 64
 %meson \
     --auto-features=enabled \
     -Dforce_fallback_for=vkroots,wlroots,libliftoff
-%else
-%meson \
-    -Denable_gamescope=false \
-    -Denable_gamescope_wsi_layer=true \
-    --auto-features=enabled \
-    -Dforce_fallback_for=vkroots,wlroots,libliftoff
-%endif
 %meson_build
 
 %install
@@ -144,12 +133,10 @@ cd gamescope
 %files
 %license gamescope/LICENSE
 %doc gamescope/README.md
-%if %{__isa_bits} == 64
 %caps(cap_sys_nice=eip) %{_bindir}/gamescope
 %{_bindir}/gamescopectl
 %{_bindir}/gamescopestream
 %{_bindir}/gamescopereaper
-%endif
 
 %files libs
 %{_libdir}/libVkLayer_FROG_gamescope_wsi_*.so
