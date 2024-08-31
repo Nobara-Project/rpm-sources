@@ -228,7 +228,7 @@ the default Wine version.
 
 # apply wine staging patch set on top of the wine release.
 tar xf %{SOURCE100}
-./wine-staging-%{stagingver}/staging/patchinstall.py --all -W shell32-IconCache
+./wine-staging-%{stagingver}/staging/patchinstall.py --all -W shell32-IconCache -W server-Stored_ACLs
 
 %build
 %define debug_package %{nil}
