@@ -9,9 +9,9 @@
 # check buildresult after a while
 
 %define _lto_cflags %{nil}
-%define realver     9.9
-%define stagingver  9.9
-%define packagever  9.9
+%define realver     9.16
+%define stagingver  9.16
+%define packagever  9.16
 
 %global flavor %nil
 %global build_type_safety_c 0
@@ -31,7 +31,7 @@
 
 Name:       %pkg
 Version:    %ver
-Release:    14
+Release:    15
 Epoch:      2
 Summary:    WINE Is Not An Emulator - runs MS Windows programs
 License:    LGPLv2+
@@ -228,7 +228,7 @@ the default Wine version.
 
 # apply wine staging patch set on top of the wine release.
 tar xf %{SOURCE100}
-./wine-staging-%{stagingver}/staging/patchinstall.py --all -W Compiler_Warnings -W shell32-IconCache
+./wine-staging-%{stagingver}/staging/patchinstall.py --all -W shell32-IconCache -W server-Stored_ACLs
 
 %build
 %define debug_package %{nil}
