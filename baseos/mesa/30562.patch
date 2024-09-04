@@ -1,0 +1,93 @@
+From 79ce0e3b2fc5559df03f880ce299443a77002e98 Mon Sep 17 00:00:00 2001
+From: David Rosca <david.rosca@amd.com>
+Date: Thu, 8 Aug 2024 08:59:13 +0200
+Subject: [PATCH 1/2] frontends/va: Fix use after free with EFC
+
+This happens when the source surface is destroyed before being used
+in encoding operation. It also needs to disable EFC in this case.
+
+Fixes: a7469a9ffd3 ("frontends/va: Rework EFC logic")
+Closes: https://gitlab.freedesktop.org/mesa/mesa/-/issues/11653
+Reviewed-by: Ruijing Dong <ruijing.dong@amd.com>
+Part-of: <https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/30562>
+---
+ src/gallium/frontends/va/surface.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/src/gallium/frontends/va/surface.c b/src/gallium/frontends/va/surface.c
+index 48aeea503e3cf..1abbecf352576 100644
+--- a/src/gallium/frontends/va/surface.c
++++ b/src/gallium/frontends/va/surface.c
+@@ -92,8 +92,14 @@ vlVaDestroySurfaces(VADriverContextP ctx, VASurfaceID *surface_list, int num_sur
+          if (surf->fence && surf->ctx->decoder && surf->ctx->decoder->destroy_fence)
+             surf->ctx->decoder->destroy_fence(surf->ctx->decoder, surf->fence);
+       }
+-      if (drv->last_efc_surface == surf)
+-         drv->last_efc_surface = NULL;
++      if (drv->last_efc_surface) {
++         vlVaSurface *efc_surf = drv->last_efc_surface;
++         if (efc_surf == surf || efc_surf->efc_surface == surf) {
++            efc_surf->efc_surface = NULL;
++            drv->last_efc_surface = NULL;
++            drv->efc_count = -1;
++         }
++      }
+       util_dynarray_fini(&surf->subpics);
+       FREE(surf);
+       handle_table_remove(drv->htab, surface_list[i]);
+-- 
+GitLab
+
+
+From 4b6091813835773e5d5575803f8d4de55876b781 Mon Sep 17 00:00:00 2001
+From: David Rosca <david.rosca@amd.com>
+Date: Thu, 8 Aug 2024 10:10:24 +0200
+Subject: [PATCH 2/2] radeonsi: Don't allow DCC for encode in
+ is_video_target_buffer_supported
+
+This accidentally allowed DCC with format conversion, which is not supported.
+Also disable EFC with VCN5 for now.
+
+Fixes: 40c3a53fec1 ("radeonsi: Implement is_video_target_buffer_supported")
+Reviewed-by: Ruijing Dong <ruijing.dong@amd.com>
+Part-of: <https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/30562>
+---
+ src/gallium/drivers/radeonsi/si_get.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/src/gallium/drivers/radeonsi/si_get.c b/src/gallium/drivers/radeonsi/si_get.c
+index 274d9d82f297c..fb78e8d5a46a3 100644
+--- a/src/gallium/drivers/radeonsi/si_get.c
++++ b/src/gallium/drivers/radeonsi/si_get.c
+@@ -1144,6 +1144,9 @@ static bool si_vid_is_target_buffer_supported(struct pipe_screen *screen,
+       return !is_dcc && !is_format_conversion;
+ 
+    case PIPE_VIDEO_ENTRYPOINT_ENCODE:
++      if (is_dcc)
++         return false;
++
+       /* EFC */
+       if (is_format_conversion) {
+          const bool input_8bit =
+@@ -1157,7 +1160,8 @@ static bool si_vid_is_target_buffer_supported(struct pipe_screen *screen,
+             target->buffer_format == PIPE_FORMAT_R10G10B10A2_UNORM ||
+             target->buffer_format == PIPE_FORMAT_R10G10B10X2_UNORM;
+ 
+-         if (sscreen->info.family <= CHIP_RENOIR ||
++         if (sscreen->info.vcn_ip_version < VCN_2_0_0 ||
++             sscreen->info.vcn_ip_version >= VCN_5_0_0 ||
+              sscreen->debug_flags & DBG(NO_EFC))
+             return false;
+ 
+@@ -1169,7 +1173,7 @@ static bool si_vid_is_target_buffer_supported(struct pipe_screen *screen,
+             return false;
+       }
+ 
+-      return !is_dcc;
++      return true;
+ 
+    default:
+       return !is_format_conversion;
+-- 
+GitLab
+
