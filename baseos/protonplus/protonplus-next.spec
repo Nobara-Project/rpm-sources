@@ -3,13 +3,13 @@
 # SPDX-FileCopyrightText: 2023 Wesley Gimenes <wehagy+github@gmail.com>
 # See %%{name}.spec.license for the full license text.
 
-%global SHA256SUM0      3e52cb76646bf305b365db06e8057ac5956dd1ad8420b8db53c48c5b8d8ac641
+%global SHA256SUM0      223c8da373a265de28591ba9269440c5cf79fa4f9168c00b99503a65982d4df1
 
 %global provider        github
 %global provider_tld    com
 %global owner           vysp3r
 %global repo            ProtonPlus
-%global built_tag       v0.4.10
+%global built_tag       v0.4.11
 %global built_tag_strip %(b=%{built_tag}; echo ${b:1})
 %global gen_version     %(b=%{built_tag_strip}; echo ${b/-/"."})
 
