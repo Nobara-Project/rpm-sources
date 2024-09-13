@@ -164,13 +164,13 @@ Summary: The Linux kernel
 %define specrpmversion 6.10.10
 %define specversion 6.10.10
 %define patchversion 6.10
-%define pkgrelease 200
+%define pkgrelease 201
 %define kversion 6
 %define tarfile_release 6.10.10
 # This is needed to do merge window version magic
 %define patchlevel 10
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease 200%{?buildid}%{?dist}
+%define specrelease 201%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 6.10.10
 
@@ -1047,6 +1047,7 @@ Patch410: bmi160_ayaneo.patch
 # temporary patches
 Patch501: 0001-Revert-PCI-Add-a-REBAR-size-quirk-for-Sapphire-RX-56.patch
 Patch502: 0001-acpi-proc-idle-skip-dummy-wait.patch
+Patch503: 0001-soundwire-stream-Revert-soundwire-stream-fix-program.patch
 # workaround for https://gitlab.freedesktop.org/drm/amd/-/issues/3441 while AMD/Igalia invesigate
 Patch504: dcn32-dcn301-dcn321-mpo-reverts.patch
 
@@ -1949,6 +1950,7 @@ ApplyOptionalPatch bmi160_ayaneo.patch
 # temporary patches
 ApplyOptionalPatch 0001-Revert-PCI-Add-a-REBAR-size-quirk-for-Sapphire-RX-56.patch
 ApplyOptionalPatch 0001-acpi-proc-idle-skip-dummy-wait.patch
+ApplyOptionalPatch 0001-soundwire-stream-Revert-soundwire-stream-fix-program.patch
 # workaround for https://gitlab.freedesktop.org/drm/amd/-/issues/3441 while AMD/Igalia invesigate
 ApplyOptionalPatch dcn32-dcn301-dcn321-mpo-reverts.patch
 
