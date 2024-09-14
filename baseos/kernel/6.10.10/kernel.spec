@@ -164,13 +164,13 @@ Summary: The Linux kernel
 %define specrpmversion 6.10.10
 %define specversion 6.10.10
 %define patchversion 6.10
-%define pkgrelease 201
+%define pkgrelease 202
 %define kversion 6
 %define tarfile_release 6.10.10
 # This is needed to do merge window version magic
 %define patchlevel 10
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease 201%{?buildid}%{?dist}
+%define specrelease 202%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 6.10.10
 
@@ -1017,6 +1017,7 @@ Patch302: steam-deck.patch
 Patch303: asus-linux.patch
 Patch304: lenovo-legion-laptop.patch
 Patch314: ps-logitech-wheel.patch
+Patch315: amd-tablet-sfh.patch
 
 # CachyOS: https://github.com/CachyOS/kernel-patches
 Patch211: 0009-ntsync.patch
@@ -1919,6 +1920,7 @@ ApplyOptionalPatch amdgpu-si-cik-default.patch
 ApplyOptionalPatch linux-surface.patch
 ApplyOptionalPatch steam-deck.patch
 ApplyOptionalPatch asus-linux.patch
+ApplyOptionalPatch amd-tablet-sfh.patch
 ApplyOptionalPatch lenovo-legion-laptop.patch
 ApplyOptionalPatch ps-logitech-wheel.patch
 
