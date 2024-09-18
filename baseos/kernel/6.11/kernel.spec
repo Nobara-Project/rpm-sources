@@ -1042,7 +1042,7 @@ Patch209: tkg-0014-OpenRGB.patch
 
 # device specific patches
 Patch300: amdgpu-si-cik-default.patch
-# NEEDS REBASING Patch301: linux-surface.patch
+Patch301: linux-surface.patch
 Patch302: steam-deck.patch
 Patch303: asus-linux.patch
 Patch304: lenovo-legion-laptop.patch
@@ -1969,7 +1969,7 @@ ApplyOptionalPatch tkg-0014-OpenRGB.patch
 
 # device specific patches
 ApplyOptionalPatch amdgpu-si-cik-default.patch
-# NEEDS REBASING ApplyOptionalPatch linux-surface.patch
+ApplyOptionalPatch linux-surface.patch
 ApplyOptionalPatch steam-deck.patch
 ApplyOptionalPatch asus-linux.patch
 ApplyOptionalPatch amd-tablet-sfh.patch
