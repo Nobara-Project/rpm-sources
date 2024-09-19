@@ -3,7 +3,7 @@
 Summary: Decky Loader is a homebrew plugin launcher for the Steam Deck.
 Name: deckyloader
 Version: 3.0.1
-Release: 5.pre3%{?dist}
+Release: 6.pre3%{?dist}
 License: Public Domain
 Source0: https://github.com/SteamDeckHomebrew/decky-loader/releases/download/v%{version}-pre3/PluginLoader
 Source1: deckyloader@.service

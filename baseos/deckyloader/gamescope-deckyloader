@@ -29,13 +29,15 @@ TARGET_DIR="$USER_HOME/homebrew/services/"
 # Create the target directory if it doesn't exist
 if [ ! -d "$TARGET_DIR" ]; then
   mkdir -p "$TARGET_DIR" || { echo "Failed to create directory $TARGET_DIR"; exit 1; }
-  chmod -R 775 "$USER_HOME/homebrew/"
   # Copy the PluginLoader
   cp /usr/share/deckyloader/PluginLoader "$TARGET_DIR" || { echo "Failed to copy PluginLoader"; exit 1; }
   cp /usr/share/deckyloader/nobara-preinstalled-plugins.tar.gz "$USER_HOME/homebrew/"
   cd "$USER_HOME/homebrew/"
   tar -xf nobara-preinstalled-plugins.tar.gz
+  chmod -R 775 "$USER_HOME/homebrew/"
 fi
+
+chmod -R 775 "$USER_HOME/homebrew/"
 
 # Start the service
 systemctl start "deckyloader@$USERNAME.service" || { echo "Failed to start service"; exit 1; }
