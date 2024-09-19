@@ -2,7 +2,7 @@
 
 Name:           inputplumber
 Version:        0.33.4
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        InputPlumber is an open source input routing and control daemon for Linux. It can be used to combine any number of input devices (like gamepads, mice, and keyboards) and translate their input to a variety of virtual device formats.
 
 License:        GPLv3+
@@ -44,6 +44,13 @@ install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/share/inputplumber/capabi
 install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/share/inputplumber/devices/* %{buildroot}/usr/share/inputplumber/devices/
 install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/share/inputplumber/profiles/* %{buildroot}/usr/share/inputplumber/profiles/
 install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/share/inputplumber/schema/* %{buildroot}/usr/share/inputplumber/schema/
+
+# Re-assign devices with gyro as ds-edge devices instead of xb elite
+sed -i 's/- xbox-elite/- ds5-edge/g' %{buildroot}/usr/share/inputplumber/devices/50-rog_ally.yaml
+sed -i 's/- xbox-elite/- ds5-edge/g' %{buildroot}/usr/share/inputplumber/devices/50-rog_ally_x.yaml
+sed -i 's/- xbox-elite/- ds5-edge/g' %{buildroot}/usr/share/inputplumber/devices/50-legion_go.yaml
+sed -i 's/- xbox-elite/- ds5-edge/g' %{buildroot}/usr/share/inputplumber/devices/50-msi_claw.yaml
+
 
 %post
 udevadm control --reload-rules

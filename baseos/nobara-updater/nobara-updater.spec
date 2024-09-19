@@ -1,6 +1,6 @@
 Name:          nobara-updater
 Version:       1.0.0
-Release:       31%{?dist}
+Release:       46%{?dist}
 License:       GPL-3.0-or-later
 Summary:       Nobara System Updater
 
@@ -11,15 +11,10 @@ BuildArch:      noarch
 BuildRequires:  python3-devel
 BuildRequires:  make
 
-Requires:	python3
-Requires:	python
-Requires:	gtk3
-Requires:	gtk4
-Requires:	libadwaita
-Requires: 	glib2
 Provides:	nobara-updater
 
 # App Deps
+Requires: python
 Requires: python3
 Requires: python3-gobject
 Requires: python3-psutil
@@ -27,16 +22,26 @@ Requires: python3-requests
 Requires: python3-dnf
 Requires: python3-libdnf5
 Requires: python3-packaging
-Requires: flatpak
-Requires: gtk3
+Requires: python3-tkinter
 Requires: python3-dasbus
+Requires: python3-cairo
+Requires: python3-pillow
+Requires: python3-pillow-tk
+Requires: python3-evdev
+Requires: python3-vdf
 
 Requires: akmods
 Requires: dracut
+Requires: flatpak
+Requires: glib2
+Requires: gtk3
+Requires: gtk4
+Requires: libadwaita
 Requires: rpm
 Requires: systemd
-Requires: xdg-utils
 Requires: util-linux
+Requires: xdg-utils
+Requires: xprop
 
 Provides: nobara-sync
 Obsoletes: nobara-sync
@@ -59,8 +64,11 @@ make all DESTDIR=%{buildroot}
 %{python3_sitelib}/nobara_updater/
 %{_bindir}/nobara-sync
 %{_bindir}/nobara-updater
+%{_bindir}/nobara-updater-gamescope-gui
+%{_bindir}/nobara-browser-select
 %{_datadir}/applications/nobara-updater.desktop
 %{_datadir}/icons/hicolor/64x64/apps/nobara-updater.svg
+%{_datadir}/nobara-gamescope/browser-select/*
 
 %clean
 rm -rf %{buildroot}

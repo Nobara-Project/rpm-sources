@@ -1,7 +1,7 @@
 %global libliftoff_minver 0.4.1
 
 # latest git
-%define commit f554d886093ad3fdc361b4642fe6cca4cdaa99b1
+%define commit cc28cd7e2ed1c254db2787be7fff01d0028e6007
 
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global _default_patch_fuzz 2
@@ -10,7 +10,7 @@
 %global rel_build 2.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           gamescope
-Version:        3.15.1
+Version:        3.15.9
 Release:        %{rel_build}
 Summary:        Micro-compositor for video games on Wayland
 
@@ -28,9 +28,11 @@ Patch1:         chimeraos.patch
 # https://hhd.dev/
 #Patch2:         disable-steam-touch-click-atom.patch
 Patch3:         v2-0001-always-send-ctrl-1-2-to-steam-s-wayland-session.patch
+
 # https://github.com/ValveSoftware/gamescope/pull/1335
 # causes coredumps and hang on switch to desktop, drop for now
-# Patch4:         1335.patch
+Patch4:         1335.patch
+
 # https://github.com/ValveSoftware/gamescope/pull/1231
 Patch5:         1231.patch
 

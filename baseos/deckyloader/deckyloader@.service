@@ -1,0 +1,14 @@
+[Unit]
+Description=SteamDeck Plugin Loader
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Restart=always
+ExecStart=/usr/bin/deckyloader-wrapper.sh %i
+KillSignal=SIGKILL
+
+[Install]
+WantedBy=multi-user.target
