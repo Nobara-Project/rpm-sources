@@ -3,7 +3,7 @@
 
 %global build_timestamp %(date +"%Y%m%d")
 
-%global rel_build 1.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 2.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           umu-launcher
 Version:        1.1
@@ -25,6 +25,7 @@ BuildRequires:  python3-devel
 BuildRequires:  python3-build
 BuildRequires:  python3-installer
 BuildRequires:  python3-hatchling
+BuildRequires:  python3-filelock
 BuildRequires:  python
 BuildRequires:  python3
 
@@ -41,6 +42,9 @@ git clone --single-branch --branch main https://github.com/Open-Wine-Components/
 cd umu-launcher
 git checkout %{commit}
 git submodule update --init --recursive
+
+sed -i 's/python-xlib>=0.33/python-xlib/g' pyproject.toml
+sed -i 's/filelock>=3.15.4/filelock/g' pyproject.toml
 
 %build
 cd umu-launcher
