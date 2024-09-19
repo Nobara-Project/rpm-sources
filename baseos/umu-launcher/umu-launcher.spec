@@ -1,4 +1,4 @@
-%define commit aced4416f8927696b73d4b75645c9c638fcb8792
+%define commit e42043a26639cfb69d14c6945ecdebe2bb3c42fc
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 %global build_timestamp %(date +"%Y%m%d")
@@ -31,6 +31,7 @@ BuildRequires:  python3
 Requires:	python
 Requires:	python3
 Requires:	python3-xlib
+Requires:	python3-filelock
 
 
 %description
