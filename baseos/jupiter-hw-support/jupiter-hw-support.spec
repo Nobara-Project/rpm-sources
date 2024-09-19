@@ -1,6 +1,6 @@
 Name:           jupiter-hw-support
 Version:        0.0.git.1256.484fa801
-Release:        26%{?dist}
+Release:        27%{?dist}
 Summary:        Steam Deck Hardware Support Package
 License:        MIT
 URL:            https://github.com/nobara-project/steamdeck-edition-packages
@@ -63,6 +63,7 @@ mkdir -p %{buildroot}%{_bindir}/
 mkdir -p %{buildroot}%{_libexecdir}/
 mkdir -p %{buildroot}%{_sysconfdir}/
 mkdir -p %{buildroot}%{_prefix}/lib/hwsupport/
+mkdir -p %{buildroot}%{_prefix}/lib/jupiter-dock-updater/
 install -m 644 %{_builddir}/96-jupiter-hw-support.preset %{buildroot}%{_presetdir}/
 cp -rv usr/share/* %{buildroot}%{_datadir}
 cp -rv usr/lib/systemd/system/* %{buildroot}%{_unitdir}/
@@ -71,6 +72,7 @@ cp usr/lib/hwsupport/format-device.sh %{buildroot}%{_libexecdir}/format-device
 cp usr/lib/hwsupport/format-sdcard.sh %{buildroot}%{_libexecdir}/format-sdcard
 cp usr/lib/hwsupport/steamos-automount.sh %{buildroot}%{_libexecdir}/steamos-automount
 cp usr/lib/hwsupport/trim-devices.sh %{buildroot}%{_libexecdir}/trim-devices
+cp usr/lib/jupiter-dock-updater/* %{buildroot}%{_prefix}/lib/jupiter-dock-updater/
 cp -rv usr/lib/udev %{buildroot}%{_prefix}/lib/udev
 cp -rv usr/bin/* %{buildroot}%{_bindir}
 cp -rv usr/lib/systemd/system/* %{buildroot}%{_unitdir}
@@ -169,6 +171,7 @@ grub2-mkconfig -o /boot/grub2/grub.cfg
 %{_libexecdir}/steamos-automount
 %{_libexecdir}/format-sdcard
 %{_prefix}/lib/udev/rules.d/99-steamos-automount.rules
+%{_prefix}/lib/jupiter-dock-updater/
 
 # Finally, changes from the latest release of your application are generated from
 # your project's Git history. It will be empty until you make first annotated Git tag.
