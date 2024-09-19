@@ -33,15 +33,15 @@ Date: Mon, 21 Feb 2022 18:43:54 +0100
 Subject: [PATCH 6/8] STEAMOS: Dynamic swapchain override for gamescope limiter
 
 ---
- src/loader/loader_dri3_helper.c | 42 +++++++++++++++++++++++++++++++--
- src/loader/loader_dri3_helper.h |  1 +
+ src/gallium/frontends/dri/loader_dri3_helper.c | 42 +++++++++++++++++++++++++++++++--
+ src/gallium/frontends/dri/loader_dri3_helper.h |  1 +
  src/loader/meson.build          |  2 +-
  4 files changed, 80 insertions(+), 3 deletions(-)
 
-diff --git a/src/loader/loader_dri3_helper.c b/src/loader/loader_dri3_helper.c
+diff --git a/src/gallium/frontends/dri/loader_dri3_helper.c b/src/gallium/frontends/dri/loader_dri3_helper.c
 index 2631a9e2fd5..dbf6db349c6 100644
---- a/src/loader/loader_dri3_helper.c
-+++ b/src/loader/loader_dri3_helper.c
+--- a/src/gallium/frontends/dri/loader_dri3_helper.c
++++ b/src/gallium/frontends/dri/loader_dri3_helper.c
 @@ -289,6 +289,30 @@ dri3_update_max_num_back(struct loader_dri3_drawable *draw)
     }
  }
@@ -114,10 +114,10 @@ index 2631a9e2fd5..dbf6db349c6 100644
        /* Compute when we want the frame shown by taking the last known
         * successful MSC and adding in a swap interval for each outstanding swap
         * request. target_msc=divisor=remainder=0 means "Use glXSwapBuffers()
-diff --git a/src/loader/loader_dri3_helper.h b/src/loader/loader_dri3_helper.h
+diff --git a/src/gallium/frontends/dri/loader_dri3_helper.h b/src/gallium/frontends/dri/loader_dri3_helper.h
 index cc2362dd599..fe73b3f329c 100644
---- a/src/loader/loader_dri3_helper.h
-+++ b/src/loader/loader_dri3_helper.h
+--- a/src/gallium/frontends/dri/loader_dri3_helper.h
++++ b/src/gallium/frontends/dri/loader_dri3_helper.h
 @@ -178,6 +178,7 @@ struct loader_dri3_drawable {
     bool block_on_depleted_buffers;
     bool queries_buffer_age;
@@ -126,20 +126,16 @@ index cc2362dd599..fe73b3f329c 100644
 
     struct loader_dri3_extensions *ext;
     const struct loader_dri3_vtable *vtable;
-diff --git a/src/loader/meson.build b/src/loader/meson.build
-index 35f9991ba2f..154cf809a69 100644
---- a/src/loader/meson.build
-+++ b/src/loader/meson.build
-@@ -29,7 +29,7 @@ if with_platform_x11 and with_dri3
-     dependencies : [
-       idep_mesautil,
-       dep_libdrm, dep_xcb_dri3, dep_xcb_present, dep_xcb_sync, dep_xshmfence,
--      dep_xcb_xfixes,
-+      dep_xcb_xfixes, dep_xcb_xrandr, idep_mesautil
-     ],
-     build_by_default : false,
-   )
---
-2.42.0
-
-
+diff --git a/src/gallium/frontends/dri/meson.build b/src/gallium/frontends/dri/meson.build
+index ffa19e3..04035ec 100644
+--- a/src/gallium/frontends/dri/meson.build
++++ b/src/gallium/frontends/dri/meson.build
+@@ -23,7 +23,7 @@ if with_platform_x11
+   deps_for_libdri += dep_xcb
+   if with_dri3
+     deps_for_libdri += [dep_xcb_dri3, dep_xcb_present, dep_xcb_sync,
+-                        dep_xshmfence, dep_xcb_xfixes]
++                        dep_xshmfence, dep_xcb_xfixes, dep_xcb_xrandr, idep_mesautil]
+     files_libdri += files('loader_dri3_helper.c')
+   endif
+ endif

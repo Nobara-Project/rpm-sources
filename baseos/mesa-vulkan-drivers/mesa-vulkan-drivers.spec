@@ -305,6 +305,7 @@ rm -Rf %{buildroot}%{_libdir}/libglapi.so.0.*
 rm -Rf %{buildroot}%{_libdir}/libOSMesa.so.8*
 rm -Rf %{buildroot}%{_libdir}/libOSMesa.so
 rm -Rf %{buildroot}%{_libdir}/pkgconfig/osmesa.pc
+rm -Rf %{buildroot}%{_libdir}/libgallium-*-devel.so
 rm -Rf %{buildroot}%{_libdir}/libgbm.so.1
 rm -Rf %{buildroot}%{_libdir}/libgbm.so.1.*
 rm -Rf %{buildroot}%{_libdir}/libgbm.so
