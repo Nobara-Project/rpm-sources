@@ -1,7 +1,0 @@
-# XONE driver does not handle Xbox 360 devices well if at all, so we force them to use the kernel's default xpad driver instead.
-# This allows better Xbox One device functionality while also retaining Xbox 360 device functionality.
-# Xbox 360 controller
-ACTION=="add", ATTRS{idVendor}=="045e", ATTRS{idProduct}=="028e", RUN+="/sbin/modprobe xpad" RUN+="/bin/sh -c 'echo 045e 028e > /sys/bus/usb/drivers/xpad/new_id'"
-# Xbox 360 wireless receiver
-ACTION=="add", ATTRS{idVendor}=="045e", ATTRS{idProduct}=="0291", RUN+="/sbin/modprobe xpad" RUN+="/bin/sh -c 'echo 045e 0291 > /sys/bus/usb/drivers/xpad/new_id'"
-
