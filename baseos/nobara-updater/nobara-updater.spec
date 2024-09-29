@@ -1,6 +1,6 @@
 Name:          nobara-updater
 Version:       1.0.0
-Release:       46%{?dist}
+Release:       58%{?dist}
 License:       GPL-3.0-or-later
 Summary:       Nobara System Updater
 
@@ -64,9 +64,11 @@ make all DESTDIR=%{buildroot}
 %{python3_sitelib}/nobara_updater/
 %{_bindir}/nobara-sync
 %{_bindir}/nobara-updater
+%{_bindir}/nobara-tweak-tool
 %{_bindir}/nobara-updater-gamescope-gui
 %{_bindir}/nobara-browser-select
 %{_datadir}/applications/nobara-updater.desktop
+%{_datadir}/applications/nobara-tweak-tool.desktop
 %{_datadir}/icons/hicolor/64x64/apps/nobara-updater.svg
 %{_datadir}/nobara-gamescope/browser-select/*
 
