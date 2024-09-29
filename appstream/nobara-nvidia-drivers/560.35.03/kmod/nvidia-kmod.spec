@@ -5,7 +5,7 @@
 
 Name:           nvidia-kmod
 Version:        560.35.03
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        NVIDIA display driver kernel module
 Epoch:          4
 License:        NVIDIA License
@@ -15,6 +15,7 @@ ExclusiveArch:  x86_64 aarch64
 Source0:        %{name}-%{version}-x86_64.tar.xz
 Source1:        %{name}-%{version}-aarch64.tar.xz
 Patch0:         0001-simpledrm-nvidia-drm-override.patch
+Patch1:         6.11-fbdev.patch
 
 # Get the needed BuildRequires (in parts depending on what we build for):
 BuildRequires:  kmodtool
@@ -34,11 +35,13 @@ kmodtool  --target %{_target_cpu}  --repo negativo17.org --kmodname %{name} %{?b
 %ifarch x86_64
 %setup -q -n %{name}-%{version}-x86_64
 patch -Np1 < %{PATCH0}
+patch -Np1 < %{PATCH1}
 %endif
 
 %ifarch aarch64
 %setup -q -T -b 1 -n %{name}-%{version}-aarch64
 patch -Np1 < %{PATCH0}
+patch -Np1 < %{PATCH1}
 %endif
 
 rm -f */dkms.conf
