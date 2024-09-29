@@ -1,0 +1,762 @@
+From fecefd9464ac73a7e3df0d79e094f48773ca43de Mon Sep 17 00:00:00 2001
+From: Charles Munger <charleslmunger@gmail.com>
+Date: Sat, 27 Apr 2024 14:33:11 -0700
+Subject: [PATCH 1/8] Add paddles support for the Elite Series 2 firmware
+ versions < 5.x
+
+Tested with firmware 4.7 and evtest. Works in Steam Input when no
+profile is selected on the controller. Input event codes are the
+same as what xpad reports for paddles, so most controller profiles
+should work in both wired and wireless modes.
+---
+ driver/gamepad.c | 38 ++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 38 insertions(+)
+
+diff --git a/driver/gamepad.c b/driver/gamepad.c
+index eec2aea..a3ea25f 100644
+--- a/driver/gamepad.c
++++ b/driver/gamepad.c
+@@ -12,6 +12,13 @@
+ 
+ #define GIP_GP_NAME "Microsoft Xbox Controller"
+ 
++#define GIP_VENDOR_MICROSOFT 0x045e
++#define GIP_PRODUCT_ELITE_SERIES_2 0x0b00
++// Various versions of the Elite Series 2 firmware have changed the way paddle
++// states are sent. Paddle support is only reported up to this firmware
++// version.
++#define GIP_ELITE_SERIES_2_MAX_FIRMWARE 0x04FF
++
+ #define GIP_GP_RUMBLE_DELAY msecs_to_jiffies(10)
+ #define GIP_GP_RUMBLE_MAX 100
+ 
+@@ -43,6 +50,13 @@ enum gip_gamepad_button {
+ 	GIP_GP_BTN_STICK_R = BIT(15),
+ };
+ 
++enum gip_gamepad_paddle {
++	GIP_GP_BTN_P1 = BIT(0),
++	GIP_GP_BTN_P2 = BIT(1),
++	GIP_GP_BTN_P3 = BIT(2),
++	GIP_GP_BTN_P4 = BIT(3),
++};
++
+ enum gip_gamepad_motor {
+ 	GIP_GP_MOTOR_R = BIT(0),
+ 	GIP_GP_MOTOR_L = BIT(1),
+@@ -86,6 +100,7 @@ struct gip_gamepad {
+ 
+ 	bool supports_share;
+ 	bool supports_dli;
++	bool supports_paddles;
+ 
+ 	struct gip_gamepad_rumble {
+ 		/* serializes access to rumble packet */
+@@ -160,6 +175,7 @@ static int gip_gamepad_init_rumble(struct gip_gamepad *gamepad)
+ static int gip_gamepad_init_input(struct gip_gamepad *gamepad)
+ {
+ 	struct input_dev *dev = gamepad->input.dev;
++	struct gip_hardware hardware = gamepad->client->hardware;
+ 	int err;
+ 
+ 	gamepad->supports_share = gip_has_interface(gamepad->client,
+@@ -167,9 +183,20 @@ static int gip_gamepad_init_input(struct gip_gamepad *gamepad)
+ 	gamepad->supports_dli = gip_has_interface(gamepad->client,
+ 						  &gip_gamepad_guid_dli);
+ 
++	gamepad->supports_paddles = hardware.vendor == GIP_VENDOR_MICROSOFT
++			&& hardware.product == GIP_PRODUCT_ELITE_SERIES_2
++			&& hardware.version <= GIP_ELITE_SERIES_2_MAX_FIRMWARE;
++
+ 	if (gamepad->supports_share)
+ 		input_set_capability(dev, EV_KEY, KEY_RECORD);
+ 
++	if (gamepad->supports_paddles) {
++		input_set_capability(dev, EV_KEY, BTN_TRIGGER_HAPPY5);
++		input_set_capability(dev, EV_KEY, BTN_TRIGGER_HAPPY6);
++		input_set_capability(dev, EV_KEY, BTN_TRIGGER_HAPPY7);
++		input_set_capability(dev, EV_KEY, BTN_TRIGGER_HAPPY8);
++	}
++
+ 	input_set_capability(dev, EV_KEY, BTN_MODE);
+ 	input_set_capability(dev, EV_KEY, BTN_START);
+ 	input_set_capability(dev, EV_KEY, BTN_SELECT);
+@@ -276,6 +303,17 @@ static int gip_gamepad_op_input(struct gip_client *client, void *data, u32 len)
+ 	input_report_key(dev, BTN_TR, buttons & GIP_GP_BTN_BUMPER_R);
+ 	input_report_key(dev, BTN_THUMBL, buttons & GIP_GP_BTN_STICK_L);
+ 	input_report_key(dev, BTN_THUMBR, buttons & GIP_GP_BTN_STICK_R);
++
++
++	if (gamepad->supports_paddles && len > sizeof(struct gip_gamepad_pkt_input)) {
++		// On the original Elite Series 2 firmware paddles are stored right after other data in the packet
++		u8 paddles = ((u8 *) data)[sizeof(struct gip_gamepad_pkt_input)];
++		input_report_key(dev, BTN_TRIGGER_HAPPY5, paddles & GIP_GP_BTN_P1);
++		input_report_key(dev, BTN_TRIGGER_HAPPY6, paddles & GIP_GP_BTN_P2);
++		input_report_key(dev, BTN_TRIGGER_HAPPY7, paddles & GIP_GP_BTN_P3);
++		input_report_key(dev, BTN_TRIGGER_HAPPY8, paddles & GIP_GP_BTN_P4);
++	}
++
+ 	input_report_abs(dev, ABS_X, (s16)le16_to_cpu(pkt->stick_left_x));
+ 	input_report_abs(dev, ABS_RX, (s16)le16_to_cpu(pkt->stick_right_x));
+ 	input_report_abs(dev, ABS_Y, ~(s16)le16_to_cpu(pkt->stick_left_y));
+-- 
+2.46.0
+
+From 53964a447d119430c607ce2c33367ccb04b56fed Mon Sep 17 00:00:00 2001
+From: Andy Dodd <atd7@cornell.edu>
+Date: Wed, 15 May 2024 12:32:59 -0400
+Subject: [PATCH 2/8] Rework paddle support to handle multiple paddle types,
+ add original Elite paddle support
+
+Not yet implemented:  Other Elite 2 firmware versions.  Reference xpad source code for more on these
+---
+ driver/gamepad.c | 38 ++++++++++++++++++++++++++++++--------
+ 1 file changed, 30 insertions(+), 8 deletions(-)
+
+diff --git a/driver/gamepad.c b/driver/gamepad.c
+index a3ea25f..b5b4e30 100644
+--- a/driver/gamepad.c
++++ b/driver/gamepad.c
+@@ -14,6 +14,7 @@
+ 
+ #define GIP_VENDOR_MICROSOFT 0x045e
+ #define GIP_PRODUCT_ELITE_SERIES_2 0x0b00
++#define GIP_PRODUCT_ELITE 0x02e3
+ // Various versions of the Elite Series 2 firmware have changed the way paddle
+ // states are sent. Paddle support is only reported up to this firmware
+ // version.
+@@ -91,6 +92,13 @@ struct gip_gamepad_pkt_rumble {
+ 	u8 repeat;
+ } __packed;
+ 
++typedef enum {
++	PADDLE_NONE,
++	PADDLE_ELITE,
++	PADDLE_ELITE2_OLDFW,
++	PADDLE_ELITE2 //Not yet implemented, need a tester
++} PaddleCapability;
++
+ struct gip_gamepad {
+ 	struct gip_client *client;
+ 	struct gip_battery battery;
+@@ -100,7 +108,7 @@ struct gip_gamepad {
+ 
+ 	bool supports_share;
+ 	bool supports_dli;
+-	bool supports_paddles;
++	PaddleCapability paddle_support;
+ 
+ 	struct gip_gamepad_rumble {
+ 		/* serializes access to rumble packet */
+@@ -183,14 +191,20 @@ static int gip_gamepad_init_input(struct gip_gamepad *gamepad)
+ 	gamepad->supports_dli = gip_has_interface(gamepad->client,
+ 						  &gip_gamepad_guid_dli);
+ 
+-	gamepad->supports_paddles = hardware.vendor == GIP_VENDOR_MICROSOFT
+-			&& hardware.product == GIP_PRODUCT_ELITE_SERIES_2
+-			&& hardware.version <= GIP_ELITE_SERIES_2_MAX_FIRMWARE;
++	gamepad->paddle_support = PADDLE_NONE;
++	if(hardware.vendor == GIP_VENDOR_MICROSOFT) {
++		if(hardware.product == GIP_PRODUCT_ELITE) {
++			gamepad->paddle_support = PADDLE_ELITE;
++		}
++		else if(hardware.product == GIP_PRODUCT_ELITE_SERIES_2 && hardware.version <= GIP_ELITE_SERIES_2_MAX_FIRMWARE) {
++			gamepad->paddle_support = PADDLE_ELITE2_OLDFW;
++		}
++	}
+ 
+ 	if (gamepad->supports_share)
+ 		input_set_capability(dev, EV_KEY, KEY_RECORD);
+ 
+-	if (gamepad->supports_paddles) {
++	if ((gamepad->paddle_support ==  PADDLE_ELITE) || (gamepad->paddle_support == PADDLE_ELITE2_OLDFW)) {
+ 		input_set_capability(dev, EV_KEY, BTN_TRIGGER_HAPPY5);
+ 		input_set_capability(dev, EV_KEY, BTN_TRIGGER_HAPPY6);
+ 		input_set_capability(dev, EV_KEY, BTN_TRIGGER_HAPPY7);
+@@ -305,13 +319,21 @@ static int gip_gamepad_op_input(struct gip_client *client, void *data, u32 len)
+ 	input_report_key(dev, BTN_THUMBR, buttons & GIP_GP_BTN_STICK_R);
+ 
+ 
+-	if (gamepad->supports_paddles && len > sizeof(struct gip_gamepad_pkt_input)) {
+-		// On the original Elite Series 2 firmware paddles are stored right after other data in the packet
+-		u8 paddles = ((u8 *) data)[sizeof(struct gip_gamepad_pkt_input)];
++	//For anyone comparing to xpad's paddle handling source, xone strips four bytes of header off of the beginning that xpad doesn't, so all offsets are 4 less
++	if ((gamepad->paddle_support == PADDLE_ELITE2_OLDFW) && (len > 14)) {
++		// On the Elite Series 2 with older firmware paddles are stored at byte 14
++		u8 paddles = ((u8 *) data)[14];
+ 		input_report_key(dev, BTN_TRIGGER_HAPPY5, paddles & GIP_GP_BTN_P1);
+ 		input_report_key(dev, BTN_TRIGGER_HAPPY6, paddles & GIP_GP_BTN_P2);
+ 		input_report_key(dev, BTN_TRIGGER_HAPPY7, paddles & GIP_GP_BTN_P3);
+ 		input_report_key(dev, BTN_TRIGGER_HAPPY8, paddles & GIP_GP_BTN_P4);
++	} else if ((gamepad->paddle_support == PADDLE_ELITE) && (len > 28)){
++			// On the original Elite, paddles are stored at byte 28
++		u8 paddles = ((u8 *) data)[28];
++		input_report_key(dev, BTN_TRIGGER_HAPPY5, paddles & GIP_GP_BTN_P2);
++		input_report_key(dev, BTN_TRIGGER_HAPPY6, paddles & GIP_GP_BTN_P4);
++		input_report_key(dev, BTN_TRIGGER_HAPPY7, paddles & GIP_GP_BTN_P1);
++		input_report_key(dev, BTN_TRIGGER_HAPPY8, paddles & GIP_GP_BTN_P3);
+ 	}
+ 
+ 	input_report_abs(dev, ABS_X, (s16)le16_to_cpu(pkt->stick_left_x));
+-- 
+2.46.0
+
+From 533c705e8d42b23dd32f48d05c6133ef6951eb45 Mon Sep 17 00:00:00 2001
+From: Adele Reed <virepri2k@gmail.com>
+Date: Thu, 23 May 2024 16:39:27 -0700
+Subject: [PATCH 3/8] Add paddles for Elite 2 newer firmwares
+
+---
+ bus/bus.h        |  1 +
+ bus/protocol.c   | 18 +++++++++++
+ driver/gamepad.c | 83 ++++++++++++++++++++++++++++++++++++++++++------
+ 3 files changed, 92 insertions(+), 10 deletions(-)
+
+diff --git a/bus/bus.h b/bus/bus.h
+index c107e1e..a9f2d8b 100644
+--- a/bus/bus.h
++++ b/bus/bus.h
+@@ -97,6 +97,7 @@ struct gip_driver_ops {
+ 	int (*audio_volume)(struct gip_client *client, u8 in, u8 out);
+ 	int (*hid_report)(struct gip_client *client, void *data, u32 len);
+ 	int (*input)(struct gip_client *client, void *data, u32 len);
++    int (*firmware)(struct gip_client *client, void *data, u32 len);
+ 	int (*audio_samples)(struct gip_client *client, void *data, u32 len);
+ };
+ 
+diff --git a/bus/protocol.c b/bus/protocol.c
+index 1f24a0d..2d1de9a 100644
+--- a/bus/protocol.c
++++ b/bus/protocol.c
+@@ -1402,6 +1402,22 @@ static int gip_handle_pkt_audio_samples(struct gip_client *client,
+ 	return err;
+ }
+ 
++static int gip_handle_pkt_firmware(struct gip_client *client,
++                void *data, u32 len)
++{
++    int err = 0;
++
++    if (down_trylock(&client->drv_lock))
++        return -EBUSY;
++
++    if (client->drv && client->drv->ops.firmware)
++        client->drv->ops.firmware(client, data, len);
++
++    up(&client->drv_lock);
++
++    return err;
++}
++
+ static int gip_dispatch_pkt(struct gip_client *client,
+ 			    struct gip_header *hdr, void *data, u32 len)
+ {
+@@ -1425,6 +1441,8 @@ static int gip_dispatch_pkt(struct gip_client *client,
+ 			return gip_handle_pkt_hid_report(client, data, len);
+ 		case GIP_CMD_AUDIO_SAMPLES:
+ 			return gip_handle_pkt_audio_samples(client, data, len);
++        case GIP_CMD_FIRMWARE:
++            return gip_handle_pkt_firmware(client, data, len);
+ 		default:
+ 			return 0;
+ 		}
+diff --git a/driver/gamepad.c b/driver/gamepad.c
+index b5b4e30..3ad3969 100644
+--- a/driver/gamepad.c
++++ b/driver/gamepad.c
+@@ -18,7 +18,8 @@
+ // Various versions of the Elite Series 2 firmware have changed the way paddle
+ // states are sent. Paddle support is only reported up to this firmware
+ // version.
+-#define GIP_ELITE_SERIES_2_MAX_FIRMWARE 0x04FF
++#define GIP_ELITE_SERIES_2_4X_FIRMWARE 0x04FF
++#define GIP_ELITE_SERIES_2_510_FIRMWARE 0x050A
+ 
+ #define GIP_GP_RUMBLE_DELAY msecs_to_jiffies(10)
+ #define GIP_GP_RUMBLE_MAX 100
+@@ -65,6 +66,15 @@ enum gip_gamepad_motor {
+ 	GIP_GP_MOTOR_LT = BIT(3),
+ };
+ 
++struct gip_gamepad_pkt_firmware {
++    // Remember, xpad keeps the 4 bytes.
++    // Paddles are at [18] in xpad, so, [14] here.
++    // Pad 13 bytes.
++    u8 unknown[13];
++    u8 paddles;
++    u8 profile;
++} __packed;
++
+ struct gip_gamepad_pkt_input {
+ 	__le16 buttons;
+ 	__le16 trigger_left;
+@@ -95,8 +105,9 @@ struct gip_gamepad_pkt_rumble {
+ typedef enum {
+ 	PADDLE_NONE,
+ 	PADDLE_ELITE,
+-	PADDLE_ELITE2_OLDFW,
+-	PADDLE_ELITE2 //Not yet implemented, need a tester
++	PADDLE_ELITE2_4X, // Still in the same packet
++	PADDLE_ELITE2_510, // Same packet, different location
++    PADDLE_ELITE2_511 // Different packet entirely.
+ } PaddleCapability;
+ 
+ struct gip_gamepad {
+@@ -196,15 +207,21 @@ static int gip_gamepad_init_input(struct gip_gamepad *gamepad)
+ 		if(hardware.product == GIP_PRODUCT_ELITE) {
+ 			gamepad->paddle_support = PADDLE_ELITE;
+ 		}
+-		else if(hardware.product == GIP_PRODUCT_ELITE_SERIES_2 && hardware.version <= GIP_ELITE_SERIES_2_MAX_FIRMWARE) {
+-			gamepad->paddle_support = PADDLE_ELITE2_OLDFW;
+-		}
++        else if (hardware.product == GIP_PRODUCT_ELITE_SERIES_2)
++        {
++            if (hardware.version <= GIP_ELITE_SERIES_2_4X_FIRMWARE)
++                gamepad->paddle_support = PADDLE_ELITE2_4X;
++            else if (hardware.version <= GIP_ELITE_SERIES_2_510_FIRMWARE)
++                gamepad->paddle_support = PADDLE_ELITE2_510;
++            else if (hardware.version > GIP_ELITE_SERIES_2_510_FIRMWARE) // If new revisions come, this should become LTE new max
++                gamepad->paddle_support = PADDLE_ELITE2_511;
++        }
+ 	}
+ 
+ 	if (gamepad->supports_share)
+ 		input_set_capability(dev, EV_KEY, KEY_RECORD);
+ 
+-	if ((gamepad->paddle_support ==  PADDLE_ELITE) || (gamepad->paddle_support == PADDLE_ELITE2_OLDFW)) {
++	if ((gamepad->paddle_support ==  PADDLE_ELITE) || (gamepad->paddle_support == PADDLE_ELITE2_4X) || (gamepad->paddle_support == PADDLE_ELITE2_510) || (gamepad->paddle_support == PADDLE_ELITE2_511)) {
+ 		input_set_capability(dev, EV_KEY, BTN_TRIGGER_HAPPY5);
+ 		input_set_capability(dev, EV_KEY, BTN_TRIGGER_HAPPY6);
+ 		input_set_capability(dev, EV_KEY, BTN_TRIGGER_HAPPY7);
+@@ -282,6 +299,32 @@ static int gip_gamepad_op_guide_button(struct gip_client *client, bool down)
+ 	return 0;
+ }
+ 
++static int gip_gamepad_op_firmware(struct gip_client *client, void *data, u32 len)
++{
++    // First, ensure the data is of the correct size.
++    // This will probably footgun us later.
++    struct gip_gamepad_pkt_firmware *pkt = data;
++    if (len < sizeof (*pkt))
++        return -EINVAL;
++
++    // Grab our controller
++    struct gip_gamepad *gamepad = dev_get_drvdata(&client->dev);
++    struct input_dev *dev = gamepad->input.dev;
++
++    // mimic xpad behavior of ignoring if a profile is set
++    if (pkt->profile == 0)
++    {
++        input_report_key(dev, BTN_TRIGGER_HAPPY5, pkt->paddles & GIP_GP_BTN_P1);
++        input_report_key(dev, BTN_TRIGGER_HAPPY6, pkt->paddles & GIP_GP_BTN_P2);
++        input_report_key(dev, BTN_TRIGGER_HAPPY7, pkt->paddles & GIP_GP_BTN_P3);
++        input_report_key(dev, BTN_TRIGGER_HAPPY8, pkt->paddles & GIP_GP_BTN_P4);
++    }
++
++    input_sync(dev);
++
++    return 0;
++}
++
+ static int gip_gamepad_op_input(struct gip_client *client, void *data, u32 len)
+ {
+ 	struct gip_gamepad *gamepad = dev_get_drvdata(&client->dev);
+@@ -319,10 +362,29 @@ static int gip_gamepad_op_input(struct gip_client *client, void *data, u32 len)
+ 	input_report_key(dev, BTN_THUMBR, buttons & GIP_GP_BTN_STICK_R);
+ 
+ 
+-	//For anyone comparing to xpad's paddle handling source, xone strips four bytes of header off of the beginning that xpad doesn't, so all offsets are 4 less
+-	if ((gamepad->paddle_support == PADDLE_ELITE2_OLDFW) && (len > 14)) {
+-		// On the Elite Series 2 with older firmware paddles are stored at byte 14
++	// For anyone comparing to xpad's paddle handling source,
++    // xone strips four bytes of header off of the beginning that xpad doesn't, so all offsets are 4 less
++    // later revisions put paddle support in the firmware packet, check gip_gamepad_op_WTFEVER
++    if ((gamepad->paddle_support == PADDLE_ELITE2_510) && (len > 18)) { // Assume the controller might not send profile data.
++        // On the Elite Series 2 with newer-ISH firmware (<=5.10) paddles are stored at byte 18 (22)
++        u8 paddles = ((u8 *) data)[18];
++
++        // But first, ensure a profile is not applied, like xpad.
++        if ((len > 19) && ((u8 *) data)[19] != 0)
++            paddles = 0;
++
++        input_report_key(dev, BTN_TRIGGER_HAPPY5, paddles & GIP_GP_BTN_P1);
++        input_report_key(dev, BTN_TRIGGER_HAPPY6, paddles & GIP_GP_BTN_P2);
++        input_report_key(dev, BTN_TRIGGER_HAPPY7, paddles & GIP_GP_BTN_P3);
++        input_report_key(dev, BTN_TRIGGER_HAPPY8, paddles & GIP_GP_BTN_P4);
++    } else if ((gamepad->paddle_support == PADDLE_ELITE2_4X) && (len > 14)) {
++		// On the Elite Series 2 with older firmware (<5.11) paddles are stored at byte 14 (18)
+ 		u8 paddles = ((u8 *) data)[14];
++
++        // But first, ensure a profile is not applied, like xpad.
++        if ((len > 15) && ((u8 *) data)[15] != 0)
++            paddles = 0;
++
+ 		input_report_key(dev, BTN_TRIGGER_HAPPY5, paddles & GIP_GP_BTN_P1);
+ 		input_report_key(dev, BTN_TRIGGER_HAPPY6, paddles & GIP_GP_BTN_P2);
+ 		input_report_key(dev, BTN_TRIGGER_HAPPY7, paddles & GIP_GP_BTN_P3);
+@@ -406,6 +468,7 @@ static struct gip_driver gip_gamepad_driver = {
+ 		.authenticate = gip_gamepad_op_authenticate,
+ 		.guide_button = gip_gamepad_op_guide_button,
+ 		.input = gip_gamepad_op_input,
++        .firmware = gip_gamepad_op_firmware,
+ 	},
+ 	.probe = gip_gamepad_probe,
+ 	.remove = gip_gamepad_remove,
+-- 
+2.46.0
+
+From d511444f755dd2d794aec0535e2a5655f18dd1e9 Mon Sep 17 00:00:00 2001
+From: Adele Reed <virepri2k@gmail.com>
+Date: Thu, 23 May 2024 18:21:50 -0700
+Subject: [PATCH 4/8] Catch error, ignore profile for now
+
+---
+ bus/protocol.c   |  2 +-
+ driver/gamepad.c | 14 +++++++-------
+ 2 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/bus/protocol.c b/bus/protocol.c
+index 2d1de9a..8f38c1a 100644
+--- a/bus/protocol.c
++++ b/bus/protocol.c
+@@ -1411,7 +1411,7 @@ static int gip_handle_pkt_firmware(struct gip_client *client,
+         return -EBUSY;
+ 
+     if (client->drv && client->drv->ops.firmware)
+-        client->drv->ops.firmware(client, data, len);
++        err = client->drv->ops.firmware(client, data, len);
+ 
+     up(&client->drv_lock);
+ 
+diff --git a/driver/gamepad.c b/driver/gamepad.c
+index 3ad3969..2d13520 100644
+--- a/driver/gamepad.c
++++ b/driver/gamepad.c
+@@ -312,13 +312,13 @@ static int gip_gamepad_op_firmware(struct gip_client *client, void *data, u32 le
+     struct input_dev *dev = gamepad->input.dev;
+ 
+     // mimic xpad behavior of ignoring if a profile is set
+-    if (pkt->profile == 0)
+-    {
+-        input_report_key(dev, BTN_TRIGGER_HAPPY5, pkt->paddles & GIP_GP_BTN_P1);
+-        input_report_key(dev, BTN_TRIGGER_HAPPY6, pkt->paddles & GIP_GP_BTN_P2);
+-        input_report_key(dev, BTN_TRIGGER_HAPPY7, pkt->paddles & GIP_GP_BTN_P3);
+-        input_report_key(dev, BTN_TRIGGER_HAPPY8, pkt->paddles & GIP_GP_BTN_P4);
+-    }
++    // if (pkt->profile == 0 )
++	// {
++	input_report_key(dev, BTN_TRIGGER_HAPPY5, pkt->paddles & GIP_GP_BTN_P1);
++	input_report_key(dev, BTN_TRIGGER_HAPPY6, pkt->paddles & GIP_GP_BTN_P2);
++	input_report_key(dev, BTN_TRIGGER_HAPPY7, pkt->paddles & GIP_GP_BTN_P3);
++	input_report_key(dev, BTN_TRIGGER_HAPPY8, pkt->paddles & GIP_GP_BTN_P4);
++    // }
+ 
+     input_sync(dev);
+ 
+-- 
+2.46.0
+
+From af9bb722b815ceaace09abc94001be75162afd33 Mon Sep 17 00:00:00 2001
+From: Adele Reed <virepri2k@gmail.com>
+Date: Thu, 23 May 2024 18:40:32 -0700
+Subject: [PATCH 5/8] Add debug
+
+---
+ driver/gamepad.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/driver/gamepad.c b/driver/gamepad.c
+index 2d13520..28b9f55 100644
+--- a/driver/gamepad.c
++++ b/driver/gamepad.c
+@@ -27,6 +27,8 @@
+ /* button offset from end of packet */
+ #define GIP_GP_BTN_SHARE_OFFSET 18
+ 
++#define gip_dbg(client, ...) dev_dbg(&(client)->adapter->dev, __VA_ARGS__)
++
+ static const guid_t gip_gamepad_guid_share =
+ 	GUID_INIT(0xecddd2fe, 0xd387, 0x4294,
+ 		  0xbd, 0x96, 0x1a, 0x71, 0x2e, 0x3d, 0xc7, 0x7d);
+@@ -320,6 +322,8 @@ static int gip_gamepad_op_firmware(struct gip_client *client, void *data, u32 le
+ 	input_report_key(dev, BTN_TRIGGER_HAPPY8, pkt->paddles & GIP_GP_BTN_P4);
+     // }
+ 
++	gip_dbg(client, "%s: paddles: %d profile:", __func__, pkt->paddles, pkt->profile);
++
+     input_sync(dev);
+ 
+     return 0;
+-- 
+2.46.0
+
+From cd596fcd5784a46ca33d5d516f4aa7ed58d91396 Mon Sep 17 00:00:00 2001
+From: Adele Reed <virepri2k@gmail.com>
+Date: Thu, 23 May 2024 20:51:14 -0700
+Subject: [PATCH 6/8] Try sending extra packet at boot
+
+---
+ bus/protocol.c   | 15 +++++++++++++++
+ bus/protocol.h   |  1 +
+ driver/gamepad.c | 20 ++++++++++++++++++--
+ 3 files changed, 34 insertions(+), 2 deletions(-)
+
+diff --git a/bus/protocol.c b/bus/protocol.c
+index 8f38c1a..77b2dd9 100644
+--- a/bus/protocol.c
++++ b/bus/protocol.c
+@@ -691,6 +691,21 @@ int gip_init_audio_out(struct gip_client *client)
+ }
+ EXPORT_SYMBOL_GPL(gip_init_audio_out);
+ 
++int gip_init_extra_data(struct gip_client *client)
++{
++struct gip_header hdr = {};
++
++	hdr.command = 0x4d; // ???
++	hdr.options |= GIP_OPT_ACKNOWLEDGE; // Because 4
++	hdr.sequence = 1;
++	hdr.packet_length = 2;
++
++	u8 packet_data[] = {0x07, 0x00};
++
++	return gip_send_pkt(client, &hdr, &packet_data);
++}
++EXPORT_SYMBOL_GPL(gip_init_extra_data);
++
+ void gip_disable_audio(struct gip_client *client)
+ {
+ 	struct gip_adapter *adap = client->adapter;
+diff --git a/bus/protocol.h b/bus/protocol.h
+index 96722c8..2f90018 100644
+--- a/bus/protocol.h
++++ b/bus/protocol.h
+@@ -110,6 +110,7 @@ int gip_send_rumble(struct gip_client *client, void *pkt, u32 len);
+ int gip_set_led_mode(struct gip_client *client,
+ 		     enum gip_led_mode mode, u8 brightness);
+ int gip_send_audio_samples(struct gip_client *client, void *samples);
++int gip_init_extra_data(struct gip_client *client);
+ 
+ bool gip_has_interface(struct gip_client *client, const guid_t *guid);
+ int gip_set_encryption_key(struct gip_client *client, u8 *key, int len);
+diff --git a/driver/gamepad.c b/driver/gamepad.c
+index 28b9f55..f8846e1 100644
+--- a/driver/gamepad.c
++++ b/driver/gamepad.c
+@@ -39,7 +39,7 @@ static const guid_t gip_gamepad_guid_dli =
+ 
+ enum gip_gamepad_button {
+ 	GIP_GP_BTN_MENU = BIT(2),
+-	GIP_GP_BTN_VIEW = BIT(3),
++	GIP_GP_BTN_VIEW = BIT(3),		
+ 	GIP_GP_BTN_A = BIT(4),
+ 	GIP_GP_BTN_B = BIT(5),
+ 	GIP_GP_BTN_X = BIT(6),
+@@ -193,6 +193,11 @@ static int gip_gamepad_init_rumble(struct gip_gamepad *gamepad)
+ 	return input_ff_create_memless(dev, NULL, gip_gamepad_queue_rumble);
+ }
+ 
++static int gip_gamepad_init_extra_data(struct gip_gamepad *gamepad)
++{
++	return gip_init_extra_data(gamepad->client);
++}
++
+ static int gip_gamepad_init_input(struct gip_gamepad *gamepad)
+ {
+ 	struct input_dev *dev = gamepad->input.dev;
+@@ -228,6 +233,17 @@ static int gip_gamepad_init_input(struct gip_gamepad *gamepad)
+ 		input_set_capability(dev, EV_KEY, BTN_TRIGGER_HAPPY6);
+ 		input_set_capability(dev, EV_KEY, BTN_TRIGGER_HAPPY7);
+ 		input_set_capability(dev, EV_KEY, BTN_TRIGGER_HAPPY8);
++
++		if (gamepad->paddle_support == PADDLE_ELITE2_511)
++		{
++			dev_dbg(&gamepad->client->dev, "%s: trying to init extra data", __func__);
++			err = gip_gamepad_init_extra_data(gamepad);
++			if (err) {
++				dev_err(&gamepad->client->dev, "%s: init extra data failed: %d\n",
++					__func__, err);
++				goto err_delete_timer;
++			}
++		}
+ 	}
+ 
+ 	input_set_capability(dev, EV_KEY, BTN_MODE);
+@@ -322,7 +338,7 @@ static int gip_gamepad_op_firmware(struct gip_client *client, void *data, u32 le
+ 	input_report_key(dev, BTN_TRIGGER_HAPPY8, pkt->paddles & GIP_GP_BTN_P4);
+     // }
+ 
+-	gip_dbg(client, "%s: paddles: %d profile:", __func__, pkt->paddles, pkt->profile);
++	gip_dbg(client, "%s: paddles: %d profile: %d", __func__, pkt->paddles, pkt->profile);
+ 
+     input_sync(dev);
+ 
+-- 
+2.46.0
+
+From d16a4c355324b10a012cc887bcb2e24f5405d7ca Mon Sep 17 00:00:00 2001
+From: Andy Dodd <atd7@cornell.edu>
+Date: Thu, 11 Jul 2024 20:53:34 -0400
+Subject: [PATCH 7/8] Move extradata init earlier in the cycle.
+
+FIXME:  Only send to Elite FW511 and greater gamepads, send earlier like xpad does.
+---
+ driver/gamepad.c | 15 ++++-----------
+ 1 file changed, 4 insertions(+), 11 deletions(-)
+
+diff --git a/driver/gamepad.c b/driver/gamepad.c
+index f8846e1..dc20386 100644
+--- a/driver/gamepad.c
++++ b/driver/gamepad.c
+@@ -233,17 +233,6 @@ static int gip_gamepad_init_input(struct gip_gamepad *gamepad)
+ 		input_set_capability(dev, EV_KEY, BTN_TRIGGER_HAPPY6);
+ 		input_set_capability(dev, EV_KEY, BTN_TRIGGER_HAPPY7);
+ 		input_set_capability(dev, EV_KEY, BTN_TRIGGER_HAPPY8);
+-
+-		if (gamepad->paddle_support == PADDLE_ELITE2_511)
+-		{
+-			dev_dbg(&gamepad->client->dev, "%s: trying to init extra data", __func__);
+-			err = gip_gamepad_init_extra_data(gamepad);
+-			if (err) {
+-				dev_err(&gamepad->client->dev, "%s: init extra data failed: %d\n",
+-					__func__, err);
+-				goto err_delete_timer;
+-			}
+-		}
+ 	}
+ 
+ 	input_set_capability(dev, EV_KEY, BTN_MODE);
+@@ -468,6 +457,10 @@ static int gip_gamepad_probe(struct gip_client *client)
+ 	if (err)
+ 		return err;
+ 
++	err = gip_gamepad_init_extra_data(gamepad);
++	if (err)
++		return err;
++
+ 	dev_set_drvdata(&client->dev, gamepad);
+ 
+ 	return 0;
+-- 
+2.46.0
+
+From 71b2a954cd32d278727c53a525ffcc940f94b6b6 Mon Sep 17 00:00:00 2001
+From: Andy Dodd <atd7@cornell.edu>
+Date: Thu, 11 Jul 2024 22:31:52 -0400
+Subject: [PATCH 8/8] Complete Series 2 new firmware bringup
+
+Send init packet earlier (FIXME:  May not be necessary)
+
+Move the handler for extradata out of the OPT_INTERNAL check - this is the key to getting packets handled.
+
+Also increase the padding by one byte.  Classic off-by-one error - offset 14 when starting at zero has 14 bytes preceding it
+---
+ bus/protocol.c   |  6 +++---
+ driver/gamepad.c | 23 +++++++++++------------
+ 2 files changed, 14 insertions(+), 15 deletions(-)
+
+diff --git a/bus/protocol.c b/bus/protocol.c
+index 77b2dd9..59fdb68 100644
+--- a/bus/protocol.c
++++ b/bus/protocol.c
+@@ -693,7 +693,7 @@ EXPORT_SYMBOL_GPL(gip_init_audio_out);
+ 
+ int gip_init_extra_data(struct gip_client *client)
+ {
+-struct gip_header hdr = {};
++	struct gip_header hdr = {};
+ 
+ 	hdr.command = 0x4d; // ???
+ 	hdr.options |= GIP_OPT_ACKNOWLEDGE; // Because 4
+@@ -1456,8 +1456,6 @@ static int gip_dispatch_pkt(struct gip_client *client,
+ 			return gip_handle_pkt_hid_report(client, data, len);
+ 		case GIP_CMD_AUDIO_SAMPLES:
+ 			return gip_handle_pkt_audio_samples(client, data, len);
+-        case GIP_CMD_FIRMWARE:
+-            return gip_handle_pkt_firmware(client, data, len);
+ 		default:
+ 			return 0;
+ 		}
+@@ -1466,6 +1464,8 @@ static int gip_dispatch_pkt(struct gip_client *client,
+ 	switch (hdr->command) {
+ 	case GIP_CMD_INPUT:
+ 		return gip_handle_pkt_input(client, data, len);
++	case GIP_CMD_FIRMWARE:
++		return gip_handle_pkt_firmware(client, data, len);
+ 	}
+ 
+ 	return 0;
+diff --git a/driver/gamepad.c b/driver/gamepad.c
+index dc20386..bf504ce 100644
+--- a/driver/gamepad.c
++++ b/driver/gamepad.c
+@@ -71,8 +71,8 @@ enum gip_gamepad_motor {
+ struct gip_gamepad_pkt_firmware {
+     // Remember, xpad keeps the 4 bytes.
+     // Paddles are at [18] in xpad, so, [14] here.
+-    // Pad 13 bytes.
+-    u8 unknown[13];
++    // Pad 14 bytes.
++    u8 unknown[14];
+     u8 paddles;
+     u8 profile;
+ } __packed;
+@@ -216,12 +216,15 @@ static int gip_gamepad_init_input(struct gip_gamepad *gamepad)
+ 		}
+         else if (hardware.product == GIP_PRODUCT_ELITE_SERIES_2)
+         {
++			printk("Elite Series 2\n");
+             if (hardware.version <= GIP_ELITE_SERIES_2_4X_FIRMWARE)
+                 gamepad->paddle_support = PADDLE_ELITE2_4X;
+             else if (hardware.version <= GIP_ELITE_SERIES_2_510_FIRMWARE)
+                 gamepad->paddle_support = PADDLE_ELITE2_510;
+-            else if (hardware.version > GIP_ELITE_SERIES_2_510_FIRMWARE) // If new revisions come, this should become LTE new max
++            else if (hardware.version > GIP_ELITE_SERIES_2_510_FIRMWARE){ // If new revisions come, this should become LTE new max
++				printk("Elite Series 2 > 5.10\n");
+                 gamepad->paddle_support = PADDLE_ELITE2_511;
++			}
+         }
+ 	}
+ 
+@@ -318,16 +321,10 @@ static int gip_gamepad_op_firmware(struct gip_client *client, void *data, u32 le
+     struct gip_gamepad *gamepad = dev_get_drvdata(&client->dev);
+     struct input_dev *dev = gamepad->input.dev;
+ 
+-    // mimic xpad behavior of ignoring if a profile is set
+-    // if (pkt->profile == 0 )
+-	// {
+ 	input_report_key(dev, BTN_TRIGGER_HAPPY5, pkt->paddles & GIP_GP_BTN_P1);
+ 	input_report_key(dev, BTN_TRIGGER_HAPPY6, pkt->paddles & GIP_GP_BTN_P2);
+ 	input_report_key(dev, BTN_TRIGGER_HAPPY7, pkt->paddles & GIP_GP_BTN_P3);
+ 	input_report_key(dev, BTN_TRIGGER_HAPPY8, pkt->paddles & GIP_GP_BTN_P4);
+-    // }
+-
+-	gip_dbg(client, "%s: paddles: %d profile: %d", __func__, pkt->paddles, pkt->profile);
+ 
+     input_sync(dev);
+ 
+@@ -437,6 +434,10 @@ static int gip_gamepad_probe(struct gip_client *client)
+ 	if (err)
+ 		return err;
+ 
++	err = gip_gamepad_init_extra_data(gamepad);
++	if (err)
++		return err;
++
+ 	err = gip_init_battery(&gamepad->battery, client, GIP_GP_NAME);
+ 	if (err)
+ 		return err;
+@@ -457,9 +458,7 @@ static int gip_gamepad_probe(struct gip_client *client)
+ 	if (err)
+ 		return err;
+ 
+-	err = gip_gamepad_init_extra_data(gamepad);
+-	if (err)
+-		return err;
++
+ 
+ 	dev_set_drvdata(&client->dev, gamepad);
+ 
+-- 
+2.46.0
+

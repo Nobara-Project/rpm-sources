@@ -1,3 +1,4 @@
+%global _default_patch_fuzz 2
 %global commit 58004bff8bda0ea36dce4b970a054b95800e3c3f
 %global commitdate 20240405
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
@@ -9,14 +10,18 @@
 
 Name:     xone
 Version:  0.3
-Release:  5%{?dist}
-Summary:  Linux kernel driver for Xbox One and Xbox Series X|S accessories 
+Release:  15%{?dist}
+Summary:  Linux kernel driver for Xbox One and Xbox Series X|S accessories
 License:  GPLv2
 URL:      https://github.com/medusalix/xone
 Source0:  %{url}/archive/%{commit}/%{name}-%{shortcommit}.tar.gz
 Source1:  modules-load-d-%{name}.conf
-Patch2:   https://github.com/medusalix/xone/pull/20.patch#/%{name}-%{version}-share-button.patch
-Patch3:   https://github.com/medusalix/xone/pull/35.patch#/%{name}-%{version}-pairing-attrib.patch
+#Patch0:   0001-revert-powera-changes.patch
+Patch1:   0001-convert-to-dongle-only-build.patch
+Patch2:   elite-paddles.patch
+Patch3:   https://github.com/medusalix/xone/pull/20.patch#/%{name}-%{version}-share-button.patch
+Patch4:   https://github.com/medusalix/xone/pull/45.patch#/%{name}-%{version}-pairing-attrib.patch
+Patch5:   6.11-fixup.patch
 
 BuildRequires:  gcc
 BuildRequires:  make
@@ -32,14 +37,14 @@ Requires:       %{name}-kmod >= %{version}
 
 Conflicts:      xow <= 0.5
 Obsoletes:      xow <= 0.5
+Provides:       xpad-noone kmod-xpad-noone akmod-xpad-noone xpad-noone-kmod-common
+Obsoletes:      xpad-noone kmod-xpad-noone akmod-xpad-noone xpad-noone-kmod-common
 
 # kmodtool does its magic here
 %{expand:%(kmodtool --target %{_target_cpu} --kmodname %{name} %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null) }
 
 %description
-xone is a Linux kernel driver for Xbox One and Xbox Series X|S accessories.
-It serves as a modern replacement for xpad, aiming to be compatible with
-Microsoft's Game Input Protocol (GIP).
+xone is a Linux kernel driver for Xbox One and Xbox Series X|S dongle.
 
 %package kmod
 Summary:  Kernel module (kmod) for %{name}
