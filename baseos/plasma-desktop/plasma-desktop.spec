@@ -6,7 +6,7 @@
 Name:    plasma-desktop
 Summary: Plasma Desktop shell
 Version: 6.1.4
-Release: 1%{?dist}
+Release: 5%{?dist}
 
 License: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only)
 URL:     https://invent.kde.org/plasma/%{name}
@@ -18,7 +18,7 @@ Patch100: plasma-desktop-5.90.0-default_favorites.patch
 
 # Hide virtual keyboard indicator on sddm.
 # Do not remove this as it breaks Fedora's QA policy
-Patch101:       hide-virtual-keyboard-indicator-on-sddm.patch
+#Patch101:       hide-virtual-keyboard-indicator-on-sddm.patch
 
 
 Patch102:       0001-fix-no-longer-needed-password-view-disable.patch
