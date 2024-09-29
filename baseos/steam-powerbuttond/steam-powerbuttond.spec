@@ -5,7 +5,7 @@
 
 Name:           steam-powerbuttond
 Version:        0.0.git.6c89b0e
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Steam Deck power button daemon
 
 License:        BSD
@@ -20,6 +20,7 @@ BuildRequires:  git
 Requires:       libevdev
 
 Provides:       steam-powerbuttond
+Obsoletes:      gamescope-session-plus <= 0.2.git.201.5538cd66
 Provides:       powerbuttond
 Obsoletes:      powerbuttond
 
