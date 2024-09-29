@@ -34,6 +34,8 @@ date_to_epoch() {
 if [[ -n "$DISPLAY_CHECK" ]] && [[ "$WHO" != "liveuser" ]] && [[ "$WHO" != "gnome-initial-setup" ]]; then
     sleep 1
     if [[ -n "$newinstall" ]]; then
+        # Initiate flatpak search for the first time
+        flatpak search chrome
         # Perform system update on fresh install
         /usr/bin/updatecheck
     fi
