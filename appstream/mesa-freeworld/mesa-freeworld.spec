@@ -3,51 +3,57 @@
 algorithms and decoding only VC1 algorithm.
 %ifnarch s390x
 %global with_hardware 1
+%global with_radeonsi 1
+%global with_vmware 1
 %global with_vulkan_hw 0
 %global with_vdpau 1
 %global with_va 1
 %if !0%{?rhel}
+%global with_r300 1
+%global with_r600 1
 %global with_nine 0
-%global with_nvk 0
+#%%if 0%%{?with_vulkan_hw}
+%global with_nvk %{with_vulkan_hw}
+#%%endif
 %global with_omx 0
 %global with_opencl 0
 %endif
-#%%global base_vulkan ,amd
+#%%global base_vulkan %%{?with_vulkan_hw:,amd}%%{!?with_vulkan_hw:%%{nil}}
 %endif
+
+#%%ifnarch %%{ix86}
+%if !0%{?rhel}
+%global with_teflon 0
+%endif
+#%%endif
 
 %ifarch %{ix86} x86_64
 %global with_crocus 0
 %global with_i915   0
-%if !0%{?rhel}
-%global with_intel_clc 0
-%endif
 %global with_iris   0
 %global with_xa     0
-#%%global intel_platform_vulkan ,intel,intel_hasvk
+%global with_intel_clc 0
+#%%global intel_platform_vulkan %%{?with_vulkan_hw:,intel,intel_hasvk}%%{!?with_vulkan_hw:%%{nil}}
 %endif
+#%%ifarch x86_64
+#%%if !0%%{?with_vulkan_hw}
+%global with_intel_vk_rt 0
+#%%endif
+#%%endif
 
 %ifarch aarch64 x86_64 %{ix86}
+%global with_kmsro     0
 %if !0%{?rhel}
 %global with_lima      0
 %global with_vc4       0
-%endif
 %global with_etnaviv   0
-%global with_freedreno 0
-%global with_kmsro     0
-%global with_panfrost  0
 %global with_tegra     0
+%endif
+%global with_freedreno 0
+%global with_panfrost  0
 %global with_v3d       0
 %global with_xa        0
-#%%global extra_platform_vulkan ,broadcom,freedreno,panfrost,imagination-experimental
-%endif
-
-%ifnarch s390x
-%if !0%{?rhel}
-%global with_r300 1
-%global with_r600 1
-%endif
-%global with_radeonsi 1
-%global with_vmware 1
+#%%global extra_platform_vulkan %%{?with_vulkan_hw:,broadcom,freedreno,panfrost,imagination-experimental}%%{!?with_vulkan_hw:%%{nil}}
 %endif
 
 %if !0%{?rhel}
@@ -61,11 +67,11 @@ algorithms and decoding only VC1 algorithm.
 %bcond_with valgrind
 %endif
 
-#%%global vulkan_drivers swrast%%{?base_vulkan}%%{?intel_platform_vulkan}%%{?extra_platform_vulkan}%%{?with_nvk:,nouveau-experimental}
+#%%global vulkan_drivers swrast%%{?base_vulkan}%%{?intel_platform_vulkan}%%{?extra_platform_vulkan}%%{?with_nvk:,nouveau}
 
 Name:           %{srcname}-freeworld
 Summary:        Mesa graphics libraries
-%global ver 24.2.1
+%global ver 24.2.3
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        1%{?dist}
 License:        MIT
@@ -78,8 +84,6 @@ Source0:        https://archive.mesa3d.org/%{srcname}-%{ver}.tar.xz
 Source1:        Mesa-MLAA-License-Clarification-Email.txt
 Source2:        org.mesa3d.vaapi.freeworld.metainfo.xml
 Source3:        org.mesa3d.vdpau.freeworld.metainfo.xml
-
-Patch0:         gnome-shell-glthread-disable.patch
 
 BuildRequires:  meson >= 1.3.0
 BuildRequires:  gcc
@@ -139,30 +143,42 @@ BuildRequires:  pkgconfig(libomxil-bellagio)
 BuildRequires:  pkgconfig(libelf)
 BuildRequires:  pkgconfig(libglvnd) >= 1.3.2
 BuildRequires:  llvm-devel >= 7.0.0
+%if 0%{?fedora} >= 41
+BuildRequires:  llvm-devel >= 19.0.0
+%endif
+%if 0%{?with_teflon}
+BuildRequires:  flatbuffers-devel
+BuildRequires:  flatbuffers-compiler
+BuildRequires:  xtensor-devel
+%endif
+%if 0%{?with_opencl} || 0%{?with_nvk} || 0%{?with_intel_clc}
+BuildRequires:  rust-packaging
+%endif
+%ifarch %{ix86} x86_64
 BuildRequires:  clang-devel
 BuildRequires:  bindgen
-BuildRequires:  rust-packaging
 BuildRequires:  pkgconfig(libclc)
 BuildRequires:  pkgconfig(SPIRV-Tools)
 BuildRequires:  pkgconfig(LLVMSPIRVLib)
+%endif
 %if 0%{?with_nvk}
 BuildRequires:  cbindgen
+BuildRequires:  (crate(paste) >= 1.0.14 with crate(paste) < 2)
 BuildRequires:  (crate(proc-macro2) >= 1.0.56 with crate(proc-macro2) < 2)
 BuildRequires:  (crate(quote) >= 1.0.25 with crate(quote) < 2)
 BuildRequires:  (crate(syn/clone-impls) >= 2.0.15 with crate(syn/clone-impls) < 3)
 BuildRequires:  (crate(unicode-ident) >= 1.0.6 with crate(unicode-ident) < 2)
-BuildRequires:  (crate(paste) >= 1.0.14 with crate(paste) < 2)
 %endif
 %if %{with valgrind}
 BuildRequires:  pkgconfig(valgrind)
 %endif
 BuildRequires:  python3-devel
 BuildRequires:  python3-mako
-BuildRequires:  python3-pycparser
-BuildRequires:  python3-yaml
 %if 0%{?with_intel_clc}
 BuildRequires:  python3-ply
 %endif
+BuildRequires:  python3-pycparser
+BuildRequires:  python3-pyyaml
 BuildRequires:  vulkan-headers
 BuildRequires:  glslang
 %if 0%{?with_vulkan_hw}
@@ -205,6 +221,10 @@ export RUSTFLAGS="%build_rustflags"
 %define _lto_cflags %{nil}
 
 %meson \
+  --libdir=%{_libdir}/dri-freeworld \
+  -Dvdpau-libs-path=%{_libdir}/vdpau \
+  -Ddri-drivers-path=%{_libdir}/dri-freeworld \
+  -Dva-libs-path=%{_libdir}/dri-freeworld \
   -Dplatforms=x11,wayland \
   -Ddri3=enabled \
   -Dosmesa=false \
@@ -218,6 +238,7 @@ export RUSTFLAGS="%build_rustflags"
   -Dgallium-va=%{?with_va:enabled}%{!?with_va:disabled} \
   -Dgallium-xa=%{!?with_xa:enabled}%{?with_xa:disabled} \
   -Dgallium-nine=%{!?with_nine:true}%{?with_nine:false} \
+  -Dteflon=%{!?with_teflon:true}%{?with_teflon:false} \
   -Dgallium-opencl=%{!?with_opencl:icd}%{?with_opencl:disabled} \
 %if 0%{?with_opencl}
   -Dgallium-rusticl=true \
@@ -236,9 +257,7 @@ export RUSTFLAGS="%build_rustflags"
 %if 0%{?with_intel_clc}
   -Dintel-clc=enabled \
 %endif
-%ifnarch x86_64
-  -Dintel-rt=disabled \
-%endif
+  -Dintel-rt=%{!?with_intel_vk_rt:enabled}%{?with_intel_vk_rt:disabled} \
   -Dmicrosoft-clc=disabled \
   -Dllvm=enabled \
   -Dshared-llvm=enabled \
@@ -253,7 +272,7 @@ export RUSTFLAGS="%build_rustflags"
 %endif
   -Dandroid-libbacktrace=disabled \
 %ifarch %{ix86}
-  -Dglx-read-only-text=true
+  -Dglx-read-only-text=true \
 %endif
   %{nil}
 %meson_build
@@ -287,34 +306,34 @@ popd
 
 # strip unneeded files from va-api and vdpau
 rm -rf %{buildroot}%{_datadir}/{drirc.d,glvnd,vulkan}
-rm -rf %{buildroot}%{_libdir}/{d3d,EGL,gallium-pipe,libGLX,pkgconfig}
+rm -rf %{buildroot}%{_libdir}{,/dri-freeworld}/{d3d,EGL,gallium-pipe,libGLX,pkgconfig}
 rm -rf %{buildroot}%{_includedir}/{d3dadapter,EGL,GL,KHR}
 rm -fr %{buildroot}%{_sysconfdir}/OpenGL
-rm -fr %{buildroot}%{_libdir}/libGL.so*
+rm -fr %{buildroot}%{_libdir}{,/dri-freeworld}/libGL.so*
 rm -fr %{buildroot}%{_libdir}/libgallium-*.so
-rm -fr %{buildroot}%{_libdir}/libglapi.so*
+rm -fr %{buildroot}%{_libdir}{,/dri-freeworld}/libglapi.so*
 rm -fr %{buildroot}%{_libdir}/libOSMesa.so*
 rm -fr %{buildroot}%{_libdir}/pkgconfig/osmesa.pc
 rm -fr %{buildroot}%{_libdir}/libgbm.so*
 rm -fr %{buildroot}%{_includedir}/gbm.h
-rm -fr %{buildroot}%{_libdir}/libxatracker.so*
+rm -fr %{buildroot}%{_libdir}{,/dri-freeworld}/libxatracker.so*
 rm -fr %{buildroot}%{_includedir}/xa_*.h
 rm -fr %{buildroot}%{_libdir}/libMesaOpenCL.so*
 rm -fr %{buildroot}%{_libdir}/dri/*_dri.so
 rm -fr %{buildroot}%{_libdir}/libvulkan*.so
-rm -fr %{buildroot}%{_libdir}/libVkLayer_MESA_device_select.so
+rm -fr %{buildroot}%{_libdir}{,/dri-freeworld}/libVkLayer_MESA_device_select.so
 
 %if 0%{?with_va}
 %files -n %{srcname}-va-drivers-freeworld
-%{_libdir}/dri/nouveau_drv_video.so
+%{_libdir}/dri-freeworld/libgallium-%{version}.so
+%{_libdir}/dri-freeworld/nouveau_drv_video.so
 %if 0%{?with_r600}
-%{_libdir}/dri/r600_drv_video.so
+%{_libdir}/dri-freeworld/r600_drv_video.so
 %endif
 %if 0%{?with_radeonsi}
-%{_libdir}/dri/radeonsi_drv_video.so
+%{_libdir}/dri-freeworld/radeonsi_drv_video.so
 %endif
-%{_libdir}/dri/libgallium_drv_video.so
-%{_libdir}/dri/virtio_gpu_drv_video.so
+%{_libdir}/dri-freeworld/virtio_gpu_drv_video.so
 %{_metainfodir}/org.mesa3d.vaapi.freeworld.metainfo.xml
 %license docs/license.rst
 %endif
@@ -328,13 +347,85 @@ rm -fr %{buildroot}%{_libdir}/libVkLayer_MESA_device_select.so
 %if 0%{?with_radeonsi}
 %{_libdir}/vdpau/libvdpau_radeonsi.so.1*
 %endif
-%{_libdir}/vdpau/libvdpau_gallium.so.1*
 %{_libdir}/vdpau/libvdpau_virtio_gpu.so.1*
 %{_metainfodir}/org.mesa3d.vdpau.freeworld.metainfo.xml
 %license docs/license.rst
 %endif
 
 %changelog
+* Wed Sep 25 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.2.3-3
+- temporarily require llvm 19 for Fedora 41 and up
+
+* Fri Sep 20 2024 Nicolas Chauvet <kwizart@gmail.com> - 24.2.3-2
+- Attempt to complement Fedora
+
+* Thu Sep 19 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.2.3-1
+- Update to 24.2.3
+- Sync a few bits with mesa.spec from fedora
+
+* Fri Sep 6 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.2.2-1
+- Update to 24.2.2
+- Sync a few bits with mesa.spec from fedora
+
+* Thu Aug 29 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.2.1-1
+- Update to 24.2.1
+- Sync a few bits with mesa.spec from fedora
+
+* Mon Aug 19 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.2.0-1
+- Update to 24.2.0
+
+* Thu Aug 8 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.2.0~rc4-1
+- Update to 24.2.0-rc4
+
+* Fri Aug 02 2024 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 24.2.0~rc3-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_41_Mass_Rebuild
+
+* Thu Aug 1 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.2.0~rc3-1
+- Update to 24.2.0-rc3
+- Drop upstreamed patch
+
+* Fri Jul 19 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.1.4-2
+- add revert-6746d4df-to-fix-av1-slice_data_offset.patch
+
+* Thu Jul 18 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.1.4-1
+- Update to 24.1.4
+- Drop upstreamed patch
+
+* Mon Jul 01 2024 Leigh Scott <leigh123linux@gmail.com> - 24.1.2-2
+- Fix mutter crash when calling eglQueryDmaBufModifiersEXT
+- Fix GNOME and KDE crash with some AMD GPUs
+
+* Thu Jun 20 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.1.2-1
+- Update to 24.1.2
+
+* Thu Jun 06 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.1.1-1
+- Update to 24.1.1
+
+* Thu May 23 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.1.0-1
+- Update to 24.1.0
+
+* Fri May 17 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.1.0~rc4-2
+- disable teflon on ix86, too
+
+* Thu May 16 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.1.0~rc4-1
+- Update to 24.1.0-rc4
+- Sync a few more bits with mesa.spec from fedora
+
+* Thu May 9 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.1.0~rc3-1
+- Update to 24.1.0-rc3
+- Sync with_intel_vk_rt bits with mesa.spec from fedora
+- Unconditionally BR clang-devel, bindgen, libclc, SPIRV-Tools, and
+  LLVMSPIRVLib which are needed now
+
+* Tue May 7 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.1.0~rc2-1
+- Update to 24.1.0-rc2
+
+* Thu Apr 25 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.0.6-1
+- Update to 24.0.6
+
+* Thu Apr 11 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.0.5-1
+- Update to 24.0.5
+
 * Mon Apr 1 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.0.4-1
 - Update to 24.0.4
 
