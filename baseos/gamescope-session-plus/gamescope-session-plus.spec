@@ -1,6 +1,6 @@
 Name:           gamescope-session-plus
-Version:        0.2.git.201.5538cd66
-Release:        64%{?dist}
+Version:        0.3.208
+Release:        git.d8ab829%{?dist}
 Summary:        Gamescope session plus based on Valve's gamescope
 
 License:        MIT
@@ -20,8 +20,7 @@ Requires:       deckyloader
 BuildRequires:  systemd-rpm-macros
 
 Obsoletes:      gamescope-session
-Provides:       powerbuttond
-Obsoletes:      powerbuttond
+Obsoletes:      gamescope-session-plus <= 0.2.git.201.5538cd66
 
 %description
 Gamescope session plus based on Valve's gamescope

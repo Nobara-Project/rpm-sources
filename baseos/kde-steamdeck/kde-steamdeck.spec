@@ -1,6 +1,6 @@
 Name:           kde-steamdeck
 Version:        0.0.git.84.1c1d05a9
-Release:        9%{?dist}
+Release:        11%{?dist}
 Summary:        KDE Presets from Valve's SteamOS 3.0
 License:    	GPLv2
 URL:            https://github.com/nobara-project/steamdeck-edition-packages
@@ -65,7 +65,6 @@ cp -rv etc/* %{buildroot}%{_sysconfdir}
 %{_sysconfdir}/xdg/kwinrc
 %{_sysconfdir}/xdg/kwinrulesrc
 %{_sysconfdir}/xdg/plasma-nm
-%{_sysconfdir}/xdg/plasma-workspace/env/ibus.sh
 %{_sysconfdir}/xdg/powermanagementprofilesrc
 %{_sysconfdir}/xdg/startkderc
 %{_datadir}/konsole/Vapor.colorscheme
