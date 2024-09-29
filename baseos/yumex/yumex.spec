@@ -2,12 +2,12 @@
 %global app_build release
 %global dnf_backend DNF4
 %global app_name yumex
-%global gitcommit 0247b7c548e4c5d900204c548a1997492e13a21f
-%global shortcommit 0247b7c
+%global gitcommit 164bf89140584a79110fe979819590d5f9e73ced
+%global shortcommit 164bf89
 
 Name:     %{app_name}
 Version:  5.0.3
-Release:  15.git.%{shortcommit}%{?dist}
+Release:  16.git.%{shortcommit}%{?dist}
 Summary:  Yum Extender graphical package management tool
 
 Group:    Applications/System
@@ -17,8 +17,6 @@ Source0:  https://github.com/timlau/yumex-ng/archive/%{gitcommit}.zip#/%{name}-%
 Source1:  nobara.package.manager.svg
 Patch0:   rename-desktop-shortcut.patch
 Patch1:   0001-add-nobara-update-system-button.patch
-Patch2:   0001-add-missing-update_metadata_timestamp-import.-Fixes-.patch
-Patch3:   0001-don-t-force-display-and-xauth-envvars-in-user-servic.patch
 
 BuildArch: noarch
 BuildRequires: python3-devel

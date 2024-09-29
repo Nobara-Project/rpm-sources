@@ -1,40 +1,39 @@
-From 93e599e0ee5456aec209b7c4d7ce60479035e828 Mon Sep 17 00:00:00 2001
+From 3189f5d061c3c68dfaa42a03fb399eca32fc881a Mon Sep 17 00:00:00 2001
 From: GloriousEggroll <gloriouseggroll@gmail.com>
-Date: Fri, 14 Jun 2024 13:20:29 -0600
-Subject: [PATCH] add nobara update system button
+Date: Sat, 28 Sep 2024 00:21:16 -0600
+Subject: [PATCH] add nobara update button
 
 ---
- data/ui/window.blp    | 10 +++++++++-
- yumex/main.py         |  1 +
- yumex/ui/window.py    |  8 ++++++++
- 4 files changed, 22 insertions(+), 1 deletion(-)
+ data/ui/window.blp |  9 +++++++++
+ yumex/main.py      |  1 +
+ yumex/ui/window.py | 10 ++++++++++
+ 3 files changed, 20 insertions(+)
 
 diff --git a/data/ui/window.blp b/data/ui/window.blp
-index f79ac5c..c80131d 100644
+index 2c7c20a..f5f5462 100644
 --- a/data/ui/window.blp
 +++ b/data/ui/window.blp
-@@ -66,7 +66,15 @@ template $YumexMainWindow : Adw.ApplicationWindow {
-             tooltip-text: _("Apply Package Actions");
-             action-name: "app.apply_actions";
-           }
--
-+          Button update_button {
-+            styles ["suggested-action"]
-+            Adw.ButtonContent {
-+              label: _("Update System");
-+              icon-name: "playback-symbolic";
-+            }
-+            tooltip-text: _("Update the system");
-+            action-name: "app.update_actions";
-+          }
+@@ -72,6 +72,15 @@ template $YumexMainWindow: Adw.ApplicationWindow {
+           tooltip-text: _("Apply Package Actions");
+           action-name: "app.apply_actions";
          }
-         Gtk.Box {
-           orientation: vertical;
++        Button update_button {
++          styles ["suggested-action"]
++          Adw.ButtonContent {
++            label: _("Update System");
++            icon-name: "playback-symbolic";
++          }
++          tooltip-text: _("Update the system");
++          action-name: "app.update_actions";
++        }
+       }
+ 
+       Gtk.Box {
 diff --git a/yumex/main.py b/yumex/main.py
-index c18ad5c..8e06c48 100644
+index ba26656..dcaed15 100644
 --- a/yumex/main.py
 +++ b/yumex/main.py
-@@ -91,6 +91,7 @@ class YumexApplication(Adw.Application):
+@@ -94,6 +94,7 @@ class YumexApplication(Adw.Application):
          self.create_action("flatpak_remove_unused", self.win.on_actions)
  
          self.create_action("apply_actions", self.win.on_actions, ["<Ctrl>Return"])
@@ -43,21 +42,23 @@ index c18ad5c..8e06c48 100644
          self.create_action("page_two", self.win.on_actions, ["<Alt>2"])
          self.create_action("page_three", self.win.on_actions, ["<Alt>3"])
 diff --git a/yumex/ui/window.py b/yumex/ui/window.py
-index 1290cc3..578ced9 100644
+index e852932..fc14e0a 100644
 --- a/yumex/ui/window.py
 +++ b/yumex/ui/window.py
-@@ -15,6 +15,8 @@
+@@ -14,7 +14,10 @@
+ # Copyright (C) 2024 Tim Lauridsen
  
- from pathlib import Path
+ import logging
++import os
  import re
 +import subprocess
-+import os
++
+ from pathlib import Path
  
- from gi.repository import Gtk, Adw, Gio  # type: ignore
- 
-@@ -298,6 +300,11 @@ class YumexMainWindow(Adw.ApplicationWindow):
-             self.select_page(Page.PACKAGES)
-             self.load_packages(PackageFilter.INSTALLED)
+ from gi.repository import Adw, Gio, Gtk  # type: ignore
+@@ -323,6 +326,11 @@ class YumexMainWindow(Adw.ApplicationWindow):
+         self.load_packages(self._last_filter)
+         self._last_filter = None
  
 +    def on_update_actions_clicked(self, *_args):
 +        """handler for the Update System button"""
@@ -67,7 +68,7 @@ index 1290cc3..578ced9 100644
      @Gtk.Template.Callback()
      def on_search_changed(self, widget):
          """handler for changes in the seach entry"""
-@@ -390,6 +397,8 @@ class YumexMainWindow(Adw.ApplicationWindow):
+@@ -409,6 +417,8 @@ class YumexMainWindow(Adw.ApplicationWindow):
              case "apply_actions":
                  if self.active_page in [Page.PACKAGES, Page.QUEUE]:
                      self.on_apply_actions_clicked()
@@ -77,5 +78,5 @@ index 1290cc3..578ced9 100644
                  if self.active_page == Page.FLATPAKS:
                      self.flatpak_view.remove()
 -- 
-2.45.1
+2.46.0
 
