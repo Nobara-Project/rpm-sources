@@ -1,0 +1,60 @@
+From 6323591d81af5a9fd130f8984b02f251f725051d Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Sun, 22 Sep 2024 22:55:55 -0600
+Subject: [PATCH] set legion go and ally/x to dualsense by default for gyro
+ support
+
+---
+ src/hhd/device/legion_go/__init__.py | 2 +-
+ src/hhd/device/rog_ally/__init__.py  | 2 +-
+ src/hhd/plugins/outputs.py           | 6 ++++--
+ 3 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/src/hhd/device/legion_go/__init__.py b/src/hhd/device/legion_go/__init__.py
+index e6d8df4..aff487f 100644
+--- a/src/hhd/device/legion_go/__init__.py
++++ b/src/hhd/device/legion_go/__init__.py
+@@ -41,7 +41,7 @@ class LegionControllersPlugin(HHDPlugin):
+     def settings(self) -> HHDSettings:
+         base = {"controllers": {"legion_go": load_relative_yaml("controllers.yml")}}
+         base["controllers"]["legion_go"]["children"]["xinput"].update(
+-            get_outputs_config(extra_buttons='quad')
++            get_outputs_config(extra_buttons='quad', default_device="dualsense_edge")
+         )
+         base["controllers"]["legion_go"]["children"]["touchpad"] = get_touchpad_config()
+         return base
+diff --git a/src/hhd/device/rog_ally/__init__.py b/src/hhd/device/rog_ally/__init__.py
+index bc67316..38f0756 100644
+--- a/src/hhd/device/rog_ally/__init__.py
++++ b/src/hhd/device/rog_ally/__init__.py
+@@ -41,7 +41,7 @@ class RogAllyControllersPlugin(HHDPlugin):
+ 
+         base = {"controllers": {"rog_ally": load_relative_yaml("controllers.yml")}}
+         base["controllers"]["rog_ally"]["children"]["controller_mode"].update(
+-            get_outputs_config(can_disable=False)
++            get_outputs_config(can_disable=False, default_device="dualsense_edge",)
+         )
+         base["controllers"]["rog_ally"]["children"]["limits"] = get_limits_config(
+             LIMIT_DEFAULTS(self.ally_x)
+diff --git a/src/hhd/plugins/outputs.py b/src/hhd/plugins/outputs.py
+index d30ac60..743ef0c 100644
+--- a/src/hhd/plugins/outputs.py
++++ b/src/hhd/plugins/outputs.py
+@@ -266,10 +266,12 @@ def get_outputs_config(
+ 
+     # Set xbox as default for now
+     s["default"] = "uinput"
+-    # if default_device:
+-    #     s["default"] = default_device
++
++    if default_device:
++         s["default"] = default_device
+     if start_disabled:
+         s["default"] = "disabled"
++
+     return s
+ 
+ 
+-- 
+2.46.0
+
