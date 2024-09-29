@@ -1,3 +1,835 @@
+From: Antheas Kapenekakis <lkml@antheas.dev>
+To: linux-pm@vger.kernel.org
+Cc: platform-driver-x86@vger.kernel.org,
+	Mario Limonciello <mario.limonciello@amd.com>,
+	luke@ljones.dev, me@kylegospodneti.ch,
+	Denis Benato <benato.denis96@gmail.com>,
+	Antheas Kapenekakis <lkml@antheas.dev>
+Subject: [PATCH v2 0/5] acpi/x86: s2idle: move Display off/on calls outside suspend (fixes ROG Ally suspend)
+Date: Sun, 22 Sep 2024 19:22:53 +0200	[thread overview]
+Message-ID: <20240922172258.48435-1-lkml@antheas.dev> (raw)
+
+The following series moves the Display off/on calls outside of the suspend
+sequence, as they are performed in Windows. This fixes certain issues that appear
+in devices that use the calls and expect the kernel to be active during their
+call (especially in the case of the ROG Ally devices) and opens the possibility
+of implementing a "Screen Off" state in the future (which mirrors Windows).
+In addition, it adds a quirk table that will allow for adding delays between
+Modern Standby transitions, to help resolve racing conditions.
+
+This series requires a bit of background on how modern standby works in Windows.
+Fundamentally, it is composed of four states: "Active", "Screen Off", "Sleep",
+and "DRIPS". Here, I take the liberty of naming the state "Active", as it is
+implied in Windows documentation.
+
+When the user actively interacts with a device, it is in the "Active" state.
+The screen is on, all devices are connected, and desired software is running.
+The other 3 stages play a role once the user stops interacting with the device.
+This is triggered in two main ways: either by pressing the power button or by
+inactivity. Once either of those targets is met, the system enters Modern Standby.
+
+Modern Standby consists of an orchestration of the "Screen Off", "Sleep", and
+"DRIPS" states. Windows is free to move throughout these states until the user
+interacts with the device again, where the device will transition to being
+"Active". Moving between the states implies a transition, where Windows performs
+a set of actions. In addition, Windows can only move between adjacent states
+as follows:
+
+"Active" <-> "Screen Off" <-> "Sleep" <-> "DRIPS"
+
+"Screen Off" is the state where all active displays in the device (whether
+*virtual* or real; this means unrelated to DRM) are off. The user might still
+be interacting with the device or running programs (e.g., compiling a kernel).
+
+"Sleep" is a newer state, in which the device turns off its fan and pulses its
+power button, but still supports running software activities. As part of this,
+and to avoid overheating the device a lot of manufacturers lower the TDP (PLx)
+of the device [3; _DSM 9 description].
+
+Finally, DRIPS stands for Deepest Runtime Idle Power State, i.e. suspend.
+
+While Windows may transition from any state to any state, doing so implies
+performing all transitions to reach that state. All states other than DRIPS
+have a fully active kernel (Wifi, USB at least) and allow userspace activity.
+What changes is the extent of the activity, and whether some power consuming
+devices are turned off (this is done with Modern Standby aware drivers and
+firmware notifications). The Windows kernel suspends during the transition from
+the "Sleep" state to the "DRIPS" state. In all other states it is active.
+
+After finishing each transition, the kernel performs a firmware notification,
+described in the _DSM document [3]. Moving from left to right with function num.,
+we have Display Off (3; Active -> Screen Off), Sleep Entry (7; Screen Off -> Sleep),
+and Lowest Power State Entry Notification (5; LPSEN; Sleep -> DRIPS). Then, from
+right to left, we have Lowest Power State Exit Notification (6; DRIPS -> Sleep),
+Sleep Exit (8; Sleep -> Screen) and Display On (4; Screen Off -> Active).
+
+The Linux kernel is not currently Modern Standby aware but will still make these
+calls. Currently, the problem is that the kernel calls all of the firmware
+notifications at the point LPSEN (5, 6) should be called, which is when the
+kernel is mostly suspended. This is a clear deviation from Windows, and causes
+undesirable behavior in certain devices, the main one focused in this patch
+series being the ROG Ally. Although series patch is aimed at Modern Standby
+devices in general.
+
+The ROG Ally is a Modern Standby capable device (uses Secure Core too; really
+ticks all the MS boxes) and in it, there are issues with both Display 3,4
+calls and Sleep 7,8 calls cause issues (7,8 are suspected and todo).
+
+The Display 3,4 calls are responsible for the controller. The Display Off call
+disconnects (if powersave is off) or powers off (if powersave is on and on DC
+power) the MCU(s) responsible for the controller and deactivates the RGB of the
+device. Display On powers on or reconnects the controller respectively.
+This controller, in the Ally X, is composed of 6 HID devices that register to
+the kernel. From testing, it seems that the majority of the problem in the Ally
+comes from Display Off being called way too late timewise, and Display
+
+The Sleep 7,8 calls, in general, are responsible for setting a low power state
+that is safe to use while the device is sleeping, making the suspend light
+pulse, and turning off the fan. Due to a variety of race conditions, there is
+a rare occasion where the Ally EC can get stuck in its Sleep mode, where the
+TDP is 5W, and prevent increasing it until the device reboots. The sleep entries
+contain actions in the Ally, so there is a suspicion that calling them during
+DRIPS is causing issues. However, this is not the subject of this patch and
+has not been verified yet.
+
+This patch centers around moving the Display 3,4 calls outside the suspend
+sequence (which is the transition from Sleep to DRIPS in Modern Standby terms),
+and by implementing the proper locks necessary, opening up the possibility of
+making these calls as part of a more elaborate "Modern Standby"-like userspace
+suspend/wakelock implementation. As of this patch, they are only called before
+the suspend sequence, including with the possibility of adding a delay.
+
+This makes the intent of this patch primarily compatibility focused, as it aims
+to fix issues by the current implementation. And to that end it works.
+After moving the calls outside of the suspend sequence, my ROG Ally X test unit
+can suspend more than 50 times without rebooting, both with powersave on or off,
+regardless of whether it is plugged/unplugged during suspend, and still have the
+controller work with full reliability. In V1, there was an unsolved race condition
+that was dealt by (5) before Display Off triggers. Essentially, Linux suspends
+too fast for the current version of the firmware to deal with. After adding a
+quirk table, which delays suspend after the Display Off call, the controller
+of the original Ally should power off properly (a lot of testing will be done).
+
+Moving the calls outside of the suspend sequence (and the validation work it
+implies) is an important first step in including "Modern Standby"-like
+features in Linux. For example, consider an endpoint /sys/power/standby, that
+allows for entering "active", "inactive" (for Screen Off; since the name causes
+too much confusion), "sleep" values. Those values will then in turn call the
+respective firmware notifications (and driver callbacks in the very future)
+for all transitions required to reach the entered state. Here, the value
+"suspend" (for DRIPS; another confusing name as it can refer to drivers) is
+missing, as userspace will never be able to see it. The kernel should support
+suspending at all standby states, orchestrating the required transitions to
+reach suspend/DRIPS and after suspend returning to the last state.
+
+Therefore, if userspace is not standby aware, the kernel will work the same way
+it works today. In addition, depending on hardware generation, certain power
+states might not be supported. It is important to inform userspace of this, as
+if the hardware does not support sleep, and userspace holds a wakelock for sleep,
+it will just overheat and drain the device battery.
+
+This series is worth backing this up with sources, so as part of it I reference
+Microsoft's documentation on Modern standby [1-3] that explains the whole
+process, including a document by Dell [7] and how to prepare for them and attach a
+repository of more than 15 device DSDT tables [4] from different manufacturers.
+This repository also contains instructions on how to decode the DSDT tables on
+a test laptop, to figure out what the _DSM calls will do on that device.
+
+Moreover, I conduct a short behavioral test in Windows with the Ally X to showcase
+the documentation empirically. The Ally is great for such a test, as it contains
+visual indicators for all Microsoft suspend points: "Display Off/On" calls are
+indicated with the Controller RGB turning off/on, "Screen Off" is indicated with
+the suspend light and fan being on, and Sleep is indicated with the suspend
+light blinking.
+
+Unfortunately, as part of this testing, I never found how to see if the device
+is actually suspended. As the ROG Ally X NOOPs on firmware notifications 5,6,
+and even though I disabled a Mouse from waking up a device, it still would wake
+up my Ally X dev unit.
+
+Referencing Microsoft's documentation, "Screen Off" is entered either through
+inactivity or by pressing the power button, so I conduct two tests: one by pressing
+the powerbutton, and one for entering Screen Off due to inactivity.
+
+1) Powerbutton test:
+When pressing the powerbutton, the screen of the Ally turns off, and the RGB of
+the controller faints to off within 1s. Following, depending on whether the
+system is plugged in, the power light and fan stay on for 5 seconds to 10 minutes.
+After this point, the power light begins to blink and the fan turns off, showing
+that the system has entered the "Sleep" state.
+
+2) Inactivity test:
+I set the Windows power settings to turn off the screen after 1 minute and wait.
+After one minute, the display turns off, and after 5 seconds, the controller RGB
+turns off. This indicates to me that "Screen Off" is not defined by the screen
+being off, but is rather characterized by it. During those 5 seconds while the
+RGB is on, I can use the controller to wake up the device. Afterwards it cannot.
+
+Those tests validate Microsoft's documentation and show that "Screen Off"
+seems to more closely correlate to lockscreen behavior (button locks instantly,
+inactivity after 5 seconds) than the screen being off. One other behavior I
+notice is that, as I look at my Ally X dev right now, with its screen off, I
+notice the RGB is still on, which is kind of bothersome, as in Windows the
+device would turn the RGB off. Whether as a side effect or planned, it is still
+a nice touch.
+
+This patch series is developed with help from Mario Limonciello, and, to be
+bisection friendly, is structured based on a patch series he made connecting the
+callbacks to the drm subsystem suspend [5]. It also references (already)
+upstream work by Luke Jones on Asus-wmi for the Ally controller quirk that is
+removed on patch (5) and an issue on amd-drm in 2023 in preparation for the
+work in that quirk [6]. Since patch (3) now uses part of the dmi table removed
+in patch (5) and adds a (small) delay, @Luke I can add you as Suggested-by.
+
+We will begin testing on the patch series, and there will probably be a V3,
+where testing acknowledgements are added. V2 patch adds a delay to display_off
+(500ms), where 300-1300ms were tried, and there was no behavioral difference on
+the Ally X. However, that is arbitrary so it warrants a lot of testing.
+Current status is that my Ally X unit works perfectly other than a little quirk:
+with powersave on, if asus_hid or a userspace program talks to it within
+2 seconds, it causes the RGB to softfade to off and then on. This is a cosmetic
+issue that can be dealt with by userspace (waiting 2s) or a firmware update
+or both. Windows did not seem to fare much better either in that regard, with
+RGB turning on and off randomly. Original Ally still needs to be verified.
+
+I am personally going to take a bit of a breather on this patch, test it, and
+revisit it next week. I send it today so I get comments on the revision.
+
+Link: https://learn.microsoft.com/en-us/windows-hardware/design/device-experiences/prepare-hardware-for-modern-standby [1]
+Link: https://learn.microsoft.com/en-us/windows-hardware/design/device-experiences/prepare-software-for-modern-standby [2]
+Link: https://learn.microsoft.com/en-us/windows-hardware/design/device-experiences/modern-standby-firmware-notifications [3]
+Link: https://github.com/hhd-dev/hwinfo/tree/master/devices [4]
+Link: https://git.kernel.org/pub/scm/linux/kernel/git/superm1/linux.git/log/?h=superm1/dsm-screen-on-off [5]
+Link: https://gitlab.freedesktop.org/drm/amd/-/issues/2719 [6]
+Link: https://dl.dell.com/manuals/all-products/esuprt_solutions_int/esuprt_solutions_int_solutions_resources/client-mobile-solution-resources_white-papers45_en-us.pdf [7]
+
+Changes in v2:
+ - Rewrote cover letter to better reflect the Windows Modern Standby sequence
+ - Renamed the "screen_" callbacks to "display_" to match Microsoft's naming
+ - Added attribution to Mario Limonciello and changed the text to reflect that
+ - Made the screen on/off callbacks warn and bail with -EINVAL if they are
+   called in the wrong order (currently impossible)
+    - Changed patch 2 to not bail the suspend sequence when receiving an error
+      (as these calls are not part of the suspend sequence and failing the
+      suspend sequence would cause a user visible fault)
+ - Fixed bug reported by Denis Benato by adding a quirk table in patch (3)
+    - The ROG controllers get a slight delay after the Display Off call
+    - This delay fixes a race condition with the controller disconnecting from
+      the system before being powered off
+    - Reworded patches to reflect that
+ - Moved the display calls a bit higher up the suspend sequence in patch (2)
+
+Antheas Kapenekakis (5):
+  acpi/x86: s2idle: add support for Display Off and Display On callbacks
+  acpi/x86: s2idle: handle Display On/Off calls outside of suspend
+    sequence
+  acpi/x86: s2idle: add quirk table for modern standby delays
+  acpi/x86: s2idle: call Display On/Off as part of callbacks and rename
+  platform/x86: asus-wmi: remove Ally (1st gen) and Ally X suspend quirk
+
+ drivers/acpi/x86/s2idle.c       | 89 +++++++++++++++++++++++----------
+ drivers/platform/x86/asus-wmi.c | 54 --------------------
+ include/linux/suspend.h         | 10 ++++
+ kernel/power/suspend.c          | 62 +++++++++++++++++++++++
+ 4 files changed, 134 insertions(+), 81 deletions(-)
+
+-- 
+2.46.1
+
+From: Antheas Kapenekakis <lkml@antheas.dev>
+To: linux-pm@vger.kernel.org
+Cc: platform-driver-x86@vger.kernel.org,
+	Mario Limonciello <mario.limonciello@amd.com>,
+	luke@ljones.dev, me@kylegospodneti.ch,
+	Denis Benato <benato.denis96@gmail.com>,
+	Antheas Kapenekakis <lkml@antheas.dev>
+Subject: [PATCH v2 1/5] acpi/x86: s2idle: add support for Display Off and Display On callbacks
+Date: Sun, 22 Sep 2024 19:22:54 +0200	[thread overview]
+Message-ID: <20240922172258.48435-2-lkml@antheas.dev> (raw)
+In-Reply-To: <20240922172258.48435-1-lkml@antheas.dev>
+
+The Display Off and Display On firmware notifications are meant to signify
+the system entering a state where the user is not actively interacting
+with it (i.e., in Windows this state is called "Screen Off" and the
+system enters it once it turns the screen off e.g., due to inactivity).
+
+Currently, these functions are called within the suspend sequence, which
+causes issues when these notifications interact with e.g., a USB device
+and makes them unable to be called as part of the screen turning off.
+
+This patch adds a set of callbacks to allow calling the Display On/Off
+notifications outside of the suspend/resume path.
+
+Co-developed-by: Mario Limonciello <mario.limonciello@amd.com>
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ include/linux/suspend.h |  5 +++++
+ kernel/power/suspend.c  | 12 ++++++++++++
+ 2 files changed, 17 insertions(+)
+
+diff --git a/include/linux/suspend.h b/include/linux/suspend.h
+index da6ebca3ff77..8f33249cc067 100644
+--- a/include/linux/suspend.h
++++ b/include/linux/suspend.h
+@@ -132,6 +132,7 @@ struct platform_suspend_ops {
+ };
+ 
+ struct platform_s2idle_ops {
++	int (*display_off)(void);
+ 	int (*begin)(void);
+ 	int (*prepare)(void);
+ 	int (*prepare_late)(void);
+@@ -140,6 +141,7 @@ struct platform_s2idle_ops {
+ 	void (*restore_early)(void);
+ 	void (*restore)(void);
+ 	void (*end)(void);
++	int (*display_on)(void);
+ };
+ 
+ #ifdef CONFIG_SUSPEND
+@@ -160,6 +162,9 @@ extern unsigned int pm_suspend_global_flags;
+ #define PM_SUSPEND_FLAG_FW_RESUME	BIT(1)
+ #define PM_SUSPEND_FLAG_NO_PLATFORM	BIT(2)
+ 
++int platform_suspend_display_off(void);
++int platform_suspend_display_on(void);
++
+ static inline void pm_suspend_clear_flags(void)
+ {
+ 	pm_suspend_global_flags = 0;
+diff --git a/kernel/power/suspend.c b/kernel/power/suspend.c
+index 09f8397bae15..c527dc0ae5ae 100644
+--- a/kernel/power/suspend.c
++++ b/kernel/power/suspend.c
+@@ -254,6 +254,18 @@ static bool sleep_state_supported(suspend_state_t state)
+ 	       (valid_state(state) && !cxl_mem_active());
+ }
+ 
++int platform_suspend_display_off(void)
++{
++	return s2idle_ops && s2idle_ops->display_off ? s2idle_ops->display_off() : 0;
++}
++EXPORT_SYMBOL_GPL(platform_suspend_display_off);
++
++int platform_suspend_display_on(void)
++{
++	return s2idle_ops && s2idle_ops->display_on ? s2idle_ops->display_on() : 0;
++}
++EXPORT_SYMBOL_GPL(platform_suspend_display_on);
++
+ static int platform_suspend_prepare(suspend_state_t state)
+ {
+ 	return state != PM_SUSPEND_TO_IDLE && suspend_ops->prepare ?
+-- 
+2.46.1
+
+From: Antheas Kapenekakis <lkml@antheas.dev>
+To: linux-pm@vger.kernel.org
+Cc: platform-driver-x86@vger.kernel.org,
+	Mario Limonciello <mario.limonciello@amd.com>,
+	luke@ljones.dev, me@kylegospodneti.ch,
+	Denis Benato <benato.denis96@gmail.com>,
+	Antheas Kapenekakis <lkml@antheas.dev>
+Subject: [PATCH v2 2/5] acpi/x86: s2idle: handle Display On/Off calls outside of suspend sequence
+Date: Sun, 22 Sep 2024 19:22:55 +0200	[thread overview]
+Message-ID: <20240922172258.48435-3-lkml@antheas.dev> (raw)
+In-Reply-To: <20240922172258.48435-1-lkml@antheas.dev>
+
+Currently, the Display On/Off calls are handled within the suspend
+sequence, which is a deviation from Windows. This causes issues with
+certain devices, where the notification interacts with a USB device
+that expects the kernel to be fully awake.
+
+This patch calls the Display On/Off callbacks before entering the suspend
+sequence, which fixes this issue. In addition, it opens the possibility
+of modelling a state such as "Screen Off" that mirrors Windows, as the
+callbacks will be accessible and validated to work outside of the
+suspend sequence.
+
+Suggested-by: Mario Limonciello <mario.limonciello@amd.com>
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ kernel/power/suspend.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/kernel/power/suspend.c b/kernel/power/suspend.c
+index c527dc0ae5ae..610f8ecaeebd 100644
+--- a/kernel/power/suspend.c
++++ b/kernel/power/suspend.c
+@@ -589,6 +589,13 @@ static int enter_state(suspend_state_t state)
+ 	if (state == PM_SUSPEND_TO_IDLE)
+ 		s2idle_begin();
+ 
++	/*
++	 * Linux does not have the concept of a "Screen Off" state, so call
++	 * the platform functions for Display On/Off prior to the suspend
++	 * sequence, mirroring Windows which calls them outside of it as well.
++	 */
++	platform_suspend_display_off();
++
+ 	if (sync_on_suspend_enabled) {
+ 		trace_suspend_resume(TPS("sync_filesystems"), 0, true);
+ 		ksys_sync_helper();
+@@ -616,6 +623,8 @@ static int enter_state(suspend_state_t state)
+ 	suspend_finish();
+  Unlock:
+ 	mutex_unlock(&system_transition_mutex);
++
++	platform_suspend_display_on();
+ 	return error;
+ }
+ 
+-- 
+2.46.1
+
+From: Antheas Kapenekakis <lkml@antheas.dev>
+To: linux-pm@vger.kernel.org
+Cc: platform-driver-x86@vger.kernel.org,
+	Mario Limonciello <mario.limonciello@amd.com>,
+	luke@ljones.dev, me@kylegospodneti.ch,
+	Denis Benato <benato.denis96@gmail.com>,
+	Antheas Kapenekakis <lkml@antheas.dev>
+Subject: [PATCH v2 3/5] acpi/x86: s2idle: add quirk table for modern standby delays
+Date: Sun, 22 Sep 2024 19:22:56 +0200	[thread overview]
+Message-ID: <20240922172258.48435-4-lkml@antheas.dev> (raw)
+In-Reply-To: <20240922172258.48435-1-lkml@antheas.dev>
+
+Unfortunately, some modern standby systems, including the ROG Ally, rely
+on a delay between modern standby transitions. Add a quirk table for
+introducing delays between modern standby transitions, and quirk the
+ROG Ally on "Display Off", which needs a bit of time to turn off its
+controllers prior to suspending (i.e., entering DRIPS).
+
+Reported-by: Denis Benato <benato.denis96@gmail.com>
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ include/linux/suspend.h |  5 +++++
+ kernel/power/suspend.c  | 41 +++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 46 insertions(+)
+
+diff --git a/include/linux/suspend.h b/include/linux/suspend.h
+index 8f33249cc067..d7e2a4d8ab0c 100644
+--- a/include/linux/suspend.h
++++ b/include/linux/suspend.h
+@@ -144,6 +144,11 @@ struct platform_s2idle_ops {
+ 	int (*display_on)(void);
+ };
+ 
++struct platform_s2idle_quirks {
++	int delay_display_off;
++	int delay_display_on;
++};
++
+ #ifdef CONFIG_SUSPEND
+ extern suspend_state_t pm_suspend_target_state;
+ extern suspend_state_t mem_sleep_current;
+diff --git a/kernel/power/suspend.c b/kernel/power/suspend.c
+index 610f8ecaeebd..af2abdd2f8c3 100644
+--- a/kernel/power/suspend.c
++++ b/kernel/power/suspend.c
+@@ -11,6 +11,7 @@
+ 
+ #include <linux/string.h>
+ #include <linux/delay.h>
++#include <linux/dmi.h>
+ #include <linux/errno.h>
+ #include <linux/init.h>
+ #include <linux/console.h>
+@@ -61,6 +62,30 @@ static DECLARE_SWAIT_QUEUE_HEAD(s2idle_wait_head);
+ enum s2idle_states __read_mostly s2idle_state;
+ static DEFINE_RAW_SPINLOCK(s2idle_lock);
+ 
++// The ROG Ally series disconnects its controllers on Display Off, without
++// holding a lock, introducing a race condition. Add a delay to allow the
++// controller to disconnect cleanly prior to suspend.
++static const struct platform_s2idle_quirks rog_ally_quirks = {
++	.delay_display_off = 500,
++};
++
++static const struct dmi_system_id platform_s2idle_quirks[] = {
++	{
++		.matches = {
++			DMI_MATCH(DMI_BOARD_NAME, "RC71L"),
++		},
++		.driver_data = (void *)&rog_ally_quirks
++	},
++	{
++		.matches = {
++			DMI_MATCH(DMI_BOARD_NAME, "RC72L"),
++		},
++		.driver_data = (void *)&rog_ally_quirks
++	},
++	{}
++};
++
++
+ /**
+  * pm_suspend_default_s2idle - Check if suspend-to-idle is the default suspend.
+  *
+@@ -589,12 +614,26 @@ static int enter_state(suspend_state_t state)
+ 	if (state == PM_SUSPEND_TO_IDLE)
+ 		s2idle_begin();
+ 
++	/*
++	 * Windows transitions between Modern Standby states slowly, over multiple
++	 * seconds. Certain manufacturers may rely on this, introducing race
++	 * conditions. Until Linux can support modern standby, add the relevant
++	 * delays between transitions here.
++	 */
++	const struct dmi_system_id *s2idle_sysid = dmi_first_match(
++		platform_s2idle_quirks
++	);
++	const struct platform_s2idle_quirks *s2idle_quirks = s2idle_sysid ?
++		s2idle_sysid->driver_data : NULL;
++
+ 	/*
+ 	 * Linux does not have the concept of a "Screen Off" state, so call
+ 	 * the platform functions for Display On/Off prior to the suspend
+ 	 * sequence, mirroring Windows which calls them outside of it as well.
+ 	 */
+ 	platform_suspend_display_off();
++	if (s2idle_quirks && s2idle_quirks->delay_display_off)
++		msleep(s2idle_quirks->delay_display_off);
+ 
+ 	if (sync_on_suspend_enabled) {
+ 		trace_suspend_resume(TPS("sync_filesystems"), 0, true);
+@@ -624,6 +663,8 @@ static int enter_state(suspend_state_t state)
+  Unlock:
+ 	mutex_unlock(&system_transition_mutex);
+ 
++	if (s2idle_quirks && s2idle_quirks->delay_display_on)
++		msleep(s2idle_quirks->delay_display_on);
+ 	platform_suspend_display_on();
+ 	return error;
+ }
+-- 
+2.46.1
+
+From: Antheas Kapenekakis <lkml@antheas.dev>
+To: linux-pm@vger.kernel.org
+Cc: platform-driver-x86@vger.kernel.org,
+	Mario Limonciello <mario.limonciello@amd.com>,
+	luke@ljones.dev, me@kylegospodneti.ch,
+	Denis Benato <benato.denis96@gmail.com>,
+	Antheas Kapenekakis <lkml@antheas.dev>
+Subject: [PATCH v2 4/5] acpi/x86: s2idle: call Display On/Off as part of callbacks and rename
+Date: Sun, 22 Sep 2024 19:22:57 +0200	[thread overview]
+Message-ID: <20240922172258.48435-5-lkml@antheas.dev> (raw)
+In-Reply-To: <20240922172258.48435-1-lkml@antheas.dev>
+
+Move the Display On/Off notifications into dedicated callbacks that gate
+the ACPI mutex, so they can be called outside of the suspend path.
+This fixes issues on certain devices that expect kernel drivers to be
+fully active during the calls, and allows for the flexibility of calling
+them as part of a more elaborate userspace suspend sequence (such as
+with "Screen Off" in Windows Modern Standby).
+
+In addition, rename the notifications from "screen_" to "display_", as
+there is no documentation referring to them as screen, either by
+Intel or Microsoft.
+
+Co-developed-by: Mario Limonciello <mario.limonciello@amd.com>
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ drivers/acpi/x86/s2idle.c | 89 +++++++++++++++++++++++++++------------
+ 1 file changed, 62 insertions(+), 27 deletions(-)
+
+diff --git a/drivers/acpi/x86/s2idle.c b/drivers/acpi/x86/s2idle.c
+index dd0b40b9bbe8..a17e28b91326 100644
+--- a/drivers/acpi/x86/s2idle.c
++++ b/drivers/acpi/x86/s2idle.c
+@@ -39,8 +39,8 @@ static const struct acpi_device_id lps0_device_ids[] = {
+ #define ACPI_LPS0_DSM_UUID	"c4eb40a0-6cd2-11e2-bcfd-0800200c9a66"
+ 
+ #define ACPI_LPS0_GET_DEVICE_CONSTRAINTS	1
+-#define ACPI_LPS0_SCREEN_OFF	3
+-#define ACPI_LPS0_SCREEN_ON	4
++#define ACPI_LPS0_DISPLAY_OFF	3
++#define ACPI_LPS0_DISPLAY_ON	4
+ #define ACPI_LPS0_ENTRY		5
+ #define ACPI_LPS0_EXIT		6
+ #define ACPI_LPS0_MS_ENTRY      7
+@@ -50,8 +50,8 @@ static const struct acpi_device_id lps0_device_ids[] = {
+ #define ACPI_LPS0_DSM_UUID_AMD      "e3f32452-febc-43ce-9039-932122d37721"
+ #define ACPI_LPS0_ENTRY_AMD         2
+ #define ACPI_LPS0_EXIT_AMD          3
+-#define ACPI_LPS0_SCREEN_OFF_AMD    4
+-#define ACPI_LPS0_SCREEN_ON_AMD     5
++#define ACPI_LPS0_DISPLAY_OFF_AMD   4
++#define ACPI_LPS0_DISPLAY_ON_AMD    5
+ 
+ static acpi_handle lps0_device_handle;
+ static guid_t lps0_dsm_guid;
+@@ -60,6 +60,7 @@ static int lps0_dsm_func_mask;
+ static guid_t lps0_dsm_guid_microsoft;
+ static int lps0_dsm_func_mask_microsoft;
+ static int lps0_dsm_state;
++static bool lsp0_dsm_in_display_off;
+ 
+ /* Device constraint entry structure */
+ struct lpi_device_info {
+@@ -361,9 +362,9 @@ static const char *acpi_sleep_dsm_state_to_str(unsigned int state)
+ {
+ 	if (lps0_dsm_func_mask_microsoft || !acpi_s2idle_vendor_amd()) {
+ 		switch (state) {
+-		case ACPI_LPS0_SCREEN_OFF:
++		case ACPI_LPS0_DISPLAY_OFF:
+ 			return "screen off";
+-		case ACPI_LPS0_SCREEN_ON:
++		case ACPI_LPS0_DISPLAY_ON:
+ 			return "screen on";
+ 		case ACPI_LPS0_ENTRY:
+ 			return "lps0 entry";
+@@ -376,9 +377,9 @@ static const char *acpi_sleep_dsm_state_to_str(unsigned int state)
+ 		}
+ 	} else {
+ 		switch (state) {
+-		case ACPI_LPS0_SCREEN_ON_AMD:
++		case ACPI_LPS0_DISPLAY_ON_AMD:
+ 			return "screen on";
+-		case ACPI_LPS0_SCREEN_OFF_AMD:
++		case ACPI_LPS0_DISPLAY_OFF_AMD:
+ 			return "screen off";
+ 		case ACPI_LPS0_ENTRY_AMD:
+ 			return "lps0 entry";
+@@ -539,27 +540,69 @@ static struct acpi_scan_handler lps0_handler = {
+ 	.attach = lps0_device_attach,
+ };
+ 
+-int acpi_s2idle_prepare_late(void)
++static int acpi_s2idle_display_off(void)
+ {
+-	struct acpi_s2idle_dev_ops *handler;
+-
+ 	if (!lps0_device_handle || sleep_no_lps0)
+ 		return 0;
+ 
+-	if (pm_debug_messages_on)
+-		lpi_check_constraints();
++	if (unlikely(WARN_ON(lsp0_dsm_in_display_off)))
++		return -EINVAL;
++
++	lsp0_dsm_in_display_off = true;
++	acpi_scan_lock_acquire();
+ 
+-	/* Screen off */
++	/* Display off */
+ 	if (lps0_dsm_func_mask > 0)
+ 		acpi_sleep_run_lps0_dsm(acpi_s2idle_vendor_amd() ?
+-					ACPI_LPS0_SCREEN_OFF_AMD :
+-					ACPI_LPS0_SCREEN_OFF,
++					ACPI_LPS0_DISPLAY_OFF_AMD :
++					ACPI_LPS0_DISPLAY_OFF,
+ 					lps0_dsm_func_mask, lps0_dsm_guid);
+ 
+ 	if (lps0_dsm_func_mask_microsoft > 0)
+-		acpi_sleep_run_lps0_dsm(ACPI_LPS0_SCREEN_OFF,
++		acpi_sleep_run_lps0_dsm(ACPI_LPS0_DISPLAY_OFF,
+ 				lps0_dsm_func_mask_microsoft, lps0_dsm_guid_microsoft);
+ 
++	acpi_scan_lock_release();
++
++	return 0;
++}
++
++static int acpi_s2idle_display_on(void)
++{
++	if (!lps0_device_handle || sleep_no_lps0)
++		return 0;
++
++	if (unlikely(WARN_ON(!lsp0_dsm_in_display_off)))
++		return -EINVAL;
++
++	lsp0_dsm_in_display_off = false;
++	acpi_scan_lock_acquire();
++
++	/* Display on */
++	if (lps0_dsm_func_mask_microsoft > 0)
++		acpi_sleep_run_lps0_dsm(ACPI_LPS0_DISPLAY_ON,
++				lps0_dsm_func_mask_microsoft, lps0_dsm_guid_microsoft);
++	if (lps0_dsm_func_mask > 0)
++		acpi_sleep_run_lps0_dsm(acpi_s2idle_vendor_amd() ?
++					ACPI_LPS0_DISPLAY_ON_AMD :
++					ACPI_LPS0_DISPLAY_ON,
++					lps0_dsm_func_mask, lps0_dsm_guid);
++
++	acpi_scan_lock_release();
++
++	return 0;
++}
++
++int acpi_s2idle_prepare_late(void)
++{
++	struct acpi_s2idle_dev_ops *handler;
++
++	if (!lps0_device_handle || sleep_no_lps0)
++		return 0;
++
++	if (pm_debug_messages_on)
++		lpi_check_constraints();
++
+ 	/* LPS0 entry */
+ 	if (lps0_dsm_func_mask > 0 && acpi_s2idle_vendor_amd())
+ 		acpi_sleep_run_lps0_dsm(ACPI_LPS0_ENTRY_AMD,
+@@ -623,19 +666,10 @@ void acpi_s2idle_restore_early(void)
+ 		acpi_sleep_run_lps0_dsm(ACPI_LPS0_MS_EXIT,
+ 				lps0_dsm_func_mask_microsoft, lps0_dsm_guid_microsoft);
+ 	}
+-
+-	/* Screen on */
+-	if (lps0_dsm_func_mask_microsoft > 0)
+-		acpi_sleep_run_lps0_dsm(ACPI_LPS0_SCREEN_ON,
+-				lps0_dsm_func_mask_microsoft, lps0_dsm_guid_microsoft);
+-	if (lps0_dsm_func_mask > 0)
+-		acpi_sleep_run_lps0_dsm(acpi_s2idle_vendor_amd() ?
+-					ACPI_LPS0_SCREEN_ON_AMD :
+-					ACPI_LPS0_SCREEN_ON,
+-					lps0_dsm_func_mask, lps0_dsm_guid);
+ }
+ 
+ static const struct platform_s2idle_ops acpi_s2idle_ops_lps0 = {
++	.display_off = acpi_s2idle_display_off,
+ 	.begin = acpi_s2idle_begin,
+ 	.prepare = acpi_s2idle_prepare,
+ 	.prepare_late = acpi_s2idle_prepare_late,
+@@ -644,6 +678,7 @@ static const struct platform_s2idle_ops acpi_s2idle_ops_lps0 = {
+ 	.restore_early = acpi_s2idle_restore_early,
+ 	.restore = acpi_s2idle_restore,
+ 	.end = acpi_s2idle_end,
++	.display_on = acpi_s2idle_display_on,
+ };
+ 
+ void __init acpi_s2idle_setup(void)
+-- 
+2.46.1
+
+From: Antheas Kapenekakis <lkml@antheas.dev>
+To: linux-pm@vger.kernel.org
+Cc: platform-driver-x86@vger.kernel.org,
+	Mario Limonciello <mario.limonciello@amd.com>,
+	luke@ljones.dev, me@kylegospodneti.ch,
+	Denis Benato <benato.denis96@gmail.com>,
+	Antheas Kapenekakis <lkml@antheas.dev>
+Subject: [PATCH v2 5/5] platform/x86: asus-wmi: remove Ally (1st gen) and Ally X suspend quirk
+Date: Sun, 22 Sep 2024 19:22:58 +0200	[thread overview]
+Message-ID: <20240922172258.48435-6-lkml@antheas.dev> (raw)
+In-Reply-To: <20240922172258.48435-1-lkml@antheas.dev>
+
+By moving the Display On/Off calls outside of the suspend sequence and
+introducing a slight delay after Display Off, the ROG Ally controller
+functions exactly as it does in Windows.
+
+Therefore, remove the quirk that fixed the controller only when the
+mcu_powersave attribute was disabled, while adding a large amount of
+delay to the suspend and wake process.
+
+Reviewed-by: Mario Limonciello <mario.limonciello@amd.com>
+Signed-off-by: Antheas Kapenekakis <lkml@antheas.dev>
+---
+ drivers/platform/x86/asus-wmi.c | 54 ---------------------------------
+ 1 file changed, 54 deletions(-)
+
+diff --git a/drivers/platform/x86/asus-wmi.c b/drivers/platform/x86/asus-wmi.c
+index 37636e5a38e3..2c9656e0afda 100644
+--- a/drivers/platform/x86/asus-wmi.c
++++ b/drivers/platform/x86/asus-wmi.c
+@@ -137,29 +137,10 @@ module_param(fnlock_default, bool, 0444);
+ #define ASUS_MINI_LED_2024_STRONG	0x01
+ #define ASUS_MINI_LED_2024_OFF		0x02
+ 
+-/* Controls the power state of the USB0 hub on ROG Ally which input is on */
+-#define ASUS_USB0_PWR_EC0_CSEE "\\_SB.PCI0.SBRG.EC0.CSEE"
+-/* 300ms so far seems to produce a reliable result on AC and battery */
+-#define ASUS_USB0_PWR_EC0_CSEE_WAIT 1500
+-
+ static const char * const ashs_ids[] = { "ATK4001", "ATK4002", NULL };
+ 
+ static int throttle_thermal_policy_write(struct asus_wmi *);
+ 
+-static const struct dmi_system_id asus_ally_mcu_quirk[] = {
+-	{
+-		.matches = {
+-			DMI_MATCH(DMI_BOARD_NAME, "RC71L"),
+-		},
+-	},
+-	{
+-		.matches = {
+-			DMI_MATCH(DMI_BOARD_NAME, "RC72L"),
+-		},
+-	},
+-	{ },
+-};
+-
+ static bool ashs_present(void)
+ {
+ 	int i = 0;
+@@ -269,9 +250,6 @@ struct asus_wmi {
+ 	u32 tablet_switch_dev_id;
+ 	bool tablet_switch_inverted;
+ 
+-	/* The ROG Ally device requires the MCU USB device be disconnected before suspend */
+-	bool ally_mcu_usb_switch;
+-
+ 	enum fan_type fan_type;
+ 	enum fan_type gpu_fan_type;
+ 	enum fan_type mid_fan_type;
+@@ -4698,8 +4676,6 @@ static int asus_wmi_add(struct platform_device *pdev)
+ 	asus->egpu_enable_available = asus_wmi_dev_is_present(asus, ASUS_WMI_DEVID_EGPU);
+ 	asus->dgpu_disable_available = asus_wmi_dev_is_present(asus, ASUS_WMI_DEVID_DGPU);
+ 	asus->kbd_rgb_state_available = asus_wmi_dev_is_present(asus, ASUS_WMI_DEVID_TUF_RGB_STATE);
+-	asus->ally_mcu_usb_switch = acpi_has_method(NULL, ASUS_USB0_PWR_EC0_CSEE)
+-						&& dmi_check_system(asus_ally_mcu_quirk);
+ 
+ 	if (asus_wmi_dev_is_present(asus, ASUS_WMI_DEVID_MINI_LED_MODE))
+ 		asus->mini_led_dev_id = ASUS_WMI_DEVID_MINI_LED_MODE;
+@@ -4892,34 +4868,6 @@ static int asus_hotk_resume(struct device *device)
+ 	return 0;
+ }
+ 
+-static int asus_hotk_resume_early(struct device *device)
+-{
+-	struct asus_wmi *asus = dev_get_drvdata(device);
+-
+-	if (asus->ally_mcu_usb_switch) {
+-		/* sleep required to prevent USB0 being yanked then reappearing rapidly */
+-		if (ACPI_FAILURE(acpi_execute_simple_method(NULL, ASUS_USB0_PWR_EC0_CSEE, 0xB8)))
+-			dev_err(device, "ROG Ally MCU failed to connect USB dev\n");
+-		else
+-			msleep(ASUS_USB0_PWR_EC0_CSEE_WAIT);
+-	}
+-	return 0;
+-}
+-
+-static int asus_hotk_prepare(struct device *device)
+-{
+-	struct asus_wmi *asus = dev_get_drvdata(device);
+-
+-	if (asus->ally_mcu_usb_switch) {
+-		/* sleep required to ensure USB0 is disabled before sleep continues */
+-		if (ACPI_FAILURE(acpi_execute_simple_method(NULL, ASUS_USB0_PWR_EC0_CSEE, 0xB7)))
+-			dev_err(device, "ROG Ally MCU failed to disconnect USB dev\n");
+-		else
+-			msleep(ASUS_USB0_PWR_EC0_CSEE_WAIT);
+-	}
+-	return 0;
+-}
+-
+ static int asus_hotk_restore(struct device *device)
+ {
+ 	struct asus_wmi *asus = dev_get_drvdata(device);
+@@ -4964,8 +4912,6 @@ static const struct dev_pm_ops asus_pm_ops = {
+ 	.thaw = asus_hotk_thaw,
+ 	.restore = asus_hotk_restore,
+ 	.resume = asus_hotk_resume,
+-	.resume_early = asus_hotk_resume_early,
+-	.prepare = asus_hotk_prepare,
+ };
+ 
+ /* Registration ***************************************************************/
+-- 
+2.46.1
+
+
 From e5f5a9a8bb4c654a4741dc2fc515cfdff1011914 Mon Sep 17 00:00:00 2001
 From: Jonathan LoBue <jlobue10@gmail.com>
 Date: Sat, 13 Jul 2024 00:12:06 -0700
@@ -489,692 +1321,6 @@ index 781c5aa29859..95a13905e4c5 100644
  #define USB_DEVICE_ID_ASUSTEK_ROG_CLAYMORE_II_KEYBOARD	0x196b
 -- 
 2.46.0
-
-
-From eaa5387a468e3e0f5952bd3e77d68572bf145811 Mon Sep 17 00:00:00 2001
-From: "Luke D. Jones" <luke@ljones.dev>
-Date: Tue, 10 Sep 2024 17:04:17 +1200
-Subject: [PATCH 05/18] platform/x86: asus-wmi: add debug print in more key
- places
-
-Add more verbose debug print in the WMI method calls. This helps a lot
-with debugging various issues working with regular users as the WMI
-methods can be traced now.
-
-Signed-off-by: Luke D. Jones <luke@ljones.dev>
----
- drivers/platform/x86/asus-wmi.c | 58 +++++++++++++++++++++++++++------
- 1 file changed, 48 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/platform/x86/asus-wmi.c b/drivers/platform/x86/asus-wmi.c
-index 83a710cf7ec1..2d62cf1ed647 100644
---- a/drivers/platform/x86/asus-wmi.c
-+++ b/drivers/platform/x86/asus-wmi.c
-@@ -355,20 +355,29 @@ static int asus_wmi_evaluate_method3(u32 method_id,
- 	status = wmi_evaluate_method(ASUS_WMI_MGMT_GUID, 0, method_id,
- 				     &input, &output);
- 
--	if (ACPI_FAILURE(status))
-+	pr_debug("%s called (0x%08x) with args: 0x%08x, 0x%08x, 0x%08x\n",
-+		__func__, method_id, arg0, arg1, arg2);
-+	if (ACPI_FAILURE(status)) {
-+		pr_debug("%s, (0x%08x), arg 0x%08x failed: %d\n",
-+			__func__, method_id, arg0, -EIO);
- 		return -EIO;
-+	}
- 
- 	obj = (union acpi_object *)output.pointer;
- 	if (obj && obj->type == ACPI_TYPE_INTEGER)
- 		tmp = (u32) obj->integer.value;
- 
-+	pr_debug("Result: 0x%08x\n", tmp);
- 	if (retval)
- 		*retval = tmp;
- 
- 	kfree(obj);
- 
--	if (tmp == ASUS_WMI_UNSUPPORTED_METHOD)
-+	if (tmp == ASUS_WMI_UNSUPPORTED_METHOD) {
-+		pr_debug("%s, (0x%08x), arg 0x%08x failed: %d\n",
-+			__func__, method_id, arg0, -ENODEV);
- 		return -ENODEV;
-+	}
- 
- 	return 0;
- }
-@@ -398,20 +407,29 @@ static int asus_wmi_evaluate_method5(u32 method_id,
- 	status = wmi_evaluate_method(ASUS_WMI_MGMT_GUID, 0, method_id,
- 				     &input, &output);
- 
--	if (ACPI_FAILURE(status))
-+	pr_debug("%s called (0x%08x) with args: 0x%08x, 0x%08x, 0x%08x, 0x%08x, 0x%08x\n",
-+		__func__, method_id, arg0, arg1, arg2, arg3, arg4);
-+	if (ACPI_FAILURE(status)) {
-+		pr_debug("%s, (0x%08x), arg 0x%08x failed: %d\n",
-+			__func__, method_id, arg0, -EIO);
- 		return -EIO;
-+	}
- 
- 	obj = (union acpi_object *)output.pointer;
- 	if (obj && obj->type == ACPI_TYPE_INTEGER)
- 		tmp = (u32) obj->integer.value;
- 
-+	pr_debug("Result: %x\n", tmp);
- 	if (retval)
- 		*retval = tmp;
- 
- 	kfree(obj);
- 
--	if (tmp == ASUS_WMI_UNSUPPORTED_METHOD)
-+	if (tmp == ASUS_WMI_UNSUPPORTED_METHOD) {
-+		pr_debug("%s, (0x%08x), arg 0x%08x failed: %d\n",
-+			__func__, method_id, arg0, -ENODEV);
- 		return -ENODEV;
-+	}
- 
- 	return 0;
- }
-@@ -437,8 +455,13 @@ static int asus_wmi_evaluate_method_buf(u32 method_id,
- 	status = wmi_evaluate_method(ASUS_WMI_MGMT_GUID, 0, method_id,
- 				     &input, &output);
- 
--	if (ACPI_FAILURE(status))
-+	pr_debug("%s called (0x%08x) with args: 0x%08x, 0x%08x\n",
-+		__func__, method_id, arg0, arg1);
-+	if (ACPI_FAILURE(status)) {
-+		pr_debug("%s, (0x%08x), arg 0x%08x failed: %d\n",
-+			__func__, method_id, arg0, -EIO);
- 		return -EIO;
-+	}
- 
- 	obj = (union acpi_object *)output.pointer;
- 
-@@ -474,8 +497,11 @@ static int asus_wmi_evaluate_method_buf(u32 method_id,
- 
- 	kfree(obj);
- 
--	if (err)
-+	if (err) {
-+		pr_debug("%s, (0x%08x), arg 0x%08x failed: %d\n",
-+			__func__, method_id, arg0, err);
- 		return err;
-+	}
- 
- 	return 0;
- }
-@@ -563,6 +589,7 @@ static bool asus_wmi_dev_is_present(struct asus_wmi *asus, u32 dev_id)
- {
- 	u32 retval;
- 	int status = asus_wmi_get_devstate(asus, dev_id, &retval);
-+	pr_debug("%s called (0x%08x), retval: 0x%08x\n", __func__, dev_id, retval);
- 
- 	return status == 0 && (retval & ASUS_WMI_DSTS_PRESENCE_BIT);
- }
-@@ -3628,18 +3655,27 @@ static int asus_wmi_custom_fan_curve_init(struct asus_wmi *asus)
- 
- 	err = fan_curve_check_present(asus, &asus->cpu_fan_curve_available,
- 				      ASUS_WMI_DEVID_CPU_FAN_CURVE);
--	if (err)
-+	if (err) {
-+		pr_debug("%s, checked 0x%08x, failed: %d\n",
-+			__func__, ASUS_WMI_DEVID_CPU_FAN_CURVE, err);
- 		return err;
-+	}
- 
- 	err = fan_curve_check_present(asus, &asus->gpu_fan_curve_available,
- 				      ASUS_WMI_DEVID_GPU_FAN_CURVE);
--	if (err)
-+	if (err) {
-+		pr_debug("%s, checked 0x%08x, failed: %d\n",
-+			__func__, ASUS_WMI_DEVID_GPU_FAN_CURVE, err);
- 		return err;
-+	}
- 
- 	err = fan_curve_check_present(asus, &asus->mid_fan_curve_available,
- 				      ASUS_WMI_DEVID_MID_FAN_CURVE);
--	if (err)
-+	if (err) {
-+		pr_debug("%s, checked 0x%08x, failed: %d\n",
-+			__func__, ASUS_WMI_DEVID_MID_FAN_CURVE, err);
- 		return err;
-+	}
- 
- 	if (!asus->cpu_fan_curve_available
- 		&& !asus->gpu_fan_curve_available
-@@ -4483,8 +4519,10 @@ static umode_t asus_sysfs_is_visible(struct kobject *kobj,
- 	else if (attr == &dev_attr_available_mini_led_mode.attr)
- 		ok = asus->mini_led_dev_id != 0;
- 
--	if (devid != -1)
-+	if (devid != -1) {
- 		ok = !(asus_wmi_get_devstate_simple(asus, devid) < 0);
-+		pr_debug("%s called 0x%08x, ok: %x\n", __func__, devid, ok);
-+	}
- 
- 	return ok ? attr->mode : 0;
- }
--- 
-2.46.0
-
-
-From 6c4d296732065a9924e4d2eeb261cc26d90a519e Mon Sep 17 00:00:00 2001
-From: "Luke D. Jones" <luke@ljones.dev>
-Date: Fri, 24 May 2024 10:54:36 +1200
-Subject: [PATCH 06/18] platform/x86: asus-wmi: don't fail if platform_profile
- already registered
-
-On some newer laptops it appears that an AMD driver can register a
-platform_profile handler. If this happens then the asus_wmi driver would
-error with -EEXIST when trying to register its own handler leaving the
-user with a possibly unusable system - this is especially true for
-laptops with an MCU that emit a stream of HID packets, some of which can
-be misinterpreted as shutdown signals.
-
-We can safely continue loading the driver instead of bombing out.
-
-Signed-off-by: Luke D. Jones <luke@ljones.dev>
----
- drivers/platform/x86/asus-wmi.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/platform/x86/asus-wmi.c b/drivers/platform/x86/asus-wmi.c
-index 2d62cf1ed647..08861792bddd 100644
---- a/drivers/platform/x86/asus-wmi.c
-+++ b/drivers/platform/x86/asus-wmi.c
-@@ -3921,8 +3921,13 @@ static int platform_profile_setup(struct asus_wmi *asus)
- 		asus->platform_profile_handler.choices);
- 
- 	err = platform_profile_register(&asus->platform_profile_handler);
--	if (err)
-+	if (err == -EEXIST) {
-+		pr_warn("%s, a platform_profile handler is already registered\n", __func__);
-+		return 0;
-+	} else if (err) {
-+		pr_err("%s, failed at platform_profile_register: %d\n", __func__, err);
- 		return err;
-+	}
- 
- 	asus->platform_profile_support = true;
- 	return 0;
-@@ -4797,7 +4802,7 @@ static int asus_wmi_add(struct platform_device *pdev)
- 		goto fail_fan_boost_mode;
- 
- 	err = platform_profile_setup(asus);
--	if (err)
-+	if (err && err != -EEXIST)
- 		goto fail_platform_profile_setup;
- 
- 	err = asus_wmi_sysfs_init(asus->platform_device);
--- 
-2.46.0
-
-
-From 4ed261e764c27ecc60288c4c3cf260e6712c5614 Mon Sep 17 00:00:00 2001
-From: Mario Limonciello <mario.limonciello@amd.com>
-Date: Wed, 14 Aug 2024 12:50:25 -0500
-Subject: [PATCH 07/18] acpi/x86: s2idle: add support for screen off and screen
- on callbacks
-
-All the _DSM methods for the LPS0 method are called back to back
-currently.  The intended use of the screen off and screen on calls is
-supposed to be matching the screen being turned on or off though.
-Add support for other parts of the kernel to call such a callback.
-
-Signed-off-by: Mario Limonciello <mario.limonciello@amd.com>
----
- include/linux/suspend.h |  8 ++++++++
- kernel/power/suspend.c  | 12 ++++++++++++
- 2 files changed, 20 insertions(+)
-
-diff --git a/include/linux/suspend.h b/include/linux/suspend.h
-index da6ebca3ff77..4535ae82363c 100644
---- a/include/linux/suspend.h
-+++ b/include/linux/suspend.h
-@@ -133,6 +133,8 @@ struct platform_suspend_ops {
- 
- struct platform_s2idle_ops {
- 	int (*begin)(void);
-+	int (*screen_off)(void);
-+	int (*screen_on)(void);
- 	int (*prepare)(void);
- 	int (*prepare_late)(void);
- 	void (*check)(void);
-@@ -160,6 +162,9 @@ extern unsigned int pm_suspend_global_flags;
- #define PM_SUSPEND_FLAG_FW_RESUME	BIT(1)
- #define PM_SUSPEND_FLAG_NO_PLATFORM	BIT(2)
- 
-+int platform_suspend_screen_off(void);
-+int platform_suspend_screen_on(void);
-+
- static inline void pm_suspend_clear_flags(void)
- {
- 	pm_suspend_global_flags = 0;
-@@ -296,6 +301,9 @@ static inline bool idle_should_enter_s2idle(void) { return false; }
- static inline void __init pm_states_init(void) {}
- static inline void s2idle_set_ops(const struct platform_s2idle_ops *ops) {}
- static inline void s2idle_wake(void) {}
-+static inline int platform_suspend_screen_off(void) { return -ENODEV };
-+static inline int platform_suspend_screen_on(void) { return -ENODEV };
-+
- #endif /* !CONFIG_SUSPEND */
- 
- /* struct pbe is used for creating lists of pages that should be restored
-diff --git a/kernel/power/suspend.c b/kernel/power/suspend.c
-index 09f8397bae15..19734b297527 100644
---- a/kernel/power/suspend.c
-+++ b/kernel/power/suspend.c
-@@ -254,6 +254,18 @@ static bool sleep_state_supported(suspend_state_t state)
- 	       (valid_state(state) && !cxl_mem_active());
- }
- 
-+int platform_suspend_screen_off(void)
-+{
-+	return s2idle_ops && s2idle_ops->screen_off ? s2idle_ops->screen_off() : 0;
-+}
-+EXPORT_SYMBOL_GPL(platform_suspend_screen_off);
-+
-+int platform_suspend_screen_on(void)
-+{
-+	return s2idle_ops && s2idle_ops->screen_on ? s2idle_ops->screen_on() : 0;
-+}
-+EXPORT_SYMBOL_GPL(platform_suspend_screen_on);
-+
- static int platform_suspend_prepare(suspend_state_t state)
- {
- 	return state != PM_SUSPEND_TO_IDLE && suspend_ops->prepare ?
--- 
-2.46.0
-
-
-From 0d07c09eb2741a35413a2275e5e2604dd2dbeb0a Mon Sep 17 00:00:00 2001
-From: Mario Limonciello <mario.limonciello@amd.com>
-Date: Wed, 14 Aug 2024 20:19:09 -0500
-Subject: [PATCH 08/18] drm: Notify the suspend core when displays are changed
- at suspend
-
-This allows notifying the BIOS with the LPS0 _DSM for "Screen off"
-and "Screen on".
-
-Signed-off-by: Mario Limonciello <mario.limonciello@amd.com>
----
- drivers/gpu/drm/drm_atomic_helper.c | 13 +++++++++++++
- 1 file changed, 13 insertions(+)
-
-diff --git a/drivers/gpu/drm/drm_atomic_helper.c b/drivers/gpu/drm/drm_atomic_helper.c
-index fb97b51b38f1..d3ef199c58c1 100644
---- a/drivers/gpu/drm/drm_atomic_helper.c
-+++ b/drivers/gpu/drm/drm_atomic_helper.c
-@@ -27,6 +27,7 @@
- 
- #include <linux/dma-fence.h>
- #include <linux/ktime.h>
-+#include <linux/suspend.h>
- 
- #include <drm/drm_atomic.h>
- #include <drm/drm_atomic_helper.h>
-@@ -3530,6 +3531,13 @@ struct drm_atomic_state *drm_atomic_helper_suspend(struct drm_device *dev)
- 		goto unlock;
- 	}
- 
-+	err = platform_suspend_screen_off();
-+	if (err < 0) {
-+		drm_atomic_state_put(state);
-+		state = ERR_PTR(err);
-+		goto unlock;
-+	}
-+
- unlock:
- 	DRM_MODESET_LOCK_ALL_END(dev, ctx, err);
- 	if (err)
-@@ -3611,7 +3619,12 @@ int drm_atomic_helper_resume(struct drm_device *dev,
- 	DRM_MODESET_LOCK_ALL_BEGIN(dev, ctx, 0, err);
- 
- 	err = drm_atomic_helper_commit_duplicated_state(state, &ctx);
-+	if (err < 0)
-+		goto unlock;
- 
-+	err = platform_suspend_screen_on();
-+
-+unlock:
- 	DRM_MODESET_LOCK_ALL_END(dev, ctx, err);
- 	drm_atomic_state_put(state);
- 
--- 
-2.46.0
-
-
-From 1c3381fcffd99203e747158392b81284abec0507 Mon Sep 17 00:00:00 2001
-From: Mario Limonciello <mario.limonciello@amd.com>
-Date: Wed, 14 Aug 2024 20:20:13 -0500
-Subject: [PATCH 09/18] acpi/x86: s2idle: Move screen off/on code into
- dedicated callbacks
-
-This lets the DRM core notify on screen events instead of calling
-them back to back.
-
-Signed-off-by: Mario Limonciello <mario.limonciello@amd.com>
----
- drivers/acpi/x86/s2idle.c | 75 ++++++++++++++++++++++++++++++---------
- 1 file changed, 59 insertions(+), 16 deletions(-)
-
-diff --git a/drivers/acpi/x86/s2idle.c b/drivers/acpi/x86/s2idle.c
-index dd0b40b9bbe8..e7f9748937d6 100644
---- a/drivers/acpi/x86/s2idle.c
-+++ b/drivers/acpi/x86/s2idle.c
-@@ -539,17 +539,21 @@ static struct acpi_scan_handler lps0_handler = {
- 	.attach = lps0_device_attach,
- };
- 
--int acpi_s2idle_prepare_late(void)
-+static int acpi_s2idle_screen_off(void)
- {
--	struct acpi_s2idle_dev_ops *handler;
--
- 	if (!lps0_device_handle || sleep_no_lps0)
- 		return 0;
- 
--	if (pm_debug_messages_on)
--		lpi_check_constraints();
-+	switch (lps0_dsm_state) {
-+	case ACPI_LPS0_SCREEN_OFF_AMD:
-+	case ACPI_LPS0_SCREEN_OFF:
-+		if (pm_debug_messages_on)
-+			acpi_handle_info(lps0_device_handle,
-+					"already in %s\n",
-+					acpi_sleep_dsm_state_to_str(lps0_dsm_state));
-+		return 0;
-+	}
- 
--	/* Screen off */
- 	if (lps0_dsm_func_mask > 0)
- 		acpi_sleep_run_lps0_dsm(acpi_s2idle_vendor_amd() ?
- 					ACPI_LPS0_SCREEN_OFF_AMD :
-@@ -560,6 +564,47 @@ int acpi_s2idle_prepare_late(void)
- 		acpi_sleep_run_lps0_dsm(ACPI_LPS0_SCREEN_OFF,
- 				lps0_dsm_func_mask_microsoft, lps0_dsm_guid_microsoft);
- 
-+	return 0;
-+}
-+
-+static int acpi_s2idle_screen_on(void)
-+{
-+	if (!lps0_device_handle || sleep_no_lps0)
-+		return 0;
-+
-+	switch (lps0_dsm_state) {
-+	case ACPI_LPS0_SCREEN_ON_AMD:
-+	case ACPI_LPS0_SCREEN_ON:
-+		if (pm_debug_messages_on)
-+			acpi_handle_info(lps0_device_handle,
-+					"already in %s\n",
-+					acpi_sleep_dsm_state_to_str(lps0_dsm_state));
-+		return 0;
-+	}
-+
-+	if (lps0_dsm_func_mask_microsoft > 0)
-+		acpi_sleep_run_lps0_dsm(ACPI_LPS0_SCREEN_ON,
-+				lps0_dsm_func_mask_microsoft, lps0_dsm_guid_microsoft);
-+
-+	if (lps0_dsm_func_mask > 0)
-+		acpi_sleep_run_lps0_dsm(acpi_s2idle_vendor_amd() ?
-+					ACPI_LPS0_SCREEN_ON_AMD :
-+					ACPI_LPS0_SCREEN_ON,
-+					lps0_dsm_func_mask, lps0_dsm_guid);
-+
-+	return 0;
-+}
-+
-+int acpi_s2idle_prepare_late(void)
-+{
-+	struct acpi_s2idle_dev_ops *handler;
-+
-+	if (!lps0_device_handle || sleep_no_lps0)
-+		return 0;
-+
-+	if (pm_debug_messages_on)
-+		lpi_check_constraints();
-+
- 	/* LPS0 entry */
- 	if (lps0_dsm_func_mask > 0 && acpi_s2idle_vendor_amd())
- 		acpi_sleep_run_lps0_dsm(ACPI_LPS0_ENTRY_AMD,
-@@ -623,20 +668,18 @@ void acpi_s2idle_restore_early(void)
- 		acpi_sleep_run_lps0_dsm(ACPI_LPS0_MS_EXIT,
- 				lps0_dsm_func_mask_microsoft, lps0_dsm_guid_microsoft);
- 	}
-+}
- 
--	/* Screen on */
--	if (lps0_dsm_func_mask_microsoft > 0)
--		acpi_sleep_run_lps0_dsm(ACPI_LPS0_SCREEN_ON,
--				lps0_dsm_func_mask_microsoft, lps0_dsm_guid_microsoft);
--	if (lps0_dsm_func_mask > 0)
--		acpi_sleep_run_lps0_dsm(acpi_s2idle_vendor_amd() ?
--					ACPI_LPS0_SCREEN_ON_AMD :
--					ACPI_LPS0_SCREEN_ON,
--					lps0_dsm_func_mask, lps0_dsm_guid);
-+static int acpi_x86_s2idle_begin(void)
-+{
-+	lps0_dsm_state = -1;
-+	return acpi_s2idle_begin();
- }
- 
- static const struct platform_s2idle_ops acpi_s2idle_ops_lps0 = {
--	.begin = acpi_s2idle_begin,
-+	.begin = acpi_x86_s2idle_begin,
-+	.screen_off = acpi_s2idle_screen_off,
-+	.screen_on = acpi_s2idle_screen_on,
- 	.prepare = acpi_s2idle_prepare,
- 	.prepare_late = acpi_s2idle_prepare_late,
- 	.check = acpi_s2idle_check,
--- 
-2.46.0
-
-
-From 6c6e4e70daa2d9c3cdb74024ac600345bada84ef Mon Sep 17 00:00:00 2001
-From: "Luke D. Jones" <luke@ljones.dev>
-Date: Sun, 1 Sep 2024 14:30:37 +1200
-Subject: [PATCH 10/18] platform/x86: asus-wmi: Refactor Ally suspend/resume
-
-The CSEE method from ACPI is now called only on module load. This fixes
-an issues with USB device loss on Ally 1 after reboot.
-
-Both Ally 1 and Ally X now rely only of the _DSM screen off/on calls
-exposed in AMD s2idle to call the CSEE (which is done in the _DSM), plus
-a small additional delay to allow the MCU time to do USB unplug/plug.
-
-The mcu_powersave feature is now forced off by default and the attributes
-hidden. This is a temporary measure while the issues with it are being
-solved with help from ASUS.
-
-Signed-off-by: Luke D. Jones <luke@ljones.dev>
----
- drivers/platform/x86/asus-wmi.c | 97 ++++++++++++++++++++-------------
- 1 file changed, 59 insertions(+), 38 deletions(-)
-
-diff --git a/drivers/platform/x86/asus-wmi.c b/drivers/platform/x86/asus-wmi.c
-index 08861792bddd..26684d78625e 100644
---- a/drivers/platform/x86/asus-wmi.c
-+++ b/drivers/platform/x86/asus-wmi.c
-@@ -143,16 +143,19 @@ module_param(fnlock_default, bool, 0444);
- #define ASUS_MINI_LED_2024_STRONG	0x01
- #define ASUS_MINI_LED_2024_OFF		0x02
- 
--/* Controls the power state of the USB0 hub on ROG Ally which input is on */
- #define ASUS_USB0_PWR_EC0_CSEE "\\_SB.PCI0.SBRG.EC0.CSEE"
--/* 300ms so far seems to produce a reliable result on AC and battery */
--#define ASUS_USB0_PWR_EC0_CSEE_WAIT 1500
-+/*
-+ * The period required to wait after screen off/on/s2idle.check in MS.
-+ * Time here greatly impacts the wake behaviour. Used in suspend/wake.
-+ */
-+#define ASUS_USB0_PWR_EC0_CSEE_WAIT	600
-+#define ASUS_USB0_PWR_EC0_CSEE_ON	0xB8
- 
- static const char * const ashs_ids[] = { "ATK4001", "ATK4002", NULL };
- 
- static int throttle_thermal_policy_write(struct asus_wmi *);
- 
--static const struct dmi_system_id asus_ally_mcu_quirk[] = {
-+static const struct dmi_system_id asus_rog_ally_device[] = {
- 	{
- 		.matches = {
- 			DMI_MATCH(DMI_BOARD_NAME, "RC71L"),
-@@ -275,9 +278,6 @@ struct asus_wmi {
- 	u32 tablet_switch_dev_id;
- 	bool tablet_switch_inverted;
- 
--	/* The ROG Ally device requires the MCU USB device be disconnected before suspend */
--	bool ally_mcu_usb_switch;
--
- 	enum fan_type fan_type;
- 	enum fan_type gpu_fan_type;
- 	enum fan_type mid_fan_type;
-@@ -336,6 +336,8 @@ struct asus_wmi {
- 	struct asus_wmi_driver *driver;
- };
- 
-+static bool ally_mcu_usb_switch;
-+
- /* WMI ************************************************************************/
- 
- static int asus_wmi_evaluate_method3(u32 method_id,
-@@ -4524,6 +4526,13 @@ static umode_t asus_sysfs_is_visible(struct kobject *kobj,
- 	else if (attr == &dev_attr_available_mini_led_mode.attr)
- 		ok = asus->mini_led_dev_id != 0;
- 
-+	/*
-+	 * Temporary: we don't want to remove the full mcu_powersave code just yet
-+	 * as this _will_ be fixed at some point soon with help from ASUS.
-+	 */
-+	if (attr == &dev_attr_mcu_powersave.attr)
-+		return 0;
-+
- 	if (devid != -1) {
- 		ok = !(asus_wmi_get_devstate_simple(asus, devid) < 0);
- 		pr_debug("%s called 0x%08x, ok: %x\n", __func__, devid, ok);
-@@ -4762,6 +4771,22 @@ static int asus_wmi_add(struct platform_device *pdev)
- 	if (err)
- 		goto fail_platform;
- 
-+	ally_mcu_usb_switch = acpi_has_method(NULL, ASUS_USB0_PWR_EC0_CSEE)
-+				&& dmi_check_system(asus_rog_ally_device);
-+	if (ally_mcu_usb_switch) {
-+		/*
-+		 * These steps ensure the device is in a valid good state, this is
-+		 * especially important for the Ally 1 after a reboot.
-+		 */
-+		acpi_execute_simple_method(NULL, ASUS_USB0_PWR_EC0_CSEE, ASUS_USB0_PWR_EC0_CSEE_ON);
-+		msleep(ASUS_USB0_PWR_EC0_CSEE_WAIT);
-+		platform_suspend_screen_on();
-+
-+		err = asus_wmi_set_devstate(ASUS_WMI_DEVID_MCU_POWERSAVE, 0, &result);
-+		if (err)
-+			pr_warn("Failed to force MCU powersave off for Ally device: %d\n", err);
-+	}
-+
- 	/* ensure defaults for tunables */
- 	asus->ppt_pl2_sppt = 5;
- 	asus->ppt_pl1_spl = 5;
-@@ -4774,8 +4799,6 @@ static int asus_wmi_add(struct platform_device *pdev)
- 	asus->egpu_enable_available = asus_wmi_dev_is_present(asus, ASUS_WMI_DEVID_EGPU);
- 	asus->dgpu_disable_available = asus_wmi_dev_is_present(asus, ASUS_WMI_DEVID_DGPU);
- 	asus->kbd_rgb_state_available = asus_wmi_dev_is_present(asus, ASUS_WMI_DEVID_TUF_RGB_STATE);
--	asus->ally_mcu_usb_switch = acpi_has_method(NULL, ASUS_USB0_PWR_EC0_CSEE)
--						&& dmi_check_system(asus_ally_mcu_quirk);
- 
- 	if (asus_wmi_dev_is_present(asus, ASUS_WMI_DEVID_MINI_LED_MODE))
- 		asus->mini_led_dev_id = ASUS_WMI_DEVID_MINI_LED_MODE;
-@@ -4966,34 +4989,6 @@ static int asus_hotk_resume(struct device *device)
- 	return 0;
- }
- 
--static int asus_hotk_resume_early(struct device *device)
--{
--	struct asus_wmi *asus = dev_get_drvdata(device);
--
--	if (asus->ally_mcu_usb_switch) {
--		/* sleep required to prevent USB0 being yanked then reappearing rapidly */
--		if (ACPI_FAILURE(acpi_execute_simple_method(NULL, ASUS_USB0_PWR_EC0_CSEE, 0xB8)))
--			dev_err(device, "ROG Ally MCU failed to connect USB dev\n");
--		else
--			msleep(ASUS_USB0_PWR_EC0_CSEE_WAIT);
--	}
--	return 0;
--}
--
--static int asus_hotk_prepare(struct device *device)
--{
--	struct asus_wmi *asus = dev_get_drvdata(device);
--
--	if (asus->ally_mcu_usb_switch) {
--		/* sleep required to ensure USB0 is disabled before sleep continues */
--		if (ACPI_FAILURE(acpi_execute_simple_method(NULL, ASUS_USB0_PWR_EC0_CSEE, 0xB7)))
--			dev_err(device, "ROG Ally MCU failed to disconnect USB dev\n");
--		else
--			msleep(ASUS_USB0_PWR_EC0_CSEE_WAIT);
--	}
--	return 0;
--}
--
- static int asus_hotk_restore(struct device *device)
- {
- 	struct asus_wmi *asus = dev_get_drvdata(device);
-@@ -5034,11 +5029,32 @@ static int asus_hotk_restore(struct device *device)
- 	return 0;
- }
- 
-+static void asus_ally_s2idle_restore(void)
-+{
-+	if (ally_mcu_usb_switch) {
-+		platform_suspend_screen_on();
-+		msleep(ASUS_USB0_PWR_EC0_CSEE_WAIT);
-+	}
-+}
-+
-+static int asus_hotk_prepare(struct device *device)
-+{
-+	if (ally_mcu_usb_switch) {
-+		platform_suspend_screen_off();
-+		msleep(ASUS_USB0_PWR_EC0_CSEE_WAIT);
-+	}
-+	return 0;
-+}
-+
-+/* Use only for Ally devices due to the wake_on_ac */
-+static struct acpi_s2idle_dev_ops asus_ally_s2idle_dev_ops = {
-+	.restore = asus_ally_s2idle_restore,
-+};
-+
- static const struct dev_pm_ops asus_pm_ops = {
- 	.thaw = asus_hotk_thaw,
- 	.restore = asus_hotk_restore,
- 	.resume = asus_hotk_resume,
--	.resume_early = asus_hotk_resume_early,
- 	.prepare = asus_hotk_prepare,
- };
- 
-@@ -5066,6 +5082,10 @@ static int asus_wmi_probe(struct platform_device *pdev)
- 			return ret;
- 	}
- 
-+	ret = acpi_register_lps0_dev(&asus_ally_s2idle_dev_ops);
-+	if (ret)
-+		pr_warn("failed to register LPS0 sleep handler in asus-wmi\n");
-+
- 	return asus_wmi_add(pdev);
- }
- 
-@@ -5098,6 +5118,7 @@ EXPORT_SYMBOL_GPL(asus_wmi_register_driver);
- 
- void asus_wmi_unregister_driver(struct asus_wmi_driver *driver)
- {
-+	acpi_unregister_lps0_dev(&asus_ally_s2idle_dev_ops);
- 	platform_device_unregister(driver->platform_device);
- 	platform_driver_unregister(&driver->platform_driver);
- 	used = false;
--- 
-2.46.0
-
 
 From e86afe11a7f2bf27c17947ad72d56a10d6458732 Mon Sep 17 00:00:00 2001
 From: "Luke D. Jones" <luke@ljones.dev>
@@ -2194,27 +2340,6 @@ diff --git a/drivers/platform/x86/asus-wmi.c b/drivers/platform/x86/asus-wmi.c
 index 26684d78625e..ece00bef3864 100644
 --- a/drivers/platform/x86/asus-wmi.c
 +++ b/drivers/platform/x86/asus-wmi.c
-@@ -155,20 +155,6 @@ static const char * const ashs_ids[] = { "ATK4001", "ATK4002", NULL };
- 
- static int throttle_thermal_policy_write(struct asus_wmi *);
- 
--static const struct dmi_system_id asus_rog_ally_device[] = {
--	{
--		.matches = {
--			DMI_MATCH(DMI_BOARD_NAME, "RC71L"),
--		},
--	},
--	{
--		.matches = {
--			DMI_MATCH(DMI_BOARD_NAME, "RC72L"),
--		},
--	},
--	{ },
--};
--
- static bool ashs_present(void)
- {
- 	int i = 0;
 @@ -552,12 +538,59 @@ static int asus_wmi_get_devstate(struct asus_wmi *asus, u32 dev_id, u32 *retval)
  	return 0;
  }
@@ -2968,624 +3093,6 @@ index e1aeafdf05d5..8964e601543a 100644
  #define ASUS_WMI_DEVID_DGPU_BASE_TGP	0x00120099
  #define ASUS_WMI_DEVID_DGPU_SET_TGP	0x00120098
  #define ASUS_WMI_DEVID_APU_MEM		0x000600C1
--- 
-2.46.0
-
-
-From d60e267a7606f46dbb4f2a1fd412b77f39b81f2a Mon Sep 17 00:00:00 2001
-From: "Luke D. Jones" <luke@ljones.dev>
-Date: Mon, 3 Jun 2024 12:04:41 +1200
-Subject: [PATCH 15/18] platform/x86: asus-wmi: deprecate bios features
-
-With the existence of the asus-bioscfg module the attributes no-longer
-need to live under the /sys/devices/platform/asus-nb-wmi/ path.
-
-Deprecate all those that were implemented in asus-bioscfg with the goal
-of removing them fully in the next LTS cycle.
-
-Signed-off-by: Luke D. Jones <luke@ljones.dev>
----
- .../ABI/testing/sysfs-platform-asus-wmi       |  17 +++
- drivers/platform/x86/Kconfig                  |   8 ++
- drivers/platform/x86/asus-wmi.c               | 134 ++++++++++++++----
- 3 files changed, 129 insertions(+), 30 deletions(-)
-
-diff --git a/Documentation/ABI/testing/sysfs-platform-asus-wmi b/Documentation/ABI/testing/sysfs-platform-asus-wmi
-index 28144371a0f1..765d50b0d9df 100644
---- a/Documentation/ABI/testing/sysfs-platform-asus-wmi
-+++ b/Documentation/ABI/testing/sysfs-platform-asus-wmi
-@@ -63,6 +63,7 @@ Date:		Aug 2022
- KernelVersion:	6.1
- Contact:	"Luke Jones" <luke@ljones.dev>
- Description:
-+        DEPRECATED, WILL BE REMOVED SOON
- 		Switch the GPU hardware MUX mode. Laptops with this feature can
- 		can be toggled to boot with only the dGPU (discrete mode) or in
- 		standard Optimus/Hybrid mode. On switch a reboot is required:
-@@ -75,6 +76,7 @@ Date:		Aug 2022
- KernelVersion:	5.17
- Contact:	"Luke Jones" <luke@ljones.dev>
- Description:
-+        DEPRECATED, WILL BE REMOVED SOON
- 		Disable discrete GPU:
- 			* 0 - Enable dGPU,
- 			* 1 - Disable dGPU
-@@ -84,6 +86,7 @@ Date:		Aug 2022
- KernelVersion:	5.17
- Contact:	"Luke Jones" <luke@ljones.dev>
- Description:
-+        DEPRECATED, WILL BE REMOVED SOON
- 		Enable the external GPU paired with ROG X-Flow laptops.
- 		Toggling this setting will also trigger ACPI to disable the dGPU:
- 
-@@ -95,6 +98,7 @@ Date:		Aug 2022
- KernelVersion:	5.17
- Contact:	"Luke Jones" <luke@ljones.dev>
- Description:
-+        DEPRECATED, WILL BE REMOVED SOON
- 		Enable an LCD response-time boost to reduce or remove ghosting:
- 			* 0 - Disable,
- 			* 1 - Enable
-@@ -104,6 +108,7 @@ Date:		Jun 2023
- KernelVersion:	6.5
- Contact:	"Luke Jones" <luke@ljones.dev>
- Description:
-+        DEPRECATED, WILL BE REMOVED SOON
- 		Get the current charging mode being used:
- 			* 1 - Barrel connected charger,
- 			* 2 - USB-C charging
-@@ -114,6 +119,7 @@ Date:		Jun 2023
- KernelVersion:	6.5
- Contact:	"Luke Jones" <luke@ljones.dev>
- Description:
-+        DEPRECATED, WILL BE REMOVED SOON
- 		Show if the egpu (XG Mobile) is correctly connected:
- 			* 0 - False,
- 			* 1 - True
-@@ -123,6 +129,7 @@ Date:		Jun 2023
- KernelVersion:	6.5
- Contact:	"Luke Jones" <luke@ljones.dev>
- Description:
-+        DEPRECATED, WILL BE REMOVED SOON
- 		Change the mini-LED mode:
- 			* 0 - Single-zone,
- 			* 1 - Multi-zone
-@@ -133,6 +140,7 @@ Date:		Apr 2024
- KernelVersion:	6.10
- Contact:	"Luke Jones" <luke@ljones.dev>
- Description:
-+        DEPRECATED, WILL BE REMOVED SOON
- 		List the available mini-led modes.
- 
- What:		/sys/devices/platform/<platform>/ppt_pl1_spl
-@@ -140,6 +148,7 @@ Date:		Jun 2023
- KernelVersion:	6.5
- Contact:	"Luke Jones" <luke@ljones.dev>
- Description:
-+        DEPRECATED, WILL BE REMOVED SOON
- 		Set the Package Power Target total of CPU: PL1 on Intel, SPL on AMD.
- 		Shown on Intel+Nvidia or AMD+Nvidia based systems:
- 
-@@ -150,6 +159,7 @@ Date:		Jun 2023
- KernelVersion:	6.5
- Contact:	"Luke Jones" <luke@ljones.dev>
- Description:
-+        DEPRECATED, WILL BE REMOVED SOON
- 		Set the Slow Package Power Tracking Limit of CPU: PL2 on Intel, SPPT,
- 		on AMD. Shown on Intel+Nvidia or AMD+Nvidia based systems:
- 
-@@ -160,6 +170,7 @@ Date:		Jun 2023
- KernelVersion:	6.5
- Contact:	"Luke Jones" <luke@ljones.dev>
- Description:
-+        DEPRECATED, WILL BE REMOVED SOON
- 		Set the Fast Package Power Tracking Limit of CPU. AMD+Nvidia only:
- 			* min=5, max=250
- 
-@@ -168,6 +179,7 @@ Date:		Jun 2023
- KernelVersion:	6.5
- Contact:	"Luke Jones" <luke@ljones.dev>
- Description:
-+        DEPRECATED, WILL BE REMOVED SOON
- 		Set the APU SPPT limit. Shown on full AMD systems only:
- 			* min=5, max=130
- 
-@@ -176,6 +188,7 @@ Date:		Jun 2023
- KernelVersion:	6.5
- Contact:	"Luke Jones" <luke@ljones.dev>
- Description:
-+        DEPRECATED, WILL BE REMOVED SOON
- 		Set the platform SPPT limit. Shown on full AMD systems only:
- 			* min=5, max=130
- 
-@@ -184,6 +197,7 @@ Date:		Jun 2023
- KernelVersion:	6.5
- Contact:	"Luke Jones" <luke@ljones.dev>
- Description:
-+        DEPRECATED, WILL BE REMOVED SOON
- 		Set the dynamic boost limit of the Nvidia dGPU:
- 			* min=5, max=25
- 
-@@ -192,6 +206,7 @@ Date:		Jun 2023
- KernelVersion:	6.5
- Contact:	"Luke Jones" <luke@ljones.dev>
- Description:
-+        DEPRECATED, WILL BE REMOVED SOON
- 		Set the target temperature limit of the Nvidia dGPU:
- 			* min=75, max=87
- 
-@@ -200,6 +215,7 @@ Date:		Apr 2024
- KernelVersion:	6.10
- Contact:	"Luke Jones" <luke@ljones.dev>
- Description:
-+        DEPRECATED, WILL BE REMOVED SOON
- 		Set if the BIOS POST sound is played on boot.
- 			* 0 - False,
- 			* 1 - True
-@@ -209,6 +225,7 @@ Date:		Apr 2024
- KernelVersion:	6.10
- Contact:	"Luke Jones" <luke@ljones.dev>
- Description:
-+        DEPRECATED, WILL BE REMOVED SOON
- 		Set if the MCU can go in to low-power mode on system sleep
- 			* 0 - False,
- 			* 1 - True
-diff --git a/drivers/platform/x86/Kconfig b/drivers/platform/x86/Kconfig
-index d13c4085c228..01f780d53793 100644
---- a/drivers/platform/x86/Kconfig
-+++ b/drivers/platform/x86/Kconfig
-@@ -301,6 +301,14 @@ config ASUS_WMI
- 	  To compile this driver as a module, choose M here: the module will
- 	  be called asus-wmi.
- 
-+config ASUS_WMI_BIOS
-+	bool "BIOS option support in WMI platform (DEPRECATED)"
-+	depends on ASUS_WMI
-+	help
-+	  Say Y to expose the configurable BIOS options through the asus-wmi
-+	  driver. This can be used with or without the new asus-bios driver as
-+	  the options are the same but the asus-bios driver has more features.
-+
- config ASUS_NB_WMI
- 	tristate "Asus Notebook WMI Driver"
- 	depends on ASUS_WMI
-diff --git a/drivers/platform/x86/asus-wmi.c b/drivers/platform/x86/asus-wmi.c
-index ece00bef3864..c654bf45b670 100644
---- a/drivers/platform/x86/asus-wmi.c
-+++ b/drivers/platform/x86/asus-wmi.c
-@@ -276,11 +276,12 @@ struct asus_wmi {
- 	u8 fan_boost_mode_mask;
- 	u8 fan_boost_mode;
- 
-+
-+	/* Tunables provided by ASUS for gaming laptops */
-+	#if IS_ENABLED(CONFIG_ASUS_WMI_BIOS)
- 	bool egpu_enable_available;
- 	bool dgpu_disable_available;
- 	u32 gpu_mux_dev;
--
--	/* Tunables provided by ASUS for gaming laptops */
- 	u32 ppt_pl2_sppt;
- 	u32 ppt_pl1_spl;
- 	u32 ppt_apu_sppt;
-@@ -288,6 +289,9 @@ struct asus_wmi {
- 	u32 ppt_fppt;
- 	u32 nv_dynamic_boost;
- 	u32 nv_temp_target;
-+	bool panel_overdrive_available;
-+	u32 mini_led_dev_id;
-+	#endif
- 
- 	u32 kbd_rgb_dev;
- 	bool kbd_rgb_state_available;
-@@ -306,9 +310,6 @@ struct asus_wmi {
- 	// The RSOC controls the maximum charging percentage.
- 	bool battery_rsoc_available;
- 
--	bool panel_overdrive_available;
--	u32 mini_led_dev_id;
--
- 	struct hotplug_slot hotplug_slot;
- 	struct mutex hotplug_lock;
- 	struct mutex wmi_lock;
-@@ -324,6 +325,15 @@ struct asus_wmi {
- 
- static bool ally_mcu_usb_switch;
- 
-+#if IS_ENABLED(CONFIG_ASUS_WMI_BIOS)
-+static void asus_wmi_show_deprecated(void)
-+{
-+	pr_notice_once("Accessing attributes through /sys/bus/platform/asus_wmi is \
-+		deprecated and will be removed in a future release.  Please switch \
-+		over to /sys/class/firmware_attributes.");
-+}
-+#endif
-+
- /* WMI ************************************************************************/
- 
- static int asus_wmi_evaluate_method3(u32 method_id,
-@@ -723,6 +733,7 @@ static void asus_wmi_tablet_mode_get_state(struct asus_wmi *asus)
- }
- 
- /* Charging mode, 1=Barrel, 2=USB ******************************************/
-+#if IS_ENABLED(CONFIG_ASUS_WMI_BIOS)
- static ssize_t charge_mode_show(struct device *dev,
- 				   struct device_attribute *attr, char *buf)
- {
-@@ -733,12 +744,16 @@ static ssize_t charge_mode_show(struct device *dev,
- 	if (result < 0)
- 		return result;
- 
-+	asus_wmi_show_deprecated();
-+
- 	return sysfs_emit(buf, "%d\n", value & 0xff);
- }
- 
- static DEVICE_ATTR_RO(charge_mode);
-+#endif
- 
- /* dGPU ********************************************************************/
-+#if IS_ENABLED(CONFIG_ASUS_WMI_BIOS)
- static ssize_t dgpu_disable_show(struct device *dev,
- 				   struct device_attribute *attr, char *buf)
- {
-@@ -749,6 +764,8 @@ static ssize_t dgpu_disable_show(struct device *dev,
- 	if (result < 0)
- 		return result;
- 
-+	asus_wmi_show_deprecated();
-+
- 	return sysfs_emit(buf, "%d\n", result);
- }
- 
-@@ -802,8 +819,10 @@ static ssize_t dgpu_disable_store(struct device *dev,
- 	return count;
- }
- static DEVICE_ATTR_RW(dgpu_disable);
-+#endif
- 
- /* eGPU ********************************************************************/
-+#if IS_ENABLED(CONFIG_ASUS_WMI_BIOS)
- static ssize_t egpu_enable_show(struct device *dev,
- 				   struct device_attribute *attr, char *buf)
- {
-@@ -814,6 +833,8 @@ static ssize_t egpu_enable_show(struct device *dev,
- 	if (result < 0)
- 		return result;
- 
-+	asus_wmi_show_deprecated();
-+
- 	return sysfs_emit(buf, "%d\n", result);
- }
- 
-@@ -870,8 +891,10 @@ static ssize_t egpu_enable_store(struct device *dev,
- 	return count;
- }
- static DEVICE_ATTR_RW(egpu_enable);
-+#endif
- 
- /* Is eGPU connected? *********************************************************/
-+#if IS_ENABLED(CONFIG_ASUS_WMI_BIOS)
- static ssize_t egpu_connected_show(struct device *dev,
- 				   struct device_attribute *attr, char *buf)
- {
-@@ -882,12 +905,16 @@ static ssize_t egpu_connected_show(struct device *dev,
- 	if (result < 0)
- 		return result;
- 
-+	asus_wmi_show_deprecated();
-+
- 	return sysfs_emit(buf, "%d\n", result);
- }
- 
- static DEVICE_ATTR_RO(egpu_connected);
-+#endif
- 
- /* gpu mux switch *************************************************************/
-+#if IS_ENABLED(CONFIG_ASUS_WMI_BIOS)
- static ssize_t gpu_mux_mode_show(struct device *dev,
- 				 struct device_attribute *attr, char *buf)
- {
-@@ -898,6 +925,8 @@ static ssize_t gpu_mux_mode_show(struct device *dev,
- 	if (result < 0)
- 		return result;
- 
-+	asus_wmi_show_deprecated();
-+
- 	return sysfs_emit(buf, "%d\n", result);
- }
- 
-@@ -956,6 +985,7 @@ static ssize_t gpu_mux_mode_store(struct device *dev,
- 	return count;
- }
- static DEVICE_ATTR_RW(gpu_mux_mode);
-+#endif
- 
- /* TUF Laptop Keyboard RGB Modes **********************************************/
- static ssize_t kbd_rgb_mode_store(struct device *dev,
-@@ -1079,6 +1109,7 @@ static const struct attribute_group *kbd_rgb_mode_groups[] = {
- };
- 
- /* Tunable: PPT: Intel=PL1, AMD=SPPT *****************************************/
-+#if IS_ENABLED(CONFIG_ASUS_WMI_BIOS)
- static ssize_t ppt_pl2_sppt_store(struct device *dev,
- 				    struct device_attribute *attr,
- 				    const char *buf, size_t count)
-@@ -1117,6 +1148,8 @@ static ssize_t ppt_pl2_sppt_show(struct device *dev,
- {
- 	struct asus_wmi *asus = dev_get_drvdata(dev);
- 
-+	asus_wmi_show_deprecated();
-+
- 	return sysfs_emit(buf, "%u\n", asus->ppt_pl2_sppt);
- }
- static DEVICE_ATTR_RW(ppt_pl2_sppt);
-@@ -1159,6 +1192,8 @@ static ssize_t ppt_pl1_spl_show(struct device *dev,
- {
- 	struct asus_wmi *asus = dev_get_drvdata(dev);
- 
-+	asus_wmi_show_deprecated();
-+
- 	return sysfs_emit(buf, "%u\n", asus->ppt_pl1_spl);
- }
- static DEVICE_ATTR_RW(ppt_pl1_spl);
-@@ -1202,6 +1237,8 @@ static ssize_t ppt_fppt_show(struct device *dev,
- {
- 	struct asus_wmi *asus = dev_get_drvdata(dev);
- 
-+	asus_wmi_show_deprecated();
-+
- 	return sysfs_emit(buf, "%u\n", asus->ppt_fppt);
- }
- static DEVICE_ATTR_RW(ppt_fppt);
-@@ -1245,6 +1282,8 @@ static ssize_t ppt_apu_sppt_show(struct device *dev,
- {
- 	struct asus_wmi *asus = dev_get_drvdata(dev);
- 
-+	asus_wmi_show_deprecated();
-+
- 	return sysfs_emit(buf, "%u\n", asus->ppt_apu_sppt);
- }
- static DEVICE_ATTR_RW(ppt_apu_sppt);
-@@ -1288,6 +1327,8 @@ static ssize_t ppt_platform_sppt_show(struct device *dev,
- {
- 	struct asus_wmi *asus = dev_get_drvdata(dev);
- 
-+	asus_wmi_show_deprecated();
-+
- 	return sysfs_emit(buf, "%u\n", asus->ppt_platform_sppt);
- }
- static DEVICE_ATTR_RW(ppt_platform_sppt);
-@@ -1331,6 +1372,8 @@ static ssize_t nv_dynamic_boost_show(struct device *dev,
- {
- 	struct asus_wmi *asus = dev_get_drvdata(dev);
- 
-+	asus_wmi_show_deprecated();
-+
- 	return sysfs_emit(buf, "%u\n", asus->nv_dynamic_boost);
- }
- static DEVICE_ATTR_RW(nv_dynamic_boost);
-@@ -1374,11 +1417,15 @@ static ssize_t nv_temp_target_show(struct device *dev,
- {
- 	struct asus_wmi *asus = dev_get_drvdata(dev);
- 
-+	asus_wmi_show_deprecated();
-+
- 	return sysfs_emit(buf, "%u\n", asus->nv_temp_target);
- }
- static DEVICE_ATTR_RW(nv_temp_target);
-+#endif
- 
- /* Ally MCU Powersave ********************************************************/
-+#if IS_ENABLED(CONFIG_ASUS_WMI_BIOS)
- static ssize_t mcu_powersave_show(struct device *dev,
- 				   struct device_attribute *attr, char *buf)
- {
-@@ -1389,6 +1436,8 @@ static ssize_t mcu_powersave_show(struct device *dev,
- 	if (result < 0)
- 		return result;
- 
-+	asus_wmi_show_deprecated();
-+
- 	return sysfs_emit(buf, "%d\n", result);
- }
- 
-@@ -1424,6 +1473,7 @@ static ssize_t mcu_powersave_store(struct device *dev,
- 	return count;
- }
- static DEVICE_ATTR_RW(mcu_powersave);
-+#endif
- 
- /* Battery ********************************************************************/
- 
-@@ -2297,6 +2347,7 @@ static int asus_wmi_rfkill_init(struct asus_wmi *asus)
- }
- 
- /* Panel Overdrive ************************************************************/
-+#if IS_ENABLED(CONFIG_ASUS_WMI_BIOS)
- static ssize_t panel_od_show(struct device *dev,
- 				   struct device_attribute *attr, char *buf)
- {
-@@ -2307,6 +2358,8 @@ static ssize_t panel_od_show(struct device *dev,
- 	if (result < 0)
- 		return result;
- 
-+	asus_wmi_show_deprecated();
-+
- 	return sysfs_emit(buf, "%d\n", result);
- }
- 
-@@ -2343,9 +2396,10 @@ static ssize_t panel_od_store(struct device *dev,
- 	return count;
- }
- static DEVICE_ATTR_RW(panel_od);
-+#endif
- 
- /* Bootup sound ***************************************************************/
--
-+#if IS_ENABLED(CONFIG_ASUS_WMI_BIOS)
- static ssize_t boot_sound_show(struct device *dev,
- 			     struct device_attribute *attr, char *buf)
- {
-@@ -2356,6 +2410,8 @@ static ssize_t boot_sound_show(struct device *dev,
- 	if (result < 0)
- 		return result;
- 
-+	asus_wmi_show_deprecated();
-+
- 	return sysfs_emit(buf, "%d\n", result);
- }
- 
-@@ -2391,8 +2447,10 @@ static ssize_t boot_sound_store(struct device *dev,
- 	return count;
- }
- static DEVICE_ATTR_RW(boot_sound);
-+#endif
- 
- /* Mini-LED mode **************************************************************/
-+#if IS_ENABLED(CONFIG_ASUS_WMI_BIOS)
- static ssize_t mini_led_mode_show(struct device *dev,
- 				   struct device_attribute *attr, char *buf)
- {
-@@ -2423,6 +2481,8 @@ static ssize_t mini_led_mode_show(struct device *dev,
- 		}
- 	}
- 
-+	asus_wmi_show_deprecated();
-+
- 	return sysfs_emit(buf, "%d\n", value);
- }
- 
-@@ -2493,10 +2553,13 @@ static ssize_t available_mini_led_mode_show(struct device *dev,
- 		return sysfs_emit(buf, "0 1 2\n");
- 	}
- 
-+	asus_wmi_show_deprecated();
-+
- 	return sysfs_emit(buf, "0\n");
- }
- 
- static DEVICE_ATTR_RO(available_mini_led_mode);
-+#endif
- 
- /* Quirks *********************************************************************/
- 
-@@ -3795,6 +3858,7 @@ static int throttle_thermal_policy_switch_next(struct asus_wmi *asus)
- 	return 0;
- }
- 
-+#if IS_ENABLED(CONFIG_ASUS_WMI_BIOS)
- static ssize_t throttle_thermal_policy_show(struct device *dev,
- 				   struct device_attribute *attr, char *buf)
- {
-@@ -3838,6 +3902,7 @@ static ssize_t throttle_thermal_policy_store(struct device *dev,
-  * Throttle thermal policy: 0 - default, 1 - overboost, 2 - silent
-  */
- static DEVICE_ATTR_RW(throttle_thermal_policy);
-+#endif
- 
- /* Platform profile ***********************************************************/
- static int asus_wmi_platform_profile_to_vivo(struct asus_wmi *asus, int mode)
-@@ -4478,27 +4543,29 @@ static struct attribute *platform_attributes[] = {
- 	&dev_attr_camera.attr,
- 	&dev_attr_cardr.attr,
- 	&dev_attr_touchpad.attr,
--	&dev_attr_charge_mode.attr,
--	&dev_attr_egpu_enable.attr,
--	&dev_attr_egpu_connected.attr,
--	&dev_attr_dgpu_disable.attr,
--	&dev_attr_gpu_mux_mode.attr,
- 	&dev_attr_lid_resume.attr,
- 	&dev_attr_als_enable.attr,
- 	&dev_attr_fan_boost_mode.attr,
--	&dev_attr_throttle_thermal_policy.attr,
--	&dev_attr_ppt_pl2_sppt.attr,
--	&dev_attr_ppt_pl1_spl.attr,
--	&dev_attr_ppt_fppt.attr,
--	&dev_attr_ppt_apu_sppt.attr,
--	&dev_attr_ppt_platform_sppt.attr,
--	&dev_attr_nv_dynamic_boost.attr,
--	&dev_attr_nv_temp_target.attr,
--	&dev_attr_mcu_powersave.attr,
--	&dev_attr_boot_sound.attr,
--	&dev_attr_panel_od.attr,
--	&dev_attr_mini_led_mode.attr,
--	&dev_attr_available_mini_led_mode.attr,
-+	#if IS_ENABLED(CONFIG_ASUS_WMI_BIOS)
-+		&dev_attr_charge_mode.attr,
-+		&dev_attr_egpu_enable.attr,
-+		&dev_attr_egpu_connected.attr,
-+		&dev_attr_dgpu_disable.attr,
-+		&dev_attr_gpu_mux_mode.attr,
-+		&dev_attr_ppt_pl2_sppt.attr,
-+		&dev_attr_ppt_pl1_spl.attr,
-+		&dev_attr_ppt_fppt.attr,
-+		&dev_attr_ppt_apu_sppt.attr,
-+		&dev_attr_ppt_platform_sppt.attr,
-+		&dev_attr_nv_dynamic_boost.attr,
-+		&dev_attr_nv_temp_target.attr,
-+		&dev_attr_mcu_powersave.attr,
-+		&dev_attr_boot_sound.attr,
-+		&dev_attr_panel_od.attr,
-+		&dev_attr_mini_led_mode.attr,
-+		&dev_attr_available_mini_led_mode.attr,
-+		&dev_attr_throttle_thermal_policy.attr,
-+	#endif
- 	NULL
- };
- 
-@@ -4520,7 +4587,11 @@ static umode_t asus_sysfs_is_visible(struct kobject *kobj,
- 		devid = ASUS_WMI_DEVID_LID_RESUME;
- 	else if (attr == &dev_attr_als_enable.attr)
- 		devid = ASUS_WMI_DEVID_ALS_ENABLE;
--	else if (attr == &dev_attr_charge_mode.attr)
-+	else if (attr == &dev_attr_fan_boost_mode.attr)
-+		ok = asus->fan_boost_mode_available;
-+
-+	#if IS_ENABLED(CONFIG_ASUS_WMI_BIOS)
-+	if (attr == &dev_attr_charge_mode.attr)
- 		devid = ASUS_WMI_DEVID_CHARGE_MODE;
- 	else if (attr == &dev_attr_egpu_enable.attr)
- 		ok = asus->egpu_enable_available;
-@@ -4565,6 +4636,7 @@ static umode_t asus_sysfs_is_visible(struct kobject *kobj,
- 	 */
- 	if (attr == &dev_attr_mcu_powersave.attr)
- 		return 0;
-+	#endif
- 
- 	if (devid != -1) {
- 		ok = !(asus_wmi_get_devstate_simple(asus, devid) < 0);
-@@ -4821,6 +4893,7 @@ static int asus_wmi_add(struct platform_device *pdev)
- 	}
- 
- 	/* ensure defaults for tunables */
-+	#if IS_ENABLED(CONFIG_ASUS_WMI_BIOS)
- 	asus->ppt_pl2_sppt = 5;
- 	asus->ppt_pl1_spl = 5;
- 	asus->ppt_apu_sppt = 5;
-@@ -4843,16 +4916,17 @@ static int asus_wmi_add(struct platform_device *pdev)
- 	else if (asus_wmi_dev_is_present(asus, ASUS_WMI_DEVID_GPU_MUX_VIVO))
- 		asus->gpu_mux_dev = ASUS_WMI_DEVID_GPU_MUX_VIVO;
- 
--	if (asus_wmi_dev_is_present(asus, ASUS_WMI_DEVID_TUF_RGB_MODE))
--		asus->kbd_rgb_dev = ASUS_WMI_DEVID_TUF_RGB_MODE;
--	else if (asus_wmi_dev_is_present(asus, ASUS_WMI_DEVID_TUF_RGB_MODE2))
--		asus->kbd_rgb_dev = ASUS_WMI_DEVID_TUF_RGB_MODE2;
--
-+	#endif /* CONFIG_ASUS_WMI_BIOS */
- 	if (asus_wmi_dev_is_present(asus, ASUS_WMI_DEVID_THROTTLE_THERMAL_POLICY))
- 		asus->throttle_thermal_policy_dev = ASUS_WMI_DEVID_THROTTLE_THERMAL_POLICY;
- 	else if (asus_wmi_dev_is_present(asus, ASUS_WMI_DEVID_THROTTLE_THERMAL_POLICY_VIVO))
- 		asus->throttle_thermal_policy_dev = ASUS_WMI_DEVID_THROTTLE_THERMAL_POLICY_VIVO;
- 
-+	if (asus_wmi_dev_is_present(asus, ASUS_WMI_DEVID_TUF_RGB_MODE))
-+		asus->kbd_rgb_dev = ASUS_WMI_DEVID_TUF_RGB_MODE;
-+	else if (asus_wmi_dev_is_present(asus, ASUS_WMI_DEVID_TUF_RGB_MODE2))
-+		asus->kbd_rgb_dev = ASUS_WMI_DEVID_TUF_RGB_MODE2;
-+
- 	err = fan_boost_mode_check_present(asus);
- 	if (err)
- 		goto fail_fan_boost_mode;
 -- 
 2.46.0
 
@@ -6669,6 +6176,57 @@ index 889f1c1a1fa9..c8ee8e42b0f6 100644
  	/*
  	 * https://bugzilla.kernel.org/show_bug.cgi?id=189431
  	 * Lenovo G50-45 is a platform later than 2012, but needs nvs memory
+-- 
+2.46.0
+
+From 6c4d296732065a9924e4d2eeb261cc26d90a519e Mon Sep 17 00:00:00 2001
+From: "Luke D. Jones" <luke@ljones.dev>
+Date: Fri, 24 May 2024 10:54:36 +1200
+Subject: [PATCH 06/18] platform/x86: asus-wmi: don't fail if platform_profile
+ already registered
+
+On some newer laptops it appears that an AMD driver can register a
+platform_profile handler. If this happens then the asus_wmi driver would
+error with -EEXIST when trying to register its own handler leaving the
+user with a possibly unusable system - this is especially true for
+laptops with an MCU that emit a stream of HID packets, some of which can
+be misinterpreted as shutdown signals.
+
+We can safely continue loading the driver instead of bombing out.
+
+Signed-off-by: Luke D. Jones <luke@ljones.dev>
+---
+ drivers/platform/x86/asus-wmi.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/platform/x86/asus-wmi.c b/drivers/platform/x86/asus-wmi.c
+index 2d62cf1ed647..08861792bddd 100644
+--- a/drivers/platform/x86/asus-wmi.c
++++ b/drivers/platform/x86/asus-wmi.c
+@@ -3921,8 +3921,13 @@ static int platform_profile_setup(struct asus_wmi *asus)
+ 		asus->platform_profile_handler.choices);
+ 
+ 	err = platform_profile_register(&asus->platform_profile_handler);
+-	if (err)
++	if (err == -EEXIST) {
++		pr_warn("%s, a platform_profile handler is already registered\n", __func__);
++		return 0;
++	} else if (err) {
++		pr_err("%s, failed at platform_profile_register: %d\n", __func__, err);
+ 		return err;
++	}
+ 
+ 	asus->platform_profile_support = true;
+ 	return 0;
+@@ -4797,7 +4802,7 @@ static int asus_wmi_add(struct platform_device *pdev)
+ 		goto fail_fan_boost_mode;
+ 
+ 	err = platform_profile_setup(asus);
+-	if (err)
++	if (err && err != -EEXIST)
+ 		goto fail_platform_profile_setup;
+ 
+ 	err = asus_wmi_sysfs_init(asus->platform_device);
 -- 
 2.46.0
 
