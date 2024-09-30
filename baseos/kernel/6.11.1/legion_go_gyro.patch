@@ -1,0 +1,103 @@
+From 12c0812256f28074d2e721c7fff68be7a0933065 Mon Sep 17 00:00:00 2001
+From: antheas <git@antheas.dev>
+Date: Sun, 3 Mar 2024 17:59:29 +0100
+Subject: [PATCH] bump the sensitivity of AMD SFH
+
+Bumps the sensitivity of AMD sfh gyro and accelerometers by removing the division
+operation and rebasing the units in the hid descriptor.
+This helps with the gyro deadzone of the Legion Go. Should not affect existing
+devices.
+---
+ .../hid_descriptor/amd_sfh_hid_report_desc.h         | 12 ++++++------
+ drivers/hid/amd-sfh-hid/sfh1_1/amd_sfh_desc.c        | 12 ++++++------
+ 2 files changed, 12 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/hid/amd-sfh-hid/hid_descriptor/amd_sfh_hid_report_desc.h b/drivers/hid/amd-sfh-hid/hid_descriptor/amd_sfh_hid_report_desc.h
+index 67ec2d6a417de5..fa1feca41bf727 100644
+--- a/drivers/hid/amd-sfh-hid/hid_descriptor/amd_sfh_hid_report_desc.h
++++ b/drivers/hid/amd-sfh-hid/hid_descriptor/amd_sfh_hid_report_desc.h
+@@ -149,7 +149,7 @@ static const u8 accel3_report_descriptor[] = {
+ 
+ 0x75, 32,		/* HID report size(32) */
+ 0x95, 1,		/* HID report count (1) */
+-0x55, 0x0E,		/* HID unit exponent(0x0E) */
++0x55, 0x0C,		/* HID unit exponent(0x0E) */
+ 0X81, 0x02,		/* HID Input (Data_Arr_Abs) */
+ 0x0A, 0x54, 0x04,	/* HID usage sensor data motion Acceleration Y axis */
+ 0x17, 0X00, 0X00, 0x01, 0x80, /* HID logical Min_32 */
+@@ -158,7 +158,7 @@ static const u8 accel3_report_descriptor[] = {
+ 
+ 0x75, 32,		/* HID report size(32) */
+ 0x95, 1,		/* HID report count (1) */
+-0x55, 0x0E,		/* HID unit exponent(0x0E) */
++0x55, 0x0C,		/* HID unit exponent(0x0E) */
+ 0X81, 0x02,		/* HID Input (Data_Arr_Abs) */
+ 0x0A, 0x55, 0x04,	/* HID usage sensor data motion Acceleration Z axis */
+ 0x17, 0X00, 0X00, 0x01, 0x80, /* HID logical Min_32 */
+@@ -167,7 +167,7 @@ static const u8 accel3_report_descriptor[] = {
+ 
+ 0x75, 32,		/* HID report size(32) */
+ 0x95, 1,		/* HID report count (1) */
+-0x55, 0x0E,		/* HID unit exponent(0x0E) */
++0x55, 0x0C,		/* HID unit exponent(0x0E) */
+ 0X81, 0x02,		/* HID Input (Data_Arr_Abs) */
+ 
+ 0x0A, 0x51, 0x04,	/* HID usage sensor data motion state */
+@@ -316,7 +316,7 @@ static const u8 gyro3_report_descriptor[] = {
+ 
+ 0x75, 32,		/* HID report size(32) */
+ 0x95, 1,		/* HID report count (1) */
+-0x55, 0x0E,		/* HID unit exponent(0x0E) */
++0x55, 0x0B,		/* HID unit exponent(0x0E) */
+ 0X81, 0x02,		/* HID Input (Data_Arr_Abs) */
+ 0x0A, 0x58, 0x04,	/* Sensor data motion Angular velocity  Y axis */
+ 0x17, 0x00, 0x00, 0x01, 0x80, /* HID logical Min_32 */
+@@ -325,7 +325,7 @@ static const u8 gyro3_report_descriptor[] = {
+ 
+ 0x75, 32,		/* HID report size(32) */
+ 0x95, 1,		/* HID report count (1) */
+-0x55, 0x0E,		/* HID unit exponent(0x0E) */
++0x55, 0x0B,		/* HID unit exponent(0x0E) */
+ 0X81, 0x02,		/* HID Input (Data_Arr_Abs) */
+ 0x0A, 0x59, 0x04,	/* Sensor data motion Angular velocity  Z axis */
+ 0x17, 0x00, 0x00, 0x01, 0x80, /* HID logical Min_32 */
+@@ -334,7 +334,7 @@ static const u8 gyro3_report_descriptor[] = {
+ 
+ 0x75, 32,		/* HID report size(32) */
+ 0x95, 1,		/* HID report count (1) */
+-0x55, 0x0E,		/* HID unit exponent(0x0E) */
++0x55, 0x0B,		/* HID unit exponent(0x0E) */
+ 0X81, 0x02,		/* HID Input (Data_Arr_Abs) */
+ 
+ 0xC0,			/* HID end collection */
+diff --git a/drivers/hid/amd-sfh-hid/sfh1_1/amd_sfh_desc.c b/drivers/hid/amd-sfh-hid/sfh1_1/amd_sfh_desc.c
+index c8916afefa626f..1a2626ad1f0c82 100644
+--- a/drivers/hid/amd-sfh-hid/sfh1_1/amd_sfh_desc.c
++++ b/drivers/hid/amd-sfh-hid/sfh1_1/amd_sfh_desc.c
+@@ -201,9 +201,9 @@ static u8 get_input_rep(u8 current_index, int sensor_idx, int report_id,
+ 			     OFFSET_SENSOR_DATA_DEFAULT;
+ 		memcpy_fromio(&accel_data, sensoraddr, sizeof(struct sfh_accel_data));
+ 		get_common_inputs(&acc_input.common_property, report_id);
+-		acc_input.in_accel_x_value = amd_sfh_float_to_int(accel_data.acceldata.x) / 100;
+-		acc_input.in_accel_y_value = amd_sfh_float_to_int(accel_data.acceldata.y) / 100;
+-		acc_input.in_accel_z_value = amd_sfh_float_to_int(accel_data.acceldata.z) / 100;
++		acc_input.in_accel_x_value = amd_sfh_float_to_int(accel_data.acceldata.x);
++		acc_input.in_accel_y_value = amd_sfh_float_to_int(accel_data.acceldata.y);
++		acc_input.in_accel_z_value = amd_sfh_float_to_int(accel_data.acceldata.z);
+ 		memcpy(input_report, &acc_input, sizeof(acc_input));
+ 		report_size = sizeof(acc_input);
+ 		break;
+@@ -212,9 +212,9 @@ static u8 get_input_rep(u8 current_index, int sensor_idx, int report_id,
+ 			     OFFSET_SENSOR_DATA_DEFAULT;
+ 		memcpy_fromio(&gyro_data, sensoraddr, sizeof(struct sfh_gyro_data));
+ 		get_common_inputs(&gyro_input.common_property, report_id);
+-		gyro_input.in_angel_x_value = amd_sfh_float_to_int(gyro_data.gyrodata.x) / 1000;
+-		gyro_input.in_angel_y_value = amd_sfh_float_to_int(gyro_data.gyrodata.y) / 1000;
+-		gyro_input.in_angel_z_value = amd_sfh_float_to_int(gyro_data.gyrodata.z) / 1000;
++		gyro_input.in_angel_x_value = amd_sfh_float_to_int(gyro_data.gyrodata.x);
++		gyro_input.in_angel_y_value = amd_sfh_float_to_int(gyro_data.gyrodata.y);
++		gyro_input.in_angel_z_value = amd_sfh_float_to_int(gyro_data.gyrodata.z);
+ 		memcpy(input_report, &gyro_input, sizeof(gyro_input));
+ 		report_size = sizeof(gyro_input);
+ 		break;
+
