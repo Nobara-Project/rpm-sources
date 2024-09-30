@@ -1,11 +1,12 @@
-From 3f5b90a80f62c208b503ba91b7bb985f6c06c994 Mon Sep 17 00:00:00 2001
+From 49460b50410d69e2bb506e5b6f59d545a9bd6549 Mon Sep 17 00:00:00 2001
 From: GloriousEggroll <gloriouseggroll@gmail.com>
-Date: Tue, 4 Jun 2024 14:56:40 -0600
-Subject: [PATCH] nobara changes
+Date: Mon, 30 Sep 2024 03:33:55 -0600
+Subject: [PATCH] fedora changes
 
 ---
- settings.conf                                 | 18 +++++----
+ settings.conf                                 | 20 +++++-----
  src/branding/default/branding.desc            | 15 ++++---
+ src/calamares/CMakeLists.txt                  |  2 +-
  src/modules/bootloader/bootloader.conf        | 14 ++++---
  src/modules/bootloader/main.py                |  5 ++-
  src/modules/dracut/dracut.conf                |  1 -
@@ -20,18 +21,18 @@ Subject: [PATCH] nobara changes
  .../partition/core/PartitionLayout.cpp        | 40 ++++++++++++++-----
  src/modules/partition/partition.conf          | 19 ++++++---
  src/modules/plasmalnf/plasmalnf.conf          | 18 ++++-----
- src/modules/shellprocess/shellprocess.conf    | 25 +++++++++---
+ src/modules/shellprocess/shellprocess.conf    | 29 ++++++++++----
  src/modules/tracking/tracking.conf            |  4 +-
  src/modules/unpackfs/unpackfs.conf            | 13 ++----
  src/modules/users/users.conf                  | 15 ++++---
  src/modules/welcome/welcome.conf              | 14 +++----
- 21 files changed, 148 insertions(+), 146 deletions(-)
+ 22 files changed, 152 insertions(+), 150 deletions(-)
 
 diff --git a/settings.conf b/settings.conf
-index f4cbd05..7a3bfaa 100644
+index d0e0860..fec2ea9 100644
 --- a/settings.conf
 +++ b/settings.conf
-@@ -136,22 +136,24 @@ sequence:
+@@ -135,23 +135,25 @@ sequence:
    - locale
    - keyboard
    - localecfg
@@ -40,6 +41,7 @@ index f4cbd05..7a3bfaa 100644
  #  - luksopenswaphookcfg
 -#  - dracutlukscfg
 +  - dracutlukscfg
+   - fstab
  #  - plymouthcfg
  #  - zfshostid
 -  - initcpiocfg
@@ -54,10 +56,11 @@ index f4cbd05..7a3bfaa 100644
 -#  - dracut
 -  - initramfs
 -#  - grubcfg
+-  - bootloader
 +  - dracut
 +#  - initramfs
 +  - grubcfg
-   - bootloader
++- bootloader
 +  - packages
 +  - shellprocess
    - umount
@@ -98,6 +101,19 @@ index 729b958..4af74fc 100644
      supportUrl:          https://github.com/calamares/calamares/wiki
      knownIssuesUrl:      https://github.com/calamares/calamares/issues
      releaseNotesUrl:     https://calamares.io/news/
+diff --git a/src/calamares/CMakeLists.txt b/src/calamares/CMakeLists.txt
+index 3be6b92..965653c 100644
+--- a/src/calamares/CMakeLists.txt
++++ b/src/calamares/CMakeLists.txt
+@@ -50,7 +50,7 @@ install(TARGETS calamares_bin BUNDLE DESTINATION . RUNTIME DESTINATION ${CMAKE_I
+ 
+ install(
+     FILES ${CMAKE_SOURCE_DIR}/data/images/squid.svg
+-    RENAME calamares.svg
++    RENAME calamares-nobara.svg
+     DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
+ )
+ 
 diff --git a/src/modules/bootloader/bootloader.conf b/src/modules/bootloader/bootloader.conf
 index 9679f66..215cfad 100644
 --- a/src/modules/bootloader/bootloader.conf
@@ -336,10 +352,10 @@ index b9777f6..3637a01 100644
 +    - anaconda-install-env-deps
 +    - anaconda-live
 diff --git a/src/modules/partition/core/PartitionActions.cpp b/src/modules/partition/core/PartitionActions.cpp
-index b5fb0ca..b633e80 100644
+index 4ec9653..87614de 100644
 --- a/src/modules/partition/core/PartitionActions.cpp
 +++ b/src/modules/partition/core/PartitionActions.cpp
-@@ -174,30 +174,15 @@ doAutopartition( PartitionCoreModule* core, Device* dev, Choices::AutoPartitionO
+@@ -175,30 +175,15 @@ doAutopartition( PartitionCoreModule* core, Device* dev, Choices::AutoPartitionO
      if ( shouldCreateSwap )
      {
          Partition* swapPartition = nullptr;
@@ -431,7 +447,7 @@ index b476a31..ed1804e 100644
  
          // For zfs, we need to make the passphrase available to later modules
 diff --git a/src/modules/partition/partition.conf b/src/modules/partition/partition.conf
-index 0975179..09cbafd 100644
+index be0c74b..b343ba1 100644
 --- a/src/modules/partition/partition.conf
 +++ b/src/modules/partition/partition.conf
 @@ -41,7 +41,7 @@ efi:
@@ -470,7 +486,7 @@ index 0975179..09cbafd 100644
  
  # armInstall
  #
-@@ -205,7 +205,7 @@ initialSwapChoice: none
+@@ -207,7 +207,7 @@ initialSwapChoice: none
  # If nothing is specified, Calamares defaults to "ext4".
  #
  # Names are case-sensitive and defined by KPMCore.
@@ -479,7 +495,7 @@ index 0975179..09cbafd 100644
  
  # Selectable filesystem type, used when "erase" is done.
  #
-@@ -319,3 +319,12 @@ defaultFileSystemType:  "ext4"
+@@ -326,3 +326,12 @@ defaultFileSystemType:  "ext4"
  #                  the welcome module, **and** configure this value in
  #                  `welcome.conf`, not here.
  # requiredStorage: 3.5
@@ -536,27 +552,31 @@ index 105f247..b9105d1 100644
  # You can pre-select one of the themes; it is not applied
  # immediately, but its radio-button is switched on to indicate
 diff --git a/src/modules/shellprocess/shellprocess.conf b/src/modules/shellprocess/shellprocess.conf
-index 87e31c5..8ae262e 100644
+index 709d2a8..69d9697 100644
 --- a/src/modules/shellprocess/shellprocess.conf
 +++ b/src/modules/shellprocess/shellprocess.conf
-@@ -93,11 +93,11 @@ dontChroot: false
- # Script may be a list of items (if the touch command fails, it is
- # ignored; the slowloris command has a different timeout from the
- # other commands in the list):
+@@ -125,13 +125,13 @@ verbose: false
+ # - there is nothing special about the invocation of true
+ # - the slowloris command has a different timeout from the other commands
+ # - the echo command logs its output line-by-line
 -script:
 -    - "-touch ${ROOT}/tmp/thingy"
 -    - "/usr/bin/true"
 -    - command: "/usr/local/bin/slowloris"
 -      timeout: 3600
+-    - command: "echo -e '\e[33;2mred\e[33;0m' ; echo second line"
+-      verbose: true
 +#script:
 +#    - "-touch ${ROOT}/tmp/thingy"
 +#    - "/usr/bin/true"
 +#    - command: "/usr/local/bin/slowloris"
 +#      timeout: 3600
++#    - command: "echo -e '\e[33;2mred\e[33;0m' ; echo second line"
++#      verbose: true
  
  # You can change the description of the job (as it is displayed in the
  # progress bar during installation) by defining an *i18n* key, which
-@@ -110,3 +110,18 @@ script:
+@@ -144,3 +144,18 @@ script:
  #     name: "Shell process"
  #     name[nl]: "Schelpenpad"
  #     name[en_GB]: "Just a moment"
@@ -718,18 +738,5 @@ index b988eb2..9055b5e 100644
  # User interface
  #
 -- 
-2.45.1
-diff --git a/src/calamares/CMakeLists.txt b/src/calamares/CMakeLists.txt
-index 3be6b92..965653c 100644
---- a/src/calamares/CMakeLists.txt
-+++ b/src/calamares/CMakeLists.txt
-@@ -50,7 +50,7 @@ install(TARGETS calamares_bin BUNDLE DESTINATION . RUNTIME DESTINATION ${CMAKE_I
-
- install(
-     FILES ${CMAKE_SOURCE_DIR}/data/images/squid.svg
--    RENAME calamares.svg
-+    RENAME calamares-nobara.svg
-     DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
- )
-
+2.46.2
 

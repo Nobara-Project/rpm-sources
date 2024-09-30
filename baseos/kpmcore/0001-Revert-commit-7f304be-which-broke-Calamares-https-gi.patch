@@ -1,0 +1,364 @@
+From 13f2ea920d00ed24144d4ef8ced978304a03479a Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Mon, 30 Sep 2024 13:15:57 -0600
+Subject: [PATCH] Revert commit 7f304be which broke Calamares:
+ https://github.com/calamares/calamares/issues/2367
+
+---
+ src/core/diskdevice.cpp                     | 36 ++++++++++++++---
+ src/core/diskdevice.h                       | 24 ++++++++++-
+ src/core/partitionalignment.cpp             | 20 +++++++++-
+ src/core/partitiontable.cpp                 | 44 ++++++++++++++++++---
+ src/core/partitiontable.h                   |  4 +-
+ src/plugins/dummy/dummybackend.cpp          |  4 +-
+ src/plugins/sfdisk/sfdiskbackend.cpp        | 10 +++--
+ src/plugins/sfdisk/sfdiskdevice.cpp         |  2 +-
+ src/plugins/sfdisk/sfdiskpartitiontable.cpp |  4 +-
+ 9 files changed, 127 insertions(+), 21 deletions(-)
+
+diff --git a/src/core/diskdevice.cpp b/src/core/diskdevice.cpp
+index 8608562..4cf32b0 100644
+--- a/src/core/diskdevice.cpp
++++ b/src/core/diskdevice.cpp
+@@ -36,7 +36,9 @@
+ class DiskDevicePrivate : public DevicePrivate
+ {
+ public:
+-    qint64 m_Sectors;
++    qint32 m_Heads;
++    qint32 m_SectorsPerTrack;
++    qint32 m_Cylinders;
+     qint64 m_LogicalSectorSize;
+     qint64 m_PhysicalSectorSize;
+ };
+@@ -83,16 +85,35 @@ static qint64 getPhysicalSectorSize(const QString& device_node)
+ */
+ DiskDevice::DiskDevice(const QString& name,
+                        const QString& deviceNode,
++                       qint32 heads,
++                       qint32 numSectors,
++                       qint32 cylinders,
+                        qint64 sectorSize,
+-                       qint64 sectors,
+                        const QString& iconName)
+-    : Device(std::make_shared<DiskDevicePrivate>(), name, deviceNode, sectorSize, sectors, iconName, Device::Type::Disk_Device)
++    : Device(std::make_shared<DiskDevicePrivate>(), name, deviceNode, sectorSize, (static_cast<qint64>(heads) * cylinders * numSectors), iconName, Device::Type::Disk_Device)
+ {
+-    d_ptr->m_Sectors = sectors;
++    d_ptr->m_Heads = heads;
++    d_ptr->m_SectorsPerTrack = numSectors;
++    d_ptr->m_Cylinders = cylinders;
+     d_ptr->m_LogicalSectorSize = sectorSize;
+     d_ptr->m_PhysicalSectorSize = getPhysicalSectorSize(deviceNode);
+ }
+ 
++qint32 DiskDevice::heads() const
++{
++    return d_ptr->m_Heads;
++}
++
++qint32 DiskDevice::cylinders() const
++{
++    return d_ptr->m_Cylinders;
++}
++
++qint32 DiskDevice::sectorsPerTrack() const
++{
++    return d_ptr->m_SectorsPerTrack;
++}
++
+ qint64 DiskDevice::physicalSectorSize() const
+ {
+     return d_ptr->m_PhysicalSectorSize;
+@@ -105,5 +126,10 @@ qint64 DiskDevice::logicalSectorSize() const
+ 
+ qint64 DiskDevice::totalSectors() const
+ {
+-    return d_ptr->m_Sectors;
++    return static_cast<qint64>(d_ptr->m_Heads) * d_ptr->m_Cylinders * d_ptr->m_SectorsPerTrack;
++}
++
++qint64 DiskDevice::cylinderSize() const
++{
++    return static_cast<qint64>(d_ptr->m_Heads) * d_ptr->m_SectorsPerTrack;
+ }
+diff --git a/src/core/diskdevice.h b/src/core/diskdevice.h
+index f0c1685..90f7902 100644
+--- a/src/core/diskdevice.h
++++ b/src/core/diskdevice.h
+@@ -42,9 +42,26 @@ class LIBKPMCORE_EXPORT DiskDevice : public Device
+     friend class CoreBackend;
+ 
+ public:
+-    DiskDevice(const QString& name, const QString& deviceNode, qint64 sectorSize, qint64 sectors, const QString& iconName = QString());
++    DiskDevice(const QString& name, const QString& deviceNode, qint32 heads, qint32 numSectors, qint32 cylinders, qint64 sectorSize, const QString& iconName = QString());
+ 
+ public:
++    /**
++     * @return the number of heads on the Device in CHS notation
++     */
++    [[deprecated]]
++    qint32 heads() const;
++
++    /**
++     * @return the number of cylinders on the Device in CHS notation
++     */
++    [[deprecated]]
++    qint32 cylinders() const;
++
++    /**
++     * @return the number of sectors on the Device in CHS notation
++     */
++    qint32 sectorsPerTrack() const;
++
+     /**
+      * @return the physical sector size the Device uses or -1 if unknown
+      */
+@@ -59,6 +76,11 @@ public:
+      * @return the total number of sectors on the device
+      */
+     qint64 totalSectors() const;
++
++    /**
++     * @return the size of a cylinder on this Device in sectors
++     */
++    qint64 cylinderSize() const;
+ };
+ 
+ #endif
+diff --git a/src/core/partitionalignment.cpp b/src/core/partitionalignment.cpp
+index 50580c2..187fa7f 100644
+--- a/src/core/partitionalignment.cpp
++++ b/src/core/partitionalignment.cpp
+@@ -23,8 +23,17 @@
+ 
+ int PartitionAlignment::s_sectorAlignment = 2048;
+ 
+-qint64 PartitionAlignment::firstDelta(const Device& d, const Partition&, qint64 s)
++qint64 PartitionAlignment::firstDelta(const Device& d, const Partition& p, qint64 s)
+ {
++    if (d.partitionTable()->type() == PartitionTable::msdos) {
++        const DiskDevice& diskDevice = dynamic_cast<const DiskDevice&>(d);
++        if (p.roles().has(PartitionRole::Logical) && s == 2 * diskDevice.sectorsPerTrack())
++            return (s - (2 * diskDevice.sectorsPerTrack())) % sectorAlignment(d);
++
++        if (p.roles().has(PartitionRole::Logical) || s == diskDevice.sectorsPerTrack())
++            return (s - diskDevice.sectorsPerTrack()) % sectorAlignment(d);
++    }
++
+     return s % sectorAlignment(d);
+ }
+ 
+@@ -35,6 +44,15 @@ qint64 PartitionAlignment::lastDelta(const Device& d, const Partition&, qint64 s
+ 
+ bool PartitionAlignment::isLengthAligned(const Device& d, const Partition& p)
+ {
++    if (d.partitionTable()->type() == PartitionTable::msdos) {
++        const DiskDevice& diskDevice = dynamic_cast<const DiskDevice&>(d);
++        if (p.roles().has(PartitionRole::Logical) && p.firstSector() == 2 * diskDevice.sectorsPerTrack())
++            return (p.length() + (2 * diskDevice.sectorsPerTrack())) % sectorAlignment(d) == 0;
++
++        if (p.roles().has(PartitionRole::Logical) || p.firstSector() == diskDevice.sectorsPerTrack())
++            return (p.length() + diskDevice.sectorsPerTrack()) % sectorAlignment(d) == 0;
++    }
++
+     return p.length() % sectorAlignment(d) == 0;
+ }
+ 
+diff --git a/src/core/partitiontable.cpp b/src/core/partitiontable.cpp
+index b00f298..05e36f1 100644
+--- a/src/core/partitiontable.cpp
++++ b/src/core/partitiontable.cpp
+@@ -289,13 +289,14 @@ bool PartitionTable::getUnallocatedRange(const Device& d, PartitionNode& parent,
+                 return false;
+             }
+ 
+-            // Leave alignment sectors free at the start for a new partition's metadata
+-            start += PartitionAlignment::sectorAlignment(device);
++            // Leave a track (cylinder aligned) or sector alignment sectors (sector based) free at the
++            // start for a new partition's metadata
++            start += device.partitionTable()->type() == PartitionTable::msdos ? device.sectorsPerTrack() : PartitionAlignment::sectorAlignment(device);
+ 
+             // .. and also at the end for the metadata for a partition to follow us, if we're not
+             // at the end of the extended partition
+             if (end < extended->lastSector())
+-                end -= PartitionAlignment::sectorAlignment(device);
++                end -= device.partitionTable()->type() == PartitionTable::msdos ? device.sectorsPerTrack() : PartitionAlignment::sectorAlignment(device);
+         }
+ 
+         return end - start + 1 >= PartitionAlignment::sectorAlignment(device);
+@@ -467,7 +468,6 @@ static struct {
+     { QLatin1String("bsd"), 8, false, true, PartitionTable::TableType::bsd },
+     { QLatin1String("dasd"), 1, false, true, PartitionTable::TableType::dasd },
+     { QLatin1String("msdos"), 4, true, false, PartitionTable::TableType::msdos },
+-    { QLatin1String("dos"), 4, true, false, PartitionTable::TableType::msdos },
+     { QLatin1String("msdos"), 4, true, false, PartitionTable::TableType::msdos_sectorbased },
+     { QLatin1String("dos"), 4, true, false, PartitionTable::TableType::msdos_sectorbased },
+     { QLatin1String("dvh"), 16, true, true, PartitionTable::TableType::dvh },
+@@ -526,6 +526,40 @@ bool PartitionTable::tableTypeIsReadOnly(TableType l)
+     return false;
+ }
+ 
++/** Simple heuristic to determine if the PartitionTable is sector aligned (i.e.
++    if its Partitions begin at sectors evenly divisable by PartitionAlignment::sectorAlignment().
++    @return true if is sector aligned, otherwise false
++*/
++bool PartitionTable::isSectorBased(const Device& d) const
++{
++    if (d.type() == Device::Type::Disk_Device) {
++        const DiskDevice& diskDevice = dynamic_cast<const DiskDevice&>(d);
++
++        if (type() == PartitionTable::msdos) {
++            // the default for empty partition tables is sector based
++            if (numPrimaries() == 0)
++                return true;
++
++            quint32 numCylinderAligned = 0;
++            quint32 numSectorAligned = 0;
++
++            // see if we have more cylinder aligned partitions than sector
++            // aligned ones.
++            for (const auto &p : children()) {
++                if (p->firstSector() % PartitionAlignment::sectorAlignment(diskDevice) == 0)
++                    numSectorAligned++;
++                else if (p->firstSector() % diskDevice.cylinderSize() == 0)
++                    numCylinderAligned++;
++            }
++
++            return numSectorAligned >= numCylinderAligned;
++        }
++        return type() == PartitionTable::msdos_sectorbased;
++    }
++
++    return false;
++}
++
+ void PartitionTable::setType(const Device& d, TableType t)
+ {
+     setFirstUsableSector(defaultFirstUsable(d, t));
+@@ -539,7 +573,7 @@ void PartitionTable::setType(const Device& d, TableType t)
+ QTextStream& operator<<(QTextStream& stream, const PartitionTable& ptable)
+ {
+     stream << "type: \"" << ptable.typeName() << "\"\n"
+-           << "align: \"" << "sector" << "\"\n"
++           << "align: \"" << (ptable.type() == PartitionTable::msdos ? "cylinder" : "sector") << "\"\n"
+            << "\n# number start end type roles label flags\n";
+ 
+     QList<const Partition*> partitions;
+diff --git a/src/core/partitiontable.h b/src/core/partitiontable.h
+index 2e40fad..feb6e72 100644
+--- a/src/core/partitiontable.h
++++ b/src/core/partitiontable.h
+@@ -49,7 +49,7 @@ public:
+         bsd,
+         dasd,
+         msdos,
+-        msdos_sectorbased [[deprecated]],
++        msdos_sectorbased,
+         dvh,
+         gpt,
+         loop,
+@@ -154,6 +154,8 @@ public:
+     void updateUnallocated(const Device& d);
+     void insertUnallocated(const Device& d, PartitionNode* p, qint64 start);
+ 
++    bool isSectorBased(const Device& d) const;
++
+     static const QList<Flag> flagList();
+     static QString flagName(Flag f);
+     static QStringList flagNames(Flags f);
+diff --git a/src/plugins/dummy/dummybackend.cpp b/src/plugins/dummy/dummybackend.cpp
+index 76d6527..3ac12bf 100644
+--- a/src/plugins/dummy/dummybackend.cpp
++++ b/src/plugins/dummy/dummybackend.cpp
+@@ -50,8 +50,8 @@ QList<Device*> DummyBackend::scanDevices(const ScanFlags scanFlags)
+ 
+ Device* DummyBackend::scanDevice(const QString& deviceNode)
+ {
+-    DiskDevice* d = new DiskDevice(QStringLiteral("Dummy Device"), QStringLiteral("/tmp") + deviceNode, 512, 524288);
+-    CoreBackend::setPartitionTableForDevice(*d, new PartitionTable(PartitionTable::msdos, 2048, d->totalSectors() - 2048));
++    DiskDevice* d = new DiskDevice(QStringLiteral("Dummy Device"), QStringLiteral("/tmp") + deviceNode, 255, 30, 63, 512);
++    CoreBackend::setPartitionTableForDevice(*d, new PartitionTable(PartitionTable::msdos_sectorbased, 2048, d->totalSectors() - 2048));
+     CoreBackend::setPartitionTableMaxPrimaries(*d->partitionTable(), 128);
+     d->partitionTable()->updateUnallocated(*d);
+     d->setIconName(QStringLiteral("drive-harddisk"));
+diff --git a/src/plugins/sfdisk/sfdiskbackend.cpp b/src/plugins/sfdisk/sfdiskbackend.cpp
+index 3c4b900..3adff7b 100644
+--- a/src/plugins/sfdisk/sfdiskbackend.cpp
++++ b/src/plugins/sfdisk/sfdiskbackend.cpp
+@@ -272,7 +272,7 @@ Device* SfdiskBackend::scanDevice(const QString& deviceNode)
+ 
+             Log(Log::Level::information) << xi18nc("@info:status", "Device found: %1", name);
+ 
+-            d = new DiskDevice(name, deviceNode, logicalSectorSize, deviceSize / logicalSectorSize, icon);
++            d = new DiskDevice(name, deviceNode, 255, 63, deviceSize / logicalSectorSize / 255 / 63, logicalSectorSize, icon);
+         }
+ 
+         if ( d )
+@@ -373,7 +373,9 @@ void SfdiskBackend::scanDevicePartitions(Device& d, const QJsonArray& jsonPartit
+     }
+ 
+     d.partitionTable()->updateUnallocated(d);
+-    d.partitionTable()->setType(d, d.partitionTable()->type());
++
++    if (d.partitionTable()->isSectorBased(d))
++        d.partitionTable()->setType(d, PartitionTable::msdos_sectorbased);
+ 
+     for (const Partition *part : std::as_const(partitions))
+         PartitionAlignment::isAligned(d, *part);
+@@ -390,7 +392,7 @@ Partition* SfdiskBackend::scanPartition(Device& d, const QString& partitionNode,
+     FileSystem::Type type = detectFileSystem(partitionNode);
+     PartitionRole::Roles r = PartitionRole::Primary;
+ 
+-    if ( (d.partitionTable()->type() == PartitionTable::msdos) &&
++    if ( (d.partitionTable()->type() == PartitionTable::msdos || d.partitionTable()->type() == PartitionTable::msdos_sectorbased) &&
+         ( partitionType == QStringLiteral("5") || partitionType == QStringLiteral("f") ) ) {
+         r = PartitionRole::Extended;
+         type = FileSystem::Type::Extended;
+@@ -696,7 +698,7 @@ PartitionTable::Flags SfdiskBackend::availableFlags(PartitionTable::TableType ty
+         flags = PartitionTable::Flag::BiosGrub |
+                 PartitionTable::Flag::Boot;
+     }
+-    else if (type == PartitionTable::msdos)
++    else if (type == PartitionTable::msdos || type == PartitionTable::msdos_sectorbased)
+         flags = PartitionTable::Flag::Boot;
+ 
+     return flags;
+diff --git a/src/plugins/sfdisk/sfdiskdevice.cpp b/src/plugins/sfdisk/sfdiskdevice.cpp
+index 75fac37..d787aaf 100644
+--- a/src/plugins/sfdisk/sfdiskdevice.cpp
++++ b/src/plugins/sfdisk/sfdiskdevice.cpp
+@@ -55,7 +55,7 @@ std::unique_ptr<CoreBackendPartitionTable> SfdiskDevice::openPartitionTable()
+ bool SfdiskDevice::createPartitionTable(Report& report, const PartitionTable& ptable)
+ {
+     QByteArray tableType;
+-    if (ptable.type() == PartitionTable::msdos)
++    if (ptable.type() == PartitionTable::msdos || ptable.type() == PartitionTable::msdos_sectorbased)
+         tableType = QByteArrayLiteral("dos");
+     else
+         tableType = ptable.typeName().toLocal8Bit();
+diff --git a/src/plugins/sfdisk/sfdiskpartitiontable.cpp b/src/plugins/sfdisk/sfdiskpartitiontable.cpp
+index aef47a6..f075619 100644
+--- a/src/plugins/sfdisk/sfdiskpartitiontable.cpp
++++ b/src/plugins/sfdisk/sfdiskpartitiontable.cpp
+@@ -192,6 +192,7 @@ static QLatin1String getPartitionType(FileSystem::Type t, PartitionTable::TableT
+         type = 0;
+         break;
+     case PartitionTable::TableType::msdos:
++    case PartitionTable::TableType::msdos_sectorbased:
+         type = 1;
+         break;
+     default:;
+@@ -261,7 +262,8 @@ bool SfdiskPartitionTable::setPartitionSystemType(Report& report, const Partitio
+ 
+ bool SfdiskPartitionTable::setFlag(Report& report, const Partition& partition, PartitionTable::Flag flag, bool state)
+ {
+-    if (m_device->partitionTable()->type() == PartitionTable::TableType::msdos) {
++    if (m_device->partitionTable()->type() == PartitionTable::TableType::msdos ||
++         m_device->partitionTable()->type() == PartitionTable::TableType::msdos_sectorbased) {
+         // We only allow setting one active partition per device
+         if (flag == PartitionTable::Flag::Boot && state == true) {
+             ExternalCommand sfdiskCommand(report, QStringLiteral("sfdisk"), { QStringLiteral("--activate"), m_device->deviceNode(), QString::number(partition.number()) } );
+-- 
+2.46.2
+
