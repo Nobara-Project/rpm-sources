@@ -1,6 +1,6 @@
 Name:           calamares
 Version:        3.3.6
-Release:        7%{?dist}
+Release:        9%{?dist}
 Summary:        Installer from a live CD/DVD/USB to disk
 
 License:        GPL-3.0-or-later
@@ -25,6 +25,9 @@ Source6:        install-icon.svg
 
 # adjust some default settings (default shipped .conf files)
 Patch1:         0001-Apply-default-settings-for-Fedora.patch
+
+# Add virtual keyboard patch from KaOS for touchpad/handheld devices
+Patch2:         0001-calamares-virtual-keyboard-patch.patch
 
 ## use kdesu instead of pkexec (works around #1171779)
 Patch1002:       calamares-3.3.3-kdesu.patch

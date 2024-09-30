@@ -1,0 +1,1233 @@
+From df68843e0234c6aa55ef21fb5deb92341d3d6db8 Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Sun, 29 Sep 2024 18:31:02 -0600
+Subject: [PATCH] calamares virtual keyboard patch
+
+---
+ CMakeLists.txt                           |   5 +
+ src/branding/default/branding.desc       |   4 +-
+ src/calamares/calamares-navigation.qml   |  47 ++-
+ src/calamares/main.cpp                   |   3 +
+ src/modules/keyboardq/keyboardq.qml      |   9 +
+ src/modules/usersq/CMakeLists.txt        |   4 +
+ src/modules/usersq/UserInput.qml         | 451 +++++++++++++++++++++
+ src/modules/usersq/content/TextArea.qml  |  16 +
+ src/modules/usersq/content/TextField.qml |  16 +
+ src/modules/usersq/usersq.qml            | 477 ++++-------------------
+ src/modules/usersq/usersq.qrc            |   3 +
+ 11 files changed, 618 insertions(+), 417 deletions(-)
+ create mode 100644 src/modules/usersq/UserInput.qml
+ create mode 100644 src/modules/usersq/content/TextArea.qml
+ create mode 100644 src/modules/usersq/content/TextField.qml
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 99b8d4e..812b624 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -89,6 +89,7 @@ option(WITH_QT6 "Use Qt6 instead of Qt5" OFF)
+ #
+ # Additional parts to build that do not affect ABI
+ option(BUILD_SCHEMA_TESTING "Enable schema-validation-tests" ON)
++option(WITH_QT_VIRTUAL_KEYBOARD "Enable using a virtualkeyboard." OFF)
+ # Options for the calamares executable
+ option(BUILD_CRASH_REPORTING "Enable crash reporting with KCrash." ON)
+ 
+@@ -321,6 +322,9 @@ find_package(${qtname} ${QT_VERSION} CONFIG REQUIRED Concurrent Core DBus Gui Li
+ if(WITH_QML)
+     find_package(${qtname} ${QT_VERSION} CONFIG REQUIRED Quick QuickWidgets)
+ endif()
++if(WITH_QT_VIRTUAL_KEYBOARD)
++    find_package(Qt5 ${QT_VERSION} CONFIG REQUIRED VirtualKeyboard)
++endif()
+ # Note that some modules need more Qt modules, optionally.
+ 
+ find_package(YAMLCPP ${YAMLCPP_VERSION})
+@@ -626,6 +630,7 @@ add_feature_info(Pybind11 ${WITH_PYBIND11} "Python using bundled pybind11")
+ add_feature_info(Qml ${WITH_QML} "QML UI support")
+ add_feature_info(Polkit ${INSTALL_POLKIT} "Install Polkit files")
+ add_feature_info(KCrash ${BUILD_CRASH_REPORTING} "Crash dumps via KCrash")
++add_feature_info(VirtualKeyboard ${WITH_QT_VIRTUAL_KEYBOARD} "Enable qtvirtualkeyboard QT_IM_MODULE")
+ 
+ ### Post-source configuration
+ #
+diff --git a/src/branding/default/branding.desc b/src/branding/default/branding.desc
+index 729b958..978891e 100644
+--- a/src/branding/default/branding.desc
++++ b/src/branding/default/branding.desc
+@@ -48,7 +48,7 @@ windowExpanding:    normal
+ # This setting is ignored if "fullscreen" is selected for
+ # *windowExpanding*, above. If not set, use constants defined
+ # in CalamaresUtilsGui, 800x520.
+-windowSize: 800px,520px
++windowSize: 960px,630px
+ 
+ # Placement of Calamares window. Either "center" or "free".
+ # Whether "center" actually works does depend on the window
+@@ -87,7 +87,7 @@ sidebar: widget
+ # In addition, you **may** specify a side, separated by a comma,
+ # from the kind. The same sides are valid as for *sidebar*,
+ # except the default is *bottom*.
+-navigation: widget
++navigation: qml,right
+ 
+ 
+ ### STRINGS, IMAGES AND COLORS
+diff --git a/src/calamares/calamares-navigation.qml b/src/calamares/calamares-navigation.qml
+index becc1b4..ab516f2 100644
+--- a/src/calamares/calamares-navigation.qml
++++ b/src/calamares/calamares-navigation.qml
+@@ -18,30 +18,44 @@ import QtQuick.Layouts 1.3
+ Rectangle {
+     id: navigationBar;
+     color: Branding.styleString( Branding.SidebarBackground );
+-    height: 48;
++    height: parent.height;
++    width: 48;
+ 
+-    RowLayout {
++    ColumnLayout {
+         id: buttonBar
+         anchors.fill: parent;
++        spacing: 2
+ 
+-        Item
++        /*Item
+         {
+-            Layout.fillWidth: true;
+-        }
++            Layout.fillHeight: true;
++        }*/
+ 
+-        Button
++        RoundButton
+         {
+-            text: ViewManager.backLabel;
+-            icon.name: ViewManager.backIcon;
++            //text: ViewManager.backLabel;
++            icon.name: "pan-up-symbolic" //ViewManager.backIcon;
++            anchors.horizontalCenter : parent.horizontalCenter;
++
++            ToolTip.visible: hovered
++            ToolTip.timeout: 5000
++            ToolTip.delay: 1000
++            ToolTip.text: "Back";
+ 
+             enabled: ViewManager.backEnabled;
+             visible: ViewManager.backAndNextVisible;
+             onClicked: { ViewManager.back(); }
+         }
+-        Button
++        RoundButton
+         {
+-            text: ViewManager.nextLabel;
+-            icon.name: ViewManager.nextIcon;
++            //text: ViewManager.nextLabel;
++            icon.name: "pan-down-symbolic" // ViewManager.nextIcon;
++            anchors.horizontalCenter : parent.horizontalCenter;
++
++            ToolTip.visible: hovered
++            ToolTip.timeout: 5000
++            ToolTip.delay: 1000
++            ToolTip.text: "Next";
+ 
+             enabled: ViewManager.nextEnabled;
+             visible: ViewManager.backAndNextVisible;
+@@ -49,13 +63,14 @@ Rectangle {
+             // This margin goes in the "next" button, because the "quit"
+             // button can vanish and we want to keep the margin to
+             // the next-thing-in-the-navigation-panel around.
+-            Layout.rightMargin: 3 * buttonBar.spacing;
++            Layout.bottomMargin: 3 * buttonBar.spacing;
+         }
+-        Button
++        RoundButton
+         {
+-            Layout.rightMargin: 2 * buttonBar.spacing
+-            text: ViewManager.quitLabel;
+-            icon.name: ViewManager.quitIcon;
++            Layout.bottomMargin: 2 * buttonBar.spacing
++            //text: ViewManager.quitLabel;
++            icon.name: "dialog-cancel" // ViewManager.quitIcon;
++            anchors.horizontalCenter : parent.horizontalCenter
+ 
+             ToolTip.visible: hovered
+             ToolTip.timeout: 5000
+diff --git a/src/calamares/main.cpp b/src/calamares/main.cpp
+index e0491e5..c6c8aa9 100644
+--- a/src/calamares/main.cpp
++++ b/src/calamares/main.cpp
+@@ -2,6 +2,7 @@
+  *
+  *   SPDX-FileCopyrightText: 2014 Teo Mrnjavac <teo@kde.org>
+  *   SPDX-FileCopyrightText: 2017-2020 Adriaan de Groot <groot@kde.org>
++ *   SPDX-FileCopyrightText: 2022 Anke Boersma <demm@kaosx.us>
+  *   SPDX-License-Identifier: GPL-3.0-or-later
+  *
+  *   Calamares is Free Software: see the License-Identifier above.
+@@ -110,6 +111,8 @@ main( int argc, char* argv[] )
+     // Not needed in Qt6
+     QApplication::setAttribute( Qt::AA_EnableHighDpiScaling );
+ #endif
++    qputenv("QT_IM_MODULE", QByteArray("qtvirtualkeyboard"));
++
+     CalamaresApplication a( argc, argv );
+ 
+     KAboutData aboutData( "calamares",
+diff --git a/src/modules/keyboardq/keyboardq.qml b/src/modules/keyboardq/keyboardq.qml
+index ad83a99..7f91994 100644
+--- a/src/modules/keyboardq/keyboardq.qml
++++ b/src/modules/keyboardq/keyboardq.qml
+@@ -15,6 +15,9 @@ import QtQuick.Controls 2.15
+ import QtQuick.Window 2.15
+ import QtQuick.Layouts 1.3
+ 
++import QtQuick.VirtualKeyboard 2.4
++import QtQuick.VirtualKeyboard.Settings 2.4
++
+ import org.kde.kirigami 2.7 as Kirigami
+ import "data"
+ 
+@@ -352,5 +355,11 @@ Item {
+             target: textInput
+             onEnterClicked: console.log("Enter!")
+         }
++        /*InputPanel {
++            id: keyboard
++            width: parent.width
++            //height: parent.height / 3
++            anchors.bottom: parent.bottom
++        }*/
+     }
+ }
+diff --git a/src/modules/usersq/CMakeLists.txt b/src/modules/usersq/CMakeLists.txt
+index 5cfd558..1695782 100644
+--- a/src/modules/usersq/CMakeLists.txt
++++ b/src/modules/usersq/CMakeLists.txt
+@@ -8,6 +8,10 @@ if(NOT WITH_QML)
+     return()
+ endif()
+ 
++if(WITH_QT_VIRTUAL_KEYBOARD)
++    find_package(Qt5 ${QT_VERSION} CONFIG REQUIRED VirtualKeyboard)
++endif()
++
+ find_package(${qtname} ${QT_VERSION} CONFIG REQUIRED Core DBus Network)
+ find_package(Crypt REQUIRED)
+ 
+diff --git a/src/modules/usersq/UserInput.qml b/src/modules/usersq/UserInput.qml
+new file mode 100644
+index 0000000..803a734
+--- /dev/null
++++ b/src/modules/usersq/UserInput.qml
+@@ -0,0 +1,451 @@
++/* === This file is part of Calamares - <https://calamares.io> ===
++ *
++ *   SPDX-FileCopyrightText: 2020 - 2022 Anke Boersma <demm@kaosx.us>
++ *   SPDX-FileCopyrightText: 2021 Adriaan de Groot <groot@kde.org>
++ *   SPDX-License-Identifier: GPL-3.0-or-later
++ *
++ *   Calamares is Free Software: see the License-Identifier above.
++ *
++ */
++
++import io.calamares.core 1.0
++import io.calamares.ui 1.0
++
++import QtQuick 2.15
++import QtQuick.Controls 2.10
++import QtQuick.Layouts 1.3
++
++import QtGraphicalEffects 1.0
++import QtQuick.Window 2.3
++import QtQuick.VirtualKeyboard 2.4
++import "content"
++
++import org.kde.kirigami 2.7 as Kirigami
++
++Kirigami.ScrollablePage {
++    // You can hard-code a color here, or bind to a Kirigami theme color,
++    // or use a color from Calamares branding, or ..
++    readonly property color unfilledFieldColor: "#FBFBFB" //Kirigami.Theme.backgroundColor
++    readonly property color positiveFieldColor: "#F0FFF0" //Kirigami.Theme.positiveBackgroundColor
++    readonly property color negativeFieldColor: "#EBCED1" //Kirigami.Theme.negativeBackgroundColor
++    readonly property color unfilledFieldOutlineColor: "#F1F1F1"
++    readonly property color positiveFieldOutlineColor: "#DCFFDC"
++    readonly property color negativeFieldOutlineColor: "#BE5F68"
++    readonly property color headerTextColor: "#1F1F1F"
++    readonly property color commentsColor: "#6D6D6D"
++
++    width: parent.width
++    height: parent.height
++
++    header: Kirigami.Heading {
++        Layout.fillWidth: true
++        height: 50
++        horizontalAlignment: Qt.AlignHCenter
++        color: headerTextColor
++        font.weight: Font.Medium
++        font.pointSize: 12
++        text: qsTr("Pick your user name and credentials to login and perform admin tasks")
++    }
++
++    ColumnLayout {
++        id: _formLayout
++        spacing: Kirigami.Units.smallSpacing
++
++        Column {
++            Layout.fillWidth: true
++            spacing: Kirigami.Units.smallSpacing
++
++            Label {
++                text: qsTr("What is your name?")
++            }
++
++            TextField {
++                id: _userNameField
++                width: parent.width
++                enterKeyAction: EnterKeyAction.Next
++                onAccepted: _userLoginField.focus = true
++                Component.onCompleted: forceActiveFocus()
++                enabled: config.isEditable("fullName")
++                placeholderText: qsTr("Your Full Name")
++                text: config.fullName
++                onTextChanged: config.setFullName(text)
++
++                palette.base: _userNameField.text.length
++                    ? positiveFieldColor : unfilledFieldColor
++                palette.highlight : _userNameField.text.length
++                    ? positiveFieldOutlineColor : unfilledFieldOutlineColor
++            }
++        }
++
++        Column {
++            Layout.fillWidth: true
++            spacing: Kirigami.Units.smallSpacing
++
++            Label {
++                width: parent.width
++                text: qsTr("What name do you want to use to log in?")
++            }
++
++            TextField {
++                id: _userLoginField
++                enterKeyAction: EnterKeyAction.Next
++                onAccepted: _hostName.focus = true
++                width: parent.width
++                enabled: config.isEditable("loginName")
++                placeholderText: qsTr("Login Name")
++                text: config.loginName
++                inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhPreferLowercase
++                validator: RegularExpressionValidator { regularExpression: /[a-z_][a-z0-9_-]*[$]?$/ }
++
++                //onTextChanged: config.setLoginName(text)
++                onTextChanged: acceptableInput
++                    ? ( _userLoginField.text === "root"
++                    ? forbiddenMessage.visible=true
++                    : ( config.setLoginName(text),
++                    userMessage.visible = false,forbiddenMessage.visible=false ) )
++                    : ( userMessage.visible = true,console.log("Invalid") )
++
++                palette.base: _userLoginField.text.length
++                    ? ( acceptableInput
++                    ? ( _userLoginField.text === "root"
++                    ? negativeFieldColor
++                    : positiveFieldColor )
++                    : negativeFieldColor )
++                    : unfilledFieldColor
++                palette.highlight : _userLoginField.text.length
++                    ? ( acceptableInput
++                    ? ( _userLoginField.text === "root"
++                    ? negativeFieldOutlineColor
++                    : positiveFieldOutlineColor )
++                    : negativeFieldOutlineColor )
++                    : unfilledFieldOutlineColor
++            }
++
++            Label {
++                width: parent.width
++                text: qsTr("If more than one person will use this computer, you can create multiple accounts after installation.")
++                font.weight: Font.Thin
++                font.pointSize: 8
++                color: commentsColor
++            }
++        }
++
++        Kirigami.InlineMessage {
++            id: userMessage
++            Layout.fillWidth: true
++            showCloseButton: true
++            visible: false
++            type: Kirigami.MessageType.Error
++            text: qsTr("Only lowercase letters, numbers, underscore and hyphen are allowed.")
++        }
++
++        Kirigami.InlineMessage {
++            id: forbiddenMessage
++            Layout.fillWidth: true
++            showCloseButton: true
++            visible: false
++            type: Kirigami.MessageType.Error
++            text: qsTr("root is not allowed as username.")
++        }
++
++        Column {
++            Layout.fillWidth: true
++            spacing: Kirigami.Units.smallSpacing
++
++            Label {
++                width: parent.width
++                text: qsTr("What is the name of this computer?")
++            }
++
++            TextField {
++                id: _hostName
++                enterKeyAction: EnterKeyAction.Next
++                onAccepted: _passwordField.focus = true
++                width: parent.width
++                placeholderText: qsTr("Computer Name")
++                text: config.hostname
++                validator: RegularExpressionValidator { regularExpression: /[a-zA-Z0-9][-a-zA-Z0-9_]+/ }
++
++                onTextChanged: acceptableInput
++                    ? ( _hostName.text === "localhost"
++                    ? forbiddenHost.visible=true
++                    : ( config.setHostName(text),
++                    hostMessage.visible = false,forbiddenHost.visible = false ) )
++                    : hostMessage.visible = true
++
++                palette.base: _hostName.text.length
++                    ? ( acceptableInput
++                    ? ( _hostName.text === "localhost"
++                    ? negativeFieldColor : positiveFieldColor )
++                    : negativeFieldColor)
++                    : unfilledFieldColor
++                palette.highlight : _hostName.text.length
++                    ? ( acceptableInput
++                    ? ( _hostName.text === "localhost"
++                    ? negativeFieldOutlineColor : positiveFieldOutlineColor )
++                    : negativeFieldOutlineColor)
++                    : unfilledFieldOutlineColor
++            }
++
++            Label {
++                width: parent.width
++                text: qsTr("This name will be used if you make the computer visible to others on a network.")
++                font.weight: Font.Thin
++                font.pointSize: 8
++                color: commentsColor
++            }
++        }
++
++        Kirigami.InlineMessage {
++            id: hostMessage
++            Layout.fillWidth: true
++            showCloseButton: true
++            visible: false
++            type: Kirigami.MessageType.Error
++            text: qsTr("Only letters, numbers, underscore and hyphen are allowed, minimal of two characters.")
++        }
++
++        Kirigami.InlineMessage {
++            id: forbiddenHost
++            Layout.fillWidth: true
++            showCloseButton: true
++            visible: false
++            type: Kirigami.MessageType.Error
++            text: qsTr("localhost is not allowed as hostname.")
++        }
++
++        Column {
++            Layout.fillWidth: true
++            spacing: Kirigami.Units.smallSpacing
++
++            Label {
++                width: parent.width
++                text: qsTr("Choose a password to keep your account safe.")
++            }
++
++            Row {
++                width: parent.width
++                spacing: 20
++
++                TextField {
++                    id: _passwordField
++                    enterKeyAction: EnterKeyAction.Next
++                    onAccepted: _verificationPasswordField.focus = true
++                    width: parent.width / 2 - 10
++                    placeholderText: qsTr("Password")
++                    text: config.userPassword
++                    onTextChanged: config.setUserPassword(text)
++
++                    palette.base: _passwordField.text.length
++                        ? positiveFieldColor : unfilledFieldColor
++                    palette.highlight : _passwordField.text.length
++                        ? positiveFieldOutlineColor : unfilledFieldOutlineColor
++
++                    echoMode: TextInput.Password
++                    passwordMaskDelay: 300
++                    inputMethodHints: Qt.ImhNoAutoUppercase
++                }
++
++                TextField {
++                    id: _verificationPasswordField
++                    enterKeyAction: EnterKeyAction.Next
++                    onAccepted: _rootPasswordField.focus = true
++                    width: parent.width / 2 - 10
++                    placeholderText: qsTr("Repeat Password")
++                    text: config.userPasswordSecondary
++
++                    onTextChanged: _passwordField.text === _verificationPasswordField.text
++                        ? ( config.setUserPasswordSecondary(text),
++                        passMessage.visible = false,
++                        validityMessage.visible = true )
++                        : ( passMessage.visible = true,
++                        validityMessage.visible = false )
++
++                    palette.base: _verificationPasswordField.text.length
++                        ? ( _passwordField.text === _verificationPasswordField.text
++                        ? positiveFieldColor : negativeFieldColor )
++                        : unfilledFieldColor
++                    palette.highlight : _verificationPasswordField.text.length
++                        ? ( _passwordField.text === _verificationPasswordField.text
++                        ? positiveFieldOutlineColor : negativeFieldOutlineColor )
++                        : unfilledFieldOutlineColor
++
++                    echoMode: TextInput.Password
++                    passwordMaskDelay: 300
++                    inputMethodHints: Qt.ImhNoAutoUppercase
++                }
++            }
++
++            Label {
++                width: parent.width
++                text: qsTr("Enter the same password twice, so that it can be checked for typing errors. A good password will contain a mixture of letters, numbers and punctuation, should be at least eight characters long, and should be changed at regular intervals.")
++                font.weight: Font.Thin
++                font.pointSize: 8
++                wrapMode: Text.WordWrap
++                color: commentsColor
++            }
++        }
++
++        Kirigami.InlineMessage {
++            id: passMessage
++            Layout.fillWidth: true
++            showCloseButton: true
++            visible: false
++            type: Kirigami.MessageType.Error
++            text: config.userPasswordMessage
++        }
++
++        Kirigami.InlineMessage {
++            id: validityMessage
++            Layout.fillWidth: true
++            showCloseButton: true
++            visible: false
++            type:  config.userPasswordValidity
++                ? ( config.requireStrongPasswords
++                ? Kirigami.MessageType.Error : Kirigami.MessageType.Warning )
++                : Kirigami.MessageType.Positive
++            text: config.userPasswordMessage
++        }
++
++        CheckBox {
++            id: root
++            visible: config.writeRootPassword
++            text: qsTr("Reuse user password as root password")
++            checked: config.reuseUserPasswordForRoot
++            onCheckedChanged: config.setReuseUserPasswordForRoot(checked)
++        }
++
++        Label {
++            visible: root.checked
++            width: parent.width
++            text: qsTr("Use the same password for the administrator account.")
++            font.weight: Font.Thin
++            font.pointSize: 8
++            color: commentsColor
++        }
++
++        Column {
++            visible: ! root.checked
++            Layout.fillWidth: true
++            spacing: Kirigami.Units.smallSpacing
++
++            Label {
++                width: parent.width
++                text: qsTr("Choose a root password to keep your account safe.")
++            }
++
++            Row {
++                width: parent.width
++                spacing: 20
++
++                TextField {
++                    id: _rootPasswordField
++                    enterKeyAction: EnterKeyAction.Next
++                    onAccepted: _verificationRootPasswordField.focus = true
++                    width: parent.width / 2 -10
++                    placeholderText: qsTr("Root Password")
++                    text: config.rootPassword
++
++                    onTextChanged: config.setRootPassword(text)
++
++                    palette.base: _rootPasswordField.text.length
++                        ? positiveFieldColor : unfilledFieldColor
++                    palette.highlight : _rootPasswordField.text.length
++                        ? positiveFieldOutlineColor : unfilledFieldOutlineColor
++
++                    echoMode: TextInput.Password
++                    passwordMaskDelay: 300
++                    inputMethodHints: Qt.ImhNoAutoUppercase
++                }
++
++                TextField {
++                    id: _verificationRootPasswordField
++                    width: parent.width / 2 -10
++                    placeholderText: qsTr("Repeat Root Password")
++                    text: config.rootPasswordSecondary
++
++                    //onTextChanged: config.setRootPasswordSecondary(text)
++                    onTextChanged: _rootPasswordField.text === _verificationRootPasswordField.text
++                        ? ( config.setRootPasswordSecondary(text),
++                        rootPassMessage.visible = false,rootValidityMessage.visible = true )
++                        : ( rootPassMessage.visible = true,rootValidityMessage.visible = false )
++
++                    palette.base: _verificationRootPasswordField.text.length
++                        ? ( _rootPasswordField.text === _verificationRootPasswordField.text
++                        ? positiveFieldColor : negativeFieldColor)
++                        : unfilledFieldColor
++                    palette.highlight : _verificationRootPasswordField.text.length
++                        ? ( _rootPasswordField.text === _verificationRootPasswordField.text
++                        ? positiveFieldOutlineColor : negativeFieldOutlineColor)
++                        : unfilledFieldOutlineColor
++
++                    echoMode: TextInput.Password
++                    passwordMaskDelay: 300
++                    inputMethodHints: Qt.ImhNoAutoUppercase
++                }
++            }
++
++            Label {
++                visible: ! root.checked
++                width: parent.width
++                text: qsTr("Enter the same password twice, so that it can be checked for typing errors.")
++                font.weight: Font.Thin
++                font.pointSize: 8
++                color: commentsColor
++            }
++        }
++
++        Kirigami.InlineMessage {
++            id: rootPassMessage
++            Layout.fillWidth: true
++            showCloseButton: true
++            visible: false
++            type: Kirigami.MessageType.Error
++            text: config.rootPasswordMessage
++        }
++
++        Kirigami.InlineMessage {
++            id: rootValidityMessage
++            Layout.fillWidth: true
++            showCloseButton: true
++            visible: false
++            type:  config.rootPasswordValidity
++                ? ( config.requireStrongPasswords
++                ? Kirigami.MessageType.Error : Kirigami.MessageType.Warning )
++                : Kirigami.MessageType.Positive
++            text: config.rootPasswordMessage
++        }
++
++        CheckBox {
++            Layout.alignment: Qt.AlignCenter
++            text: qsTr("Log in automatically without asking for the password")
++            checked: config.doAutoLogin
++            onCheckedChanged: config.setAutoLogin(checked)
++        }
++
++        CheckBox {
++            visible: config.permitWeakPasswords
++            Layout.alignment: Qt.AlignCenter
++            text: qsTr("Validate passwords quality")
++            checked: config.requireStrongPasswords
++            onCheckedChanged: config.setRequireStrongPasswords(checked),
++                rootPassMessage.visible = false
++        }
++
++        Label {
++            visible: config.permitWeakPasswords
++            width: parent.width
++            Layout.alignment: Qt.AlignCenter
++            text: qsTr("When this box is checked, password-strength checking is done and you will not be able to use a weak password.")
++            font.weight: Font.Thin
++            font.pointSize: 8
++            color: commentsColor
++        }
++
++        /* Add a rectangle to make content scrollable with VirtualKeyboard */
++        Rectangle {
++            width: parent.width
++            height: 400
++        }
++    }
++}
+diff --git a/src/modules/usersq/content/TextArea.qml b/src/modules/usersq/content/TextArea.qml
+new file mode 100644
+index 0000000..1fdcb90
+--- /dev/null
++++ b/src/modules/usersq/content/TextArea.qml
+@@ -0,0 +1,16 @@
++// Copyright (C) 2018 The Qt Company Ltd.
++// SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
++
++import QtQuick 2.10
++import QtQuick.Controls 2.3 as Controls
++import QtQuick.VirtualKeyboard 2.3
++
++Controls.TextArea {
++    id: control
++
++    property int enterKeyAction: EnterKeyAction.None
++    readonly property bool enterKeyEnabled: enterKeyAction === EnterKeyAction.None || text.length > 0 || inputMethodComposing
++
++    EnterKeyAction.actionId: control.enterKeyAction
++    EnterKeyAction.enabled: control.enterKeyEnabled
++}
+diff --git a/src/modules/usersq/content/TextField.qml b/src/modules/usersq/content/TextField.qml
+new file mode 100644
+index 0000000..34c5ed3
+--- /dev/null
++++ b/src/modules/usersq/content/TextField.qml
+@@ -0,0 +1,16 @@
++// Copyright (C) 2018 The Qt Company Ltd.
++// SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
++
++import QtQuick 2.10
++import QtQuick.Controls 2.3 as Controls
++import QtQuick.VirtualKeyboard 2.3
++
++Controls.TextField {
++    id: control
++
++    property int enterKeyAction: EnterKeyAction.None
++    readonly property bool enterKeyEnabled: enterKeyAction === EnterKeyAction.None || acceptableInput || inputMethodComposing
++
++    EnterKeyAction.actionId: control.enterKeyAction
++    EnterKeyAction.enabled: control.enterKeyEnabled
++}
+diff --git a/src/modules/usersq/usersq.qml b/src/modules/usersq/usersq.qml
+index d057f64..a8b1e50 100644
+--- a/src/modules/usersq/usersq.qml
++++ b/src/modules/usersq/usersq.qml
+@@ -10,417 +10,96 @@
+ 
+ import io.calamares.core 1.0
+ import io.calamares.ui 1.0
+-
+-import QtQuick 2.15
+-import QtQuick.Controls 2.10
+-import QtQuick.Layouts 1.3
+-import org.kde.kirigami 2.7 as Kirigami
+-import QtGraphicalEffects 1.0
+-import QtQuick.Window 2.3
+-
+-Kirigami.ScrollablePage {
+-    // You can hard-code a color here, or bind to a Kirigami theme color,
+-    // or use a color from Calamares branding, or ..
+-    readonly property color unfilledFieldColor: "#FBFBFB" //Kirigami.Theme.backgroundColor
+-    readonly property color positiveFieldColor: "#F0FFF0" //Kirigami.Theme.positiveBackgroundColor
+-    readonly property color negativeFieldColor: "#EBCED1" //Kirigami.Theme.negativeBackgroundColor
+-    readonly property color unfilledFieldOutlineColor: "#F1F1F1"
+-    readonly property color positiveFieldOutlineColor: "#DCFFDC"
+-    readonly property color negativeFieldOutlineColor: "#BE5F68"
+-    readonly property color headerTextColor: "#1F1F1F"
+-    readonly property color commentsColor: "#6D6D6D"
+-
++import QtQuick 2.5
++import QtQuick.Controls 2.15
++import QtQml 2.14
++import QtQuick.Window 2.2
++import QtQuick.VirtualKeyboard 2.2
++import QtQuick.VirtualKeyboard.Settings 2.2
++import "content"
++
++Item {
++    //width: 800
++    //height: 600
+     width: parent.width
+     height: parent.height
+ 
+-    header: Kirigami.Heading {
+-        Layout.fillWidth: true
+-        height: 50
+-        horizontalAlignment: Qt.AlignHCenter
+-        color: headerTextColor
+-        font.weight: Font.Medium
+-        font.pointSize: 12
+-        text: qsTr("Pick your user name and credentials to login and perform admin tasks")
+-    }
+-
+-    ColumnLayout {
+-        id: _formLayout
+-        spacing: Kirigami.Units.smallSpacing
+-
+-        Column {
+-            Layout.fillWidth: true
+-            spacing: Kirigami.Units.smallSpacing
+-
+-            Label {
+-                width: parent.width
+-                text: qsTr("What is your name?")
+-            }
+-
+-            TextField {
+-                id: _userNameField
+-                width: parent.width
+-                enabled: config.isEditable("fullName")
+-                placeholderText: qsTr("Your full name")
+-                text: config.fullName
+-                onTextChanged: config.setFullName(text)
+-
+-                palette.base: _userNameField.text.length
+-                    ? positiveFieldColor : unfilledFieldColor
+-                palette.highlight : _userNameField.text.length
+-                    ? positiveFieldOutlineColor : unfilledFieldOutlineColor
+-            }
+-        }
+-
+-        Column {
+-            Layout.fillWidth: true
+-            spacing: Kirigami.Units.smallSpacing
+-
+-            Label {
+-                width: parent.width
+-                text: qsTr("What name do you want to use to log in?")
+-            }
+-
+-            TextField {
+-                id: _userLoginField
+-                width: parent.width
+-                enabled: config.isEditable("loginName")
+-                placeholderText: qsTr("Login name")
+-                text: config.loginName
+-                validator: RegularExpressionValidator { regularExpression: /[a-z_][a-z0-9_-]*[$]?$/ }
+-
+-                onTextChanged: acceptableInput
+-                    ? ( _userLoginField.text === "root"
+-                    ? forbiddenMessage.visible=true
+-                    : ( config.setLoginName(text),
+-                    userMessage.visible = false,forbiddenMessage.visible=false ) )
+-                    : ( userMessage.visible = true,console.log("Invalid") )
+-
+-                palette.base: _userLoginField.text.length
+-                    ? ( acceptableInput
+-                    ? ( _userLoginField.text === "root"
+-                    ? negativeFieldColor
+-                    : positiveFieldColor )
+-                    : negativeFieldColor )
+-                    : unfilledFieldColor
+-                palette.highlight : _userLoginField.text.length
+-                    ? ( acceptableInput
+-                    ? ( _userLoginField.text === "root"
+-                    ? negativeFieldOutlineColor
+-                    : positiveFieldOutlineColor )
+-                    : negativeFieldOutlineColor )
+-                    : unfilledFieldOutlineColor
+-            }
+-
+-            Label {
+-                width: parent.width
+-                text: qsTr("If more than one person will use this computer, you can create multiple accounts after installation.")
+-                font.weight: Font.Thin
+-                font.pointSize: 8
+-                color: commentsColor
+-            }
+-        }
+-
+-        Kirigami.InlineMessage {
+-            id: userMessage
+-            Layout.fillWidth: true
+-            showCloseButton: true
+-            visible: false
+-            type: Kirigami.MessageType.Error
+-            text: qsTr("Only lowercase letters, numbers, underscore and hyphen are allowed.")
+-        }
+-
+-        Kirigami.InlineMessage {
+-            id: forbiddenMessage
+-            Layout.fillWidth: true
+-            showCloseButton: true
+-            visible: false
+-            type: Kirigami.MessageType.Error
+-            text: qsTr("root is not allowed as username.")
+-        }
+-
+-        Column {
+-            Layout.fillWidth: true
+-            spacing: Kirigami.Units.smallSpacing
+-
+-            Label {
+-                width: parent.width
+-                text: qsTr("What is the name of this computer?")
+-            }
+-
+-            TextField {
+-                id: _hostName
+-                width: parent.width
+-                placeholderText: qsTr("Computer name")
+-                text: config.hostname
+-                validator: RegularExpressionValidator { regularExpression: /[a-zA-Z0-9][-a-zA-Z0-9_]+/ }
+-
+-                onTextChanged: acceptableInput
+-                    ? ( _hostName.text === "localhost"
+-                    ? forbiddenHost.visible=true
+-                    : ( config.setHostName(text),
+-                    hostMessage.visible = false,forbiddenHost.visible = false ) )
+-                    : hostMessage.visible = true
+-
+-                palette.base: _hostName.text.length
+-                    ? ( acceptableInput
+-                    ? ( _hostName.text === "localhost"
+-                    ? negativeFieldColor : positiveFieldColor )
+-                    : negativeFieldColor)
+-                    : unfilledFieldColor
+-                palette.highlight : _hostName.text.length
+-                    ? ( acceptableInput
+-                    ? ( _hostName.text === "localhost"
+-                    ? negativeFieldOutlineColor : positiveFieldOutlineColor )
+-                    : negativeFieldOutlineColor)
+-                    : unfilledFieldOutlineColor
+-            }
+-
+-            Label {
+-                width: parent.width
+-                text: qsTr("This name will be used if you make the computer visible to others on a network.")
+-                font.weight: Font.Thin
+-                font.pointSize: 8
+-                color: commentsColor
+-            }
+-        }
+-
+-        Kirigami.InlineMessage {
+-            id: hostMessage
+-            Layout.fillWidth: true
+-            showCloseButton: true
+-            visible: false
+-            type: Kirigami.MessageType.Error
+-            text: qsTr("Only letters, numbers, underscore and hyphen are allowed, minimal of two characters.")
+-        }
+-
+-        Kirigami.InlineMessage {
+-            id: forbiddenHost
+-            Layout.fillWidth: true
+-            showCloseButton: true
+-            visible: false
+-            type: Kirigami.MessageType.Error
+-            text: qsTr("localhost is not allowed as hostname.")
+-        }
+-
+-        Column {
+-            Layout.fillWidth: true
+-            spacing: Kirigami.Units.smallSpacing
+-
+-            Label {
+-                width: parent.width
+-                text: qsTr("Choose a password to keep your account safe.")
+-            }
+-
+-            Row {
+-                width: parent.width
+-                spacing: 20
+-
+-                TextField {
+-                    id: _passwordField
+-                    width: parent.width / 2 - 10
+-                    placeholderText: qsTr("Password")
+-                    text: config.userPassword
+-                    onTextChanged: config.setUserPassword(text)
+-
+-                    palette.base: _passwordField.text.length
+-                        ? positiveFieldColor : unfilledFieldColor
+-                    palette.highlight : _passwordField.text.length
+-                        ? positiveFieldOutlineColor : unfilledFieldOutlineColor
+-
+-                    echoMode: TextInput.Password
+-                    passwordMaskDelay: 300
+-                    inputMethodHints: Qt.ImhNoAutoUppercase
+-                }
+-
+-                TextField {
+-                    id: _verificationPasswordField
+-                    width: parent.width / 2 - 10
+-                    placeholderText: qsTr("Repeat password")
+-                    text: config.userPasswordSecondary
+-
+-                    onTextChanged: _passwordField.text === _verificationPasswordField.text
+-                        ? ( config.setUserPasswordSecondary(text),
+-                        passMessage.visible = false,
+-                        validityMessage.visible = true )
+-                        : ( passMessage.visible = true,
+-                        validityMessage.visible = false )
+-
+-                    palette.base: _verificationPasswordField.text.length
+-                        ? ( _passwordField.text === _verificationPasswordField.text
+-                        ? positiveFieldColor : negativeFieldColor )
+-                        : unfilledFieldColor
+-                    palette.highlight : _verificationPasswordField.text.length
+-                        ? ( _passwordField.text === _verificationPasswordField.text
+-                        ? positiveFieldOutlineColor : negativeFieldOutlineColor )
+-                        : unfilledFieldOutlineColor
+-
+-                    echoMode: TextInput.Password
+-                    passwordMaskDelay: 300
+-                    inputMethodHints: Qt.ImhNoAutoUppercase
+-                }
+-            }
+-
+-            Label {
+-                width: parent.width
+-                text: qsTr("Enter the same password twice, so that it can be checked for typing errors. A good password will contain a mixture of letters, numbers and punctuation, should be at least eight characters long, and should be changed at regular intervals.")
+-                font.weight: Font.Thin
+-                font.pointSize: 8
+-                wrapMode: Text.WordWrap
+-                color: commentsColor
++    Item {
++        id: appContainer
++        width: parent.width
++        height: parent.height
++        anchors.centerIn: parent
++        UserInput {
++            id: virtualKeyboard
++            anchors.left: parent.left
++            anchors.top: parent.top
++            anchors.right: parent.right
++            anchors.bottom: parent.bottom
++        }
++
++        /*  Container area for the virtualKeyboard button.  */
++        Item {
++            z: 99
++            anchors { left: parent.left; top: parent.top; right: parent.right; bottom: inputPanel.top; }
++            Button {
++                id: virtualKeyboardButton
++                anchors.top: parent.top
++                anchors.right: parent.right
++                anchors.margins: 10
++                icon.width: 32
++                icon.height: 32
++                ToolTip.delay: 500
++                ToolTip.timeout: 5000
++                ToolTip.visible: hovered
++                ToolTip.text: qsTr("Virtual keyboard")
++                icon.name: inputPanel.active ? "input-keyboard-virtual-on" : "input-keyboard-virtual-off"
++                onClicked: inputPanel.active = !inputPanel.active
+             }
+         }
+ 
+-        Kirigami.InlineMessage {
+-            id: passMessage
+-            Layout.fillWidth: true
+-            showCloseButton: true
+-            visible: false
+-            type: Kirigami.MessageType.Error
+-            text: config.userPasswordMessage
+-        }
+-
+-        Kirigami.InlineMessage {
+-            id: validityMessage
+-            Layout.fillWidth: true
+-            showCloseButton: true
+-            visible: false
+-            type:  config.userPasswordValidity
+-                ? ( config.requireStrongPasswords
+-                ? Kirigami.MessageType.Error : Kirigami.MessageType.Warning )
+-                : Kirigami.MessageType.Positive
+-            text: config.userPasswordMessage
+-        }
+-
+-        CheckBox {
+-            id: root
+-            visible: config.writeRootPassword
+-            text: qsTr("Reuse user password as root password")
+-            checked: config.reuseUserPasswordForRoot
+-            onCheckedChanged: config.setReuseUserPasswordForRoot(checked)
+-        }
+-
+-        Label {
+-            visible: root.checked
++        /*  Keyboard input panel.
++         *
++         *            The keyboard is anchored to the bottom of the application.
++         */
++        InputPanel {
++            id: inputPanel
++            z: 89
++            y: yPositionWhenHidden
++            x: 0 //(parent.width-parent.height) / 15
+             width: parent.width
+-            text: qsTr("Use the same password for the administrator account.")
+-            font.weight: Font.Thin
+-            font.pointSize: 8
+-            color: commentsColor
+-        }
+-
+-        Column {
+-            visible: ! root.checked
+-            Layout.fillWidth: true
+-            spacing: Kirigami.Units.smallSpacing
+-
+-            Label {
+-                width: parent.width
+-                text: qsTr("Choose a root password to keep your account safe.")
+-            }
+-
+-            Row {
+-                width: parent.width
+-                spacing: 20
+-
+-                TextField {
+-                    id: _rootPasswordField
+-                    width: parent.width / 2 -10
+-                    placeholderText: qsTr("Root password")
+-                    text: config.rootPassword
+-
+-                    onTextChanged: config.setRootPassword(text)
+-
+-                    palette.base: _rootPasswordField.text.length
+-                        ? positiveFieldColor : unfilledFieldColor
+-                    palette.highlight : _rootPasswordField.text.length
+-                        ? positiveFieldOutlineColor : unfilledFieldOutlineColor
+-
+-                    echoMode: TextInput.Password
+-                    passwordMaskDelay: 300
+-                    inputMethodHints: Qt.ImhNoAutoUppercase
++            property real yPositionWhenHidden: parent.height
++            property bool activated: false
++            active: activated && Qt.inputMethod.visible
++
++            states: State {
++                name: "visible"
++                when: inputPanel.active
++                PropertyChanges {
++                    target: inputPanel
++                    y: inputPanel.yPositionWhenHidden - inputPanel.height
+                 }
+-
+-                TextField {
+-                    id: _verificationRootPasswordField
+-                    width: parent.width / 2 -10
+-                    placeholderText: qsTr("Repeat root password")
+-                    text: config.rootPasswordSecondary
+-
+-                    onTextChanged: _rootPasswordField.text === _verificationRootPasswordField.text
+-                        ? ( config.setRootPasswordSecondary(text),
+-                        rootPassMessage.visible = false,rootValidityMessage.visible = true )
+-                        : ( rootPassMessage.visible = true,rootValidityMessage.visible = false )
+-
+-                    palette.base: _verificationRootPasswordField.text.length
+-                        ? ( _rootPasswordField.text === _verificationRootPasswordField.text
+-                        ? positiveFieldColor : negativeFieldColor)
+-                        : unfilledFieldColor
+-                    palette.highlight : _verificationRootPasswordField.text.length
+-                        ? ( _rootPasswordField.text === _verificationRootPasswordField.text
+-                        ? positiveFieldOutlineColor : negativeFieldOutlineColor)
+-                        : unfilledFieldOutlineColor
+-
+-                    echoMode: TextInput.Password
+-                    passwordMaskDelay: 300
+-                    inputMethodHints: Qt.ImhNoAutoUppercase
++            }
++            transitions: Transition {
++                id: inputPanelTransition
++                from: ""
++                to: "visible"
++                reversible: true
++                enabled: !VirtualKeyboardSettings.fullScreenMode
++                ParallelAnimation {
++                    NumberAnimation {
++                        properties: "y"
++                        duration: 250
++                        easing.type: Easing.InOutQuad
++                    }
+                 }
+             }
+-
+-            Label {
+-                visible: ! root.checked
+-                width: parent.width
+-                text: qsTr("Enter the same password twice, so that it can be checked for typing errors.")
+-                font.weight: Font.Thin
+-                font.pointSize: 8
+-                color: commentsColor
++            Binding {
++                target: InputContext
++                property: "animating"
++                value: inputPanelTransition.running
++                restoreMode: Binding.RestoreBinding
+             }
+         }
+ 
+-        Kirigami.InlineMessage {
+-            id: rootPassMessage
+-            Layout.fillWidth: true
+-            showCloseButton: true
+-            visible: false
+-            type: Kirigami.MessageType.Error
+-            text: config.rootPasswordMessage
+-        }
+-
+-        Kirigami.InlineMessage {
+-            id: rootValidityMessage
+-            Layout.fillWidth: true
+-            showCloseButton: true
+-            visible: false
+-            type:  config.rootPasswordValidity
+-                ? ( config.requireStrongPasswords
+-                ? Kirigami.MessageType.Error : Kirigami.MessageType.Warning )
+-                : Kirigami.MessageType.Positive
+-            text: config.rootPasswordMessage
+-        }
+-
+-        CheckBox {
+-            Layout.alignment: Qt.AlignCenter
+-            text: qsTr("Log in automatically without asking for the password")
+-            checked: config.doAutoLogin
+-            onCheckedChanged: config.setAutoLogin(checked)
+-        }
+-
+-        CheckBox {
+-            visible: config.permitWeakPasswords
+-            Layout.alignment: Qt.AlignCenter
+-            text: qsTr("Validate passwords quality")
+-            checked: config.requireStrongPasswords
+-            onCheckedChanged: config.setRequireStrongPasswords(checked),
+-                rootPassMessage.visible = false
+-        }
+-
+-        Label {
+-            visible: config.permitWeakPasswords
+-            width: parent.width
+-            Layout.alignment: Qt.AlignCenter
+-            text: qsTr("When this box is checked, password-strength checking is done and you will not be able to use a weak password.")
+-            font.weight: Font.Thin
+-            font.pointSize: 8
+-            color: commentsColor
+-        }
+     }
+ }
+diff --git a/src/modules/usersq/usersq.qrc b/src/modules/usersq/usersq.qrc
+index 8c1c4f9..e3a98a7 100644
+--- a/src/modules/usersq/usersq.qrc
++++ b/src/modules/usersq/usersq.qrc
+@@ -1,5 +1,8 @@
+ <RCC>
+     <qresource>
++        <file>content/TextArea.qml</file>
++        <file>content/TextField.qml</file>
++        <file>UserInput.qml</file>
+         <file>usersq.qml</file>
+     </qresource>
+ </RCC>
+-- 
+2.46.2
+
