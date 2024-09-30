@@ -20,50 +20,50 @@ index ae25755e..58eb077c 100644
  [Service]
  ExecStart=/usr/bin/inputplumber
 
-From 93d5f8d3c7f2d25a20307317565bd5d6ac3e75cc Mon Sep 17 00:00:00 2001
+From b1936b922893a9b86f7abd67708aad370fcab620 Mon Sep 17 00:00:00 2001
 From: William Edwards <shadowapex@gmail.com>
 Date: Sat, 21 Sep 2024 22:17:07 -0700
 Subject: [PATCH 2/2] feat(Manager): add configuration option to auto-manage
  devices and DBus property to toggle all device management
 
 ---
- .../devices/50-anbernic_win600.yaml           |  7 ++
- .../inputplumber/devices/50-aokzoe_a1.yaml    |  7 ++
- .../inputplumber/devices/50-ayaneo_2.yaml     |  7 ++
- .../inputplumber/devices/50-ayaneo_2021.yaml  |  7 ++
- .../inputplumber/devices/50-ayaneo_2s.yaml    |  7 ++
- .../inputplumber/devices/50-ayaneo_air.yaml   |  7 ++
- .../devices/50-ayaneo_air_1s.yaml             |  7 ++
- .../devices/50-ayaneo_air_plus.yaml           |  7 ++
- .../devices/50-ayaneo_air_plus_mendo.yaml     |  7 ++
- .../inputplumber/devices/50-ayaneo_flip.yaml  |  7 ++
- .../inputplumber/devices/50-ayaneo_kun.yaml   |  7 ++
- .../inputplumber/devices/50-ayaneo_next.yaml  |  7 ++
- .../inputplumber/devices/50-ayaneo_slide.yaml |  7 ++
- .../inputplumber/devices/50-ayn_loki_max.yaml |  7 ++
- .../devices/50-ayn_loki_mini_pro.yaml         |  7 ++
- .../devices/50-ayn_loki_zero.yaml             |  7 ++
- .../inputplumber/devices/50-gpd_win3.yaml     |  7 ++
- .../inputplumber/devices/50-gpd_win4.yaml     |  7 ++
- .../inputplumber/devices/50-gpd_winmax2.yaml  |  7 ++
- .../inputplumber/devices/50-gpd_winmini.yaml  |  7 ++
- .../inputplumber/devices/50-legion_go.yaml    |  7 ++
- .../inputplumber/devices/50-msi_claw.yaml     |  7 ++
- .../inputplumber/devices/50-onexplayer_2.yaml |  7 ++
- .../devices/50-onexplayer_amd.yaml            |  7 ++
- .../devices/50-onexplayer_intel.yaml          |  7 ++
- .../devices/50-onexplayer_mini_a07.yaml       |  7 ++
- .../devices/50-onexplayer_mini_pro.yaml       |  7 ++
- .../devices/50-onexplayer_onexfly.yaml        |  7 ++
- .../inputplumber/devices/50-orangepi_neo.yaml |  7 ++
- .../inputplumber/devices/50-rog_ally.yaml     |  7 ++
- .../inputplumber/devices/50-rog_ally_x.yaml   |  7 ++
- .../inputplumber/devices/50-steam_deck.yaml   |  7 ++
- .../schema/composite_device_v1.json           | 16 ++++
- src/config/mod.rs                             | 13 ++-
- src/dbus/interface/manager.rs                 | 31 +++++++
- src/input/manager.rs                          | 93 +++++++++++++++++--
- 36 files changed, 367 insertions(+), 10 deletions(-)
+ .../devices/50-anbernic_win600.yaml           |   7 ++
+ .../inputplumber/devices/50-aokzoe_a1.yaml    |   7 ++
+ .../inputplumber/devices/50-ayaneo_2.yaml     |   7 ++
+ .../inputplumber/devices/50-ayaneo_2021.yaml  |   7 ++
+ .../inputplumber/devices/50-ayaneo_2s.yaml    |   7 ++
+ .../inputplumber/devices/50-ayaneo_air.yaml   |   7 ++
+ .../devices/50-ayaneo_air_1s.yaml             |   7 ++
+ .../devices/50-ayaneo_air_plus.yaml           |   7 ++
+ .../devices/50-ayaneo_air_plus_mendo.yaml     |   7 ++
+ .../inputplumber/devices/50-ayaneo_flip.yaml  |   7 ++
+ .../inputplumber/devices/50-ayaneo_kun.yaml   |   7 ++
+ .../inputplumber/devices/50-ayaneo_next.yaml  |   7 ++
+ .../inputplumber/devices/50-ayaneo_slide.yaml |   7 ++
+ .../inputplumber/devices/50-ayn_loki_max.yaml |   7 ++
+ .../devices/50-ayn_loki_mini_pro.yaml         |   7 ++
+ .../devices/50-ayn_loki_zero.yaml             |   7 ++
+ .../inputplumber/devices/50-gpd_win3.yaml     |   7 ++
+ .../inputplumber/devices/50-gpd_win4.yaml     |   7 ++
+ .../inputplumber/devices/50-gpd_winmax2.yaml  |   7 ++
+ .../inputplumber/devices/50-gpd_winmini.yaml  |   7 ++
+ .../inputplumber/devices/50-legion_go.yaml    |   7 ++
+ .../inputplumber/devices/50-msi_claw.yaml     |   7 ++
+ .../inputplumber/devices/50-onexplayer_2.yaml |   7 ++
+ .../devices/50-onexplayer_amd.yaml            |   7 ++
+ .../devices/50-onexplayer_intel.yaml          |   7 ++
+ .../devices/50-onexplayer_mini_a07.yaml       |   7 ++
+ .../devices/50-onexplayer_mini_pro.yaml       |   7 ++
+ .../devices/50-onexplayer_onexfly.yaml        |   7 ++
+ .../inputplumber/devices/50-orangepi_neo.yaml |   7 ++
+ .../inputplumber/devices/50-rog_ally.yaml     |   7 ++
+ .../inputplumber/devices/50-rog_ally_x.yaml   |   7 ++
+ .../inputplumber/devices/50-steam_deck.yaml   |   7 ++
+ .../schema/composite_device_v1.json           |  16 +++
+ src/config/mod.rs                             |  13 ++-
+ src/dbus/interface/manager.rs                 |  31 +++++
+ src/input/manager.rs                          | 106 ++++++++++++++++--
+ 36 files changed, 379 insertions(+), 11 deletions(-)
 
 diff --git a/rootfs/usr/share/inputplumber/devices/50-anbernic_win600.yaml b/rootfs/usr/share/inputplumber/devices/50-anbernic_win600.yaml
 index ef5ecaa5..21474110 100644
@@ -749,7 +749,7 @@ index ee634341..030c7180 100644
      /// XBox 360 Gamepad"]
      #[zbus(property)]
 diff --git a/src/input/manager.rs b/src/input/manager.rs
-index d094ca49..71abb4d1 100644
+index d094ca49..6c9b3a6f 100644
 --- a/src/input/manager.rs
 +++ b/src/input/manager.rs
 @@ -89,6 +89,10 @@ pub enum ManagerCommand {
@@ -853,7 +853,7 @@ index d094ca49..71abb4d1 100644
              // Check to see if this configuration matches the system
              if !config.has_valid_matches(&self.dmi_data, &self.cpu_info) {
                  log::trace!("Configuration does not match system");
-@@ -1327,15 +1393,7 @@ impl Manager {
+@@ -1327,17 +1393,14 @@ impl Manager {
      async fn watch_input_devices(&self) -> Result<(), Box<dyn Error>> {
          log::debug!("Performing initial input device discovery");
          let cmd_tx = self.tx.clone();
@@ -866,11 +866,18 @@ index d094ca49..71abb4d1 100644
 -        let iio_devices = udev::discover_devices("iio")?;
 -        let iio_devices = iio_devices.into_iter().map(|dev| dev.into()).collect();
 -        Manager::discover_devices(&cmd_tx, iio_devices).await?;
-+        Manager::discover_all_devices(&cmd_tx).await?;
++        task::spawn(async move {
++            if let Err(e) = Manager::discover_all_devices(&cmd_tx).await {
++                log::error!("Failed to perform initial device discovery: {e:?}");
++            }
++        });
  
          // Watch for IIO device events.
++        let cmd_tx = self.tx.clone();
          task::spawn_blocking(move || {
-@@ -1489,6 +1547,23 @@ impl Manager {
+             let mut monitor = MonitorBuilder::new()?.match_subsystem("iio")?.listen()?;
+ 
+@@ -1489,6 +1552,23 @@ impl Manager {
          Ok(())
      }
  
@@ -894,3 +901,18 @@ index d094ca49..71abb4d1 100644
      async fn discover_devices(
          manager_tx: &mpsc::Sender<ManagerCommand>,
          devices: Vec<UdevDevice>,
+@@ -1607,7 +1687,13 @@ impl Manager {
+     async fn listen_on_dbus(&self) -> Result<(), Box<dyn Error>> {
+         let iface = ManagerInterface::new(self.tx.clone());
+         let manager_path = format!("{}/Manager", BUS_PREFIX);
+-        self.dbus.object_server().at(manager_path, iface).await?;
++        let dbus = self.dbus.clone();
++        task::spawn(async move {
++            if let Err(e) = dbus.object_server().at(manager_path, iface).await {
++                log::error!("Failed create manager dbus interface: {e:?}");
++            }
++        });
++
+         Ok(())
+     }
+ 
