@@ -1,17 +1,11 @@
-%define commit 23acd6ebe98e4dfcba4e2ceadf4cb6310a6a76f7
-%global shortcommit %(c=%{commit}; echo ${c:0:7})
-%global build_timestamp %(date +"%Y%m%d")
-%global rel_build git.%{build_timestamp}.%{shortcommit}%{?dist}
-%define _disable_source_fetch 0
-
 Name:           scx-scheds
-Version:        1.0.4
-Release:        %{rel_build}
+Version:        1.0.5
+Release:        1%{?dist}
 Summary:        Sched_ext Schedulers and Tools
 
 License:        GPL=2.0
 URL:            https://github.com/sched-ext/scx
-Source0:        %{URL}/archive/%{commit}.tar.gz
+Source0:        %{URL}/archive/refs/tags/v%{version}.tar.gz
 
 BuildRequires:  gcc
 BuildRequires:  git
@@ -36,7 +30,7 @@ Requires:  jq
 sched_ext is a Linux kernel feature which enables implementing kernel thread schedulers in BPF and dynamically loading them. This repository contains various scheduler implementations and support utilities.
 
 %prep
-%autosetup -n scx-%{commit}
+%autosetup -n scx-%{version}
 
 %build
 %meson \
@@ -45,13 +39,13 @@ sched_ext is a Linux kernel feature which enables implementing kernel thread sch
  -Dlibalpm=disabled
 %meson_build
 
-
 %install
 %meson_install
 
-
 %files
 %{_bindir}/*
+%{_prefix}/lib/systemd/system/scx_loader.service
 %{_prefix}/lib/systemd/system/scx.service
 %attr(0644,root,root) %config(noreplace) %{_sysconfdir}/default/scx
 %{_datadir}/dbus-1/system.d/org.scx.Loader.conf
+%{_datadir}/dbus-1/system-services/org.scx.Loader.service
