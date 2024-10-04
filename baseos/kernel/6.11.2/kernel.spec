@@ -1085,6 +1085,7 @@ Patch604: 0000-amd-clock-power-fixup.patch
 Patch605: 0001-drm-amdgpu-smu13-always-apply-the-powersave-optimiza.patch
 Patch606: 0002-drm-amdgpu-swsmu-Only-force-workload-setup-on-init.patch
 Patch607: 0003-drm-amdgpu-swsmu-default-to-fullscreen-3D-profile-fo.patch
+Patch608: 0004-drm-amdgpu-swsmu-add-automatic-parameter-to-set_soft_freq_range.patch
 
 
 # Nobara
@@ -2002,6 +2003,7 @@ ApplyOptionalPatch 0000-amd-clock-power-fixup.patch
 ApplyOptionalPatch 0001-drm-amdgpu-smu13-always-apply-the-powersave-optimiza.patch
 ApplyOptionalPatch 0002-drm-amdgpu-swsmu-Only-force-workload-setup-on-init.patch
 ApplyOptionalPatch 0003-drm-amdgpu-swsmu-default-to-fullscreen-3D-profile-fo.patch
+ApplyOptionalPatch 0004-drm-amdgpu-swsmu-add-automatic-parameter-to-set_soft_freq_range.patch
 
 # Nobara
 # Allow to set custom USB pollrate for specific devices like so:
