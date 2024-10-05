@@ -1,12 +1,11 @@
-From 49460b50410d69e2bb506e5b6f59d545a9bd6549 Mon Sep 17 00:00:00 2001
+From 3f5b90a80f62c208b503ba91b7bb985f6c06c994 Mon Sep 17 00:00:00 2001
 From: GloriousEggroll <gloriouseggroll@gmail.com>
-Date: Mon, 30 Sep 2024 03:33:55 -0600
-Subject: [PATCH] fedora changes
+Date: Tue, 4 Jun 2024 14:56:40 -0600
+Subject: [PATCH] nobara changes
 
 ---
- settings.conf                                 | 20 +++++-----
+ settings.conf                                 | 18 +++++----
  src/branding/default/branding.desc            | 15 ++++---
- src/calamares/CMakeLists.txt                  |  2 +-
  src/modules/bootloader/bootloader.conf        | 14 ++++---
  src/modules/bootloader/main.py                |  5 ++-
  src/modules/dracut/dracut.conf                |  1 -
@@ -21,18 +20,18 @@ Subject: [PATCH] fedora changes
  .../partition/core/PartitionLayout.cpp        | 40 ++++++++++++++-----
  src/modules/partition/partition.conf          | 19 ++++++---
  src/modules/plasmalnf/plasmalnf.conf          | 18 ++++-----
- src/modules/shellprocess/shellprocess.conf    | 29 ++++++++++----
+ src/modules/shellprocess/shellprocess.conf    | 25 +++++++++---
  src/modules/tracking/tracking.conf            |  4 +-
  src/modules/unpackfs/unpackfs.conf            | 13 ++----
  src/modules/users/users.conf                  | 15 ++++---
  src/modules/welcome/welcome.conf              | 14 +++----
- 22 files changed, 152 insertions(+), 150 deletions(-)
+ 21 files changed, 148 insertions(+), 146 deletions(-)
 
 diff --git a/settings.conf b/settings.conf
-index d0e0860..fec2ea9 100644
+index f4cbd05..7a3bfaa 100644
 --- a/settings.conf
 +++ b/settings.conf
-@@ -135,23 +135,25 @@ sequence:
+@@ -136,22 +136,24 @@ sequence:
    - locale
    - keyboard
    - localecfg
@@ -41,7 +40,6 @@ index d0e0860..fec2ea9 100644
  #  - luksopenswaphookcfg
 -#  - dracutlukscfg
 +  - dracutlukscfg
-   - fstab
  #  - plymouthcfg
  #  - zfshostid
 -  - initcpiocfg
@@ -56,11 +54,10 @@ index d0e0860..fec2ea9 100644
 -#  - dracut
 -  - initramfs
 -#  - grubcfg
--  - bootloader
 +  - dracut
 +#  - initramfs
 +  - grubcfg
-+- bootloader
+   - bootloader
 +  - packages
 +  - shellprocess
    - umount
@@ -101,19 +98,6 @@ index 729b958..4af74fc 100644
      supportUrl:          https://github.com/calamares/calamares/wiki
      knownIssuesUrl:      https://github.com/calamares/calamares/issues
      releaseNotesUrl:     https://calamares.io/news/
-diff --git a/src/calamares/CMakeLists.txt b/src/calamares/CMakeLists.txt
-index 3be6b92..965653c 100644
---- a/src/calamares/CMakeLists.txt
-+++ b/src/calamares/CMakeLists.txt
-@@ -50,7 +50,7 @@ install(TARGETS calamares_bin BUNDLE DESTINATION . RUNTIME DESTINATION ${CMAKE_I
- 
- install(
-     FILES ${CMAKE_SOURCE_DIR}/data/images/squid.svg
--    RENAME calamares.svg
-+    RENAME calamares-nobara.svg
-     DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
- )
- 
 diff --git a/src/modules/bootloader/bootloader.conf b/src/modules/bootloader/bootloader.conf
 index 9679f66..215cfad 100644
 --- a/src/modules/bootloader/bootloader.conf
@@ -352,10 +336,10 @@ index b9777f6..3637a01 100644
 +    - anaconda-install-env-deps
 +    - anaconda-live
 diff --git a/src/modules/partition/core/PartitionActions.cpp b/src/modules/partition/core/PartitionActions.cpp
-index 4ec9653..87614de 100644
+index b5fb0ca..b633e80 100644
 --- a/src/modules/partition/core/PartitionActions.cpp
 +++ b/src/modules/partition/core/PartitionActions.cpp
-@@ -175,30 +175,15 @@ doAutopartition( PartitionCoreModule* core, Device* dev, Choices::AutoPartitionO
+@@ -174,30 +174,15 @@ doAutopartition( PartitionCoreModule* core, Device* dev, Choices::AutoPartitionO
      if ( shouldCreateSwap )
      {
          Partition* swapPartition = nullptr;
@@ -447,18 +431,18 @@ index b476a31..ed1804e 100644
  
          // For zfs, we need to make the passphrase available to later modules
 diff --git a/src/modules/partition/partition.conf b/src/modules/partition/partition.conf
-index be0c74b..b343ba1 100644
+index 0975179..816017b 100644
 --- a/src/modules/partition/partition.conf
 +++ b/src/modules/partition/partition.conf
-@@ -41,7 +41,7 @@ efi:
- # efiSystemPartition:     "/boot/efi"
+@@ -33,7 +33,7 @@
+ # size. Distro's that allow more user latitude can set the minimum lower.
+ efi:
+     mountPoint:         "/boot/efi"
+-    recommendedSize:    300MiB
++    recommendedSize:    600MiB
+     minimumSize:        32MiB
+     label:              "EFI"
  
- # Deprecated alias of efi.recommendedSize
--# efiSystemPartitionSize:          300MiB
-+efiSystemPartitionSize:          600MiB
- 
- # Deprecated alias of efi.label
- # efiSystemPartitionName:     EFI
 @@ -99,7 +99,7 @@ userSwapChoices:
  #
  # The default is luks1
@@ -486,7 +470,7 @@ index be0c74b..b343ba1 100644
  
  # armInstall
  #
-@@ -207,7 +207,7 @@ initialSwapChoice: none
+@@ -205,7 +205,7 @@ initialSwapChoice: none
  # If nothing is specified, Calamares defaults to "ext4".
  #
  # Names are case-sensitive and defined by KPMCore.
@@ -495,7 +479,7 @@ index be0c74b..b343ba1 100644
  
  # Selectable filesystem type, used when "erase" is done.
  #
-@@ -326,3 +326,12 @@ defaultFileSystemType:  "ext4"
+@@ -319,3 +319,12 @@ defaultFileSystemType:  "ext4"
  #                  the welcome module, **and** configure this value in
  #                  `welcome.conf`, not here.
  # requiredStorage: 3.5
@@ -552,31 +536,27 @@ index 105f247..b9105d1 100644
  # You can pre-select one of the themes; it is not applied
  # immediately, but its radio-button is switched on to indicate
 diff --git a/src/modules/shellprocess/shellprocess.conf b/src/modules/shellprocess/shellprocess.conf
-index 709d2a8..69d9697 100644
+index 87e31c5..8ae262e 100644
 --- a/src/modules/shellprocess/shellprocess.conf
 +++ b/src/modules/shellprocess/shellprocess.conf
-@@ -125,13 +125,13 @@ verbose: false
- # - there is nothing special about the invocation of true
- # - the slowloris command has a different timeout from the other commands
- # - the echo command logs its output line-by-line
+@@ -93,11 +93,11 @@ dontChroot: false
+ # Script may be a list of items (if the touch command fails, it is
+ # ignored; the slowloris command has a different timeout from the
+ # other commands in the list):
 -script:
 -    - "-touch ${ROOT}/tmp/thingy"
 -    - "/usr/bin/true"
 -    - command: "/usr/local/bin/slowloris"
 -      timeout: 3600
--    - command: "echo -e '\e[33;2mred\e[33;0m' ; echo second line"
--      verbose: true
 +#script:
 +#    - "-touch ${ROOT}/tmp/thingy"
 +#    - "/usr/bin/true"
 +#    - command: "/usr/local/bin/slowloris"
 +#      timeout: 3600
-+#    - command: "echo -e '\e[33;2mred\e[33;0m' ; echo second line"
-+#      verbose: true
  
  # You can change the description of the job (as it is displayed in the
  # progress bar during installation) by defining an *i18n* key, which
-@@ -144,3 +144,18 @@ script:
+@@ -110,3 +110,18 @@ script:
  #     name: "Shell process"
  #     name[nl]: "Schelpenpad"
  #     name[en_GB]: "Just a moment"
@@ -737,6 +717,56 @@ index b988eb2..9055b5e 100644
  
  # User interface
  #
+-- 
+2.45.1
+diff --git a/src/calamares/CMakeLists.txt b/src/calamares/CMakeLists.txt
+index 3be6b92..965653c 100644
+--- a/src/calamares/CMakeLists.txt
++++ b/src/calamares/CMakeLists.txt
+@@ -50,7 +50,7 @@ install(TARGETS calamares_bin BUNDLE DESTINATION . RUNTIME DESTINATION ${CMAKE_I
+
+ install(
+     FILES ${CMAKE_SOURCE_DIR}/data/images/squid.svg
+-    RENAME calamares.svg
++    RENAME calamares-nobara.svg
+     DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
+ )
+
+
+From 0ce3761cccc0f76a5c7816804b5dee8163d3a951 Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Mon, 30 Sep 2024 23:12:56 -0600
+Subject: [PATCH] dont warn about no internet
+
+---
+ src/modules/welcome/welcome.conf   | 1 -
+ src/modules/welcomeq/welcomeq.conf | 1 -
+ 2 files changed, 2 deletions(-)
+
+diff --git a/src/modules/welcome/welcome.conf b/src/modules/welcome/welcome.conf
+index b988eb2..97d1166 100644
+--- a/src/modules/welcome/welcome.conf
++++ b/src/modules/welcome/welcome.conf
+@@ -83,7 +83,6 @@ requirements:
+         - storage
+         - ram
+         - power
+-        - internet
+         - root
+         - screen
+         - "false"
+diff --git a/src/modules/welcomeq/welcomeq.conf b/src/modules/welcomeq/welcomeq.conf
+index 2efc514..9247a2f 100644
+--- a/src/modules/welcomeq/welcomeq.conf
++++ b/src/modules/welcomeq/welcomeq.conf
+@@ -26,7 +26,6 @@ requirements:
+         - storage
+         - ram
+         - power
+-        - internet
+         - root
+         - screen
+     required:
 -- 
 2.46.2
 

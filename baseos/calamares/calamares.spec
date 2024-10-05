@@ -1,6 +1,6 @@
 Name:           calamares
-Version:        3.3.9
-Release:        1%{?dist}
+Version:        3.3.6
+Release:        11%{?dist}
 Summary:        Installer from a live CD/DVD/USB to disk
 
 License:        GPL-3.0-or-later
