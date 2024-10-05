@@ -1,0 +1,36 @@
+From f85d95837a07f1c64784672a90714f9375f829ec Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Thu, 3 Oct 2024 09:57:38 -0400
+Subject: [PATCH 3/3] drm/amdgpu/swsmu: default to fullscreen 3D profile for
+ dGPUs
+
+This uses more aggressive hueristics than the the bootup default
+profile.  On windows the OS has a special fullscreen 3D mode
+where this is used.  Since we don't have the equivalent on Linux
+default to this profile for dGPUs.
+
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/pm/swsmu/amdgpu_smu.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/pm/swsmu/amdgpu_smu.c b/drivers/gpu/drm/amd/pm/swsmu/amdgpu_smu.c
+index 4cca1dcac60c..ceaeb0152a5d 100644
+--- a/drivers/gpu/drm/amd/pm/swsmu/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/pm/swsmu/amdgpu_smu.c
+@@ -1265,7 +1265,11 @@ static int smu_sw_init(struct amdgpu_ip_block *ip_block)
+ 	smu->workload_prority[PP_SMC_POWER_PROFILE_VR] = 4;
+ 	smu->workload_prority[PP_SMC_POWER_PROFILE_COMPUTE] = 5;
+ 	smu->workload_prority[PP_SMC_POWER_PROFILE_CUSTOM] = 6;
+-	smu->workload_mask = 1 << smu->workload_prority[PP_SMC_POWER_PROFILE_BOOTUP_DEFAULT];
++
++	if (smu->is_apu)
++		smu->workload_mask = 1 << smu->workload_prority[PP_SMC_POWER_PROFILE_BOOTUP_DEFAULT];
++	else
++		smu->workload_mask = 1 << smu->workload_prority[PP_SMC_POWER_PROFILE_FULLSCREEN3D];
+ 
+ 	smu->workload_setting[0] = PP_SMC_POWER_PROFILE_BOOTUP_DEFAULT;
+ 	smu->workload_setting[1] = PP_SMC_POWER_PROFILE_FULLSCREEN3D;
+-- 
+2.46.2
+

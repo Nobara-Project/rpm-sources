@@ -164,13 +164,13 @@ Summary: The Linux kernel
 %define specrpmversion 6.11.1
 %define specversion 6.11.1
 %define patchversion 6.11
-%define pkgrelease 200
+%define pkgrelease 207
 %define kversion 6
 %define tarfile_release 6.11.1
 # This is needed to do merge window version magic
 %define patchlevel 11
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease 200%{?buildid}%{?dist}
+%define specrelease 207%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 6.11.1
 
@@ -1022,9 +1022,6 @@ Source4002: gating.yaml
 Patch1: patch-%{patchversion}-redhat.patch
 %endif
 
-# fix https://gitlab.freedesktop.org/drm/amd/-/issues/3183
-Patch101: amdgpu-ignore-min-pcap.patch
-
 # graysky
 # https://github.com/graysky2/kernel_compiler_patch
 Patch200: graysky-more-uarches.patch
@@ -1032,82 +1029,75 @@ Patch200: graysky-more-uarches.patch
 # tkg
 # https://github.com/Frogging-Family/linux-tkg
 Patch201: tkg-0001-add-sysctl-to-disallow-unprivileged-CLONE_NEWUSER-by.patch
-# Patch202: tkg-0002-clear-patches.patch
 Patch203: tkg-0003-glitched-base.patch
-# Using Cachy Zenify instead Patch204: tkg-0003-glitched-eevdf-additions.patch
 Patch205: tkg-0003-glitched-cfs.patch
 Patch206: tkg-0007-v6.11-fsync1_via_futex_waitv.patch
 Patch208: tkg-0013-optimize_harder_O3.patch
 Patch209: tkg-0014-OpenRGB.patch
 
 # device specific patches
-Patch300: amdgpu-si-cik-default.patch
-Patch301: linux-surface.patch
-Patch302: steam-deck.patch
-Patch303: asus-linux.patch
-Patch304: lenovo-legion-laptop.patch
-Patch314: ps-logitech-wheel.patch
-Patch315: amd-tablet-sfh.patch
-Patch316: legion_go_gyro.patch
+#surface
+Patch300: linux-surface.patch
+# Steam deck
+Patch301: steam-deck.patch
+Patch302: steamdeck-oled-audio.patch
+Patch303: steamdeck-oled-hw-quirks.patch
+# Asus laptops
+Patch304: asus-linux.patch
+# rog ally/x
+Patch305: asus-patch-series.patch
+Patch306: ROG-ALLY-NCT6775-PLATFORM.patch
+# ayaneo
+Patch307: bmi160_ayaneo.patch
+# minisforum v3
+Patch308: amd-tablet-sfh.patch
+# Legion laptops
+Patch310: lenovo-legion-laptop.patch
+# Logitech wheel
+Patch311: ps-logitech-wheel.patch
+# t2 macbooks
+Patch312: t2linux.patch
 
 # CachyOS: https://github.com/CachyOS/kernel-patches
-Patch211: 0007-ntsync.patch
-Patch305: 0001-amd-hdr.patch
-Patch306: 0001-acpi-call.patch
-Patch307: uinput.patch
-Patch311: 0001-zenify.patch
-Patch312: 0001-sched-ext.patch
-Patch313: 0001-bore.patch
+Patch400: 0007-ntsync.patch
+Patch401: 0001-amd-hdr.patch
+Patch403: uinput.patch
+Patch404: 0001-zenify.patch
+Patch405: 0001-sched-ext.patch
+Patch406: 0001-bore.patch
+# give kernel taint warning when amdgpu power controls are enabled
+Patch407: amdgpu.ppfeaturemask-taint_warning.patch
 
 # fixes framerate control in gamescope
 # also fixes https://gitlab.freedesktop.org/drm/amd/-/issues/2733
-Patch309: valve-gamescope-framerate-control-fixups.patch
-
-# fixes HAINAN amdgpu card not being bootable
-# https://gitlab.freedesktop.org/drm/amd/-/issues/1839
-Patch310: amdgpu-HAINAN-variant-fixup.patch
-
-# handheld shit
-Patch401: asus-patch-series.patch
-Patch402: ROG-ALLY-NCT6775-PLATFORM.patch
-Patch410: bmi160_ayaneo.patch
-
-# asus debug patch
-# Included in asus-patch-series.patch Patch459: asus-debug.patch
+Patch500: valve-gamescope-framerate-control-fixups.patch
 
 # temporary patches
-Patch501: 0001-Revert-PCI-Add-a-REBAR-size-quirk-for-Sapphire-RX-56.patch
-Patch502: 0001-acpi-proc-idle-skip-dummy-wait.patch
-# rtw89 wifi fix https://patchwork.kernel.org/project/linux-wireless/patch/20240924021633.19861-1-pkshih@realtek.com
-Patch503: rtw89-wifi-fix.patch
+Patch601: rtw89-wifi-fix.patch
 # workaround for https://gitlab.freedesktop.org/drm/amd/-/issues/3441 while AMD/Igalia invesigate
-Patch504: dcn32-dcn301-dcn321-mpo-reverts.patch
+Patch602: dcn32-dcn301-dcn321-mpo-reverts.patch
+# fixes HAINAN amdgpu card not being bootable
+# https://gitlab.freedesktop.org/drm/amd/-/issues/1839
+Patch603: amdgpu-HAINAN-variant-fixup.patch
+# fixes incorrect clocking and power on some amd gpus
+# https://gitlab.freedesktop.org/drm/amd/-/issues/3618
+Patch604: 0000-amd-clock-power-fixup.patch
+Patch605: 0001-drm-amdgpu-smu13-always-apply-the-powersave-optimiza.patch
+Patch606: 0002-drm-amdgpu-swsmu-Only-force-workload-setup-on-init.patch
+Patch607: 0003-drm-amdgpu-swsmu-default-to-fullscreen-3D-profile-fo.patch
 
+
+# Nobara
 # Allow to set custom USB pollrate for specific devices like so:
 # usbcore.interrupt_interval_override=045e:00db:16,1bcf:0005:1
 # useful for setting polling rate of wired PS4/PS5 controller to 1000Hz
 # https://github.com/KarsMulder/Linux-Pollrate-Patch
 # https://gitlab.com/GloriousEggroll/nobara-images/-/issues/64
-Patch606: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
-
-# Also set the PS controller bluetooth polling rate to 1000Hz
-Patch707: set-ps4-bt-poll-rate-1000hz.patch
-
-## mediatek fixups
-#Patch808: mt76:-mt7921:-Disable-powersave-features-by-default.patch
-
-# enable full amd power control by default
-Patch909: 0001-Set-amdgpu.ppfeaturemask-0xffffffff-as-default.patch
-
-# steamdeck oled patches
-#Patch1001: steamdeck-oled-wifi.patch
-Patch1003: steamdeck-oled-audio.patch
-Patch1004: steamdeck-oled-hw-quirks.patch
-#Patch1005: steamdeck-oled-refresh-rate.patch
-#Patch1006: steamdeck-oled-legion-go-bluetooth-hang.patch
-
-# t2 macbook patches
-Patch1007: t2linux.patch
+Patch701: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
+# Also set the PScontroller bluetooth polling rate to 1000Hz
+Patch702: set-ps4-bt-poll-rate-1000hz.patch
+# Add xpadneo as patch instead of using dkms module
+Patch703: 0001-Add-xpadneo-bluetooth-hid-driver-module.patch
 
 # empty final patch to facilitate testing of kernel patches
 Patch999999: linux-kernel-test.patch
@@ -1951,9 +1941,6 @@ cp -a %{SOURCE1} .
 ApplyOptionalPatch patch-%{patchversion}-redhat.patch
 %endif
 
-# fix https://gitlab.freedesktop.org/drm/amd/-/issues/3183
-ApplyOptionalPatch amdgpu-ignore-min-pcap.patch
-
 # graysky
 # https://github.com/graysky2/kernel_compiler_patch
 ApplyOptionalPatch graysky-more-uarches.patch
@@ -1961,82 +1948,74 @@ ApplyOptionalPatch graysky-more-uarches.patch
 # tkg
 # https://github.com/Frogging-Family/linux-tkg
 ApplyOptionalPatch tkg-0001-add-sysctl-to-disallow-unprivileged-CLONE_NEWUSER-by.patch
-# ApplyOptionalPatch tkg-0002-clear-patches.patch
 ApplyOptionalPatch tkg-0003-glitched-base.patch
-# ApplyOptionalPatch tkg-0003-glitched-eevdf-additions.patch
 ApplyOptionalPatch tkg-0003-glitched-cfs.patch
 ApplyOptionalPatch tkg-0007-v6.11-fsync1_via_futex_waitv.patch
 ApplyOptionalPatch tkg-0013-optimize_harder_O3.patch
 ApplyOptionalPatch tkg-0014-OpenRGB.patch
 
 # device specific patches
-ApplyOptionalPatch amdgpu-si-cik-default.patch
+#surface
 ApplyOptionalPatch linux-surface.patch
+# Steam deck
 ApplyOptionalPatch steam-deck.patch
+ApplyOptionalPatch steamdeck-oled-audio.patch
+ApplyOptionalPatch steamdeck-oled-hw-quirks.patch
+# Asus laptops
 ApplyOptionalPatch asus-linux.patch
+# rog ally/x
+ApplyOptionalPatch asus-patch-series.patch
+ApplyOptionalPatch ROG-ALLY-NCT6775-PLATFORM.patch
+# ayaneo
+ApplyOptionalPatch bmi160_ayaneo.patch
+# minisforum v3
 ApplyOptionalPatch amd-tablet-sfh.patch
-ApplyOptionalPatch legion_go_gyro.patch
+# Legion laptops
 ApplyOptionalPatch lenovo-legion-laptop.patch
+# Logitech wheel
 ApplyOptionalPatch ps-logitech-wheel.patch
+# t2 macbooks
+ApplyOptionalPatch t2linux.patch
 
 # CachyOS: https://github.com/CachyOS/kernel-patches
 ApplyOptionalPatch 0007-ntsync.patch
 ApplyOptionalPatch 0001-amd-hdr.patch
-ApplyOptionalPatch 0001-acpi-call.patch
 ApplyOptionalPatch uinput.patch
 ApplyOptionalPatch 0001-zenify.patch
 ApplyOptionalPatch 0001-sched-ext.patch
 ApplyOptionalPatch 0001-bore.patch
+# give kernel taint warning when amdgpu power controls are enabled
+ApplyOptionalPatch amdgpu.ppfeaturemask-taint_warning.patch
 
+# Valve
 # fixes framerate control in gamescope
 ApplyOptionalPatch valve-gamescope-framerate-control-fixups.patch
 
-# fixes HAINAN amdgpu card not being bootable
-# https://gitlab.freedesktop.org/drm/amd/-/issues/1839
-ApplyOptionalPatch amdgpu-HAINAN-variant-fixup.patch
-
-# other handheld shit
-# https://gitlab.com/asus-linux/fedora-kernel/-/tree/rog-6.11
-ApplyOptionalPatch asus-patch-series.patch
-ApplyOptionalPatch ROG-ALLY-NCT6775-PLATFORM.patch
-ApplyOptionalPatch bmi160_ayaneo.patch
-
-# Asus debugging patch
-# ApplyOptionalPatch asus-debug.patch
-
 # temporary patches
-ApplyOptionalPatch 0001-Revert-PCI-Add-a-REBAR-size-quirk-for-Sapphire-RX-56.patch
-ApplyOptionalPatch 0001-acpi-proc-idle-skip-dummy-wait.patch
 ApplyOptionalPatch rtw89-wifi-fix.patch
 # workaround for https://gitlab.freedesktop.org/drm/amd/-/issues/3441 while AMD/Igalia invesigate
 ApplyOptionalPatch dcn32-dcn301-dcn321-mpo-reverts.patch
+# fixes HAINAN amdgpu card not being bootable
+# https://gitlab.freedesktop.org/drm/amd/-/issues/1839
+ApplyOptionalPatch amdgpu-HAINAN-variant-fixup.patch
+# fixes incorrect clocking and power on some amd gpus
+# https://gitlab.freedesktop.org/drm/amd/-/issues/3618
+ApplyOptionalPatch 0000-amd-clock-power-fixup.patch
+ApplyOptionalPatch 0001-drm-amdgpu-smu13-always-apply-the-powersave-optimiza.patch
+ApplyOptionalPatch 0002-drm-amdgpu-swsmu-Only-force-workload-setup-on-init.patch
+ApplyOptionalPatch 0003-drm-amdgpu-swsmu-default-to-fullscreen-3D-profile-fo.patch
 
+# Nobara
 # Allow to set custom USB pollrate for specific devices like so:
 # usbcore.interrupt_interval_override=045e:00db:16,1bcf:0005:1
 # useful for setting polling rate of wired PS4/PS5 controller to 1000Hz
 # https://github.com/KarsMulder/Linux-Pollrate-Patch
 # https://gitlab.com/GloriousEggroll/nobara-images/-/issues/64
 ApplyOptionalPatch 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
-
 # Also set the PScontroller bluetooth polling rate to 1000Hz
 ApplyOptionalPatch set-ps4-bt-poll-rate-1000hz.patch
-
-# mediatek fixups
-# ApplyOptionalPatch mt76:-mt7921:-Disable-powersave-features-by-default.patch
-
-# enable full amd power control by default
-ApplyOptionalPatch 0001-Set-amdgpu.ppfeaturemask-0xffffffff-as-default.patch
-
-# steam deck oled patchs
-#ApplyOptionalPatch steamdeck-oled-wifi.patch
-ApplyOptionalPatch steamdeck-oled-audio.patch
-ApplyOptionalPatch steamdeck-oled-hw-quirks.patch
-#ApplyOptionalPatch steamdeck-oled-refresh-rate.patch
-#ApplyOptionalPatch steamdeck-oled-legion-go-bluetooth-hang.patch
-
-
-# t2 macbook patches
-ApplyOptionalPatch t2linux.patch
+# Add xpadneo as patch instead of using dkms module
+ApplyOptionalPatch 0001-Add-xpadneo-bluetooth-hid-driver-module.patch
 
 ApplyOptionalPatch linux-kernel-test.patch
 
