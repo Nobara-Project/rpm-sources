@@ -1,0 +1,41 @@
+From db2542d5aaa5739ed55b8a1f094b80e7d0543530 Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Thu, 3 Oct 2024 20:52:51 -0600
+Subject: [PATCH] fix(legion go): Temporarily disable accel_3d gyro to allow
+ display gyro to work without needing kernel patch
+
+accel_3d is broken for now --causes IP to hard freeze
+Enabling only gyro_3d allows the tablet gyro to work without needing kernel patch
+TODO: Find out why this is broken, fix it, and swap tablet gyro(gyro_3d) to controller gyro(accel_3d) as default.
+---
+ .../inputplumber/devices/50-legion_go.yaml      | 17 ++++++++++-------
+ 1 file changed, 10 insertions(+), 7 deletions(-)
+
+diff --git a/rootfs/usr/share/inputplumber/devices/50-legion_go.yaml b/rootfs/usr/share/inputplumber/devices/50-legion_go.yaml
+index 16251bf..322252a 100644
+--- a/rootfs/usr/share/inputplumber/devices/50-legion_go.yaml
++++ b/rootfs/usr/share/inputplumber/devices/50-legion_go.yaml
+@@ -134,13 +134,16 @@ source_devices:
+       handler: event*
+ 
+   # IMU
+-  - group: imu
+-    iio:
+-      name: accel_3d
+-      mount_matrix:
+-        x: [0, 1, 0]
+-        y: [0, 0, -1]
+-        z: [-1, 0, 0]
++# Broken for now --causes IP to hard freeze
++# Enabling only gyro_3d allows the tablet gyro to work without needing kernel patch
++# TODO: Find out why this is broken and swap tablet gyro to controller gyro as default.
++#  - group: imu
++#    iio:
++#      name: accel_3d
++#      mount_matrix:
++#        x: [0, 1, 0]
++#        y: [0, 0, -1]
++#        z: [-1, 0, 0]
+   - group: imu
+     iio:
+       name: gyro_3d
