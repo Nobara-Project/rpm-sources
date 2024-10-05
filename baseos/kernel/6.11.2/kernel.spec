@@ -672,7 +672,12 @@ Requires: kernel-modules-core-uname-r = %{KVERREL}
 Provides: installonlypkg(kernel)
 %endif
 Requires: scx-scheds
-
+Provides: xpadneo
+Provides: akmod-xpadneo
+Provides: kmod-xpadneo
+Obsoletes: xpadneo
+Obsoletes: akmod-xpadneo
+Obsoletes: kmod-xpadneo
 
 #
 # List the packages used during the kernel build
@@ -1097,6 +1102,8 @@ Patch608: 0004-drm-amdgpu-swsmu-add-automatic-parameter-to-set_soft_freq_range.p
 Patch701: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
 # Also set the PScontroller bluetooth polling rate to 1000Hz
 Patch702: set-ps4-bt-poll-rate-1000hz.patch
+# Add xpadneo as patch instead of using dkms module
+Patch703: 0001-Add-xpadneo-bluetooth-hid-driver-module.patch
 
 # empty final patch to facilitate testing of kernel patches
 Patch999999: linux-kernel-test.patch
@@ -2014,6 +2021,8 @@ ApplyOptionalPatch 0004-drm-amdgpu-swsmu-add-automatic-parameter-to-set_soft_fre
 ApplyOptionalPatch 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
 # Also set the PScontroller bluetooth polling rate to 1000Hz
 ApplyOptionalPatch set-ps4-bt-poll-rate-1000hz.patch
+# Add xpadneo as patch instead of using dkms module
+ApplyOptionalPatch 0001-Add-xpadneo-bluetooth-hid-driver-module.patch
 
 ApplyOptionalPatch linux-kernel-test.patch
 
@@ -2803,7 +2812,7 @@ BuildKernel() {
   KernelAddonsDirOut="$KernelUnifiedImage.extra.d"
   mkdir -p $KernelAddonsDirOut
   python3 %{SOURCE151} %{SOURCE152} $KernelAddonsDirOut virt %{primary_target} %{_target_cpu}
-  
+
 %if %{signkernel}
 	%{log_msg "Sign the EFI UKI kernel"}
 	%pesign -s -i $KernelUnifiedImage -o $KernelUnifiedImage.signed -a %{secureboot_ca_0} -c %{secureboot_key_0} -n %{pesign_name_0}
@@ -4272,9 +4281,9 @@ fi\
 * Sun Sep 15 2024 Fedora Kernel Team <kernel-team@fedoraproject.org> [6.11.0-63]
 - Linux v6.11.0
 
-* Thu Sep 12 2024 Augusto Caringi <acaringi@redhat.com> [6.10.10-0]            
-- Add entry for BugsFixed (Justin M. Forbes)            
-- drm/nouveau/fb: restore init() for ramgp102 (Ben Skeggs)            
+* Thu Sep 12 2024 Augusto Caringi <acaringi@redhat.com> [6.10.10-0]
+- Add entry for BugsFixed (Justin M. Forbes)
+- drm/nouveau/fb: restore init() for ramgp102 (Ben Skeggs)
 - Linux v6.10.10
 
 * Sun Sep 08 2024 Justin M. Forbes <jforbes@fedoraproject.org> [6.10.9-0]
