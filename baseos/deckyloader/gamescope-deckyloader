@@ -57,6 +57,12 @@ for plugin in /usr/share/deckyloader/plugins/*; do
   fi
 done
 
+# Decky Loader won't show in steam if these don't exist.
+sudo -u $USERNAME  touch "$USER_HOME/.local/share/Steam/.cef-enable-remote-debugging"
+# if installed as flatpak, put .cef-enable-remote-debugging there
+[ -d "$USER_HOME/.var/app/com.valvesoftware.Steam/data/Steam/" ] && sudo -u $USERNAME touch "$USER_HOME/.var/app/com.valvesoftware.Steam/data/Steam/.cef-enable-remote-debugging"
+
+
 # Set ownership and permissions if modifications were made
 if [ "$MODIFIED" == "yes" ]; then
   chown -R $USERNAME:$USERNAME "$HOMEBREW_DIR"
@@ -92,7 +98,7 @@ EOF
 fi
 
 # Start the service
-systemctl start plugin_loader.service
+systemctl restart plugin_loader.service
 
 # Wait for the service to be fully running
 while ! systemctl is-active --quiet plugin_loader.service; do
