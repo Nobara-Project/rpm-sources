@@ -1,11 +1,11 @@
-%define commit 3d143a70b36e56ba0c3143718a12bcf695dcb570
-%define shortcommit 3d143a7
+%define commit a0e60fe2c1f80aba9c482f1416db593111cb2740
+%define shortcommit a0e60fe
 %global appid net.lutris.Lutris
 %define debug_package %{nil}
 
 Name:           lutris
 Version:        0.5.17
-Release:        4.git.%{shortcommit}%{?dist}
+Release:        5.git.%{shortcommit}%{?dist}
 Summary:        Video game preservation platform
 
 License:        GPL-3.0+
