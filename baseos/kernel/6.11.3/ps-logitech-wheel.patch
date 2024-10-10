@@ -1,0 +1,42 @@
+From 59ad45fbd4722252d0d1c80366c6c6ccecee7b69 Mon Sep 17 00:00:00 2001
+From: Olof Salberger <olof.salberger@gmail.com>
+Date: Tue, 23 Jul 2024 13:00:22 +0200
+Subject: [PATCH] HID: Support playstation version of logitech G923 steering
+ wheel
+
+This extends logitech G923 support to the PS4 version,
+instead of just the xbox version.
+
+---
+ drivers/hid/hid-ids.h            | 1 +
+ drivers/hid/hid-logitech-hidpp.c | 3 +++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/drivers/hid/hid-ids.h b/drivers/hid/hid-ids.h
+index 72d56ee7c..601296a36 100644
+--- a/drivers/hid/hid-ids.h
++++ b/drivers/hid/hid-ids.h
+@@ -851,6 +851,7 @@
+ #define USB_DEVICE_ID_LOGITECH_G510_USB_AUDIO	0xc22e
+ #define USB_DEVICE_ID_LOGITECH_G29_WHEEL	0xc24f
+ #define USB_DEVICE_ID_LOGITECH_G920_WHEEL	0xc262
++#define USB_DEVICE_ID_LOGITECH_G923_PS4_WHEEL   0xc267
+ #define USB_DEVICE_ID_LOGITECH_G923_XBOX_WHEEL	0xc26e
+ #define USB_DEVICE_ID_LOGITECH_WINGMAN_F3D	0xc283
+ #define USB_DEVICE_ID_LOGITECH_FORCE3D_PRO	0xc286
+diff --git a/drivers/hid/hid-logitech-hidpp.c b/drivers/hid/hid-logitech-hidpp.c
+index 400d70e6d..bc0ba697d 100644
+--- a/drivers/hid/hid-logitech-hidpp.c
++++ b/drivers/hid/hid-logitech-hidpp.c
+@@ -4617,6 +4617,9 @@ static const struct hid_device_id hidpp_devices[] = {
+ 	{ /* Logitech G920 Wheel over USB */
+ 	  HID_USB_DEVICE(USB_VENDOR_ID_LOGITECH, USB_DEVICE_ID_LOGITECH_G920_WHEEL),
+ 		.driver_data = HIDPP_QUIRK_CLASS_G920 | HIDPP_QUIRK_FORCE_OUTPUT_REPORTS},
++	{ /* Logitech G923 Wheel (PlayStation version) over USB */
++	  HID_USB_DEVICE(USB_VENDOR_ID_LOGITECH, USB_DEVICE_ID_LOGITECH_G923_PS4_WHEEL),
++		.driver_data = HIDPP_QUIRK_CLASS_G920 | HIDPP_QUIRK_FORCE_OUTPUT_REPORTS },
+ 	{ /* Logitech G923 Wheel (Xbox version) over USB */
+ 	  HID_USB_DEVICE(USB_VENDOR_ID_LOGITECH, USB_DEVICE_ID_LOGITECH_G923_XBOX_WHEEL),
+ 		.driver_data = HIDPP_QUIRK_CLASS_G920 | HIDPP_QUIRK_FORCE_OUTPUT_REPORTS },
+-- 
+2.44.1
