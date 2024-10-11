@@ -4,7 +4,7 @@
 
 %global build_timestamp %(date +"%Y%m%d")
 
-%global rel_build 2.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 1.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           umu-launcher
 Version:        1.1.1
