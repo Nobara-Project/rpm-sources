@@ -1,6 +1,6 @@
 Name:    xdg-desktop-portal-kde
 Summary: Backend implementation for xdg-desktop-portal using Qt/KF5
-Version: 6.1.1
+Version: 6.2.0
 Release: 1%{?dist}
 
 License: BSD-2-Clause AND CC0-1.0 AND GPL-2.0-or-later AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-3.0-only AND (LGPL-2.1-only OR LGPL-3.0-only)
@@ -30,6 +30,7 @@ BuildRequires:  wayland-devel
 
 BuildRequires:  cmake(KF6Config)
 BuildRequires:  cmake(KF6CoreAddons)
+BuildRequires:  cmake(KF6Crash)
 BuildRequires:  cmake(KF6Declarative)
 BuildRequires:  cmake(KF6GlobalAccel)
 BuildRequires:  cmake(KF6GuiAddons)
@@ -79,10 +80,36 @@ pieces of KDE infrastructure.
 %{_datadir}/applications/org.freedesktop.impl.portal.desktop.kde.desktop
 %{_datadir}/knotifications6/xdg-desktop-portal-kde.notifyrc
 %{_datadir}/qlogging-categories6/xdp-kde.categories
-%{_datadir}/xdg-desktop-portal/kde-portals.conf
 %{_userunitdir}/plasma-xdg-desktop-portal-kde.service
 
 %changelog
+* Thu Oct 03 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.2.0-1
+- 6.2.0
+
+* Thu Sep 12 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.90-1
+- 6.1.90
+
+* Tue Sep 10 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.5-1
+- 6.1.5
+
+* Fri Aug 09 2024 Steve Cossette <farchord@gmail.com> - 6.1.4-1
+- 6.1.4
+
+* Wed Jul 24 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.3-3
+- rebuilt
+
+* Sat Jul 20 2024 Fedora Release Engineering <releng@fedoraproject.org> - 6.1.3-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_41_Mass_Rebuild
+
+* Tue Jul 16 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.3-1
+- 6.1.3
+
+* Wed Jul 03 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.2-1
+- 6.1.2
+
+* Tue Jun 25 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.1-1
+- 6.1.1
+
 * Thu Jun 13 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.0-1
 - 6.1.0
 

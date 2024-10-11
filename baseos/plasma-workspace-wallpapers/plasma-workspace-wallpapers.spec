@@ -1,5 +1,5 @@
 Name:    plasma-workspace-wallpapers
-Version: 6.1.1
+Version: 6.2.0
 Release: 1%{?dist}
 Summary: Additional wallpapers for Plasma workspace
 License: LGPLv3
@@ -69,6 +69,7 @@ Obsoletes:      plasma-workspace-wallpapers < 5.2.0-2
 %{_datadir}/wallpapers/Path/
 %{_datadir}/wallpapers/SafeLanding/
 %{_datadir}/wallpapers/Shell/
+%{_datadir}/wallpapers/ScarletTree/
 %{_datadir}/wallpapers/summer_1am/
 %{_datadir}/wallpapers/Volna/
 

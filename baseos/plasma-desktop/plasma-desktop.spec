@@ -5,8 +5,8 @@
 
 Name:    plasma-desktop
 Summary: Plasma Desktop shell
-Version: 6.1.4
-Release: 5%{?dist}
+Version: 6.2.0
+Release: 1%{?dist}
 
 License: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only)
 URL:     https://invent.kde.org/plasma/%{name}
@@ -102,8 +102,6 @@ BuildRequires:  chrpath
 BuildRequires:  desktop-file-utils
 
 BuildRequires:  xdg-user-dirs
-
-Requires:       qt
 
 # xorg-x11 doesn't have hw_server and disable for s390/s390x
 %ifnarch s390 s390x
@@ -221,7 +219,7 @@ Requires:       qt6-qtvirtualkeyboard
 # org.kde.plasma.breeze.components
 # org.kde.plasma.*
 # The dependency is with 3 version numbers due to upstream occasional respins containing an etra number (i.e: 6.0.5.1)
-Requires:       plasma-workspace = %{maj_ver_kf6}.%{min_ver_kf6}.%{bug_ver_kf6}
+Requires:       plasma-workspace >= %{maj_ver_kf6}.%{min_ver_kf6}
 # /usr/share/backgrounds/default.png
 Requires:       desktop-backgrounds-compat
 BuildArch: noarch
@@ -315,6 +313,7 @@ desktop-file-validate %{buildroot}/%{_datadir}/applications/kaccess.desktop
 %{_kf6_datadir}/locale/sr@ijekavian/LC_SCRIPTS/kfontinst/kfontinst.js
 %{_kf6_datadir}/locale/sr@ijekavianlatin/LC_SCRIPTS/kfontinst/kfontinst.js
 %{_kf6_datadir}/locale/sr@latin/LC_SCRIPTS/kfontinst/kfontinst.js
+%{_userunitdir}/plasma-kaccess.service
 
 
 %files -n sddm-breeze
@@ -329,6 +328,40 @@ desktop-file-validate %{buildroot}/%{_datadir}/applications/kaccess.desktop
 
 
 %changelog
+* Thu Oct 03 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.2.0-1
+- 6.2.0
+
+* Thu Sep 26 2024 Steve Cossette <farchord@gmail.com> - 6.1.90-2
+- Fix kaccess crash on 6.1.90
+
+* Thu Sep 12 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.90-1
+- 6.1.90
+
+* Tue Sep 10 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.5-1
+- 6.1.5
+
+* Fri Aug 09 2024 Steve Cossette <farchord@gmail.com> - 6.1.4-1
+- 6.1.4
+
+* Wed Jul 24 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.3-4
+- rebuilt
+
+* Wed Jul 24 2024 Steve Cossette <farchord@gmail.com> - 6.1.3-3
+- Rebuild for change in plasma-workspace
+- Experimental change to try to relax sddm-breeze version dependancy because of rebuild issues
+
+* Fri Jul 19 2024 Fedora Release Engineering <releng@fedoraproject.org> - 6.1.3-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_41_Mass_Rebuild
+
+* Tue Jul 16 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.3-1
+- 6.1.3
+
+* Wed Jul 03 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.2-1
+- 6.1.2
+
+* Tue Jun 25 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.1-1
+- 6.1.1
+
 * Tue Jun 18 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.0-3
 - Rebuild to sort dependencies with plasma-workspace
 

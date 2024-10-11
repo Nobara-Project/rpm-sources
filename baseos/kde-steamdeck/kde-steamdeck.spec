@@ -1,6 +1,6 @@
 Name:           kde-steamdeck
-Version:        0.0.git.84.1c1d05a9
-Release:        11%{?dist}
+Version:        6.2.0.git.84.1c1d05a9
+Release:        1%{?dist}
 Summary:        KDE Presets from Valve's SteamOS 3.0
 License:    	GPLv2
 URL:            https://github.com/nobara-project/steamdeck-edition-packages
