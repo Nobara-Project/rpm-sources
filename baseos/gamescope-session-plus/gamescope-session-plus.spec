@@ -1,5 +1,5 @@
 Name:           gamescope-session-plus
-Version:        0.3.213
+Version:        0.3.214
 Release:        git.d8ab829%{?dist}
 Summary:        Gamescope session plus based on Valve's gamescope
 
