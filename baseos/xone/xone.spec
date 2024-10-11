@@ -37,8 +37,6 @@ Requires:       %{name}-kmod >= %{version}
 
 Conflicts:      xow <= 0.5
 Obsoletes:      xow <= 0.5
-Provides:       xpad-noone kmod-xpad-noone akmod-xpad-noone xpad-noone-kmod-common
-Obsoletes:      xpad-noone kmod-xpad-noone akmod-xpad-noone xpad-noone-kmod-common
 
 # kmodtool does its magic here
 %{expand:%(kmodtool --target %{_target_cpu} --kmodname %{name} %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null) }
