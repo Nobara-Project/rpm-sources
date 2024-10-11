@@ -164,13 +164,13 @@ Summary: The Linux kernel
 %define specrpmversion 6.11.2
 %define specversion 6.11.2
 %define patchversion 6.11
-%define pkgrelease 201
+%define pkgrelease 203
 %define kversion 6
 %define tarfile_release 6.11.2
 # This is needed to do merge window version magic
 %define patchlevel 11
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease 201%{?buildid}%{?dist}
+%define specrelease 203%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 6.11.2
 
@@ -672,12 +672,6 @@ Requires: kernel-modules-core-uname-r = %{KVERREL}
 Provides: installonlypkg(kernel)
 %endif
 Requires: scx-scheds
-Provides: xpadneo
-Provides: akmod-xpadneo
-Provides: kmod-xpadneo
-Obsoletes: xpadneo
-Obsoletes: akmod-xpadneo
-Obsoletes: kmod-xpadneo
 
 #
 # List the packages used during the kernel build
@@ -1091,6 +1085,7 @@ Patch605: 0001-drm-amdgpu-smu13-always-apply-the-powersave-optimiza.patch
 Patch606: 0002-drm-amdgpu-swsmu-Only-force-workload-setup-on-init.patch
 Patch607: 0003-drm-amdgpu-swsmu-default-to-fullscreen-3D-profile-fo.patch
 Patch608: 0004-drm-amdgpu-swsmu-add-automatic-parameter-to-set_soft_freq_range.patch
+Patch609: 0001-Revert-PCI-Add-a-REBAR-size-quirk-for-Sapphire-RX-56.patch
 
 
 # Nobara
@@ -2011,6 +2006,7 @@ ApplyOptionalPatch 0001-drm-amdgpu-smu13-always-apply-the-powersave-optimiza.pat
 ApplyOptionalPatch 0002-drm-amdgpu-swsmu-Only-force-workload-setup-on-init.patch
 ApplyOptionalPatch 0003-drm-amdgpu-swsmu-default-to-fullscreen-3D-profile-fo.patch
 ApplyOptionalPatch 0004-drm-amdgpu-swsmu-add-automatic-parameter-to-set_soft_freq_range.patch
+ApplyOptionalPatch 0001-Revert-PCI-Add-a-REBAR-size-quirk-for-Sapphire-RX-56.patch
 
 # Nobara
 # Allow to set custom USB pollrate for specific devices like so:

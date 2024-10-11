@@ -194,10 +194,10 @@ index 000000000..948fad17f
 +}
 diff --git a/drivers/hid/xpadneo/hid-xpadneo.c b/drivers/hid/xpadneo/hid-xpadneo.c
 new file mode 100644
-index 000000000..9d7c08434
+index 000000000..c77dadb13
 --- /dev/null
 +++ b/drivers/hid/xpadneo/hid-xpadneo.c
-@@ -0,0 +1,1327 @@
+@@ -0,0 +1,1317 @@
 +/*
 + * Force feedback support for XBOX ONE S and X gamepads via Bluetooth
 + *
@@ -219,7 +219,7 @@ index 000000000..9d7c08434
 +MODULE_DESCRIPTION("Linux kernel driver for Xbox ONE S+ gamepads (BT), incl. FF");
 +MODULE_VERSION(XPADNEO_VERSION);
 +
-+static u8 param_trigger_rumble_mode = 0;
++static u8 param_trigger_rumble_mode = 2;
 +module_param_named(trigger_rumble_mode, param_trigger_rumble_mode, byte, 0644);
 +MODULE_PARM_DESC(trigger_rumble_mode, "(u8) Trigger rumble mode. 0: pressure, 2: disable.");
 +
@@ -229,7 +229,7 @@ index 000000000..9d7c08434
 +		 "(u8) Attenuate the rumble strength: all[,triggers] "
 +		 "0 (none, full rumble) to 100 (max, no rumble).");
 +
-+static bool param_ff_connect_notify = 1;
++static bool param_ff_connect_notify = 0;
 +module_param_named(ff_connect_notify, param_ff_connect_notify, bool, 0644);
 +MODULE_PARM_DESC(ff_connect_notify,
 +		 "(bool) Connection notification using force feedback. 1: enable, 0: disable.");
@@ -252,7 +252,7 @@ index 000000000..9d7c08434
 +		 "(bool) Enable rolling axis by combining both triggers, out of spec for many games. (deprecated) "
 +		 "0: disable, 1: enable.");
 +
-+static bool param_disable_shift_mode = 0;
++static bool param_disable_shift_mode = 1;
 +module_param_named(disable_shift_mode, param_disable_shift_mode, bool, 0644);
 +MODULE_PARM_DESC(disable_shift_mode,
 +		 "(bool) Disable use Xbox logo button as shift. Will prohibit profile switching when enabled. "
@@ -1461,19 +1461,9 @@ index 000000000..9d7c08434
 +}
 +
 +static const struct hid_device_id xpadneo_devices[] = {
-+	/* XBOX ONE S / X */
-+	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x02E0) },
-+	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x02FD) },
-+	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x0B20),
-+	 .driver_data = XPADNEO_QUIRK_SHARE_BUTTON },
-+
 +	/* XBOX ONE Elite Series 2 */
 +	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x0B05) },
 +	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x0B22),
-+	 .driver_data = XPADNEO_QUIRK_SHARE_BUTTON },
-+
-+	/* XBOX Series X|S / Xbox Wireless Controller (BLE) */
-+	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x0B13),
 +	 .driver_data = XPADNEO_QUIRK_SHARE_BUTTON },
 +
 +	/* SENTINEL VALUE, indicates the end */
@@ -1771,3 +1761,25 @@ index 000000000..f5caddf73
 -- 
 2.46.2
 
+diff --git a/drivers/hid/hid-microsoft.c b/drivers/hid/hid-microsoft.c
+index 4cf0fcddb..f43d958d3 100644
+--- a/drivers/hid/hid-microsoft.c
++++ b/drivers/hid/hid-microsoft.c
+@@ -446,17 +446,12 @@ static const struct hid_device_id ms_devices[] = {
+ 		.driver_data = MS_PRESENTER },
+ 	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x091B),
+ 		.driver_data = MS_SURFACE_DIAL },
+-
+ 	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_XBOX_CONTROLLER_MODEL_1708),
+ 		.driver_data = MS_QUIRK_FF },
+ 	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_XBOX_CONTROLLER_MODEL_1708_BLE),
+ 		.driver_data = MS_QUIRK_FF },
+ 	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_XBOX_CONTROLLER_MODEL_1914),
+ 		.driver_data = MS_QUIRK_FF },
+-	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_XBOX_CONTROLLER_MODEL_1797),
+-		.driver_data = MS_QUIRK_FF },
+-	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_XBOX_CONTROLLER_MODEL_1797_BLE),
+-		.driver_data = MS_QUIRK_FF },
+ 	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_8BITDO_SN30_PRO_PLUS),
+ 		.driver_data = MS_QUIRK_FF },
+ 	{ }
