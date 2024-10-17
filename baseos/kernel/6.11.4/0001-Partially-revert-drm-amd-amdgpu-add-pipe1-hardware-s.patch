@@ -1,0 +1,43 @@
+From cdeabca0ad8a75c7c9f0924d54e83e4cb59925d5 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Wed, 7 Aug 2024 17:04:02 -0400
+Subject: [PATCH] Partially revert "drm/amd/amdgpu: add pipe1 hardware support"
+
+This partially reverts commit b7a1a0ef12b81957584fef7b61e2d5ec049c7209.
+
+A user reported stuttering under heavy gfx load with this commit.
+I suspect it's due to the fact that the gfx contexts are shared
+between the pipes so if there is alot of load on one pipe, we could
+end up stalling waiting for a context.
+
+That said, having both pipes is useful in some contexts and
+this patch was actually enabled mainly to support some SR-IOV
+use cases, so leave it enabled for SR-IOV.
+
+Closes: https://gitlab.freedesktop.org/drm/amd/-/issues/3519
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Cc: ZhenGuo Yin <zhenguo.yin@amd.com>
+Cc: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+index 1bb602c4f9b3..00df025a8636 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+@@ -4711,7 +4711,10 @@ static int gfx_v10_0_sw_init(void *handle)
+ 	case IP_VERSION(10, 3, 3):
+ 	case IP_VERSION(10, 3, 7):
+ 		adev->gfx.me.num_me = 1;
+-		adev->gfx.me.num_pipe_per_me = 2;
++		if (amdgpu_sriov_vf(adev))
++			adev->gfx.me.num_pipe_per_me = 2;
++		else
++			adev->gfx.me.num_pipe_per_me = 1;
+ 		adev->gfx.me.num_queue_per_pipe = 1;
+ 		adev->gfx.mec.num_mec = 2;
+ 		adev->gfx.mec.num_pipe_per_mec = 4;
+-- 
+2.47.0
+
