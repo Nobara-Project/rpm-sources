@@ -1087,6 +1087,8 @@ Patch606: 0002-drm-amdgpu-swsmu-Only-force-workload-setup-on-init.patch
 Patch607: 0003-drm-amdgpu-swsmu-default-to-fullscreen-3D-profile-fo.patch
 Patch608: 0004-drm-amdgpu-swsmu-add-automatic-parameter-to-set_soft_freq_range.patch
 Patch609: 0001-Revert-PCI-Add-a-REBAR-size-quirk-for-Sapphire-RX-56.patch
+Patch610: 0001-Bluetooth-btusb-Fix-not-being-able-to-reconnect-afte.patch
+Patch611: 0002-Bluetooth-btusb-Fix-regression-with-fake-CSR-control.patch
 
 
 # Nobara
@@ -2009,6 +2011,8 @@ ApplyOptionalPatch 0002-drm-amdgpu-swsmu-Only-force-workload-setup-on-init.patch
 ApplyOptionalPatch 0003-drm-amdgpu-swsmu-default-to-fullscreen-3D-profile-fo.patch
 ApplyOptionalPatch 0004-drm-amdgpu-swsmu-add-automatic-parameter-to-set_soft_freq_range.patch
 ApplyOptionalPatch 0001-Revert-PCI-Add-a-REBAR-size-quirk-for-Sapphire-RX-56.patch
+ApplyOptionalPatch 0001-Bluetooth-btusb-Fix-not-being-able-to-reconnect-afte.patch
+ApplyOptionalPatch 0002-Bluetooth-btusb-Fix-regression-with-fake-CSR-control.patch
 
 # Nobara
 # Allow to set custom USB pollrate for specific devices like so:
