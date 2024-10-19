@@ -48,9 +48,9 @@ index 1dbd015..ca54196 100644
 -   bool operator<(PhysRegIterator oth) const { return reg < oth.reg; }
 -};
 -
- struct ra_ctx {
- 
-    Program* program;
+ struct vector_info {
+    vector_info() : is_weak(false), num_parts(0), parts(NULL) {}
+    vector_info(Instruction* instr, unsigned start = 0, bool weak = false)
 @@ -102,8 +71,6 @@ struct ra_ctx {
     uint16_t sgpr_limit;
     uint16_t vgpr_limit;

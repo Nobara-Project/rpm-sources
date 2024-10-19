@@ -1,6 +1,6 @@
 %global _default_patch_fuzz 2
 
-%global commit 90d91f739fe0a00c009d3586733ae40e5ed2f529
+%global commit 019770f026ad1e1a9b03ddacab2df252126fd636
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build git.%{build_timestamp}.%{shortcommit}%{?dist}
@@ -12,7 +12,6 @@
 %global with_va 1
 %if !0%{?rhel}
 %global with_nine 1
-%global with_omx 1
 %global with_opencl 1
 %endif
 %global base_vulkan ,amd
@@ -69,7 +68,7 @@
 
 Name:           mesa-vulkan-drivers
 Summary:        The mesa graphics vulkan driver stack.
-%global ver 24.2.0
+%global ver 24.2.5
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %{rel_build}
 License:        MIT
@@ -82,8 +81,6 @@ Source0:        https://gitlab.freedesktop.org/mesa/mesa/-/archive/%{commit}/mes
 Source1:        Mesa-MLAA-License-Clarification-Email.txt
 
 # Performance bumps
-# https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/25576
-Patch2: 25576.patch
 
 # https://gitlab.com/evlaV/mesa/
 Patch4: valve.patch
@@ -104,7 +101,7 @@ BuildRequires:  kernel-headers
 # We only check for the minimum version of pkgconfig(libdrm) needed so that the
 # SRPMs for each arch still have the same build dependencies. See:
 # https://bugzilla.redhat.com/show_bug.cgi?id=1859515
-BuildRequires:  pkgconfig(libdrm) >= 2.4.97
+BuildRequires:  pkgconfig(libdrm) >= 2.4.122
 BuildRequires:  pkgconfig(libunwind)
 BuildRequires:  pkgconfig(expat)
 BuildRequires:  pkgconfig(zlib) >= 1.2.3
@@ -124,7 +121,6 @@ BuildRequires:  pkgconfig(xxf86vm)
 BuildRequires:  pkgconfig(xcb)
 BuildRequires:  pkgconfig(x11-xcb)
 BuildRequires:  pkgconfig(xcb-dri2) >= 1.8
-BuildRequires:  pkgconfig(xcb-dri3)
 BuildRequires:  pkgconfig(xcb-present)
 BuildRequires:  pkgconfig(xcb-sync)
 BuildRequires:  pkgconfig(xshmfence) >= 1.1
@@ -144,9 +140,6 @@ BuildRequires:  pkgconfig(vdpau) >= 1.1
 %if 0%{?with_va}
 BuildRequires:  pkgconfig(libva) >= 0.38.0
 %endif
-%if 0%{?with_omx}
-BuildRequires:  pkgconfig(libomxil-bellagio)
-%endif
 BuildRequires:  pkgconfig(libelf)
 BuildRequires:  pkgconfig(libglvnd) >= 1.3.2
 BuildRequires:  llvm-devel >= 7.0.0
@@ -159,7 +152,7 @@ BuildRequires:  pkgconfig(SPIRV-Tools)
 BuildRequires:  pkgconfig(LLVMSPIRVLib)
 %endif
 %if 0%{?with_nvk}
-BuildRequires:  (crate(paste/default) >= 1.0.0 with crate(paste/default) < 2.0.0~)
+BuildRequires:  (crate(paste) >= 1.0.14 with crate(paste) < 2)
 BuildRequires:  (crate(proc-macro2) >= 1.0.56 with crate(proc-macro2) < 2)
 BuildRequires:  (crate(quote) >= 1.0.25 with crate(quote) < 2)
 BuildRequires:  (crate(syn/clone-impls) >= 2.0.15 with crate(syn/clone-impls) < 3)
@@ -187,6 +180,7 @@ BuildRequires:  pkgconfig(vulkan)
 Requires:       vulkan%{_isa}
 Obsoletes: mesa-vulkan-drivers-vulkan-devel
 Obsoletes: mesa-vulkan-devel
+Obsoletes:      mesa-omx-drivers < %{?epoch:%{epoch}:}%{version}-%{release}
 
 %prep
 %autosetup -n mesa-%{commit} -p1
@@ -221,7 +215,6 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
 
 %meson \
   -Dplatforms=x11,wayland \
-  -Ddri3=enabled \
   -Dosmesa=true \
 %if 0%{?with_hardware}
   -Dgallium-drivers=swrast,virgl,nouveau%{?with_r300:,r300}%{?with_crocus:,crocus}%{?with_i915:,i915}%{?with_iris:,iris}%{?with_vmware:,svga}%{?with_radeonsi:,radeonsi}%{?with_r600:,r600}%{?with_freedreno:,freedreno}%{?with_etnaviv:,etnaviv}%{?with_tegra:,tegra}%{?with_vc4:,vc4}%{?with_v3d:,v3d}%{?with_kmsro:,kmsro}%{?with_lima:,lima}%{?with_panfrost:,panfrost}%{?with_vulkan_hw:,zink} \
@@ -229,7 +222,6 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
   -Dgallium-drivers=swrast,virgl \
 %endif
   -Dgallium-vdpau=%{?with_vdpau:enabled}%{!?with_vdpau:disabled} \
-  -Dgallium-omx=%{?with_omx:bellagio}%{!?with_omx:disabled} \
   -Dgallium-va=%{?with_va:enabled}%{!?with_va:disabled} \
   -Dgallium-xa=%{?with_xa:enabled}%{!?with_xa:disabled} \
   -Dgallium-nine=%{?with_nine:true}%{!?with_nine:false} \
@@ -373,7 +365,6 @@ rm -Rf %{buildroot}%{_libdir}/dri/virtio_gpu_drv_video.so
 rm -Rf %{buildroot}%{_libdir}/dri/libdril_dri.so
 rm -Rf %{buildroot}%{_libdir}/dri/libgallium.so
 rm -Rf %{buildroot}%{_libdir}/dri/libgallium_drv_video.so
-rm -Rf %{buildroot}%{_libdir}/bellagio/libomx_mesa.so
 rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_nouveau.so.1*
 rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_r300.so.1*
 rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_r600.so.1*
@@ -384,6 +375,12 @@ rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_virtio_gpu.so.1.0.0
 rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_gallium.so.1.0.0
 rm -Rf %{buildroot}%{_libdir}/libRusticlOpenCL*
 rm -Rf %{buildroot}%{_sysconfdir}/OpenCL/vendors/rusticl.icd
+rm -Rf %{buildroot}%{_libdir}/gbm/dri_gbm.so
+rm -Rf %{buildroot}%{_libdir}/libgbm.so.1
+rm -Rf %{buildroot}%{_libdir}/libgbm.so.1.*
+rm -Rf %{buildroot}%{_libdir}/libgbm.so
+rm -Rf %{buildroot}%{_includedir}/gbm.h
+rm -Rf %{buildroot}%{_libdir}/pkgconfig/gbm.pc
 %ifarch %{ix86}
 rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
