@@ -1073,7 +1073,6 @@ Patch407: amdgpu.ppfeaturemask-taint_warning.patch
 Patch500: valve-gamescope-framerate-control-fixups.patch
 
 # temporary patches
-Patch601: 0001-Partially-revert-drm-amd-amdgpu-add-pipe1-hardware-s.patch
 # workaround for https://gitlab.freedesktop.org/drm/amd/-/issues/3441 while AMD/Igalia invesigate
 Patch602: dcn32-dcn301-dcn321-mpo-reverts.patch
 # fixes HAINAN amdgpu card not being bootable
@@ -1997,7 +1996,6 @@ ApplyOptionalPatch amdgpu.ppfeaturemask-taint_warning.patch
 ApplyOptionalPatch valve-gamescope-framerate-control-fixups.patch
 
 # temporary patches
-ApplyOptionalPatch 0001-Partially-revert-drm-amd-amdgpu-add-pipe1-hardware-s.patch
 # workaround for https://gitlab.freedesktop.org/drm/amd/-/issues/3441 while AMD/Igalia invesigate
 ApplyOptionalPatch dcn32-dcn301-dcn321-mpo-reverts.patch
 # fixes HAINAN amdgpu card not being bootable
