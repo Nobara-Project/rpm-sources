@@ -11,7 +11,7 @@
 
 %global build_timestamp %(date +"%Y%m%d")
 
-%global rel_build 5.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 6.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           umu-launcher
 Version:        1.1.3
@@ -48,8 +48,8 @@ Requires:	python3-filelock
 %prep
 git clone --single-branch --branch main https://github.com/Open-Wine-Components/umu-launcher.git
 cd umu-launcher
-#git checkout %{tag}
-git checkout %{manual_commit}
+git checkout %{tag}
+#git checkout %{manual_commit}
 git submodule update --init --recursive
 
 %build
