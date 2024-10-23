@@ -161,18 +161,18 @@ Summary: The Linux kernel
 #  the --with-release option overrides this setting.)
 %define debugbuildsenabled 1
 %define buildid .fsync
-%define specrpmversion 6.11.4
-%define specversion 6.11.4
+%define specrpmversion 6.11.5
+%define specversion 6.11.5
 %define patchversion 6.11
 %define pkgrelease 200
 %define kversion 6
-%define tarfile_release 6.11.4
+%define tarfile_release 6.11.5
 # This is needed to do merge window version magic
 %define patchlevel 11
 # This allows pkg_release to have configurable %%{?dist} tag
 %define specrelease 200%{?buildid}%{?dist}
 # This defines the kabi tarball version
-%define kabiversion 6.11.4
+%define kabiversion 6.11.5
 
 # If this variable is set to 1, a bpf selftests build failure will cause a
 # fatal kernel package build error
@@ -1074,21 +1074,16 @@ Patch500: valve-gamescope-framerate-control-fixups.patch
 
 # temporary patches
 # workaround for https://gitlab.freedesktop.org/drm/amd/-/issues/3441 while AMD/Igalia invesigate
-Patch602: dcn32-dcn301-dcn321-mpo-reverts.patch
+Patch600: dcn32-dcn301-dcn321-mpo-reverts.patch
 # fixes HAINAN amdgpu card not being bootable
 # https://gitlab.freedesktop.org/drm/amd/-/issues/1839
-Patch603: amdgpu-HAINAN-variant-fixup.patch
+Patch601: amdgpu-HAINAN-variant-fixup.patch
 # fixes incorrect clocking and power on some amd gpus
 # https://gitlab.freedesktop.org/drm/amd/-/issues/3618
-Patch604: 0000-amd-clock-power-fixup.patch
-Patch605: 0001-drm-amdgpu-smu13-always-apply-the-powersave-optimiza.patch
-Patch606: 0002-drm-amdgpu-swsmu-Only-force-workload-setup-on-init.patch
-Patch607: 0003-drm-amdgpu-swsmu-default-to-fullscreen-3D-profile-fo.patch
-Patch608: 0004-drm-amdgpu-swsmu-add-automatic-parameter-to-set_soft_freq_range.patch
-Patch609: 0001-Revert-PCI-Add-a-REBAR-size-quirk-for-Sapphire-RX-56.patch
-Patch610: 0001-Bluetooth-btusb-Fix-not-being-able-to-reconnect-afte.patch
-Patch611: 0002-Bluetooth-btusb-Fix-regression-with-fake-CSR-control.patch
-
+Patch602: 0000-amd-clock-power-fixup.patch
+Patch603: 0003-drm-amdgpu-swsmu-default-to-fullscreen-3D-profile-fo.patch
+Patch604: 0004-drm-amdgpu-swsmu-add-automatic-parameter-to-set_soft_freq_range.patch
+Patch605: 0001-Revert-PCI-Add-a-REBAR-size-quirk-for-Sapphire-RX-56.patch
 
 # Nobara
 # Allow to set custom USB pollrate for specific devices like so:
@@ -2004,13 +1999,9 @@ ApplyOptionalPatch amdgpu-HAINAN-variant-fixup.patch
 # fixes incorrect clocking and power on some amd gpus
 # https://gitlab.freedesktop.org/drm/amd/-/issues/3618
 ApplyOptionalPatch 0000-amd-clock-power-fixup.patch
-ApplyOptionalPatch 0001-drm-amdgpu-smu13-always-apply-the-powersave-optimiza.patch
-ApplyOptionalPatch 0002-drm-amdgpu-swsmu-Only-force-workload-setup-on-init.patch
 ApplyOptionalPatch 0003-drm-amdgpu-swsmu-default-to-fullscreen-3D-profile-fo.patch
 ApplyOptionalPatch 0004-drm-amdgpu-swsmu-add-automatic-parameter-to-set_soft_freq_range.patch
 ApplyOptionalPatch 0001-Revert-PCI-Add-a-REBAR-size-quirk-for-Sapphire-RX-56.patch
-ApplyOptionalPatch 0001-Bluetooth-btusb-Fix-not-being-able-to-reconnect-afte.patch
-ApplyOptionalPatch 0002-Bluetooth-btusb-Fix-regression-with-fake-CSR-control.patch
 
 # Nobara
 # Allow to set custom USB pollrate for specific devices like so:
@@ -4265,6 +4256,13 @@ fi\
 #
 #
 %changelog
+* Tue Oct 22 2024 Augusto Caringi <acaringi@redhat.com> [6.11.5-0]
+- Revert "fedora/configs: enable GPIO expander drivers" (Justin M. Forbes)
+- Add bluetooth bzs to BugsFixed (Justin M. Forbes)
+- Bluetooth: btusb: Fix not being able to reconnect after suspend (Luiz Augusto von Dentz)
+- Bluetooth: btusb: Fix regression with fake CSR controllers 0a12:0001 (Luiz Augusto von Dentz)
+- Linux v6.11.5
+
 * Thu Oct 17 2024 Augusto Caringi <acaringi@redhat.com> [6.11.4-0]
 - Add F39 and F40 to release_targets (Justin M. Forbes)
 - Linux v6.11.4
