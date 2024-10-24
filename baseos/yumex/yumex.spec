@@ -7,7 +7,7 @@
 
 Name:     %{app_name}
 Version:  5.0.3
-Release:  16.git.%{shortcommit}%{?dist}
+Release:  17.git.%{shortcommit}%{?dist}
 Summary:  Yum Extender graphical package management tool
 
 Group:    Applications/System

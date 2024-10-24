@@ -1,13 +1,20 @@
-%define commit 12ebba1bea5006aaa0493d4d9e5d1ba1fe434ac1
-%define tag 1.1.1
+# Define the manual commit as a fallback
+%define manual_commit 13aed4b4458276f2db5e81f62af180bf8b4e2bf0
+
+# Optionally define the tag
+%define tag 1.1.3
+# Check if tag is defined and get the commit hash for the tag, otherwise use manual commit
+%{!?tag: %global commit %{manual_commit}}
+%{?tag: %global commit %(git rev-list -n 1 %{tag} 2>/dev/null || echo %{manual_commit})}
+
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 %global build_timestamp %(date +"%Y%m%d")
 
-%global rel_build 1.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 5.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           umu-launcher
-Version:        1.1.1
+Version:        1.1.3
 Release:        %{rel_build}
 Summary:        A tool for launching non-steam games with proton
 
@@ -41,7 +48,8 @@ Requires:	python3-filelock
 %prep
 git clone --single-branch --branch main https://github.com/Open-Wine-Components/umu-launcher.git
 cd umu-launcher
-git checkout %{tag}
+#git checkout %{tag}
+git checkout %{manual_commit}
 git submodule update --init --recursive
 
 %build
@@ -60,4 +68,3 @@ make DESTDIR=%{buildroot} PYTHONDIR=%{python3_sitelib} install
 %{python3_sitelib}/umu*
 
 %changelog
-
