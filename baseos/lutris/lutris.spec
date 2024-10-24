@@ -1,11 +1,11 @@
-%define commit a0e60fe2c1f80aba9c482f1416db593111cb2740
-%define shortcommit a0e60fe
+%define commit e74820a20cd2b49e7de2fb9291291ae191021a7d
+%define shortcommit e74820a
 %global appid net.lutris.Lutris
 %define debug_package %{nil}
 
 Name:           lutris
 Version:        0.5.17
-Release:        5.git.%{shortcommit}%{?dist}
+Release:        10.git.%{shortcommit}%{?dist}
 Summary:        Video game preservation platform
 
 License:        GPL-3.0+
@@ -21,6 +21,7 @@ Requires:       hicolor-icon-theme
 Requires:       gnome-desktop3
 Requires:       python3-distro
 Requires:       python3-cairo
+Requires:       umu-launcher
 
 # Tests
 BuildRequires:  python3dist(pytest)

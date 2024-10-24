@@ -1,6 +1,6 @@
 Name:           jupiter-hw-support
 Version:        0.0.git.1256.484fa801
-Release:        28%{?dist}
+Release:        29%{?dist}
 Summary:        Steam Deck Hardware Support Package
 License:        MIT
 URL:            https://github.com/nobara-project/steamdeck-edition-packages
@@ -22,6 +22,7 @@ Requires:       parted
 Requires:       e2fsprogs
 Requires:       f3
 Requires:       jupiter-fan-control
+Requires:       gamescope-session-common
 Requires:       gamescope-htpc-common
 Requires:       gamescope-handheld-common
 
@@ -32,12 +33,17 @@ BuildRequires:  sed
 %description
 SteamOS 3.0 Steam Deck Hardware Support Package
 
+%package -n gamescope-session-common
+Summary: Gamescope Session required files
+%description -n gamescope-session-common
+
 %package -n gamescope-htpc-common
-Summary: SteamOS 3.0 common required files
+Requires: gamescope-session-common
+Summary: SteamOS HTPC experience required files
 %description -n gamescope-htpc-common
 
 %package -n gamescope-handheld-common
-Summary: SteamOS 3.0 handheld required files
+Summary: SteamOS Handheld experience required files
 Requires: gamescope-htpc-common
 %description -n gamescope-handheld-common
 
@@ -138,7 +144,7 @@ grub2-mkconfig -o /boot/grub2/grub.cfg
 %{_datadir}/jupiter_controller_fw_updater
 %{_presetdir}/96-jupiter-hw-support.preset
 
-%files -n gamescope-htpc-common
+%files -n gamescope-session-common
 %{_bindir}/steamos-polkit-helpers/steamos-devkit-mode
 %{_bindir}/steamos-polkit-helpers/steamos-disable-wireless-power-management
 %{_bindir}/steamos-polkit-helpers/steamos-enable-sshd
@@ -154,16 +160,18 @@ grub2-mkconfig -o /boot/grub2/grub.cfg
 %{_bindir}/steamos-polkit-helpers/steamos-set-hostname
 %{_bindir}/steamos-polkit-helpers/steamos-set-timezone
 %{_bindir}/steamos-polkit-helpers/steamos-update
-%{_prefix}/lib/hwsupport/power-button-handler.py
 %{_prefix}/lib/udev/rules.d/80-gpu-reset.rules
 %{_prefix}/lib/udev/rules.d/99-power-button.rules
 %{_libexecdir}/format-device
 %{_libexecdir}/trim-devices
 %{_datadir}/icons
-%{_datadir}/plymouth
 %{_datadir}/steamos
 %{_datadir}/polkit-1/rules.d/*
 %{_datadir}/polkit-1/actions/*
+
+%files -n gamescope-htpc-common
+%{_prefix}/lib/hwsupport/power-button-handler.py
+%{_datadir}/plymouth
 
 %files -n gamescope-handheld-common
 %{_sysconfdir}/systemd/system/steamos-automount@.service

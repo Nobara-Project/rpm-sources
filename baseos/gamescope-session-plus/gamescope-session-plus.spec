@@ -1,5 +1,5 @@
 Name:           gamescope-session-plus
-Version:        0.3.214
+Version:        0.3.215
 Release:        git.d8ab829%{?dist}
 Summary:        Gamescope session plus based on Valve's gamescope
 
@@ -14,6 +14,7 @@ Requires:       python3
 Requires:       pulseaudio-utils
 Requires:       steam
 Requires:       gamescope-session-steam
+Requires:       gamescope-session-common
 Requires:       steam-powerbuttond
 Requires:       deckyloader
 

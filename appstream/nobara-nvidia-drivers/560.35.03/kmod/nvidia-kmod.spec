@@ -5,7 +5,7 @@
 
 Name:           nvidia-kmod
 Version:        560.35.03
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        NVIDIA display driver kernel module
 Epoch:          4
 License:        NVIDIA License
@@ -14,7 +14,7 @@ ExclusiveArch:  x86_64 aarch64
 
 Source0:        %{name}-%{version}-x86_64.tar.xz
 Source1:        %{name}-%{version}-aarch64.tar.xz
-Patch0:         0001-simpledrm-nvidia-drm-override.patch
+Patch0:         0001-Make-modeset-and-fbdev-default-enabled.patch
 Patch1:         6.11-fbdev.patch
 
 # Get the needed BuildRequires (in parts depending on what we build for):

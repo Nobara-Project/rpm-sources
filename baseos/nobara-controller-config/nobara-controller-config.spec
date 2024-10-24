@@ -1,7 +1,7 @@
 Summary: A set of scripts to run upon first user login
 Name: nobara-controller-config
 Version: 1.0
-Release: 18%{?dist}
+Release: 19%{?dist}
 License: Public Domain
 Source0: 50-razer-wolverine-v2-pro.rules
 Source1: 60-xbox-pads.rules
