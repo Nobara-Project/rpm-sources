@@ -3,7 +3,7 @@
 Summary:        Nobara package repositories
 Name:           nobara-repos
 Version:        40
-Release:        3%{?eln:.eln%{eln}}
+Release:        4%{?eln:.eln%{eln}}
 License:        MIT
 URL:            https://fedoraproject.org/
 
