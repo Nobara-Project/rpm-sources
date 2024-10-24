@@ -4,7 +4,7 @@
 
 Name:           dkms-%{dkms_name}
 Version:        560.35.03
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        NVIDIA display driver kernel module
 Epoch:          4
 License:        NVIDIA License
@@ -16,7 +16,7 @@ Source0:        %{dkms_name}-kmod-%{version}-x86_64.tar.xz
 Source1:        %{dkms_name}-kmod-%{version}-aarch64.tar.xz
 Source2:        %{name}.conf
 Source3:        dkms-no-weak-modules.conf
-Patch0:         0001-simpledrm-nvidia-drm-override.patch
+Patch0:         0001-Make-modeset-and-fbdev-default-enabled.patch
 Patch1:         6.11-fbdev.patch
 
 BuildRequires:  sed

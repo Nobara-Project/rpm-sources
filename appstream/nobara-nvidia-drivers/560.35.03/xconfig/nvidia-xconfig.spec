@@ -1,6 +1,6 @@
 Name:           nvidia-xconfig
 Version:        560.35.03
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        NVIDIA X configuration file editor
 Epoch:          4
 License:        GPLv2+
