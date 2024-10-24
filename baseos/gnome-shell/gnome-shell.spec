@@ -12,7 +12,7 @@
 %global major_version %%(cut -d "." -f 1 <<<%{tarball_version})
 
 Name:           gnome-shell
-Version:        46.5
+Version:        46.6
 Release:        %autorelease
 Summary:        Window management and application launching for GNOME
 
