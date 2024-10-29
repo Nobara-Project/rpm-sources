@@ -23,7 +23,7 @@
 %global tarball_version %%(echo %{version} | tr '~' '.')
 
 Name:          mutter
-Version:       46.5
+Version:       46.6
 Release:       %autorelease
 Summary:       Window and compositing manager based on Clutter
 
