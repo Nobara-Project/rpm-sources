@@ -2,7 +2,7 @@
 %define debug_package %{nil}
 
 Name:           kde-steamdeck-additions
-Version:        6.2.0
+Version:        6.2.2
 Release:        1%{?dist}
 Summary:        SteamOS Nested Desktop + "Add to Steam" right-click services
 License:        GPLv2
