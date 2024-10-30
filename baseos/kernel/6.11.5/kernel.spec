@@ -1092,8 +1092,6 @@ Patch605: 0001-Revert-PCI-Add-a-REBAR-size-quirk-for-Sapphire-RX-56.patch
 # https://github.com/KarsMulder/Linux-Pollrate-Patch
 # https://gitlab.com/GloriousEggroll/nobara-images/-/issues/64
 Patch701: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
-# Also set the PScontroller bluetooth polling rate to 1000Hz
-Patch702: set-ps4-bt-poll-rate-1000hz.patch
 # Add xpadneo as patch instead of using dkms module
 Patch703: 0001-Add-xpadneo-bluetooth-hid-driver-module.patch
 
@@ -2010,8 +2008,6 @@ ApplyOptionalPatch 0001-Revert-PCI-Add-a-REBAR-size-quirk-for-Sapphire-RX-56.pat
 # https://github.com/KarsMulder/Linux-Pollrate-Patch
 # https://gitlab.com/GloriousEggroll/nobara-images/-/issues/64
 ApplyOptionalPatch 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
-# Also set the PScontroller bluetooth polling rate to 1000Hz
-ApplyOptionalPatch set-ps4-bt-poll-rate-1000hz.patch
 # Add xpadneo as patch instead of using dkms module
 ApplyOptionalPatch 0001-Add-xpadneo-bluetooth-hid-driver-module.patch
 
