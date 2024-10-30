@@ -1,6 +1,6 @@
 Name:           jupiter-hw-support
 Version:        0.0.git.1256.484fa801
-Release:        29%{?dist}
+Release:        30%{?dist}
 Summary:        Steam Deck Hardware Support Package
 License:        MIT
 URL:            https://github.com/nobara-project/steamdeck-edition-packages
@@ -70,6 +70,7 @@ mkdir -p %{buildroot}%{_libexecdir}/
 mkdir -p %{buildroot}%{_sysconfdir}/
 mkdir -p %{buildroot}%{_prefix}/lib/hwsupport/
 mkdir -p %{buildroot}%{_prefix}/lib/jupiter-dock-updater/
+mkdir -p %{buildroot}%{_sysconfdir}/skel/.config/autostart/
 install -m 644 %{_builddir}/96-jupiter-hw-support.preset %{buildroot}%{_presetdir}/
 cp -rv usr/share/* %{buildroot}%{_datadir}
 cp -rv usr/lib/systemd/system/* %{buildroot}%{_unitdir}/
@@ -172,6 +173,7 @@ grub2-mkconfig -o /boot/grub2/grub.cfg
 %files -n gamescope-htpc-common
 %{_prefix}/lib/hwsupport/power-button-handler.py
 %{_datadir}/plymouth
+%{_sysconfdir}/skel/.config/autostart/steam.desktop
 
 %files -n gamescope-handheld-common
 %{_sysconfdir}/systemd/system/steamos-automount@.service
