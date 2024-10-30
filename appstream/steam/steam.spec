@@ -4,8 +4,8 @@
 %global appstream_id com.valvesoftware.Steam
 
 Name:           steam
-Version:        1.0.0.79
-Release:        11%{?dist}
+Version:        1.0.0.81
+Release:        1%{?dist}
 Summary:        Installer for the Steam software distribution service
 # Redistribution and repackaging for Linux is allowed, see license file. udev rules are MIT.
 License:        Steam License Agreement and MIT
@@ -21,6 +21,7 @@ Source5:        README.Fedora
 # https://github.com/ValveSoftware/steam-for-linux/issues/3384
 # https://bugzilla.kernel.org/show_bug.cgi?id=28912
 # https://github.com/denilsonsa/udev-joystick-blacklist
+# https://github.com/systemd/systemd/issues/32773
 
 # Input devices seen as joysticks:
 Source6:        https://raw.githubusercontent.com/denilsonsa/udev-joystick-blacklist/master/after_kernel_4_9/51-these-are-not-joysticks-rm.rules
@@ -32,16 +33,11 @@ Source7:        01-steam.conf
 Source8:        https://raw.githubusercontent.com/ValveSoftware/steam-devices/master/60-steam-input.rules
 Source9:        https://raw.githubusercontent.com/ValveSoftware/steam-devices/master/60-steam-vr.rules
 
-# Provide alternative icon for Remote Play
-Source10:       remote-play.svg
-
 # Steam Restart script
 Source11:       steamrestart.sh
 
 # Do not install desktop file in lib/steam, do not install apt sources
 Patch0:         %{name}-makefile.patch
-# Copy desktop shortcut from /usr/share/applications, not /usr/lib/steam/
-Patch1:         %{name}-icon-desktop.patch
 
 # Nobara changes
 Patch2:         nobara-changes.patch
@@ -113,6 +109,13 @@ Requires:       libatomic%{?_isa}
 Requires:       (alsa-plugins-pulseaudio%{?_isa} if pulseaudio)
 Requires:       (pipewire-alsa%{?_isa} if pipewire)
 
+# Patched for Wayland
+# https://github.com/ValveSoftware/steam-for-linux/issues/8853
+# https://github.com/negativo17/steam/issues/9
+%if 0%{?fedora} >= 40
+Requires:       SDL2%{?_isa}
+%endif
+
 # Game performance is increased with gamemode (for games that support it)
 Recommends:     gamemode
 Recommends:     gamemode%{?_isa}
@@ -122,6 +125,13 @@ Recommends:     (gnome-shell-extension-appindicator if gnome-shell)
 Requires:       xdg-desktop-portal
 Recommends:     (xdg-desktop-portal-gtk if gnome-shell)
 Recommends:     (xdg-desktop-portal-kde if kwin)
+
+# Prevent log spam when thse are not pulled in as dependencies of full desktops
+Recommends:     dbus-x11
+Recommends:     xdg-user-dirs
+
+# Allow using Steam Runtime Launch Options
+Recommends:     gobject-introspection
 
 Requires:       steam-devices = %{?epoch:%{epoch}:}%{version}-%{release}
 
@@ -181,21 +191,6 @@ install -m 775 -p %{SOURCE11} %{buildroot}%{_bindir}/steamrestart
 # https://github.com/ValveSoftware/steam-for-linux/issues/8179
 sed -i 's|PrefersNonDefaultGPU=true|PrefersNonDefaultGPU=false|g' %{buildroot}%{_datadir}/applications/%{name}.desktop
 
-# Use steamdeck interface
-sed -i 's|Exec=.*|Exec=/usr/bin/steam %U|g' %{buildroot}%{_datadir}/applications/%{name}.desktop
-
-# Add host remote play shortcut with -pipewire for wayland compatibility
-mkdir -p %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/
-mkdir -p %{buildroot}%{_sysconfdir}/skel/Desktop/
-cp %{SOURCE10} %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/
-cp %{buildroot}%{_datadir}/applications/%{name}.desktop %{buildroot}%{_sysconfdir}/skel/Desktop/%{name}.desktop
-
-cp %{buildroot}%{_datadir}/applications/%{name}.desktop %{buildroot}%{_datadir}/applications/RemoteHost.desktop
-sed -i 's|Icon=steam|Icon=remote-play|g' %{buildroot}%{_datadir}/applications/RemoteHost.desktop
-sed -i 's|Exec=.*|Exec=/usr/bin/steamrestart \&\& /usr/bin/steam -pipewire %U|g' %{buildroot}%{_datadir}/applications/RemoteHost.desktop
-sed -i 's|Name=.*|Name=Host Remote Play|g' %{buildroot}%{_datadir}/applications/RemoteHost.desktop
-cp %{buildroot}%{_datadir}/applications/RemoteHost.desktop %{buildroot}%{_sysconfdir}/skel/Desktop/RemoteHost.desktop
-
 %check
 desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop
 appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/%{appstream_id}.metainfo.xml
@@ -206,13 +201,10 @@ appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/%{appstream_id
 %{_bindir}/%{name}
 %{_bindir}/steamrestart
 %{_datadir}/applications/%{name}.desktop
-%{_datadir}/applications/RemoteHost.desktop
 %{_datadir}/icons/hicolor/*/apps/%{name}.png
-%{_datadir}/icons/hicolor/scalable/apps/remote-play.svg
 %{_datadir}/pixmaps/%{name}.png
 %{_datadir}/pixmaps/%{name}_tray_mono.png
 %{_libdir}/%{name}/
-%{_sysconfdir}/skel/Desktop/*
 %{_mandir}/man6/%{name}.*
 %{_metainfodir}/%{appstream_id}.metainfo.xml
 %config(noreplace) %{_sysconfdir}/profile.d/%{name}.*sh
@@ -225,6 +217,27 @@ appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/%{appstream_id
 %{_udevrulesdir}/*
 
 %changelog
+* Sun Sep 01 2024 Simone Caronni <negativo17@gmail.com> - 1.0.0.81-1
+- Update to 1.0.0.81.
+
+* Mon Aug 05 2024 Simone Caronni <negativo17@gmail.com> - 1.0.0.79-7
+- Fix for Wayland on Fedora 40.
+
+* Sat Aug 03 2024 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 1.0.0.79-6
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_41_Mass_Rebuild
+
+* Mon Jun 24 2024 Simone Caronni <negativo17@gmail.com> - 1.0.0.79-5
+- Update udev rules.
+- Convert udev rule for blocking wrong joystick devices to a systemd hwdb file:
+  https://github.com/denilsonsa/udev-joystick-blacklist/issues/58
+
+* Tue May 28 2024 Simone Caronni <negativo17@gmail.com> - 1.0.0.79-4
+- Add dependencies when full desktop is not installed.
+- Add dependencies for using steam-runtime-launch-options.
+
+* Tue Mar 19 2024 Simone Caronni <negativo17@gmail.com> - 1.0.0.79-3
+- Adjust dependencies.
+
 * Sun Feb 18 2024 Simone Caronni <negativo17@gmail.com> - 1.0.0.79-2
 - Re-add gnome-shell-extension-appindicator recommendation.
 
