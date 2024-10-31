@@ -22,7 +22,6 @@
 %global with_r600 1
 %global with_nine 1
 %global with_nvk %{with vulkan_hw}
-%global with_omx 1
 %global with_opencl 1
 %endif
 %global base_vulkan ,amd
@@ -76,7 +75,7 @@
 
 Name:           mesa
 Summary:        Mesa graphics libraries
-%global ver 24.2.5
+%global ver 24.2.6
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
@@ -148,9 +147,6 @@ BuildRequires:  pkgconfig(vdpau) >= 1.1
 %if 0%{?with_va}
 BuildRequires:  pkgconfig(libva) >= 0.38.0
 %endif
-%if 0%{?with_omx}
-BuildRequires:  pkgconfig(libomxil-bellagio)
-%endif
 BuildRequires:  pkgconfig(libelf)
 BuildRequires:  pkgconfig(libglvnd) >= 1.3.2
 BuildRequires:  llvm-devel >= 7.0.0
@@ -199,6 +195,7 @@ BuildRequires:  pkgconfig(vulkan)
 %package filesystem
 Summary:        Mesa driver filesystem
 Provides:       mesa-dri-filesystem = %{?epoch:%{epoch}:}%{version}-%{release}
+Obsoletes:      mesa-omx-drivers < %{?epoch:%{epoch}:}%{version}-%{release}
 
 %description filesystem
 %{summary}.
@@ -254,15 +251,6 @@ Recommends:     %{name}-va-drivers%{?_isa}
 
 %description dri-drivers
 %{summary}.
-
-%if 0%{?with_omx}
-%package omx-drivers
-Summary:        Mesa-based OMX drivers
-Requires:       %{name}-filesystem%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
-
-%description omx-drivers
-%{summary}.
-%endif
 
 %if 0%{?with_va}
 %package        va-drivers
@@ -430,7 +418,6 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
   -Dgallium-drivers=swrast,virgl \
 %endif
   -Dgallium-vdpau=%{?with_vdpau:enabled}%{!?with_vdpau:disabled} \
-  -Dgallium-omx=%{?with_omx:bellagio}%{!?with_omx:disabled} \
   -Dgallium-va=%{?with_va:enabled}%{!?with_va:disabled} \
   -Dgallium-xa=%{?with_xa:enabled}%{!?with_xa:disabled} \
   -Dgallium-nine=%{?with_nine:true}%{!?with_nine:false} \
@@ -700,11 +687,6 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-mesa-defaults.conf
 %{_libdir}/dri/udl_dri.so
 %{_libdir}/dri/vkms_dri.so
 %{_libdir}/dri/zynqmp-dpsub_dri.so
-%endif
-
-%if 0%{?with_omx}
-%files omx-drivers
-%{_libdir}/bellagio/libomx_mesa.so
 %endif
 
 %if 0%{?with_va}
