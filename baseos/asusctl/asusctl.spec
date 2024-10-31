@@ -22,12 +22,12 @@
 
 %define specrelease %{?dist}
 %define pkg_release 3%{specrelease}
-%define vendor_upload_hash 9ed4417d95f99585d013a27d2aa6dce7
+%define vendor_upload_hash 386fd37e8a3185dba7ec57dacdb025fc
 
 # Use hardening ldflags.
 %global rustflags -Clink-arg=-Wl,-z,relro,-z,now
 Name:           asusctl
-Version:        6.0.10
+Version:        6.0.12
 Release: %{pkg_release}
 Summary:        Control fan speeds, LEDs, graphics modes, and charge levels for ASUS notebooks
 License:        MPLv2
@@ -36,7 +36,7 @@ Group:          System Environment/Kernel
 
 URL:            https://gitlab.com/asus-linux/asusctl
 Source:         %{URL}/-/archive/%{version}/%{name}-%{version}.tar.gz
-Source1:        %{URL}/uploads/%{vendor_upload_hash}/vendor_%{name}_%{version}.tar.xz
+Source1:        https://gitlab.com/-/project/20328305/uploads/%{vendor_upload_hash}/vendor_%{name}_%{version}.tar.xz
 Source2:        cargo-config
 
 BuildRequires:  cargo
@@ -85,13 +85,14 @@ a notification service, and ability to run in the background.
 mv Cargo.lock{,.bak}
 %cargo_prep
 mv Cargo.lock{.bak,}
-sed -i 's|replace-with = "local-registry"|replace-with = "vendored-sources"|' .cargo/config
-cat %{SOURCE2} >> .cargo/config
+sed -i 's|replace-with = "local-registry"|replace-with = "vendored-sources"|' .cargo/config.toml
+cat %{SOURCE2} >> .cargo/config.toml
 
 %build
 export RUSTFLAGS="%{rustflags}"
 %cargo_build
-#cargo build --release --frozen --offline --config .cargo/config.toml
+# cargo build --release --frozen --offline --config .cargo/config.toml
+# %make
 
 %install
 export RUSTFLAGS="%{rustflags}"
@@ -114,7 +115,7 @@ cp %{buildroot}%{_datadir}/applications/rog-control-center.desktop %{buildroot}%
 %{_unitdir}/asusd.service
 %{_userunitdir}/asusd-user.service
 %{_udevrulesdir}/99-asusd.rules
-#%dir %{_sysconfdir}/asusd/
+# %dir %{_sysconfdir}/asusd/
 %{_datadir}/asusd/aura_support.ron
 %{_datadir}/dbus-1/system.d/asusd.conf
 %{_datadir}/icons/hicolor/512x512/apps/asus_notif_yellow.png
