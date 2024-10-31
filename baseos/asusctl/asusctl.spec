@@ -21,7 +21,7 @@
 %endif
 
 %define specrelease %{?dist}
-%define pkg_release 3%{specrelease}
+%define pkg_release 4%{specrelease}
 %define vendor_upload_hash 386fd37e8a3185dba7ec57dacdb025fc
 
 # Use hardening ldflags.
