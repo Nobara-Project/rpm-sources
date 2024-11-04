@@ -1044,17 +1044,16 @@ Patch304: asus-linux.patch
 # rog ally/x
 Patch305: asus-patch-series.patch
 Patch306: ROG-ALLY-NCT6775-PLATFORM.patch
-Patch307: 0001-Bluetooth-btusb-Add-2-USB-HW-IDs-for-MT7925-0xe118-e.patch
 # ayaneo
-Patch308: bmi160_ayaneo.patch
+Patch307: bmi160_ayaneo.patch
 # minisforum v3
-Patch309: amd-tablet-sfh.patch
+Patch308: amd-tablet-sfh.patch
 # Legion laptops
-Patch310: lenovo-legion-laptop.patch
+Patch309: lenovo-legion-laptop.patch
 # Logitech wheel
-Patch311: ps-logitech-wheel.patch
+Patch310: ps-logitech-wheel.patch
 # t2 macbooks
-Patch312: t2linux.patch
+Patch311: t2linux.patch
 
 # CachyOS: https://github.com/CachyOS/kernel-patches
 Patch400: 0008-ntsync.patch
@@ -1082,7 +1081,8 @@ Patch601: amdgpu-HAINAN-variant-fixup.patch
 Patch602: 0000-amd-clock-power-fixup.patch
 Patch603: 0003-drm-amdgpu-swsmu-default-to-fullscreen-3D-profile-fo.patch
 Patch604: 0004-drm-amdgpu-swsmu-add-automatic-parameter-to-set_soft_freq_range.patch
-Patch605: 0001-Revert-PCI-Add-a-REBAR-size-quirk-for-Sapphire-RX-56.patch
+Patch605: 0001-drm-amdgpu-smu13-fix-profile-reporting.patch
+Patch606: 0001-Revert-PCI-Add-a-REBAR-size-quirk-for-Sapphire-RX-56.patch
 
 # Nobara
 # Allow to set custom USB pollrate for specific devices like so:
@@ -1959,7 +1959,6 @@ ApplyOptionalPatch asus-linux.patch
 # rog ally/x
 ApplyOptionalPatch asus-patch-series.patch
 ApplyOptionalPatch ROG-ALLY-NCT6775-PLATFORM.patch
-ApplyOptionalPatch 0001-Bluetooth-btusb-Add-2-USB-HW-IDs-for-MT7925-0xe118-e.patch
 # ayaneo
 ApplyOptionalPatch bmi160_ayaneo.patch
 # minisforum v3
@@ -1997,6 +1996,7 @@ ApplyOptionalPatch amdgpu-HAINAN-variant-fixup.patch
 ApplyOptionalPatch 0000-amd-clock-power-fixup.patch
 ApplyOptionalPatch 0003-drm-amdgpu-swsmu-default-to-fullscreen-3D-profile-fo.patch
 ApplyOptionalPatch 0004-drm-amdgpu-swsmu-add-automatic-parameter-to-set_soft_freq_range.patch
+ApplyOptionalPatch 0001-drm-amdgpu-smu13-fix-profile-reporting.patch
 ApplyOptionalPatch 0001-Revert-PCI-Add-a-REBAR-size-quirk-for-Sapphire-RX-56.patch
 
 # Nobara
