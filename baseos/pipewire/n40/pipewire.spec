@@ -1,6 +1,6 @@
 %global majorversion 1
 %global minorversion 2
-%global microversion 1
+%global microversion 6
 
 %global apiversion   0.3
 %global spaversion   0.2
@@ -9,7 +9,7 @@
 %global ms_version   0.4.2
 
 # For rpmdev-bumpspec and releng automation
-%global baserelease 2
+%global baserelease 1
 
 #global snapdate   20210107
 #global gitcommit  b17db2cebc1a5ab2c01851d29c05f79cd2f262bb
@@ -137,6 +137,8 @@ Requires:       rtkit
 Requires:       pipewire-session-manager
 # Prefer WirePlumber for session manager
 Suggests:       wireplumber
+# Bring in libcamera plugin for MIPI / complex camera support
+Recommends:     pipewire-plugin-libcamera
 
 %description
 PipeWire is a multimedia server for Linux and other Unix like operating
@@ -211,6 +213,9 @@ Summary:        PipeWire JACK implementation libraries
 License:        MIT
 Recommends:     %{name}%{?_isa} = %{version}-%{release}
 Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
+%if 0%{?rhel}
+Requires:       %{name}-jack-audio-connection-kit%{?_isa} = %{version}-%{release}
+%endif
 # Fixed jack subpackages
 Conflicts:      %{name}-libjack < 0.3.13-6
 Conflicts:      %{name}-jack-audio-connection-kit < 0.3.13-6
@@ -405,6 +410,25 @@ Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
 This package contains the mysofa support for PipeWire filter-chain.
 %endif
 
+%package config-rates
+Summary:        PipeWire media server multirate configuration
+License:        MIT
+Recommends:     %{name}%{?_isa} = %{version}-%{release}
+Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
+
+%description config-rates
+This package contains the configuration files to support multiple
+sample rates.
+
+%package config-upmix
+Summary:        PipeWire media server upmixing configuration
+License:        MIT
+Recommends:     %{name}%{?_isa} = %{version}-%{release}
+Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
+
+%description config-upmix
+This package contains the configuration files to support upmixing.
+
 
 %prep
 %autosetup -p1 %{?snapdate:-n %{name}-%{gitcommit}}
@@ -447,6 +471,8 @@ install -p -D -m 0644 %{SOURCE1} %{buildroot}%{_sysusersdir}/pipewire.conf
 
 # Own this directory so add-ons can use it
 install -d -m 0755 %{buildroot}%{_datadir}/pipewire/pipewire.conf.d/
+install -d -m 0755 %{buildroot}%{_datadir}/pipewire/client.conf.d/
+install -d -m 0755 %{buildroot}%{_datadir}/pipewire/client-rt.conf.d/
 
 %if %{with jack}
 mkdir -p %{buildroot}%{_sysconfdir}/ld.so.conf.d/
@@ -476,7 +502,23 @@ rm %{buildroot}%{_datadir}/pipewire/pipewire-pulse.conf
 %if %{with pulse}
 # Own this directory so add-ons can use it
 install -d -m 0755 %{buildroot}%{_datadir}/pipewire/pipewire-pulse.conf.d/
+
+ln -s ../pipewire-pulse.conf.avail/20-upmix.conf \
+		%{buildroot}%{_datadir}/pipewire/pipewire-pulse.conf.d/20-upmix.conf
 %endif
+
+# rates config
+ln -s ../pipewire.conf.avail/10-rates.conf \
+		%{buildroot}%{_datadir}/pipewire/pipewire.conf.d/10-rates.conf
+
+# upmix config
+ln -s ../pipewire.conf.avail/20-upmix.conf \
+		%{buildroot}%{_datadir}/pipewire/pipewire.conf.d/20-upmix.conf
+ln -s ../client.conf.avail/20-upmix.conf \
+		%{buildroot}%{_datadir}/pipewire/client.conf.d/20-upmix.conf
+ln -s ../client-rt.conf.avail/20-upmix.conf \
+		%{buildroot}%{_datadir}/pipewire/client-rt.conf.d/20-upmix.conf
+
 
 %find_lang %{name}
 
@@ -593,11 +635,13 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 %{_libdir}/spa-%{spaversion}/v4l2/
 %{_libdir}/spa-%{spaversion}/videoconvert/
 %{_datadir}/pipewire/client.conf
+%dir %{_datadir}/pipewire/client.conf.d/
 %{_datadir}/pipewire/client.conf.avail/20-upmix.conf
 %{_datadir}/pipewire/client-rt.conf
+%dir %{_datadir}/pipewire/client-rt.conf.d/
 %{_datadir}/pipewire/client-rt.conf.avail/20-upmix.conf
 %{_mandir}/man5/pipewire-client.conf.5.gz
-%{_mandir}/man7/pipewire-devices.7.gz
+%{_mandir}/man7/pipewire-props.7.gz
 %{_mandir}/man7/libpipewire-module-access.7.gz
 %{_mandir}/man7/libpipewire-module-adapter.7.gz
 %{_mandir}/man7/libpipewire-module-avb.7.gz
@@ -832,7 +876,35 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 %{_libdir}/pipewire-%{apiversion}/libpipewire-module-filter-chain-lv2.so
 %endif
 
+%files config-rates
+%{_datadir}/pipewire/pipewire.conf.d/10-rates.conf
+
+%files config-upmix
+%{_datadir}/pipewire/pipewire.conf.d/20-upmix.conf
+%{_datadir}/pipewire/client.conf.d/20-upmix.conf
+%{_datadir}/pipewire/client-rt.conf.d/20-upmix.conf
+%if %{with pulse}
+%{_datadir}/pipewire/pipewire-pulse.conf.d/20-upmix.conf
+%endif
+
 %changelog
+* Wed Oct 23 2024 Wim Taymans <wtaymans@redhat.com> - 1.2.6-1
+- Update version to 1.2.6
+
+* Fri Sep 27 2024 Wim Taymans <wtaymans@redhat.com> - 1.2.5-1
+- Update version to 1.2.5
+- Add config packages
+
+* Thu Sep 19 2024 Wim Taymans <wtaymans@redhat.com> - 1.2.4-1
+- Update version to 1.2.4
+- Add Recommends: pipewire-plugin-libcamera for MIPI camera support
+
+* Thu Aug 22 2024 Wim Taymans <wtaymans@redhat.com> - 1.2.3-1
+- Update version to 1.2.3
+
+* Sun Aug 04 2024 Yaakov Selkowitz <yselkowi@redhat.com> - 1.2.1-3
+- pipewire-jack-libs Requires pipewire-jack on RHEL
+
 * Fri Jul 19 2024 Fedora Release Engineering <releng@fedoraproject.org> - 1.2.1-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_41_Mass_Rebuild
 
