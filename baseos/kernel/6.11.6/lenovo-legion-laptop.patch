@@ -15,10 +15,10 @@ diff --git a/drivers/platform/x86/Kconfig b/drivers/platform/x86/Kconfig
 index 49c2c4cd8..b7d70c20e 100644
 --- a/drivers/platform/x86/Kconfig
 +++ b/drivers/platform/x86/Kconfig
-@@ -643,6 +643,16 @@ config THINKPAD_LMI
+@@ -667,6 +667,16 @@
  	  To compile this driver as a module, choose M here: the module will
  	  be called think-lmi.
- 
+
 +config LEGION_LAPTOP
 +	tristate "Lenovo Legion Laptop Extras"
 +	depends on ACPI
@@ -30,20 +30,20 @@ index 49c2c4cd8..b7d70c20e 100644
 +	  hotkey, fan control, and power mode.
 +
  source "drivers/platform/x86/intel/Kconfig"
- 
- config MSI_EC
+
+ config ACPI_QUICKSTART
 diff --git a/drivers/platform/x86/Makefile b/drivers/platform/x86/Makefile
 index 52dfdf574..5f32dd9df 100644
 --- a/drivers/platform/x86/Makefile
 +++ b/drivers/platform/x86/Makefile
-@@ -65,6 +65,7 @@ obj-$(CONFIG_LENOVO_YMC)	+= lenovo-ymc.o
+@@ -66,6 +66,7 @@
  obj-$(CONFIG_SENSORS_HDAPS)	+= hdaps.o
  obj-$(CONFIG_THINKPAD_ACPI)	+= thinkpad_acpi.o
  obj-$(CONFIG_THINKPAD_LMI)	+= think-lmi.o
 +obj-$(CONFIG_LEGION_LAPTOP)	+= legion-laptop.o
  obj-$(CONFIG_YOGABOOK)		+= lenovo-yogabook.o
- 
- # Intel
+ obj-$(CONFIG_YT2_1380)		+= lenovo-yoga-tab2-pro-1380-fastcharger.o
+ obj-$(CONFIG_LENOVO_WMI_CAMERA)	+= lenovo-wmi-camera.o
 diff --git a/drivers/platform/x86/legion-laptop.c b/drivers/platform/x86/legion-laptop.c
 new file mode 100644
 index 000000000..5ec0a518f
@@ -6106,7 +6106,7 @@ index 000000000..5ec0a518f
 +
 +static struct platform_driver legion_driver = {
 +	.probe = legion_add,
-+	.remove_new = legion_remove,
++	.remove = legion_remove,
 +	.resume = legion_resume,
 +	.driver = {
 +		.name   = "legion",
@@ -6138,6 +6138,3 @@ index 000000000..5ec0a518f
 +}
 +
 +module_exit(legion_exit);
--- 
-2.43.2
-

@@ -164,13 +164,13 @@ Summary: The Linux kernel
 %define specrpmversion 6.11.6
 %define specversion 6.11.6
 %define patchversion 6.11
-%define pkgrelease 201
+%define pkgrelease 202
 %define kversion 6
 %define tarfile_release 6.11.6
 # This is needed to do merge window version magic
 %define patchlevel 11
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease 201%{?buildid}%{?dist}
+%define specrelease 202%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 6.11.6
 
@@ -1048,8 +1048,8 @@ Patch306: ROG-ALLY-NCT6775-PLATFORM.patch
 Patch307: bmi160_ayaneo.patch
 # minisforum v3
 Patch308: amd-tablet-sfh.patch
-# Legion laptops
-Patch309: lenovo-legion-laptop.patch
+# Legion laptops - disabled to test ASUS-wmi breakage
+# Patch309: lenovo-legion-laptop.patch
 # Logitech wheel
 Patch310: ps-logitech-wheel.patch
 # t2 macbooks
@@ -1963,8 +1963,8 @@ ApplyOptionalPatch ROG-ALLY-NCT6775-PLATFORM.patch
 ApplyOptionalPatch bmi160_ayaneo.patch
 # minisforum v3
 ApplyOptionalPatch amd-tablet-sfh.patch
-# Legion laptops
-ApplyOptionalPatch lenovo-legion-laptop.patch
+# Legion laptops - disabled to test ASUS-wmi breakage
+# ApplyOptionalPatch lenovo-legion-laptop.patch
 # Logitech wheel
 ApplyOptionalPatch ps-logitech-wheel.patch
 # t2 macbooks
