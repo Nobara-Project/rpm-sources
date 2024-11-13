@@ -1,7 +1,7 @@
 %global libliftoff_minver 0.4.1
 
 # latest git
-%define commit cc28cd7e2ed1c254db2787be7fff01d0028e6007
+%define commit 7dd1bcd9102a17e039970ccd9a324a9fe8365d6d
 
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global _default_patch_fuzz 2
@@ -10,7 +10,7 @@
 %global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           gamescope
-Version:        3.15.12
+Version:        3.15.14
 Release:        %{rel_build}
 Summary:        Micro-compositor for video games on Wayland
 
@@ -34,7 +34,7 @@ Patch1:         chimeraos.patch
 #Patch4:         1335.patch
 
 # https://github.com/ValveSoftware/gamescope/pull/1231
-Patch5:         1231.patch
+#Patch5:         1231.patch
 
 
 BuildRequires:  meson >= 0.54.0
@@ -74,6 +74,7 @@ BuildRequires:  (pkgconfig(libliftoff) >= 0.4.1 with pkgconfig(libliftoff) < 0.5
 BuildRequires:  pkgconfig(libcap)
 BuildRequires:  pkgconfig(hwdata)
 BuildRequires:  spirv-headers-devel
+BuildRequires:  luajit-devel
 # Enforce the the minimum EVR to contain fixes for all of:
 # CVE-2021-28021 CVE-2021-42715 CVE-2021-42716 CVE-2022-28041 CVE-2023-43898
 # CVE-2023-45661 CVE-2023-45662 CVE-2023-45663 CVE-2023-45664 CVE-2023-45666
@@ -139,6 +140,7 @@ cd gamescope
 %{_bindir}/gamescopectl
 %{_bindir}/gamescopestream
 %{_bindir}/gamescopereaper
+%{_datadir}/gamescope/scripts/
 
 %files libs
 %{_libdir}/libVkLayer_FROG_gamescope_wsi_*.so
