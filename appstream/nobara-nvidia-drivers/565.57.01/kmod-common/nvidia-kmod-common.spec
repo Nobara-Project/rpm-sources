@@ -1,6 +1,5 @@
 %global _dracutopts_in  none
 %global _dracutopts_rm  rd.driver.blacklist=nouveau modprobe.blacklist=nouveau nomodeset gfxpayload=vga=normal nouveau.modeset=0 nvidia-drm.modeset=1 nvidia-drm.fbdev=1 initcall_blacklist=simpledrm_platform_driver_init
-%global _dracut_conf_d  %{_prefix}/lib/dracut/dracut.conf.d
 %global _grubby         %{_sbindir}/grubby --update-kernel=ALL
 
 # gsp_*.bin: ELF 64-bit LSB executable, UCB RISC-V
@@ -9,9 +8,9 @@
 
 Name:           nvidia-kmod-common
 Version:        565.57.01
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Common file for NVIDIA's proprietary driver kernel modules
-Epoch:          4
+Epoch:          3
 License:        NVIDIA License
 URL:            http://www.nvidia.com/object/unix.html
 
@@ -23,7 +22,6 @@ Source18:       kernel.conf
 Source19:       nvidia-modeset.conf
 Source20:       nvidia.conf
 Source21:       60-nvidia.rules
-Source24:       99-nvidia.conf
 
 # UDev rule location (_udevrulesdir) and systemd macros:
 BuildRequires:  systemd-rpm-macros
@@ -59,9 +57,6 @@ install -p -m 0644 -D %{SOURCE19} %{buildroot}%{_sysconfdir}/modprobe.d/nvidia-m
 # Load nvidia-uvm, enable complete power management:
 install -p -m 0644 -D %{SOURCE20} %{buildroot}%{_modprobedir}/nvidia.conf
 
-# Avoid Nvidia modules getting in the initrd:
-install -p -m 0644 -D %{SOURCE24} %{buildroot}%{_dracut_conf_d}/99-nvidia.conf
-
 # UDev rules
 # https://github.com/NVIDIA/nvidia-modprobe/blob/master/modprobe-utils/nvidia-modprobe-utils.h#L33-L46
 # https://github.com/negativo17/nvidia-kmod-common/issues/11
@@ -81,7 +76,6 @@ if [ "$1" -eq "0" ]; then
 fi ||:
 
 %files
-%{_dracut_conf_d}/99-nvidia.conf
 %{_modprobedir}/nvidia.conf
 %{_prefix}/lib/firmware/nvidia/%{version}
 %{_sbindir}/nvidia-boot-update

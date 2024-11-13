@@ -10,9 +10,9 @@
 
 Name:           nvidia-driver
 Version:        565.57.01
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        NVIDIA's proprietary display driver for NVIDIA graphic cards
-Epoch:          4
+Epoch:          3
 License:        NVIDIA License
 URL:            http://www.nvidia.com/object/unix.html
 ExclusiveArch:  %{ix86} x86_64 aarch64

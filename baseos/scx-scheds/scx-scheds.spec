@@ -1,5 +1,5 @@
 Name:           scx-scheds
-Version:        1.0.5
+Version:        1.0.6
 Release:        1%{?dist}
 Summary:        Sched_ext Schedulers and Tools
 

@@ -3,7 +3,7 @@
 Summary:        Nobara package repositories
 Name:           nobara-repos
 Version:        39
-Release:        20%{?eln:.eln%{eln}}
+Release:        22%{?eln:.eln%{eln}}
 License:        MIT
 URL:            https://fedoraproject.org/
 
@@ -25,11 +25,6 @@ Source3:       RPM-GPG-KEY-nobara-appstream-pubkey
 Source4:       RPM-GPG-KEY-nobara-baseos-pubkey-38
 Source5:       RPM-GPG-KEY-nobara-baseos-pubkey-39
 Source6:       RPM-GPG-KEY-nobara-baseos-pubkey-40
-Source7:       RPM-GPG-KEY-nobara-multimedia-pubkey
-Source8:       nobara-nvidia-new-feature.repo
-Source9:       RPM-GPG-KEY-nobara-nvidia-new-feature-pubkey
-Source10:      RPM-GPG-KEY-nobara-kde6-pubkey
-Source11:      RPM-GPG-KEY-nobara-kde6-overrides-pubkey
 
 %description
 Nobara package repository files for yum and dnf along with gpg public keys.
@@ -79,12 +74,10 @@ popd
 # Install repo files
 install -d -m 755 $RPM_BUILD_ROOT/etc/yum.repos.d
 install -m 644 %{_sourcedir}/nobara.repo $RPM_BUILD_ROOT/etc/yum.repos.d
-install -m 644 %{_sourcedir}/nobara-nvidia-new-feature.repo $RPM_BUILD_ROOT/etc/yum.repos.d
 
 %files
 %dir /etc/yum.repos.d
 %config(noreplace) /etc/yum.repos.d/nobara.repo
-%config(noreplace) /etc/yum.repos.d/nobara-nvidia-new-feature.repo
 
 %files -n nobara-gpg-keys
 %dir /etc/pki/rpm-gpg
