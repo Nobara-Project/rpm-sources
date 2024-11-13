@@ -29,17 +29,16 @@ if [[ $USER != "liveuser" ]]; then
   done < <( ls /run/media/$2/ ) # list all partitions with lsblk
 
   while IFS= read -r partition; do
-      # get all partitions that are not mounted. column 7 lists active mountpoints
-      if [[ "$(echo $partition | awk '{ print $7 }')" == "" ]]; then
+      # get all partitions that are not mounted. column 4 lists active mountpoints, ignore everything without UUID
+      if [ "$(echo $partition | awk '{ print $4 }')" == "" ] && [ "$(echo $partition | awk '{ print $2 }')" != "" ]; then
               # for all partitions without a mountpoint get partition name, device path, and filesystem type
-        partition_name="$(echo $partition|awk '{ print $1 }' | sed 's/^..//')"
-        tomount="/dev/$partition_name"
-        filesystem=$(lsblk -f | grep $partition_name | awk '{ print $2 }')
+        partition_name="$(echo $partition | awk '{ print $2 }')"
+        tomount="/dev/disk/by-uuid/$partition_name"
+        filesystem="$(echo $partition | awk '{ print $3 }')"
         # if the filesystem type isn't a lux partition, attempt to automount it
         if [[ "$filesystem" != "crypto_LUKS" ]]; then
           mountopts=""
           ownershipcomm=""
-          partsize=$(lsblk | grep $partition_name | awk '{ print $4 }')
           rwuser="$1"
           # make sure the filesystem type isn't blank or empty
           if [[ "$filesystem" != "" ]]; then
@@ -72,6 +71,6 @@ if [[ $USER != "liveuser" ]]; then
           fi
         fi
       fi
-  done < <( lsblk | grep part ) # list all partitions with lsblk
+  done < <( lsblk -rno TYPE,UUID,FSTYPE,MOUNTPOINT | grep part ) # list all partitions with lsblk
 
 fi
