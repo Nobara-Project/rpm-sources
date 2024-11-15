@@ -1,0 +1,38 @@
+From 50434f0138743b997002ca02a783e27963bebdfc Mon Sep 17 00:00:00 2001
+From: Sebastian Keller <skeller@gnome.org>
+Date: Mon, 21 Oct 2024 21:53:14 +0200
+Subject: [PATCH] st/theme-node-drawing: Don't skip square top left inset
+ shadow corners
+
+When the inner radius of the top left corner is 0, the corresponding arc
+does not get drawn, resulting in a path going from the bottom left
+corner to the top right corner when the path is closed.
+
+Fix this by always including a line_to from the bottom left to the top
+left corner.
+
+Fixes: dde13b30c ("st/theme-node-drawing: Trace the correct path for inset box shadows")
+Closes: https://gitlab.gnome.org/GNOME/gnome-shell/-/issues/7996
+---
+ src/st/st-theme-node-drawing.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/src/st/st-theme-node-drawing.c b/src/st/st-theme-node-drawing.c
+index 0b2b7b53518..395f179b60f 100644
+--- a/src/st/st-theme-node-drawing.c
++++ b/src/st/st-theme-node-drawing.c
+@@ -972,6 +972,11 @@ paint_inset_box_shadow_to_cairo_context (StThemeNode     *node,
+       int inner_radius;
+ 
+       inner_radius = MAX (0, outer_radius[ST_CORNER_TOPLEFT] - shadow_spec->spread);
++
++      cairo_line_to (temp_cr,
++                     shrunk_extents_x1,
++                     shrunk_extents_y1 + inner_radius);
++
+       if (inner_radius > 0)
+         {
+           cairo_arc (temp_cr,
+-- 
+GitLab
+
