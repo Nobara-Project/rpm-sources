@@ -2,7 +2,7 @@
 ## (rpmautospec version 0.6.3)
 ## RPMAUTOSPEC: autorelease, autochangelog
 %define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
-    release_number = 1;
+    release_number = 2;
     base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
     print(release_number + base_release_number - 1);
 }%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
@@ -29,6 +29,9 @@ Patch: optional-portal-helper.patch
 # Some users might have a broken PAM config, so we really need this
 # downstream patch to stop trying on configuration errors.
 Patch: 0001-gdm-Work-around-failing-fingerprint-auth.patch
+
+# Fix graphical artifacts in login/shutdown dialogue
+Patch: fix-artifacts.patch
 
 %define eds_version 3.45.1
 %define gnome_desktop_version 44.0-7
