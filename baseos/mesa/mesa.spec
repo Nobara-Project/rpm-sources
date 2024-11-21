@@ -75,7 +75,7 @@
 
 Name:           mesa
 Summary:        Mesa graphics libraries
-%global ver 24.2.7
+%global ver 24.3.0
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
@@ -87,13 +87,6 @@ Source0:        https://gitlab.freedesktop.org/mesa/mesa/-/archive/mesa-%{ver}/m
 Source1:        Mesa-MLAA-License-Clarification-Email.txt
 
 Patch0:         gnome-shell-glthread-disable.patch
-
-# Performance bump
-# https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/25576
-Patch4: 25576.patch
-
-# https://gitlab.com/evlaV/mesa/
-Patch5: valve.patch
 
 BuildRequires:  meson >= 1.3.0
 BuildRequires:  gcc
@@ -410,7 +403,6 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
 
 %meson \
   -Dplatforms=x11,wayland \
-  -Ddri3=enabled \
   -Dosmesa=true \
 %if 0%{?with_hardware}
   -Dgallium-drivers=swrast,virgl,nouveau%{?with_r300:,r300}%{?with_crocus:,crocus}%{?with_i915:,i915}%{?with_iris:,iris}%{?with_vmware:,svga}%{?with_radeonsi:,radeonsi}%{?with_r600:,r600}%{?with_freedreno:,freedreno}%{?with_etnaviv:,etnaviv}%{?with_tegra:,tegra}%{?with_vc4:,vc4}%{?with_v3d:,v3d}%{?with_lima:,lima}%{?with_panfrost:,panfrost}%{?with_vulkan_hw:,zink} \
@@ -501,16 +493,13 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-mesa-defaults.conf
 %files filesystem
 %doc docs/Mesa-MLAA-License-Clarification-Email.txt
 %dir %{_libdir}/dri
-%if 0%{?with_hardware}
-%if 0%{?with_vdpau}
-%dir %{_libdir}/vdpau
-%endif
-%endif
+%dir %{_datadir}/drirc.d
 
 %files libGL
 %{_libdir}/libGLX_mesa.so.0*
 %{_libdir}/libGLX_system.so.0*
 %files libGL-devel
+%dir %{_includedir}/GL
 %dir %{_includedir}/GL/internal
 %{_includedir}/GL/internal/dri_interface.h
 %{_libdir}/pkgconfig/dri.pc
@@ -537,6 +526,7 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-mesa-defaults.conf
 %{_libdir}/pkgconfig/osmesa.pc
 
 %files libgbm
+%{_libdir}/gbm/dri_gbm.so
 %{_libdir}/libgbm.so.1
 %{_libdir}/libgbm.so.1.*
 %files libgbm-devel
@@ -590,7 +580,6 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-mesa-defaults.conf
 %endif
 
 %files dri-drivers
-%dir %{_datadir}/drirc.d
 %ifnarch %{ix86}
 %{_datadir}/drirc.d/00-mesa-defaults.conf
 %endif
@@ -599,7 +588,6 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-mesa-defaults.conf
 %{_libdir}/dri/libdril_dri.so
 %{_libdir}/dri/swrast_dri.so
 %{_libdir}/dri/virtio_gpu_dri.so
-%{_libdir}/dri/zink_dri.so
 
 %if 0%{?with_hardware}
 %if 0%{?with_r300}
@@ -688,6 +676,9 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-mesa-defaults.conf
 %{_libdir}/dri/vkms_dri.so
 %{_libdir}/dri/zynqmp-dpsub_dri.so
 %endif
+%if 0%{?with_vulkan_hw}
+%{_libdir}/dri/zink_dri.so
+%endif
 
 %if 0%{?with_va}
 %files va-drivers
@@ -703,6 +694,7 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-mesa-defaults.conf
 
 %if 0%{?with_vdpau}
 %files vdpau-drivers
+%dir %{_libdir}/vdpau
 %{_libdir}/vdpau/libvdpau_nouveau.so.1*
 %if 0%{?with_r600}
 %{_libdir}/vdpau/libvdpau_r600.so.1*
