@@ -6,7 +6,6 @@ Summary:        Audio device and application capture for OBS Studio using PipeWi
 License:        GPL-2.0-or-later
 URL:            https://github.com/dimtpap/obs-pipewire-audio-capture
 Source0:        https://github.com/dimtpap/obs-pipewire-audio-capture/archive/refs/tags/%{version}.tar.gz
-Patch0:         cmake-lib-dir-fixup.patch
 
 BuildRequires:  cmake
 BuildRequires:  gcc-c++
