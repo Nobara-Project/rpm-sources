@@ -1,14 +1,14 @@
 %global debug_package %{nil}
-%global toolchain gcc
+%global toolchain clang
 
 Name: iptsd
-Version: 1.4.0
+Version: 3
 Release: 1%{?dist}
 Summary: Userspace daemon for Intel Precise Touch & Stylus
 License: GPLv2+
 
 URL: https://github.com/linux-surface/iptsd
-Source: %{URL}/archive/refs/tags/v1.4.0.tar.gz
+Source: %{URL}/archive/refs/tags/v3.tar.gz
 
 BuildRequires: meson
 
@@ -69,9 +69,11 @@ kernel driver, and sends them back to the kernel using uinput devices.
 %{_bindir}/iptsd-dump
 %{_bindir}/iptsd-find-hidraw
 %{_bindir}/iptsd-find-service
+%{_bindir}/iptsd-foreach
 %{_bindir}/iptsd-perf
 %{_bindir}/iptsd-plot
 %{_bindir}/iptsd-show
+%{_bindir}/iptsd-systemd
 %{_unitdir}/iptsd@.service
 %{_udevrulesdir}/50-iptsd.rules
 %{_datadir}/iptsd/*
