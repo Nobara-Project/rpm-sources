@@ -113,15 +113,13 @@ BuildArch: noarch
 %cmake -DBUILD_TESTS=ON -DENABLE_SYSTEM_YYJSON=ON
 %cmake_build
 
-ln -s %{_bindir}/%{name} %{buildroot}%{_bindir}/neofetch
-
-
 %check
 %ctest
 
 
 %install
 %cmake_install
+ln -s %{_bindir}/%{name} %{buildroot}%{_bindir}/neofetch
 
 
 %files
