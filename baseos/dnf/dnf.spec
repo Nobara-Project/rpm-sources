@@ -8,11 +8,11 @@
 %global rpm_version 4.14.0
 
 # conflicts
-%global conflicts_dnf_plugins_core_version 4.0.26
+%global conflicts_dnf_plugins_core_version 4.7.0
 %global conflicts_dnf_plugins_extras_version 4.0.4
 %global conflicts_dnfdaemon_version 0.3.19
 
-%bcond dnf5_obsoletes_dnf %[0%{?fedora} > 41 || 0%{?rhel} > 11]
+%bcond dnf5_obsoletes_dnf %[0%{?fedora} > 40 || 0%{?rhel} > 11]
 
 # override dependencies for rhel 7
 %if 0%{?rhel} == 7
@@ -34,7 +34,6 @@
 # level=full    -> deploy all compat symlinks (conflicts with yum < 4)
 # level=minimal -> deploy a subset of compat symlinks only
 #                  (no conflict with yum >= 3.4.3-505)*
-# level=preview -> minimal level with altered paths (no conflict with yum < 4)
 # *release 505 renamed /usr/bin/yum to /usr/bin/yum-deprecated
 %global yum_compat_level full
 %global yum_subpackage_name yum
@@ -48,7 +47,6 @@
     %endif
 %endif
 %if 0%{?rhel} && 0%{?rhel} <= 7
-    %global yum_compat_level preview
     %global yum_subpackage_name nextgen-yum4
 %endif
 
@@ -67,7 +65,7 @@
 It supports RPMs, modules and comps groups & environments.
 
 Name:           dnf
-Version:        4.19.2
+Version:        4.22.0
 Release:        1%{?dist}
 Summary:        %{pkg_summary}
 # For a breakdown of the licensing, see PACKAGE-LICENSING
@@ -99,14 +97,12 @@ Recommends:     (python3-dbus if NetworkManager)
 %endif
 Conflicts:      python3-dnf-plugins-core < %{conflicts_dnf_plugins_core_version}
 Conflicts:      python3-dnf-plugins-extras-common < %{conflicts_dnf_plugins_extras_version}
-Requires:       dnf5
 
 %description
 %{pkg_description}
 
 %package data
 Summary:        Common data and configuration files for DNF
-Requires:       libreport-filesystem
 %if %{with dnf5_obsoletes_dnf}
 Requires:       /etc/dnf/dnf.conf
 %endif
@@ -225,11 +221,20 @@ mkdir -p %{buildroot}%{py3pluginpath}/__pycache__/
 mkdir -p %{buildroot}%{_localstatedir}/log/
 mkdir -p %{buildroot}%{_var}/cache/dnf/
 touch %{buildroot}%{_localstatedir}/log/%{name}.log
+%if %{without dnf5_obsoletes_dnf}
 ln -sr %{buildroot}%{_bindir}/dnf-3 %{buildroot}%{_bindir}/dnf
+ln -sr %{buildroot}%{_datadir}/bash-completion/completions/dnf-3 %{buildroot}%{_datadir}/bash-completion/completions/dnf
+for file in %{buildroot}%{_mandir}/man[578]/dnf4[-.]*; do
+    dir=$(dirname $file)
+    filename=$(basename $file)
+    ln -sr $file $dir/${filename/dnf4/dnf}
+done
+%endif
 ln -sr %{buildroot}%{_bindir}/dnf-3 %{buildroot}%{_bindir}/dnf4
 ln -sr %{buildroot}%{_datadir}/bash-completion/completions/dnf-3 %{buildroot}%{_datadir}/bash-completion/completions/dnf4
-ln -sr %{buildroot}%{_datadir}/bash-completion/completions/dnf-3 %{buildroot}%{_datadir}/bash-completion/completions/dnf
+%if %{without dnf5_obsoletes_dnf}
 mv %{buildroot}%{_bindir}/dnf-automatic-3 %{buildroot}%{_bindir}/dnf-automatic
+%endif
 rm -vf %{buildroot}%{_bindir}/dnf-automatic-*
 
 # Strict conf distribution
@@ -239,6 +244,7 @@ mv -f %{buildroot}%{confdir}/%{name}-strict.conf %{buildroot}%{confdir}/%{name}.
 rm -vf %{buildroot}%{confdir}/%{name}-strict.conf
 %endif
 
+%if %{without dnf5_obsoletes_dnf}
 # YUM compat layer
 ln -sr  %{buildroot}%{confdir}/%{name}.conf %{buildroot}%{_sysconfdir}/yum.conf
 ln -sr  %{buildroot}%{_bindir}/dnf-3 %{buildroot}%{_bindir}/yum
@@ -248,9 +254,32 @@ ln -sr  %{buildroot}%{pluginconfpath} %{buildroot}%{_sysconfdir}/yum/pluginconf.
 ln -sr  %{buildroot}%{confdir}/protected.d %{buildroot}%{_sysconfdir}/yum/protected.d
 ln -sr  %{buildroot}%{confdir}/vars %{buildroot}%{_sysconfdir}/yum/vars
 %endif
+%endif
 
 %if %{with dnf5_obsoletes_dnf}
+rm %{buildroot}%{confdir}/automatic.conf
 rm %{buildroot}%{confdir}/%{name}.conf
+rm %{buildroot}%{_datadir}/locale/*/LC_MESSAGES/%{name}.mo
+rm %{buildroot}%{_mandir}/man8/%{name}-automatic.8*
+rm %{buildroot}%{_mandir}/man8/yum2dnf.8*
+rm %{buildroot}%{_unitdir}/%{name}-automatic.service
+rm %{buildroot}%{_unitdir}/%{name}-automatic.timer
+rm %{buildroot}%{_unitdir}/%{name}-automatic-notifyonly.service
+rm %{buildroot}%{_unitdir}/%{name}-automatic-notifyonly.timer
+rm %{buildroot}%{_unitdir}/%{name}-automatic-download.service
+rm %{buildroot}%{_unitdir}/%{name}-automatic-download.timer
+rm %{buildroot}%{_unitdir}/%{name}-automatic-install.service
+rm %{buildroot}%{_unitdir}/%{name}-automatic-install.timer
+rm %{buildroot}%{_unitdir}/%{name}-makecache.service
+rm %{buildroot}%{_unitdir}/%{name}-makecache.timer
+%endif
+
+%if 0%{?fedora} >= 41 || 0%{?rhel} >= 10
+%py3_shebang_fix %{buildroot}%{_bindir}/dnf-3
+%if %{without dnf5_obsoletes_dnf}
+%py3_shebang_fix %{buildroot}%{_bindir}/dnf-automatic
+%endif
+%py3_shebang_fix %{buildroot}%{python3_sitelib}/%{name}/cli/completion_helper.py
 %endif
 
 %check
@@ -260,6 +289,7 @@ ctest -VV
 popd
 
 
+%if %{without dnf5_obsoletes_dnf}
 %post
 %systemd_post dnf-makecache.timer
 
@@ -278,8 +308,10 @@ popd
 
 %postun automatic
 %systemd_postun_with_restart dnf-automatic.timer dnf-automatic-notifyonly.timer dnf-automatic-download.timer dnf-automatic-install.timer
+%endif
 
 
+%if %{without dnf5_obsoletes_dnf}
 %files -f %{name}.lang
 %{_bindir}/%{name}
 %if 0%{?rhel} && 0%{?rhel} <= 7
@@ -293,7 +325,7 @@ popd
 %{_mandir}/man5/dnf-transaction-json.5*
 %{_unitdir}/%{name}-makecache.service
 %{_unitdir}/%{name}-makecache.timer
-%{_var}/cache/%{name}/
+%endif
 
 %files data
 %license COPYING PACKAGE-LICENSING
@@ -322,51 +354,38 @@ popd
 %ghost %attr(644,-,-) %{_sharedstatedir}/%{name}/groups.json
 %ghost %attr(755,-,-) %dir %{_sharedstatedir}/%{name}/yumdb
 %ghost %attr(755,-,-) %dir %{_sharedstatedir}/%{name}/history
+%{_mandir}/man5/%{name}4.conf.5*
+%if %{without dnf5_obsoletes_dnf}
 %{_mandir}/man5/%{name}.conf.5*
+%endif
 %{_tmpfilesdir}/%{name}.conf
-%{_sysconfdir}/libreport/events.d/collect_dnf.conf
 
+%if %{without dnf5_obsoletes_dnf}
 %files -n %{yum_subpackage_name}
-%if "%{yum_compat_level}" == "full"
 %{_bindir}/yum
-%{_sysconfdir}/yum.conf
-%{_sysconfdir}/yum/pluginconf.d
-%{_sysconfdir}/yum/protected.d
-%{_sysconfdir}/yum/vars
 %{_mandir}/man8/yum.8*
+%if "%{yum_compat_level}" == "full"
+%{_sysconfdir}/yum
+%{_sysconfdir}/yum.conf
 %{_mandir}/man5/yum.conf.5.*
 %{_mandir}/man8/yum-shell.8*
 %{_mandir}/man1/yum-aliases.1*
-%if %{without dnf5_obsoletes_dnf}
 # If DNF5 does not obsolete DNF, protected.d/yum.conf should be owned by DNF
 %config(noreplace) %{confdir}/protected.d/yum.conf
 %else
-# If DNF5 obsoletes DNF
-# No longer using `noreplace` here. Older versions of DNF 4 marked `yum` as a
-# protected package, but since Fedora 39, DNF needs to be able to update itself
-# to DNF 5, so we need to replace the old /etc/dnf/protected.d/yum.conf.
-%config %{confdir}/protected.d/yum.conf
-%endif
-%else
 %exclude %{_sysconfdir}/yum.conf
-%exclude %{_sysconfdir}/yum/pluginconf.d
-%exclude %{_sysconfdir}/yum/protected.d
-%exclude %{_sysconfdir}/yum/vars
 %exclude %{confdir}/protected.d/yum.conf
 %exclude %{_mandir}/man5/yum.conf.5.*
 %exclude %{_mandir}/man8/yum-shell.8*
 %exclude %{_mandir}/man1/yum-aliases.1*
 %endif
-
-%if "%{yum_compat_level}" == "minimal"
-%{_bindir}/yum
-%{_mandir}/man8/yum.8*
-%endif
-
-%if "%{yum_compat_level}" == "preview"
-%{_bindir}/yum4
-%{_mandir}/man8/yum4.8*
+%else
+# No %%{yum_subpackage_name} package
+%exclude %{confdir}/protected.d/yum.conf
+%exclude %{_mandir}/man5/yum.conf.5.*
 %exclude %{_mandir}/man8/yum.8*
+%exclude %{_mandir}/man8/yum-shell.8*
+%exclude %{_mandir}/man1/yum-aliases.1*
 %endif
 
 %files -n python3-%{name}
@@ -376,12 +395,17 @@ popd
 %dir %{_datadir}/bash-completion/completions
 %{_datadir}/bash-completion/completions/%{name}-3
 %{_datadir}/bash-completion/completions/%{name}4
+%{_mandir}/man8/%{name}4.8*
+%{_mandir}/man7/dnf4.modularity.7*
+%{_mandir}/man5/dnf4-transaction-json.5*
 %exclude %{python3_sitelib}/%{name}/automatic
 %{python3_sitelib}/%{name}-*.dist-info
 %{python3_sitelib}/%{name}/
 %dir %{py3pluginpath}
 %dir %{py3pluginpath}/__pycache__
+%{_var}/cache/%{name}/
 
+%if %{without dnf5_obsoletes_dnf}
 %files automatic
 %{_bindir}/%{name}-automatic
 %config(noreplace) %{confdir}/automatic.conf
@@ -395,8 +419,70 @@ popd
 %{_unitdir}/%{name}-automatic-install.service
 %{_unitdir}/%{name}-automatic-install.timer
 %{python3_sitelib}/%{name}/automatic/
+%endif
 
 %changelog
+* Tue Nov 12 2024 Evan Goode <egoode@redhat.com> - 4.22.0-1
+- doc: Naming of source and debug repos
+- spec: Move /var/cache/dnf from dnf to python3-dnf
+- spec: Remove preview yum_compat_level
+- spec: Simplify %files dnf section for both yum_compat_levels
+- spec: Fix ownership of /etc/yum tree
+- Allow --installroot on read-only bootc system
+- spec: If DNF5 obsoletes DNF, do not build dnf and yum packages
+- spec: If DNF5 obsoletes DNF, do not build dnf-automatic
+- Allow --downloadonly on read-only bootc system
+- base: Add kernel-core to reboot_needed list
+- AUTHORS: Add myself
+- Update need_reboot for dnf-automatic
+- doc: Example send_error_messages in /etc/dnf/automatic.conf
+- automatic: Check availability of config file
+- Updated conf_ref to reflect change in fastestmirror behavior
+- Fix display issue of a code snippet.
+- Print rpm package unpack errors to the user (RhBug:2312906)
+- Fix package location if baseurl is present in the metadata
+
+* Mon Aug 19 2024 Petr Pisar <ppisar@redhat.com> - 4.21.1-2
+- Move /var/cache/dnf from dnf to python3-dnf
+- If DNF5 obsoletes DNF, do not build dnf and yum packages
+- If DNF5 obsoletes DNF, do not build dnf-automatic package
+
+* Thu Aug 15 2024 Evan Goode <egoode@redhat.com> - 4.21.1-1
+- doc: minor formatting and consistency fixes
+- Allow local downloads to same `downloaddir`
+- Fix "console" width on non real terminals (pipe)
+- Update ostree/bootc host system check.
+- Update bootc hosts message to point to bootc --help
+- tests: Use PGP keys without SHA-1
+
+* Mon Aug 12 2024 Petr Pisar <ppisar@redhat.com> - 4.21.0-3
+- Adapt the tests to a crypto policy without SHA-1
+
+* Wed Jul 17 2024 Fedora Release Engineering <releng@fedoraproject.org> - 4.21.0-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_41_Mass_Rebuild
+
+* Tue Jul 02 2024 Evan Goode <egoode@redhat.com> - 4.21.0-1
+- Update to 4.21.0
+- Add detection for ostree-based systems and warn users about losing changes
+- Fix: No traceback when Python interpreter is running with -P
+- Allow `%py3_shebang_fix` macro to add `-P` argument to shebang lines
+- man: Improve upgrade-minimal command docs (RHEL-6417)
+- Limit queries to nevra forms when provided by command
+- [doc] Remove provide of spec definition for repoquery command
+- Update the man page entry for the countme option
+- Drop collect file for ABRT
+
+* Fri Jun 07 2024 Python Maint <python-maint@redhat.com> - 4.20.0-2
+- Rebuilt for Python 3.13
+
+* Wed Apr 24 2024 Jan Kolarik <jkolarik@redhat.com> - 4.20.0-1
+- Update to 4.20.0
+- repoquery: Fix loading filelists when -f is used (RhBug:2276012)
+- remove: --duplicates and --oldinstallonly exit with 0 when nothing to do (RHEL-6424)
+- spec: Do not add user site-packages directory to sys.path (RHEL-26646)
+- man: Prepare pages for dnf5 switch
+- spec: Prepare for switch of dnf5 in Rawhide
+
 * Fri Mar 29 2024 Evan Goode <mail@evangoo.de> - 4.19.2-1
 - Update to 4.19.2
 - Bump libdnf requirement to 0.73.1
