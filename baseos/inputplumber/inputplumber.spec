@@ -1,8 +1,8 @@
 %global _name   inputplumber
 
 Name:           inputplumber
-Version:        0.36.0
-Release:        3%{?dist}
+Version:        0.36.6
+Release:        1%{?dist}
 Summary:        InputPlumber is an open source input routing and control daemon for Linux. It can be used to combine any number of input devices (like gamepads, mice, and keyboards) and translate their input to a variety of virtual device formats.
 
 License:        GPLv3+
@@ -13,9 +13,6 @@ Requires:       libevdev libiio
 Recommends:     steam gamescope-session linuxconsoletools
 Provides:       inputplumber
 Conflicts:      hhd
-# Temporary fix for Legion Go Gyro
-# https://github.com/ShadowBlip/InputPlumber/pull/211
-Source1:        211.patch
 
 %description
 InputPlumber is an open source input routing and control daemon for Linux. It can be used to combine any number of input devices (like gamepads, mice, and keyboards) and translate their input to a variety of virtual device formats.
@@ -24,8 +21,6 @@ InputPlumber is an open source input routing and control daemon for Linux. It ca
 rm -rf %{_builddir}/InputPlumber
 cd %{_builddir}
 git clone %{url}
-cd InputPlumber
-patch -Np1 < %{SOURCE1}
 
 %build
 cd %{_builddir}/InputPlumber
