@@ -6,12 +6,12 @@
 
 Summary: Config files for KDE
 Name:    kde-settings
-Version: 40.0
+Version: 41.2
 Release: 1%{?dist}
 
 License: MIT
-Url:     https://pagure.io/fedora-kde/kde-settings
-Source0: https://pagure.io/fedora-kde/kde-settings/archive/%{version}/kde-settings-%{version}.tar.gz
+URL:     https://pagure.io/fedora-kde/kde-settings
+Source0: %{url}/archive/%{version}/kde-settings-%{version}.tar.gz
 Source1: COPYING
 Patch0:  set-dark-global.patch
 
@@ -176,7 +176,7 @@ test -f %{_datadir}/wallpapers/F%{version_maj} || ls -l %{_datadir}/wallpapers
 
 %files
 %license COPYING
-%config(noreplace) %{_sysconfdir}/profile.d/kde.*
+%config(noreplace) %{_sysconfdir}/profile.d/kde*
 %{_sysconfdir}/fonts/conf.d/10-sub-pixel-rgb-for-kde.conf
 %{_sysconfdir}/kde/env/env.sh
 %{_sysconfdir}/kde/env/gpg-agent-startup.sh
@@ -231,6 +231,23 @@ test -f %{_datadir}/wallpapers/F%{version_maj} || ls -l %{_datadir}/wallpapers
 
 
 %changelog
+* Wed Sep 25 2024 Neal Gompa <ngompa@fedoraproject.org> - 41.2-1
+- Drop AT-SPI Xwayland property script as it's now handled by KWin
+
+* Tue Aug 20 2024 Neal Gompa <ngompa@fedoraproject.org> - 41.1-1
+- Add AT-SPI Xwayland property script
+- Make `ksshaskpass` the default for openssh
+
+* Thu Aug 15 2024 Neal Gompa <ngompa@fedoraproject.org> - 41.0-1
+- New release for new wallpapers (#2305264)
+
+* Thu Aug 15 2024 Neal Gompa <ngompa@fedoraproject.org> - 40.1-1
+- Set recommended space for NeoChat
+- Set SDDM cursor size
+
+* Thu Jul 18 2024 Fedora Release Engineering <releng@fedoraproject.org> - 40.0-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_41_Mass_Rebuild
+
 * Thu Mar 07 2024 Neal Gompa <ngompa@fedoraproject.org> - 40.0-1
 - Bump for F40 backgrounds
 - Enable login/logout sounds for a11y
