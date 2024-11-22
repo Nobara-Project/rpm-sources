@@ -9,8 +9,8 @@ Source0: opentabletdriver-%{version}.tar.gz
 License: LGPLv3
 URL: https://opentabletdriver.net
 
-BuildRequires: dotnet-sdk-6.0
-Requires: dotnet-runtime-6.0
+BuildRequires: dotnet-sdk-8.0
+Requires: dotnet-runtime-8.0
 BuildRequires: git
 BuildRequires: jq
 Requires: gtk3
