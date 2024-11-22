@@ -1,6 +1,6 @@
 %bcond_without compat
 %bcond_without sanitizers
-%global gitcommit 970d1abed24bc92b056e8b9a4df6f1104a95cc8f
+
 # Be explicit about the soname in order to avoid unintentional changes.
 # Before modifying any of the sonames, this must be announced to the Fedora
 # community as it may break many other packages.
@@ -18,16 +18,19 @@
 %global supported_abi_test aarch64 ppc64le x86_64
 
 Name:		zlib-ng
-Version:	2.1.6
-Release:	2.git%{?dist}
+Version:	2.1.7
+Release:	3%{?dist}
 Summary:	Zlib replacement with optimizations
 License:	Zlib
 Url:		https://github.com/zlib-ng/zlib-ng
-Source0:	https://github.com/zlib-ng/zlib-ng/archive/%{gitcommit}.tar.gz
+Source0:	https://github.com/zlib-ng/zlib-ng/archive/%{version}/%{name}-%{version}.tar.gz
 
-Patch0:		far.diff
+Patch:		far.diff
+# Backport from https://github.com/zlib-ng/zlib-ng/pull/1773
+# Fixes https://bugzilla.redhat.com/show_bug.cgi?id=2307237
+Patch:		1773.patch
 #https://github.com/zlib-ng/zlib-ng/pull/1713
-Patch1:     1713.patch
+Patch:     	1713.patch
 
 BuildRequires:	cmake >= 3.1
 BuildRequires:	gcc-c++
@@ -88,7 +91,7 @@ developing applications that use zlib.
 %endif
 
 %prep
-%autosetup -p1 -n %{name}-%{gitcommit}
+%autosetup -p1 -n %{name}-%{version}
 
 %build
 cat <<_EOF_
@@ -100,7 +103,7 @@ cat <<_EOF_
 _EOF_
 
 # zlib-ng uses a different macro for library directory.
-%global cmake_param %{?with_sanitizers:-DWITH_SANITIZER=ON}
+%global cmake_param %{?with_sanitizers:-DWITH_SANITIZER=ON} -DWITH_RVV=OFF
 
 # Setting __cmake_builddir is not necessary in this step, but do it anyway for symmetry.
 %global __cmake_builddir %{_vpath_builddir}
@@ -144,13 +147,13 @@ _EOF_
 %endif
 
 %ifarch x86_64
-%global vendor pc
+%global cpu_vendor pc
 %else
-%global vendor unknown
+%global cpu_vendor unknown
 %endif
 
 %ifarch %{supported_abi_test}
-CHOST=%{target_cpu}-%{vendor}-linux-gnu sh test/abicheck.sh
+CHOST=%{target_cpu}-%{cpu_vendor}-linux-gnu sh test/abicheck.sh
 %endif
 
 %if %{with compat}
@@ -165,7 +168,7 @@ _EOF_
 %global __cmake_builddir %{_vpath_builddir}-compat
 %ctest
 %ifarch %{supported_abi_test}
-CHOST=%{target_cpu}-%{vendor}-linux-gnu sh test/abicheck.sh --zlib-compat
+CHOST=%{target_cpu}-%{cpu_vendor}-linux-gnu sh test/abicheck.sh --zlib-compat
 %endif
 %endif
 
@@ -191,6 +194,7 @@ CHOST=%{target_cpu}-%{vendor}-linux-gnu sh test/abicheck.sh --zlib-compat
 %{_includedir}/zlib_name_mangling-ng.h
 %{_libdir}/libz-ng.so
 %{_libdir}/pkgconfig/%{name}.pc
+%dir %{_libdir}/cmake/zlib-ng/
 %{_libdir}/cmake/zlib-ng/*
 
 %if %{with compat}
@@ -203,8 +207,9 @@ CHOST=%{target_cpu}-%{vendor}-linux-gnu sh test/abicheck.sh --zlib-compat
 %{_includedir}/zconf.h
 %{_includedir}/zlib.h
 %{_includedir}/zlib_name_mangling.h
-%{_libdir}/libz*.so*
+%{_libdir}/libz.so
 %{_libdir}/pkgconfig/zlib.pc
+%dir %{_libdir}/cmake/ZLIB/
 %{_libdir}/cmake/ZLIB/*
 
 %files compat-static
@@ -215,6 +220,29 @@ CHOST=%{target_cpu}-%{vendor}-linux-gnu sh test/abicheck.sh --zlib-compat
 
 
 %changelog
+* Tue Sep 10 2024 Tulio Magno Quites Machado Filho <tuliom@redhat.com> - 2.1.7-3
+- Fixes rhbz#2307237
+
+* Sat Jul 20 2024 Fedora Release Engineering <releng@fedoraproject.org> - 2.1.7-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_41_Mass_Rebuild
+
+* Wed Jun 19 2024 Tulio Magno Quites Machado Filho <tuliom@redhat.com> - 2.1.7-1
+- Update to zlib-ng 2.1.7
+- Fix rhbz#2293101
+- Fix rhbz#2293437
+
+* Tue Jun 04 2024 Cristian Le <fedora@lecris.me> - 2.1.6-6
+- Avoid using reserved variable vendor. Fix #2284608
+
+* Wed May 29 2024 Tulio Magno Quites Machado Filho <tuliom@redhat.com> - 2.1.6-5
+- Set ownership of cmake directories. Fix #2283789
+
+* Tue May 21 2024 Tulio Magno Quites Machado Filho <tuliom@redhat.com> - 2.1.6-4
+- Update the patch that fixes rhbz#2280347
+
+* Tue May 14 2024 Tulio Magno Quites Machado Filho <tuliom@redhat.com> - 2.1.6-3
+- Fix rhbz#2280347
+
 * Sat Jan 27 2024 Fedora Release Engineering <releng@fedoraproject.org> - 2.1.6-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
 
