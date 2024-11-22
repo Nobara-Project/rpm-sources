@@ -1,10 +1,10 @@
 # Version of the .so library
-%global abi_ver 13
-%global gitcommit a5c9826e6d7d8b504b07d1c02425e6f62b020791
+%global abi_ver 0.18
+%global gitcommit 4bc5333a2cbba0b0b88559f281dbde04b849e6ef
 
 Name:           wlroots
 Version:        0.18.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        A modular Wayland compositor library
 
 # Source files/overall project licensed as MIT, but
@@ -42,12 +42,13 @@ BuildRequires:  glslang
 BuildRequires:  gnupg2
 BuildRequires:  meson >= 0.59.0
 
-BuildRequires:  (pkgconfig(libdisplay-info) >= 0.1.1 with pkgconfig(libdisplay-info) < 0.2)
-BuildRequires:  (pkgconfig(libliftoff) >= 0.4.0 with pkgconfig(libliftoff) < 0.5.0)
+BuildRequires:  (pkgconfig(libdisplay-info) >= 0.2.0 with pkgconfig(libdisplay-info) < 0.3)
+BuildRequires:  (pkgconfig(libliftoff) >= 0.5.0 with pkgconfig(libliftoff) < 0.6.0)
 BuildRequires:  pkgconfig(egl)
 BuildRequires:  pkgconfig(gbm) >= 17.1.0
 BuildRequires:  pkgconfig(glesv2)
 BuildRequires:  pkgconfig(hwdata)
+BuildRequires:  pkgconfig(lcms2)
 BuildRequires:  pkgconfig(libdrm) >= 2.4.114
 BuildRequires:  pkgconfig(libinput) >= 1.21.0
 BuildRequires:  pkgconfig(libseat)
@@ -113,14 +114,13 @@ install -pm0644 -D '%{SOURCE3}' '%{buildroot}/%{_pkgdocdir}/examples/meson.build
 %files
 %license LICENSE
 %doc README.md
-%{_libdir}/lib%{name}.so.%{abi_ver}{,.*}
+%{_libdir}/libwlroots-%{abi_ver}.so
 
 
 %files  devel
 %doc %{_pkgdocdir}/examples
-%{_includedir}/wlr
-%{_libdir}/lib%{name}.so
-%{_libdir}/pkgconfig/%{name}.pc
+%{_includedir}/wlroots-%{abi_ver}/wlr
+%{_libdir}/pkgconfig/wlroots-%{abi_ver}.pc
 
 
 %changelog
