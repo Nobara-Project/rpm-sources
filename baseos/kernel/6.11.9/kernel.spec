@@ -4248,6 +4248,9 @@ fi\
 #
 #
 %changelog
+* Sun Nov 17 2024 Justin M. Forbes <jforbes@fedoraproject.org> [6.11.9-0]
+- Linux v6.11.9
+
 * Thu Nov 14 2024 Augusto Caringi <acaringi@redhat.com> [6.11.8-0]
 - Linux v6.11.8
 
