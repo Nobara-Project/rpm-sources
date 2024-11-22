@@ -1,6 +1,6 @@
 Name:		nobara-logos
 Summary:	Nobara-related icons and pictures
-Version:	40.0.0
+Version:	41.0.0
 Release:	1%{?dist}
 URL:            https://github.com/nobara-project/nobara-core-packages
 Source0:        %{URL}/releases/download/1.0/nobara-logos.tar.gz
