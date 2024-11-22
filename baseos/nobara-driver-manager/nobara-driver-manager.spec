@@ -29,8 +29,9 @@ Requires: 	glib2
 # App Deps
 Requires:	python3-gobject
 Requires:	nobara-login
-Requires:	nobara-login-config
 Requires:	nobara-controller-config
+Provides:	nobara-nvidia-wizard
+Obsoletes:	nobara-nvidia-wizard
 Requires:	webapp-manager
 Requires:	papirus-icon-theme
 Requires: 	gperftools-libs(x86-32)
