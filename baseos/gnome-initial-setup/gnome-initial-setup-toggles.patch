@@ -1,13 +1,13 @@
 diff --git a/gnome-initial-setup/pages/privacy/gis-privacy-page.c b/gnome-initial-setup/pages/privacy/gis-privacy-page.c
-index 323e1aa..73d822b 100644
+index 1e3934e..54e38f0 100644
 --- a/gnome-initial-setup/pages/privacy/gis-privacy-page.c
 +++ b/gnome-initial-setup/pages/privacy/gis-privacy-page.c
-@@ -193,7 +193,7 @@ gis_privacy_page_constructed (GObject *object)
+@@ -119,7 +119,7 @@ gis_privacy_page_constructed (GObject *object)
    page->privacy_settings = g_settings_new ("org.gnome.desktop.privacy");
  
    gtk_switch_set_active (GTK_SWITCH (page->location_switch), TRUE);
 -  gtk_switch_set_active (GTK_SWITCH (page->reporting_switch), TRUE);
 +  gtk_switch_set_active (GTK_SWITCH (page->reporting_switch), FALSE);
  
- #ifdef HAVE_WEBKITGTK
-   gtk_label_set_markup (GTK_LABEL (page->location_privacy_label),
+   gtk_label_set_label (GTK_LABEL (page->location_privacy_label),
+                        _("Allows apps to determine your geographical location."));
