@@ -1,8 +1,8 @@
 %global git_commit_hash 3cad8dff209b65653988f7f596a05ccf4cbe2a59
 
 Name:           nautilus-admin
-Version:        1.1.9
-Release:        4%{?dist}
+Version:        1.2.0
+Release:        1%{?dist}
 Summary:        Extension for Nautilus to do administrative operations
 
 License:        GPL-3.0
