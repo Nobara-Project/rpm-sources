@@ -1,5 +1,5 @@
 ## START: Set by rpmautospec
-## (rpmautospec version 0.6.1)
+## (rpmautospec version 0.6.5)
 ## RPMAUTOSPEC: autorelease, autochangelog
 %define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
     release_number = 1;
@@ -10,12 +10,12 @@
 
 %global rh_backgrounds_version 15
 %global waves_version 0.1.2
-%global fedora_release_name f40
+%global fedora_release_name f41
 %global gnome_default default
 %global picture_ext png
 
 Name:           desktop-backgrounds
-Version:        40.0.0
+Version:        41.0.0
 Release:        %autorelease
 Summary:        Desktop backgrounds
 
@@ -38,16 +38,27 @@ desktop background image.
 %package        basic
 Summary:        Desktop backgrounds
 Provides:       desktop-backgrounds = %{version}-%{release}
-Provides:	%{fedora_release_name}-backgrounds-base-39
 Obsoletes:      desktop-backgrounds < %{version}-%{release}
-Obsoletes:	%{fedora_release_name}-backgrounds-base-39
 
 %description    basic
 The desktop-backgrounds-basic package contains artwork intended to be used as
 desktop background image.
 
+%package        budgie
+Summary:        The default Fedora wallpaper from Budgie desktop
+Requires:       %{fedora_release_name}-backgrounds-budgie
+Requires:       gsettings-desktop-schemas >= 2.91.92
+Provides:       system-backgrounds-budgie = %{version}-%{release}
+License:        CC-BY-SA
+
+%description    budgie
+The desktop-backgrounds-budgie package sets default background in budgie.
+
 %package        gnome
 Summary:        The default Fedora wallpaper from GNOME desktop
+Requires:       %{fedora_release_name}-backgrounds-gnome
+# starting with this release, gnome uses picture-uri instead of picture-filename
+# see gnome bz #633983
 Requires:       gsettings-desktop-schemas >= 2.91.92
 Provides:       system-backgrounds-gnome = %{version}-%{release}
 License:        CC-BY-SA
@@ -57,10 +68,9 @@ The desktop-backgrounds-gnome package sets default background in gnome.
 
 %package        compat
 Summary:        The default Fedora wallpaper for less common DEs
+Provides:       %{fedora_release_name}-backgrounds-base
 Provides:       system-backgrounds-compat = %{version}-%{release}
 License:        CC-BY-SA
-Provides:	%{fedora_release_name}-backgrounds-base
-Obsoletes:	%{fedora_release_name}-backgrounds-base
 
 %description    compat
 The desktop-backgrounds-compat package contains file-names used
@@ -137,30 +147,53 @@ ln -s ../../../../backgrounds/waves/waves-wide-3-night.png 1920x1200.png
 )
 
 # Defaults for various desktops:
-#   for GNOME
-# Disabled for now, Nobara uses the defaults
+
+#   for Budgie, sets for: gnome desktop, gnome screensaver, and slick-greeter
+#   set to 30, 20 is used by upstream and budgie branding package uses 10
+
 mkdir -p %{buildroot}%{_datadir}/glib-2.0/schemas
-#/bin/echo '[org.gnome.desktop.background]' > \
-#    %{buildroot}%{_datadir}/glib-2.0/schemas/10_org.gnome.desktop.background.fedora.gschema.override
-#/bin/echo "picture-uri='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}-01-day.png'" >> \
-#    %{buildroot}%{_datadir}/glib-2.0/schemas/10_org.gnome.desktop.background.fedora.gschema.override
-#/bin/echo "picture-uri-dark='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}-01-night.png'" >> \
-#    %{buildroot}%{_datadir}/glib-2.0/schemas/10_org.gnome.desktop.background.fedora.gschema.override
+/bin/echo '[org.gnome.desktop.background:Budgie]' > \
+    %{buildroot}%{_datadir}/glib-2.0/schemas/30_budgie_org.gnome.desktop.background.fedora.gschema.override
+/bin/echo "picture-uri='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}.png'" >> \
+    %{buildroot}%{_datadir}/glib-2.0/schemas/30_budgie_org.gnome.desktop.background.fedora.gschema.override
+/bin/echo "picture-uri-dark='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}.png'" >> \
+    %{buildroot}%{_datadir}/glib-2.0/schemas/30_budgie_org.gnome.desktop.background.fedora.gschema.override
+
+/bin/echo '[org.gnome.desktop.screensaver:Budgie]' > \
+    %{buildroot}%{_datadir}/glib-2.0/schemas/30_budgie_org.gnome.desktop.screensaver.fedora.gschema.override
+/bin/echo "picture-uri='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}.png'" >> \
+    %{buildroot}%{_datadir}/glib-2.0/schemas/30_budgie_org.gnome.desktop.screensaver.fedora.gschema.override
+/bin/echo "picture-uri-dark='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}.png'" >> \
+    %{buildroot}%{_datadir}/glib-2.0/schemas/30_budgie_org.gnome.desktop.screensaver.fedora.gschema.override
+
+/bin/echo '[x.dm.slick-greeter:Budgie]' > \
+    %{buildroot}%{_datadir}/glib-2.0/schemas/30_budgie_x.dm.slick_greeter.fedora.gschema.override
+/bin/echo "background='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}.png'" >> \
+    %{buildroot}%{_datadir}/glib-2.0/schemas/30_budgie_x.dm.slick_greeter.fedora.gschema.override
+
+#   for GNOME
+mkdir -p %{buildroot}%{_datadir}/glib-2.0/schemas
+/bin/echo '[org.gnome.desktop.background]' > \
+    %{buildroot}%{_datadir}/glib-2.0/schemas/10_org.gnome.desktop.background.fedora.gschema.override
+/bin/echo "picture-uri='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}.png'" >> \
+    %{buildroot}%{_datadir}/glib-2.0/schemas/10_org.gnome.desktop.background.fedora.gschema.override
+/bin/echo "picture-uri-dark='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}.png'" >> \
+    %{buildroot}%{_datadir}/glib-2.0/schemas/10_org.gnome.desktop.background.fedora.gschema.override
 # Use the Fedora background on the GNOME lockscreen as well. Would be awesome to
 # have a separate image here to complement the default Fedora background, rather
 # than using the same image in both places, but previously we've mixed Fedora
 # desktop backgrounds with GNOME lockscreens, and they just do not match at all.
-#/bin/echo '[org.gnome.desktop.screensaver]' > \
-#    %{buildroot}%{_datadir}/glib-2.0/schemas/10_org.gnome.desktop.screensaver.fedora.gschema.override
-#/bin/echo "picture-uri='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}-01-day.png'" >> \
-#    %{buildroot}%{_datadir}/glib-2.0/schemas/10_org.gnome.desktop.screensaver.fedora.gschema.override
-#/bin/echo "picture-uri-dark='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}-01-night.png'" >> \
-#    %{buildroot}%{_datadir}/glib-2.0/schemas/10_org.gnome.desktop.screensaver.fedora.gschema.override
+/bin/echo '[org.gnome.desktop.screensaver]' > \
+    %{buildroot}%{_datadir}/glib-2.0/schemas/10_org.gnome.desktop.screensaver.fedora.gschema.override
+/bin/echo "picture-uri='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}.png'" >> \
+    %{buildroot}%{_datadir}/glib-2.0/schemas/10_org.gnome.desktop.screensaver.fedora.gschema.override
+/bin/echo "picture-uri-dark='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}.png'" >> \
+    %{buildroot}%{_datadir}/glib-2.0/schemas/10_org.gnome.desktop.screensaver.fedora.gschema.override
 #   for KDE, this is handled in kde-settings
 #   for XFCE, LXDE, etc.
 %if "x%{?picture_ext}" == "xpng"
   (cd %{buildroot}%{_datadir}/backgrounds/images;
-  ln -s ../%{fedora_release_name}/default/%{fedora_release_name}.png\
+  ln -s ../%{fedora_release_name}/default/%{fedora_release_name}.png \
       default.png
   ln -s ../%{fedora_release_name}/default/%{fedora_release_name}.png \
       default-5_4.png
@@ -226,20 +259,28 @@ ln -s %{_datadir}/wallpapers/Next/contents/images/3840x2160.png \
 %{_datadir}/mate-background-properties/desktop-backgrounds-waves.xml
 %{_datadir}/wallpapers/Fedora_Waves
 
+%files budgie
+%{_datadir}/glib-2.0/schemas/30_budgie_*
+
 %files gnome
-%{_datadir}/glib-2.0/schemas/
+%{_datadir}/glib-2.0/schemas/10_org.gnome.*
 
 %files compat
 %dir %{_datadir}/backgrounds/images/
 %{_datadir}/backgrounds/images/default*
 %{_datadir}/backgrounds/default.png
 %{_datadir}/backgrounds/%{fedora_release_name}/default/%{fedora_release_name}.png
-%{_datadir}/backgrounds/%{fedora_release_name}/default/f37-01-day.png
-%{_datadir}/backgrounds/%{fedora_release_name}/default/f37-02-night.png
-#%{_datadir}/backgrounds/default.xml
+%{_datadir}/backgrounds/f41/default/f37-01-day.png
+%{_datadir}/backgrounds/f41/default/f37-02-night.png
 
 %changelog
 ## START: Generated by rpmautospec
+* Wed Aug 14 2024 Luya Tshimbalanga <luya@fedoraproject.org> - 41.0.0-1
+- Enable F41 theme
+
+* Wed Jul 17 2024 Fedora Release Engineering <releng@fedoraproject.org> - 40.0.0-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_41_Mass_Rebuild
+
 * Thu Mar 07 2024 Luya Tshimbalanga <luya@fedoraproject.org> - 40.0.0-1
 - Enable F40 theme
 
