@@ -1,0 +1,26 @@
+From 88286758bfb7dfcf13875db36f2b2b3960497e99 Mon Sep 17 00:00:00 2001
+From: Neal Gompa <neal@gompa.dev>
+Date: Sat, 5 Oct 2024 10:57:23 -0400
+Subject: [PATCH] libobs-opengl: Fix incompatible pointer type error for 32-bit
+ arches
+
+---
+ libobs-opengl/gl-egl-common.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/libobs-opengl/gl-egl-common.c b/libobs-opengl/gl-egl-common.c
+index 8854e9d0c..819061ae0 100644
+--- a/libobs-opengl/gl-egl-common.c
++++ b/libobs-opengl/gl-egl-common.c
+@@ -379,7 +379,7 @@ bool gl_egl_query_dmabuf_modifiers_for_format(EGLDisplay egl_display, uint32_t d
+ 		blog(LOG_ERROR, "Unable to load eglQueryDmaBufModifiersEXT");
+ 		return false;
+ 	}
+-	if (!query_dmabuf_modifiers(egl_display, drm_format, modifiers, n_modifiers)) {
++	if (!query_dmabuf_modifiers(egl_display, drm_format, modifiers, (EGLuint64KHR *)n_modifiers)) {
+ 		*n_modifiers = 0;
+ 		*modifiers = NULL;
+ 		return false;
+-- 
+2.46.2
+

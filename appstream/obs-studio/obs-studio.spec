@@ -15,34 +15,22 @@
 # x264 is not in Fedora
 %bcond x264 0
 
-%ifarch x86_64 aarch64
-# OBS-CEF is only available on x86_64 and aarch64
-%bcond cef 1
-%else
-%bcond cef 0
-%endif
-
 %if "%{__isa_bits}" == "64"
 %global lib64_suffix ()(64bit)
 %endif
-%global openh264_soversion 7
 
 
-%global obswebsocket_version 5.3.5
+%global obswebsocket_version 5.5.4
+%global obsbrowser_commit a76b4d8810a0a33e91ac5b76a0b1af2f22bf8efd
+%global version_cef 6533
+%global version_aja v16.2-bugfix5
 
-%global obsbrowser_commit e873fb05f97083359a1d222590dc07ec62036643
-%global cef_version 5060
-
-#global commit ad859a3f66daac0d30eebcc9b07b0c2004fb6040
-#global snapdate 202303261743
-#global shortcommit %(c=%{commit}; echo ${c:0:7})
-
-%define version_string 30.1.1
+%define version_string 31.0.0~rc1
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build %{build_timestamp}.%{shortcommit}%{?dist}
 %global _default_patch_fuzz 2
 # obs version and commit
-%define commit 082377043e9507496537f7dd32002212a4d16f54
+%global commit dfc3a69c5276edf84c933035ff2a7e278fa13c9a
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 Name:           obs-studio
@@ -52,15 +40,13 @@ Summary:        Open Broadcaster Software Studio
 
 # OBS itself is GPL-2.0-or-later, while various plugin dependencies are of various other licenses
 # The licenses for those dependencies are captured with the bundled provides statements
-License:        GPL-2.0-or-later and MIT and BSD-1-Clause and BSD-2-Clause and BSD-3-Clause and BSL-1.0 and LGPL-2.1-or-later and CC0-1.0 and (CC0-1.0 or OpenSSL or Apache-2.0) and LicenseRef-Fedora-Public-Domain and (BSD-3-Clause or GPL-2.0-only)
+License:        GPL-2.0-or-later and MIT and BSD-2-Clause and BSD-3-Clause and BSL-1.0 and LGPL-2.1-or-later and CC0-1.0 and (CC0-1.0 or OpenSSL or Apache-2.0) and LicenseRef-Fedora-Public-Domain and (BSD-3-Clause or GPL-2.0-only)
 URL:            https://obsproject.com/
 Source0:        https://github.com/obsproject/obs-studio/archive/%{commit}/%{name}-%{shortcommit}.tar.gz
 Source1:        https://github.com/obsproject/obs-websocket/archive/%{obswebsocket_version}/obs-websocket-%{obswebsocket_version}.tar.gz
-
 Source2:        https://github.com/obsproject/obs-browser/archive/%{obsbrowser_commit}/obs-browser-%{obsbrowser_commit}.tar.gz
-
-# CMake snippets for finding systemwide obs-cef
-Source3:        FindCEF.cmake
+Source3:        https://cdn-fastly.obsproject.com/downloads/cef_binary_%{version_cef}_linux_x86_64.tar.xz
+Source4:        https://github.com/aja-video/ntv2/archive/refs/tags/%{version_aja}.tar.gz
 
 # Disabled for now
 # Source4:        0001-Revert-Disable-browser-panels-on-Wayland.patch
@@ -69,11 +55,6 @@ Source3:        FindCEF.cmake
 
 # Nobara patches
 Patch0:         add-plugins.patch
-
-## Pipewire audio capture
-Patch1:         6207.patch
-## NVENC AV1
-Patch4:         8794.patch
 
 ## Encoder name cleanup
 Patch8:         encoder-rename.patch
@@ -92,17 +73,19 @@ Patch9:       8051.patch
 
 # Proposed upstream
 ## From: https://github.com/obsproject/obs-studio/pull/8529
-Patch0101:      0001-UI-Consistently-reference-the-software-H264-encoder-.patch
-Patch0102:      0002-obs-ffmpeg-Add-initial-support-for-the-OpenH264-H.26.patch
-Patch0103:      0003-UI-Add-support-for-OpenH264-as-the-worst-case-fallba.patch
+Patch0101:      0101-UI-Consistently-reference-the-software-H264-encoder-.patch
+Patch0102:      0102-obs-ffmpeg-Add-initial-support-for-the-OpenH264-H.26.patch
+Patch0103:      0103-UI-Add-support-for-OpenH264-as-the-worst-case-fallba.patch
 
 # Downstream Fedora patches
 ## Use fdk-aac by default
-Patch1002:      obs-studio-UI-use-fdk-aac-by-default.patch
-
+Patch1001:      obs-studio-UI-use-fdk-aac-by-default.patch
+## Fix error: passing argument 4 of ‘query_dmabuf_modifiers’ from
+##            incompatible pointer type [-Wincompatible-pointer-types]
+Patch1003:      obs-studio-fix-incompatible-pointer-type.patch
 
 BuildRequires:  gcc
-BuildRequires:  cmake >= 3.20
+BuildRequires:  cmake >= 3.22
 BuildRequires:  ninja-build
 BuildRequires:  libappstream-glib
 BuildRequires:  desktop-file-utils
@@ -117,7 +100,7 @@ BuildRequires:  git
 BuildRequires:  jansson-devel >= 2.5
 BuildRequires:  json-devel
 BuildRequires:  libcurl-devel
-BuildRequires:  libdatachannel-devel
+BuildRequires:  libdatachannel-devel >= 0.20
 BuildRequires:  libdrm-devel
 BuildRequires:  libGL-devel
 BuildRequires:  libglvnd-devel
@@ -135,6 +118,7 @@ BuildRequires:  libxkbcommon-devel
 BuildRequires:  luajit-devel
 %endif
 BuildRequires:  mbedtls-devel
+BuildRequires:  nv-codec-headers
 %if %{with vpl}
 BuildRequires:  oneVPL-devel
 %endif
@@ -148,9 +132,11 @@ BuildRequires:  qt6-qtbase-devel
 BuildRequires:  qt6-qtbase-private-devel
 BuildRequires:  qt6-qtsvg-devel
 BuildRequires:  qt6-qtwayland-devel
+BuildRequires:  rnnoise-devel
 BuildRequires:  speexdsp-devel
 BuildRequires:  swig
 BuildRequires:  systemd-devel
+BuildRequires:  uthash-devel
 BuildRequires:  wayland-devel
 BuildRequires:  websocketpp-devel
 %if %{with x264}
@@ -160,22 +146,30 @@ BuildRequires:  x264-devel
 Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
 # Ensure that we have the full ffmpeg suite installed
 Requires:       /usr/bin/ffmpeg
-# We dlopen() openh264, so weak-depend on it...
+# Try to ensure openh264 is installed
 ## Note, we can do this because openh264 is provided in a default-enabled
 ## third party repository provided by Cisco.
-Recommends:     libopenh264.so.%{openh264_soversion}%{?lib64_suffix}
+Recommends:     openh264%{?_isa}
 %if %{with x264}
-Requires:       x264
+Requires:       x264%{?_isa}
 %endif
 
-Requires:	obs-studio-plugin-vkcapture
-Requires:	obs-studio-plugin-vkcapture(x86-32)
+# CEF dependencies, both for compiling Browser Source and running it
+%define cef_runtime_deps nss, nss-util, nspr, atk, at-spi2-atk, libXrandr, at-spi2-core, libXdamage
+
+BuildRequires: %{cef_runtime_deps}
+Requires:      %{cef_runtime_deps}
+
 Recommends:	mesa-va-drivers
 Recommends:	mesa-vdpau-drivers
 Requires:	obs-ndi
 Requires:	libndi-sdk
 Requires:	obs-studio-plugin-media-playlist-source
 Obsoletes:	obs-studio-plugin-vlc-video
+Requires:	obs-studio-plugin-backgroundremoval
+Requires:	obs-studio-plugin-pipewire-audio-capture
+Requires:	obs-studio-plugin-vkcapture
+Requires:	obs-studio-plugin-vkcapture(x86-32)
 
 
 # Ensure QtWayland is installed when libwayland-client is installed
@@ -196,8 +190,6 @@ Provides:      bundled(blake2)
 Provides:      bundled(json11)
 ## License: MIT
 Provides:      bundled(libcaption)
-## License: BSD-1-Clause
-Provides:      bundled(uthash)
 ## License: BSD-3-Clause
 Provides:      bundled(rnnoise)
 ## License: LGPL-2.1-or-later and LicenseRef-Fedora-Public-Domain
@@ -220,12 +212,14 @@ software for video recording and live streaming.
 %license COPYING
 %{_bindir}/obs
 %{_bindir}/obs-ffmpeg-mux
+%{_bindir}/obs-nvenc-test
 %{_datadir}/metainfo/com.obsproject.Studio.metainfo.xml
 %{_datadir}/applications/com.obsproject.Studio.desktop
 %{_datadir}/icons/hicolor/*/apps/com.obsproject.Studio.*
 %{_datadir}/obs/
+%ifarch x86_64
 %exclude %{_datadir}/obs/obs-plugins/obs-browser*
-
+%endif
 # --------------------------------------------------------------------------
 
 %package libs
@@ -239,7 +233,7 @@ Library files for Open Broadcaster Software
 %license .fedora-rpm/licenses/*
 %dir %{_libexecdir}/obs-plugins
 %{_libdir}/obs-plugins/
-%if %{with cef}
+%ifarch x86_64
 %exclude %{_libdir}/obs-plugins/obs-browser*
 %endif
 %{_libdir}/obs-scripting/
@@ -259,15 +253,15 @@ Header files for Open Broadcaster Software
 %files devel
 %{_libdir}/cmake/libobs/
 %{_libdir}/cmake/obs-frontend-api/
+%{_libdir}/cmake/obs-websocket-api/
 %{_libdir}/pkgconfig/libobs.pc
+%{_libdir}/pkgconfig/obs-frontend-api.pc
 %{_includedir}/obs/
 
 # --------------------------------------------------------------------------
-
-%if %{with cef}
+%ifarch x86_64
 %package plugin-browser
 Summary:        Open Broadcaster Software Studio - CEF-based browser plugin
-BuildRequires:  obs-cef-devel
 
 # Filter out bogus libcef.so requires as this is handled manually
 # with an explicit dependency
@@ -289,6 +283,7 @@ a video stream or recording using the Chromium Embedded Framework (CEF).
 %{_datadir}/obs/obs-plugins/obs-browser*
 %endif
 
+
 %prep
 %setup -q -n %{name}-%{commit}
 # Prepare plugins/obs-websocket
@@ -296,28 +291,26 @@ tar -xf %{SOURCE1} -C plugins/obs-websocket --strip-components=1
 tar -xf %{SOURCE2} -C plugins/obs-browser --strip-components=1
 %autopatch -p1
 
-# rpmlint reports E: hardcoded-library-path
-# replace OBS_MULTIARCH_SUFFIX by LIB_SUFFIX
-sed -e 's|OBS_MULTIARCH_SUFFIX|LIB_SUFFIX|g' -i cmake/Modules/ObsHelpers.cmake
+%ifarch x86_64
+# unpack CEF wrapper
+mkdir -p %{_builddir}/SOURCES/CEF
+tar -x --xz -f %{SOURCE3} -C %{_builddir}/SOURCES/CEF --strip-components=1
+%endif
 
-# Kill rpath settings
-sed -e '/CMAKE_INSTALL_RPATH/d' -i cmake/Modules/ObsDefaults_Linux.cmake
-
-# Fix FindCEF to use systemwide obs-cef
-cp %{SOURCE3} cmake/Modules/FindCEF.cmake
+# unpack AJA Libs
+mkdir -p %{_builddir}/SOURCES/AJA/source/cmake-build
+tar -xf %{SOURCE4} -C %{_builddir}/SOURCES/AJA/source --strip-components=1
+# compile AJA libs
+# cd %{_builddir}/SOURCES/AJA/source/cmake-build
+# cmake -DCMAKE_BUILD_TYPE=Release -GNinja -DCMAKE_INSTALL_PREFIX=%{_builddir}/SOURCES/AJA/install ..
+# ninja -f build.ninja
+# cmake --install ajalibraries/ajantv2
 
 # Disabled for now
 # Re-enable browser panels on wayland
 # cd plugins/obs-browser
 # patch -Np1 < %{SOURCE4}
 # cd ../../
-
-# Fix include paths
-sed -e 's,include/,obs-cef/,g' -i plugins/obs-browser/{cef-headers.hpp,browser-scheme.cpp}
-# Remove obs-cef install
-sed -e '/setup_target_browser(/d' -i cmake/Modules/ObsHelpers.cmake
-# Fix obs-browser rpath setting
-sed -e 's,INSTALL_RPATH ".*",INSTALL_RPATH "%{_libdir}/obs-cef/",' -i plugins/obs-browser/cmake/{os-linux,legacy}.cmake
 
 ### NOBARA-ADDED ###
 
@@ -339,10 +332,6 @@ mv plugins/obs-qsv11/CMakeLists.txt plugins/obs-qsv11/CMakeLists.txt.disabled
 touch plugins/obs-qsv11/CMakeLists.txt
 %endif
 
-# remove -Werror flag to mitigate FTBFS with ffmpeg 5.1
-sed -e 's|-Werror-implicit-function-declaration||g' -i cmake/Modules/CompilerConfig.cmake
-sed -e '/-Werror/d' -i cmake/Modules/CompilerConfig.cmake
-
 # Removing unused third-party deps
 rm -rf deps/w32-pthreads
 rm -rf deps/ipc-util
@@ -361,9 +350,7 @@ cp plugins/obs-outputs/librtmp/COPYING .fedora-rpm/licenses/deps/librtmp-COPYING
 cp deps/json11/LICENSE.txt .fedora-rpm/licenses/deps/json11-LICENSE.txt
 cp deps/libcaption/LICENSE.txt .fedora-rpm/licenses/deps/libcaption-LICENSE.txt
 cp plugins/obs-qsv11/QSV11-License-Clarification-Email.txt .fedora-rpm/licenses/plugins/QSV11-License-Clarification-Email.txt
-cp deps/uthash/uthash/LICENSE .fedora-rpm/licenses/deps/uthash-LICENSE
 cp deps/blake2/LICENSE.blake2 .fedora-rpm/licenses/deps/
-cp deps/media-playback/LICENSE.media-playback .fedora-rpm/licenses/deps/
 cp libobs/graphics/libnsgif/LICENSE.libnsgif .fedora-rpm/licenses/deps/
 cp libobs/util/simde/LICENSE.simde .fedora-rpm/licenses/deps/
 cp plugins/decklink/LICENSE.decklink-sdk .fedora-rpm/licenses/deps
@@ -371,17 +358,23 @@ cp plugins/obs-qsv11/obs-qsv11-LICENSE.txt .fedora-rpm/licenses/plugins/
 
 
 %build
-%cmake -DOBS_VERSION_OVERRIDE=%{version}\
-       -DUNIX_STRUCTURE=1 -GNinja \
-%if ! %{with cef}
-       -DBUILD_BROWSER=OFF \
+%cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+       -DOBS_VERSION_OVERRIDE=%{version_no_tilde} \
+       -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF \
+       -DCMAKE_PREFIX_PATH="%{_builddir}/SOURCES/AJA/install" \
+       -DENABLE_AJA=OFF \
+%ifarch x86_64
+       -DENABLE_BROWSER=ON \
+       -DCEF_ROOT_DIR="%{_builddir}/SOURCES/CEF" \
+%else
+       -DENABLE_BROWSER=OFF \
 %endif
+       -DUNIX_STRUCTURE=1 -GNinja \
        -DENABLE_VLC=OFF \
        -DENABLE_JACK=ON \
        -DENABLE_LIBFDK=ON \
-       -DENABLE_AJA=OFF \
 %if ! %{with lua_scripting}
-       -DDISABLE_LUA=ON \
+       -DENABLE_SCRIPTING_LUA=OFF \
 %endif
        -DOpenGL_GL_PREFERENCE=GLVND
 %cmake_build
@@ -401,11 +394,47 @@ mkdir -p %{buildroot}%{_libexecdir}/obs-plugins
 find %{buildroot} -name ".keepme" -delete
 find %{buildroot} -name ".gitkeep" -delete
 
+
 %check
 desktop-file-validate %{buildroot}/%{_datadir}/applications/com.obsproject.Studio.desktop
 appstream-util validate-relax --nonet %{buildroot}%{_datadir}/metainfo/*.metainfo.xml
 
+
 %changelog
+* Tue Oct 22 2024 Richard W.M. Jones <rjones@redhat.com> - 31.0.0~beta1-4
+- Rebuild for Jansson 2.14
+  (https://lists.fedoraproject.org/archives/list/devel@lists.fedoraproject.org/thread/3PYINSQGKQ4BB25NQUI2A2UCGGLAG5ND/)
+
+* Mon Oct 14 2024 Jan Grulich <jgrulich@redhat.com> - 31.0.0~beta1-3
+- Rebuild (qt6)
+
+* Sat Oct 05 2024 Neal Gompa <ngompa@fedoraproject.org> - 31.0.0~beta1-2
+- Directly recommend the openh264 package
+
+* Sat Oct 05 2024 Neal Gompa <ngompa@fedoraproject.org> - 31.0.0~beta1-1
+- Update to 31.0.0~beta1
+
+* Mon Sep 23 2024 Fabio Valentini <decathorpe@gmail.com> - 30.2.2-3
+- Rebuild for ffmpeg 7
+
+* Tue Sep 03 2024 Morten Stevens <mstevens@fedoraproject.org> - 30.2.2-2
+- Rebuilt for mbedTLS 3.6.1
+
+* Wed Jul 31 2024 Neal Gompa <ngompa@fedoraproject.org> - 30.2.2-1
+- Update to 30.2.2
+
+* Thu Jul 18 2024 Fedora Release Engineering <releng@fedoraproject.org> - 30.1.1-4
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_41_Mass_Rebuild
+
+* Sat Jun 08 2024 Python Maint <python-maint@redhat.com> - 30.1.1-3
+- Rebuilt for Python 3.13
+
+* Thu Apr 04 2024 Jan Grulich <jgrulich@redhat.com> - 30.1.1-2
+- Rebuild (qt6)
+
+* Tue Apr 02 2024 Neal Gompa <ngompa@fedoraproject.org> - 30.1.1-1
+- Update to 30.1.1
+
 * Fri Feb 16 2024 Jan Grulich <jgrulich@redhat.com> - 30.0.0-9
 - Rebuild (qt6)
 
