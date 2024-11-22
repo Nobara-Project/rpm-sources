@@ -1,17 +1,58 @@
+## START: Set by rpmautospec
+## (rpmautospec version 0.6.5)
+## RPMAUTOSPEC: autorelease, autochangelog
+%define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
+    release_number = 5;
+    base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
+    print(release_number + base_release_number - 1);
+}%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
+## END: Set by rpmautospec
+
 Summary: A set of system configuration and setup files
 Name: setup
-Version: 2.14.5
-Release: 7%{?dist}
+Version: 2.15.0
+Release: %autorelease
 License: LicenseRef-Fedora-Public-Domain
-Group: System Environment/Base
-URL: https://pagure.io/setup/
-Source0: https://releases.pagure.org/%{name}/%{name}-%{version}.tar.gz
-Patch0: nobara-additions.patch
+# This package is a downstream-only project
+URL: https://src.fedoraproject.org/rpms/setup
+
+Source0001: aliases
+Source0002: bashrc
+Source0003: csh.cshrc
+Source0004: csh.login
+Source0005: ethertypes
+Source0006: filesystems
+Source0007: group
+Source0008: host.conf
+Source0009: hosts
+Source0010: inputrc
+Source0011: networks
+Source0012: passwd
+Source0013: printcap
+Source0014: profile
+Source0015: protocols
+Source0016: services
+Source0017: shells
+
+Source0021: lang.csh
+Source0022: lang.sh
+
+Source0031: COPYING
+Source0032: uidgid
+Source0033: generate-sysusers-fragments.sh
+Source0034: uidgidlint
+Source0035: serviceslint
+
+Source0036: nobara-additions.patch
+
 BuildArch: noarch
 #systemd-rpm-macros: required to use _tmpfilesdir macro
 # https://fedoraproject.org/wiki/Changes/Remove_make_from_BuildRoot
 BuildRequires: make
-BuildRequires: bash tcsh perl-interpreter systemd-rpm-macros
+BuildRequires: bash
+BuildRequires: tcsh
+BuildRequires: perl-interpreter
+BuildRequires: systemd-rpm-macros
 #require system release for saner dependency order
 Requires: system-release
 
@@ -20,34 +61,49 @@ The setup package contains a set of important system configuration and
 setup files, such as passwd, group, and profile.
 
 %prep
-%setup -q
-./generate-sysusers-fragments.sh
-./shadowconvert.sh
-patch -Np1 < %{PATCH0}
+mkdir -p etc/profile.d
+cp %{lua: for i=1,17 do print(sources[i]..' ') end} etc/
+cp %SOURCE21 %SOURCE22 etc/profile.d/
+touch etc/{exports,motd,subgid,subuid}
+
+mkdir -p docs
+cp %SOURCE31 %SOURCE32 docs/
+
+bash %SOURCE33
+
+patch -Np1 < %{SOURCE36}
 
 %build
+#make prototype for /etc/shadow
+sed -e "s/:.*/:*:`expr $(date +%s) / 86400`:0:99999:7:::/" etc/passwd >etc/shadow
+
+#make prototype for /etc/gshadow
+sed -e 's/:[0-9]\+:/::/g; s/:x:/::/' etc/group >etc/gshadow
 
 %check
-# Run any sanity checks.
-make check
+# Sanity checking selected files....
+bash -n etc/bashrc
+bash -n etc/profile
+tcsh -f etc/csh.cshrc
+tcsh -f etc/csh.login
+(cd etc && bash %SOURCE34 ./uidgid)
+(cd etc && perl %SOURCE35 ./services)
 
 %install
 rm -rf %{buildroot}
+
 mkdir -p %{buildroot}/etc
-cp -ar * %{buildroot}/etc
-mkdir -p %(dirname %{buildroot}%{_sysusersdir})
-mv %{buildroot}/etc/sysusers.d %{buildroot}%{_sysusersdir}
-mkdir -p %{buildroot}/etc/profile.d
-mv %{buildroot}/etc/lang* %{buildroot}/etc/profile.d/
-rm -f %{buildroot}/etc/uidgid
-rm -f %{buildroot}/etc/COPYING
+cp -ar etc/* %{buildroot}/etc/
+
+mkdir -p %{buildroot}%{_sysusersdir}
+cp sysusers.d/* %{buildroot}%{_sysusersdir}/
+
 mkdir -p %{buildroot}/var/log
 touch %{buildroot}/etc/environment
-chmod 0644 %{buildroot}/etc/environment
 chmod 0400 %{buildroot}/etc/{shadow,gshadow}
 touch %{buildroot}/etc/fstab
 echo "#Add any required envvar overrides to this file, it is sourced from /etc/profile" >%{buildroot}/etc/profile.d/sh.local
-echo "#Add any required envvar overrides to this file, is sourced from /etc/csh.login" >%{buildroot}/etc/profile.d/csh.local
+echo "#Add any required envvar overrides to this file, it is sourced from /etc/csh.login" >%{buildroot}/etc/profile.d/csh.local
 mkdir -p %{buildroot}/etc/motd.d
 mkdir -p %{buildroot}/run/motd.d
 mkdir -p %{buildroot}/usr/lib/motd.d
@@ -58,22 +114,9 @@ echo "f /run/motd 0644 root root -" >%{buildroot}%{_tmpfilesdir}/%{name}.conf
 echo "d /run/motd.d 0755 root root -" >>%{buildroot}%{_tmpfilesdir}/%{name}.conf
 chmod 0644 %{buildroot}%{_tmpfilesdir}/%{name}.conf
 
-# remove unpackaged files from the buildroot
-rm -f %{buildroot}/etc/Makefile
-rm -f %{buildroot}/etc/serviceslint
-rm -f %{buildroot}/etc/uidgidlint
-rm -f %{buildroot}/etc/generate-sysusers-fragments.sh
-rm -f %{buildroot}/etc/shadowconvert.sh
-rm -f %{buildroot}/etc/setup.spec
-rm -f %{buildroot}/etc/profile.orig
-rm -rf %{buildroot}/etc/contrib
-
 # make setup a protected package
 install -p -d -m 755 %{buildroot}/etc/dnf/protected.d/
-touch %{name}.conf
-echo setup > %{name}.conf
-install -p -c -m 0644 %{name}.conf %{buildroot}/etc/dnf/protected.d/
-rm -f %{name}.conf
+echo "setup" >%{buildroot}/etc/dnf/protected.d/setup.conf
 
 #throw away useless and dangerous update stuff until rpm will be able to
 #handle it ( http://rpm.org/ticket/6 )
@@ -92,8 +135,8 @@ if posix.access("/usr/bin/newaliases", "x") then
 end
 
 %files
-%license COPYING
-%doc uidgid
+%license docs/COPYING
+%doc docs/uidgid
 %verify(not md5 size mtime) %config(noreplace) /etc/passwd
 %verify(not md5 size mtime) %config(noreplace) /etc/group
 %verify(not md5 size mtime) %attr(0000,root,root) %config(noreplace,missingok) /etc/shadow
@@ -134,6 +177,28 @@ end
 /etc/dnf/protected.d/%{name}.conf
 
 %changelog
+## START: Generated by rpmautospec
+* Sat Jul 20 2024 Fedora Release Engineering <releng@fedoraproject.org> - 2.15.0-5
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_41_Mass_Rebuild
+
+* Fri Jun 07 2024 David Bold <david08741@gmail.com> - 2.15.0-4
+- Fix "upstream" URL
+
+* Thu May 30 2024 Zbigniew Jędrzejewski-Szmek <zbyszek@in.waw.pl> - 2.15.0-3
+- groups: add 'kvm'
+
+* Mon May 27 2024 Zbigniew Jędrzejewski-Szmek <zbyszek@in.waw.pl> - 2.15.0-2
+- Whitespace and typo fix
+
+* Mon May 27 2024 Zbigniew Jędrzejewski-Szmek <zbyszek@in.waw.pl> - 2.15.0-1
+- Merge upstream into downstream
+
+* Mon May 27 2024 Martin Osvald <mosvald@redhat.com> - 2.14.6-1
+- New version 2.14.6
+- Remove uidgid pair 77:77 for arpwatch
+- Define all hardware groups that systemd needs via sysusers
+- Switch to rpmautospec
+
 * Sat Jan 27 2024 Fedora Release Engineering <releng@fedoraproject.org> - 2.14.5-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
 
