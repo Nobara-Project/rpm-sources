@@ -1,0 +1,46 @@
+From 794cbbe80e2487be9ce967e08d2898640cd519cb Mon Sep 17 00:00:00 2001
+From: Maciej Borzecki <maciej.borzecki@canonical.com>
+Date: Thu, 24 Oct 2024 16:03:03 +0200
+Subject: [PATCH] data/selinux: remove timedatex
+
+The upstream selinux-policy has dropped timedatex in
+https://github.com/fedora-selinux/selinux-policy/commit/2246d17b3c63df73e3359161a9c4e9c07d1cd523
+Even when referencing type that no longer exists, our SELinux module
+builds fine, but then cannot be loaded at runtime:
+
+maciek@localhost:~/snapd/data/selinux$ sudo semodule -i snappy.pp.bz2
+Failed to resolve typeattributeset statement at /var/lib/selinux/targeted/tmp/modules/400/snappy/cil:223
+Failed to resolve AST
+semodule:  Failed!
+
+And the offending line is:
+
+maciek@localhost:~/snapd/data/selinux$ /usr/libexec/selinux/hll/pp snappy.pp | tail -n +223 | head -1
+(typeattributeset cil_gen_require timedatex_t)
+
+Fixes: https://bugs.launchpad.net/snapd/+bug/2085535
+
+Signed-off-by: Maciej Borzecki <maciej.borzecki@canonical.com>
+---
+ data/selinux/snappy.te | 5 -----
+ 1 file changed, 5 deletions(-)
+
+diff --git a/data/selinux/snappy.te b/data/selinux/snappy.te
+index 0862985aab..7dd9711fcc 100644
+--- a/data/selinux/snappy.te
++++ b/data/selinux/snappy.te
+@@ -345,11 +345,6 @@ optional_policy(`
+ 	allow snappy_t systemd_timedated_t:dbus send_msg;
+ 	allow systemd_timedated_t snappy_t:dbus send_msg;
+ ')
+-# or on some systems same dbus API may be provided by timedatex
+-# RHEL7: there is no timedatex.if
+-ifndef(`distro_rhel7',`
+-  timedatex_dbus_chat(snappy_t)
+-')
+ 
+ # kernel-module-load interface may inspect or write files under /etc/modprobe.d
+ optional_policy(`
+-- 
+2.47.0
+
