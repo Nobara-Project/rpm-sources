@@ -3,7 +3,7 @@
 # SPDX-FileCopyrightText: 2023 Wesley Gimenes <wehagy+github@gmail.com>
 # See %%{name}.spec.license for the full license text.
 
-%global SHA256SUM0      223c8da373a265de28591ba9269440c5cf79fa4f9168c00b99503a65982d4df1
+%global SHA256SUM0      9f64a88a6fc5d6752bfe9c11633598f39d0161f514c0872da79a937427333d9d
 
 %global provider        github
 %global provider_tld    com
@@ -103,7 +103,7 @@ echo "%SHA256SUM0 %{SOURCE0}" | sha256sum -c -
 desktop-file-validate %{buildroot}%{_datadir}/applications/%{flatpak_name}.desktop
 
 appstream-util validate-relax --nonet \
-    %{buildroot}%{_datadir}/appdata/%{flatpak_name}.appdata.xml
+    %{buildroot}%{_datadir}/metainfo/%{flatpak_name}.metainfo.xml
 
 
 
@@ -113,11 +113,10 @@ appstream-util validate-relax --nonet \
 # install symlink prontonplus -> com.vysp3r.ProtonPlus
 %{_bindir}/%{name}
 %{_bindir}/%{flatpak_name}
-%{_datadir}/appdata/%{flatpak_name}.appdata.xml
+%{_datadir}/metainfo/%{flatpak_name}.metainfo.xml
 %{_datadir}/applications/%{flatpak_name}.desktop
 %{_datadir}/glib-2.0/schemas/%{flatpak_name}.gschema.xml
-%{_datadir}/icons/hicolor/*/apps/%{flatpak_name}.svg
-
+%{_datadir}/icons/hicolor/*/apps/%{flatpak_name}.*
 
 
 %changelog
