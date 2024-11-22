@@ -1,29 +1,37 @@
+From 7f141d4a8fd1c48cf44fe3afc69acbe7062a6cf2 Mon Sep 17 00:00:00 2001
+From: Tom Crider <tcrider@redhat.com>
+Date: Fri, 22 Nov 2024 15:29:25 -0500
+Subject: [PATCH] nobara additions
+
+---
+ etc/profile | 52 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 52 insertions(+)
+
 diff --git a/etc/profile b/etc/profile
-index de8e9ab..e4273ca 100644
+index 6ce1347..e24bb99 100644
 --- a/etc/profile
 +++ b/etc/profile
-@@ -83,3 +83,55 @@ then
+@@ -82,3 +82,55 @@ then
+    # Check for double sourcing is done in /etc/bashrc.
     . /etc/bashrc
  fi
- 
++
 +# workaround for input issue https://github.com/ibus/ibus/issues/2618
 +export IBUS_ENABLE_SYNC_MODE=2
-+
-+# https://bugs.kde.org/show_bug.cgi?id=488941,
-+export KWIN_DRM_ALLOW_NVIDIA_COLORSPACE=1
 +
 +# https://bugs.kde.org/show_bug.cgi?id=495260
 +export KWIN_DRM_DISABLE_TRIPLE_BUFFERING=0
 +
 +# nvidia rendering fixup
 +if [ -f /bin/lspci ]; then
-+nvgpu=$(lspci | grep -iE 'VGA|3D' | grep -i nvidia | cut -d ":" -f 3)
-+
-+if [[ ! -z $nvgpu ]]; then
++  nvgpu=$(lspci | grep -iE 'VGA|3D' | grep -i nvidia | cut -d ":" -f 3)
++  if [[ ! -z $nvgpu ]]; then
 +    export LIBVA_DRIVER_NAME=nvidia
 +    export MOZ_DISABLE_RDD_SANDBOX=1
 +    export EGL_PLATFORM=$XDG_SESSION_TYPE
-+fi
++    # https://bugs.kde.org/show_bug.cgi?id=488941,
++    export KWIN_DRM_ALLOW_NVIDIA_COLORSPACE=1
++  fi
 +fi
 +
 +# fix gnome missing 'New file' option
@@ -36,6 +44,7 @@ index de8e9ab..e4273ca 100644
 +# enable vulkan capture layer globally by default
 +export OBS_VKCAPTURE=1
 +export OBS_VKCAPTURE_QUIET=1
++
 +# this is a hack to disable Discord from trying to update itself. We are only able to receive discord updates from our package repo.
 +if [ ! -f $HOME/.config/discord/settings.json ];then
 +    mkdir -p $HOME/.config/discord/
@@ -58,3 +67,6 @@ index de8e9ab..e4273ca 100644
 +    fi
 +  fi
 +fi
+-- 
+2.47.0
+
