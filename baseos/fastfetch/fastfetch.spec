@@ -1,6 +1,6 @@
 Name:           fastfetch
 Version:        2.29.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Like neofetch, but much faster because written in c
 
 License:        MIT
@@ -113,6 +113,8 @@ BuildArch: noarch
 %cmake -DBUILD_TESTS=ON -DENABLE_SYSTEM_YYJSON=ON
 %cmake_build
 
+ln -s %{_bindir}/%{name} %{buildroot}%{_bindir}/neofetch
+
 
 %check
 %ctest
@@ -126,6 +128,7 @@ BuildArch: noarch
 %license LICENSE
 %doc README.md
 %{_bindir}/%{name}
+%{_bindir}/neofetch
 %{_bindir}/flashfetch
 %{_datadir}/%{name}/
 %{_mandir}/man1/fastfetch.1*
