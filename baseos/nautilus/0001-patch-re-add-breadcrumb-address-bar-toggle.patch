@@ -1,28 +1,28 @@
-From 5ffbafaee94786e7813ea2488433d4f73c79894c Mon Sep 17 00:00:00 2001
-From: GloriousEggroll <gloriouseggroll@gmail.com>
-Date: Sat, 11 May 2024 20:20:46 -0600
-Subject: [PATCH] toggle-breadcrumb-address-bar
+From ec058d9af3a477fd3c578256e956f220c62fbab6 Mon Sep 17 00:00:00 2001
+From: Tom Crider <tcrider@redhat.com>
+Date: Thu, 21 Nov 2024 02:58:43 -0500
+Subject: [PATCH] click breadcrumb-to-address-bar-button
 
 ---
  src/nautilus-toolbar.c               |   6 ++
- src/nautilus-window-slot.c           | 131 ++++++++++++++++++++++++---
+ src/nautilus-window-slot.c           | 102 +++++++++++++++++++++++----
  src/nautilus-window-slot.h           |   2 +
- src/resources/ui/nautilus-toolbar.ui |  22 +++++
- 4 files changed, 146 insertions(+), 15 deletions(-)
+ src/resources/ui/nautilus-toolbar.ui |  22 ++++++
+ 4 files changed, 117 insertions(+), 15 deletions(-)
 
 diff --git a/src/nautilus-toolbar.c b/src/nautilus-toolbar.c
-index 921a6e7..a84d951 100644
+index 3ff4425..21bcaa1 100644
 --- a/src/nautilus-toolbar.c
 +++ b/src/nautilus-toolbar.c
-@@ -34,6 +34,7 @@
+@@ -33,6 +33,7 @@
+ #include "nautilus-pathbar.h"
  #include "nautilus-view-controls.h"
  #include "nautilus-ui-utilities.h"
- #include "nautilus-window.h"
 +#include "nautilus-window-slot.h"
  
  struct _NautilusToolbar
  {
-@@ -99,6 +100,11 @@ toolbar_update_appearance (NautilusToolbar *self)
+@@ -97,6 +98,11 @@ toolbar_update_appearance (NautilusToolbar *self)
      {
          gtk_stack_set_visible_child_name (GTK_STACK (self->toolbar_switcher), "search");
      }
@@ -35,10 +35,10 @@ index 921a6e7..a84d951 100644
      {
          gtk_stack_set_visible_child_name (GTK_STACK (self->toolbar_switcher), "location");
 diff --git a/src/nautilus-window-slot.c b/src/nautilus-window-slot.c
-index f2700c0..772f5f0 100644
+index ef88083..add0b7f 100644
 --- a/src/nautilus-window-slot.c
 +++ b/src/nautilus-window-slot.c
-@@ -61,6 +61,7 @@ enum
+@@ -62,6 +62,7 @@ enum
      PROP_SEARCH_VISIBLE,
      PROP_SEARCH_GLOBAL,
      PROP_SELECTION,
@@ -46,7 +46,7 @@ index f2700c0..772f5f0 100644
      PROP_LOCATION,
      PROP_TOOLTIP,
      PROP_ALLOW_STOP,
-@@ -150,6 +151,7 @@ struct _NautilusWindowSlot
+@@ -160,6 +161,7 @@ struct _NautilusWindowSlot
      GBinding *selection_binding;
      GBinding *extensions_background_menu_binding;
      GBinding *templates_menu_binding;
@@ -54,8 +54,8 @@ index f2700c0..772f5f0 100644
      GList *selection;
  };
  
-@@ -647,6 +649,36 @@ nautilus_window_slot_search (NautilusWindowSlot *self,
-     }
+@@ -668,6 +670,36 @@ nautilus_window_slot_handle_activate_files (NautilusWindowSlot *self,
+     return TRUE;
  }
  
 +
@@ -91,7 +91,7 @@ index f2700c0..772f5f0 100644
  gboolean
  nautilus_window_slot_handle_event (NautilusWindowSlot    *self,
                                     GtkEventControllerKey *controller,
-@@ -654,20 +686,24 @@ nautilus_window_slot_handle_event (NautilusWindowSlot    *self,
+@@ -675,20 +707,24 @@ nautilus_window_slot_handle_event (NautilusWindowSlot    *self,
                                     GdkModifierType        state)
  {
      gboolean retval;
@@ -121,12 +121,13 @@ index f2700c0..772f5f0 100644
          {
              return GDK_EVENT_PROPAGATE;
          }
-@@ -679,17 +715,19 @@ nautilus_window_slot_handle_event (NautilusWindowSlot    *self,
+@@ -700,17 +736,19 @@ nautilus_window_slot_handle_event (NautilusWindowSlot    *self,
      }
  
      /* If the action is not enabled, don't try to handle search */
 -    if (g_action_get_enabled (action))
--    {
++    if (g_action_get_enabled (edit))
+     {
 -        retval = nautilus_query_editor_handle_event (self->query_editor,
 -                                                     controller,
 -                                                     keyval,
@@ -134,8 +135,7 @@ index f2700c0..772f5f0 100644
 -    }
 -
 -    if (retval && type_ahead_search ())
-+    if (g_action_get_enabled (edit))
-     {
+-    {
 -        nautilus_window_slot_set_search_visible (self, TRUE);
 +        retval = nautilus_query_editor_handle_event (self->query_editor, controller, keyval, state);
 +        if (retval && type_ahead_search ())
@@ -151,7 +151,7 @@ index f2700c0..772f5f0 100644
      }
  
      return retval;
-@@ -712,6 +750,14 @@ nautilus_window_slot_add_extra_location_widget (NautilusWindowSlot *self,
+@@ -733,6 +771,14 @@ nautilus_window_slot_add_extra_location_widget (NautilusWindowSlot *self,
      gtk_box_append (GTK_BOX (self->extra_location_widgets), widget);
  }
  
@@ -166,7 +166,7 @@ index f2700c0..772f5f0 100644
  static void
  nautilus_window_slot_set_selection (NautilusWindowSlot *self,
                                      GList              *selection)
-@@ -770,6 +816,12 @@ nautilus_window_slot_set_property (GObject      *object,
+@@ -791,6 +837,12 @@ nautilus_window_slot_set_property (GObject      *object,
          }
          break;
  
@@ -179,7 +179,7 @@ index f2700c0..772f5f0 100644
          case PROP_EXTENSIONS_BACKGROUND_MENU:
          {
              real_set_extensions_background_menu (self, g_value_get_object (value));
-@@ -897,6 +949,12 @@ nautilus_window_slot_get_property (GObject    *object,
+@@ -924,6 +976,12 @@ nautilus_window_slot_get_property (GObject    *object,
          }
          break;
  
@@ -192,7 +192,7 @@ index f2700c0..772f5f0 100644
          case PROP_TOOLTIP:
          {
              g_value_set_static_string (value, nautilus_window_slot_get_tooltip (self));
-@@ -923,6 +981,12 @@ nautilus_window_slot_get_property (GObject    *object,
+@@ -956,6 +1014,12 @@ nautilus_window_slot_get_property (GObject    *object,
      }
  }
  
@@ -205,15 +205,15 @@ index f2700c0..772f5f0 100644
  GList *
  nautilus_window_slot_get_selection (NautilusWindowSlot *self)
  {
-@@ -1168,6 +1261,7 @@ const GActionEntry slot_entries[] =
+@@ -1344,6 +1408,7 @@ const GActionEntry slot_entries[] =
      { .name = "search-visible", .state = "false", .change_state = action_search_visible },
      { .name = "search-global", .state = "false", .change_state = action_search_global },
      { .name = "focus-search", .activate = action_focus_search },
 +    { .name = "edit-visible", .state = "false", .change_state = action_search_visible },
- };
- 
- static void
-@@ -2941,6 +3035,13 @@ nautilus_window_slot_class_init (NautilusWindowSlotClass *klass)
+     { .name = "reload", .activate = action_reload },
+     { .name = "stop", .activate = action_stop },
+     { .name = "bookmark-current-directory", .activate = action_bookmark_current_directory },
+@@ -3085,6 +3150,13 @@ nautilus_window_slot_class_init (NautilusWindowSlotClass *klass)
                                FALSE,
                                G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
  
@@ -225,13 +225,13 @@ index f2700c0..772f5f0 100644
 +                              G_PARAM_READWRITE);
 +
      properties[PROP_SELECTION] =
-         g_param_spec_pointer ("selection",
-                               "Selection of the current view of the slot",
+         g_param_spec_pointer ("selection", NULL, NULL,
+                               G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
 diff --git a/src/nautilus-window-slot.h b/src/nautilus-window-slot.h
-index 1b75b97..7371ce4 100644
+index 868a396..1633617 100644
 --- a/src/nautilus-window-slot.h
 +++ b/src/nautilus-window-slot.h
-@@ -99,6 +99,8 @@ gboolean nautilus_window_slot_get_search_visible           (NautilusWindowSlot *
+@@ -102,6 +102,8 @@ gboolean nautilus_window_slot_get_search_visible           (NautilusWindowSlot *
  
  gboolean nautilus_window_slot_get_search_global            (NautilusWindowSlot *self);
  
@@ -241,10 +241,10 @@ index 1b75b97..7371ce4 100644
  
  void     nautilus_window_slot_search                       (NautilusWindowSlot *slot,
 diff --git a/src/resources/ui/nautilus-toolbar.ui b/src/resources/ui/nautilus-toolbar.ui
-index aa42caa..4dff2ef 100644
+index 7468503..ea8f0f9 100644
 --- a/src/resources/ui/nautilus-toolbar.ui
 +++ b/src/resources/ui/nautilus-toolbar.ui
-@@ -46,6 +46,28 @@
+@@ -58,6 +58,28 @@
                  </child>
                </object>
              </child>
@@ -274,5 +274,5 @@ index aa42caa..4dff2ef 100644
                <object class="GtkStack" id="search_button_stack">
                  <property name="hhomogeneous">true</property>
 -- 
-2.44.0
+2.47.0
 

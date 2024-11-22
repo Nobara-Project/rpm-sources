@@ -1,0 +1,34 @@
+From 458b58d35a8234cadd7a4f3d5bfb71f14d613d3a Mon Sep 17 00:00:00 2001
+From: Adam Williamson <awilliam@redhat.com>
+Date: Thu, 8 Aug 2024 10:13:05 -0400
+Subject: [PATCH 3/3] Revert "tests: Use localsearch3 test-sandbox"
+
+This reverts commit 25f445f4d7f38f501090cca88566ffd319d69463.
+---
+ test/automated/displayless/meson.build | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/test/automated/displayless/meson.build b/test/automated/displayless/meson.build
+index 13616a260..9d50c5084 100644
+--- a/test/automated/displayless/meson.build
++++ b/test/automated/displayless/meson.build
+@@ -1,4 +1,6 @@
+-tracker_sandbox = find_program('localsearch3')
++trackertestutils = dependency('tracker-testutils-3.0')
++
++tracker_sandbox = find_program(trackertestutils.get_variable('command'))
+ 
+ tests = [
+   ['test-directory', [
+@@ -73,7 +75,7 @@ foreach t: tracker_tests
+   test(
+     t[0],
+     tracker_sandbox,
+-    args: ['test-sandbox', '--store-tmpdir', '--index-recursive-tmpdir', test_exe],
++    args: ['--store-tmpdir', '--index-recursive-tmpdir', test_exe],
+     env: [
+       test_env,
+       'G_TEST_BUILDDIR=@0@'.format(meson.current_build_dir()),
+-- 
+2.46.0
+
