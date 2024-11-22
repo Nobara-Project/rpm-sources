@@ -32,6 +32,7 @@ mkbls() {
     local debugname=""
     local debugid=""
     local flavor=""
+    local devicetree_entry=""
 
     if [[ "$kernelver" == *\+* ]] ; then
         local flavor=-"${kernelver##*+}"
@@ -39,6 +40,12 @@ mkbls() {
             local debugname=" with debugging"
             local debugid="-debug"
         fi
+    fi
+
+    # Define devicetree_entry if the user defined GRUB_DEVICETREE
+    # in /etc/default/grub, otherwise leave it empty
+    if [ -n "$GRUB_DEVICETREE" ] ; then
+        local devicetree_entry="devicetree /dtb-${kernelver}/$GRUB_DEVICETREE"
     fi
 
     cat <<EOF
@@ -50,6 +57,7 @@ options ${kernelopts}
 grub_users \$grub_users
 grub_arg --unrestricted
 grub_class ${ID}
+${devicetree_entry}
 EOF
 }
 

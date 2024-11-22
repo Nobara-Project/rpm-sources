@@ -15,7 +15,12 @@
 %endif
 
 # gnulib actively ignores CFLAGS because it's terrible
+# build aarch64 gnulib with branch protection
+%ifarch aarch64
+%global cc_equals "CC=%{ccpath} -fPIE -Wl,-z,noexecstack -Wl,--no-warn-rwx-segments -mbranch-protection=standard"
+%else
 %global cc_equals "CC=%{ccpath} -fPIE -Wl,-z,noexecstack -Wl,--no-warn-rwx-segments"
+%endif
 
 %global cflags_sed						\\\
 	sed							\\\
@@ -674,7 +679,8 @@ install -d -m 0700 ${RPM_BUILD_ROOT}%{_sysconfdir}/sysconfig	\
 touch ${RPM_BUILD_ROOT}%{_sysconfdir}/default/grub		\
 ln -sf ../default/grub						\\\
 	${RPM_BUILD_ROOT}%{_sysconfdir}/sysconfig/grub		\
-touch ${RPM_BUILD_ROOT}/boot/grub2/grub.cfg			\
+touch grub.cfg							\
+install -m 0600 grub.cfg ${RPM_BUILD_ROOT}/boot/grub2/		\
 ln -s ../boot/grub2/grub.cfg					\\\
 	${RPM_BUILD_ROOT}%{_sysconfdir}/grub2.cfg		\
 %{nil}
@@ -719,7 +725,7 @@ ln -s ../boot/grub2/grub.cfg					\\\
 %attr(0700,root,root)/boot/grub2/fonts			\
 %dir %attr(0700,root,root)/boot/loader/entries			\
 %ghost %config(noreplace) %attr(0600,root,root)/boot/grub2/grub.cfg	\
-%ghost %config(noreplace) %verify(not mtime) %attr(0600,root,root)%{efi_esp_dir}/grub.cfg	\
+%ghost %config(noreplace) %verify(not mtime) %attr(0700,root,root)%{efi_esp_dir}/grub.cfg	\
 %config(noreplace) %verify(not size mode md5 mtime) /boot/grub2/grubenv	\
 %attr(0644,root,root) %config(noreplace) /etc/dnf/protected.d/grub2-%{1}.conf \
 %{expand:%if 0%{?without_efi_modules}				\

@@ -8,8 +8,10 @@ fi
 # also Xen Dom0 use the menuentries from 20_linux_xen and not the ones from
 # 10_linux. So BLS support needs to be disabled for both Xen Dom0 and DomU.
 if [[ -e /sys/hypervisor/type ]] && grep -q "^xen$" /sys/hypervisor/type; then
-    RUN_MKCONFIG=true
-    DISABLE_BLS=true
+    if [ ! -e /sys/hypervisor/guest_type ] || ! grep -q "^HVM$" /sys/hypervisor/guest_type; then
+        RUN_MKCONFIG=true
+        DISABLE_BLS=true
+    fi
 fi
 
 ARCH=$(uname -m)
