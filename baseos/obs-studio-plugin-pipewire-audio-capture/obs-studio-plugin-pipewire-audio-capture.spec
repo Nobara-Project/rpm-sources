@@ -1,5 +1,5 @@
 Name:           obs-studio-plugin-pipewire-audio-capture
-Version:        1.1.4
+Version:        1.1.5
 Release:        1%{?dist}
 Summary:        Audio device and application capture for OBS Studio using PipeWire
 
