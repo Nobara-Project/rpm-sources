@@ -1,0 +1,27 @@
+From 1b4ace18e696d7f191941dbfd5ab4251e7b94b16 Mon Sep 17 00:00:00 2001
+From: Kalev Lember <klember@redhat.com>
+Date: Thu, 8 Feb 2024 20:30:06 +0100
+Subject: [PATCH] Fix the build
+
+Update meson.build to match the directory layout changes from commit
+7a1ee6907e4ae8f3cdd2a4c87df3e5a98b48a7ea.
+---
+ meson.build | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/meson.build b/meson.build
+index bc4b7c9..306c99a 100644
+--- a/meson.build
++++ b/meson.build
+@@ -20,7 +20,7 @@ includedir = join_paths(prefix, get_option('includedir'))
+ cpp = meson.get_compiler('cpp')
+ 
+ inc = include_directories([
+-  join_paths('codec', 'api', 'svc'),
++  join_paths('codec', 'api', 'wels'),
+ ])
+ 
+ api_headers = []
+-- 
+2.43.0
+

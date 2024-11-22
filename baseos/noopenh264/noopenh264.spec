@@ -2,13 +2,13 @@
 ## (rpmautospec version 0.3.5)
 ## RPMAUTOSPEC: autorelease, autochangelog
 %define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
-    release_number = 2;
+    release_number = 1;
     base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
     print(release_number + base_release_number - 1);
 }%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
 ## END: Set by rpmautospec
 
-%global openh264_version 2.3.1
+%global openh264_version 2.4.1
 %global openh264_soversion 7
 
 Name:           noopenh264
@@ -22,8 +22,11 @@ Summary:        Fake implementation of the OpenH264 library
 
 License:        BSD-2-Clause and LGPL-2.1-or-later
 URL:            https://gitlab.com/freedesktop-sdk/noopenh264
-%global tag openh264-%{openh264_version}
+%global tag v%{openh264_version}
 Source:         %{url}/-/archive/%{tag}/noopenh264-%{tag}.tar.bz2
+
+# https://gitlab.com/freedesktop-sdk/noopenh264/-/merge_requests/6
+Patch:          0001-Fix-the-build.patch
 
 BuildRequires:  gcc-c++
 BuildRequires:  meson
@@ -78,18 +81,5 @@ rm $RPM_BUILD_ROOT%{_libdir}/*.a
 
 
 %changelog
-* Sun Nov 12 2023 GloriousEggroll <gloriouseggroll@gmail.com> - 0.1.0~openh264_2.3.1-2
-- Uncommitted changes
+%autochangelog
 
-* Mon Nov 06 2023 Kalev Lember <klember@redhat.com> - 0.1.0~openh264_2.3.1-1
-- Switch to using upstream openh264-2.3.1 tag
-- Make sure the matching openh264 version is listed as part of the rpm
-  version tag
-- Stop using forge macros to get better control over the version and
-  release tags
-
-* Mon Nov 06 2023 Kalev Lember <klember@redhat.com> - 0.1-2
-- Move pkg-config file to correct subpackage
-
-* Mon Nov 06 2023 Kalev Lember <klember@redhat.com> - 0.1-1
-- Initial Fedora packaging (rhbz#2247274)
