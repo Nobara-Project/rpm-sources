@@ -1,6 +1,6 @@
 %global app_id dk.yumex.Yumex
 %global app_build release
-%global dnf_backend DNF4
+%global dnf_backend DNF5
 %global app_name yumex
 %global gitcommit 5b099461ea07292d4d41c237b3ede3274f082bf9
 %global shortcommit 5b09946
