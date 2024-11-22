@@ -11,8 +11,12 @@
 /usr/bin/flatpak remote-delete --force --system flathub
 /usr/bin/flatpak remote-add --system --if-not-exists --title "Flatpak Official Flathub" flathub /etc/flatpak/remotes.d/flathub.flatpakrepo
 
-# Now we get a list of all users and enable flathub for them
+# Perform a search to populate metadata
+/usr/bin/flatpak search --system chromium &> /dev/null
+
+# Now we get a list of all users and enable flathub for them, also perform a search to populate metadata
 for user in $(getent passwd {1000..60000} | cut -d: -f1)
 do
 	sudo -H -u $user bash -c '/usr/bin/flatpak remote-add --user --if-not-exists --title "Flatpak Official Flathub" flathub /etc/flatpak/remotes.d/flathub.flatpakrepo'
+	sudo -H -u $user bash -c '/usr/bin/flatpak search --user chromium &> /dev/null'
 done
