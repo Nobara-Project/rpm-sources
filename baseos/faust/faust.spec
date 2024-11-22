@@ -3,8 +3,8 @@
 # Category: Audio, Programming
 
 Name:	 faust
-Version: 2.69.3
-Release: 37%{?dist}
+Version: 2.75.7
+Release: 1%{?dist}
 Summary: Compiled language for real-time audio signal processing
 # Examples are BSD
 # The rest is GPLv2+
@@ -15,29 +15,29 @@ Vendor:       Audinux
 Distribution: Audinux
 
 # to get source:
-# ./faust-source.sh 2.69.3
+# ./faust-source.sh 2.75.7
 
 Source0: faust.tar.gz
 Source1: faust-backends.cmake
 Source2: faust-source.sh
+# Support for released LLVM 19.
+# https://github.com/grame-cncm/faust/commit/5b275806093fb2e3348043de1150f01ff892d232
+Patch0:  5b275806093fb2e3348043de1150f01ff892d232.patch
 
 BuildRequires: gcc-c++
+BuildRequires: libxml2-devel
 BuildRequires: doxygen
 BuildRequires: graphviz
 BuildRequires: cmake
 BuildRequires: unzip
 BuildRequires: pandoc
-BuildRequires: python2
+BuildRequires: python3
 BuildRequires: texlive-latex
 BuildRequires: texlive-collection-basic
 BuildRequires: texlive-collection-fontsrecommended
 BuildRequires: texlive-mdwtools
 BuildRequires: libmicrohttpd-devel
-%if 0%{?fedora} < 39
 BuildRequires: llvm-devel
-%else
-BuildRequires: llvm16-devel
-%endif
 %description
 Faust AUdio STreams is a functional programming language for real-time audio
 signal processing. Its programming model combines two approaches : functional
@@ -119,7 +119,7 @@ Faust AUdio STreams is a functional programming language for real-time audio
 signal processing. These libraries are part of the standard Faust libraries.
 
 %prep
-%autosetup -n faust
+%autosetup -n faust -p1
 
 cp %{SOURCE1} build
 

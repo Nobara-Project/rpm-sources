@@ -1,0 +1,59 @@
+From 5b275806093fb2e3348043de1150f01ff892d232 Mon Sep 17 00:00:00 2001
+From: Stephane Letz <letz@grame.fr>
+Date: Fri, 20 Sep 2024 10:49:20 +0200
+Subject: [PATCH] Support for released LLVM 19.
+
+---
+ compiler/generator/llvm/llvm_instructions.hh | 13 +++++++++----
+ compiler/signals/sigtype.hh                  | 13 +++++++++----
+ 2 files changed, 18 insertions(+), 8 deletions(-)
+
+diff --git a/compiler/generator/llvm/llvm_instructions.hh b/compiler/generator/llvm/llvm_instructions.hh
+index 0132cf9a3e..bc9d392b8a 100644
+--- a/compiler/generator/llvm/llvm_instructions.hh
++++ b/compiler/generator/llvm/llvm_instructions.hh
+@@ -978,11 +978,16 @@ class LLVMInstVisitor : public InstVisitor, public LLVMTypeHelper {
+ 
+             // LLVM binary intrinsic
+         } else if (fBinaryIntrinsicTable.find(inst->fName) != fBinaryIntrinsicTable.end()) {
+-            llvm::CallInst* call_inst = fBuilder->CreateBinaryIntrinsic(
++            llvm::Value* value_inst = fBuilder->CreateBinaryIntrinsic(
+                 fBinaryIntrinsicTable[inst->fName], fun_args[0], fun_args[1]);
+-            AddAttributeAtIndex(call_inst, llvm::AttributeList::FunctionIndex,
+-                                llvm::Attribute::Builtin);
+-            fCurValue = call_inst;
++            llvm::CallInst* call_inst = llvm::dyn_cast<llvm::CallInst>(value_inst);
++            if (call_inst) {
++                AddAttributeAtIndex(call_inst, llvm::AttributeList::FunctionIndex,
++                                    llvm::Attribute::Builtin);
++            } else {
++                faustassert(false);
++            }
++            fCurValue = value_inst;
+ #endif
+         } else {
+             // Get function in the module
+diff --git a/compiler/signals/sigtype.hh b/compiler/signals/sigtype.hh
+index 9c0d71a5e3..0744a1ebe1 100644
+--- a/compiler/signals/sigtype.hh
++++ b/compiler/signals/sigtype.hh
+@@ -46,10 +46,15 @@
+ //--------------------------------------------------
+ // simple types quality
+ 
+-// kAny is a kind of 'wildcard' type and is only used with ffunction (no signal with never have this type).
+-// Therefore kAny is not supposed to be used with a | operation, so kAny = 2 coding can be used.
+-
+-enum Nature { kInt = 0, kReal = 1, kAny = 2 };  ///< nature : integer, floating point or 'any' values
++// kAny is a kind of 'wildcard' type and is only used with ffunction (no signal with never have this
++// type). Therefore kAny is not supposed to be used with a | operation, so kAny = 2 coding can be
++// used.
++
++enum Nature {
++    kInt  = 0,
++    kReal = 1,
++    kAny  = 2
++};  ///< nature : integer, floating point or 'any' values
+ enum Boolean {
+     kNum  = 0,
+     kBool = 1
