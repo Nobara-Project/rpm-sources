@@ -1,9 +1,9 @@
-%global rawhide_release 41
+%global rawhide_release 42
 %global updates_testing_enabled 0
 
 Summary:        Fedora package repositories
 Name:           fedora-repos
-Version:        40
+Version:        41
 Release:        1%{?eln:.eln%{eln}}
 License:        MIT
 URL:            https://fedoraproject.org/
@@ -82,6 +82,7 @@ Source59:       RPM-GPG-KEY-fedora-39-primary
 Source60:       RPM-GPG-KEY-fedora-40-primary
 Source61:       RPM-GPG-KEY-fedora-41-primary
 Source62:       RPM-GPG-KEY-fedora-42-primary
+Source63:       RPM-GPG-KEY-fedora-43-primary
 
 # When bumping Rawhide to fN, create N+1 key (and update archmap). (This
 # ensures users have the next future key installed and referenced, even if they
@@ -91,13 +92,12 @@ Source150:      RPM-GPG-KEY-fedora-iot-2019
 Source151:      fedora.conf
 Source152:      fedora-compose.conf
 
-# ima certs
-Source500:      fedora-38-ima.cert
-Source501:      fedora-38-ima.der
-Source502:      fedora-38-ima.pem
-Source503:      fedora-39-ima.cert
-Source504:      fedora-39-ima.der
-Source505:      fedora-39-ima.pem
+# IMA certs: dracut integrity module only recognizes DER format
+Source500:      fedora-ima-ca.der
+Source501:      fedora-39-ima.der
+Source502:      fedora-40-ima.der
+Source503:      fedora-41-ima.der
+Source504:      fedora-42-ima.der
 
 %description
 Fedora package repository files for yum and dnf along with gpg public keys.
@@ -127,7 +127,6 @@ Requires:       filesystem >= 3.18-6
 %description -n fedora-gpg-keys
 This package provides the RPM signature keys.
 
-
 %package ostree
 Summary:        OSTree specific files
 
@@ -137,7 +136,9 @@ where client's system will pull OSTree updates.
 
 
 %package eln
-Summary: ELN repo definitions
+Summary:        ELN repo definitions
+Requires:       fedora-gpg-keys >= %{version}-%{release}
+Requires:       system-release(%{version})
 
 %description eln
 This package provides repository files for ELN (Enterprise Linux Next)
@@ -180,9 +181,11 @@ done
 ln -s RPM-GPG-KEY-fedora-%{version}-primary RPM-GPG-KEY-%{version}-fedora
 popd
 
-# Install the ima keys
+# Install the IMA certs
 install -d -m 755 $RPM_BUILD_ROOT/etc/keys/ima
-install -m 644 %{_sourcedir}/fedora*ima.* $RPM_BUILD_ROOT/etc/keys/ima/
+install -m 644 %{_sourcedir}/fedora*ima.der $RPM_BUILD_ROOT/etc/keys/ima/
+install -d -m 755 $RPM_BUILD_ROOT/usr/share/ima/
+install -m 644 %{_sourcedir}/fedora-ima-ca.der $RPM_BUILD_ROOT/usr/share/ima/ca.der
 
 # Install repo files
 install -d -m 755 $RPM_BUILD_ROOT/etc/yum.repos.d
@@ -383,7 +386,10 @@ rm -f "$TMPRING"
 %files -n fedora-gpg-keys
 %dir /etc/pki/rpm-gpg
 /etc/pki/rpm-gpg/RPM-GPG-KEY-*
+
+# ima-certs
 /etc/keys/ima/fedora*ima*
+/usr/share/ima/ca.der
 
 
 %files ostree
@@ -396,14 +402,23 @@ rm -f "$TMPRING"
 
 
 %changelog
-* Sat Apr 06 2024 Kevin Fenzi <kevin@scrye.com> - 40-1
-- Disable updates-testing for f40 final release.
+* Fri Oct 18 2024 Kevin Fenzi <kevin@scrye.com> - 41-1
+- Disable updates-testing before f41 release.
 
-* Tue Feb 27 2024 Kevin Fenzi <kevin@scrye.com> - 40-0.4
-- Enable updates-testing for branched. Fixes rhbz#2266096
+* Tue Sep 03 2024 Samyak Jain <samyak.jn11@gmail.com> - 41-0.5
+- Enable updates-testing for branched. Fixes rhbz#2308952
 
-* Tue Feb 13 2024 Samyak Jain <samyak.jn11@gmail.com> - 40-0.3
-- Update Rawhide definition to F41
+* Tue Aug 13 2024 Samyak Jain <samyak.jn11@gmail.com> - 41-0.4
+- Setup for rawhide being F42
+
+* Sat Aug 10 2024 Samyak Jain <samyak.jn11@gmail.com> - 41-0.3
+- Add RPM-GPG-KEY-fedora-43-primary
+
+* Wed May 08 2024 Coiby Xu <coxu@redhat.com> - 41-0.2
+- add/update IMA certs
+
+* Tue Feb 13 2024 Samyak Jain <samyak.jn11@gmail.com> - 41-0.1
+- Setup for rawhide being F41
 
 * Wed Sep 27 2023 Sandro Bonazzola <sbonazzo@redhat.com> - 40-0.2
 - Allow ELN installation without Rawhide repos
