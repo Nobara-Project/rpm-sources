@@ -1,6 +1,6 @@
 %global _default_patch_fuzz 2
 
-%global commit 73d513c5be2f0cd2ca8f3c0aca0a536cabc8df58
+%global commit a53e6ae6992af51ca422bd82d0adb8accda3b456
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build git.%{build_timestamp}.%{shortcommit}%{?dist}
@@ -68,7 +68,7 @@
 
 Name:           mesa-vulkan-drivers
 Summary:        The mesa graphics vulkan driver stack.
-%global ver 24.3.0
+%global ver 24.4.0
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %{rel_build}
 License:        MIT
@@ -121,6 +121,7 @@ BuildRequires:  pkgconfig(xxf86vm)
 BuildRequires:  pkgconfig(xcb)
 BuildRequires:  pkgconfig(x11-xcb)
 BuildRequires:  pkgconfig(xcb-dri2) >= 1.8
+BuildRequires:  pkgconfig(xcb-dri3)
 BuildRequires:  pkgconfig(xcb-present)
 BuildRequires:  pkgconfig(xcb-sync)
 BuildRequires:  pkgconfig(xshmfence) >= 1.1
