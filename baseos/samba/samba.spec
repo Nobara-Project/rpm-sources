@@ -1836,6 +1836,7 @@ fi
 %dir %{_datadir}/samba
 %dir %{_datadir}/samba/mdssvc
 %{_datadir}/samba/mdssvc/elasticsearch_mappings.json
+%{_datadir}/samba/update-apparmor-samba-profile
 
 %{_unitdir}/nmb.service
 %{_unitdir}/smb.service
