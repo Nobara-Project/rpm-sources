@@ -1538,7 +1538,7 @@ install -m 0644 %{SOURCE201} packaging/README.downgrade
 # apparmor
 install -m 0775 %{SOURCE203} %{buildroot}/%{_datadir}/samba/update-apparmor-samba-profile
 sed -i '/EnvironmentFile=-\/etc\/sysconfig\/samba/a \
-ExecStartPre=\/usr\/share\/samba\/update-apparmor-samba-profile' smb.service
+ExecStartPre=\/usr\/share\/samba\/update-apparmor-samba-profile' %{buildroot}%{_unitdir}/smb.service
 
 # NetworkManager online/offline script
 install -d -m 0755 %{buildroot}%{_prefix}/lib/NetworkManager/dispatcher.d/
