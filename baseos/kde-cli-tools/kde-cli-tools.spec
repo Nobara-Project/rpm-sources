@@ -1,5 +1,5 @@
 Name:    kde-cli-tools
-Version: 6.2.2
+Version: 6.2.3
 Release: 1%{?dist}
 Summary: Tools based on KDE Frameworks 5 to better interact with the system
 
@@ -97,7 +97,7 @@ ln -s %{_kf6_libexecdir}/kdesu %{buildroot}%{_bindir}/kdesu
 %{_datadir}/applications/org.kde.keditfiletype.desktop
 %{_datadir}/applications/org.kde.plasma.settings.open.desktop
 %{_datadir}/applications/kcm_filetypes.desktop
-%{zsh_completions_dir}/_kde-inhibit
+%{_datadir}/zsh/site-functions/_kde-inhibit
 
 %files -n kdesu
 %{_bindir}/kdesu
@@ -109,6 +109,96 @@ ln -s %{_kf6_libexecdir}/kdesu %{buildroot}%{_bindir}/kdesu
 
 
 %changelog
+* Tue Nov 05 2024 Steve Cossette <farchord@gmail.com> - 6.2.3-1
+- 6.2.3
+
+* Tue Oct 22 2024 Steve Cossette <farchord@gmail.com> - 6.2.2-1
+- 6.2.2
+
+* Tue Oct 15 2024 Steve Cossette <farchord@gmail.com> - 6.2.1-1
+- 6.2.1
+
+* Mon Oct 14 2024 Jan Grulich <jgrulich@redhat.com> - 6.2.0-2
+- Rebuild (qt6)
+
+* Thu Oct 03 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.2.0-1
+- 6.2.0
+
+* Thu Sep 12 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.90-1
+- 6.1.90
+
+* Tue Sep 10 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.5-1
+- 6.1.5
+
+* Fri Aug 09 2024 Steve Cossette <farchord@gmail.com> - 6.1.4-1
+- 6.1.4
+
+* Wed Jul 24 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.3-3
+- rebuilt
+
+* Thu Jul 18 2024 Fedora Release Engineering <releng@fedoraproject.org> - 6.1.3-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_41_Mass_Rebuild
+
+* Tue Jul 16 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.3-1
+- 6.1.3
+
+* Wed Jul 03 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.2-1
+- 6.1.2
+
+* Tue Jun 25 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.1-1
+- 6.1.1
+
+* Thu Jun 13 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.0-1
+- 6.1.0
+
+* Fri May 24 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.0.90-1
+- 6.0.90
+
+* Wed May 22 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.0.5-1
+- 6.0.5
+
+* Tue Apr 16 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.0.4-1
+- 6.0.4
+
+* Thu Apr 04 2024 Jan Grulich <jgrulich@redhat.com> - 6.0.3-2
+- Rebuild (qt6)
+
+* Tue Mar 26 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.0.3-1
+- 6.0.3
+
+* Tue Mar 12 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.0.2-1
+- 6.0.2
+
+* Wed Mar 06 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.0.1-1
+- 6.0.1
+
+* Wed Feb 21 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.0.0-1
+- 6.0.0
+
+* Fri Feb 16 2024 Jan Grulich <jgrulich@redhat.com> - 5.93.0-2
+- Rebuild (qt6)
+
+* Wed Jan 31 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 5.93.0-1
+- 5.93.0
+
+* Wed Jan 24 2024 Fedora Release Engineering <releng@fedoraproject.org> - 5.92.0-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Sun Jan 21 2024 Fedora Release Engineering <releng@fedoraproject.org> - 5.92.0-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Wed Jan 10 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 5.92.0-1
+- 5.92.0
+
+* Thu Dec 21 2023 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 5.91.0-1
+- 5.91.0
+
+* Sun Dec 03 2023 Justin Zobel <justin.zobel@gmail.com> - 5.90.0-1
+- Update to 5.90.0
+
+* Wed Nov 29 2023 Jan Grulich <jgrulich@redhat.com> - 5.27.80-2
+- Rebuild (qt6)
+
 * Sat Nov 18 2023 Alessandro Astone <ales.astone@gmail.com> - 5.27.80-1
 - 5.27.80
 
