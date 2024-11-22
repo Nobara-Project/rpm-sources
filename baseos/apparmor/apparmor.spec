@@ -3,7 +3,7 @@
 %bcond_with tests
 
 Name:           apparmor
-Version:        3.1.7
+Version:        4.0.3
 Release:        0.1%{?dist}
 Summary:        AppArmor userspace components
 
@@ -16,10 +16,10 @@ Source10:       %{name}.preset
 Patch01:	0001-fix-avahi-daemon-authselect-denial-in-fedora.patch
 Patch03:	0001-fix-denial-on-dnsmask-for-nsswitch.patch
 Patch04:	0001-fix-apparmor-waydroid-denials.patch
-Patch05:	set_samba_profiles_to_complain_mode_in_ExecStartPre.patch
 
 BuildRequires:  gcc
 BuildRequires:  automake
+BuildRequires:  autoconf-archive
 BuildRequires:  libtool
 BuildRequires:  gcc-c++
 BuildRequires:  libstdc++-static
@@ -250,6 +250,7 @@ make -C utils check
 
 %files profiles
 %dir %{_sysconfdir}/apparmor.d/
+%{_sysconfdir}/apparmor.d/*
 %dir %{_sysconfdir}/apparmor.d/abi
 %config(noreplace) %{_sysconfdir}/apparmor.d/abi/3.0
 %config(noreplace) %{_sysconfdir}/apparmor.d/abi/kernel-5.4-outoftree-network
@@ -289,12 +290,12 @@ make -C utils check
 %{_bindir}/aa-exec
 %{_bindir}/aa-features-abi
 %{_sbindir}/aa-teardown
+%{_sbindir}/aa-load
 %{_unitdir}/apparmor.service
 %{_presetdir}/70-apparmor.preset
 %{_prefix}/lib/apparmor
 %dir %{_sysconfdir}/apparmor
 %config(noreplace) %{_sysconfdir}/apparmor/parser.conf
-%{_sharedstatedir}/apparmor
 %{_mandir}/man1/aa-enabled.1.gz
 %{_mandir}/man1/aa-exec.1.gz
 %{_mandir}/man1/aa-features-abi.1.gz
