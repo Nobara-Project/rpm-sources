@@ -10,7 +10,7 @@
 
 Name:           nvidia-driver
 Version:        565.57.01
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        NVIDIA's proprietary display driver for NVIDIA graphic cards
 Epoch:          3
 License:        NVIDIA License
@@ -293,6 +293,8 @@ install -p -m 0644 -D %{SOURCE40} %{buildroot}%{_metainfodir}/com.nvidia.driver.
 mkdir -p %{buildroot}%{_datadir}/pixmaps/
 cp %{SOURCE42} %{buildroot}%{_datadir}/pixmaps/
 
+ln -sfv %{_libdir}/libnvidia-ml.so.1 %{buildroot}%{_prefix}/lib/libnvidia-ml.so
+
 %check
 appstream-util validate --nonet %{buildroot}%{_metainfodir}/com.nvidia.driver.metainfo.xml
 
@@ -453,6 +455,9 @@ appstream-util validate --nonet %{buildroot}%{_metainfodir}/com.nvidia.driver.me
 %files -n libnvidia-ml
 %{_libdir}/libnvidia-ml.so.1
 %{_libdir}/libnvidia-ml.so.%{version}
+%ifarch x86_64 aarch64
+%{_prefix}/lib/libnvidia-ml.so
+%endif
 
 %changelog
 * Sun Oct 27 2024 Simone Caronni <negativo17@gmail.com> - 3:565.57.01-2
