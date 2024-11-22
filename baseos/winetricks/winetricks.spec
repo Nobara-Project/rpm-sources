@@ -55,7 +55,7 @@ sed -i -e s:steam:: -e s:flash:: tests/*
 %install
 %make_install
 # some tarballs do not install appdata
-install -m0644 -D -t %{buildroot}%{_datadir}/metainfo src/%{name}.appdata.xml
+install -m0644 -D -t %{buildroot}%{_datadir}/metainfo src/io.github.winetricks.Winetricks.metainfo.xml
 
 %check
 desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop
@@ -69,7 +69,7 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop
 %{_datadir}/applications/%{name}.desktop
 %{_datadir}/bash-completion/completions/%{name}
 %{_datadir}/icons/hicolor/scalable/apps/%{name}.svg
-%{_datadir}/metainfo/%{name}.appdata.xml
+%{_datadir}/metainfo/io.github.winetricks.Winetricks.metainfo.xml
 
 
 %changelog
