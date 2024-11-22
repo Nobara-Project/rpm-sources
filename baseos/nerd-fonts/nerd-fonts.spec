@@ -30,7 +30,7 @@
 # Declaration order is chosen to limit divergence between those templates, and
 # simplify cut and pasting.
 #
-Version: 3.2.1
+Version: 3.3.0
 Release: 0.1%{?dist}
 URL:     https://github.com/ryanoasis/nerd-fonts
 
