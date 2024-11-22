@@ -262,6 +262,7 @@ fi
 %dir %{_sysconfdir}/flatpak
 %{_sysconfdir}/flatpak/remotes.d
 %{_sysconfdir}/profile.d/flatpak.sh
+%{_sysconfdir}/profile.d/flatpak.csh
 %{_sysusersdir}/%{name}.conf
 %{_unitdir}/flatpak-system-helper.service
 %{_userunitdir}/flatpak-oci-authenticator.service
