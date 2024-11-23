@@ -263,11 +263,6 @@ Header files for Open Broadcaster Software
 %package plugin-browser
 Summary:        Open Broadcaster Software Studio - CEF-based browser plugin
 
-# Filter out bogus libcef.so requires as this is handled manually
-# with an explicit dependency
-%global __requires_exclude ^libcef\\.so.*$
-
-Requires:       (obs-cef%{?_isa} with obs-cef(abi) = %{cef_version})
 Requires:       obs-studio%{?_isa} = %{version}-%{release}
 Supplements:    obs-studio%{?_isa}
 
