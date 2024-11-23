@@ -1,35 +1,44 @@
 %global ROCM_MAJOR_VERSION 6
 %global ROCM_MINOR_VERSION 2
-%global ROCM_PATCH_VERSION 4
+%global ROCM_PATCH_VERSION 1
 
 Requires:      libc.so.6()(64bit)
 Requires:      libc.so.6(GLIBC_2.2.5)(64bit)
 Requires:      libgcc_s.so.1()(64bit)
 Requires:      libm.so.6()(64bit)
 Requires:      libstdc++.so.6()(64bit)
-Requires:      comgr
-Requires:      hip-runtime-amd
-Requires:      hsa-rocr
-Requires:      openmp-extras-runtime
+
+Requires:      rocm-comgr
+Requires:      rocm-runtime
+Requires:      rocm-smi
+Requires:      rocm-clinfo
+Requires:      rocm-cmake
 Requires:      rocm-core
-Requires:      rocm-device-libs
-Requires:      rocm-hip-runtime
-Requires:      rocm-language-runtime
-Requires:      rocm-llvm
-Requires:      rocm-ocl-icd
-Requires:      rocm-opencl
-Requires:      rocm-opencl-runtime
-Requires:      rocm-smi-lib
+Requires:      rocm-rpm-macros
+Requires:      python3-torch-rocm-gfx9
+Requires:      python3-torchaudio-rocm-gfx9
+Requires:      rocprim-devel
+Requires:      rocblas
+Requires:      rocsparse
 Requires:      rocminfo
-
-
+Requires:      rocrand
+Requires:      hipblas
+Requires:      hipfft
+Requires:      hipsolver
+Requires:      rocclr
+Requires:      rocfft
+Requires:      rocsolver
+Requires:      hipblaslt
+Requires:      rocalution
+Requires:      roctracer
+Requires:      rocm-opencl
 
 Provides:      rocm-meta
 
 BuildArch:     x86_64
 Name:          rocm-meta
 Version:       %{ROCM_MAJOR_VERSION}.%{ROCM_MINOR_VERSION}.%{ROCM_PATCH_VERSION}
-Release:       1.copr%{?dist}
+Release:       2.copr%{?dist}
 License:       MIT
 Group:         System Environment/Libraries
 Summary:       Radeon Open Compute (ROCm) Runtime software stack
