@@ -1,0 +1,327 @@
+From dd56fee2096ce7129052364f8fe212acecc86b88 Mon Sep 17 00:00:00 2001
+From: Felix Kaechele <felix@kaechele.ca>
+Date: Wed, 20 Nov 2024 11:11:54 -0500
+Subject: [PATCH 1/2] Use new obs_frontend_get_*_config APIs for OBS 31
+
+This properly splits settings for this plugin into the new split
+configuration stores for app and user settings.
+
+All user-editable settings go into the user store, all functional,
+non-user facing settings go in app store (e.g. timestamp of last update
+check).
+
+On OBS versions prior to 31 there is no change in behaviour and all
+settings continue to be read from and stored to the global store only.
+
+Signed-off-by: Felix Kaechele <felix@kaechele.ca>
+---
+ src/config.cpp                    | 26 +++++++++++++-------------
+ src/config.h                      |  2 +-
+ src/obs-support/obs-app.hpp       | 17 +++++++++++++++--
+ src/obs-support/shared-update.cpp |  4 ++--
+ 4 files changed, 31 insertions(+), 18 deletions(-)
+
+diff --git a/src/config.cpp b/src/config.cpp
+index b93ef04c..54f7c9b5 100644
+--- a/src/config.cpp
++++ b/src/config.cpp
+@@ -162,12 +162,12 @@ Config::Config()
+ 	  TallyPreviewEnabled(true)
+ {
+ 	ProcessCommandLine();
+-	SetDefaultsToGlobalStore();
++	SetDefaultsToUserStore();
+ }
+ 
+-void Config::SetDefaultsToGlobalStore()
++void Config::SetDefaultsToUserStore()
+ {
+-	auto obs_config = GetGlobalConfig();
++	auto obs_config = GetUserConfig();
+ 	if (obs_config) {
+ 		config_set_default_bool(obs_config, SECTION_NAME,
+ 					PARAM_MAIN_OUTPUT_ENABLED,
+@@ -203,7 +203,7 @@ void Config::SetDefaultsToGlobalStore()
+ 
+ void Config::Load()
+ {
+-	auto obs_config = GetGlobalConfig();
++	auto obs_config = GetUserConfig();
+ 	if (obs_config) {
+ 		OutputEnabled = config_get_bool(obs_config, SECTION_NAME,
+ 						PARAM_MAIN_OUTPUT_ENABLED);
+@@ -228,7 +228,7 @@ void Config::Load()
+ 
+ void Config::Save()
+ {
+-	auto obs_config = GetGlobalConfig();
++	auto obs_config = GetUserConfig();
+ 	if (obs_config) {
+ 		config_set_bool(obs_config, SECTION_NAME,
+ 				PARAM_MAIN_OUTPUT_ENABLED, OutputEnabled);
+@@ -262,7 +262,7 @@ void Config::Save()
+ 
+ bool Config::AutoCheckForUpdates()
+ {
+-	auto obs_config = GetGlobalConfig();
++	auto obs_config = GetUserConfig();
+ 	if (obs_config) {
+ 		return config_get_bool(obs_config, SECTION_NAME,
+ 				       PARAM_AUTO_CHECK_FOR_UPDATES);
+@@ -272,7 +272,7 @@ bool Config::AutoCheckForUpdates()
+ 
+ void Config::AutoCheckForUpdates(bool value)
+ {
+-	auto obs_config = GetGlobalConfig();
++	auto obs_config = GetUserConfig();
+ 	if (obs_config) {
+ 		config_set_bool(obs_config, SECTION_NAME,
+ 				PARAM_AUTO_CHECK_FOR_UPDATES, value);
+@@ -282,7 +282,7 @@ void Config::AutoCheckForUpdates(bool value)
+ 
+ void Config::SkipUpdateVersion(const QVersionNumber &version)
+ {
+-	auto obs_config = GetGlobalConfig();
++	auto obs_config = GetAppConfig();
+ 	if (obs_config) {
+ 		config_set_string(obs_config, SECTION_NAME,
+ 				  PARAM_SKIP_UPDATE_VERSION,
+@@ -293,7 +293,7 @@ void Config::SkipUpdateVersion(const QVersionNumber &version)
+ 
+ QVersionNumber Config::SkipUpdateVersion()
+ {
+-	auto obs_config = GetGlobalConfig();
++	auto obs_config = GetAppConfig();
+ 	if (obs_config) {
+ 		auto version = config_get_string(obs_config, SECTION_NAME,
+ 						 PARAM_SKIP_UPDATE_VERSION);
+@@ -306,7 +306,7 @@ QVersionNumber Config::SkipUpdateVersion()
+ 
+ QDateTime Config::LastUpdateCheck()
+ {
+-	auto obs_config = GetGlobalConfig();
++	auto obs_config = GetAppConfig();
+ 	if (obs_config) {
+ 		auto lastCheck = config_get_int(obs_config, SECTION_NAME,
+ 						PARAM_LAST_UPDATE_CHECK);
+@@ -317,7 +317,7 @@ QDateTime Config::LastUpdateCheck()
+ 
+ void Config::LastUpdateCheck(const QDateTime &dateTime)
+ {
+-	auto obs_config = GetGlobalConfig();
++	auto obs_config = GetAppConfig();
+ 	if (obs_config) {
+ 		config_set_int(obs_config, SECTION_NAME,
+ 			       PARAM_LAST_UPDATE_CHECK,
+@@ -328,7 +328,7 @@ void Config::LastUpdateCheck(const QDateTime &dateTime)
+ 
+ int Config::MinAutoUpdateCheckIntervalSeconds()
+ {
+-	auto obs_config = GetGlobalConfig();
++	auto obs_config = GetAppConfig();
+ 	if (obs_config) {
+ 		return (int)config_get_int(
+ 			obs_config, SECTION_NAME,
+@@ -339,7 +339,7 @@ int Config::MinAutoUpdateCheckIntervalSeconds()
+ 
+ void Config::MinAutoUpdateCheckIntervalSeconds(int seconds)
+ {
+-	auto obs_config = GetGlobalConfig();
++	auto obs_config = GetAppConfig();
+ 	if (obs_config) {
+ 		config_set_int(obs_config, SECTION_NAME,
+ 			       PARAM_MIN_AUTO_UPDATE_CHECK_INTERVAL_SECONDS,
+diff --git a/src/config.h b/src/config.h
+index ab2f1595..52e1fd54 100644
+--- a/src/config.h
++++ b/src/config.h
+@@ -92,7 +92,7 @@ class Config {
+ 
+ private:
+ 	void Load();
+-	void SetDefaultsToGlobalStore();
++	void SetDefaultsToUserStore();
+ 	Config();
+ 	static Config *_instance;
+ };
+diff --git a/src/obs-support/obs-app.hpp b/src/obs-support/obs-app.hpp
+index 089770eb..09c23663 100644
+--- a/src/obs-support/obs-app.hpp
++++ b/src/obs-support/obs-app.hpp
+@@ -25,13 +25,26 @@ In some places [nearly] the full code implementation is copied.
+ 
+ #include "qt_wrapper.hpp"
+ 
++#include <obs-config.h>
+ #include <obs-frontend-api.h>
+ #include <obs-module.h>
+ 
+-// Changed to use obs_frontend_get_global_config instead of ((OBSApp*)App())->GetGlobalConfig
+-inline config_t *GetGlobalConfig()
++inline config_t *GetAppConfig()
+ {
++#if LIBOBS_API_MAJOR_VER >= 31
++	return obs_frontend_get_app_config();
++#else
+ 	return obs_frontend_get_global_config();
++#endif
++}
++
++inline config_t *GetUserConfig()
++{
++#if LIBOBS_API_MAJOR_VER >= 31
++	return obs_frontend_get_user_config();
++#else
++	return obs_frontend_get_global_config();
++#endif
+ }
+ 
+ // Changed to use obs_module_text instead of ((OBSApp*)App())->GetString
+diff --git a/src/obs-support/shared-update.cpp b/src/obs-support/shared-update.cpp
+index 6fbcc578..2f38b466 100644
+--- a/src/obs-support/shared-update.cpp
++++ b/src/obs-support/shared-update.cpp
+@@ -87,11 +87,11 @@ QString GetProgramGUID()
+ 	 * Windows: %APPDATA%\obs-studio\global.ini
+ 	 */
+ 	QString guid =
+-		config_get_string(GetGlobalConfig(), "General", "InstallGUID");
++		config_get_string(GetAppConfig(), "General", "InstallGUID");
+ 	if (guid.isEmpty()) {
+ 		GenerateGUID(guid);
+ 		if (!guid.isEmpty())
+-			config_set_string(GetGlobalConfig(), "General",
++			config_set_string(GetAppConfig(), "General",
+ 					  "InstallGUID", QT_TO_UTF8(guid));
+ 	}
+ 	return guid;
+
+From b21c6f1710bf307f9b48b036667354c3087bcf3f Mon Sep 17 00:00:00 2001
+From: Felix Kaechele <felix@kaechele.ca>
+Date: Thu, 21 Nov 2024 16:59:06 -0500
+Subject: [PATCH 2/2] Migrate newly split user settings from global store
+
+Signed-off-by: Felix Kaechele <felix@kaechele.ca>
+---
+ src/config.cpp | 74 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ src/config.h   |  1 +
+ 2 files changed, 75 insertions(+)
+
+diff --git a/src/config.cpp b/src/config.cpp
+index 54f7c9b5..7cbd689c 100644
+--- a/src/config.cpp
++++ b/src/config.cpp
+@@ -45,6 +45,19 @@ int Config::UpdateLocalPort = 0;
+ bool Config::UpdateLastCheckIgnore = false;
+ int Config::DetectObsNdiForce = 0;
+ 
++enum ObsConfigType { OBS_CONFIG_STRING, OBS_CONFIG_BOOL };
++
++std::map<std::string, enum ObsConfigType> ConfigTypeMap{
++	{PARAM_MAIN_OUTPUT_ENABLED, OBS_CONFIG_BOOL},
++	{PARAM_MAIN_OUTPUT_NAME, OBS_CONFIG_STRING},
++	{PARAM_MAIN_OUTPUT_GROUPS, OBS_CONFIG_STRING},
++	{PARAM_PREVIEW_OUTPUT_ENABLED, OBS_CONFIG_BOOL},
++	{PARAM_PREVIEW_OUTPUT_NAME, OBS_CONFIG_STRING},
++	{PARAM_PREVIEW_OUTPUT_GROUPS, OBS_CONFIG_STRING},
++	{PARAM_TALLY_PROGRAM_ENABLED, OBS_CONFIG_BOOL},
++	{PARAM_TALLY_PREVIEW_ENABLED, OBS_CONFIG_BOOL},
++	{PARAM_AUTO_CHECK_FOR_UPDATES, OBS_CONFIG_BOOL}};
++
+ void ProcessCommandLine()
+ {
+ 	auto arguments = QCoreApplication::arguments();
+@@ -151,6 +164,32 @@ void ProcessCommandLine()
+ 	}
+ }
+ 
++void MigrateSetting(config_t *from, config_t *to, const char *section,
++		    const char *name)
++{
++	if (!config_has_user_value(from, section, name))
++		return;
++
++	if (ConfigTypeMap.count(name) == 0)
++		return;
++
++	const enum ObsConfigType type = ConfigTypeMap[name];
++
++	switch (type) {
++	case OBS_CONFIG_STRING:
++		config_set_string(to, section, name,
++				  config_get_string(from, section, name));
++
++		break;
++	case OBS_CONFIG_BOOL:
++		config_set_bool(to, section, name,
++				config_get_bool(from, section, name));
++		break;
++	}
++	config_remove_value(from, section, name);
++	obs_log(LOG_INFO, "config: migrated configuration setting %s", name);
++}
++
+ Config::Config()
+ 	: OutputEnabled(false),
+ 	  OutputName("OBS"),
+@@ -163,6 +202,8 @@ Config::Config()
+ {
+ 	ProcessCommandLine();
+ 	SetDefaultsToUserStore();
++	if (obs_get_version() >= MAKE_SEMANTIC_VERSION(31, 0, 0))
++		GlobalToUserMigration();
+ }
+ 
+ void Config::SetDefaultsToUserStore()
+@@ -201,6 +242,39 @@ void Config::SetDefaultsToUserStore()
+ 	}
+ }
+ 
++void Config::GlobalToUserMigration()
++{
++	auto app_config = GetAppConfig();
++	auto user_config = GetUserConfig();
++
++	if (app_config && user_config) {
++		MigrateSetting(app_config, user_config, SECTION_NAME,
++			       PARAM_MAIN_OUTPUT_ENABLED);
++		MigrateSetting(app_config, user_config, SECTION_NAME,
++			       PARAM_MAIN_OUTPUT_NAME);
++		MigrateSetting(app_config, user_config, SECTION_NAME,
++			       PARAM_MAIN_OUTPUT_GROUPS);
++
++		MigrateSetting(app_config, user_config, SECTION_NAME,
++			       PARAM_PREVIEW_OUTPUT_ENABLED);
++		MigrateSetting(app_config, user_config, SECTION_NAME,
++			       PARAM_PREVIEW_OUTPUT_NAME);
++		MigrateSetting(app_config, user_config, SECTION_NAME,
++			       PARAM_PREVIEW_OUTPUT_GROUPS);
++
++		MigrateSetting(app_config, user_config, SECTION_NAME,
++			       PARAM_TALLY_PROGRAM_ENABLED);
++		MigrateSetting(app_config, user_config, SECTION_NAME,
++			       PARAM_TALLY_PREVIEW_ENABLED);
++
++		MigrateSetting(app_config, user_config, SECTION_NAME,
++			       PARAM_AUTO_CHECK_FOR_UPDATES);
++
++		config_save(app_config);
++		config_save(user_config);
++	}
++}
++
+ void Config::Load()
+ {
+ 	auto obs_config = GetUserConfig();
+diff --git a/src/config.h b/src/config.h
+index 52e1fd54..ada3b08c 100644
+--- a/src/config.h
++++ b/src/config.h
+@@ -92,6 +92,7 @@ class Config {
+ 
+ private:
+ 	void Load();
++	void GlobalToUserMigration();
+ 	void SetDefaultsToUserStore();
+ 	Config();
+ 	static Config *_instance;
