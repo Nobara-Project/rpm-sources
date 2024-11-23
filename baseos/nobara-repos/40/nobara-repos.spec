@@ -25,6 +25,7 @@ Source3:       RPM-GPG-KEY-nobara-appstream-pubkey
 Source4:       RPM-GPG-KEY-nobara-baseos-pubkey-38
 Source5:       RPM-GPG-KEY-nobara-baseos-pubkey-39
 Source6:       RPM-GPG-KEY-nobara-baseos-pubkey-40
+Source7:       RPM-GPG-KEY-nobara-baseos-pubkey-41
 
 %description
 Nobara package repository files for yum and dnf along with gpg public keys.
