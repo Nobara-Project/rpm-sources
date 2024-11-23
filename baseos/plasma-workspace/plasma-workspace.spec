@@ -380,12 +380,7 @@ Requires:       xdg-desktop-portal-kde
 # Enables X11 apps to screenshare a Wayland environment
 Recommends:     xwaylandvideobridge
 %if ! %{with x11}
-%if 0%{?fedora}
-Obsoletes:      %{name}-x11 < 5.92.0
-%else
 Obsoletes:      %{name}-x11 < %{version}-%{release}
-Conflicts:      %{name}-x11 < %{version}-%{release}
-%endif
 %endif
 %description wayland
 %{summary}.
