@@ -163,13 +163,13 @@ Summary: The Linux kernel
 %define specrpmversion 6.12.1
 %define specversion 6.12.1
 %define patchversion 6.12
-%define pkgrelease 200
+%define pkgrelease 201
 %define kversion 6
 %define tarfile_release 6.12.1
 # This is needed to do merge window version magic
 %define patchlevel 12
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease 200%{?buildid}%{?dist}
+%define specrelease 201%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 6.12.0
 
@@ -952,8 +952,8 @@ Source23: x509.genkey.rhel
 #Source29: %{name}-s390x-rhel.config
 #Source30: %{name}-s390x-debug-rhel.config
 #Source31: %{name}-s390x-zfcpdump-rhel.config
-#Source32: %{name}-x86_64-rhel.config
-#Source33: %{name}-x86_64-debug-rhel.config
+Source32: %{name}-x86_64-rhel.config
+Source33: %{name}-x86_64-debug-rhel.config
 
 Source34: def_variants.yaml.rhel
 
@@ -976,7 +976,7 @@ Source50: x509.genkey.fedora
 #Source58: %{name}-s390x-fedora.config
 #Source59: %{name}-s390x-debug-fedora.config
 Source60: %{name}-x86_64-fedora.config
-#Source61: %{name}-x86_64-debug-fedora.config
+Source61: %{name}-x86_64-debug-fedora.config
 #Source700: %{name}-riscv64-fedora.config
 #Source701: %{name}-riscv64-debug-fedora.config
 
@@ -1048,14 +1048,14 @@ Source301: kernel-kabi-dw-%{kabiversion}.tar.xz
 # realtime config files
 #Source474: %{name}-aarch64-rt-rhel.config
 #Source475: %{name}-aarch64-rt-debug-rhel.config
-#Source476: %{name}-x86_64-rt-rhel.config
-#Source477: %{name}-x86_64-rt-debug-rhel.config
+Source476: %{name}-x86_64-rt-rhel.config
+Source477: %{name}-x86_64-rt-debug-rhel.config
 %endif
 %if 0%{include_fedora}
 #Source478: %{name}-aarch64-rt-fedora.config
 #Source479: %{name}-aarch64-rt-debug-fedora.config
-#Source480: %{name}-x86_64-rt-fedora.config
-#Source481: %{name}-x86_64-rt-debug-fedora.config
+Source480: %{name}-x86_64-rt-fedora.config
+Source481: %{name}-x86_64-rt-debug-fedora.config
 #Source482: %{name}-riscv64-rt-fedora.config
 #Source483: %{name}-riscv64-rt-debug-fedora.config
 %endif
@@ -1105,8 +1105,7 @@ Patch203: tkg-0003-glitched-cfs.patch
 Patch204: tkg-0013-optimize_harder_O3.patch
 
 # device specific patches
-#surface NEEDS REBASE
-# Patch300: linux-surface.patch
+Patch300: linux-surface.patch
 # Steam deck
 Patch301: steam-deck.patch
 Patch302: steamdeck-oled-audio.patch
@@ -2039,7 +2038,7 @@ ApplyOptionalPatch tkg-0013-optimize_harder_O3.patch
 
 # device specific patches
 #surface
-#ApplyOptionalPatch linux-surface.patch
+ApplyOptionalPatch linux-surface.patch
 # Steam deck
 ApplyOptionalPatch steam-deck.patch
 ApplyOptionalPatch steamdeck-oled-audio.patch
