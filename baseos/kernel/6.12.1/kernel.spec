@@ -1099,7 +1099,7 @@ Patch200: graysky-more-uarches.patch
 
 # tkg
 # https://github.com/Frogging-Family/linux-tkg
-# Patch201: tkg-0001-add-sysctl-to-disallow-unprivileged-CLONE_NEWUSER-by.patch
+Patch201: tkg-0001-add-sysctl-to-disallow-unprivileged-CLONE_NEWUSER-by.patch
 Patch202: tkg-0003-glitched-base.patch
 Patch203: tkg-0003-glitched-cfs.patch
 Patch204: tkg-0013-optimize_harder_O3.patch
@@ -2031,7 +2031,7 @@ ApplyOptionalPatch graysky-more-uarches.patch
 
 # tkg
 # https://github.com/Frogging-Family/linux-tkg
-#ApplyOptionalPatch tkg-0001-add-sysctl-to-disallow-unprivileged-CLONE_NEWUSER-by.patch
+ApplyOptionalPatch tkg-0001-add-sysctl-to-disallow-unprivileged-CLONE_NEWUSER-by.patch
 ApplyOptionalPatch tkg-0003-glitched-base.patch
 ApplyOptionalPatch tkg-0003-glitched-cfs.patch
 ApplyOptionalPatch tkg-0013-optimize_harder_O3.patch
