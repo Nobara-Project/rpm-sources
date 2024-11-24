@@ -106,6 +106,7 @@ graphics scenarios.
 %package -n libnvidia-ml
 Summary:        NVIDIA Management Library (NVML)
 Provides:       cuda-nvml%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
+Requires:       cuda-nvml-devel
 Provides:       nvidia-driver-NVML = %{?epoch:%{epoch}:}%{version}-%{release}
 Obsoletes:      nvidia-driver-NVML < %{?epoch:%{epoch}:}%{version}-%{release}
 
@@ -293,7 +294,6 @@ install -p -m 0644 -D %{SOURCE40} %{buildroot}%{_metainfodir}/com.nvidia.driver.
 mkdir -p %{buildroot}%{_datadir}/pixmaps/
 cp %{SOURCE42} %{buildroot}%{_datadir}/pixmaps/
 
-ln -sfv %{_libdir}/libnvidia-ml.so.1 %{buildroot}%{_prefix}/lib/libnvidia-ml.so
 
 %check
 appstream-util validate --nonet %{buildroot}%{_metainfodir}/com.nvidia.driver.metainfo.xml
