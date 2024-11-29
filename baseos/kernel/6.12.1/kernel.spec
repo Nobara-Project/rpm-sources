@@ -163,13 +163,13 @@ Summary: The Linux kernel
 %define specrpmversion 6.12.1
 %define specversion 6.12.1
 %define patchversion 6.12
-%define pkgrelease 201
+%define pkgrelease 202
 %define kversion 6
 %define tarfile_release 6.12.1
 # This is needed to do merge window version magic
 %define patchlevel 12
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease 201%{?buildid}%{?dist}
+%define specrelease 202%{?buildid}%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 6.12.0
 
@@ -1115,7 +1115,7 @@ Patch304: asus-linux.patch
 # rog ally/x
 Patch305: asus-patch-series.patch
 Patch306: ROG-ALLY-NCT6775-PLATFORM.patch
-Patch307: v4-ALSA-hda-tas2781-Add-speaker-id-check-for-ASUS-projects.patch
+Patch307: v6-ALSA-hda-tas2781-Add-speaker-id-check-for-ASUS-projects.patch
 # ayaneo
 Patch308: bmi160_ayaneo.patch
 # minisforum v3
@@ -2048,7 +2048,7 @@ ApplyOptionalPatch asus-linux.patch
 # rog ally/x
 ApplyOptionalPatch asus-patch-series.patch
 ApplyOptionalPatch ROG-ALLY-NCT6775-PLATFORM.patch
-ApplyOptionalPatch v4-ALSA-hda-tas2781-Add-speaker-id-check-for-ASUS-projects.patch
+ApplyOptionalPatch v6-ALSA-hda-tas2781-Add-speaker-id-check-for-ASUS-projects.patch
 # ayaneo
 ApplyOptionalPatch bmi160_ayaneo.patch
 # minisforum v3

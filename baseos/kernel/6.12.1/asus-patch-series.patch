@@ -1,7 +1,7 @@
-From 16b6e7e81e0c4f46ee54537a6667434e0dbf3271 Mon Sep 17 00:00:00 2001
+From 02847ea7ccd65f3b34f3b11b0bc94c79c4cfa8c3 Mon Sep 17 00:00:00 2001
 From: "Luke D. Jones" <luke@ljones.dev>
 Date: Fri, 7 Jun 2024 15:58:01 +1200
-Subject: [PATCH 01/29] Input: xpad - add support for ASUS ROG RAIKIRI PRO
+Subject: [PATCH 01/26] Input: xpad - add support for ASUS ROG RAIKIRI PRO
 
 Add the VID/PID for ASUS ROG RAIKIRI PRO to
 xpad_device and the VID to xpad_table.
@@ -27,10 +27,10 @@ index 92cff3f2658c..44c54419d93c 100644
 2.47.0
 
 
-From 6fd07beabfc648cddada2e17060b535768f5d8db Mon Sep 17 00:00:00 2001
+From 8eecf395146a98c080b1f1a184a4f2295a2a0128 Mon Sep 17 00:00:00 2001
 From: "Luke D. Jones" <luke@ljones.dev>
 Date: Fri, 24 May 2024 10:54:36 +1200
-Subject: [PATCH 02/29] platform/x86: asus-wmi: don't fail if platform_profile
+Subject: [PATCH 02/26] platform/x86: asus-wmi: don't fail if platform_profile
  already registered
 
 On some newer laptops it appears that an AMD driver can register a
@@ -64,271 +64,10 @@ index abdca3f05c5c..58970178acaa 100644
 2.47.0
 
 
-From 3caa5c1f95edc1a83b2db454ae9658b21893937d Mon Sep 17 00:00:00 2001
-From: Mario Limonciello <mario.limonciello@amd.com>
-Date: Wed, 14 Aug 2024 12:50:25 -0500
-Subject: [PATCH 03/29] acpi/x86: s2idle: add support for screen off and screen
- on callbacks
-
-All the _DSM methods for the LPS0 method are called back to back
-currently.  The intended use of the screen off and screen on calls is
-supposed to be matching the screen being turned on or off though.
-Add support for other parts of the kernel to call such a callback.
-
-Signed-off-by: Mario Limonciello <mario.limonciello@amd.com>
----
- include/linux/suspend.h |  8 ++++++++
- kernel/power/suspend.c  | 12 ++++++++++++
- 2 files changed, 20 insertions(+)
-
-diff --git a/include/linux/suspend.h b/include/linux/suspend.h
-index da6ebca3ff77..4535ae82363c 100644
---- a/include/linux/suspend.h
-+++ b/include/linux/suspend.h
-@@ -133,6 +133,8 @@ struct platform_suspend_ops {
- 
- struct platform_s2idle_ops {
- 	int (*begin)(void);
-+	int (*screen_off)(void);
-+	int (*screen_on)(void);
- 	int (*prepare)(void);
- 	int (*prepare_late)(void);
- 	void (*check)(void);
-@@ -160,6 +162,9 @@ extern unsigned int pm_suspend_global_flags;
- #define PM_SUSPEND_FLAG_FW_RESUME	BIT(1)
- #define PM_SUSPEND_FLAG_NO_PLATFORM	BIT(2)
- 
-+int platform_suspend_screen_off(void);
-+int platform_suspend_screen_on(void);
-+
- static inline void pm_suspend_clear_flags(void)
- {
- 	pm_suspend_global_flags = 0;
-@@ -296,6 +301,9 @@ static inline bool idle_should_enter_s2idle(void) { return false; }
- static inline void __init pm_states_init(void) {}
- static inline void s2idle_set_ops(const struct platform_s2idle_ops *ops) {}
- static inline void s2idle_wake(void) {}
-+static inline int platform_suspend_screen_off(void) { return -ENODEV };
-+static inline int platform_suspend_screen_on(void) { return -ENODEV };
-+
- #endif /* !CONFIG_SUSPEND */
- 
- /* struct pbe is used for creating lists of pages that should be restored
-diff --git a/kernel/power/suspend.c b/kernel/power/suspend.c
-index 09f8397bae15..19734b297527 100644
---- a/kernel/power/suspend.c
-+++ b/kernel/power/suspend.c
-@@ -254,6 +254,18 @@ static bool sleep_state_supported(suspend_state_t state)
- 	       (valid_state(state) && !cxl_mem_active());
- }
- 
-+int platform_suspend_screen_off(void)
-+{
-+	return s2idle_ops && s2idle_ops->screen_off ? s2idle_ops->screen_off() : 0;
-+}
-+EXPORT_SYMBOL_GPL(platform_suspend_screen_off);
-+
-+int platform_suspend_screen_on(void)
-+{
-+	return s2idle_ops && s2idle_ops->screen_on ? s2idle_ops->screen_on() : 0;
-+}
-+EXPORT_SYMBOL_GPL(platform_suspend_screen_on);
-+
- static int platform_suspend_prepare(suspend_state_t state)
- {
- 	return state != PM_SUSPEND_TO_IDLE && suspend_ops->prepare ?
--- 
-2.47.0
-
-
-From 1cb80842fc0bcd58d8b80b601b99b9ce3ef9608b Mon Sep 17 00:00:00 2001
-From: Mario Limonciello <mario.limonciello@amd.com>
-Date: Wed, 14 Aug 2024 20:19:09 -0500
-Subject: [PATCH 04/29] drm: Notify the suspend core when displays are changed
- at suspend
-
-This allows notifying the BIOS with the LPS0 _DSM for "Screen off"
-and "Screen on".
-
-Signed-off-by: Mario Limonciello <mario.limonciello@amd.com>
----
- drivers/gpu/drm/drm_atomic_helper.c | 13 +++++++++++++
- 1 file changed, 13 insertions(+)
-
-diff --git a/drivers/gpu/drm/drm_atomic_helper.c b/drivers/gpu/drm/drm_atomic_helper.c
-index 43cdf39019a4..66ffa7ce7b08 100644
---- a/drivers/gpu/drm/drm_atomic_helper.c
-+++ b/drivers/gpu/drm/drm_atomic_helper.c
-@@ -27,6 +27,7 @@
- 
- #include <linux/dma-fence.h>
- #include <linux/ktime.h>
-+#include <linux/suspend.h>
- 
- #include <drm/drm_atomic.h>
- #include <drm/drm_atomic_helper.h>
-@@ -3528,6 +3529,13 @@ struct drm_atomic_state *drm_atomic_helper_suspend(struct drm_device *dev)
- 		goto unlock;
- 	}
- 
-+	err = platform_suspend_screen_off();
-+	if (err < 0) {
-+		drm_atomic_state_put(state);
-+		state = ERR_PTR(err);
-+		goto unlock;
-+	}
-+
- unlock:
- 	DRM_MODESET_LOCK_ALL_END(dev, ctx, err);
- 	if (err)
-@@ -3609,7 +3617,12 @@ int drm_atomic_helper_resume(struct drm_device *dev,
- 	DRM_MODESET_LOCK_ALL_BEGIN(dev, ctx, 0, err);
- 
- 	err = drm_atomic_helper_commit_duplicated_state(state, &ctx);
-+	if (err < 0)
-+		goto unlock;
- 
-+	err = platform_suspend_screen_on();
-+
-+unlock:
- 	DRM_MODESET_LOCK_ALL_END(dev, ctx, err);
- 	drm_atomic_state_put(state);
- 
--- 
-2.47.0
-
-
-From eab143487ae4fd50485aa4bb23a7f40d54136bf5 Mon Sep 17 00:00:00 2001
-From: Mario Limonciello <mario.limonciello@amd.com>
-Date: Wed, 14 Aug 2024 20:20:13 -0500
-Subject: [PATCH 05/29] acpi/x86: s2idle: Move screen off/on code into
- dedicated callbacks
-
-This lets the DRM core notify on screen events instead of calling
-them back to back.
-
-Signed-off-by: Mario Limonciello <mario.limonciello@amd.com>
----
- drivers/acpi/x86/s2idle.c | 75 ++++++++++++++++++++++++++++++---------
- 1 file changed, 59 insertions(+), 16 deletions(-)
-
-diff --git a/drivers/acpi/x86/s2idle.c b/drivers/acpi/x86/s2idle.c
-index dd0b40b9bbe8..e7f9748937d6 100644
---- a/drivers/acpi/x86/s2idle.c
-+++ b/drivers/acpi/x86/s2idle.c
-@@ -539,17 +539,21 @@ static struct acpi_scan_handler lps0_handler = {
- 	.attach = lps0_device_attach,
- };
- 
--int acpi_s2idle_prepare_late(void)
-+static int acpi_s2idle_screen_off(void)
- {
--	struct acpi_s2idle_dev_ops *handler;
--
- 	if (!lps0_device_handle || sleep_no_lps0)
- 		return 0;
- 
--	if (pm_debug_messages_on)
--		lpi_check_constraints();
-+	switch (lps0_dsm_state) {
-+	case ACPI_LPS0_SCREEN_OFF_AMD:
-+	case ACPI_LPS0_SCREEN_OFF:
-+		if (pm_debug_messages_on)
-+			acpi_handle_info(lps0_device_handle,
-+					"already in %s\n",
-+					acpi_sleep_dsm_state_to_str(lps0_dsm_state));
-+		return 0;
-+	}
- 
--	/* Screen off */
- 	if (lps0_dsm_func_mask > 0)
- 		acpi_sleep_run_lps0_dsm(acpi_s2idle_vendor_amd() ?
- 					ACPI_LPS0_SCREEN_OFF_AMD :
-@@ -560,6 +564,47 @@ int acpi_s2idle_prepare_late(void)
- 		acpi_sleep_run_lps0_dsm(ACPI_LPS0_SCREEN_OFF,
- 				lps0_dsm_func_mask_microsoft, lps0_dsm_guid_microsoft);
- 
-+	return 0;
-+}
-+
-+static int acpi_s2idle_screen_on(void)
-+{
-+	if (!lps0_device_handle || sleep_no_lps0)
-+		return 0;
-+
-+	switch (lps0_dsm_state) {
-+	case ACPI_LPS0_SCREEN_ON_AMD:
-+	case ACPI_LPS0_SCREEN_ON:
-+		if (pm_debug_messages_on)
-+			acpi_handle_info(lps0_device_handle,
-+					"already in %s\n",
-+					acpi_sleep_dsm_state_to_str(lps0_dsm_state));
-+		return 0;
-+	}
-+
-+	if (lps0_dsm_func_mask_microsoft > 0)
-+		acpi_sleep_run_lps0_dsm(ACPI_LPS0_SCREEN_ON,
-+				lps0_dsm_func_mask_microsoft, lps0_dsm_guid_microsoft);
-+
-+	if (lps0_dsm_func_mask > 0)
-+		acpi_sleep_run_lps0_dsm(acpi_s2idle_vendor_amd() ?
-+					ACPI_LPS0_SCREEN_ON_AMD :
-+					ACPI_LPS0_SCREEN_ON,
-+					lps0_dsm_func_mask, lps0_dsm_guid);
-+
-+	return 0;
-+}
-+
-+int acpi_s2idle_prepare_late(void)
-+{
-+	struct acpi_s2idle_dev_ops *handler;
-+
-+	if (!lps0_device_handle || sleep_no_lps0)
-+		return 0;
-+
-+	if (pm_debug_messages_on)
-+		lpi_check_constraints();
-+
- 	/* LPS0 entry */
- 	if (lps0_dsm_func_mask > 0 && acpi_s2idle_vendor_amd())
- 		acpi_sleep_run_lps0_dsm(ACPI_LPS0_ENTRY_AMD,
-@@ -623,20 +668,18 @@ void acpi_s2idle_restore_early(void)
- 		acpi_sleep_run_lps0_dsm(ACPI_LPS0_MS_EXIT,
- 				lps0_dsm_func_mask_microsoft, lps0_dsm_guid_microsoft);
- 	}
-+}
- 
--	/* Screen on */
--	if (lps0_dsm_func_mask_microsoft > 0)
--		acpi_sleep_run_lps0_dsm(ACPI_LPS0_SCREEN_ON,
--				lps0_dsm_func_mask_microsoft, lps0_dsm_guid_microsoft);
--	if (lps0_dsm_func_mask > 0)
--		acpi_sleep_run_lps0_dsm(acpi_s2idle_vendor_amd() ?
--					ACPI_LPS0_SCREEN_ON_AMD :
--					ACPI_LPS0_SCREEN_ON,
--					lps0_dsm_func_mask, lps0_dsm_guid);
-+static int acpi_x86_s2idle_begin(void)
-+{
-+	lps0_dsm_state = -1;
-+	return acpi_s2idle_begin();
- }
- 
- static const struct platform_s2idle_ops acpi_s2idle_ops_lps0 = {
--	.begin = acpi_s2idle_begin,
-+	.begin = acpi_x86_s2idle_begin,
-+	.screen_off = acpi_s2idle_screen_off,
-+	.screen_on = acpi_s2idle_screen_on,
- 	.prepare = acpi_s2idle_prepare,
- 	.prepare_late = acpi_s2idle_prepare_late,
- 	.check = acpi_s2idle_check,
--- 
-2.47.0
-
-
-From ca235eed0921b7d5f20373bbfb940285480909d3 Mon Sep 17 00:00:00 2001
+From e1e87facb265643148155ad2b9402d30c23bf50e Mon Sep 17 00:00:00 2001
 From: "Luke D. Jones" <luke@ljones.dev>
 Date: Sun, 1 Sep 2024 14:30:37 +1200
-Subject: [PATCH 06/29] platform/x86: asus-wmi: Refactor Ally suspend/resume
+Subject: [PATCH 03/26] platform/x86: asus-wmi: Refactor Ally suspend/resume
 
 The CSEE method from ACPI is now called only on module load. This fixes
 an issues with USB device loss on Ally 1 after reboot.
@@ -350,10 +89,10 @@ Signed-off-by: Luke D. Jones <luke@ljones.dev>
  1 file changed, 48 insertions(+), 38 deletions(-)
 
 diff --git a/drivers/platform/x86/asus-wmi.c b/drivers/platform/x86/asus-wmi.c
-index 58970178acaa..e34642760020 100644
+index 58970178acaa..feaae7adac69 100644
 --- a/drivers/platform/x86/asus-wmi.c
 +++ b/drivers/platform/x86/asus-wmi.c
-@@ -142,16 +142,19 @@ module_param(fnlock_default, bool, 0444);
+@@ -142,16 +142,20 @@ module_param(fnlock_default, bool, 0444);
  #define ASUS_MINI_LED_2024_STRONG	0x01
  #define ASUS_MINI_LED_2024_OFF		0x02
  
@@ -366,6 +105,7 @@ index 58970178acaa..e34642760020 100644
 + * Time here greatly impacts the wake behaviour. Used in suspend/wake.
 + */
 +#define ASUS_USB0_PWR_EC0_CSEE_WAIT	600
++#define ASUS_USB0_PWR_EC0_CSEE_OFF	0xB7
 +#define ASUS_USB0_PWR_EC0_CSEE_ON	0xB8
  
  static const char * const ashs_ids[] = { "ATK4001", "ATK4002", NULL };
@@ -377,7 +117,7 @@ index 58970178acaa..e34642760020 100644
  	{
  		.matches = {
  			DMI_MATCH(DMI_BOARD_NAME, "RC71L"),
-@@ -274,9 +277,6 @@ struct asus_wmi {
+@@ -274,9 +278,6 @@ struct asus_wmi {
  	u32 tablet_switch_dev_id;
  	bool tablet_switch_inverted;
  
@@ -387,7 +127,7 @@ index 58970178acaa..e34642760020 100644
  	enum fan_type fan_type;
  	enum fan_type gpu_fan_type;
  	enum fan_type mid_fan_type;
-@@ -335,6 +335,8 @@ struct asus_wmi {
+@@ -335,6 +336,8 @@ struct asus_wmi {
  	struct asus_wmi_driver *driver;
  };
  
@@ -396,7 +136,7 @@ index 58970178acaa..e34642760020 100644
  /* WMI ************************************************************************/
  
  static int asus_wmi_evaluate_method3(u32 method_id,
-@@ -4758,6 +4760,18 @@ static int asus_wmi_add(struct platform_device *pdev)
+@@ -4758,6 +4761,17 @@ static int asus_wmi_add(struct platform_device *pdev)
  	if (err)
  		goto fail_platform;
  
@@ -409,7 +149,6 @@ index 58970178acaa..e34642760020 100644
 +		 */
 +		acpi_execute_simple_method(NULL, ASUS_USB0_PWR_EC0_CSEE, ASUS_USB0_PWR_EC0_CSEE_ON);
 +		msleep(ASUS_USB0_PWR_EC0_CSEE_WAIT);
-+		platform_suspend_screen_on();
 +	}
 +
  	/* ensure defaults for tunables */
@@ -466,7 +205,7 @@ index 58970178acaa..e34642760020 100644
 +static void asus_ally_s2idle_restore(void)
 +{
 +	if (ally_mcu_usb_plug) {
-+		platform_suspend_screen_on();
++		acpi_execute_simple_method(NULL, ASUS_USB0_PWR_EC0_CSEE, ASUS_USB0_PWR_EC0_CSEE_ON);
 +		msleep(ASUS_USB0_PWR_EC0_CSEE_WAIT);
 +	}
 +}
@@ -474,7 +213,7 @@ index 58970178acaa..e34642760020 100644
 +static int asus_hotk_prepare(struct device *device)
 +{
 +	if (ally_mcu_usb_plug) {
-+		platform_suspend_screen_off();
++		acpi_execute_simple_method(NULL, ASUS_USB0_PWR_EC0_CSEE, ASUS_USB0_PWR_EC0_CSEE_OFF);
 +		msleep(ASUS_USB0_PWR_EC0_CSEE_WAIT);
 +	}
 +	return 0;
@@ -516,10 +255,10 @@ index 58970178acaa..e34642760020 100644
 2.47.0
 
 
-From 7740126b4f9f312837fecc7558c8708a06854b6d Mon Sep 17 00:00:00 2001
+From 59c72b775d77ae2ce867ea6ff4a3b1e40e79f070 Mon Sep 17 00:00:00 2001
 From: "Luke D. Jones" <luke@ljones.dev>
 Date: Sun, 22 Sep 2024 21:40:46 +1200
-Subject: [PATCH 07/29] platform/x86: asus-wmi: export symbols used for
+Subject: [PATCH 04/26] platform/x86: asus-wmi: export symbols used for
  read/write WMI
 
 Export some rather helpful read/write WMI symbols using a namespace.
@@ -535,10 +274,10 @@ Reviewed-by: Mario Limonciello <mario.limonciello@amd.com>
  2 files changed, 51 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/platform/x86/asus-wmi.c b/drivers/platform/x86/asus-wmi.c
-index e34642760020..df7e102dc3e8 100644
+index feaae7adac69..cab5fce4dd48 100644
 --- a/drivers/platform/x86/asus-wmi.c
 +++ b/drivers/platform/x86/asus-wmi.c
-@@ -387,7 +387,7 @@ int asus_wmi_evaluate_method(u32 method_id, u32 arg0, u32 arg1, u32 *retval)
+@@ -388,7 +388,7 @@ int asus_wmi_evaluate_method(u32 method_id, u32 arg0, u32 arg1, u32 *retval)
  {
  	return asus_wmi_evaluate_method3(method_id, arg0, arg1, 0, retval);
  }
@@ -547,7 +286,7 @@ index e34642760020..df7e102dc3e8 100644
  
  static int asus_wmi_evaluate_method5(u32 method_id,
  		u32 arg0, u32 arg1, u32 arg2, u32 arg3, u32 arg4, u32 *retval)
-@@ -551,12 +551,50 @@ static int asus_wmi_get_devstate(struct asus_wmi *asus, u32 dev_id, u32 *retval)
+@@ -552,12 +552,50 @@ static int asus_wmi_get_devstate(struct asus_wmi *asus, u32 dev_id, u32 *retval)
  	return 0;
  }
  
@@ -627,10 +366,10 @@ index 365e119bebaa..6ea4dedfb85e 100644
 2.47.0
 
 
-From 89407e3a0e2a11254ffc82830a1cc212f4beeff8 Mon Sep 17 00:00:00 2001
+From 3cdecf32bd2fe23530190acc30ef6d23a99bf86e Mon Sep 17 00:00:00 2001
 From: "Luke D. Jones" <luke@ljones.dev>
 Date: Sat, 21 Sep 2024 16:04:58 +1200
-Subject: [PATCH 08/29] hid-asus: Add MODULE_IMPORT_NS(ASUS_WMI)
+Subject: [PATCH 05/26] hid-asus: Add MODULE_IMPORT_NS(ASUS_WMI)
 
 A small change to asus_wmi_evaluate_method() was introduced during
 asus-armoury driver development to put the exports behind a namespace.
@@ -657,10 +396,10 @@ index a4b47319ad8e..9540e3e19cce 100644
 2.47.0
 
 
-From 15fd68f11942880ed76de5aa2bbd609b5bd597b4 Mon Sep 17 00:00:00 2001
+From 1dabd910d2f747b5be40c886a0ef1e9a5c373b4e Mon Sep 17 00:00:00 2001
 From: "Luke D. Jones" <luke@ljones.dev>
 Date: Sun, 22 Sep 2024 21:39:43 +1200
-Subject: [PATCH 09/29] platform/x86: asus-armoury: move existing tunings to
+Subject: [PATCH 06/26] platform/x86: asus-armoury: move existing tunings to
  asus-armoury module
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -1471,7 +1210,7 @@ index 000000000000..b00d829c9da0
 +
 +#endif /* _ASUS_BIOSCFG_H_ */
 diff --git a/drivers/platform/x86/asus-wmi.c b/drivers/platform/x86/asus-wmi.c
-index df7e102dc3e8..29cc43355948 100644
+index cab5fce4dd48..e40d61821d69 100644
 --- a/drivers/platform/x86/asus-wmi.c
 +++ b/drivers/platform/x86/asus-wmi.c
 @@ -55,8 +55,6 @@ module_param(fnlock_default, bool, 0444);
@@ -1510,10 +1249,10 @@ index 6ea4dedfb85e..21313e1eb6c9 100644
 2.47.0
 
 
-From d7e107d0bd1a84c9ea39b5c7581273d2d0f4a7c0 Mon Sep 17 00:00:00 2001
+From ebcd7921c9d4a708d81c2249cea9f756860af442 Mon Sep 17 00:00:00 2001
 From: "Luke D. Jones" <luke@ljones.dev>
 Date: Thu, 19 Sep 2024 17:23:35 +1200
-Subject: [PATCH 10/29] platform/x86: asus-armoury: add panel_hd_mode attribute
+Subject: [PATCH 07/26] platform/x86: asus-armoury: add panel_hd_mode attribute
 
 Add panel_hd_mode to toggle the panel mode between single and high
 definition modes.
@@ -1572,10 +1311,10 @@ index 21313e1eb6c9..a6064995c2cc 100644
 2.47.0
 
 
-From 17ee2945807d581f9db68e70eaedeb31b4e2d86b Mon Sep 17 00:00:00 2001
+From 919ecb2267f306f6360ce8df6202b209907fa443 Mon Sep 17 00:00:00 2001
 From: "Luke D. Jones" <luke@ljones.dev>
 Date: Thu, 19 Sep 2024 17:19:37 +1200
-Subject: [PATCH 11/29] platform/x86: asus-armoury: add the ppt_* and nv_*
+Subject: [PATCH 08/26] platform/x86: asus-armoury: add the ppt_* and nv_*
  tuning knobs
 
 Adds the ppt_* and nv_* tuning knobs that are available via WMI methods
@@ -1853,10 +1592,10 @@ index b00d829c9da0..91ec6f4cb149 100644
 2.47.0
 
 
-From 3d32d3762d1eaab23b17c332eeb5f67146795b0b Mon Sep 17 00:00:00 2001
+From 5ee126f412514f4d5b464dc2ddb5e23f9f4b8b3f Mon Sep 17 00:00:00 2001
 From: "Luke D. Jones" <luke@ljones.dev>
 Date: Sun, 2 Jun 2024 14:32:15 +1200
-Subject: [PATCH 12/29] platform/x86: asus-armoury: add dgpu tgp control
+Subject: [PATCH 09/26] platform/x86: asus-armoury: add dgpu tgp control
 
 Implement the dgpu TGP control under the asus-armoury module using the
 fw_attributes class.
@@ -1983,10 +1722,10 @@ index a6064995c2cc..8c755799eb60 100644
 2.47.0
 
 
-From b677aeffe6b57516fd6264af2e0498ab95663723 Mon Sep 17 00:00:00 2001
+From 80aa13c6568edf1863ffdb9e5ba288858afb9023 Mon Sep 17 00:00:00 2001
 From: "Luke D. Jones" <luke@ljones.dev>
 Date: Sun, 2 Jun 2024 14:44:31 +1200
-Subject: [PATCH 13/29] platform/x86: asus-armoury: add apu-mem control support
+Subject: [PATCH 10/26] platform/x86: asus-armoury: add apu-mem control support
 
 Implement the APU memory size control under the asus-armoury module using
 the fw_attributes class.
@@ -2149,10 +1888,10 @@ index 8c755799eb60..88bf250dc8ca 100644
 2.47.0
 
 
-From 782db6994b2f3f9c1bc97cd7f6be6a0a1b10898b Mon Sep 17 00:00:00 2001
+From fa45892af12d8e45aa65d8d662712b0b318236c9 Mon Sep 17 00:00:00 2001
 From: "Luke D. Jones" <luke@ljones.dev>
 Date: Wed, 18 Sep 2024 21:19:12 +1200
-Subject: [PATCH 14/29] platform/x86: asus-armoury: add core count control
+Subject: [PATCH 11/26] platform/x86: asus-armoury: add core count control
 
 Implement Intel core enablement under the asus-armoury module using the
 fw_attributes class.
@@ -2498,10 +2237,10 @@ index 88bf250dc8ca..cc21e4272460 100644
 2.47.0
 
 
-From 886b6bc61ea402f5631d49c863922bb1a77d850e Mon Sep 17 00:00:00 2001
+From ed964ae62ba4f49447b5027f4a9880d338b3da81 Mon Sep 17 00:00:00 2001
 From: "Luke D. Jones" <luke@ljones.dev>
 Date: Mon, 3 Jun 2024 12:04:41 +1200
-Subject: [PATCH 15/29] platform/x86: asus-wmi: deprecate bios features
+Subject: [PATCH 12/26] platform/x86: asus-wmi: deprecate bios features
 
 With the existence of the asus-armoury module the attributes no-longer
 need to live under the /sys/devices/platform/asus-nb-wmi/ path.
@@ -2678,10 +2417,10 @@ index 80ec8b45022d..d0fc68d93f48 100644
  	tristate "Asus Notebook WMI Driver"
  	depends on ASUS_WMI
 diff --git a/drivers/platform/x86/asus-wmi.c b/drivers/platform/x86/asus-wmi.c
-index 29cc43355948..ef7f81545f9a 100644
+index e40d61821d69..df8e024bd5d2 100644
 --- a/drivers/platform/x86/asus-wmi.c
 +++ b/drivers/platform/x86/asus-wmi.c
-@@ -285,11 +285,12 @@ struct asus_wmi {
+@@ -286,11 +286,12 @@ struct asus_wmi {
  	u8 fan_boost_mode_mask;
  	u8 fan_boost_mode;
  
@@ -2696,7 +2435,7 @@ index 29cc43355948..ef7f81545f9a 100644
  	u32 ppt_pl2_sppt;
  	u32 ppt_pl1_spl;
  	u32 ppt_apu_sppt;
-@@ -297,6 +298,9 @@ struct asus_wmi {
+@@ -298,6 +299,9 @@ struct asus_wmi {
  	u32 ppt_fppt;
  	u32 nv_dynamic_boost;
  	u32 nv_temp_target;
@@ -2706,7 +2445,7 @@ index 29cc43355948..ef7f81545f9a 100644
  
  	u32 kbd_rgb_dev;
  	bool kbd_rgb_state_available;
-@@ -315,9 +319,6 @@ struct asus_wmi {
+@@ -316,9 +320,6 @@ struct asus_wmi {
  	// The RSOC controls the maximum charging percentage.
  	bool battery_rsoc_available;
  
@@ -2716,7 +2455,7 @@ index 29cc43355948..ef7f81545f9a 100644
  	struct hotplug_slot hotplug_slot;
  	struct mutex hotplug_lock;
  	struct mutex wmi_lock;
-@@ -333,6 +334,15 @@ struct asus_wmi {
+@@ -334,6 +335,15 @@ struct asus_wmi {
  
  static bool ally_mcu_usb_plug;
  
@@ -2732,7 +2471,7 @@ index 29cc43355948..ef7f81545f9a 100644
  /* WMI ************************************************************************/
  
  static int asus_wmi_evaluate_method3(u32 method_id,
-@@ -723,6 +733,7 @@ static void asus_wmi_tablet_mode_get_state(struct asus_wmi *asus)
+@@ -724,6 +734,7 @@ static void asus_wmi_tablet_mode_get_state(struct asus_wmi *asus)
  }
  
  /* Charging mode, 1=Barrel, 2=USB ******************************************/
@@ -2740,7 +2479,7 @@ index 29cc43355948..ef7f81545f9a 100644
  static ssize_t charge_mode_show(struct device *dev,
  				   struct device_attribute *attr, char *buf)
  {
-@@ -733,12 +744,16 @@ static ssize_t charge_mode_show(struct device *dev,
+@@ -734,12 +745,16 @@ static ssize_t charge_mode_show(struct device *dev,
  	if (result < 0)
  		return result;
  
@@ -2757,7 +2496,7 @@ index 29cc43355948..ef7f81545f9a 100644
  static ssize_t dgpu_disable_show(struct device *dev,
  				   struct device_attribute *attr, char *buf)
  {
-@@ -749,6 +764,8 @@ static ssize_t dgpu_disable_show(struct device *dev,
+@@ -750,6 +765,8 @@ static ssize_t dgpu_disable_show(struct device *dev,
  	if (result < 0)
  		return result;
  
@@ -2766,7 +2505,7 @@ index 29cc43355948..ef7f81545f9a 100644
  	return sysfs_emit(buf, "%d\n", result);
  }
  
-@@ -802,8 +819,10 @@ static ssize_t dgpu_disable_store(struct device *dev,
+@@ -803,8 +820,10 @@ static ssize_t dgpu_disable_store(struct device *dev,
  	return count;
  }
  static DEVICE_ATTR_RW(dgpu_disable);
@@ -2777,7 +2516,7 @@ index 29cc43355948..ef7f81545f9a 100644
  static ssize_t egpu_enable_show(struct device *dev,
  				   struct device_attribute *attr, char *buf)
  {
-@@ -814,6 +833,8 @@ static ssize_t egpu_enable_show(struct device *dev,
+@@ -815,6 +834,8 @@ static ssize_t egpu_enable_show(struct device *dev,
  	if (result < 0)
  		return result;
  
@@ -2786,7 +2525,7 @@ index 29cc43355948..ef7f81545f9a 100644
  	return sysfs_emit(buf, "%d\n", result);
  }
  
-@@ -870,8 +891,10 @@ static ssize_t egpu_enable_store(struct device *dev,
+@@ -871,8 +892,10 @@ static ssize_t egpu_enable_store(struct device *dev,
  	return count;
  }
  static DEVICE_ATTR_RW(egpu_enable);
@@ -2797,7 +2536,7 @@ index 29cc43355948..ef7f81545f9a 100644
  static ssize_t egpu_connected_show(struct device *dev,
  				   struct device_attribute *attr, char *buf)
  {
-@@ -882,12 +905,16 @@ static ssize_t egpu_connected_show(struct device *dev,
+@@ -883,12 +906,16 @@ static ssize_t egpu_connected_show(struct device *dev,
  	if (result < 0)
  		return result;
  
@@ -2814,7 +2553,7 @@ index 29cc43355948..ef7f81545f9a 100644
  static ssize_t gpu_mux_mode_show(struct device *dev,
  				 struct device_attribute *attr, char *buf)
  {
-@@ -898,6 +925,8 @@ static ssize_t gpu_mux_mode_show(struct device *dev,
+@@ -899,6 +926,8 @@ static ssize_t gpu_mux_mode_show(struct device *dev,
  	if (result < 0)
  		return result;
  
@@ -2823,7 +2562,7 @@ index 29cc43355948..ef7f81545f9a 100644
  	return sysfs_emit(buf, "%d\n", result);
  }
  
-@@ -956,6 +985,7 @@ static ssize_t gpu_mux_mode_store(struct device *dev,
+@@ -957,6 +986,7 @@ static ssize_t gpu_mux_mode_store(struct device *dev,
  	return count;
  }
  static DEVICE_ATTR_RW(gpu_mux_mode);
@@ -2831,7 +2570,7 @@ index 29cc43355948..ef7f81545f9a 100644
  
  /* TUF Laptop Keyboard RGB Modes **********************************************/
  static ssize_t kbd_rgb_mode_store(struct device *dev,
-@@ -1079,6 +1109,7 @@ static const struct attribute_group *kbd_rgb_mode_groups[] = {
+@@ -1080,6 +1110,7 @@ static const struct attribute_group *kbd_rgb_mode_groups[] = {
  };
  
  /* Tunable: PPT: Intel=PL1, AMD=SPPT *****************************************/
@@ -2839,7 +2578,7 @@ index 29cc43355948..ef7f81545f9a 100644
  static ssize_t ppt_pl2_sppt_store(struct device *dev,
  				    struct device_attribute *attr,
  				    const char *buf, size_t count)
-@@ -1117,6 +1148,8 @@ static ssize_t ppt_pl2_sppt_show(struct device *dev,
+@@ -1118,6 +1149,8 @@ static ssize_t ppt_pl2_sppt_show(struct device *dev,
  {
  	struct asus_wmi *asus = dev_get_drvdata(dev);
  
@@ -2848,7 +2587,7 @@ index 29cc43355948..ef7f81545f9a 100644
  	return sysfs_emit(buf, "%u\n", asus->ppt_pl2_sppt);
  }
  static DEVICE_ATTR_RW(ppt_pl2_sppt);
-@@ -1159,6 +1192,8 @@ static ssize_t ppt_pl1_spl_show(struct device *dev,
+@@ -1160,6 +1193,8 @@ static ssize_t ppt_pl1_spl_show(struct device *dev,
  {
  	struct asus_wmi *asus = dev_get_drvdata(dev);
  
@@ -2857,7 +2596,7 @@ index 29cc43355948..ef7f81545f9a 100644
  	return sysfs_emit(buf, "%u\n", asus->ppt_pl1_spl);
  }
  static DEVICE_ATTR_RW(ppt_pl1_spl);
-@@ -1202,6 +1237,8 @@ static ssize_t ppt_fppt_show(struct device *dev,
+@@ -1203,6 +1238,8 @@ static ssize_t ppt_fppt_show(struct device *dev,
  {
  	struct asus_wmi *asus = dev_get_drvdata(dev);
  
@@ -2866,7 +2605,7 @@ index 29cc43355948..ef7f81545f9a 100644
  	return sysfs_emit(buf, "%u\n", asus->ppt_fppt);
  }
  static DEVICE_ATTR_RW(ppt_fppt);
-@@ -1245,6 +1282,8 @@ static ssize_t ppt_apu_sppt_show(struct device *dev,
+@@ -1246,6 +1283,8 @@ static ssize_t ppt_apu_sppt_show(struct device *dev,
  {
  	struct asus_wmi *asus = dev_get_drvdata(dev);
  
@@ -2875,7 +2614,7 @@ index 29cc43355948..ef7f81545f9a 100644
  	return sysfs_emit(buf, "%u\n", asus->ppt_apu_sppt);
  }
  static DEVICE_ATTR_RW(ppt_apu_sppt);
-@@ -1288,6 +1327,8 @@ static ssize_t ppt_platform_sppt_show(struct device *dev,
+@@ -1289,6 +1328,8 @@ static ssize_t ppt_platform_sppt_show(struct device *dev,
  {
  	struct asus_wmi *asus = dev_get_drvdata(dev);
  
@@ -2884,7 +2623,7 @@ index 29cc43355948..ef7f81545f9a 100644
  	return sysfs_emit(buf, "%u\n", asus->ppt_platform_sppt);
  }
  static DEVICE_ATTR_RW(ppt_platform_sppt);
-@@ -1331,6 +1372,8 @@ static ssize_t nv_dynamic_boost_show(struct device *dev,
+@@ -1332,6 +1373,8 @@ static ssize_t nv_dynamic_boost_show(struct device *dev,
  {
  	struct asus_wmi *asus = dev_get_drvdata(dev);
  
@@ -2893,7 +2632,7 @@ index 29cc43355948..ef7f81545f9a 100644
  	return sysfs_emit(buf, "%u\n", asus->nv_dynamic_boost);
  }
  static DEVICE_ATTR_RW(nv_dynamic_boost);
-@@ -1374,11 +1417,15 @@ static ssize_t nv_temp_target_show(struct device *dev,
+@@ -1375,11 +1418,15 @@ static ssize_t nv_temp_target_show(struct device *dev,
  {
  	struct asus_wmi *asus = dev_get_drvdata(dev);
  
@@ -2909,7 +2648,7 @@ index 29cc43355948..ef7f81545f9a 100644
  static ssize_t mcu_powersave_show(struct device *dev,
  				   struct device_attribute *attr, char *buf)
  {
-@@ -1389,6 +1436,8 @@ static ssize_t mcu_powersave_show(struct device *dev,
+@@ -1390,6 +1437,8 @@ static ssize_t mcu_powersave_show(struct device *dev,
  	if (result < 0)
  		return result;
  
@@ -2918,7 +2657,7 @@ index 29cc43355948..ef7f81545f9a 100644
  	return sysfs_emit(buf, "%d\n", result);
  }
  
-@@ -1424,6 +1473,7 @@ static ssize_t mcu_powersave_store(struct device *dev,
+@@ -1425,6 +1474,7 @@ static ssize_t mcu_powersave_store(struct device *dev,
  	return count;
  }
  static DEVICE_ATTR_RW(mcu_powersave);
@@ -2926,7 +2665,7 @@ index 29cc43355948..ef7f81545f9a 100644
  
  /* Battery ********************************************************************/
  
-@@ -2297,6 +2347,7 @@ static int asus_wmi_rfkill_init(struct asus_wmi *asus)
+@@ -2298,6 +2348,7 @@ static int asus_wmi_rfkill_init(struct asus_wmi *asus)
  }
  
  /* Panel Overdrive ************************************************************/
@@ -2934,7 +2673,7 @@ index 29cc43355948..ef7f81545f9a 100644
  static ssize_t panel_od_show(struct device *dev,
  				   struct device_attribute *attr, char *buf)
  {
-@@ -2307,6 +2358,8 @@ static ssize_t panel_od_show(struct device *dev,
+@@ -2308,6 +2359,8 @@ static ssize_t panel_od_show(struct device *dev,
  	if (result < 0)
  		return result;
  
@@ -2943,7 +2682,7 @@ index 29cc43355948..ef7f81545f9a 100644
  	return sysfs_emit(buf, "%d\n", result);
  }
  
-@@ -2343,9 +2396,10 @@ static ssize_t panel_od_store(struct device *dev,
+@@ -2344,9 +2397,10 @@ static ssize_t panel_od_store(struct device *dev,
  	return count;
  }
  static DEVICE_ATTR_RW(panel_od);
@@ -2955,7 +2694,7 @@ index 29cc43355948..ef7f81545f9a 100644
  static ssize_t boot_sound_show(struct device *dev,
  			     struct device_attribute *attr, char *buf)
  {
-@@ -2356,6 +2410,8 @@ static ssize_t boot_sound_show(struct device *dev,
+@@ -2357,6 +2411,8 @@ static ssize_t boot_sound_show(struct device *dev,
  	if (result < 0)
  		return result;
  
@@ -2964,7 +2703,7 @@ index 29cc43355948..ef7f81545f9a 100644
  	return sysfs_emit(buf, "%d\n", result);
  }
  
-@@ -2391,8 +2447,10 @@ static ssize_t boot_sound_store(struct device *dev,
+@@ -2392,8 +2448,10 @@ static ssize_t boot_sound_store(struct device *dev,
  	return count;
  }
  static DEVICE_ATTR_RW(boot_sound);
@@ -2975,7 +2714,7 @@ index 29cc43355948..ef7f81545f9a 100644
  static ssize_t mini_led_mode_show(struct device *dev,
  				   struct device_attribute *attr, char *buf)
  {
-@@ -2423,6 +2481,8 @@ static ssize_t mini_led_mode_show(struct device *dev,
+@@ -2424,6 +2482,8 @@ static ssize_t mini_led_mode_show(struct device *dev,
  		}
  	}
  
@@ -2984,7 +2723,7 @@ index 29cc43355948..ef7f81545f9a 100644
  	return sysfs_emit(buf, "%d\n", value);
  }
  
-@@ -2493,10 +2553,13 @@ static ssize_t available_mini_led_mode_show(struct device *dev,
+@@ -2494,10 +2554,13 @@ static ssize_t available_mini_led_mode_show(struct device *dev,
  		return sysfs_emit(buf, "0 1 2\n");
  	}
  
@@ -2998,7 +2737,7 @@ index 29cc43355948..ef7f81545f9a 100644
  
  /* Quirks *********************************************************************/
  
-@@ -3795,6 +3858,7 @@ static int throttle_thermal_policy_switch_next(struct asus_wmi *asus)
+@@ -3796,6 +3859,7 @@ static int throttle_thermal_policy_switch_next(struct asus_wmi *asus)
  	return 0;
  }
  
@@ -3006,7 +2745,7 @@ index 29cc43355948..ef7f81545f9a 100644
  static ssize_t throttle_thermal_policy_show(struct device *dev,
  				   struct device_attribute *attr, char *buf)
  {
-@@ -3838,6 +3902,7 @@ static ssize_t throttle_thermal_policy_store(struct device *dev,
+@@ -3839,6 +3903,7 @@ static ssize_t throttle_thermal_policy_store(struct device *dev,
   * Throttle thermal policy: 0 - default, 1 - overboost, 2 - silent
   */
  static DEVICE_ATTR_RW(throttle_thermal_policy);
@@ -3014,7 +2753,7 @@ index 29cc43355948..ef7f81545f9a 100644
  
  /* Platform profile ***********************************************************/
  static int asus_wmi_platform_profile_to_vivo(struct asus_wmi *asus, int mode)
-@@ -4475,27 +4540,29 @@ static struct attribute *platform_attributes[] = {
+@@ -4476,27 +4541,29 @@ static struct attribute *platform_attributes[] = {
  	&dev_attr_camera.attr,
  	&dev_attr_cardr.attr,
  	&dev_attr_touchpad.attr,
@@ -3062,7 +2801,7 @@ index 29cc43355948..ef7f81545f9a 100644
  	NULL
  };
  
-@@ -4517,7 +4584,11 @@ static umode_t asus_sysfs_is_visible(struct kobject *kobj,
+@@ -4518,7 +4585,11 @@ static umode_t asus_sysfs_is_visible(struct kobject *kobj,
  		devid = ASUS_WMI_DEVID_LID_RESUME;
  	else if (attr == &dev_attr_als_enable.attr)
  		devid = ASUS_WMI_DEVID_ALS_ENABLE;
@@ -3075,7 +2814,7 @@ index 29cc43355948..ef7f81545f9a 100644
  		devid = ASUS_WMI_DEVID_CHARGE_MODE;
  	else if (attr == &dev_attr_egpu_enable.attr)
  		ok = asus->egpu_enable_available;
-@@ -4555,6 +4626,7 @@ static umode_t asus_sysfs_is_visible(struct kobject *kobj,
+@@ -4556,6 +4627,7 @@ static umode_t asus_sysfs_is_visible(struct kobject *kobj,
  		ok = asus->mini_led_dev_id != 0;
  	else if (attr == &dev_attr_available_mini_led_mode.attr)
  		ok = asus->mini_led_dev_id != 0;
@@ -3119,10 +2858,10 @@ index 29cc43355948..ef7f81545f9a 100644
 2.47.0
 
 
-From 4c5d82607d002dbfa140a9445d8a494ed34f893f Mon Sep 17 00:00:00 2001
+From 3c43651ca05d57e6e7da74fa691bd9419081d17f Mon Sep 17 00:00:00 2001
 From: "Luke D. Jones" <luke@ljones.dev>
 Date: Thu, 10 Oct 2024 09:52:45 +1300
-Subject: [PATCH 16/29] ALSA: hda/realtek: fixup ASUS GA605W
+Subject: [PATCH 13/26] ALSA: hda/realtek: fixup ASUS GA605W
 
 The GA605W laptop has almost the exact same codec setup as the GA403
 and so the same quirks apply to it.
@@ -3149,10 +2888,10 @@ index 24b4fe99304a..b335a258f7ef 100644
 2.47.0
 
 
-From 9358bb959824c845262cce8ac6e73543b680c15d Mon Sep 17 00:00:00 2001
+From a2f479933369e7f9e25d9336ca4c389b140a819d Mon Sep 17 00:00:00 2001
 From: "Luke D. Jones" <luke@ljones.dev>
 Date: Mon, 26 Aug 2024 12:49:35 +1200
-Subject: [PATCH 17/29] hid-asus-ally: Add joystick LED ring support
+Subject: [PATCH 14/26] hid-asus-ally: Add joystick LED ring support
 
 Adds basic support for the joystick RGB LED rings as a multicolour LED
 device with 4 LEDs.
@@ -3933,10 +3672,10 @@ index 9540e3e19cce..7c5269cd4d76 100644
 2.47.0
 
 
-From b0f1070b17691c1285148fc268d5d1c890b57027 Mon Sep 17 00:00:00 2001
+From bcb579c0e3678b35a4d008a545896f39eedcce21 Mon Sep 17 00:00:00 2001
 From: "Luke D. Jones" <luke@ljones.dev>
 Date: Wed, 2 Oct 2024 23:32:46 +1300
-Subject: [PATCH 18/29] hid-asus-ally: initial Ally-X gamepad
+Subject: [PATCH 15/26] hid-asus-ally: initial Ally-X gamepad
 
 Signed-off-by: Luke D. Jones <luke@ljones.dev>
 ---
@@ -4420,10 +4159,10 @@ index eb8617c80c2a..458d02996bca 100644
 2.47.0
 
 
-From c94cab817453e7a4e84ef650a27e29924a62f5b6 Mon Sep 17 00:00:00 2001
+From b3688a73ce4acce2c23f3753c58b2f7aa484adab Mon Sep 17 00:00:00 2001
 From: "Luke D. Jones" <luke@ljones.dev>
 Date: Wed, 2 Oct 2024 23:51:36 +1300
-Subject: [PATCH 19/29] hid-asus-ally: initial gamepad configuration
+Subject: [PATCH 16/26] hid-asus-ally: initial gamepad configuration
 
 Signed-off-by: Luke D. Jones <luke@ljones.dev>
 ---
@@ -4832,10 +4571,10 @@ index 458d02996bca..2b298ad4da0e 100644
 2.47.0
 
 
-From 1894ae3435cc347cfb09753ece1fb3aa1639ac04 Mon Sep 17 00:00:00 2001
+From e68ebd9b5e51f51639652c7eac2a305604b03b7e Mon Sep 17 00:00:00 2001
 From: "Luke D. Jones" <luke@ljones.dev>
 Date: Sat, 5 Oct 2024 14:58:33 +1300
-Subject: [PATCH 20/29] hid-asus-ally: add button remap attributes
+Subject: [PATCH 17/26] hid-asus-ally: add button remap attributes
 
 Signed-off-by: Luke D. Jones <luke@ljones.dev>
 ---
@@ -5530,10 +5269,10 @@ index 2b298ad4da0e..127db570a827 100644
 2.47.0
 
 
-From c0ec248a615c41dcc2e798054d3a7d8b18de3118 Mon Sep 17 00:00:00 2001
+From c74b2298d9f744ad394ae7b3468fc2f8afab701c Mon Sep 17 00:00:00 2001
 From: "Luke D. Jones" <luke@ljones.dev>
 Date: Fri, 25 Oct 2024 08:56:54 +0200
-Subject: [PATCH 21/29] hid-asus-ally: add gamepad mode selection
+Subject: [PATCH 18/26] hid-asus-ally: add gamepad mode selection
 
 ---
  drivers/hid/hid-asus-ally.c | 73 +++++++++++++++++++++++++++++++++++++
@@ -5651,10 +5390,10 @@ index 127db570a827..caec424c52e3 100644
 2.47.0
 
 
-From 1b305754ee5c412cda1f24fe107bc211011a148e Mon Sep 17 00:00:00 2001
+From db3ab54526b0e8d3d82ce541a926323df8420823 Mon Sep 17 00:00:00 2001
 From: "Luke D. Jones" <luke@ljones.dev>
 Date: Sat, 5 Oct 2024 15:40:09 +1300
-Subject: [PATCH 22/29] hid-asus-ally: Turbo settings for buttons
+Subject: [PATCH 19/26] hid-asus-ally: Turbo settings for buttons
 
 Signed-off-by: Luke D. Jones <luke@ljones.dev>
 ---
@@ -5871,10 +5610,10 @@ index caec424c52e3..4e60e4c8f6d9 100644
 2.47.0
 
 
-From f4fb10b9e0c1542ff9df755a7d800db05c479dad Mon Sep 17 00:00:00 2001
+From 6801561022d78a5b003514f0f967f22ca9ea77af Mon Sep 17 00:00:00 2001
 From: "Luke D. Jones" <luke@ljones.dev>
 Date: Sat, 5 Oct 2024 20:46:00 +1300
-Subject: [PATCH 23/29] hid-asus-ally: add vibration intensity settings
+Subject: [PATCH 20/26] hid-asus-ally: add vibration intensity settings
 
 Signed-off-by: Luke D. Jones <luke@ljones.dev>
 ---
@@ -6042,10 +5781,10 @@ index 4e60e4c8f6d9..eea4696850fa 100644
 2.47.0
 
 
-From 456060265eeee3b42eaac96d442b1b75a13d47ff Mon Sep 17 00:00:00 2001
+From f04f3ec3f969c13ee5f8bd5e60eaa8e607a3e729 Mon Sep 17 00:00:00 2001
 From: "Luke D. Jones" <luke@ljones.dev>
 Date: Sat, 5 Oct 2024 21:32:41 +1300
-Subject: [PATCH 24/29] hid-asus-ally: add JS deadzones
+Subject: [PATCH 21/26] hid-asus-ally: add JS deadzones
 
 Signed-off-by: Luke D. Jones <luke@ljones.dev>
 ---
@@ -6251,10 +5990,10 @@ index eea4696850fa..76ba5fcd593a 100644
 2.47.0
 
 
-From 357058856b53bc2afce8687126fb679201ad9e7c Mon Sep 17 00:00:00 2001
+From d6a569b9ba2bf3b239ff02b24301921d17e7c547 Mon Sep 17 00:00:00 2001
 From: "Luke D. Jones" <luke@ljones.dev>
 Date: Sat, 5 Oct 2024 21:37:27 +1300
-Subject: [PATCH 25/29] hid-asus-ally: add trigger deadzones
+Subject: [PATCH 22/26] hid-asus-ally: add trigger deadzones
 
 Signed-off-by: Luke D. Jones <luke@ljones.dev>
 ---
@@ -6368,10 +6107,10 @@ index 76ba5fcd593a..f103b5ecff36 100644
 2.47.0
 
 
-From e38ce3daa48912230a8bcd7a2bd3b3b2a65812b9 Mon Sep 17 00:00:00 2001
+From b1d509a698832896287b6d85793f75064450ff0d Mon Sep 17 00:00:00 2001
 From: "Luke D. Jones" <luke@ljones.dev>
 Date: Sun, 6 Oct 2024 19:49:24 +1300
-Subject: [PATCH 26/29] hid-asus-ally: add anti-deadzones
+Subject: [PATCH 23/26] hid-asus-ally: add anti-deadzones
 
 Signed-off-by: Luke D. Jones <luke@ljones.dev>
 ---
@@ -6553,10 +6292,10 @@ index f103b5ecff36..9c13de73749c 100644
 2.47.0
 
 
-From 8bb0010337471174b9a8cb87ffc1b58b4c7c73cf Mon Sep 17 00:00:00 2001
+From 9715030df3f7ca7ff2a3d34d06f0f2c321585eaa Mon Sep 17 00:00:00 2001
 From: "Luke D. Jones" <luke@ljones.dev>
 Date: Sun, 6 Oct 2024 21:22:40 +1300
-Subject: [PATCH 27/29] hid-asus-ally: add JS response curves
+Subject: [PATCH 24/26] hid-asus-ally: add JS response curves
 
 Signed-off-by: Luke D. Jones <luke@ljones.dev>
 ---
@@ -6793,10 +6532,10 @@ index 9c13de73749c..518d8db3af5e 100644
 2.47.0
 
 
-From 1a0cf33c8681cf1c6184092df74028b5452bb9eb Mon Sep 17 00:00:00 2001
+From d5d4c12d91ba294d1a897661c911cc3374cc1c86 Mon Sep 17 00:00:00 2001
 From: "Luke D. Jones" <luke@ljones.dev>
 Date: Thu, 10 Oct 2024 11:15:36 +1300
-Subject: [PATCH 28/29] hid-asus-ally: add calibrations (wip)
+Subject: [PATCH 25/26] hid-asus-ally: add calibrations (wip)
 
 Signed-off-by: Luke D. Jones <luke@ljones.dev>
 ---
@@ -6941,10 +6680,10 @@ index 4d9954362625..03603695c484 100644
 2.47.0
 
 
-From b0d1757da89ebdd5405dc2e02aa80f381cafaf86 Mon Sep 17 00:00:00 2001
+From 1fcd0743bf9bc9b922c65dc250dc4fe330c2af8f Mon Sep 17 00:00:00 2001
 From: "Luke D. Jones" <luke@ljones.dev>
 Date: Wed, 6 Nov 2024 00:27:03 +0300
-Subject: [PATCH 29/29] debug by default
+Subject: [PATCH 26/26] debug by default
 
 ---
  drivers/hid/hid-asus-ally.c         | 2 ++

@@ -1,73 +1,73 @@
-From patchwork Mon Nov  4 09:31:38 2024
+From patchwork Sat Nov 23 07:37:18 2024
 Content-Type: text/plain; charset="utf-8"
 MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
 X-Patchwork-Submitter: Baojun Xu <baojun.xu@ti.com>
-X-Patchwork-Id: 13861108
-Received: from lelv0142.ext.ti.com (lelv0142.ext.ti.com [198.47.23.249])
+X-Patchwork-Id: 13883793
+Received: from lelvem-ot01.ext.ti.com (lelvem-ot01.ext.ti.com [198.47.23.234])
 	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
 	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 8B5121AC426;
-	Mon,  4 Nov 2024 09:32:41 +0000 (UTC)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id DF77F29405;
+	Sat, 23 Nov 2024 07:38:31 +0000 (UTC)
 Authentication-Results: smtp.subspace.kernel.org;
- arc=none smtp.client-ip=198.47.23.249
+ arc=none smtp.client-ip=198.47.23.234
 ARC-Seal: i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1730712763; cv=none;
- b=Yo6eVodp8Aguzr4Psp81Orz/Waj096tWMaEm6EvHGvII1/BbZ9A/OaFYMoxaqkCLL2NB57If3RU3BX35SW1Z201VYLxMH5SHVl7sL5uWXLLVY2Ro+pwQHmppiyYt2MpFv0EVD14QOhHZuyjpcTlu6Gx2Z3qP8ZRvoVfxa2MXvUk=
+	t=1732347514; cv=none;
+ b=FGIT9LEvIKDN99NNBV+MizfQeOWts6XeyK6+AEI7KPqzv77kaPxxaSKGAbIR0aFgBvePuhhzgQj1EwE0GoNAHgyDnwwcHG4FbVIhvNjhyjZlKhZQaenhsFojelwZqqY/JpDVENFfbFCs5ZJGELOveHwJK2rSxCnazw0JyUN2Puo=
 ARC-Message-Signature: i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1730712763; c=relaxed/simple;
-	bh=YrPeAGM72B4im9n2LWIlfOccFPNaMDZoG7WOUqq5xCE=;
+	s=arc-20240116; t=1732347514; c=relaxed/simple;
+	bh=aGIaoO1YHf+R5SjDlxBE/RRUG/lcdg/lXx00sQOE9+w=;
 	h=From:To:CC:Subject:Date:Message-ID:MIME-Version:Content-Type;
- b=acipQlRruF9L/fYwuPvxafmgMQQizDECuMYs0sINNSdrgPU0EgUP3dhetKq4yDxGHR1xWqNVsJBjmXDD0bJcEew5vzTbvGir4eTs/dVsMMN76Z3OGtt0+DxRSa1HTLRSbXCmA/rW6lJm+V23wYQIU7PuDCzbrenthupbizy4K4E=
+ b=D05IROtlnuMsYWpoCE/7A5kJ3PhmC1SadZI7AbIad5lcJQgHwLnNqYBF9osvD6cPH/EWvvh5j0PAkszQj7nxuCzf30tAl2kBGDzA2L/WvMjc6FYGyJt5FmNM5PFGfM2DXlQEBMg+Zuh9Wn5gL/Z5YbEPM6VvqEEQBiC6GZoQqgk=
 ARC-Authentication-Results: i=1; smtp.subspace.kernel.org;
  dmarc=pass (p=quarantine dis=none) header.from=ti.com;
  spf=pass smtp.mailfrom=ti.com;
- dkim=pass (1024-bit key) header.d=ti.com header.i=@ti.com header.b=JrTHWThQ;
- arc=none smtp.client-ip=198.47.23.249
+ dkim=pass (1024-bit key) header.d=ti.com header.i=@ti.com header.b=RZ8SwcD6;
+ arc=none smtp.client-ip=198.47.23.234
 Authentication-Results: smtp.subspace.kernel.org;
  dmarc=pass (p=quarantine dis=none) header.from=ti.com
 Authentication-Results: smtp.subspace.kernel.org;
  spf=pass smtp.mailfrom=ti.com
 Authentication-Results: smtp.subspace.kernel.org;
-	dkim=pass (1024-bit key) header.d=ti.com header.i=@ti.com header.b="JrTHWThQ"
-Received: from lelv0265.itg.ti.com ([10.180.67.224])
-	by lelv0142.ext.ti.com (8.15.2/8.15.2) with ESMTP id 4A49WBV0040202;
-	Mon, 4 Nov 2024 03:32:11 -0600
+	dkim=pass (1024-bit key) header.d=ti.com header.i=@ti.com header.b="RZ8SwcD6"
+Received: from fllv0034.itg.ti.com ([10.64.40.246])
+	by lelvem-ot01.ext.ti.com (8.15.2/8.15.2) with ESMTPS id 4AN7bo4i354991
+	(version=TLSv1.2 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK);
+	Sat, 23 Nov 2024 01:37:50 -0600
 DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=ti.com;
-	s=ti-com-17Q1; t=1730712731;
-	bh=1LqjV96+Ep/yVZK4X3DwCLmpiX7hOrSFNgBB40/oAe8=;
+	s=ti-com-17Q1; t=1732347470;
+	bh=znV0hiy+79kCqa4DdCKl2VJO7n87Un/tZ7WR9hZxI/8=;
 	h=From:To:CC:Subject:Date;
-	b=JrTHWThQUYjglRd2x0AgsNwMezhHSjl32Rx66ZNVBRj5ljV2GPoHe1D3bd0jl3vQ8
-	 Kmhisc+I4qaOFgkhBCX2klvKv3gNathTm8i/RzWEjPiE3k1P5ZwH/6Jzv9KjIBQrOA
-	 HUGBj9KLr2lAk6GELOAGcLnw4cxABr3F/APxOhH4=
+	b=RZ8SwcD6pHAfabnZ37gPI8cTWNe1r8Z4BOgdONzPKKH5D/vD7UsmW7UO+AhW5kt2l
+	 znLVcrEChfhDmwD9n30HKDknE1G1KTCqp3Zz3XF6ZWGZVymE+XECsZuF3cLZSo1LwK
+	 7NprqokYXBr87gCzg2oA7CpkxY1jofBJSQoSyoS8=
 Received: from DFLE103.ent.ti.com (dfle103.ent.ti.com [10.64.6.24])
-	by lelv0265.itg.ti.com (8.15.2/8.15.2) with ESMTPS id 4A49WBfm014005
+	by fllv0034.itg.ti.com (8.15.2/8.15.2) with ESMTPS id 4AN7bost063777
 	(version=TLSv1.2 cipher=AES256-GCM-SHA384 bits=256 verify=FAIL);
-	Mon, 4 Nov 2024 03:32:11 -0600
-Received: from DFLE109.ent.ti.com (10.64.6.30) by DFLE103.ent.ti.com
+	Sat, 23 Nov 2024 01:37:50 -0600
+Received: from DFLE103.ent.ti.com (10.64.6.24) by DFLE103.ent.ti.com
  (10.64.6.24) with Microsoft SMTP Server (version=TLS1_2,
- cipher=TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256_P256) id 15.1.2507.23; Mon, 4
- Nov 2024 03:32:10 -0600
-Received: from lelvsmtp5.itg.ti.com (10.180.75.250) by DFLE109.ent.ti.com
- (10.64.6.30) with Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256_P256) id 15.1.2507.23; Sat, 23
+ Nov 2024 01:37:50 -0600
+Received: from lelvsmtp6.itg.ti.com (10.180.75.249) by DFLE103.ent.ti.com
+ (10.64.6.24) with Microsoft SMTP Server (version=TLS1_2,
  cipher=TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256_P256) id 15.1.2507.23 via
- Frontend Transport; Mon, 4 Nov 2024 03:32:10 -0600
+ Frontend Transport; Sat, 23 Nov 2024 01:37:50 -0600
 Received: from lelvsmtp5.itg.ti.com ([10.250.165.138])
-	by lelvsmtp5.itg.ti.com (8.15.2/8.15.2) with ESMTP id 4A49W2pe083213;
-	Mon, 4 Nov 2024 03:32:03 -0600
+	by lelvsmtp6.itg.ti.com (8.15.2/8.15.2) with ESMTP id 4AN7bgsN061765;
+	Sat, 23 Nov 2024 01:37:43 -0600
 From: Baojun Xu <baojun.xu@ti.com>
 To: <tiwai@suse.de>
 CC: <robh+dt@kernel.org>, <andriy.shevchenko@linux.intel.com>,
-        <lgirdwood@gmail.com>, <perex@perex.cz>,
-        <pierre-louis.bossart@linux.intel.com>, <shenghao-ding@ti.com>,
+        <lgirdwood@gmail.com>, <perex@perex.cz>, <shenghao-ding@ti.com>,
         <navada@ti.com>, <13916275206@139.com>, <v-hampiholi@ti.com>,
         <v-po@ti.com>, <linux-sound@vger.kernel.org>,
         <linux-kernel@vger.kernel.org>, <liam.r.girdwood@intel.com>,
         <yung-chuan.liao@linux.intel.com>, <baojun.xu@ti.com>,
         <broonie@kernel.org>, <antheas.dk@gmail.com>, <philm@manjaro.org>
-Subject: [PATCH v4] ALSA: hda/tas2781: Add speaker id check for ASUS projects
-Date: Mon, 4 Nov 2024 17:31:38 +0800
-Message-ID: <20241104093138.4819-1-baojun.xu@ti.com>
+Subject: [PATCH v6] ALSA: hda/tas2781: Add speaker id check for ASUS projects
+Date: Sat, 23 Nov 2024 15:37:18 +0800
+Message-ID: <20241123073718.475-1-baojun.xu@ti.com>
 X-Mailer: git-send-email 2.43.0.windows.1
 Precedence: bulk
 X-Mailing-List: linux-sound@vger.kernel.org
@@ -87,6 +87,15 @@ come from gpio level of speaker id in BIOS.
 
 Signed-off-by: Baojun Xu <baojun.xu@ti.com>
 ---
+v6:
+ - Remove define for AUSU in tas2781.h.
+ - Add include linux/pci_ids.h for use public ASUS id define.
+ - Add subid for ASUS id save and check.
+ - Change comments to /* */ from //.
+ - Change next line indented to (.
+ - Change ASUS check from string compare to u16 compare.
+v5:
+ - Change length in strncmp(), use strlen().
 v4:
  - Change strncasecmp() to strncmp().
  - Add error debug message print for "add driver gpio".
@@ -111,24 +120,15 @@ v2:
  - Change bits calculator to lower_16_bits().
  - Remove unnecessary empty line in tas2781_hda_i2c_probe().
 ---
- include/sound/tas2781.h         |  3 ++
- sound/pci/hda/tas2781_hda_i2c.c | 64 +++++++++++++++++++++++++++++----
- 2 files changed, 61 insertions(+), 6 deletions(-)
+ include/sound/tas2781.h         |  1 +
+ sound/pci/hda/tas2781_hda_i2c.c | 67 ++++++++++++++++++++++++++++++---
+ 2 files changed, 62 insertions(+), 6 deletions(-)
 
 diff --git a/include/sound/tas2781.h b/include/sound/tas2781.h
-index 8cd6da0480b7..621ae485d3cb 100644
+index 8cd6da0480b7..72d2060904f6 100644
 --- a/include/sound/tas2781.h
 +++ b/include/sound/tas2781.h
-@@ -107,6 +107,8 @@
- #define TASDEVICE_CMD_DELAY		0x3
- #define TASDEVICE_CMD_FIELD_W		0x4
- 
-+#define TAS2781_ASUS_ID			"1043"
-+
- enum audio_device {
- 	TAS2563,
- 	TAS2781,
-@@ -156,6 +158,7 @@ struct tasdevice_priv {
+@@ -156,6 +156,7 @@ struct tasdevice_priv {
  	struct tasdevice_rca rcabin;
  	struct calidata cali_data;
  	struct tasdevice_fw *fmw;
@@ -137,10 +137,18 @@ index 8cd6da0480b7..621ae485d3cb 100644
  	struct mutex codec_lock;
  	struct regmap *regmap;
 diff --git a/sound/pci/hda/tas2781_hda_i2c.c b/sound/pci/hda/tas2781_hda_i2c.c
-index 370d847517f9..f9c10e30a8d8 100644
+index 370d847517f9..e6293c554a23 100644
 --- a/sound/pci/hda/tas2781_hda_i2c.c
 +++ b/sound/pci/hda/tas2781_hda_i2c.c
-@@ -110,10 +110,19 @@ static int tas2781_get_i2c_res(struct acpi_resource *ares, void *data)
+@@ -16,6 +16,7 @@
+ #include <linux/i2c.h>
+ #include <linux/mod_devicetable.h>
+ #include <linux/module.h>
++#include <linux/pci_ids.h>
+ #include <linux/pm_runtime.h>
+ #include <linux/regmap.h>
+ #include <sound/hda_codec.h>
+@@ -110,10 +111,20 @@ static int tas2781_get_i2c_res(struct acpi_resource *ares, void *data)
  	return 1;
  }
  
@@ -157,10 +165,11 @@ index 370d847517f9..f9c10e30a8d8 100644
 +	struct device *physdev;
  	LIST_HEAD(resources);
 +	const char *sub;
++	uint32_t subid;
  	int ret;
  
  	adev = acpi_dev_get_first_match_dev(hid, NULL, -1);
-@@ -123,18 +132,44 @@ static int tas2781_read_acpi(struct tasdevice_priv *p, const char *hid)
+@@ -123,18 +134,45 @@ static int tas2781_read_acpi(struct tasdevice_priv *p, const char *hid)
  		return -ENODEV;
  	}
  
@@ -178,13 +187,14 @@ index 370d847517f9..f9c10e30a8d8 100644
 +		dev_err(p->dev, "Failed to get SUBSYS ID.\n");
 +		goto err;
 +	}
-+	// Speaker id was needed for ASUS projects.
-+	if (!strncmp(sub, TAS2781_ASUS_ID, sizeof(TAS2781_ASUS_ID))) {
++	/* Speaker id was needed for ASUS projects. */
++	ret = kstrtou32(sub, 16, &subid);
++	if (!ret && upper_16_bits(subid) == PCI_VENDOR_ID_ASUSTEK) {
 +		ret = devm_acpi_dev_add_driver_gpios(p->dev,
 +			tas2781_speaker_id_gpios);
 +		if (ret < 0)
 +			dev_err(p->dev, "Failed to add driver gpio %d.\n",
-+			ret);
++				ret);
 +		p->speaker_id = devm_gpiod_get(p->dev, "speakerid", GPIOD_IN);
 +		if (IS_ERR(p->speaker_id)) {
 +			dev_err(p->dev, "Failed to get Speaker id.\n");
@@ -208,7 +218,7 @@ index 370d847517f9..f9c10e30a8d8 100644
  	acpi_dev_put(adev);
  
  	return ret;
-@@ -615,7 +650,7 @@ static void tasdev_fw_ready(const struct firmware *fmw, void *context)
+@@ -615,7 +653,7 @@ static void tasdev_fw_ready(const struct firmware *fmw, void *context)
  	struct tasdevice_priv *tas_priv = context;
  	struct tas2781_hda *tas_hda = dev_get_drvdata(tas_priv->dev);
  	struct hda_codec *codec = tas_priv->codec;
@@ -217,7 +227,7 @@ index 370d847517f9..f9c10e30a8d8 100644
  
  	pm_runtime_get_sync(tas_priv->dev);
  	mutex_lock(&tas_priv->codec_lock);
-@@ -648,8 +683,25 @@ static void tasdev_fw_ready(const struct firmware *fmw, void *context)
+@@ -648,8 +686,25 @@ static void tasdev_fw_ready(const struct firmware *fmw, void *context)
  	tasdevice_dsp_remove(tas_priv);
  
  	tas_priv->fw_state = TASDEVICE_DSP_FW_PENDING;
