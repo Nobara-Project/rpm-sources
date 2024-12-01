@@ -12,7 +12,7 @@
 
 Name:           flatpak
 Version:        1.15.10
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Application deployment framework for desktop apps
 
 License:        LGPL-2.1-or-later
@@ -24,6 +24,7 @@ Source0:        https://github.com/flatpak/flatpak/releases/download/%{version}/
 Source1:        flatpak-add-fedora-repos.service
 Source2:        flathub.flatpakrepo
 Source3:        flatpak-repo-setup.sh
+Source5:        flathub-beta.flatpakrepo
 %endif
 
 # systemd-sysusers config. Only used for the %%pre macro. Must be kept in sync
@@ -184,6 +185,7 @@ install -d %{buildroot}%{_sysconfdir}/flatpak/remotes.d
 %if 0%{?fedora}
 install -D -t %{buildroot}%{_unitdir} %{SOURCE1}
 install -D -t %{buildroot}%{_sysconfdir}/flatpak/remotes.d/ %{SOURCE2}
+install -D -t %{buildroot}%{_sysconfdir}/flatpak/remotes.d/ %{SOURCE5}
 install -D -t %{buildroot}%{_bindir}/ %{SOURCE3}
 %endif
 

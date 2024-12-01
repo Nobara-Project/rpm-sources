@@ -11,6 +11,11 @@
 /usr/bin/flatpak remote-delete --force --system flathub
 /usr/bin/flatpak remote-add --system --if-not-exists --title "Flatpak Official Flathub" flathub /etc/flatpak/remotes.d/flathub.flatpakrepo
 
+# Next enable flathub beta for system/admin installs (add/delete/add to fix gpg error):
+/usr/bin/flatpak remote-add --system --if-not-exists --title "Flatpak Official Flathub (Beta)" flathub /etc/flatpak/remotes.d/flathub.flatpakrepo
+/usr/bin/flatpak remote-delete --force --system flathub
+/usr/bin/flatpak remote-add --system --if-not-exists --title "Flatpak Official Flathub (Beta)" flathub-beta /etc/flatpak/remotes.d/flathub.flatpakrepo
+
 # Perform a search to populate metadata
 /usr/bin/flatpak search --system chromium &> /dev/null
 
@@ -18,5 +23,6 @@
 for user in $(getent passwd {1000..60000} | cut -d: -f1)
 do
 	sudo -H -u $user bash -c '/usr/bin/flatpak remote-add --user --if-not-exists --title "Flatpak Official Flathub" flathub /etc/flatpak/remotes.d/flathub.flatpakrepo'
+	sudo -H -u $user bash -c '/usr/bin/flatpak remote-add --user --if-not-exists --title "Flatpak Official Flathub (Beta)" flathub-beta /etc/flatpak/remotes.d/flathub-beta.flatpakrepo'
 	sudo -H -u $user bash -c '/usr/bin/flatpak search --user chromium &> /dev/null'
 done
