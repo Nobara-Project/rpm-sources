@@ -25,7 +25,6 @@ Requires:      rocrand
 Requires:      hipblas
 Requires:      hipfft
 Requires:      hipsolver
-Requires:      rocclr
 Requires:      rocfft
 Requires:      rocsolver
 Requires:      hipblaslt
@@ -38,7 +37,7 @@ Provides:      rocm-meta
 BuildArch:     x86_64
 Name:          rocm-meta
 Version:       %{ROCM_MAJOR_VERSION}.%{ROCM_MINOR_VERSION}.%{ROCM_PATCH_VERSION}
-Release:       2.copr%{?dist}
+Release:       4.copr%{?dist}
 License:       MIT
 Group:         System Environment/Libraries
 Summary:       Radeon Open Compute (ROCm) Runtime software stack
