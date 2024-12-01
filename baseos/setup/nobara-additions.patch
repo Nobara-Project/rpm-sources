@@ -58,7 +58,7 @@ index 6ce1347..e24bb99 100644
 +fi
 +
 +if test "$BASH"; then
-+  if [[ $(which starship) == "/usr/bin/starship" ]]; then
++  if command -v starship &>/dev/null; then
 +    eval "$(starship init bash)"
 +    if [ ! -f $HOME/.config/starship.toml ]; then
 +        if [ -f /usr/share/starship/starship.toml ]; then
