@@ -15,6 +15,13 @@
 # x264 is not in Fedora
 %bcond x264 0
 
+%ifarch x86_64 aarch64
+# OBS-CEF is only available on x86_64 and aarch64
+%bcond cef 1
+%else
+%bcond cef 0
+%endif
+
 %if "%{__isa_bits}" == "64"
 %global lib64_suffix ()(64bit)
 %endif
@@ -45,7 +52,10 @@ URL:            https://obsproject.com/
 Source0:        https://github.com/obsproject/obs-studio/archive/%{commit}/%{name}-%{shortcommit}.tar.gz
 Source1:        https://github.com/obsproject/obs-websocket/archive/%{obswebsocket_version}/obs-websocket-%{obswebsocket_version}.tar.gz
 Source2:        https://github.com/obsproject/obs-browser/archive/%{obsbrowser_commit}/obs-browser-%{obsbrowser_commit}.tar.gz
+
 Source3:        https://cdn-fastly.obsproject.com/downloads/cef_binary_%{version_cef}_linux_x86_64.tar.xz
+# CMake snippets for finding systemwide obs-cef
+#Source3:        FindCEF.cmake
 Source4:        https://github.com/aja-video/ntv2/archive/refs/tags/%{version_aja}.tar.gz
 
 # Disabled for now
@@ -55,6 +65,7 @@ Source4:        https://github.com/aja-video/ntv2/archive/refs/tags/%{version_aj
 
 # Nobara patches
 Patch0:         add-plugins.patch
+#Patch1:         fedora-obs-cef-findcef-fixup.patch
 
 ## Encoder name cleanup
 Patch8:         encoder-rename.patch
@@ -83,6 +94,7 @@ Patch1001:      obs-studio-UI-use-fdk-aac-by-default.patch
 ## Fix error: passing argument 4 of ‘query_dmabuf_modifiers’ from
 ##            incompatible pointer type [-Wincompatible-pointer-types]
 Patch1003:      obs-studio-fix-incompatible-pointer-type.patch
+
 
 BuildRequires:  gcc
 BuildRequires:  cmake >= 3.22
@@ -164,12 +176,12 @@ Recommends:	mesa-va-drivers
 Recommends:	mesa-vdpau-drivers
 Requires:	obs-ndi
 Requires:	libndi-sdk
-Requires:	obs-studio-plugin-media-playlist-source
-Obsoletes:	obs-studio-plugin-vlc-video
-Requires:	obs-studio-plugin-backgroundremoval
-Requires:	obs-studio-plugin-pipewire-audio-capture
-Requires:	obs-studio-plugin-vkcapture
-Requires:	obs-studio-plugin-vkcapture(x86-32)
+Recommends:	obs-studio-plugin-media-playlist-source
+Recommends:	obs-studio-plugin-vlc-video
+Recommends:	obs-studio-plugin-backgroundremoval
+Recommends:	obs-studio-plugin-pipewire-audio-capture
+Recommends:	obs-studio-plugin-vkcapture
+Recommends:	obs-studio-plugin-vkcapture(x86-32)
 
 
 # Ensure QtWayland is installed when libwayland-client is installed
@@ -262,9 +274,17 @@ Header files for Open Broadcaster Software
 %ifarch x86_64
 %package plugin-browser
 Summary:        Open Broadcaster Software Studio - CEF-based browser plugin
+#BuildRequires:  obs-cef-devel
+#BuildRequires:  obs-cef
 
+# Filter out bogus libcef.so requires as this is handled manually
+# with an explicit dependency
+#%global __requires_exclude ^libcef\\.so.*$
+
+#Requires:       (obs-cef%{?_isa} with obs-cef(abi) = %{version_cef})
 Requires:       obs-studio%{?_isa} = %{version}-%{release}
 Supplements:    obs-studio%{?_isa}
+Conflicts:      obs-studio-plugin-webkitgtk
 
 %description plugin-browser
 Open Broadcaster Software is free and open source software
@@ -278,7 +298,6 @@ a video stream or recording using the Chromium Embedded Framework (CEF).
 %{_datadir}/obs/obs-plugins/obs-browser*
 %endif
 
-
 %prep
 %setup -q -n %{name}-%{commit}
 # Prepare plugins/obs-websocket
@@ -286,11 +305,10 @@ tar -xf %{SOURCE1} -C plugins/obs-websocket --strip-components=1
 tar -xf %{SOURCE2} -C plugins/obs-browser --strip-components=1
 %autopatch -p1
 
-%ifarch x86_64
+
 # unpack CEF wrapper
 mkdir -p %{_builddir}/SOURCES/CEF
 tar -x --xz -f %{SOURCE3} -C %{_builddir}/SOURCES/CEF --strip-components=1
-%endif
 
 # unpack AJA Libs
 mkdir -p %{_builddir}/SOURCES/AJA/source/cmake-build
@@ -306,6 +324,14 @@ tar -xf %{SOURCE4} -C %{_builddir}/SOURCES/AJA/source --strip-components=1
 # cd plugins/obs-browser
 # patch -Np1 < %{SOURCE4}
 # cd ../../
+
+#%ifarch x86_64
+# Fix include paths
+#sed -e 's,include/,obs-cef/,g' -i plugins/obs-browser/{cef-headers.hpp,browser-scheme.cpp}
+
+# Fix obs-browser rpath setting
+#sed -e 's,INSTALL_RPATH ".*",INSTALL_RPATH "%{_libdir}/obs-cef/",' -i plugins/obs-browser/cmake/os-linux.cmake
+#%endif
 
 ### NOBARA-ADDED ###
 
@@ -351,7 +377,8 @@ cp libobs/util/simde/LICENSE.simde .fedora-rpm/licenses/deps/
 cp plugins/decklink/LICENSE.decklink-sdk .fedora-rpm/licenses/deps
 cp plugins/obs-qsv11/obs-qsv11-LICENSE.txt .fedora-rpm/licenses/plugins/
 
-
+       #-DCEF_INCLUDE_DIR="%{_includedir}/obs-cef" \
+       #-DCEF_ROOT_DIR="%{_libdir}/obs-cef/" \
 %build
 %cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo \
        -DOBS_VERSION_OVERRIDE=%{version_no_tilde} \
