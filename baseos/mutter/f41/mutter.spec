@@ -2,7 +2,7 @@
 ## (rpmautospec version 0.7.3)
 ## RPMAUTOSPEC: autorelease, autochangelog
 %define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
-    release_number = 3;
+    release_number = 1;
     base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
     print(release_number + base_release_number - 1);
 }%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
@@ -22,7 +22,7 @@
 %global tarball_version %%(echo %{version} | tr '~' '.')
 
 Name:          mutter
-Version:       47.1
+Version:       47.3
 Release:       %autorelease
 Summary:       Window and compositing manager based on Clutter
 
@@ -40,25 +40,15 @@ Patch1:         mutter-42.alpha-disable-tegra.patch
 # https://pagure.io/fedora-workstation/issue/79
 Patch2:         0001-place-Always-center-initial-setup-fedora-welcome.patch
 
-# https://bugzilla.redhat.com/show_bug.cgi?id=2239128
-# https://gitlab.gnome.org/GNOME/mutter/-/issues/3068
-# not upstreamed because for upstream we'd really want to find a way
-# to fix *both* problems
-Patch3:         0001-Revert-x11-Use-input-region-from-frame-window-for-de.patch
-
-# https://gitlab.gnome.org/GNOME/mutter/-/issues/3696
-# https://gitlab.gnome.org/GNOME/mutter/-/merge_requests/4099
-Patch4:         0001-wayland-pointer-constraints-Warp-pointer-after-destr.patch
-
 # enable vrr setting
-Patch5:        enable-vrr-setting.patch
+Patch3:        enable-vrr-setting.patch
 
 # Nobara addons
-Patch6:        enable-window-centering.patch
-Patch7:	       mutter_increase_check_alive_timeout.patch
+Patch4:        enable-window-centering.patch
+Patch5:	       mutter_increase_check_alive_timeout.patch
 
 # Enable Fractional Scaling
-Patch8:	       enable-fractional-scaling.patch
+Patch6:	       enable-fractional-scaling.patch
 
 BuildRequires: pkgconfig(gobject-introspection-1.0) >= 1.41.0
 BuildRequires: pkgconfig(sm)
