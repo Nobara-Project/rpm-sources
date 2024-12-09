@@ -2,7 +2,7 @@
 ## (rpmautospec version 0.7.2)
 ## RPMAUTOSPEC: autorelease, autochangelog
 %define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
-    release_number = 2;
+    release_number = 1;
     base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
     print(release_number + base_release_number - 1);
 }%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
@@ -18,7 +18,7 @@
 %endif
 
 Name:           gnome-shell
-Version:        47.1
+Version:        47.2
 Release:        %autorelease
 Summary:        Window management and application launching for GNOME
 
@@ -36,9 +36,6 @@ Patch: 0001-gdm-Work-around-failing-fingerprint-auth.patch
 Patch: 0001-status-keyboard-Add-a-catch-around-reload-call.patch
 Patch: 0002-status-keyboard-Load-keyboard-from-system-settings-i.patch
 Patch: 0003-status-keyboard-Use-gnome-desktop-API-for-getting-de.patch
-
-# Fix graphical artifacts in login/shutdown dialogue
-Patch: fix-artifacts.patch
 
 %define eds_version 3.45.1
 %define gnome_desktop_version 44.0-7
