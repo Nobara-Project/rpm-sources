@@ -2,7 +2,7 @@
 ## (rpmautospec version 0.3.5)
 ## RPMAUTOSPEC: autorelease, autochangelog
 %define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
-    release_number = 1;
+    release_number = 2;
     base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
     print(release_number + base_release_number - 1);
 }%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
@@ -87,6 +87,10 @@ Source0:        https://gitlab.freedesktop.org/mesa/mesa/-/archive/mesa-%{ver}/m
 Source1:        Mesa-MLAA-License-Clarification-Email.txt
 
 Patch0:         gnome-shell-glthread-disable.patch
+
+# https://gitlab.freedesktop.org/mesa/mesa/-/issues/12253
+# https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/32535
+Patch1:		32535.patch
 
 BuildRequires:  meson >= 1.3.0
 BuildRequires:  gcc
