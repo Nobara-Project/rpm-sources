@@ -84,14 +84,13 @@
 %define apparmor_snapconfine_profile %as_apparmor_path %{_libexecdir}/snapd/snap-confine
 
 Name:           snapd
-Version:        2.65.1
-Release:        2%{?dist}
+Version:        2.66.1
+Release:        3%{?dist}
 Summary:        A transactional software package manager
 License:        GPL-3.0-only
 URL:            https://%{provider_prefix}
 Source0:        https://%{provider_prefix}/releases/download/%{version}/%{name}_%{version}.no-vendor.tar.xz
 Source1:        https://%{provider_prefix}/releases/download/%{version}/%{name}_%{version}.only-vendor.tar.xz
-Patch0:		0001-data-selinux-remove-timedatex.patch
 Patch1:         trick_snapd_into_thinking_nobara_is_fedora.patch
 
 ExclusiveArch:  %{?golang_arches}%{!?golang_arches:%{ix86} x86_64 %{arm} aarch64 ppc64le s390x}
@@ -612,12 +611,10 @@ install -m 644 -D data/completion/zsh/_snap %{buildroot}%{_datadir}/zsh/site-fun
 pushd ./cmd
 %make_install
 # Fixup snap-confine apparmor profile:
-sed -i '/\/{,usr\/}lib{,32,64,x32}\/{,@{multiarch}\/}libgcc_s.so\* mr,/a \    /{,usr\/}lib{,32,64,x32}\/{,@{multiarch}\/}libgcc_s*.so\* mr,' %{buildroot}%{_sysconfdir}/apparmor.d/usr.libexec.snapd.snap-confine
+sed -i 's|libgcc_s.so*|libgcc_s*so*|g' %{buildroot}%{_sysconfdir}/apparmor.d/usr.libexec.snapd.snap-confine
 
 # Undo the 0111 permissions, they are restored in the files section
 chmod 0755 %{buildroot}%{_sharedstatedir}/snapd/void
-# ubuntu-core-launcher is dead
-rm -fv %{buildroot}%{_bindir}/ubuntu-core-launcher
 popd
 
 # Install all systemd and dbus units, and env files
@@ -644,9 +641,6 @@ rm -fv %{buildroot}%{_unitdir}/snapd.recovery-chooser-trigger.service
 # Remove snappy core specific scripts and binaries
 rm %{buildroot}%{_libexecdir}/snapd/snapd.core-fixup.sh
 rm %{buildroot}%{_libexecdir}/snapd/system-shutdown
-
-# Install Polkit configuration
-install -m 644 -D data/polkit/io.snapcraft.snapd.policy %{buildroot}%{_datadir}/polkit-1/actions
 
 # Disable re-exec by default
 echo 'SNAP_REEXEC=0' > %{buildroot}%{_sysconfdir}/sysconfig/snapd
@@ -857,7 +851,6 @@ if [ -x /usr/bin/systemctl ]; then
     fi
 fi
 
-
 %preun
 %systemd_preun %{snappy_svcs}
 %systemd_user_preun %{snappy_user_svcs}
@@ -881,8 +874,110 @@ if [[ -n $(which snap) ]]; then
 fi
 
 %changelog
+* Fri Nov 29 2024 Zygmunt Krynicki <me@zygoon.pl>
+- Re-cherry pick fix for SELinux timedatex problem from upstream
+  as it was not released in 2.66.1, sorry.
+
+* Wed Nov 20 2024 Zygmunt Krynicki <me@zygoon.pl>
+- Drop only patch, applied upstream.
+
 * Fri Oct 25 2024 Zygmunt Krynicki <me@zygoon.pl>
 - Cherry pick fix for SELinux timedatex problem from upstream
+
+* Fri Oct 11 2024 Ernest Lotter <ernest.lotter@canonical.com>
+- New upstream release 2.66.1
+ - AppArmor prompting (experimental): Fix kernel prompting support
+   check
+ - Allow kernel snaps to have content slots
+ - Fix ignoring snaps in try mode when amending
+
+* Fri Oct 04 2024 Ernest Lotter <ernest.lotter@canonical.com>
+- New upstream release 2.66
+ - AppArmor prompting (experimental): expand kernel support checks
+ - AppArmor prompting (experimental): consolidate error messages and
+   add error kinds
+ - AppArmor prompting (experimental): grant /v2/snaps/{name} via
+   snap-interfaces-requests-control
+ - AppArmor prompting (experimental): add checks for duplicate
+   pattern variants
+ - Registry views (experimental): add handlers that commit (and
+   cleanup) registry transactions
+ - Registry views (experimental): add a snapctl fail command for
+   rejecting registry transactions
+ - Registry views (experimental): allow custodian snaps to implement
+   registry hooks that modify and save registry data
+ - Registry views (experimental): run view-changed hooks only for
+   snaps plugging views affected by modified paths
+ - Registry views (experimental): make registry transactions
+   serialisable
+ - Snap components: handle refreshing components to revisions that
+   have been on the system before
+ - Snap components: enable creating Ubuntu Core images that contain
+   components
+ - Snap components: handle refreshing components independently of
+   snaps
+ - Snap components: handle removing components when refreshing a snap
+   that no longer defines them
+ - Snap components: extend snapd Ubuntu Core installation API to
+   allow for picking optional snaps and components to install
+ - Snap components: extend kernel.yaml with "dynamic-modules",
+   allowing kernel to define a location for kmods from component
+   hooks
+ - Snap components: renamed component type "test" to "standard"
+ - Desktop IDs: support installing desktop files with custom names
+   based on desktop-file-ids desktop interface plug attr
+ - Auto-install snapd on classic systems as prerequisite for any non-
+   essential snap install
+ - Support loading AppArmor profiles on WSL2 with non-default kernel
+   and securityfs mounted
+ - Debian/Fedora packaging updates
+ - Add snap debug command for investigating execution aspects of the
+   snap toolchain
+ - Improve snap pack error for easier parsing
+ - Add support for user services when refreshing snaps
+ - Add snap remove --terminate flag for terminating running snap
+   processes
+ - Support building FIPS complaint snapd deb and snap
+ - Fix to not use nss when looking up for users/groups from snapd
+   snap
+ - Fix ordering in which layout changes are saved
+ - Patch snapd snap dynamic linker to ignore LD_LIBRARY_PATH and
+   related variables
+ - Fix libexec dir for openSUSE Slowroll
+ - Fix handling of the shared snap directory for parallel installs
+ - Allow writing to /run/systemd/journal/dev-log by default
+ - Avoid state lock during snap removal to avoid delaying other snapd
+   operations
+ - Add nomad-support interface to enable running Hashicorp Nomad
+ - Add intel-qat interface
+ - u2f-devices interface: add u2f trustkey t120 product id and fx
+   series fido u2f devices
+ - desktop interface: improve integration with xdg-desktop-portal
+ - desktop interface: add desktop-file-ids plug attr to desktop
+   interface
+ - unity7 interface: support desktop-file-ids in desktop files rule
+   generation
+ - desktop-legacy interface: support desktop-file-ids in desktop
+   files rule generation
+ - desktop-legacy interface: grant access to gcin socket location
+ - login-session-observe interface: allow introspection
+ - custom-device interface: allow to explicitly identify matching
+   device in udev tagging block
+ - system-packages-doc interface: allow reading /usr/share/javascript
+ - modem-manager interface: add new format of WWAN ports
+ - pcscd interface: allow pcscd to read opensc.conf
+ - cpu-control interface: add IRQ affinity control to cpu_control
+ - opengl interface: add support for cuda workloads on Tegra iGPU in
+   opengl interface
+
+* Thu Sep 12 2024 Ernest Lotter <ernest.lotter@canonical.com>
+- New upstream release 2.65.3
+ - Fix missing aux info from store on snap setup
+
+* Fri Sep 06 2024 Ernest Lotter <ernest.lotter@canonical.com>
+- New upstream release 2.65.2
+ - Bump squashfuse from version 0.5.0 to 0.5.2 (used in snapd deb
+   only)
 
 * Sat Aug 24 2024 Ernest Lotter <ernest.lotter@canonical.com>
 - New upstream release 2.65.1
