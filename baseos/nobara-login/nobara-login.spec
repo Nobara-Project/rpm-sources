@@ -1,7 +1,7 @@
 Summary: A set of scripts to run upon first user login
 Name: nobara-login
 Version: 1.1
-Release: 67%{?dist}
+Release: 68%{?dist}
 License: Public Domain
 Group: System Environment/Base
 Source0: hwcheck.sh
@@ -24,6 +24,8 @@ Source19: org.nobaraproject.automount.policy
 Source21: 99-ntsync.rules
 Source22: 70-wooting.rules
 Source24: 70-drunkdeer.rules
+Source25: nobara-resolve-pkexec
+Source26: org.nobaraproject.resolvewizard.policy
 
 BuildArch: noarch
 BuildRequires: filesystem
@@ -86,6 +88,8 @@ install -m 0755 %{SOURCE19} $RPM_BUILD_ROOT%{_datadir}/polkit-1/actions/org.noba
 install -m 0644 %{SOURCE21} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/99-ntsync.rules
 install -m 0644 %{SOURCE22} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/70-wooting.rules
 install -m 0644 %{SOURCE24} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/70-drunkdeer.rules
+install -m 0755 %{SOURCE25} $RPM_BUILD_ROOT%{_libexecdir}/nobara-resolve-pkexec
+install -m 0755 %{SOURCE26} $RPM_BUILD_ROOT%{_datadir}/polkit-1/actions/org.nobaraproject.resolvewizard.policy
 
 echo '# list of enabled automount partitions' > enabled.conf
 install -m 0755 enabled.conf $RPM_BUILD_ROOT%{_sysconfdir}/nobara/automount/enabled.conf
@@ -97,6 +101,7 @@ sysctl -p
 %{_bindir}/hwcheck
 %{_bindir}/updatecheck
 %{_libexecdir}/nobara-automount
+%{_libexecdir}/nobara-resolve-pkexec
 %{_sysconfdir}/xdg/autostart/nobara-automount.desktop
 %{_sysconfdir}/xdg/autostart/nobara-firstrun.desktop
 %{_sysconfdir}/modprobe.d/v4l2loopback.conf
@@ -110,6 +115,7 @@ sysctl -p
 %{_sysconfdir}/login.conf.d/00-handheld-power.conf
 %config(noreplace) %{_sysconfdir}/nobara/automount/enabled.conf
 %{_datadir}/polkit-1/actions/org.nobaraproject.automount.policy
+%{_datadir}/polkit-1/actions/org.nobaraproject.resolvewizard.policy
 %{_datadir}/pipewire/pipewire-pulse.conf.d/wine_gaming.conf
 
 %files sysctl

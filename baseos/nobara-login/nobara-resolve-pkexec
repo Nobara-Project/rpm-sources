@@ -1,0 +1,28 @@
+#!/bin/python3
+
+import os
+import subprocess
+import sys
+
+# Check if the correct number of arguments were provided
+if len(sys.argv) != 3:
+    print("Usage: python script.py <run_file> <shortcut_file>")
+    sys.exit(1)
+
+run_file = sys.argv[1]
+shortcut_file = sys.argv[2]
+
+# Step 1: Install necessary packages as root
+subprocess.run(["dnf", "install", "-y", "rocm-meta", "nobara-resolve-runtime", "zlib"], check=True)
+
+# Step 2: Remove old version if it exists
+os.chmod(run_file, 0o775)
+subprocess.run(["bash", "-c", f"SKIP_PACKAGE_CHECK=1 {run_file} -u -y -a"], check=True)
+
+# Step 3: Run the .run file as the user
+subprocess.run(["bash", "-c", f"SKIP_PACKAGE_CHECK=1 {run_file} -i -r -y -a"], check=True)
+
+if os.path.exists(shortcut_file):
+    subprocess.run(["sed", "-i", 's|Exec=.*|Exec=/usr/bin/davinci-resolve|', shortcut_file], check=True)
+else:
+    raise FileNotFoundError("Shortcut entry file not found.")
