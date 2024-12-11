@@ -12,7 +12,7 @@
 
 Name:           flatpak
 Version:        1.15.10
-Release:        2%{?dist}
+Release:        4%{?dist}
 Summary:        Application deployment framework for desktop apps
 
 License:        LGPL-2.1-or-later
