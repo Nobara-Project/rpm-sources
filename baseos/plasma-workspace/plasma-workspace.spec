@@ -1,10 +1,11 @@
 # X11 session is not shipped anymore
 %bcond x11 0
+%bcond kf6_pim 1
 
 Name:    plasma-workspace
 Summary: Plasma workspace, applications and applets
-Version: 6.2.3
-Release: 2%{?dist}
+Version: 6.2.4
+Release: 1%{?dist}
 
 # Automatically converted from old format: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only) AND MIT - review is highly recommended.
 License: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only) AND MIT
@@ -24,6 +25,8 @@ Source40:       ssh-agent.conf
 Source41:       spice-vdagent.conf
 
 ## upstream patches
+# Drop xsetroot dependency, drop patch with 6.3.0
+Patch1:         https://invent.kde.org/plasma/plasma-workspace/-/merge_requests/4700.patch
 
 ## upstreamable Patches
 
@@ -51,6 +54,7 @@ BuildRequires:  libXcursor-devel
 BuildRequires:  libXtst-devel
 BuildRequires:  libXft-devel
 BuildRequires:  libxcb-devel
+BuildRequires:  xcb-util-cursor-devel
 BuildRequires:  xcb-util-keysyms-devel
 BuildRequires:  xcb-util-image-devel
 BuildRequires:  xcb-util-renderutil-devel
@@ -72,7 +76,6 @@ BuildRequires:  libraw1394-devel
 %endif
 BuildRequires:  gpsd-devel
 BuildRequires:  libqalculate-devel
-%global kf6_pim 1
 BuildRequires:  libicu-devel
 
 BuildRequires:  qt6-qtbase-devel
@@ -152,7 +155,7 @@ BuildRequires:  pkgconfig(libxcrypt)
 
 BuildRequires:  wayland-protocols-devel
 BuildRequires:  plasma-wayland-protocols-devel
-BuildRequires:  plasma-breeze-devel >= %{version}
+BuildRequires:  plasma-breeze-devel >= %{majmin_ver_kf6}
 
 BuildRequires:  chrpath
 BuildRequires:  desktop-file-utils
@@ -225,10 +228,7 @@ Requires:       qt6-qttools
 # kconf_update
 Requires:       /usr/bin/qtpaths-qt6
 
-Requires:       iceauth xrdb xprop
-
-# Set XWayland cursor. Remove in 6.3.0: https://invent.kde.org/plasma/plasma-workspace/-/merge_requests/4700
-Requires:       xsetroot
+Requires:       xrdb xprop
 
 Requires:       kde-settings-plasma
 
@@ -347,6 +347,7 @@ Requires: %{name}-geolocation = %{version}-%{release}
 %description geolocation-libs
 %{summary}.
 
+
 %package -n sddm-wayland-plasma
 Summary:        Plasma Wayland SDDM greeter configuration
 Provides:       sddm-greeter-displayserver
@@ -371,7 +372,6 @@ to use KWin for the Wayland compositor for the greeter.
 Summary:        Wayland support for Plasma
 Requires:       %{name} = %{version}-%{release}
 Requires:       kwin-wayland
-Requires:       kwayland-integration%{?_isa}
 Requires:       xorg-x11-server-Xwayland
 Requires:       qt6-qtwayland%{?_isa}
 # startplasmacompositor deps
@@ -380,8 +380,12 @@ Requires:       xdg-desktop-portal-kde
 # Enables X11 apps to screenshare a Wayland environment
 Recommends:     xwaylandvideobridge
 %if ! %{with x11}
-Obsoletes:      %{name}-x11
-Obsoletes:      kwin-x11
+%if 0%{?fedora}
+Obsoletes:      %{name}-x11 < 5.92.0
+%else
+Obsoletes:      %{name}-x11 < %{version}-%{release}
+Conflicts:      %{name}-x11 < %{version}-%{release}
+%endif
 %endif
 %description wayland
 %{summary}.
@@ -578,7 +582,7 @@ fi
 %{_libdir}/libkmpris.so.*
 # multilib'able plugins
 %{_kf6_qtplugindir}/plasma/applets/
-%if 0%{?kf6_pim}
+%if %{with kf6_pim}
 %{_kf6_qtplugindir}/plasmacalendarplugins/
 %endif
 %dir %{_kf6_qtplugindir}/phonon_platform/
@@ -664,9 +668,20 @@ fi
 %{_datadir}/xsessions/plasmax11.desktop
 %endif
 
+
 %changelog
+* Tue Nov 26 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.2.4-1
+- 6.2.4
+
+* Wed Nov 13 2024 Neal Gompa <ngompa@fedoraproject.org> - 6.2.3-2
+- Backport patch to drop xsetroot dependency
+- Drop unused iceauth dependency
+
 * Tue Nov 05 2024 Steve Cossette <farchord@gmail.com> - 6.2.3-1
 - 6.2.3
+
+* Wed Oct 30 2024 Jan Grulich <jgrulich@redhat.com> - 6.2.2-2
+- Rebuild (qt6)
 
 * Tue Oct 22 2024 Steve Cossette <farchord@gmail.com> - 6.2.2-1
 - 6.2.2

@@ -1,0 +1,102 @@
+From b0649f725e777652ae910a7022e23be6d9d35f95 Mon Sep 17 00:00:00 2001
+From: Vlad Zahorodnii <vlad.zahorodnii@kde.org>
+Date: Sun, 15 Sep 2024 18:00:03 +0300
+Subject: [PATCH] kcms/krdb: Drop xsetroot dependency
+
+Use XCB API to set the cursor for the root window. The main motivation
+behind this change is to make the packaging process for p-w less
+error prone by missing out such a dependency.
+---
+ CMakeLists.txt                  |  2 +-
+ kcms/cursortheme/CMakeLists.txt |  2 +-
+ kcms/krdb/CMakeLists.txt        |  4 ++++
+ kcms/krdb/krdb.cpp              | 25 +++++++++++++++++++++++--
+ 4 files changed, 29 insertions(+), 4 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index d40dde62540..cea7f0a2f59 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -178,7 +178,7 @@ if(WITH_X11)
+     set(HAVE_XCURSOR 1)
+     set(HAVE_XFIXES 1)
+ 
+-    find_package(XCB MODULE REQUIRED COMPONENTS XCB RANDR IMAGE)
++    find_package(XCB MODULE REQUIRED COMPONENTS XCB CURSOR RANDR IMAGE)
+     set_package_properties(XCB PROPERTIES TYPE REQUIRED)
+ 
+ else()
+diff --git a/kcms/cursortheme/CMakeLists.txt b/kcms/cursortheme/CMakeLists.txt
+index 3f655846509..9d4f06f3103 100644
+--- a/kcms/cursortheme/CMakeLists.txt
++++ b/kcms/cursortheme/CMakeLists.txt
+@@ -70,7 +70,7 @@ target_link_libraries(plasma-apply-cursortheme
+ )
+ 
+ if (HAVE_X11)
+-   target_link_libraries(plasma-apply-cursortheme X11::X11 X11::Xcursor X11::Xfixes Qt::GuiPrivate)
++   target_link_libraries(plasma-apply-cursortheme X11::X11 X11::Xcursor X11::Xfixes XCB::XCB XCB::CURSOR Qt::GuiPrivate)
+ endif()
+ 
+ install(TARGETS plasma-apply-cursortheme  DESTINATION ${KDE_INSTALL_BINDIR})
+diff --git a/kcms/krdb/CMakeLists.txt b/kcms/krdb/CMakeLists.txt
+index 492b422d70e..9b53f8063d3 100644
+--- a/kcms/krdb/CMakeLists.txt
++++ b/kcms/krdb/CMakeLists.txt
+@@ -8,6 +8,10 @@ target_include_directories(krdb PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE
+ 
+ target_link_libraries(krdb PRIVATE Qt::Widgets Qt::DBus KF6::CoreAddons KF6::DBusAddons KF6::GuiAddons KF6::I18n KF6::WindowSystem KF6::ConfigWidgets X11::X11 Qt::GuiPrivate)
+ 
++if(HAVE_X11)
++  target_link_libraries(krdb PRIVATE XCB::XCB XCB::CURSOR)
++endif()
++
+ install(TARGETS krdb ${KDE_INSTALL_TARGETS_DEFAULT_ARGS} LIBRARY NAMELINK_SKIP)
+ 
+ install(FILES krdb.h
+diff --git a/kcms/krdb/krdb.cpp b/kcms/krdb/krdb.cpp
+index 39bcb7317d5..f3c99569216 100644
+--- a/kcms/krdb/krdb.cpp
++++ b/kcms/krdb/krdb.cpp
+@@ -54,6 +54,8 @@
+ #if HAVE_X11
+ #include <X11/Xlib.h>
+ #include <private/qtx11extras_p.h>
++#include <xcb/xcb.h>
++#include <xcb/xcb_cursor.h>
+ #endif
+ 
+ #include <filesystem>
+@@ -467,8 +469,27 @@ void runRdb(unsigned int flags)
+ #endif
+     proc.execute();
+ 
+-    // Needed for applications that don't set their own cursor.
+-    QProcess::execute(QStringLiteral("xsetroot"), {QStringLiteral("-cursor_name"), QStringLiteral("left_ptr")});
++#if HAVE_X11
++    xcb_connection_t *connection = xcb_connect(nullptr, nullptr);
++    if (!xcb_connection_has_error(connection)) {
++        xcb_screen_t *screen = xcb_setup_roots_iterator(xcb_get_setup(connection)).data;
++
++        // Needed for applications that don't set their own cursor.
++        xcb_cursor_context_t *context = nullptr;
++        if (xcb_cursor_context_new(connection, screen, &context) < 0) {
++            qWarning() << "xcb_cursor_context_new() failed";
++        } else {
++            xcb_cursor_t cursor = xcb_cursor_load_cursor(context, "left_ptr");
++            xcb_change_window_attributes(connection, screen->root, XCB_CW_CURSOR, &cursor);
++            xcb_free_cursor(connection, cursor);
++            xcb_cursor_context_free(context);
++        }
++    } else {
++        qWarning() << "xcb_connect() failed";
++    }
++
++    xcb_disconnect(connection);
++#endif
+ 
+     applyGtkStyles(1);
+     applyGtkStyles(2);
+-- 
+GitLab
+
