@@ -1,0 +1,92 @@
+From f1ab21314e94c5f839985adeb107d11c01508aa7 Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Fri, 6 Dec 2024 16:58:44 -0500
+Subject: [PATCH] revert 243162ca2938b391724f547596787c7f77d1fc5f
+
+---
+ .../apparmor.d/abstractions/authentication    |  4 ---
+ profiles/apparmor.d/unix-chkpwd               | 35 -------------------
+ profiles/apparmor.d/usr.sbin.smbd             |  3 ++
+ 3 files changed, 3 insertions(+), 39 deletions(-)
+ delete mode 100644 profiles/apparmor.d/unix-chkpwd
+
+diff --git a/profiles/apparmor.d/abstractions/authentication b/profiles/apparmor.d/abstractions/authentication
+index 094f235..17dd1e8 100644
+--- a/profiles/apparmor.d/abstractions/authentication
++++ b/profiles/apparmor.d/abstractions/authentication
+@@ -31,10 +31,6 @@
+   /{usr/,}lib/@{multiarch}/security/pam_*.so      mr,
+   /{usr/,}lib/@{multiarch}/security/              r,
+ 
+-  # pam_unix
+-  owner /proc/@{pid}/loginuid r,
+-  /{,usr/}{,s}bin/unix_chkpwd Px,
+-
+   # pam_env
+   @{etc_ro}/environment r,
+ 
+diff --git a/profiles/apparmor.d/unix-chkpwd b/profiles/apparmor.d/unix-chkpwd
+deleted file mode 100644
+index a8ec8d4..0000000
+--- a/profiles/apparmor.d/unix-chkpwd
++++ /dev/null
+@@ -1,35 +0,0 @@
+-# apparmor.d - Full set of apparmor profiles
+-# Copyright (C) 2019-2021 Mikhail Morfikov
+-# SPDX-License-Identifier: GPL-2.0-only
+-
+-# The apparmor.d project comes with several variables and abstractions
+-# that are not part of upstream AppArmor yet. Therefore this profile was
+-# adopted to use abstractions and variables that are available.
+-# Copyright (C) Christian Boltz 2024
+-
+-abi <abi/4.0>,
+-
+-include <tunables/global>
+-
+-profile unix-chkpwd /{,usr/}{,s}bin/unix_chkpwd {
+-  include <abstractions/base>
+-  include <abstractions/nameservice>
+-
+-  # To write records to the kernel auditing log.
+-  capability audit_write,
+-
+-  network netlink raw,
+-
+-  /{,usr/}{,s}bin/unix_chkpwd mr,
+-
+-  /etc/shadow r,
+-
+-  # systemd userdb, used in nspawn
+-  /run/host/userdb/*.user r,
+-  /run/host/userdb/*.user-privileged r,
+-
+-  # file_inherit
+-  owner /dev/tty[0-9]* rw,
+-
+-  include if exists <local/unix-chkpwd>
+-}
+diff --git a/profiles/apparmor.d/usr.sbin.smbd b/profiles/apparmor.d/usr.sbin.smbd
+index aa2869d..725a9f9 100644
+--- a/profiles/apparmor.d/usr.sbin.smbd
++++ b/profiles/apparmor.d/usr.sbin.smbd
+@@ -46,6 +46,7 @@ profile smbd /usr/{bin,sbin}/smbd {
+   /usr/share/samba/** r,
+   /usr/{bin,sbin}/smbd mr,
+   /usr/{bin,sbin}/smbldap-useradd Px,
++  /usr/sbin/unix_chkpwd Px,
+   /var/cache/samba/** rwk,
+   /var/{cache,lib}/samba/printing/printers.tdb mrw,
+   /var/lib/nscd/netgroup r,
+@@ -58,6 +59,8 @@ profile smbd /usr/{bin,sbin}/smbd {
+   @{run}/samba/ncalrpc/** rw,
+   /var/spool/samba/** rw,
+ 
++  owner /proc/@{pid}/loginuid r,
++
+   @{HOMEDIRS}/** lrwk,
+   /var/lib/samba/usershares/{,**} lrwk,
+ 
+-- 
+2.47.0
+

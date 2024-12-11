@@ -4,7 +4,7 @@
 
 Name:           apparmor
 Version:        4.0.3
-Release:        0.1%{?dist}
+Release:        0.2%{?dist}
 Summary:        AppArmor userspace components
 
 %define baseversion %(echo %{version} | cut -d. -f-2)
@@ -16,6 +16,10 @@ Source10:       %{name}.preset
 Patch01:	0001-fix-avahi-daemon-authselect-denial-in-fedora.patch
 Patch03:	0001-fix-denial-on-dnsmask-for-nsswitch.patch
 Patch04:	0001-fix-apparmor-waydroid-denials.patch
+
+# https://gitlab.com/apparmor/apparmor/-/commit/243162ca2938b391724f547596787c7f77d1fc5f
+# Breaks login on Fedora until pwunconv and pwconv are run to regenerate /etc/shadow.
+Patch05:    0001-revert-243162ca2938b391724f547596787c7f77d1fc5f.patch
 
 BuildRequires:  gcc
 BuildRequires:  automake
