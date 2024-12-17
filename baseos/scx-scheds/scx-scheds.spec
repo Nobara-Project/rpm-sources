@@ -1,11 +1,14 @@
 Name:           scx-scheds
-Version:        1.0.7
+Version:        1.0.8
 Release:        1%{?dist}
 Summary:        Sched_ext Schedulers and Tools
 
 License:        GPL=2.0
 URL:            https://github.com/sched-ext/scx
 Source0:        %{URL}/archive/refs/tags/v%{version}.tar.gz
+
+# https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
+ExcludeArch:    %{ix86}
 
 BuildRequires:  gcc
 BuildRequires:  git
@@ -47,7 +50,16 @@ sched_ext is a Linux kernel feature which enables implementing kernel thread sch
 %{_bindir}/*
 %{_prefix}/lib/systemd/system/scx_loader.service
 %{_prefix}/lib/systemd/system/scx.service
-%{_includedir}/scx/*
 %attr(0644,root,root) %config(noreplace) %{_sysconfdir}/default/scx
 %{_datadir}/dbus-1/system.d/org.scx.Loader.conf
 %{_datadir}/dbus-1/system-services/org.scx.Loader.service
+
+%package devel
+Summary:        Development files for %{name}
+
+%description devel
+The %{name}-devel package contains libraries header files for developing applications that use %{name}
+
+%files devel
+%{_includedir}/scx/
+%{_includedir}/lib/
