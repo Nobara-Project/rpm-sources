@@ -1,11 +1,11 @@
 Name:           calamares
-Version:        3.3.6
-Release:        12%{?dist}
+Version:        3.3.12
+Release:        55%{?dist}
 Summary:        Installer from a live CD/DVD/USB to disk
 
 License:        GPL-3.0-or-later
-URL:            https://calamares.io/
-Source0:        https://github.com/calamares/calamares/releases/download/v%{version}/%{name}-%{version}.tar.gz
+URL:            https://codeberg.org/KaOS/calamares/
+Source0:        https://codeberg.org/KaOS/calamares/archive/master.tar.gz
 Source2:        show.qml
 # Run:
 # lupdate-qt6 show.qml -ts calamares-auto_fr.ts
@@ -20,17 +20,32 @@ Source4:        calamares-auto_de.ts
 # then translate the template in linguist-qt6.
 Source5:        calamares-auto_it.ts
 
-# Use a custom install icon for nobara
 Source6:        install-icon.svg
 
-# adjust some default settings (default shipped .conf files)
-Patch1:         0001-Apply-default-settings-for-Fedora.patch
+# Backports from upstream
+Source1001:       packages.tar.gz
+Source1002:       plasmalnf.tar.gz
+Source1003:       shellprocess.tar.gz
+Source1004:       grubcfg.tar.gz
+Source1005:       fsresizer.tar.gz
+Source1006:       services-systemd.tar.gz
+Source1007:       hwclock.tar.gz
+Source1008:       displaymanager.tar.gz
+Source1009:       fedora-gdm-logo-calamares.png
+Source1010:       fedora-logo.png
 
-# Add virtual keyboard patch from KaOS for touchpad/handheld devices
-Patch2:         0001-calamares-virtual-keyboard-patch.patch
+Patch1006:       0005-rebase-over-kaos-calamares.patch
+#Patch1007:       fixup_branding.patch
+
+# Fedora-specific changes
+## adjust some default settings (default shipped .conf files)
+#Patch1007:       0001-rebase-over-kaos-calamares.patch
 
 ## use kdesu instead of pkexec (works around #1171779)
-Patch1002:       calamares-3.3.3-kdesu.patch
+#Patch1006:       calamares-3.3.3-kdesu.patch
+
+# Add virtual keyboard patch from KaOS for touchpad/handheld devices
+#Patch1003:       0001-calamares-virtual-keyboard-patch.patch
 
 
 # Calamares is only supported where live images (and GRUB) are. (#1171380)
@@ -47,6 +62,7 @@ BuildRequires:  extra-cmake-modules >= 5.245
 BuildRequires:  gcc-c++ >= 9.0.0
 BuildRequires:  pkgconfig
 BuildRequires:  make
+BuildRequires:  git
 
 # Other build-time tools
 BuildRequires:  desktop-file-utils
@@ -78,6 +94,9 @@ BuildRequires:  cmake(KF6WidgetsAddons)
 # Plasma
 BuildRequires:  cmake(Plasma)
 
+# Polkit
+BuildRequires:  cmake(PolkitQt6-1)
+
 # KPMcore
 BuildRequires:  cmake(KPMcore) >= 4.2.0
 
@@ -94,6 +113,7 @@ BuildRequires:  libpwquality-devel
 BuildRequires:  libxcrypt-devel
 BuildRequires:  parted-devel
 BuildRequires:  yaml-cpp-devel >= 0.5.1
+BuildRequires:  bsdtar
 
 # for automatic branding setup
 Requires(post): system-release
@@ -105,15 +125,15 @@ Requires:       util-linux
 Requires:       upower
 Requires:       NetworkManager
 Requires:       dracut
-Recommends:       grub2
-%ifarch x86_64 aarch64
+Requires:       grub2
+%ifarch x86_64 aarch64 riscv64
 %ifarch x86_64
 # For x86 systems
-Recommends:       grub2-efi-x64
+Requires:       grub2-efi-x64
 Recommends:     grub2-efi-ia32
 %else
 # For all non-x86 arches
-Recommends:       grub2-efi
+Requires:       grub2-efi
 %endif
 Requires:       efibootmgr
 %endif
@@ -185,7 +205,37 @@ developing custom modules for Calamares.
 
 
 %prep
-%autosetup -p1 -n %{name}-%{version}
+%autosetup -N -n %{name}
+# fuck RPM's patch requirements
+# workaround 'File src/modules/plasmalnf/view-preview.png: git binary diffs are not supported.'
+mv %{SOURCE1001} src/modules/
+mv %{SOURCE1002} src/modules/
+mv %{SOURCE1003} src/modules/
+mv %{SOURCE1004} src/modules/
+mv %{SOURCE1005} src/modules/
+mv %{SOURCE1006} src/modules/
+mv %{SOURCE1007} src/modules/
+mv %{SOURCE1008} src/modules/
+
+cd src/modules
+for tarball in $(find . -type f -name "*.tar.gz" | cut -d "/" -f 2); do
+    bsdtar -xzf $tarball
+done
+rm *.tar.gz
+# dont use partitionq
+rm -Rf partitionq
+cd ../../
+
+# Apply fedora/nobara changes
+%patch 1006 -p1
+#%%patch 1007 -p1
+
+# show.qml
+mv %{SOURCE2} src/branding/nobara_branding/
+mv %{SOURCE1009} src/branding/nobara_branding/
+mv %{SOURCE1010} src/branding/nobara_branding/
+
+
 
 cp %{SOURCE6} ./data/images/squid.svg
 sed -i '/^Icon/ s/calamares/org.fedoraproject.AnacondaInstaller/g' ./calamares.desktop
@@ -199,9 +249,10 @@ sed -i '/^Name/ s/Install System/Install Nobara/g' ./calamares.desktop.in
 sed -i '/^Name\[.*$/d' ./calamares.desktop.in
 
 %build
+             #-DKPMCORE_INCLUDE_DIR="/usr/include/kpmcore" \
 %{cmake_kf6} -DCMAKE_BUILD_TYPE:STRING="RelWithDebInfo" \
              -DBUILD_TESTING:BOOL=OFF \
-             -DWITH_PYTHONQT:BOOL=OFF \
+             -DWITH_PYBIND11:BOOL=OFF \
              -DWITH_QT6:BOOL=ON \
              -DWITH_KPMCORE4API:BOOL=ON \
              -DINSTALL_CONFIG=ON \
@@ -212,19 +263,11 @@ sed -i '/^Name\[.*$/d' ./calamares.desktop.in
 %cmake_install
 
 # create the auto branding directory
-mkdir -p %{buildroot}%{_datadir}/calamares/branding/auto
-touch %{buildroot}%{_datadir}/calamares/branding/auto/branding.desc
-install -p -m 644 %{SOURCE2} %{buildroot}%{_datadir}/calamares/branding/auto/show.qml
-mkdir -p %{buildroot}%{_datadir}/calamares/branding/auto/lang
-lrelease-qt6 %{SOURCE3} -qm %{buildroot}%{_datadir}/calamares/branding/auto/lang/calamares-auto_fr.qm
-lrelease-qt6 %{SOURCE4} -qm %{buildroot}%{_datadir}/calamares/branding/auto/lang/calamares-auto_de.qm
-lrelease-qt6 %{SOURCE5} -qm %{buildroot}%{_datadir}/calamares/branding/auto/lang/calamares-auto_it.qm
 # own the local settings directories
 mkdir -p %{buildroot}%{_sysconfdir}/calamares/modules
 mkdir -p %{buildroot}%{_sysconfdir}/calamares/branding
 # delete dummypythonqt translations, we do not use PythonQt at this time
 rm -f %{buildroot}%{_datadir}/locale/*/LC_MESSAGES/calamares-dummypythonqt.mo
-%find_lang calamares-python
 
 %check
 # validate the .desktop file
@@ -234,14 +277,8 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/calamares.desktop
 # generate the "auto" branding
 . %{_sysconfdir}/os-release
 
-LOGO=%{_datadir}/pixmaps/fedora-logo.png
-
-if [ -e %{_datadir}/pixmaps/fedora-gdm-logo-calamares.png ] ; then
-  SPRITE="%{_datadir}/pixmaps/fedora-gdm-logo-calamares.png"
-else
-  SPRITE="%{_datadir}/calamares/branding/default/squid.png"
-fi
-
+LOGO="%{_datadir}/calamares/branding/nobara_branding/fedora-logo.png"
+SPRITE="%{_datadir}/calamares/branding/nobara_branding/fedora-gdm-logo-calamares.png"
 if [ -e %{_datadir}/icons/hicolor/48x48/apps/fedora-logo-icon.png ] ; then
   ICON="%{_datadir}/icons/hicolor/48x48/apps/fedora-logo-icon.png"
 else
@@ -267,12 +304,24 @@ else
   HAVE_SUPPORTURL="#"
 fi
 
-cat >%{_datadir}/calamares/branding/auto/branding.desc <<EOF
+cat >%{_datadir}/calamares/branding/nobara_branding/branding.desc <<EOF
 # THIS FILE IS AUTOMATICALLY GENERATED! ANY CHANGES TO THIS FILE WILL BE LOST!
 ---
-componentName:  auto
+componentName:  nobara_branding
 
 welcomeStyleCalamares:   false
+
+welcomeExpandingLogo:    false
+
+windowExpanding:    fullscreen
+
+windowSize: 800px,520px
+
+windowPlacement: center
+
+sidebar: widget
+
+navigation: widget
 
 strings:
     productName:         "$NAME"
@@ -292,46 +341,38 @@ images:
     productLogo:         "$SPRITE"
     productIcon:         "$ICON"
 
-slideshow:               "show.qml"
-
 style:
    SidebarBackground:    "#292F34"
    SidebarText:          "#FFFFFF"
    SidebarTextCurrent:    "#292F34"
    SidebarBackgroundCurrent: "#760da6"
+
+slideshow:               "show.qml"
+
+slideshowAPI: 2
+
 EOF
 
-%files -f calamares-python.lang
-%doc AUTHORS
-%license LICENSES/*
+%files
 %{_bindir}/calamares
 %dir %{_datadir}/calamares/
 %{_datadir}/calamares/settings.conf
 %dir %{_datadir}/calamares/branding/
-%{_datadir}/calamares/branding/default/
-%dir %{_datadir}/calamares/branding/auto/
-%ghost %{_datadir}/calamares/branding/auto/branding.desc
-%{_datadir}/calamares/branding/auto/show.qml
-%{_datadir}/calamares/branding/auto/lang/
+%{_datadir}/calamares/branding/nobara_branding/
 %{_datadir}/calamares/modules/
-%exclude %{_datadir}/calamares/modules/interactiveterminal.conf
 %exclude %{_datadir}/calamares/modules/plasmalnf.conf
 %{_datadir}/calamares/qml/
 %{_datadir}/applications/calamares.desktop
 %{_datadir}/icons/hicolor/scalable/apps/calamares-nobara.svg
 %{_mandir}/man8/calamares.8*
 %{_sysconfdir}/calamares/
+%{_datadir}/polkit-1/actions/com.github.calamares.calamares.policy
 
 %files libs
 %{_libdir}/libcalamares.so.*
 %{_libdir}/libcalamaresui.so.*
 %{_libdir}/calamares/
-%exclude %{_libdir}/calamares/modules/interactiveterminal/
 %exclude %{_libdir}/calamares/modules/plasmalnf/
-
-%files interactiveterminal
-%{_datadir}/calamares/modules/interactiveterminal.conf
-%{_libdir}/calamares/modules/interactiveterminal/
 
 %files plasmalnf
 %{_datadir}/calamares/modules/plasmalnf.conf
@@ -345,6 +386,25 @@ EOF
 
 
 %changelog
+* Sat Dec 14 2024 Neal Gompa <ngompa@fedoraproject.org> - 3.3.12-2
+- Adjust unpackfs config to use /run/rootfsbase
+
+* Sat Dec 14 2024 Neal Gompa <ngompa@fedoraproject.org> - 3.3.12-1
+- Update to 3.3.12
+- Update default settings to be compatible with current lorax and kiwi LiveOS setup
+
+* Sun Dec 08 2024 Pete Walter <pwalter@fedoraproject.org> - 3.3.5-5
+- Rebuild for ICU 76
+
+* Fri Oct 25 2024 Orion Poplawski <orion@nwra.com> - 3.3.5-4
+- Rebuild for yaml-cpp 0.8
+
+* Wed Jul 17 2024 Fedora Release Engineering <releng@fedoraproject.org> - 3.3.5-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_41_Mass_Rebuild
+
+* Sat Jun 08 2024 Python Maint <python-maint@redhat.com> - 3.3.5-2
+- Rebuilt for Python 3.13
+
 * Wed Mar 13 2024 Neal Gompa <ngompa@fedoraproject.org> - 3.3.5-1
 - Update to 3.3.5
 
