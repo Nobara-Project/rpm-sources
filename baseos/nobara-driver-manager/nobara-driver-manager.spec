@@ -1,6 +1,6 @@
 Name:          nobara-driver-manager
 Version:       1.1
-Release:       13%{?dist}
+Release:       14%{?dist}
 License:       GPLv2
 Group:         System Environment/Libraries
 Summary:       Nobara's Driver Manager
