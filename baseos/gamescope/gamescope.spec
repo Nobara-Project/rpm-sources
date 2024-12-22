@@ -1,7 +1,7 @@
-%global libliftoff_minver 0.4.1
+%global libliftoff_minver 0.5.0
 
 # latest git
-%define commit 7dd1bcd9102a17e039970ccd9a324a9fe8365d6d
+%define commit 1c9495c359e88a95e4f681a6d3f72974bbe1f236
 
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global _default_patch_fuzz 2
@@ -10,7 +10,7 @@
 %global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           gamescope
-Version:        3.15.14
+Version:        3.16.1
 Release:        %{rel_build}
 Summary:        Micro-compositor for video games on Wayland
 
@@ -35,7 +35,6 @@ Patch1:         chimeraos.patch
 
 # https://github.com/ValveSoftware/gamescope/pull/1231
 #Patch5:         1231.patch
-
 
 BuildRequires:  meson >= 0.54.0
 BuildRequires:  ninja-build
