@@ -1,0 +1,244 @@
+From fd078b1d8f8b2f5f7d6ae711fb0720137d744164 Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Wed, 10 Jul 2024 21:49:53 -0600
+Subject: [PATCH] Revert c452a4d
+ https://gitlab.freedesktop.org/mesa/mesa/-/issues/11480
+
+---
+ src/amd/compiler/aco_register_allocation.cpp | 86 ++++++++------------
+ src/amd/compiler/tests/test_regalloc.cpp     | 26 +++---
+ 2 files changed, 45 insertions(+), 67 deletions(-)
+
+diff --git a/src/amd/compiler/aco_register_allocation.cpp b/src/amd/compiler/aco_register_allocation.cpp
+index 1dbd015..ca54196 100644
+--- a/src/amd/compiler/aco_register_allocation.cpp
++++ b/src/amd/compiler/aco_register_allocation.cpp
+@@ -54,37 +54,6 @@ struct assignment {
+    }
+ };
+ 
+-/* Iterator type for making PhysRegInterval compatible with range-based for */
+-struct PhysRegIterator {
+-   using difference_type = int;
+-   using value_type = unsigned;
+-   using reference = const unsigned&;
+-   using pointer = const unsigned*;
+-   using iterator_category = std::bidirectional_iterator_tag;
+-
+-   PhysReg reg;
+-
+-   PhysReg operator*() const { return reg; }
+-
+-   PhysRegIterator& operator++()
+-   {
+-      reg.reg_b += 4;
+-      return *this;
+-   }
+-
+-   PhysRegIterator& operator--()
+-   {
+-      reg.reg_b -= 4;
+-      return *this;
+-   }
+-
+-   bool operator==(PhysRegIterator oth) const { return reg == oth.reg; }
+-
+-   bool operator!=(PhysRegIterator oth) const { return reg != oth.reg; }
+-
+-   bool operator<(PhysRegIterator oth) const { return reg < oth.reg; }
+-};
+-
+ struct vector_info {
+    vector_info() : is_weak(false), num_parts(0), parts(NULL) {}
+    vector_info(Instruction* instr, unsigned start = 0, bool weak = false)
+@@ -102,8 +71,6 @@ struct ra_ctx {
+    uint16_t sgpr_limit;
+    uint16_t vgpr_limit;
+    std::bitset<512> war_hint;
+-   PhysRegIterator rr_sgpr_it;
+-   PhysRegIterator rr_vgpr_it;
+ 
+    uint16_t sgpr_bounds;
+    uint16_t vgpr_bounds;
+@@ -126,6 +93,37 @@ struct ra_ctx {
+    }
+ };
+ 
++/* Iterator type for making PhysRegInterval compatible with range-based for */
++struct PhysRegIterator {
++   using difference_type = int;
++   using value_type = unsigned;
++   using reference = const unsigned&;
++   using pointer = const unsigned*;
++   using iterator_category = std::bidirectional_iterator_tag;
++
++   PhysReg reg;
++
++   PhysReg operator*() const { return reg; }
++
++   PhysRegIterator& operator++()
++   {
++      reg.reg_b += 4;
++      return *this;
++   }
++
++   PhysRegIterator& operator--()
++   {
++      reg.reg_b -= 4;
++      return *this;
++   }
++
++   bool operator==(PhysRegIterator oth) const { return reg == oth.reg; }
++
++   bool operator!=(PhysRegIterator oth) const { return reg != oth.reg; }
++
++   bool operator<(PhysRegIterator oth) const { return reg < oth.reg; }
++};
++
+ /* Half-open register interval used in "sliding window"-style for-loops */
+ struct PhysRegInterval {
+    PhysReg lo_;
+@@ -897,7 +895,7 @@ update_renames(ra_ctx& ctx, RegisterFile& reg_file,
+ std::optional<PhysReg>
+ get_reg_simple(ra_ctx& ctx, const RegisterFile& reg_file, DefInfo info)
+ {
+-   PhysRegInterval bounds = info.bounds;
++   const PhysRegInterval& bounds = info.bounds;
+    uint32_t size = info.size;
+    uint32_t stride = info.rc.is_subdword() ? DIV_ROUND_UP(info.stride, 4) : info.stride;
+    RegClass rc = info.rc;
+@@ -912,30 +910,12 @@ get_reg_simple(ra_ctx& ctx, const RegisterFile& reg_file, DefInfo info)
+       }
+    }
+ 
+-   PhysRegIterator& rr_it = rc.type() == RegType::vgpr ? ctx.rr_vgpr_it : ctx.rr_sgpr_it;
+-   if (stride == 1) {
+-      if (rr_it != bounds.begin() && bounds.contains(rr_it.reg)) {
+-         assert(bounds.begin() < rr_it);
+-         assert(rr_it < bounds.end());
+-         info.bounds = PhysRegInterval::from_until(rr_it.reg, bounds.hi());
+-         std::optional<PhysReg> res = get_reg_simple(ctx, reg_file, info);
+-         if (res)
+-            return res;
+-         bounds = PhysRegInterval::from_until(bounds.lo(), rr_it.reg);
+-      }
+-   }
+-
+    auto is_free = [&](PhysReg reg_index)
+    { return reg_file[reg_index] == 0 && !ctx.war_hint[reg_index]; };
+ 
+    for (PhysRegInterval reg_win = {bounds.lo(), size}; reg_win.hi() <= bounds.hi();
+         reg_win += stride) {
+       if (std::all_of(reg_win.begin(), reg_win.end(), is_free)) {
+-         if (stride == 1) {
+-            PhysRegIterator new_rr_it{PhysReg{reg_win.lo() + size}};
+-            if (new_rr_it < bounds.end())
+-               rr_it = new_rr_it;
+-         }
+          adjust_max_used_regs(ctx, rc, reg_win.lo());
+          return reg_win.lo();
+       }
+@@ -2978,8 +2958,6 @@ register_allocation(Program* program, ra_test_policy policy)
+       /* initialize register file */
+       RegisterFile register_file = init_reg_file(ctx, live_out_per_block, block);
+       ctx.war_hint.reset();
+-      ctx.rr_vgpr_it = {PhysReg{256}};
+-      ctx.rr_sgpr_it = {PhysReg{0}};
+ 
+       std::vector<aco_ptr<Instruction>> instructions;
+       instructions.reserve(block.instructions.size());
+diff --git a/src/amd/compiler/tests/test_regalloc.cpp b/src/amd/compiler/tests/test_regalloc.cpp
+index 90265a7..16747c0 100644
+--- a/src/amd/compiler/tests/test_regalloc.cpp
++++ b/src/amd/compiler/tests/test_regalloc.cpp
+@@ -14,7 +14,7 @@ BEGIN_TEST(regalloc.subdword_alloc.reuse_16bit_operands)
+     * while the lower 16 bits are still live, so the output must be stored in
+     * a register other than v0. For the second v_cvt_f32_f16, the original
+     * value stored in v0 is no longer used and hence it's safe to store the
+-    * result in v0, which might or might not happen.
++    * result in v0.
+     */
+ 
+    /* TODO: is this possible to do on GFX11? */
+@@ -31,7 +31,7 @@ BEGIN_TEST(regalloc.subdword_alloc.reuse_16bit_operands)
+             bld.pseudo(aco_opcode::p_split_vector, bld.def(v2b), bld.def(v2b), inputs[0]);
+ 
+          //! v1: %_:v[#b] = v_cvt_f32_f16 %_:v[#a][16:32] dst_sel:dword src0_sel:uword1
+-         //! v1: %_:v[#_] = v_cvt_f32_f16 %_:v[#a][0:16]
++         //! v1: %_:v[#a] = v_cvt_f32_f16 %_:v[#a][0:16]
+          //; success = (b != a)
+          auto result1 = bld.vop1(aco_opcode::v_cvt_f32_f16, bld.def(v1), tmp.def(1).getTemp());
+          auto result2 = bld.vop1(aco_opcode::v_cvt_f32_f16, bld.def(v1), tmp.def(0).getTemp());
+@@ -104,13 +104,13 @@ BEGIN_TEST(regalloc.precolor.vector.test)
+    if (!setup_cs("s2 s1 s1", GFX10))
+       return;
+ 
+-   //! s2: %tmp0_2:s[2-3], s1: %tmp2_2:s[#t2] = p_parallelcopy %tmp0:s[0-1], %tmp2:s[3]
++   //! s2: %tmp0_2:s[2-3], s1: %tmp2_2:s[0] = p_parallelcopy %tmp0:s[0-1], %tmp2:s[3]
+    //! p_unit_test %tmp0_2:s[2-3]
+    Operand op(inputs[0]);
+    op.setPrecolored(PhysReg(2));
+    bld.pseudo(aco_opcode::p_unit_test, op);
+ 
+-   //! p_unit_test %tmp2_2:s[#t2]
++   //! p_unit_test %tmp2_2:s[0]
+    bld.pseudo(aco_opcode::p_unit_test, inputs[2]);
+ 
+    finish_ra_test(ra_test_policy());
+@@ -121,13 +121,13 @@ BEGIN_TEST(regalloc.precolor.vector.collect)
+    if (!setup_cs("s2 s1 s1", GFX10))
+       return;
+ 
+-   //! s2: %tmp0_2:s[2-3], s1: %tmp1_2:s[#t1], s1: %tmp2_2:s[#t2] = p_parallelcopy %tmp0:s[0-1], %tmp1:s[2], %tmp2:s[3]
++   //! s2: %tmp0_2:s[2-3], s1: %tmp1_2:s[0], s1: %tmp2_2:s[1] = p_parallelcopy %tmp0:s[0-1], %tmp1:s[2], %tmp2:s[3]
+    //! p_unit_test %tmp0_2:s[2-3]
+    Operand op(inputs[0]);
+    op.setPrecolored(PhysReg(2));
+    bld.pseudo(aco_opcode::p_unit_test, op);
+ 
+-   //! p_unit_test %tmp1_2:s[#t1], %tmp2_2:s[#t2]
++   //! p_unit_test %tmp1_2:s[0], %tmp2_2:s[1]
+    bld.pseudo(aco_opcode::p_unit_test, inputs[1], inputs[2]);
+ 
+    finish_ra_test(ra_test_policy());
+@@ -138,8 +138,8 @@ BEGIN_TEST(regalloc.precolor.vgpr_move)
+    if (!setup_cs("v1 v1", GFX10))
+       return;
+ 
+-   //! v1: %tmp1_2:v[0], v1: %tmp0_2:v[#t0] = p_parallelcopy %tmp1:v[1], %tmp0:v[0]
+-   //! p_unit_test %tmp0_2:v[#t0], %tmp1_2:v[0]
++   //! v1: %tmp1_2:v[0], v1: %tmp0_2:v[1] = p_parallelcopy %tmp1:v[1], %tmp0:v[0]
++   //! p_unit_test %tmp0_2:v[1], %tmp1_2:v[0]
+    bld.pseudo(aco_opcode::p_unit_test, inputs[0], Operand(inputs[1], PhysReg(256)));
+ 
+    finish_ra_test(ra_test_policy());
+@@ -265,9 +265,9 @@ BEGIN_TEST(regalloc.vinterp_fp16)
+       bld.vinterp_inreg(aco_opcode::v_interp_p10_f16_f32_inreg, bld.def(v1), lo, inputs[1], hi);
+    bld.pseudo(aco_opcode::p_unit_test, tmp0);
+ 
+-   //! v2b: %tmp1:v[#r][16:32] = v_interp_p2_f16_f32_inreg %in0:v[0], %in2:v[2], %tmp0:v[1] opsel_hi
+-   //! v1: %tmp2:v[#r] = p_create_vector 0, %tmp1:v[#r][16:32]
+-   //! p_unit_test %tmp2:v[#r]
++   //! v2b: %tmp1:v[0][16:32] = v_interp_p2_f16_f32_inreg %in0:v[0], %in2:v[2], %tmp0:v[1] opsel_hi
++   //! v1: %tmp2:v[0] = p_create_vector 0, %tmp1:v[0][16:32]
++   //! p_unit_test %tmp2:v[0]
+    Temp tmp1 = bld.vinterp_inreg(aco_opcode::v_interp_p2_f16_f32_inreg, bld.def(v2b), inputs[0],
+                                  inputs[2], tmp0);
+    Temp tmp2 = bld.pseudo(aco_opcode::p_create_vector, bld.def(v1), Operand::zero(2), tmp1);
+@@ -284,11 +284,11 @@ BEGIN_TEST(regalloc.writelane)
+    //! s1: %tmp:m0 = p_parallelcopy %int3:s[2]
+    Temp tmp = bld.copy(bld.def(s1, m0), inputs[3]);
+ 
+-   //! s1: %in1_2:m0,  s1: %tmp_2:s[#t2] = p_parallelcopy %in1:s[0], %tmp:m0
++   //! s1: %in1_2:m0,  s1: %tmp_2:s[0] = p_parallelcopy %in1:s[0], %tmp:m0
+    //! v1: %tmp2:v[0] = v_writelane_b32_e64 %in1_2:m0, %in2:s[1], %in0:v[0]
+    Temp tmp2 = bld.writelane(bld.def(v1), inputs[1], inputs[2], inputs[0]);
+ 
+-   //! p_unit_test %tmp_2:s[#t2], %tmp2:v[0]
++   //! p_unit_test %tmp_2:s[0], %tmp2:v[0]
+    bld.pseudo(aco_opcode::p_unit_test, tmp, tmp2);
+ 
+    finish_ra_test(ra_test_policy());
+-- 
+2.45.2
+

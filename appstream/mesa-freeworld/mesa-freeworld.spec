@@ -1,4 +1,6 @@
 %global srcname mesa
+%global _default_patch_fuzz 2
+
 %global _description These drivers contains video acceleration codecs for decoding/encoding H.264 and H.265 \
 algorithms and decoding only VC1 algorithm.
 %ifnarch s390x
@@ -70,10 +72,10 @@ algorithms and decoding only VC1 algorithm.
 
 Name:           %{srcname}-freeworld
 Summary:        Mesa graphics libraries
-%global ver 24.3.1
+%global ver 24.3.2
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
-Release:        1%{?dist}
-License:        MIT
+Release:        6%{?dist}
+License:        MIT AND BSD-3-Clause AND SGI-B-2.0
 URL:            http://www.mesa3d.org
 
 Source0:        https://archive.mesa3d.org/%{srcname}-%{ver}.tar.xz
@@ -83,6 +85,11 @@ Source0:        https://archive.mesa3d.org/%{srcname}-%{ver}.tar.xz
 Source1:        Mesa-MLAA-License-Clarification-Email.txt
 Source2:        org.mesa3d.vaapi.freeworld.metainfo.xml
 Source3:        org.mesa3d.vdpau.freeworld.metainfo.xml
+
+Patch10:        gnome-shell-glthread-disable.patch
+
+# https://gitlab.freedesktop.org/mesa/mesa/-/issues/11480
+Patch11:        0001-Revert-c452a4d-https-gitlab.freedesktop.org-mesa-mes.patch
 
 BuildRequires:  meson >= 1.3.0
 BuildRequires:  gcc
@@ -94,7 +101,7 @@ BuildRequires:  kernel-headers
 # We only check for the minimum version of pkgconfig(libdrm) needed so that the
 # SRPMs for each arch still have the same build dependencies. See:
 # https://bugzilla.redhat.com/show_bug.cgi?id=1859515
-BuildRequires:  pkgconfig(libdrm) >= 2.4.97
+BuildRequires:  pkgconfig(libdrm) >= 2.4.122
 %if 0%{?with_libunwind}
 BuildRequires:  pkgconfig(libunwind)
 %endif
@@ -103,7 +110,7 @@ BuildRequires:  pkgconfig(zlib) >= 1.2.3
 BuildRequires:  pkgconfig(libzstd)
 BuildRequires:  pkgconfig(libselinux)
 BuildRequires:  pkgconfig(wayland-scanner)
-BuildRequires:  pkgconfig(wayland-protocols) >= 1.8
+BuildRequires:  pkgconfig(wayland-protocols) >= 1.34
 BuildRequires:  pkgconfig(wayland-client) >= 1.11
 BuildRequires:  pkgconfig(wayland-server) >= 1.11
 BuildRequires:  pkgconfig(wayland-egl-backend) >= 3
@@ -184,11 +191,27 @@ BuildRequires:  pkgconfig(vulkan)
 %description
 %{_description}
 
+%package -n %{srcname}-libgallium-freeworld
+Summary:        Mesa-based libgallium driver
+Requires:       %{srcname}-filesystem%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
+Requires:       %{srcname}-libglapi%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
+%if 0%{?with_va}
+Recommends:     %{srcname}-va-drivers%{?_isa}
+%endif
+Provides:       %{srcname}-libgallium%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
+Provides:       %{srcname}-libgallium-freeworld%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
+Conflicts:      %{srcname}-libgallium
+
+%description  -n %{srcname}-libgallium-freeworld
+%{summary}.
+
 %if 0%{?with_va}
 %package        -n %{srcname}-va-drivers-freeworld
 Summary:        Mesa-based VA-API drivers
 Requires:       %{srcname}-filesystem%{?_isa} = %{?epoch:%{epoch}:}%{version}
-Obsoletes:      %{srcname}-va-drivers
+Requires:       %{srcname}-libgallium-freeworld%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
+
+Conflicts:      %{srcname}-va-drivers%{?_isa}
 
 %description    -n %{srcname}-va-drivers-freeworld
 %{_description}
@@ -198,7 +221,9 @@ Obsoletes:      %{srcname}-va-drivers
 %package        -n %{srcname}-vdpau-drivers-freeworld
 Summary:        Mesa-based VDPAU drivers
 Requires:       %{srcname}-filesystem%{?_isa} = %{?epoch:%{epoch}:}%{version}
-Obsoletes:      %{srcname}-vdpau-drivers
+Requires:       %{srcname}-libgallium-freeworld%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
+
+Conflicts:      %{srcname}-vdpau-drivers%{?_isa}
 
 %description 	-n %{srcname}-vdpau-drivers-freeworld
 %{_description}
@@ -217,10 +242,6 @@ export RUSTFLAGS="%build_rustflags"
 %define _lto_cflags %{nil}
 
 %meson \
-  --libdir=%{_libdir}/dri-freeworld \
-  -Dvdpau-libs-path=%{_libdir}/vdpau \
-  -Ddri-drivers-path=%{_libdir}/dri-freeworld \
-  -Dva-libs-path=%{_libdir}/dri-freeworld \
   -Dplatforms=x11,wayland \
   -Dosmesa=false \
 %if 0%{?with_hardware}
@@ -241,13 +262,13 @@ export RUSTFLAGS="%build_rustflags"
   -Dvulkan-drivers=%{?vulkan_drivers} \
   -Dvulkan-layers=device-select \
   -Dshared-glapi=enabled \
-  -Dgles1=disabled \
-  -Dgles2=disabled \
+  -Dgles1=enabled \
+  -Dgles2=enabled \
   -Dopengl=true \
-  -Dgbm=disabled \
+  -Dgbm=enabled \
   -Dglx=dri \
-  -Degl=disabled \
-  -Dglvnd=false \
+  -Degl=enabled \
+  -Dglvnd=enabled \
 %if 0%{?with_intel_clc}
   -Dintel-clc=enabled \
 %endif
@@ -256,8 +277,8 @@ export RUSTFLAGS="%build_rustflags"
   -Dllvm=enabled \
   -Dshared-llvm=enabled \
   -Dvalgrind=%{?with_valgrind:enabled}%{!?with_valgrind:disabled} \
+  -Dxlib-lease=enabled \
   -Dbuild-tests=false \
-  -Dselinux=true \
 %if !0%{?with_libunwind}
   -Dlibunwind=disabled \
 %endif
@@ -300,34 +321,38 @@ popd
 
 # strip unneeded files from va-api and vdpau
 rm -rf %{buildroot}%{_datadir}/{drirc.d,glvnd,vulkan}
-rm -rf %{buildroot}%{_libdir}{,/dri-freeworld}/{d3d,EGL,gallium-pipe,libGLX,pkgconfig}
+rm -rf %{buildroot}%{_libdir}{,/dri}/{d3d,EGL,gallium-pipe,libGLX,pkgconfig}
 rm -rf %{buildroot}%{_includedir}/{d3dadapter,EGL,GL,KHR}
 rm -fr %{buildroot}%{_sysconfdir}/OpenGL
-rm -fr %{buildroot}%{_libdir}{,/dri-freeworld}/libGL.so*
-rm -fr %{buildroot}%{_libdir}/libgallium-*.so
-rm -fr %{buildroot}%{_libdir}{,/dri-freeworld}/libglapi.so*
+rm -fr %{buildroot}%{_libdir}{,/dri}/libGL.so*
+rm -fr %{buildroot}%{_libdir}{,/dri}/libglapi.so*
 rm -fr %{buildroot}%{_libdir}/libOSMesa.so*
 rm -fr %{buildroot}%{_libdir}/pkgconfig/osmesa.pc
 rm -fr %{buildroot}%{_libdir}/libgbm.so*
 rm -fr %{buildroot}%{_includedir}/gbm.h
-rm -fr %{buildroot}%{_libdir}{,/dri-freeworld}/libxatracker.so*
+rm -fr %{buildroot}%{_libdir}{,/dri}/libxatracker.so*
 rm -fr %{buildroot}%{_includedir}/xa_*.h
 rm -fr %{buildroot}%{_libdir}/libMesaOpenCL.so*
 rm -fr %{buildroot}%{_libdir}/dri/*_dri.so
 rm -fr %{buildroot}%{_libdir}/libvulkan*.so
-rm -fr %{buildroot}%{_libdir}{,/dri-freeworld}/libVkLayer_MESA_device_select.so
+rm -fr %{buildroot}%{_libdir}{,/dri}/libVkLayer_MESA_device_select.so
+rm -fr %{buildroot}%{_includedir}/GLES*
+rm -fr %{buildroot}%{_libdir}{,/dri}/libGLES*
+rm -fr %{buildroot}%{_libdir}{,/dri}/libGLESv2*
+rm -fr %{buildroot}%{_libdir}/gbm
+rm -fr %{buildroot}%{_libdir}/libEGL*
+rm -fr %{buildroot}%{_libdir}/libGLX*
 
 %if 0%{?with_va}
 %files -n %{srcname}-va-drivers-freeworld
-%{_libdir}/dri-freeworld/libgallium-%{version}.so
-%{_libdir}/dri-freeworld/nouveau_drv_video.so
+%{_libdir}/dri/nouveau_drv_video.so
 %if 0%{?with_r600}
-%{_libdir}/dri-freeworld/r600_drv_video.so
+%{_libdir}/dri/r600_drv_video.so
 %endif
 %if 0%{?with_radeonsi}
-%{_libdir}/dri-freeworld/radeonsi_drv_video.so
+%{_libdir}/dri/radeonsi_drv_video.so
 %endif
-%{_libdir}/dri-freeworld/virtio_gpu_drv_video.so
+%{_libdir}/dri/virtio_gpu_drv_video.so
 %{_metainfodir}/org.mesa3d.vaapi.freeworld.metainfo.xml
 %license docs/license.rst
 %endif
@@ -346,7 +371,42 @@ rm -fr %{buildroot}%{_libdir}{,/dri-freeworld}/libVkLayer_MESA_device_select.so
 %license docs/license.rst
 %endif
 
+%files -n %{srcname}-libgallium-freeworld
+%{_libdir}/libgallium-*.so
+
 %changelog
+* Fri Dec 20 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.3.2-1
+- Update to 24.3.2
+
+* Thu Dec 05 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.3.1-1
+- Update to 24.3.1
+
+* Fri Nov 22 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.3.0-1
+- Update to 24.3.0
+
+* Thu Nov 14 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.3.0~rc2-1
+- Update to 24.3.0-rc2
+
+* Tue Nov 12 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.3.0~rc1-1
+- Update to 24.3.0-rc1
+- Drop unneeded omx support
+
+* Thu Oct 31 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.2.6-1
+- Update to 24.2.6
+
+* Mon Oct 28 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.2.5-1
+- Update to 24.2.5
+
+* Fri Oct 04 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.2.4-1
+- Update to 24.2.4
+- drop 0001-gallium-Don-t-pass-avx512er-and-avx512pf-features-on.patch
+
+* Sun Sep 29 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.2.3-5
+- rebuild for -Ehuman-not-enough-tee-error
+
+* Sun Sep 29 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.2.3-4
+- add 0001-gallium-Don-t-pass-avx512er-and-avx512pf-features-on.patch
+
 * Wed Sep 25 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.2.3-3
 - temporarily require llvm 19 for Fedora 41 and up
 
