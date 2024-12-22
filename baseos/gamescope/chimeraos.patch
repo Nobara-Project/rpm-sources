@@ -1,7 +1,7 @@
 From be5ec6fbb52964bd5f2e9e3261d520e73b2b20ea Mon Sep 17 00:00:00 2001
 From: Matthew Anderson <ruinairas1992@gmail.com>
 Date: Fri, 17 May 2024 19:43:49 -0500
-Subject: [PATCH 01/18] Add touch-gestures to open up Steam menus
+Subject: [PATCH 01/19] Add touch-gestures to open up Steam menus
 
 ---
  src/main.cpp     |  5 +++++
@@ -98,12 +98,13 @@ index 0569472..3304c18 100644
  void wlserver_open_steam_menu( bool qam );
  
 -- 
-2.47.0
+2.47.1
+
 
 From a90799dbad065c6933796f1708b245b561924159 Mon Sep 17 00:00:00 2001
 From: Matthew Anderson <ruinairas1992@gmail.com>
 Date: Wed, 26 Jul 2023 20:46:29 -0500
-Subject: [PATCH 02/18] Add force external orientation.
+Subject: [PATCH 02/19] Add force external orientation.
 
 Co-authored-by: Bouke Sybren Haarsma <boukehaarsma23@gmail.com>
 ---
@@ -247,12 +248,13 @@ index ceeef24..62876c2 100644
  	*y = ty;
  }
 -- 
-2.47.0
+2.47.1
+
 
 From 52d9d35a13ae8bad66be47da89d00353c60a1638 Mon Sep 17 00:00:00 2001
 From: Bouke Sybren Haarsma <boukehaarsma23@gmail.com>
 Date: Tue, 12 Mar 2024 00:07:57 +0100
-Subject: [PATCH 03/18] implement force-panel-type
+Subject: [PATCH 03/19] implement force-panel-type
 
 ---
  src/backend.h          |  3 +++
@@ -342,12 +344,13 @@ index 0601469..58e273f 100644
  						   strcmp(opt_name, "fsr-sharpness") == 0) {
  					g_upscaleFilterSharpness = atoi( optarg );
 -- 
-2.47.0
+2.47.1
+
 
 From 1aaf1a1ed46195d564c80c7d56251f09fde53aef Mon Sep 17 00:00:00 2001
 From: Matthew Anderson <ruinairas1992@gmail.com>
 Date: Fri, 17 May 2024 21:11:34 -0500
-Subject: [PATCH 04/18] wlserver: Fix an issue that would cause gamescope to
+Subject: [PATCH 04/19] wlserver: Fix an issue that would cause gamescope to
  crash when the touchscreen was used
 
 ---
@@ -389,12 +392,13 @@ index 62876c2..ceeef24 100644
  	*y = ty;
  }
 -- 
-2.47.0
+2.47.1
+
 
 From 94e77c7f51ba1fd84d9f4fcccefefe6ad9fc8ae5 Mon Sep 17 00:00:00 2001
 From: Matthew Anderson <ruinairas1992@gmail.com>
 Date: Fri, 17 May 2024 21:56:55 -0500
-Subject: [PATCH 05/18] Add --custom-refresh-rates
+Subject: [PATCH 05/19] Add --custom-refresh-rates
 
 ---
  src/Backends/DRMBackend.cpp |  6 ++++++
@@ -503,12 +507,13 @@ index ebd018a..4e09e3b 100644
  enum class GamescopeUpscaleFilter : uint32_t
  {
 -- 
-2.47.0
+2.47.1
+
 
 From bf90ce80d7130c7dd23da5eb6086ca3452a33b6e Mon Sep 17 00:00:00 2001
 From: Matthew Anderson <ruinairas1992@gmail.com>
 Date: Sat, 18 May 2024 08:44:38 -0500
-Subject: [PATCH 06/18] Add rotation gamescope_control command
+Subject: [PATCH 06/19] Add rotation gamescope_control command
 
 ---
  protocol/gamescope-control.xml | 18 ++++++++++++
@@ -691,12 +696,13 @@ index ceeef24..e386765 100644
  
  static uint32_t get_conn_display_info_flags()
 -- 
-2.47.0
+2.47.1
+
 
 From ae730c5a1607c35c7283722f018811387c35b130 Mon Sep 17 00:00:00 2001
 From: Matthew Anderson <ruinairas1992@gmail.com>
 Date: Sat, 18 May 2024 11:54:50 -0500
-Subject: [PATCH 07/18] Fix an issue that caused force-panel to not work
+Subject: [PATCH 07/19] Fix an issue that caused force-panel to not work
 
 ---
  protocol/gamescope-control.xml |   1 -
@@ -908,12 +914,13 @@ index e386765..a3af652 100644
  
  void wlserver_touchmotion( double x, double y, int touch_id, uint32_t time, bool bAlwaysWarpCursor )
 -- 
-2.47.0
+2.47.1
+
 
 From 8963506cccfa1f3ed21ac53def17cf7402be4d45 Mon Sep 17 00:00:00 2001
 From: Matthew Anderson <ruinairas1992@gmail.com>
 Date: Sat, 18 May 2024 13:50:57 -0500
-Subject: [PATCH 08/18] Fix an arithmetic error
+Subject: [PATCH 08/19] Fix an arithmetic error
 
 ---
  src/Backends/DRMBackend.cpp | 6 +++---
@@ -937,12 +944,13 @@ index 7c88818..477d141 100644
  			m_ChosenOrientation = g_DesiredInternalOrientation;
  		}
 -- 
-2.47.0
+2.47.1
+
 
 From c32a4db47878b61298384771d9cbace8e1562c36 Mon Sep 17 00:00:00 2001
 From: Matthew Anderson <ruinairas1992@gmail.com>
 Date: Sat, 18 May 2024 19:04:48 -0500
-Subject: [PATCH 09/18] Rework the touch gestures to be more smooth
+Subject: [PATCH 09/19] Rework the touch gestures to be more smooth
 
 ---
  src/wlserver.cpp | 89 +++++++++++++++++++++++++++++++++++++-----------
@@ -1069,12 +1077,13 @@ index a3af652..a240871 100644
  		else if ( eMode == gamescope::TouchClickModes::Disabled )
  		{
 -- 
-2.47.0
+2.47.1
+
 
 From 068d28042c1f768f53cd0dc64d091b8342024d1f Mon Sep 17 00:00:00 2001
 From: Matthew Anderson <ruinairas1992@gmail.com>
 Date: Sun, 19 May 2024 11:48:52 -0500
-Subject: [PATCH 10/18] Handle gesture cases better to prevent unexpected
+Subject: [PATCH 10/19] Handle gesture cases better to prevent unexpected
  behavior
 
 ---
@@ -1188,12 +1197,13 @@ index a240871..3837c84 100644
  		}
  		else if ( eMode == gamescope::TouchClickModes::Disabled )
 -- 
-2.47.0
+2.47.1
+
 
 From 880d048fd51ddbe8d4d6bae750640385792adcba Mon Sep 17 00:00:00 2001
 From: Matthew Anderson <ruinairas1992@gmail.com>
 Date: Sun, 19 May 2024 18:14:23 -0500
-Subject: [PATCH 11/18] Add references to drm_set_orientation() and g_drm in
+Subject: [PATCH 11/19] Add references to drm_set_orientation() and g_drm in
  wlserver for rotation gamescope-control
 
 ---
@@ -1232,12 +1242,13 @@ index 3304c18..0754ee5 100644
  void wlserver_destroy_xwayland_server(gamescope_xwayland_server_t *server);
  
 -- 
-2.47.0
+2.47.1
+
 
 From bbf77117ca4d866cf745334630c6d6d3c44d892a Mon Sep 17 00:00:00 2001
 From: Matthew Anderson <ruinairas1992@gmail.com>
 Date: Mon, 20 May 2024 07:02:52 -0500
-Subject: [PATCH 12/18] Fix an issue where forced panel type orientations
+Subject: [PATCH 12/19] Fix an issue where forced panel type orientations
  weren't being applied
 
 ---
@@ -1292,12 +1303,13 @@ index 477d141..5967794 100644
  			}
  		}
 -- 
-2.47.0
+2.47.1
+
 
 From 9ebad0d78422611b5fdb7270f9128ea620668da2 Mon Sep 17 00:00:00 2001
 From: Matthew Anderson <ruinairas1992@gmail.com>
 Date: Mon, 20 May 2024 07:25:29 -0500
-Subject: [PATCH 13/18] add missing curly bracket...
+Subject: [PATCH 13/19] add missing curly bracket...
 
 ---
  src/Backends/DRMBackend.cpp | 2 +-
@@ -1317,12 +1329,13 @@ index 5967794..3bf69dc 100644
  		} else if (this->GetScreenType() == GAMESCOPE_SCREEN_TYPE_EXTERNAL && g_DesiredExternalOrientation != GAMESCOPE_PANEL_ORIENTATION_AUTO) {
  			drm_log.infof("We are rotating the orientation of an external display");
 -- 
-2.47.0
+2.47.1
+
 
 From 73f8184fc7a2ed01683d624c0202cdd1ede89a8f Mon Sep 17 00:00:00 2001
 From: Matthew Anderson <ruinairas1992@gmail.com>
 Date: Mon, 20 May 2024 10:17:55 -0500
-Subject: [PATCH 14/18] Fix case where real externals were rotated with faked
+Subject: [PATCH 14/19] Fix case where real externals were rotated with faked
  external panels
 
 ---
@@ -1459,12 +1472,13 @@ index 13ea8b5..8b9201c 100644
      else if (g_ForcedScreenType == gamescope::GAMESCOPE_SCREEN_TYPE_AUTO)
      {
 -- 
-2.47.0
+2.47.1
+
 
 From e0edcdb13d81fb822b748b4d6ac03183c828059d Mon Sep 17 00:00:00 2001
 From: Matthew Anderson <ruinairas1992@gmail.com>
 Date: Mon, 20 May 2024 16:30:47 -0500
-Subject: [PATCH 15/18] Add verbose panel logs and attempt to address all
+Subject: [PATCH 15/19] Add verbose panel logs and attempt to address all
  orientation issues
 
 ---
@@ -1589,12 +1603,13 @@ index 0754ee5..bdf3b0b 100644
  void wlserver_destroy_xwayland_server(gamescope_xwayland_server_t *server);
  
 -- 
-2.47.0
+2.47.1
+
 
 From 85c2c680332247440c74080af69a02ea6fda7675 Mon Sep 17 00:00:00 2001
 From: Bouke Sybren Haarsma <boukehaarsma23@gmail.com>
 Date: Tue, 28 May 2024 21:56:47 +0200
-Subject: [PATCH 16/18] add closing bracket
+Subject: [PATCH 16/19] add closing bracket
 
 ---
  src/main.cpp | 1 +
@@ -1613,12 +1628,13 @@ index 14eb513..4493b92 100644
  std::vector<uint32_t> g_customRefreshRates;
  // eg: 60,60,90,110-120
 -- 
-2.47.0
+2.47.1
+
 
 From da32b357fc0b580fcefcd8453979df739cd86390 Mon Sep 17 00:00:00 2001
 From: Bouke Sybren Haarsma <boukehaarsma23@gmail.com>
 Date: Wed, 3 Jan 2024 17:03:04 +0100
-Subject: [PATCH 17/18] remove hacky texture
+Subject: [PATCH 17/19] remove hacky texture
 
 This will use more hardware planes, causing some devices to composite yeilding lower framerates
 ---
@@ -1809,12 +1825,13 @@ index 11a7cad..0b0d17f 100644
  }
  
 -- 
-2.47.0
+2.47.1
+
 
 From 426fc5865a5a00339ab17bf006fddcca8a68675f Mon Sep 17 00:00:00 2001
 From: Alesh Slovak <alesh@playtron.one>
 Date: Thu, 26 Sep 2024 07:13:24 -0400
-Subject: [PATCH 18/18] Revert "steamcompmgr: Move outdatedInteractiveFocus to
+Subject: [PATCH 18/19] Revert "steamcompmgr: Move outdatedInteractiveFocus to
  window"
 
 This reverts commit 299bc3410dcfd46da5e3c988354b60ed3a356900.
@@ -1901,5 +1918,497 @@ index 095694e..e41fad9 100644
  	bool hasHwndStyle = false;
  	uint32_t hwndStyle = 0;
 -- 
-2.47.0
+2.47.1
+
+
+From 09ce67db0d5806e0535b1d7d11e69a53ef21c517 Mon Sep 17 00:00:00 2001
+From: Joshua Tam <297250+joshuatam@users.noreply.github.com>
+Date: Fri, 6 Dec 2024 16:31:48 +0800
+Subject: [PATCH 19/19] feature: add rotation shader for rotating output
+
+---
+ src/Backends/DRMBackend.cpp  |  26 +++++++-
+ src/main.cpp                 |   6 ++
+ src/main.hpp                 |   1 +
+ src/meson.build              |   1 +
+ src/rendervulkan.cpp         | 126 ++++++++++++++++++++++++++++++-----
+ src/rendervulkan.hpp         |   6 +-
+ src/shaders/cs_rotation.comp |  53 +++++++++++++++
+ src/wlserver.cpp             |   5 ++
+ 8 files changed, 205 insertions(+), 19 deletions(-)
+ create mode 100644 src/shaders/cs_rotation.comp
+
+diff --git a/src/Backends/DRMBackend.cpp b/src/Backends/DRMBackend.cpp
+index 89b2802..4f859cb 100644
+--- a/src/Backends/DRMBackend.cpp
++++ b/src/Backends/DRMBackend.cpp
+@@ -1742,7 +1742,7 @@ LiftoffStateCacheEntry FrameInfoToLiftoffStateCacheEntry( struct drm_t *drm, con
+ 		uint64_t crtcW = srcWidth / frameInfo->layers[ i ].scale.x;
+ 		uint64_t crtcH = srcHeight / frameInfo->layers[ i ].scale.y;
+ 
+-		if (g_bRotated)
++		if (g_bRotated && !g_bUseRotationShader)
+ 		{
+ 			int64_t imageH = frameInfo->layers[ i ].tex->contentHeight() / frameInfo->layers[ i ].scale.y;
+ 
+@@ -2035,6 +2035,16 @@ namespace gamescope
+ 
+ 	void CDRMConnector::UpdateEffectiveOrientation( const drmModeModeInfo *pMode )
+ 	{
++		if (g_bUseRotationShader)
++		{
++			drm_log.infof("Using rotation shader");
++			if (g_DesiredInternalOrientation == GAMESCOPE_PANEL_ORIENTATION_270) {
++				m_ChosenOrientation = GAMESCOPE_PANEL_ORIENTATION_180;
++			} else {
++				m_ChosenOrientation = GAMESCOPE_PANEL_ORIENTATION_0;
++			}
++			return;
++		}
+ 
+ 		if ( this->GetScreenType() == GAMESCOPE_SCREEN_TYPE_EXTERNAL && panelTypeChanged )
+ 			drm_log.infof("Display is internal faked as external");
+@@ -3052,6 +3062,13 @@ bool drm_set_mode( struct drm_t *drm, const drmModeModeInfo *mode )
+ 		g_bRotated = false;
+ 		g_nOutputWidth = mode->hdisplay;
+ 		g_nOutputHeight = mode->vdisplay;
++
++		if (g_bUseRotationShader) {
++			g_bRotated = true;
++			g_nOutputWidth = mode->vdisplay;
++			g_nOutputHeight = mode->hdisplay;
++		}
++
+ 		break;
+ 	case GAMESCOPE_PANEL_ORIENTATION_90:
+ 	case GAMESCOPE_PANEL_ORIENTATION_270:
+@@ -3311,6 +3328,11 @@ namespace gamescope
+ 
+ 			bNeedsFullComposite |= !!(g_uCompositeDebug & CompositeDebugFlag::Heatmap);
+ 
++			if (g_bUseRotationShader)
++			{
++				bNeedsFullComposite = true;
++			}
++
+ 			bool bDoComposite = true;
+ 			if ( !bNeedsFullComposite && !bWantsPartialComposite )
+ 			{
+@@ -3401,7 +3423,7 @@ namespace gamescope
+ 			if ( bDefer && !!( g_uCompositeDebug & CompositeDebugFlag::Markers ) )
+ 				g_uCompositeDebug |= CompositeDebugFlag::Markers_Partial;
+ 
+-			std::optional oCompositeResult = vulkan_composite( &compositeFrameInfo, nullptr, !bNeedsFullComposite );
++			std::optional oCompositeResult = vulkan_composite( &compositeFrameInfo, nullptr, !bNeedsFullComposite, nullptr, true, nullptr, g_bUseRotationShader );
+ 
+ 			m_bWasCompositing = true;
+ 
+diff --git a/src/main.cpp b/src/main.cpp
+index 4493b92..d90c14c 100644
+--- a/src/main.cpp
++++ b/src/main.cpp
+@@ -129,6 +129,7 @@ const struct option *gamescope_options = (struct option[]){
+ 	{ "composite-debug", no_argument, nullptr, 0 },
+ 	{ "disable-xres", no_argument, nullptr, 'x' },
+ 	{ "fade-out-duration", required_argument, nullptr, 0 },
++	{ "use-rotation-shader", required_argument, nullptr, 0 },
+ 	{ "force-orientation", required_argument, nullptr, 0 },
+ 	{ "force-external-orientation", required_argument, nullptr, 0 },
+ 	{ "force-panel-type", required_argument, nullptr, 0 },
+@@ -194,6 +195,7 @@ const char usage[] =
+ 	"  --touch-gestures               enable touch gestures for Steam menus\n"
+ 	"  --xwayland-count               create N xwayland servers\n"
+ 	"  --prefer-vk-device             prefer Vulkan device for compositing (ex: 1002:7300)\n"
++	"  --use-rotation-shader		  use rotation shader for rotating the screen\n"
+ 	"  --force-orientation            rotate the internal display (left, right, normal, upsidedown)\n"
+ 	"  --force-external-orientation   rotate the external display (left, right, normal, upsidedown)\n"
+ 	"  --force-panel-type             force gamescope to treat the display as either internal or external\n"
+@@ -356,6 +358,8 @@ static gamescope::GamescopeModeGeneration parse_gamescope_mode_generation( const
+ 	}
+ }
+ 
++bool g_bUseRotationShader = false;
++
+ GamescopePanelOrientation g_DesiredInternalOrientation = GAMESCOPE_PANEL_ORIENTATION_AUTO;
+ static GamescopePanelOrientation force_orientation(const char *str)
+ {
+@@ -813,6 +817,8 @@ int main(int argc, char **argv)
+ 					gamescope::cv_touch_click_mode = (gamescope::TouchClickMode) atoi( optarg );
+ 				} else if (strcmp(opt_name, "generate-drm-mode") == 0) {
+ 					g_eGamescopeModeGeneration = parse_gamescope_mode_generation( optarg );
++				} else if (strcmp(opt_name, "use-rotation-shader") == 0) {
++					g_bUseRotationShader = true;
+ 				} else if (strcmp(opt_name, "force-orientation") == 0) {
+ 					g_DesiredInternalOrientation = force_orientation( optarg );
+ 				} else if (strcmp(opt_name, "force-external-orientation") == 0) {
+diff --git a/src/main.hpp b/src/main.hpp
+index 4e09e3b..584321d 100644
+--- a/src/main.hpp
++++ b/src/main.hpp
+@@ -22,6 +22,7 @@ extern bool g_bForceRelativeMouse;
+ extern int g_nOutputRefresh; // mHz
+ extern bool g_bOutputHDREnabled;
+ extern bool g_bForceInternal;
++extern bool g_bUseRotationShader;
+ 
+ extern bool g_bFullscreen;
+ 
+diff --git a/src/meson.build b/src/meson.build
+index 74fc033..d4ff3ea 100644
+--- a/src/meson.build
++++ b/src/meson.build
+@@ -70,6 +70,7 @@ shader_src = [
+   'shaders/cs_nis.comp',
+   'shaders/cs_nis_fp16.comp',
+   'shaders/cs_rgb_to_nv12.comp',
++  'shaders/cs_rotation.comp',
+ ]
+ 
+ spirv_shaders = glsl_generator.process(shader_src)
+diff --git a/src/rendervulkan.cpp b/src/rendervulkan.cpp
+index 54d7608..10d6c78 100644
+--- a/src/rendervulkan.cpp
++++ b/src/rendervulkan.cpp
+@@ -48,6 +48,7 @@
+ #include "cs_nis.h"
+ #include "cs_nis_fp16.h"
+ #include "cs_rgb_to_nv12.h"
++#include "cs_rotation.h"
+ 
+ #define A_CPU
+ #include "shaders/ffx_a.h"
+@@ -898,6 +899,7 @@ bool CVulkanDevice::createShaders()
+ 		SHADER(NIS, cs_nis);
+ 	}
+ 	SHADER(RGB_TO_NV12, cs_rgb_to_nv12);
++	SHADER(ROTATION, cs_rotation);
+ #undef SHADER
+ 
+ 	for (uint32_t i = 0; i < shaderInfos.size(); i++)
+@@ -1128,6 +1130,7 @@ void CVulkanDevice::compileAllPipelines()
+ 	SHADER(EASU, 1, 1, 1);
+ 	SHADER(NIS, 1, 1, 1);
+ 	SHADER(RGB_TO_NV12, 1, 1, 1);
++	SHADER(ROTATION, k_nMaxLayers, k_nMaxYcbcrMask_ToPreCompile, k_nMaxBlurLayers);
+ #undef SHADER
+ 
+ 	for (auto& info : pipelineInfos) {
+@@ -3214,8 +3217,16 @@ static bool vulkan_make_output_images( VulkanOutput_t *pOutput )
+ 
+ 	uint32_t uDRMFormat = pOutput->uOutputFormat;
+ 
++	uint32_t l_nOutputWidth = g_nOutputWidth;
++	uint32_t l_nOutputHeight = g_nOutputHeight;
++
++	if (g_bUseRotationShader) {
++		l_nOutputWidth = g_nOutputHeight;
++		l_nOutputHeight = g_nOutputWidth;
++	}
++
+ 	pOutput->outputImages[0] = new CVulkanTexture();
+-	bool bSuccess = pOutput->outputImages[0]->BInit( g_nOutputWidth, g_nOutputHeight, 1u, uDRMFormat, outputImageflags );
++	bool bSuccess = pOutput->outputImages[0]->BInit( l_nOutputWidth, l_nOutputHeight, 1u, uDRMFormat, outputImageflags );
+ 	if ( bSuccess != true )
+ 	{
+ 		vk_log.errorf( "failed to allocate buffer for KMS" );
+@@ -3223,7 +3234,7 @@ static bool vulkan_make_output_images( VulkanOutput_t *pOutput )
+ 	}
+ 
+ 	pOutput->outputImages[1] = new CVulkanTexture();
+-	bSuccess = pOutput->outputImages[1]->BInit( g_nOutputWidth, g_nOutputHeight, 1u, uDRMFormat, outputImageflags );
++	bSuccess = pOutput->outputImages[1]->BInit( l_nOutputWidth, l_nOutputHeight, 1u, uDRMFormat, outputImageflags );
+ 	if ( bSuccess != true )
+ 	{
+ 		vk_log.errorf( "failed to allocate buffer for KMS" );
+@@ -3231,7 +3242,7 @@ static bool vulkan_make_output_images( VulkanOutput_t *pOutput )
+ 	}
+ 
+ 	pOutput->outputImages[2] = new CVulkanTexture();
+-	bSuccess = pOutput->outputImages[2]->BInit( g_nOutputWidth, g_nOutputHeight, 1u, uDRMFormat, outputImageflags );
++	bSuccess = pOutput->outputImages[2]->BInit( l_nOutputWidth, l_nOutputHeight, 1u, uDRMFormat, outputImageflags );
+ 	if ( bSuccess != true )
+ 	{
+ 		vk_log.errorf( "failed to allocate buffer for KMS" );
+@@ -3246,7 +3257,7 @@ static bool vulkan_make_output_images( VulkanOutput_t *pOutput )
+ 		uint32_t uPartialDRMFormat = pOutput->uOutputFormatOverlay;
+ 
+ 		pOutput->outputImagesPartialOverlay[0] = new CVulkanTexture();
+-		bool bSuccess = pOutput->outputImagesPartialOverlay[0]->BInit( g_nOutputWidth, g_nOutputHeight, 1u, uPartialDRMFormat, outputImageflags, nullptr, 0, 0, pOutput->outputImages[0].get() );
++		bool bSuccess = pOutput->outputImagesPartialOverlay[0]->BInit( l_nOutputWidth, l_nOutputHeight, 1u, uPartialDRMFormat, outputImageflags, nullptr, 0, 0, pOutput->outputImages[0].get() );
+ 		if ( bSuccess != true )
+ 		{
+ 			vk_log.errorf( "failed to allocate buffer for KMS" );
+@@ -3254,7 +3265,7 @@ static bool vulkan_make_output_images( VulkanOutput_t *pOutput )
+ 		}
+ 
+ 		pOutput->outputImagesPartialOverlay[1] = new CVulkanTexture();
+-		bSuccess = pOutput->outputImagesPartialOverlay[1]->BInit( g_nOutputWidth, g_nOutputHeight, 1u, uPartialDRMFormat, outputImageflags, nullptr, 0, 0, pOutput->outputImages[1].get() );
++		bSuccess = pOutput->outputImagesPartialOverlay[1]->BInit( l_nOutputWidth, l_nOutputHeight, 1u, uPartialDRMFormat, outputImageflags, nullptr, 0, 0, pOutput->outputImages[1].get() );
+ 		if ( bSuccess != true )
+ 		{
+ 			vk_log.errorf( "failed to allocate buffer for KMS" );
+@@ -3262,7 +3273,7 @@ static bool vulkan_make_output_images( VulkanOutput_t *pOutput )
+ 		}
+ 
+ 		pOutput->outputImagesPartialOverlay[2] = new CVulkanTexture();
+-		bSuccess = pOutput->outputImagesPartialOverlay[2]->BInit( g_nOutputWidth, g_nOutputHeight, 1u, uPartialDRMFormat, outputImageflags, nullptr, 0, 0, pOutput->outputImages[2].get() );
++		bSuccess = pOutput->outputImagesPartialOverlay[2]->BInit( l_nOutputWidth, l_nOutputHeight, 1u, uPartialDRMFormat, outputImageflags, nullptr, 0, 0, pOutput->outputImages[2].get() );
+ 		if ( bSuccess != true )
+ 		{
+ 			vk_log.errorf( "failed to allocate buffer for KMS" );
+@@ -3392,6 +3403,28 @@ static void update_tmp_images( uint32_t width, uint32_t height )
+ 	}
+ }
+ 
++static void update_rotated_images( uint32_t width, uint32_t height )
++{
++	if ( g_output.rotatedOutput != nullptr
++			&& width == g_output.rotatedOutput->width()
++			&& height == g_output.rotatedOutput->height() )
++	{
++		return;
++	}
++
++	CVulkanTexture::createFlags createFlags;
++	createFlags.bSampled = true;
++	createFlags.bStorage = true;
++
++	g_output.rotatedOutput = new CVulkanTexture();
++	bool bSuccess = g_output.rotatedOutput->BInit( width, height, 1u, DRM_FORMAT_ARGB8888, createFlags, nullptr );
++
++	if ( !bSuccess )
++	{
++		vk_log.errorf( "failed to create rotated output" );
++		return;
++	}
++}
+ 
+ static bool init_nis_data()
+ {
+@@ -3856,7 +3889,7 @@ std::optional<uint64_t> vulkan_screenshot( const struct FrameInfo_t *frameInfo,
+ extern std::string g_reshade_effect;
+ extern uint32_t g_reshade_technique_idx;
+ 
+-std::optional<uint64_t> vulkan_composite( struct FrameInfo_t *frameInfo, gamescope::Rc<CVulkanTexture> pPipewireTexture, bool partial, gamescope::Rc<CVulkanTexture> pOutputOverride, bool increment, std::unique_ptr<CVulkanCmdBuffer> pInCommandBuffer )
++std::optional<uint64_t> vulkan_composite( struct FrameInfo_t *frameInfo, gamescope::Rc<CVulkanTexture> pPipewireTexture, bool partial, gamescope::Rc<CVulkanTexture> pOutputOverride, bool increment, std::unique_ptr<CVulkanCmdBuffer> pInCommandBuffer, bool applyRotation )
+ {
+ 	EOTF outputTF = frameInfo->outputEncodingEOTF;
+ 	if (!frameInfo->applyOutputColorMgmt)
+@@ -3928,7 +3961,15 @@ std::optional<uint64_t> vulkan_composite( struct FrameInfo_t *frameInfo, gamesco
+ 		cmdBuffer->setTextureSrgb(0, true);
+ 		cmdBuffer->setSamplerUnnormalized(0, false);
+ 		cmdBuffer->setSamplerNearest(0, false);
+-		cmdBuffer->bindTarget(compositeImage);
++
++		if (applyRotation) {
++			// Make a rotatedOutput with normal dimensions
++			update_rotated_images(currentOutputWidth, currentOutputHeight); // 2560x1600
++			cmdBuffer->bindTarget(g_output.rotatedOutput);
++		} else {
++			cmdBuffer->bindTarget(compositeImage);
++		}
++
+ 		cmdBuffer->uploadConstants<RcasPushData_t>(frameInfo, g_upscaleFilterSharpness / 10.0f);
+ 
+ 		cmdBuffer->dispatch(div_roundup(currentOutputWidth, pixelsPerGroup), div_roundup(currentOutputHeight, pixelsPerGroup));
+@@ -3971,7 +4012,15 @@ std::optional<uint64_t> vulkan_composite( struct FrameInfo_t *frameInfo, gamesco
+ 
+ 		cmdBuffer->bindPipeline( g_device.pipeline(SHADER_TYPE_BLIT, nisFrameInfo.layerCount, nisFrameInfo.ycbcrMask(), 0u, nisFrameInfo.colorspaceMask(), outputTF ));
+ 		bind_all_layers(cmdBuffer.get(), &nisFrameInfo);
+-		cmdBuffer->bindTarget(compositeImage);
++
++		if (applyRotation) {
++			// Make a rotatedOutput with normal dimensions
++			update_rotated_images(currentOutputWidth, currentOutputHeight); // 2560x1600
++			cmdBuffer->bindTarget(g_output.rotatedOutput);
++		} else {
++			cmdBuffer->bindTarget(compositeImage);
++		}
++
+ 		cmdBuffer->uploadConstants<BlitPushData_t>(&nisFrameInfo);
+ 
+ 		int pixelsPerGroup = 8;
+@@ -4009,7 +4058,15 @@ std::optional<uint64_t> vulkan_composite( struct FrameInfo_t *frameInfo, gamesco
+ 		type = frameInfo->blurLayer0 == BLUR_MODE_COND ? SHADER_TYPE_BLUR_COND : SHADER_TYPE_BLUR;
+ 		cmdBuffer->bindPipeline(g_device.pipeline(type, frameInfo->layerCount, frameInfo->ycbcrMask(), blur_layer_count, frameInfo->colorspaceMask(), outputTF ));
+ 		bind_all_layers(cmdBuffer.get(), frameInfo);
+-		cmdBuffer->bindTarget(compositeImage);
++
++		if (applyRotation) {
++			// Make a rotatedOutput with normal dimensions
++			update_rotated_images(currentOutputWidth, currentOutputHeight); // 2560x1600
++			cmdBuffer->bindTarget(g_output.rotatedOutput);
++		} else {
++			cmdBuffer->bindTarget(compositeImage);
++		}
++
+ 		cmdBuffer->bindTexture(VKR_BLUR_EXTRA_SLOT, g_output.tmpOutput);
+ 		cmdBuffer->setTextureSrgb(VKR_BLUR_EXTRA_SLOT, !useSrgbView); // Inverted because it chooses whether to view as linear (sRGB view) or sRGB (raw view). It's horrible. I need to change it.
+ 		cmdBuffer->setSamplerUnnormalized(VKR_BLUR_EXTRA_SLOT, true);
+@@ -4019,14 +4076,51 @@ std::optional<uint64_t> vulkan_composite( struct FrameInfo_t *frameInfo, gamesco
+ 	}
+ 	else
+ 	{
+-		cmdBuffer->bindPipeline( g_device.pipeline(SHADER_TYPE_BLIT, frameInfo->layerCount, frameInfo->ycbcrMask(), 0u, frameInfo->colorspaceMask(), outputTF ));
+-		bind_all_layers(cmdBuffer.get(), frameInfo);
+-		cmdBuffer->bindTarget(compositeImage);
+-		cmdBuffer->uploadConstants<BlitPushData_t>(frameInfo);
++		if (applyRotation) {
++			cmdBuffer->bindPipeline( g_device.pipeline(SHADER_TYPE_ROTATION, frameInfo->layerCount, frameInfo->ycbcrMask(), 0u, frameInfo->colorspaceMask(), outputTF ));
++			bind_all_layers(cmdBuffer.get(), frameInfo);
++			cmdBuffer->bindTarget(compositeImage);
++			cmdBuffer->uploadConstants<BlitPushData_t>(frameInfo);
+ 
+-		const int pixelsPerGroup = 8;
++			const int pixelsPerGroup = 8;
+ 
+-		cmdBuffer->dispatch(div_roundup(currentOutputWidth, pixelsPerGroup), div_roundup(currentOutputHeight, pixelsPerGroup));
++			cmdBuffer->dispatch(div_roundup(currentOutputWidth, pixelsPerGroup), div_roundup(currentOutputHeight, pixelsPerGroup));
++		} else {
++			cmdBuffer->bindPipeline( g_device.pipeline(SHADER_TYPE_BLIT, frameInfo->layerCount, frameInfo->ycbcrMask(), 0u, frameInfo->colorspaceMask(), outputTF ));
++			bind_all_layers(cmdBuffer.get(), frameInfo);
++			cmdBuffer->bindTarget(compositeImage);
++			cmdBuffer->uploadConstants<BlitPushData_t>(frameInfo);
++
++			const int pixelsPerGroup = 8;
++
++			cmdBuffer->dispatch(div_roundup(currentOutputWidth, pixelsPerGroup), div_roundup(currentOutputHeight, pixelsPerGroup));
++		}
++	}
++
++	if (applyRotation)
++	{
++		if (g_output.rotatedOutput != nullptr) {
++			// Rotate the final output
++			// TODO: may need rework with another rotation shader for blur, fsr and nis
++			cmdBuffer->bindPipeline( g_device.pipeline(SHADER_TYPE_ROTATION, frameInfo->layerCount, frameInfo->ycbcrMask(), 0u, frameInfo->colorspaceMask(), outputTF));
++			bind_all_layers(cmdBuffer.get(), frameInfo);
++
++			// if (frameInfo->blurLayer0) {
++			// 	bool useSrgbView = frameInfo->layers[0].colorspace == GAMESCOPE_APP_TEXTURE_COLORSPACE_LINEAR;
++			//
++			// 	cmdBuffer->bindTexture(VKR_BLUR_EXTRA_SLOT, g_output.rotatedOutput);
++			// 	cmdBuffer->setTextureSrgb(VKR_BLUR_EXTRA_SLOT, !useSrgbView);
++			// 	cmdBuffer->setSamplerUnnormalized(VKR_BLUR_EXTRA_SLOT, true);
++			// 	cmdBuffer->setSamplerNearest(VKR_BLUR_EXTRA_SLOT, false);
++			// }
++
++			cmdBuffer->bindTarget(compositeImage);
++			cmdBuffer->uploadConstants<BlitPushData_t>(frameInfo);
++
++			const int pixelsPerGroup = 8;
++
++			cmdBuffer->dispatch(div_roundup(currentOutputWidth, pixelsPerGroup), div_roundup(currentOutputHeight, pixelsPerGroup));
++		}
+ 	}
+ 
+ 	if ( pPipewireTexture != nullptr )
+diff --git a/src/rendervulkan.hpp b/src/rendervulkan.hpp
+index b967e84..155be60 100644
+--- a/src/rendervulkan.hpp
++++ b/src/rendervulkan.hpp
+@@ -390,7 +390,7 @@ gamescope::OwningRc<CVulkanTexture> vulkan_create_texture_from_dmabuf( struct wl
+ gamescope::OwningRc<CVulkanTexture> vulkan_create_texture_from_bits( uint32_t width, uint32_t height, uint32_t contentWidth, uint32_t contentHeight, uint32_t drmFormat, CVulkanTexture::createFlags texCreateFlags, void *bits );
+ gamescope::OwningRc<CVulkanTexture> vulkan_create_texture_from_wlr_buffer( struct wlr_buffer *buf, gamescope::OwningRc<gamescope::IBackendFb> pBackendFb );
+ 
+-std::optional<uint64_t> vulkan_composite( struct FrameInfo_t *frameInfo, gamescope::Rc<CVulkanTexture> pScreenshotTexture, bool partial, gamescope::Rc<CVulkanTexture> pOutputOverride = nullptr, bool increment = true, std::unique_ptr<CVulkanCmdBuffer> pInCommandBuffer = nullptr );
++std::optional<uint64_t> vulkan_composite( struct FrameInfo_t *frameInfo, gamescope::Rc<CVulkanTexture> pScreenshotTexture, bool partial, gamescope::Rc<CVulkanTexture> pOutputOverride = nullptr, bool increment = true, std::unique_ptr<CVulkanCmdBuffer> pInCommandBuffer = nullptr, bool applyRotation = false );
+ void vulkan_wait( uint64_t ulSeqNo, bool bReset );
+ gamescope::Rc<CVulkanTexture> vulkan_get_last_output_image( bool partial, bool defer );
+ gamescope::Rc<CVulkanTexture> vulkan_acquire_screenshot_texture(uint32_t width, uint32_t height, bool exportable, uint32_t drmFormat, EStreamColorspace colorspace = k_EStreamColorspace_Unknown);
+@@ -519,6 +519,9 @@ struct VulkanOutput_t
+ 	// NIS
+ 	gamescope::OwningRc<CVulkanTexture> nisScalerImage;
+ 	gamescope::OwningRc<CVulkanTexture> nisUsmImage;
++
++	// Rotated
++	gamescope::OwningRc<CVulkanTexture> rotatedOutput;
+ };
+ 
+ 
+@@ -531,6 +534,7 @@ enum ShaderType {
+ 	SHADER_TYPE_RCAS,
+ 	SHADER_TYPE_NIS,
+ 	SHADER_TYPE_RGB_TO_NV12,
++	SHADER_TYPE_ROTATION,
+ 
+ 	SHADER_TYPE_COUNT
+ };
+diff --git a/src/shaders/cs_rotation.comp b/src/shaders/cs_rotation.comp
+new file mode 100644
+index 0000000..1a47fd5
+--- /dev/null
++++ b/src/shaders/cs_rotation.comp
+@@ -0,0 +1,53 @@
++#version 450
++
++#extension GL_GOOGLE_include_directive : require
++#extension GL_EXT_scalar_block_layout : require
++
++#include "descriptor_set.h"
++
++layout(
++    local_size_x = 8,
++    local_size_y = 8,
++    local_size_z = 1) in;
++
++#include "blit_push_data.h"
++#include "composite.h"
++
++vec4 sampleLayer(uint layerIdx, vec2 uv) {
++    if ((c_ycbcrMask & (1 << layerIdx)) != 0)
++        return sampleLayer(s_ycbcr_samplers[layerIdx], layerIdx, uv, false);
++    return sampleLayer(s_samplers[layerIdx], layerIdx, uv, true);
++}
++
++void main() {
++    uvec2 coord = uvec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
++    uvec2 outSize = imageSize(dst);
++    float outWidth = outSize.y;
++    float outHeight = outSize.x;
++
++    vec2 uv = vec2(coord);
++    vec4 outputValue = vec4(255.0f);
++
++    if (c_layerCount > 0) {
++        outputValue = sampleLayer(0, uv) * u_opacity[0];
++    }
++
++    for (int i = 1; i < c_layerCount; i++) {
++        vec4 layerColor = sampleLayer(i, uv);
++        // wl_surfaces come with premultiplied alpha, so that's them being
++        // premultiplied by layerColor.a.
++        // We need to then multiply that by the layer's opacity to get to our
++        // final premultiplied state.
++        // For the other side of things, we need to multiply by (1.0f - (layerColor.a * opacity))
++        float opacity = u_opacity[i];
++        float layerAlpha = opacity * layerColor.a;
++        outputValue = layerColor * opacity + outputValue * (1.0f - layerAlpha);
++    }
++
++    outputValue.rgb = encodeOutputColor(outputValue.rgb);
++
++    // Rotate the pixel coordinates counter-clockwise by 90 degrees
++    ivec2 rotatedCoord = ivec2(coord.y, outWidth - coord.x - 1);
++
++    imageStore(dst, rotatedCoord, outputValue);
++}
+diff --git a/src/wlserver.cpp b/src/wlserver.cpp
+index 7adf7db..346ff57 100644
+--- a/src/wlserver.cpp
++++ b/src/wlserver.cpp
+@@ -2646,6 +2646,11 @@ static void apply_touchscreen_orientation(double *x, double *y )
+         }
+     }
+ 
++	if (g_bUseRotationShader) {
++		tx = 1.0 - *y;
++		ty = *x;
++	}
++
+     *x = tx;
+     *y = ty;
+ }
+-- 
+2.47.1
 
