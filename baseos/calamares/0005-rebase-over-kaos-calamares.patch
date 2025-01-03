@@ -4460,7 +4460,7 @@ index ea31313a..c6dc4eee 100644
  unpack:
      -   source: "/run/rootfsbase"
 -        sourcefs: "squashfs"
-+        sourcefs: "ext4"
++        sourcefs: "file"
          destination: ""
 diff --git a/src/modules/users/users.conf b/src/modules/users/users.conf
 index f4ae2eed32498633946d5f60be7e77fa9d57250d..6db779cbd48174d7daa3d0a3b765c80fd7fde50a 100644
@@ -4674,8 +4674,21 @@ index 888b4aea..58888164 100644
  
          target_link_libraries(calapmcore INTERFACE kpmcore ${qtname}::DBus ${kfname}::I18n ${kfname}::WidgetsAddons)
          target_include_directories(calapmcore INTERFACE ${KPMCORE_INCLUDE_DIR})
+diff --git a/src/modules/usersq/usersq.qrc b/src/modules/usersq/usersq.qrc
+index c64d047..a38727b 100644
+--- a/src/modules/usersq/usersq.qrc
++++ b/src/modules/usersq/usersq.qrc
+@@ -4,6 +4,8 @@
+         <file>content/users.svg</file>
+         <file>content/users_g.svg</file>
+         <file>content/users_r.svg</file>
++        <file>content/input-keyboard-virtual-on.svg</file>
++        <file>content/input-keyboard-virtual-off.svg</file>
+         <file>UserInput.qml</file>
+         <file>usersq.qml</file>
+     </qresource>
 diff --git a/src/modules/usersq/UserInput.qml b/src/modules/usersq/UserInput.qml
-index 34d06f6a..837ae30c 100644
+index 34d06f6..205a3b2 100644
 --- a/src/modules/usersq/UserInput.qml
 +++ b/src/modules/usersq/UserInput.qml
 @@ -13,6 +13,7 @@ import io.calamares.ui 1.0
@@ -4686,7 +4699,7 @@ index 34d06f6a..837ae30c 100644
  import QtQuick.Controls as QQC2
  import QtQuick.Layouts
  
-@@ -22,497 +23,519 @@ import "content"
+@@ -22,497 +23,527 @@ import "content"
  
  import org.kde.kirigami as Kirigami
  
@@ -4711,8 +4724,8 @@ index 34d06f6a..837ae30c 100644
 -        z: 999
 +    readonly property color headerTextColor: "#FFFFFF"
 +    readonly property color commentsColor: "#DEDEDE"
-+    readonly property color backgroundColor: "#111111"
-+    readonly property color buttonColor: "#2D2D2D"
++    readonly property color backgroundColor: "#212121"
++    readonly property color buttonColor: "#1D1D1D"
 +    readonly property color buttonActiveColor: "#423A57"
 +    readonly property color buttonBorder: "#3A3A3A"
 +    readonly property color buttonBorderActive: "#6B53A9"
@@ -4774,13 +4787,21 @@ index 34d06f6a..837ae30c 100644
 +            anchors.top: parent.top
 +            anchors.right: parent.right
 +            anchors.margins: 10
++            width: 32
++            height: 32
 +            icon.width: 32
 +            icon.height: 32
 +            ToolTip.delay: 500
 +            ToolTip.timeout: 5000
 +            ToolTip.visible: hovered
 +            ToolTip.text: qsTr("Virtual Keyboard")
-+            icon.name: inputPanel.active ? "input-keyboard-virtual-on" : "input-keyboard-virtual-off"
++            Image {
++                source: inputPanel.active ? "content/input-keyboard-virtual-on.svg" : "content/input-keyboard-virtual-off.svg"
++                fillMode: Image.PreserveAspectFit
++                sourceSize.height: 28
++                horizontalAlignment: Qt.Align.Center
++                verticalAlignment: Qt.Align.Center
++            }
 +            onClicked: {
 +                inputPanel.active = !inputPanel.active
 +                _userNameField.focus = true
@@ -4846,14 +4867,14 @@ index 34d06f6a..837ae30c 100644
 -                Label {
 -                    text: qsTr("What is your name?")
 -                }
+-
+-                RowLayout {
+-                    width: parent.width
+-                    spacing: 10
 +                Column {
 +                    Layout.fillWidth: true
 +                    spacing: Kirigami.Units.smallSpacing
  
--                RowLayout {
--                    width: parent.width
--                    spacing: 10
--
 -                    Image {
 -                        source: _userNameField.text.length ? "content/users_g.svg" : "content/users.svg"
 -                        fillMode: Image.PreserveAspectFit
@@ -5003,7 +5024,7 @@ index 34d06f6a..837ae30c 100644
 +                    text: qsTr("Only lowercase letters, numbers, underscore and hyphen are allowed.")
                  }
 -            }
- 
+-
 -            Kirigami.InlineMessage {
 -                id: userMessage
 -                Layout.fillWidth: true
@@ -5014,7 +5035,7 @@ index 34d06f6a..837ae30c 100644
 -                type: Kirigami.MessageType.Error
 -                text: qsTr("Only lowercase letters, numbers, underscore and hyphen are allowed.")
 -            }
--
+ 
 -            Kirigami.InlineMessage {
 -                id: forbiddenMessage
 -                Layout.fillWidth: true

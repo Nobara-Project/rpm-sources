@@ -1,0 +1,57 @@
+From d7ee32ce207e9c6dad1034445662bd2c7ac28f89 Mon Sep 17 00:00:00 2001
+From: Neal Gompa <ngompa@fedoraproject.org>
+Date: Sun, 26 Nov 2023 09:15:39 -0500
+Subject: [PATCH] Use kdesu instead of pkexec for launching Calamares
+
+This works around the issue of polkit not passing in the Qt theme
+settings.
+
+Reference: https://bugzilla.redhat.com/1171779
+---
+ CMakeLists.txt       | 2 +-
+ calamares.desktop    | 2 +-
+ calamares.desktop.in | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 26bf724..6b34a52 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -78,7 +78,7 @@ set(CALAMARES_SOVERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")
+ 
+ ### OPTIONS
+ #
+-option(INSTALL_POLKIT "Install Polkit configuration" ON)
++option(INSTALL_POLKIT "Install Polkit configuration" OFF)
+ option(INSTALL_COMPLETION "Install shell completions" OFF)
+ option(INSTALL_CONFIG "Install configuration files" OFF)
+ # When adding WITH_* that affects the ABI offered by libcalamares,
+diff --git a/calamares.desktop b/calamares.desktop
+index 9a1416e16..46e234e88 100644
+--- a/calamares.desktop
++++ b/calamares.desktop
+@@ -5,7 +5,7 @@ Name=Install System
+ GenericName=System Installer
+ Keywords=calamares;system;installer;
+ TryExec=calamares
+-Exec=sh -c "pkexec calamares"
++Exec=kdesu /usr/bin/calamares
+ Comment=Calamares — System Installer
+ Icon=calamares
+ Terminal=false
+diff --git a/calamares.desktop.in b/calamares.desktop.in
+index ed1d4def8..24f18c141 100644
+--- a/calamares.desktop.in
++++ b/calamares.desktop.in
+@@ -5,7 +5,7 @@ Name=Install System
+ GenericName=System Installer
+ Keywords=calamares;system;installer;
+ TryExec=calamares
+-Exec=sh -c "pkexec calamares"
++Exec=kdesu /usr/bin/calamares
+ Comment=Calamares — System Installer
+ Icon=calamares
+ Terminal=false
+-- 
+2.43.0
+

@@ -1,6 +1,6 @@
 Name:           calamares
 Version:        3.3.12
-Release:        55%{?dist}
+Release:        73%{?dist}
 Summary:        Installer from a live CD/DVD/USB to disk
 
 License:        GPL-3.0-or-later
@@ -21,6 +21,11 @@ Source4:        calamares-auto_de.ts
 Source5:        calamares-auto_it.ts
 
 Source6:        install-icon.svg
+Source7:        input-keyboard-virtual-off.svg
+Source8:        input-keyboard-virtual-on.svg
+Source9:        shellprocess.conf.landscape
+Source10:        shellprocess.conf.left
+Source11:        shellprocess.conf.right
 
 # Backports from upstream
 Source1001:       packages.tar.gz
@@ -35,6 +40,7 @@ Source1009:       fedora-gdm-logo-calamares.png
 Source1010:       fedora-logo.png
 
 Patch1006:       0005-rebase-over-kaos-calamares.patch
+Patch1007:       calamares-3.3.3-kdesu.patch
 #Patch1007:       fixup_branding.patch
 
 # Fedora-specific changes
@@ -150,6 +156,8 @@ Requires:       shadow-utils
 Requires:       dnf
 Requires:       kdesu
 Requires:       hicolor-icon-theme
+Requires:       qt6-qtvirtualkeyboard
+Requires:       kf6-kirigami
 
 Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
 # webview module is no longer available
@@ -228,7 +236,7 @@ cd ../../
 
 # Apply fedora/nobara changes
 %patch 1006 -p1
-#%%patch 1007 -p1
+%patch 1007 -p1
 
 # show.qml
 mv %{SOURCE2} src/branding/nobara_branding/
@@ -247,6 +255,10 @@ sed -i '/^Name/ s/Install System/Install Nobara/g' ./calamares.desktop
 sed -i '/^Name\[.*$/d' ./calamares.desktop
 sed -i '/^Name/ s/Install System/Install Nobara/g' ./calamares.desktop.in
 sed -i '/^Name\[.*$/d' ./calamares.desktop.in
+
+cp %{SOURCE7} ./src/modules/usersq/content/input-keyboard-virtual-off.svg
+cp %{SOURCE8} ./src/modules/usersq/content/input-keyboard-virtual-on.svg
+
 
 %build
              #-DKPMCORE_INCLUDE_DIR="/usr/include/kpmcore" \
@@ -268,6 +280,11 @@ mkdir -p %{buildroot}%{_sysconfdir}/calamares/modules
 mkdir -p %{buildroot}%{_sysconfdir}/calamares/branding
 # delete dummypythonqt translations, we do not use PythonQt at this time
 rm -f %{buildroot}%{_datadir}/locale/*/LC_MESSAGES/calamares-dummypythonqt.mo
+
+cp %{SOURCE9} %{buildroot}%{_datadir}/calamares/modules/
+cp %{SOURCE10} %{buildroot}%{_datadir}/calamares/modules/
+cp %{SOURCE11} %{buildroot}%{_datadir}/calamares/modules/
+
 
 %check
 # validate the .desktop file
@@ -366,7 +383,6 @@ EOF
 %{_datadir}/icons/hicolor/scalable/apps/calamares-nobara.svg
 %{_mandir}/man8/calamares.8*
 %{_sysconfdir}/calamares/
-%{_datadir}/polkit-1/actions/com.github.calamares.calamares.policy
 
 %files libs
 %{_libdir}/libcalamares.so.*
