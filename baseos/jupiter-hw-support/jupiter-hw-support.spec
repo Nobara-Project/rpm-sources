@@ -1,6 +1,6 @@
 Name:           jupiter-hw-support
 Version:        0.0.git.1256.484fa801
-Release:        30%{?dist}
+Release:        33%{?dist}
 Summary:        Steam Deck Hardware Support Package
 License:        MIT
 URL:            https://github.com/nobara-project/steamdeck-edition-packages
@@ -71,6 +71,7 @@ mkdir -p %{buildroot}%{_sysconfdir}/
 mkdir -p %{buildroot}%{_prefix}/lib/hwsupport/
 mkdir -p %{buildroot}%{_prefix}/lib/jupiter-dock-updater/
 mkdir -p %{buildroot}%{_sysconfdir}/skel/.config/autostart/
+mkdir -p %{buildroot}%{_sysconfdir}/skel/Desktop/
 install -m 644 %{_builddir}/96-jupiter-hw-support.preset %{buildroot}%{_presetdir}/
 cp -rv usr/share/* %{buildroot}%{_datadir}
 cp -rv usr/lib/systemd/system/* %{buildroot}%{_unitdir}/
@@ -84,6 +85,9 @@ cp -rv usr/lib/udev %{buildroot}%{_prefix}/lib/udev
 cp -rv usr/bin/* %{buildroot}%{_bindir}
 cp -rv usr/lib/systemd/system/* %{buildroot}%{_unitdir}
 cp -rv etc/* %{buildroot}%{_sysconfdir}
+cp -rv %{buildroot}%{_sysconfdir}/skel/.config/autostart/steam.desktop %{buildroot}%{_sysconfdir}/skel/Desktop/steam.desktop
+chmod +x %{buildroot}%{_sysconfdir}/skel/.config/autostart/steam.desktop
+chmod +x %{buildroot}%{_sysconfdir}/skel/Desktop/steam.desktop
 sed -i 's@steamos-cursor.png@usr/share/steamos/steamos-cursor.png@g' usr/share/steamos/steamos-cursor-config
 xcursorgen usr/share/steamos/steamos-cursor-config %{buildroot}%{_datadir}/icons/steam/cursors/default
 
@@ -108,16 +112,6 @@ fi
 %postun
 %systemd_postun_with_restart jupiter-biosupdate.service
 %systemd_postun_with_restart jupiter-controller-update.service
-
-# Do post-installation
-%post -n gamescope-handheld-common
-grubby --update-kernel=ALL --args="amdgpu.gttsize=8128 spi_amd.speed_dev=1 audit=0 fbcon=vc:2-6 iomem=relaxed amdgpu.ppfeaturemask=0xffffffff"
-grub2-mkconfig -o /boot/grub2/grub.cfg
-
-# Do after uninstallation
-%postun -n gamescope-handheld-common
-grubby --update-kernel=ALL --remove-args="amdgpu.gttsize=8128 spi_amd.speed_dev=1 audit=0 fbcon=vc:2-6 iomem=relaxed amdgpu.ppfeaturemask=0xffffffff"
-grub2-mkconfig -o /boot/grub2/grub.cfg
 
 # This lists all the files that are included in the rpm package and that
 # are going to be installed into target system where the rpm is installed.
@@ -174,6 +168,7 @@ grub2-mkconfig -o /boot/grub2/grub.cfg
 %{_prefix}/lib/hwsupport/power-button-handler.py
 %{_datadir}/plymouth
 %{_sysconfdir}/skel/.config/autostart/steam.desktop
+%{_sysconfdir}/skel/Desktop/steam.desktop
 
 %files -n gamescope-handheld-common
 %{_sysconfdir}/systemd/system/steamos-automount@.service
