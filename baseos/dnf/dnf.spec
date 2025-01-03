@@ -66,7 +66,7 @@ It supports RPMs, modules and comps groups & environments.
 
 Name:           dnf
 Version:        4.22.0
-Release:        1%{?dist}
+Release:        4%{?dist}
 Summary:        %{pkg_summary}
 # For a breakdown of the licensing, see PACKAGE-LICENSING
 License:        GPL-2.0-or-later AND GPL-1.0-only
@@ -135,6 +135,7 @@ BuildRequires:  python3-libdnf >= %{hawkey_version}
 BuildRequires:  python3-libcomps >= %{libcomps_version}
 BuildRequires:  python3-libdnf
 BuildRequires:  libmodulemd >= %{libmodulemd_version}
+Requires:       dnf-plugins-core
 Requires:       libmodulemd >= %{libmodulemd_version}
 Requires:       %{name}-data = %{version}-%{release}
 %if 0%{?fedora}
