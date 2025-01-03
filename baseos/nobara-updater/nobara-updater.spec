@@ -1,6 +1,6 @@
 Name:          nobara-updater
 Version:       1.0.0
-Release:       102%{?dist}
+Release:       107%{?dist}
 License:       GPL-3.0-or-later
 Summary:       Nobara System Updater
 
@@ -59,6 +59,26 @@ Nobara System Updater.
 %build
 make all DESTDIR=%{buildroot}
 
+%post
+#!/bin/bash
+
+# Check if we already have the association
+if [ ! -f /usr/bin/xdg-mime ]; then
+    # If xdg-mime is not available, skip this step
+    exit 0
+fi
+
+# Set the default application for .rpm files
+xdg-mime default /usr/share/applications/nobara-rpm-installer.desktop application/x-rpm
+update-mime-database /usr/share/mime
+
+%postun
+#!/bin/bash
+
+# Remove the default application setting for .rpm files
+xdg-mime default "" application/x-rpm
+update-mime-database /usr/share/mime
+
 %files
 %license %{_datadir}/licenses/nobara-updater/LICENSE
 %{python3_sitelib}/nobara_updater/
@@ -67,8 +87,10 @@ make all DESTDIR=%{buildroot}
 %{_bindir}/nobara-tweak-tool
 %{_bindir}/nobara-updater-gamescope-gui
 %{_bindir}/nobara-browser-select
+%{_bindir}/nobara-rpm-installer
 %{_datadir}/applications/nobara-updater.desktop
 %{_datadir}/applications/nobara-tweak-tool.desktop
+%{_datadir}/applications/nobara-rpm-installer.desktop
 %{_datadir}/icons/hicolor/64x64/apps/nobara-updater.svg
 %{_datadir}/nobara-gamescope/browser-select/*
 
