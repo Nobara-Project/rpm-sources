@@ -1,0 +1,38 @@
+From cdca910c1f9bed7065718253e050f22510a50f0b Mon Sep 17 00:00:00 2001
+From: Emil Velikov <emil.velikov@collabora.com>
+Date: Mon, 25 Oct 2021 13:00:06 +0100
+Subject: [PATCH] 10_linux: always hide the "Loading" messages in quiet mode
+
+Remove the entry "type" check when determining if the Loading messages
+are to be displayed. We explicitly opt-in quiet boot for a reason.
+
+Signed-off-by: Emil Velikov <emil.velikov@collabora.com>
+---
+ util/grub.d/10_linux.in | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/util/grub.d/10_linux.in b/util/grub.d/10_linux.in
+index 5db8fc67b..782dcb751 100644
+--- a/util/grub.d/10_linux.in
++++ b/util/grub.d/10_linux.in
+@@ -189,7 +189,7 @@ linux_entry ()
+     fi
+     printf '%s\n' "${prepare_boot_cache}" | sed "s/^/$submenu_indentation/"
+   fi
+-  if [ x"$quiet_boot" = x0 ] || [ x"$type" != xsimple ]; then
++  if [ x"$quiet_boot" = x0 ]; then
+     message="$(gettext_printf "Loading Linux %s ..." ${version})"
+     sed "s/^/$submenu_indentation/" << EOF
+ 	echo	'$(echo "$message" | grub_quote)'
+@@ -216,7 +216,7 @@ EOF
+   fi
+   if test -n "${initrd}" ; then
+     # TRANSLATORS: ramdisk isn't identifier. Should be translated.
+-    if [ x"$quiet_boot" = x0 ] || [ x"$type" != xsimple ]; then
++    if [ x"$quiet_boot" = x0 ]; then
+       message="$(gettext_printf "Loading initial ramdisk ...")"
+       sed "s/^/$submenu_indentation/" << EOF
+ 	echo	'$(echo "$message" | grub_quote)'
+-- 
+2.33.1
+
