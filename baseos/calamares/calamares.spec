@@ -1,6 +1,6 @@
 Name:           calamares
 Version:        3.3.12
-Release:        75%{?dist}
+Release:        76%{?dist}
 Summary:        Installer from a live CD/DVD/USB to disk
 
 License:        GPL-3.0-or-later
@@ -27,6 +27,7 @@ Source9:        shellprocess.conf.landscape
 Source10:        shellprocess.conf.left
 Source11:        shellprocess.conf.right
 Source12:        shellprocess.conf.htpc
+Source13:        shellprocess.conf.htpc.nv
 
 # Backports from upstream
 Source1001:       packages.tar.gz
@@ -286,6 +287,7 @@ cp %{SOURCE9} %{buildroot}%{_datadir}/calamares/modules/
 cp %{SOURCE10} %{buildroot}%{_datadir}/calamares/modules/
 cp %{SOURCE11} %{buildroot}%{_datadir}/calamares/modules/
 cp %{SOURCE12} %{buildroot}%{_datadir}/calamares/modules/
+cp %{SOURCE13} %{buildroot}%{_datadir}/calamares/modules/
 
 
 %check
