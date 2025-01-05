@@ -5,7 +5,7 @@ Summary:        Installer from a live CD/DVD/USB to disk
 
 License:        GPL-3.0-or-later
 URL:            https://codeberg.org/KaOS/calamares/
-Source0:        https://codeberg.org/KaOS/calamares/archive/master.tar.gz
+Source0:        https://codeberg.org/KaOS/calamares/archive/8ef84cf0b0c80ba834887f1a87645dc94a8da68c.tar.gz
 Source2:        show.qml
 # Run:
 # lupdate-qt6 show.qml -ts calamares-auto_fr.ts
