@@ -1,6 +1,6 @@
 Name:           calamares
 Version:        3.3.12
-Release:        74%{?dist}
+Release:        75%{?dist}
 Summary:        Installer from a live CD/DVD/USB to disk
 
 License:        GPL-3.0-or-later
@@ -26,6 +26,7 @@ Source8:        input-keyboard-virtual-on.svg
 Source9:        shellprocess.conf.landscape
 Source10:        shellprocess.conf.left
 Source11:        shellprocess.conf.right
+Source12:        shellprocess.conf.htpc
 
 # Backports from upstream
 Source1001:       packages.tar.gz
@@ -284,6 +285,7 @@ rm -f %{buildroot}%{_datadir}/locale/*/LC_MESSAGES/calamares-dummypythonqt.mo
 cp %{SOURCE9} %{buildroot}%{_datadir}/calamares/modules/
 cp %{SOURCE10} %{buildroot}%{_datadir}/calamares/modules/
 cp %{SOURCE11} %{buildroot}%{_datadir}/calamares/modules/
+cp %{SOURCE12} %{buildroot}%{_datadir}/calamares/modules/
 
 
 %check
