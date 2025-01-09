@@ -1,0 +1,13 @@
+diff --git a/libdiscover/backends/PackageKitBackend/PackageKitNotifier.cpp b/libdiscover/backends/PackageKitBackend/PackageKitNotifier.cpp
+index 5d510788d..5a0b3d9b6 100644
+--- a/libdiscover/backends/PackageKitBackend/PackageKitNotifier.cpp
++++ b/libdiscover/backends/PackageKitBackend/PackageKitNotifier.cpp
+@@ -63,7 +63,7 @@ PackageKitNotifier::PackageKitNotifier(QObject *parent)
+             bool ok;
+             const int days = value.toInt(&ok);
+             if (!ok || days == 0) {
+-                regularCheck->setInterval(24h); // refresh at least once every day
++                regularCheck->setInterval(12h); // refresh at least once every day
+                 regularCheck->start();
+                 if (!value.isEmpty()) {
+                     qWarning() << "couldn't understand value for timer:" << value;

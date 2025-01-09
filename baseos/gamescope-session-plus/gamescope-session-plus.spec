@@ -1,6 +1,6 @@
 Name:           gamescope-session-plus
 Version:        0.3.215
-Release:        git.d8ab829%{?dist}
+Release:        1.git.d8ab829%{?dist}
 Summary:        Gamescope session plus based on Valve's gamescope
 
 License:        MIT

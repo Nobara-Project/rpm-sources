@@ -7,7 +7,7 @@
 %global _default_patch_fuzz 2
 %global build_timestamp %(date +"%Y%m%d")
 
-%global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 2.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           gamescope
 Version:        3.16.1
@@ -35,6 +35,8 @@ Patch1:         chimeraos.patch
 
 # https://github.com/ValveSoftware/gamescope/pull/1231
 #Patch5:         1231.patch
+
+Patch2:         1671.patch
 
 BuildRequires:  meson >= 0.54.0
 BuildRequires:  ninja-build

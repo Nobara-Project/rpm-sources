@@ -1,8 +1,8 @@
 # Define the manual commit as a fallback
-%define manual_commit 13aed4b4458276f2db5e81f62af180bf8b4e2bf0
+%define manual_commit 223cd9e2a5f62a9eede6ab6695b2e522fcf78301
 
 # Optionally define the tag
-%define tag 1.1.3
+%define tag 1.1.4
 # Check if tag is defined and get the commit hash for the tag, otherwise use manual commit
 %{!?tag: %global commit %{manual_commit}}
 %{?tag: %global commit %(git rev-list -n 1 %{tag} 2>/dev/null || echo %{manual_commit})}
@@ -14,7 +14,7 @@
 %global rel_build 6.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           umu-launcher
-Version:        1.1.3
+Version:        1.1.4
 Release:        %{rel_build}
 Summary:        A tool for launching non-steam games with proton
 
