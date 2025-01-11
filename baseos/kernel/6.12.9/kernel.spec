@@ -160,18 +160,18 @@ Summary: The Linux kernel
 #  the --with-release option overrides this setting.)
 %define debugbuildsenabled 1
 %define buildid .fsync
-%define specrpmversion 6.12.8
-%define specversion 6.12.8
+%define specrpmversion 6.12.9
+%define specversion 6.12.9
 %define patchversion 6.12
-%define pkgrelease 201
+%define pkgrelease 200
 %define kversion 6
-%define tarfile_release 6.12.8
+%define tarfile_release 6.12.9
 # This is needed to do merge window version magic
 %define patchlevel 12
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease 201%{?buildid}%{?dist}
+%define specrelease 200%{?buildid}%{?dist}
 # This defines the kabi tarball version
-%define kabiversion 6.12.8
+%define kabiversion 6.12.9
 
 # If this variable is set to 1, a bpf selftests build failure will cause a
 # fatal kernel package build error
@@ -4299,6 +4299,9 @@ fi\
 #
 #
 %changelog
+* Thu Jan 09 2025 Augusto Caringi <acaringi@redhat.com> [6.12.9-0]
+- Linux v6.12.9
+
 * Thu Jan 02 2025 Augusto Caringi <acaringi@redhat.com> [6.12.8-0]
 - Fix up last of fallout from ZRAM Backend churn (Justin M. Forbes)
 - Add more missing config items for ZRAM backend (Justin M. Forbes)
