@@ -3,7 +3,7 @@
 %define         pkgname             scrcpy
 %global         forgeurl            https://github.com/Genymobile/%{pkgname}
 %global         _default_patch_fuzz 2
-Version:        2.7
+Version:        3.1
 
 %forgemeta -i
 

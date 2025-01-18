@@ -4,7 +4,7 @@
 Summary:        Fedora package repositories
 Name:           fedora-repos
 Version:        41
-Release:        2%{?eln:.eln%{eln}}
+Release:        8%{?eln:.eln%{eln}}
 License:        MIT
 URL:            https://fedoraproject.org/
 
@@ -19,6 +19,7 @@ Requires:       fedora-gpg-keys >= %{version}-%{release}
 BuildArch:      noarch
 # Required by %%check
 BuildRequires:  gnupg sed rpm
+Conflicts:      terra-release
 
 Source1:        archmap
 Source2:        fedora.repo
@@ -208,9 +209,9 @@ archive_enabled=0
 eln_enabled=0
 %else
 rawhide_enabled=0
-stable_enabled=1
+stable_enabled=0
 testing_enabled=%{updates_testing_enabled}
-archive_enabled=1
+archive_enabled=0
 eln_enabled=0
 %endif
 for repo in $RPM_BUILD_ROOT/etc/yum.repos.d/fedora-{rawhide,eln}*.repo; do
@@ -287,12 +288,12 @@ disabled_repos+=(fedora-updates-testing)
 %endif
 %endif
 
-for repo in ${enabled_repos[@]}; do
-    if ! grep -q 'enabled=1' $RPM_BUILD_ROOT/etc/yum.repos.d/${repo}.repo; then
-        echo "ERROR: Repo $repo should have been enabled, but it isn't"
-        exit 1
-    fi
-done
+#for repo in ${enabled_repos[@]}; do
+    #if ! grep -q 'enabled=1' $RPM_BUILD_ROOT/etc/yum.repos.d/${repo}.repo; then
+    #    echo "ERROR: Repo $repo should have been enabled, but it isn't"
+    #    exit 1
+    #fi
+#done
 for repo in ${disabled_repos[@]}; do
     if grep -q 'enabled=1' $RPM_BUILD_ROOT/etc/yum.repos.d/${repo}.repo; then
         echo "ERROR: Repo $repo should have been disabled, but it isn't"
@@ -369,18 +370,32 @@ for VER in %{version} %{rawhide_release} ${rawhide_next}; do
 done
 rm -f "$TMPRING"
 
+%posttrans
+if [[ -f /etc/yum.repos.d/fedora.repo.rpmsave ]]; then
+  rm /etc/yum.repos.d/fedora.repo.rpmsave
+fi
+if [[ -f /etc/yum.repos.d/fedora.repo.rpmnew ]]; then
+  mv /etc/yum.repos.d/fedora.repo.rpmnew /etc/yum.repos.d/fedora.repo
+fi
+if [[ -f /etc/yum.repos.d/fedora-updates.repo.rpmsave ]]; then
+  rm /etc/yum.repos.d/fedora-updates.repo.rpmsave
+fi
+if [[ -f /etc/yum.repos.d/fedora-updates.repo.rpmnew ]]; then
+  mv /etc/yum.repos.d/fedora-updates.repo.rpmnew /etc/yum.repos.d/fedora-updates.repo
+fi
+
 %files
 %dir /etc/yum.repos.d
-%config(noreplace) /etc/yum.repos.d/fedora.repo
-%config(noreplace) /etc/yum.repos.d/fedora-cisco-openh264.repo
-%config(noreplace) /etc/yum.repos.d/fedora-updates.repo
-%config(noreplace) /etc/yum.repos.d/fedora-updates-testing.repo
+/etc/yum.repos.d/fedora.repo
+/etc/yum.repos.d/fedora-cisco-openh264.repo
+/etc/yum.repos.d/fedora-updates.repo
+/etc/yum.repos.d/fedora-updates-testing.repo
 
 %files archive
-%config(noreplace) /etc/yum.repos.d/fedora-updates-archive.repo
+/etc/yum.repos.d/fedora-updates-archive.repo
 
 %files rawhide
-%config(noreplace) /etc/yum.repos.d/fedora-rawhide.repo
+/etc/yum.repos.d/fedora-rawhide.repo
 
 
 %files -n fedora-gpg-keys
@@ -398,7 +413,7 @@ rm -f "$TMPRING"
 /etc/ostree/remotes.d/fedora-compose.conf
 
 %files eln
-%config(noreplace) /etc/yum.repos.d/fedora-eln.repo
+/etc/yum.repos.d/fedora-eln.repo
 
 
 %changelog

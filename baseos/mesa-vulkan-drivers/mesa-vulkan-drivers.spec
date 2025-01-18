@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit a653654b8d7b09a34ba52d0cd789a5d8c60ba98e
+%global commit 70767b9cd47df498ed510ec63becd67649518b7f
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 4.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -66,7 +66,7 @@
 
 %global vulkan_drivers swrast%{?base_vulkan}%{?platform_vulkan}%{?with_nvk:,nouveau}
 
-Name:           mesa-vulkan-drivers
+Name:           mesa-vulkan-drivers-git
 Summary:        The mesa graphics vulkan driver stack.
 %global ver 24.4.0
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
@@ -173,15 +173,15 @@ BuildRequires:  glslang
 %if 0%{?with_vulkan_hw}
 BuildRequires:  pkgconfig(vulkan)
 %endif
-
-
-%description
-%{summary}.
-
 Requires:       vulkan%{_isa}
 Obsoletes: mesa-vulkan-drivers-vulkan-devel
 Obsoletes: mesa-vulkan-devel
 Obsoletes:      mesa-omx-drivers < %{?epoch:%{epoch}:}%{version}-%{release}
+Provides:       mesa-vulkan-drivers
+Provides:       mesa-vulkan-drivers%{?_isa}
+%description
+%{summary}.
+
 
 %prep
 %autosetup -n mesa-%{commit} -p1

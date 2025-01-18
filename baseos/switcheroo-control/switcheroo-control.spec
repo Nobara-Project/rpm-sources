@@ -1,6 +1,6 @@
 Name:           switcheroo-control
 Version:        2.6
-Release:        5%{?dist}
+Release:        7%{?dist}
 Summary:        D-Bus service to check the availability of dual-GPU
 
 License:        GPLv3

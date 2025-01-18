@@ -1,5 +1,5 @@
 Name:           fastfetch
-Version:        2.29.0
+Version:        2.33.0
 Release:        2%{?dist}
 Summary:        Like neofetch, but much faster because written in c
 
