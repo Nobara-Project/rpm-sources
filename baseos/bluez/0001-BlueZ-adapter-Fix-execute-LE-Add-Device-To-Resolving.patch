@@ -1,0 +1,110 @@
+From 2f617916a3d4042ec49d0233c1f8319363132410 Mon Sep 17 00:00:00 2001
+From: Clancy Shang <clancy.shang@quectel.com>
+Date: Wed, 11 Sep 2024 17:40:47 +0200
+Subject: [PATCH 1/2] [BlueZ] adapter: Fix execute "LE Add Device To Resolving
+ List" command fail
+
+According to BLUETOOTH CORE SPECIFICATION Version 5.4 | Vol 4, Part E,
+7.8.38, If there is an existing entry in the resolving list with the
+same
+non-zero Peer_IRK, the Controller should return the error code Invalid
+HCI Command Parameters (0x12), so fix it.
+
+Signed-off-by: Clancy Shang <clancy.shang@quectel.com>
+---
+ src/adapter.c | 72 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 72 insertions(+)
+
+diff --git a/src/adapter.c b/src/adapter.c
+index bb49a1eca..bc4a6529a 100644
+--- a/src/adapter.c
++++ b/src/adapter.c
+@@ -8887,6 +8887,76 @@ static void store_irk(struct btd_adapter *adapter, const bdaddr_t *peer,
+ 	g_key_file_free(key_file);
+ }
+ 
++static void delete_exist_irk_from_directory(
++						struct btd_adapter *adapter,
++						const unsigned char *key)
++{
++	char dirname[PATH_MAX];
++	GError *gerr = NULL;
++	DIR *dir;
++	struct dirent *entry;
++
++	create_filename(dirname, PATH_MAX, "/%s",
++				btd_adapter_get_storage_dir(adapter));
++
++	dir = opendir(dirname);
++	if (!dir) {
++		btd_error(adapter->dev_id,
++				"Unable to open adapter storage directory: %s",
++								dirname);
++		return;
++	}
++
++	while ((entry = readdir(dir)) != NULL) {
++		struct btd_device *device;
++		char filename[PATH_MAX];
++		GKeyFile *key_file;
++		struct irk_info *irk_info;
++		uint8_t bdaddr_type;
++
++		if (entry->d_type == DT_UNKNOWN)
++			entry->d_type = util_get_dt(dirname, entry->d_name);
++
++		if (entry->d_type != DT_DIR || bachk(entry->d_name) < 0)
++			continue;
++
++		create_filename(filename, PATH_MAX, "/%s/%s/info",
++					btd_adapter_get_storage_dir(adapter),
++					entry->d_name);
++
++		key_file = g_key_file_new();
++		if (!g_key_file_load_from_file(
++								key_file,
++								filename,
++								0,
++								&gerr)) {
++			error("Unable to load key file "
++				"from %s: (%s)", filename, gerr->message);
++			g_clear_error(&gerr);
++		}
++
++		bdaddr_type = get_addr_type(key_file);
++
++		irk_info = get_irk_info(key_file, entry->d_name, bdaddr_type);
++
++		if (irk_info) {
++			if (!memcmp(irk_info->val, key, 16)) {
++				DBG("Has same irk,delete it");
++				device = btd_adapter_find_device(adapter,
++							&irk_info->bdaddr,
++							irk_info->bdaddr_type);
++				if (device)
++					btd_adapter_remove_device(adapter,
++									device);
++			}
++		}
++		g_key_file_free(key_file);
++	}
++
++	closedir(dir);
++
++}
++
+ static void new_irk_callback(uint16_t index, uint16_t length,
+ 					const void *param, void *user_data)
+ {
+@@ -8936,6 +9006,8 @@ static void new_irk_callback(uint16_t index, uint16_t length,
+ 	if (!persistent)
+ 		return;
+ 
++	delete_exist_irk_from_directory(adapter, irk->val);
++
+ 	store_irk(adapter, &addr->bdaddr, addr->type, irk->val);
+ 
+ 	btd_device_set_temporary(device, false);
+-- 
+2.46.0
+
