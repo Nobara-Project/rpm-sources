@@ -50,6 +50,8 @@
 		-e 's/-mcpu=power[[:alnum:]]\\+/-mcpu=power6/g'	\\\
 	)}
 %global efi_host_cflags %{expand:%%(echo %{host_cflags})}
+%global xen_host_cflags %{expand:%%(echo %{host_cflags})}
+%global xen_pvh_host_cflags %{expand:%%(echo %{host_cflags})}
 
 %global target_cflags %{expand:%%(echo %{build_cflags} | %{cflags_sed})}
 %global legacy_target_cflags					\\\
@@ -59,6 +61,8 @@
 		-e 's/-mcpu=power[[:alnum:]]\\+/-mcpu=power6/g'	\\\
 	)}
 %global efi_target_cflags %{expand:%%(echo %{target_cflags})}
+%global xen_target_cflags %{expand:%%(echo %{target_cflags})}
+%global xen_pvh_target_cflags %{expand:%%(echo %{target_cflags})}
 
 %global ldflags_sed						\\\
 	sed							\\\
@@ -72,6 +76,8 @@
 	%{ldflags_sed}						\\\
 	)}
 %global efi_host_ldflags %{expand:%%(echo %{host_ldflags})}
+%global xen_host_ldflags %{expand:%%(echo %{host_ldflags})}
+%global xen_pvh_host_ldflags %{expand:%%(echo %{host_ldflags})}
 
 %global target_ldflags %{expand:%%(echo %{build_ldflags} -Wl,--no-warn-rwx-segments -static | %{ldflags_sed})}
 %global legacy_target_ldflags					\\\
@@ -79,15 +85,21 @@
 	%{ldflags_sed}						\\\
 	)}
 %global efi_target_ldflags %{expand:%%(echo %{target_ldflags})}
+%global xen_target_ldflags %{expand:%%(echo %{target_ldflags})}
+%global xen_pvh_target_ldflags %{expand:%%(echo %{target_ldflags})}
 
 %global with_efi_arch 0
 %global with_alt_efi_arch 0
 %global with_legacy_arch 0
 %global with_emu_arch 1
+%global with_xen_arch 0
+%global with_xen_pvh_arch 0
 %global emuarch %{_arch}
 %global grubefiarch %{nil}
 %global grublegacyarch %{nil}
 %global grubelfname %{nil}
+%global xen_package_arch %{nil}
+%global xen_pvh_package_arch %{nil}
 
 # sparc is always compiled 64 bit
 %ifarch %{sparc}
@@ -131,6 +143,24 @@
 %global efi_modules " efi_netfs efifwsetup efinet lsefi lsefimmap connectefi "
 %endif
 
+%global xen_arch x86_64
+%ifarch %{xen_arch}
+%global with_xen_arch 1
+%else
+%global with_xen_arch 0
+%endif
+%{!?with_xen_arch:%global without_xen_arch 0}
+%{?with_xen_arch:%global without_xen_arch 1}
+
+%global xen_pvh_arch x86_64
+%ifarch %{xen_pvh_arch}
+%global with_xen_pvh_arch 1
+%else
+%global with_xen_pvh_arch 0
+%endif
+%{!?with_xen_pvh_arch:%global without_xen_pvh_arch 0}
+%{?with_xen_pvh_arch:%global without_xen_pvh_arch 1}
+
 %ifarch x86_64 %{ix86}
 %global platform_modules " backtrace chain tpm usb usbserial_common usbserial_pl2303 usbserial_ftdi usbserial_usbdebug keylayouts at_keyboard "
 %endif
@@ -163,10 +193,17 @@
 %global target_cpu_name %{_arch}
 %global grub_target_name %{_arch}-efi
 %global package_arch efi-x64
+%global xen_package_arch xen-x64
+%global xen_pvh_package_arch xen_pvh-i386
 
 %global legacy_target_cpu_name i386
 %global legacy_package_arch pc
 %global platform pc
+
+%global xen_grub_target_name %{_arch}-xen
+%global xen_pvh_grub_target_name i386-xen_pvh
+%global grubxenarch %{xen_grub_target_name}
+%global grubxenpvharch %{xen_pvh_grub_target_name}
 
 %global alt_efi_arch ia32
 %global alt_target_cpu_name i386
@@ -333,6 +370,32 @@ Provides:	grub2-efi-cdboot = %{evr}				\
 This subpackage provides optional components of grub used with removeable media on %{1} systems.\
 %{nil}
 
+%define define_xen_variant(o)						\
+%{expand:%%{?!buildsubdir:%%define buildsubdir grub-%{1}-%{tarversion}}}\
+%{expand:%%package %{1}-modules}					\
+Summary:	Modules used to build custom grub-%{xen_grub_target_name}.bin images		\
+BuildArch:	noarch							\
+Requires:	grub2-tools = %{evr}					\
+Provides:	grub2-xen-modules = %{evr}				\
+Obsoletes:	grub2-xen-modules < %{evr}				\
+%{expand:%%description %{1}-modules}					\
+%{desc}									\
+This subpackage provides support for rebuilding your own grub-%{xen_grub_target_name}.bin.	\
+%{nil}
+
+%define define_xen_pvh_variant(o)						\
+%{expand:%%{?!buildsubdir:%%define buildsubdir grub-%{1}-%{tarversion}}}\
+%{expand:%%package %{1}-modules}					\
+Summary:	Modules used to build custom grub-%{xen_pvh_grub_target_name}.bin images		\
+BuildArch:	noarch							\
+Requires:	grub2-tools = %{evr}					\
+Provides:	grub2-xen_pvh-modules = %{evr}				\
+Obsoletes:	grub2-xen_pvh-modules < %{evr}				\
+%{expand:%%description %{1}-modules}					\
+%{desc}									\
+This subpackage provides support for rebuilding your own grub-%{xen_pvh_grub_target_name}.bin.	\
+%{nil}
+
 %global do_common_setup()					\
 %setup -q -n grub-%{tarversion}					\
 rm -fv docs/*.info						\
@@ -378,6 +441,46 @@ git add .							\
 git commit -m "After efi configure"				\
 %{nil}
 
+%define do_xen_configure()					\
+%configure							\\\
+	%{cc_equals}						\\\
+	HOST_CFLAGS="%{3}"					\\\
+	HOST_CPPFLAGS="-I$(pwd)"				\\\
+	HOST_LDFLAGS="%{xen_host_ldflags}"			\\\
+	TARGET_CFLAGS="%{2}"					\\\
+	TARGET_CPPFLAGS="-I$(pwd)"				\\\
+	TARGET_LDFLAGS="%{xen_target_ldflags}"			\\\
+	--with-rpm-version=%{version}-%{release}		\\\
+	--with-platform=xen					\\\
+	--with-utils=host					\\\
+	--target=%{1}						\\\
+	--with-grubdir=grub2					\\\
+	--program-transform-name=s,grub,grub2,		\\\
+	--disable-werror || ( cat config.log ; exit 1 )		\
+git add .							\
+git commit -m "After xen configure"				\
+%{nil}
+
+%define do_xen_pvh_configure()					\
+%configure							\\\
+	%{cc_equals}						\\\
+	HOST_CFLAGS="%{3}"					\\\
+	HOST_CPPFLAGS="-I$(pwd)"				\\\
+	HOST_LDFLAGS="%{xen_pvh_host_ldflags}"			\\\
+	TARGET_CFLAGS="%{2}"					\\\
+	TARGET_CPPFLAGS="-I$(pwd)"				\\\
+	TARGET_LDFLAGS="%{xen_pvh_target_ldflags}"			\\\
+	--with-rpm-version=%{version}-%{release}		\\\
+	--with-platform=xen_pvh					\\\
+	--with-utils=host					\\\
+	--target=%{1}						\\\
+	--with-grubdir=grub2					\\\
+	--program-transform-name=s,grub,grub2,		\\\
+	--disable-werror || ( cat config.log ; exit 1 )		\
+git add .							\
+git commit -m "After xen_pvh configure"				\
+%{nil}
+
 %define do_efi_build_modules()					\
 make %{?_smp_mflags} ascii.h widthspec.h			\
 make %{?_smp_mflags} -C grub-core				\
@@ -391,6 +494,16 @@ make %{?_smp_mflags}						\
 for x in grub-mkimage ; do					\\\
 	ln ../grub-%{1}-%{tarversion}/${x} ./ ;			\\\
 done								\
+%{nil}
+
+%define do_xen_build_modules()					\
+make %{?_smp_mflags} ascii.h widthspec.h			\
+make %{?_smp_mflags} -C grub-core				\
+%{nil}
+
+%define do_xen_pvh_build_modules()					\
+make %{?_smp_mflags} ascii.h widthspec.h			\
+make %{?_smp_mflags} -C grub-core				\
 %{nil}
 
 %define do_install_protected_file()				\
@@ -563,6 +676,20 @@ make %{?_smp_mflags} -C grub-core				\
 cd ..								\
 %{nil}
 
+%define do_xen_build()					\
+cd grub-%{1}-%{tarversion}					\
+%{expand:%%do_xen_configure %%{2} %%{3} %%{4}}			\
+%do_xen_build_modules						\
+cd ..								\
+%{nil}
+
+%define do_xen_pvh_build()					\
+cd grub-%{1}-%{tarversion}					\
+%{expand:%%do_xen_pvh_configure %%{2} %%{3} %%{4}}			\
+%do_xen_pvh_build_modules						\
+cd ..								\
+%{nil}
+
 %define do_alt_efi_install()					\
 cd grub-%{1}-%{tarversion}					\
 install -d -m 755 $RPM_BUILD_ROOT/usr/lib/grub/%{grubaltefiarch}/ \
@@ -660,6 +787,32 @@ fi								\
 cd ..								\
 %{nil}
 
+%define do_xen_install()					\
+cd grub-%{1}-%{tarversion}					\
+make DESTDIR=$RPM_BUILD_ROOT install				\
+if [ -f $RPM_BUILD_ROOT%{_infodir}/grub.info ]; then		\
+	rm -f $RPM_BUILD_ROOT%{_infodir}/grub.info		\
+fi								\
+if [ -f $RPM_BUILD_ROOT%{_infodir}/grub-dev.info ]; then	\
+	rm -f $RPM_BUILD_ROOT%{_infodir}/grub-dev.info		\
+fi								\
+find $RPM_BUILD_ROOT -iname "*.module" -exec chmod a-x {} '\;'	\
+cd ..								\
+%{nil}
+
+%define do_xen_pvh_install()					\
+cd grub-%{1}-%{tarversion}					\
+make DESTDIR=$RPM_BUILD_ROOT install				\
+if [ -f $RPM_BUILD_ROOT%{_infodir}/grub.info ]; then		\
+	rm -f $RPM_BUILD_ROOT%{_infodir}/grub.info		\
+fi								\
+if [ -f $RPM_BUILD_ROOT%{_infodir}/grub-dev.info ]; then	\
+	rm -f $RPM_BUILD_ROOT%{_infodir}/grub-dev.info		\
+fi								\
+find $RPM_BUILD_ROOT -iname "*.module" -exec chmod a-x {} '\;'	\
+cd ..								\
+%{nil}
+
 %define do_common_install()					\
 install -d -m 0755 						\\\
 	$RPM_BUILD_ROOT%{_datarootdir}/locale/en\@quot		\\\
@@ -745,4 +898,20 @@ ln -s ../boot/grub2/grub.cfg					\\\
 %defattr(-,root,root,-)						\
 %attr(0700,root,root) %verify(not mtime) %{efi_esp_dir}/%{3}	\
 %attr(0700,root,root)/boot/grub2/fonts			\
+%{nil}
+
+%define define_xen_variant_files()				\
+%{expand:%%files %{1}-modules}					\
+%defattr(-,root,root,-)						\
+%dir %{_libdir}/grub/%{2}/					\
+%{_libdir}/grub/%{2}/*						\
+%exclude %{_libdir}/grub/%{2}/*.module				\
+%{nil}
+
+%define define_xen_pvh_variant_files()				\
+%{expand:%%files %{1}-modules}					\
+%defattr(-,root,root,-)						\
+%dir %{_libdir}/grub/%{2}/					\
+%{_libdir}/grub/%{2}/*						\
+%exclude %{_libdir}/grub/%{2}/*.module				\
 %{nil}

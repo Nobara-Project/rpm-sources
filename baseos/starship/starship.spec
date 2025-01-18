@@ -3,13 +3,14 @@
 
 Name: starship
 Version: 1.21.1
-Release: 1%{?dist}
+Release: 2%{?dist}
 Summary: â˜„ðŸŒŒï¸� The minimal, blazing-fast, and infinitely customizable prompt for any shell!
 
 License: ISC
 URL: https://github.com/starship/starship
 Source0: %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
 Source1: starship.toml
+Source2: nobara_profile_starship.sh
 
 BuildRequires: cargo >= 1.74
 BuildRequires: cmake3
@@ -44,13 +45,16 @@ rm -f %{buildroot}%{_prefix}/.crates.toml \
 mkdir -p %{buildroot}%{_datadir}/%{name}/
 cp %{SOURCE1} %{buildroot}%{_datadir}/%{name}/
 
+mkdir -p %{buildroot}/etc/profile.d
+cp %{SOURCE2} %{buildroot}/etc/profile.d/
+
 
 %files
 %license LICENSE
 %doc README.md CONTRIBUTING.md
 %{_bindir}/%{name}
 %{_datadir}/%{name}/starship.toml
-
+%config(noreplace) /etc/profile.d/nobara_profile_starship.sh
 
 %changelog
 * Wed May 15 2024 Artem Polishchuk <ego.cordatus@gmail.com> - 1.19.0-1

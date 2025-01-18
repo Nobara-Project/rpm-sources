@@ -2,7 +2,7 @@
 ## (rpmautospec version 0.6.5)
 ## RPMAUTOSPEC: autorelease, autochangelog
 %define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
-    release_number = 8;
+    release_number = 10;
     base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
     print(release_number + base_release_number - 1);
 }%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
@@ -48,7 +48,6 @@ Source0037: nobara_profile_gnome_newfile.sh
 Source0038: nobara_profile_ibus.sh
 Source0039: nobara_profile_nvidia.sh
 Source0040: nobara_profile_obs.sh
-Source0041: nobara_profile_starship.sh
 Source0042: nobara_profile_force_nobara_rpm_installer_default.sh
 Source0043: application-x-src+rpm.xml
 
@@ -71,7 +70,7 @@ setup files, such as passwd, group, and profile.
 mkdir -p etc/profile.d
 mkdir -p usr/share/mime/packages/
 cp %{lua: for i=1,17 do print(sources[i]..' ') end} etc/
-cp %SOURCE21 %SOURCE22 %SOURCE36 %SOURCE37 %SOURCE38 %SOURCE39 %SOURCE40 %SOURCE41 %SOURCE42 etc/profile.d/
+cp %SOURCE21 %SOURCE22 %SOURCE36 %SOURCE37 %SOURCE38 %SOURCE39 %SOURCE40 %SOURCE42 etc/profile.d/
 cp %SOURCE43 usr/share/mime/packages/
 touch etc/{exports,motd,subgid,subuid}
 
@@ -190,7 +189,6 @@ end
 %config(noreplace) /etc/profile.d/nobara_profile_ibus.sh
 %config(noreplace) /etc/profile.d/nobara_profile_nvidia.sh
 %config(noreplace) /etc/profile.d/nobara_profile_obs.sh
-%config(noreplace) /etc/profile.d/nobara_profile_starship.sh
 %config(noreplace) /etc/profile.d/nobara_profile_force_nobara_rpm_installer_default.sh
 %{_datadir}/mime/packages/application-x-src+rpm.xml
 %changelog

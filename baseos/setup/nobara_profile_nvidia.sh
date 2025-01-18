@@ -10,5 +10,6 @@ if [ -f /bin/lspci ]; then
     export EGL_PLATFORM=$XDG_SESSION_TYPE
     # https://bugs.kde.org/show_bug.cgi?id=488941,
     export KWIN_DRM_ALLOW_NVIDIA_COLORSPACE=1
+    export GAMESCOPE_WSI_HIDE_PRESENT_WAIT_EXT=1
   fi
 fi

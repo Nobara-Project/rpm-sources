@@ -3,7 +3,7 @@
 Summary:        Nobara package repositories
 Name:           nobara-repos
 Version:        41
-Release:        2%{?eln:.eln%{eln}}
+Release:        6%{?eln:.eln%{eln}}
 License:        MIT
 URL:            https://fedoraproject.org/
 
@@ -18,10 +18,10 @@ Requires:       nobara-gpg-keys >= %{version}-%{release}
 BuildArch:      noarch
 # Required by %%check
 BuildRequires:  gnupg sed
+Conflicts:    terra-release
 
-Source1:       archmap
 Source2:       nobara.repo
-Source3:       RPM-GPG-KEY-nobara-appstream-pubkey
+Source3:       RPM-GPG-KEY-nobara-pubkey
 Source4:       RPM-GPG-KEY-nobara-baseos-pubkey-39
 Source5:       RPM-GPG-KEY-nobara-baseos-pubkey-40
 Source6:       RPM-GPG-KEY-nobara-baseos-pubkey-41
@@ -49,35 +49,21 @@ This package provides the RPM signature keys.
 install -d -m 755 $RPM_BUILD_ROOT/etc/pki/rpm-gpg
 install -m 644 %{_sourcedir}/RPM-GPG-KEY* $RPM_BUILD_ROOT/etc/pki/rpm-gpg/
 
-# Link the primary/secondary keys to arch files, according to archmap.
-# Ex: if there's a key named RPM-GPG-KEY-fedora-19-primary, and archmap
-#     says "fedora-19-primary: i386 x86_64",
-#     RPM-GPG-KEY-fedora-19-{i386,x86_64} will be symlinked to that key.
-pushd $RPM_BUILD_ROOT/etc/pki/rpm-gpg/
-
-for keyfile in RPM-GPG-KEY*; do
-    # resolve symlinks, so that we don't need to keep duplicate entries in archmap
-    real_keyfile=$(basename $(readlink -f $keyfile))
-    key=${real_keyfile#RPM-GPG-KEY-} # e.g. 'fedora-20-primary'
-    if ! grep -q "^${key}:" %{_sourcedir}/archmap; then
-        echo "ERROR: no archmap entry for $key"
-        exit 1
-    fi
-    arches=$(sed -ne "s/^${key}://p" %{_sourcedir}/archmap)
-    for arch in $arches; do
-        # replace last part with $arch (fedora-20-primary -> fedora-20-$arch)
-        ln -s $keyfile $keyfile-$arch # NOTE: RPM replaces %% with %
-    done
-done
-popd
-
 # Install repo files
 install -d -m 755 $RPM_BUILD_ROOT/etc/yum.repos.d
 install -m 644 %{_sourcedir}/nobara.repo $RPM_BUILD_ROOT/etc/yum.repos.d
 
+%posttrans
+if [[ -f /etc/yum.repos.d/nobara.repo.rpmsave ]]; then
+  rm /etc/yum.repos.d/nobara.repo.rpmsave
+fi
+if [[ -f /etc/yum.repos.d/nobara.repo.rpmnew ]]; then
+  mv /etc/yum.repos.d/nobara.repo.rpmnew /etc/yum.repos.d/nobara.repo
+fi
+
 %files
 %dir /etc/yum.repos.d
-%config(noreplace) /etc/yum.repos.d/nobara.repo
+/etc/yum.repos.d/nobara.repo
 
 %files -n nobara-gpg-keys
 %dir /etc/pki/rpm-gpg
