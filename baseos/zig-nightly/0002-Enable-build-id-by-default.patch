@@ -1,0 +1,25 @@
+From 4e1416ebff98155b07031790ec1afcb0035fb2ab Mon Sep 17 00:00:00 2001
+From: Aleksei Bavshin <alebastr89@gmail.org>
+Date: Fri, 20 Oct 2023 04:49:54 +0000
+Subject: [PATCH 2/2] Enable build-id by default
+
+---
+ src/Compilation.zig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/Compilation.zig b/src/Compilation.zig
+index a08c3e09f..95ade766a 100644
+--- a/src/Compilation.zig
++++ b/src/Compilation.zig
+@@ -1278,7 +1278,7 @@ pub fn create(gpa: Allocator, arena: Allocator, options: CreateOptions) !*Compil
+         const any_fuzz = options.config.any_fuzz or options.root_mod.fuzz;
+ 
+         const link_eh_frame_hdr = options.link_eh_frame_hdr or any_unwind_tables != .none;
+-        const build_id = options.build_id orelse .none;
++        const build_id = options.build_id orelse .sha1;
+ 
+         const link_libc = options.config.link_libc;
+ 
+-- 
+2.41.0
+
