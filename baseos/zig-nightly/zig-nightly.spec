@@ -68,7 +68,6 @@ BuildRequires:  libstdc++-static
 
 Requires:       %{name}-libs = %{version}
 Conflicts:	zig
-Obsoletes:	zig
 
 # These packages are bundled as source
 
@@ -101,7 +100,6 @@ Summary:        zig Standard Library
 BuildArch:      noarch
 
 Conflicts:	zig-libs
-Obsoletes:	zig-libs
 
 %description libs
 zig Standard Library
