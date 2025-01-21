@@ -46,7 +46,7 @@ Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 Version: %{_basekver}.%{_stablekver}
 
-%define customver 201
+%define customver 202
 
 Release:%{customver}.nobara%{?dist}
 
@@ -63,6 +63,9 @@ Vendor: The Linux Community and CachyOS maintainer(s)
 URL: https://cachyos.org
 Source0: https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-%{_tarkver}.tar.xz
 Source1: https://raw.githubusercontent.com/CachyOS/linux-cachyos/master/linux-cachyos/config
+
+# needed for kernel-tools
+Source2: kvm_stat.logrotate
 
 # https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
 ExcludeArch:    %{ix86}
@@ -110,7 +113,6 @@ Patch15: 0001-Revert-PCI-Add-a-REBAR-size-quirk-for-Sapphire-RX-56.patch
 Patch16: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
 # Add xpadneo as patch instead of using dkms module
 Patch17: 0001-Add-xpadneo-bluetooth-hid-driver-module.patch
-Patch18: 0001-drm-amd-display-Adjust-plane-init-for-off-by-one-err.patch
 
 %define __spec_install_post /usr/lib/rpm/brp-compress || :
 %define debug_package %{nil}
@@ -184,6 +186,8 @@ Provides: kernel-bore-eevdf >= 6.5.7-%{customver}
 Provides: kernel-bore >= 6.5.7-%{customver}
 Obsoletes: kernel-bore-eevdf <= 6.5.10-%{customver}
 Obsoletes: kernel-bore <= 6.5.10-%{customver}
+Provides: kernel-uki-vert = %{rpmver}
+Obsoletes: kernel-uki-vert <= 6.12.9-202
 
 %description
 The kernel-%{flaver} meta package
@@ -332,6 +336,59 @@ Requires: libperf = %{version}-%{release}
 This package includes libraries and header files needed for development
 of applications which use perf library from kernel source.
 
+%package tools
+Summary: Assortment of tools for the Linux kernel
+Provides:  cpupowerutils = 1:009-0.6.p1
+Obsoletes: cpupowerutils < 1:009-0.6.p1
+Provides:  cpufreq-utils = 1:009-0.6.p1
+Provides:  cpufrequtils = 1:009-0.6.p1
+Obsoletes: cpufreq-utils < 1:009-0.6.p1
+Obsoletes: cpufrequtils < 1:009-0.6.p1
+Obsoletes: cpuspeed < 1:1.5-16
+Requires: %{name}-tools-libs = %{version}-%{release}
+%define __requires_exclude ^%{_bindir}/python
+%description tools
+This package contains the tools/ directory from the kernel source
+and the supporting documentation.
+
+%package tools-libs
+Summary: Libraries for the kernels-tools
+%description tools-libs
+This package contains the libraries built from the tools/ directory
+from the kernel source.
+
+%package tools-libs-devel
+Summary: Assortment of tools for the Linux kernel
+Requires: %{name}-tools = %{version}-%{release}
+Provides:  cpupowerutils-devel = 1:009-0.6.p1
+Obsoletes: cpupowerutils-devel < 1:009-0.6.p1
+Requires: %{name}-tools-libs = %{version}-%{release}
+Provides: %{name}-tools-devel
+%description tools-libs-devel
+This package contains the development files for the tools/ directory from
+the kernel source.
+
+%package -n rtla
+Summary: Real-Time Linux Analysis tools
+Requires: libtraceevent
+Requires: libtracefs
+%description -n rtla
+The rtla meta-tool includes a set of commands that aims to analyze
+the real-time properties of Linux. Instead of testing Linux as a black box,
+rtla leverages kernel tracing capabilities to provide precise information
+about the properties and root causes of unexpected results.
+
+%package -n rv
+Summary: RV: Runtime Verification
+%description -n rv
+Runtime Verification (RV) is a lightweight (yet rigorous) method that
+complements classical exhaustive verification techniques (such as model
+checking and theorem proving) with a more practical approach for
+complex systems.
+The rv tool is the interface for a collection of monitors that aim
+analysing the logical and timing behavior of Linux.
+
+
 %prep
 %setup -q -n linux-%{_tarkver}
 
@@ -358,7 +415,6 @@ patch -p1 -i %{PATCH14}
 patch -p1 -i %{PATCH15}
 patch -p1 -i %{PATCH16}
 patch -p1 -i %{PATCH17}
-patch -p1 -i %{PATCH18}
 
 # Fetch the config and move it to the proper directory
 cp %{SOURCE1} .config
@@ -456,9 +512,11 @@ clang ./scripts/sign-file.c -o ./scripts/sign-file -lssl -lcrypto
 gcc ./scripts/sign-file.c -o ./scripts/sign-file -lssl -lcrypto
 %endif
 
+# non-kernel userspace packages -- disable LTO
 %if "%{?_lto_cflags}" != ""
 %global _lto_cflags %{nil}
 
+# perf
 %global perf_make \
   %{__make} %{?make_opts} EXTRA_CFLAGS="${RPM_OPT_FLAGS}" EXTRA_CXXFLAGS="${RPM_OPT_FLAGS}" LDFLAGS="%{__global_ldflags} -Wl,-E" %{?cross_opts} -C tools/perf V=1 NO_LIBLLVM=1 NO_PERF_READ_VDSO32=1 NO_PERF_READ_VDSOX32=1 WERROR=0 NO_LIBUNWIND=1 HAVE_CPLUS_DEMANGLE=1 NO_GTK2=1 NO_STRLCPY=1 NO_BIONIC=1 LIBBPF_DYNAMIC=1 LIBTRACEEVENT_DYNAMIC=1 prefix=%{_prefix} PYTHON=%{__python3}
 # perf
@@ -466,9 +524,61 @@ gcc ./scripts/sign-file.c -o ./scripts/sign-file -lssl -lcrypto
 chmod +x tools/perf/check-headers.sh
 %{perf_make} DESTDIR=$RPM_BUILD_ROOT all
 
+# libperf
 %global libperf_make \
   %{__make} %{?make_opts} EXTRA_CFLAGS="${RPM_OPT_FLAGS}" LDFLAGS="%{__global_ldflags}" %{?cross_opts} -C tools/lib/perf V=1
 %{libperf_make} DESTDIR=$RPM_BUILD_ROOT
+
+%define make %{__make} %{?cross_opts} %{?make_opts} HOSTCFLAGS="%{?build_hostcflags}" HOSTLDFLAGS="%{?build_hostldflags}"
+
+# kernel-tools
+%global tools_make \
+  CFLAGS="${RPM_OPT_FLAGS}" LDFLAGS="%{__global_ldflags}" EXTRA_CFLAGS="${RPM_OPT_FLAGS}" %{make} %{?make_opts}
+# cpupower
+# make sure version-gen.sh is executable.
+chmod +x tools/power/cpupower/utils/version-gen.sh
+%{tools_make} %{?_smp_mflags} -C tools/power/cpupower CPUFREQ_BENCH=false DEBUG=false
+%ifarch x86_64
+    pushd tools/power/cpupower/debug/x86_64
+    %{tools_make} %{?_smp_mflags} centrino-decode powernow-k8-decode
+    popd
+%endif
+%ifarch x86_64
+   pushd tools/power/x86/x86_energy_perf_policy/
+   %{tools_make}
+   popd
+   pushd tools/power/x86/turbostat
+   %{tools_make}
+   popd
+   pushd tools/power/x86/intel-speed-select
+   %{tools_make}
+   popd
+   pushd tools/arch/x86/intel_sdsi
+   %{tools_make} CFLAGS="${RPM_OPT_FLAGS}"
+   popd
+%endif
+pushd tools/thermal/tmon/
+%{tools_make}
+popd
+pushd tools/bootconfig/
+%{tools_make}
+popd
+pushd tools/iio/
+%{tools_make}
+popd
+pushd tools/gpio/
+%{tools_make}
+popd
+# build VM tools
+pushd tools/mm/
+%{tools_make} slabinfo page_owner_sort
+popd
+pushd tools/verification/rv/
+%{tools_make}
+popd
+pushd tools/tracing/rtla
+%{tools_make}
+popd
 
 %endif
 
@@ -735,9 +845,76 @@ mkdir -p %{buildroot}/%{_mandir}/man1
 # ship with libtraceevent package.
 rm -rf %{buildroot}%{_libdir}/traceevent
 
+# perf/libperf
 %{libperf_make} DESTDIR=%{buildroot} prefix=%{_prefix} libdir=%{_libdir} install install_headers
 # This is installed on some arches and we don't want to ship it
 rm -rf %{buildroot}%{_libdir}/libperf.a
+
+# kernel-tools
+%{make} -C tools/power/cpupower DESTDIR=$RPM_BUILD_ROOT libdir=%{_libdir} mandir=%{_mandir} CPUFREQ_BENCH=false install
+%find_lang cpupower
+cp cpupower.lang ../../
+%ifarch x86_64
+    pushd tools/power/cpupower/debug/x86_64
+    install -m755 centrino-decode %{buildroot}%{_bindir}/centrino-decode
+    install -m755 powernow-k8-decode %{buildroot}%{_bindir}/powernow-k8-decode
+    popd
+%endif
+chmod 0755 %{buildroot}%{_libdir}/libcpupower.so*
+%ifarch x86_64
+   mkdir -p %{buildroot}%{_mandir}/man8
+   pushd tools/power/x86/x86_energy_perf_policy
+   %{tools_make} DESTDIR=%{buildroot} install
+   popd
+   pushd tools/power/x86/turbostat
+   %{tools_make} DESTDIR=%{buildroot} install
+   popd
+   pushd tools/power/x86/intel-speed-select
+   %{tools_make} DESTDIR=%{buildroot} install
+   popd
+   pushd tools/arch/x86/intel_sdsi
+   %{tools_make} CFLAGS="${RPM_OPT_FLAGS}" DESTDIR=%{buildroot} install
+   popd
+%endif
+pushd tools/thermal/tmon
+%{tools_make} INSTALL_ROOT=%{buildroot} install
+popd
+pushd tools/bootconfig
+%{tools_make} DESTDIR=%{buildroot} install
+popd
+pushd tools/iio
+%{tools_make} DESTDIR=%{buildroot} install
+popd
+pushd tools/gpio
+%{tools_make} DESTDIR=%{buildroot} install
+popd
+install -m644 -D %{SOURCE2} %{buildroot}%{_sysconfdir}/logrotate.d/kvm_stat
+pushd tools/kvm/kvm_stat
+%{__make} INSTALL_ROOT=%{buildroot} install-tools
+%{__make} INSTALL_ROOT=%{buildroot} install-man
+install -m644 -D kvm_stat.service %{buildroot}%{_unitdir}/kvm_stat.service
+popd
+# install VM tools
+pushd tools/mm/
+install -m755 slabinfo %{buildroot}%{_bindir}/slabinfo
+install -m755 page_owner_sort %{buildroot}%{_bindir}/page_owner_sort
+popd
+pushd tools/verification/rv/
+%{tools_make} DESTDIR=%{buildroot} install
+popd
+pushd tools/tracing/rtla/
+%{tools_make} DESTDIR=%{buildroot} install
+rm -f %{buildroot}%{_bindir}/hwnoise
+rm -f %{buildroot}%{_bindir}/osnoise
+rm -f %{buildroot}%{_bindir}/timerlat
+(cd %{buildroot}
+
+        ln -sf rtla ./%{_bindir}/hwnoise
+        ln -sf rtla ./%{_bindir}/osnoise
+        ln -sf rtla ./%{_bindir}/timerlat
+)
+popd
+
 
 %clean
 rm -rf %{buildroot}
@@ -776,6 +953,12 @@ fi
 
 %post modules
 /sbin/depmod -a %{kverstr}
+
+%post tools-libs
+/sbin/ldconfig
+
+%postun tools-libs
+/sbin/ldconfig
 
 %files core
 %ghost %attr(0600, root, root) /boot/vmlinuz-%{kverstr}
@@ -852,5 +1035,69 @@ fi
 %{_docdir}/libperf/html/libperf.html
 %{_docdir}/libperf/html/libperf-counting.html
 %{_docdir}/libperf/html/libperf-sampling.html
+
+%files tools -f cpupower.lang
+%{_bindir}/cpupower
+%{_datadir}/bash-completion/completions/cpupower
+%ifarch x86_64
+%{_bindir}/centrino-decode
+%{_bindir}/powernow-k8-decode
+%endif
+%{_mandir}/man[1-8]/cpupower*
+%ifarch x86_64
+%{_bindir}/x86_energy_perf_policy
+%{_mandir}/man8/x86_energy_perf_policy*
+%{_bindir}/turbostat
+%{_mandir}/man8/turbostat*
+%{_bindir}/intel-speed-select
+%{_sbindir}/intel_sdsi
+%endif
+%{_bindir}/tmon
+%{_bindir}/bootconfig
+%{_bindir}/iio_event_monitor
+%{_bindir}/iio_generic_buffer
+%{_bindir}/lsiio
+%{_bindir}/lsgpio
+%{_bindir}/gpio-hammer
+%{_bindir}/gpio-event-mon
+%{_bindir}/gpio-watch
+%{_mandir}/man1/kvm_stat*
+%{_bindir}/kvm_stat
+%{_unitdir}/kvm_stat.service
+%config(noreplace) %{_sysconfdir}/logrotate.d/kvm_stat
+%{_bindir}/page_owner_sort
+%{_bindir}/slabinfo
+
+%files tools-libs
+%{_libdir}/libcpupower.so.1
+%{_libdir}/libcpupower.so.0.0.1
+
+%files tools-libs-devel
+%{_libdir}/libcpupower.so
+%{_includedir}/cpufreq.h
+%{_includedir}/cpuidle.h
+%{_includedir}/powercap.h
+
+%files -n rtla
+%{_bindir}/rtla
+%{_bindir}/hwnoise
+%{_bindir}/osnoise
+%{_bindir}/timerlat
+%{_mandir}/man1/rtla-hwnoise.1.gz
+%{_mandir}/man1/rtla-osnoise-hist.1.gz
+%{_mandir}/man1/rtla-osnoise-top.1.gz
+%{_mandir}/man1/rtla-osnoise.1.gz
+%{_mandir}/man1/rtla-timerlat-hist.1.gz
+%{_mandir}/man1/rtla-timerlat-top.1.gz
+%{_mandir}/man1/rtla-timerlat.1.gz
+%{_mandir}/man1/rtla.1.gz
+
+%files -n rv
+%{_bindir}/rv
+%{_mandir}/man1/rv-list.1.gz
+%{_mandir}/man1/rv-mon-wip.1.gz
+%{_mandir}/man1/rv-mon-wwnr.1.gz
+%{_mandir}/man1/rv-mon.1.gz
+%{_mandir}/man1/rv.1.gz
 
 %files
