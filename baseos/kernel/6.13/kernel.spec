@@ -46,7 +46,7 @@ Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 Version: %{_basekver}.%{_stablekver}
 
-%define customver 200
+%define customver 201
 
 Release:%{customver}.nobara%{?dist}
 
@@ -110,51 +110,73 @@ Patch15: 0001-Revert-PCI-Add-a-REBAR-size-quirk-for-Sapphire-RX-56.patch
 Patch16: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
 # Add xpadneo as patch instead of using dkms module
 Patch17: 0001-Add-xpadneo-bluetooth-hid-driver-module.patch
+Patch18: 0001-drm-amd-display-Adjust-plane-init-for-off-by-one-err.patch
 
 %define __spec_install_post /usr/lib/rpm/brp-compress || :
 %define debug_package %{nil}
-BuildRequires: python3-devel
-BuildRequires: make
-BuildRequires: perl-generators
-BuildRequires: perl-interpreter
-BuildRequires: openssl-devel
-BuildRequires: bison
-BuildRequires: flex
-BuildRequires: findutils
-BuildRequires: git-core
-BuildRequires: perl-devel
-BuildRequires: openssl
-BuildRequires: elfutils-devel
-BuildRequires: gawk
-BuildRequires: binutils
-BuildRequires: m4
-BuildRequires: tar
-BuildRequires: hostname
-BuildRequires: bzip2
-BuildRequires: bash
-BuildRequires: gzip
-BuildRequires: xz
-BuildRequires: bc
-BuildRequires: diffutils
-BuildRequires: redhat-rpm-config
-BuildRequires: net-tools
-BuildRequires: elfutils
-BuildRequires: patch
-BuildRequires: rpm-build
-BuildRequires: dwarves
-BuildRequires: kmod
-BuildRequires: libkcapi-hmaccalc
-BuildRequires: perl-Carp
-BuildRequires: rsync
-BuildRequires: grubby
-BuildRequires: wget
-BuildRequires: gcc
-BuildRequires: gcc-c++
+# Default compression algorithm
+%global compression xz
+%global compression_flags --compress
+%global compext xz
+
 %if %{llvm_kbuild}
 BuildRequires: llvm
 BuildRequires: clang
 BuildRequires: lld
 %endif
+BuildRequires: asciidoc
+BuildRequires: audit-libs-devel python3-setuptools
+BuildRequires: bash
+BuildRequires: bc
+BuildRequires: binutils
+BuildRequires: binutils-%{_build_arch}-linux-gnu, gcc-%{_build_arch}-linux-gnu
+BuildRequires: bzip2, xz, findutils, m4, perl-interpreter, perl-Carp, perl-devel, perl-generators, make, diffutils, gawk, %compression
+BuildRequires: dracut
+BuildRequires: dwarves
+BuildRequires: gcc, binutils, redhat-rpm-config, hmaccalc, bison, flex, gcc-c++
+BuildRequires: gettext ncurses-devel
+BuildRequires: glibc-static
+BuildRequires: grubby
+BuildRequires: gzip
+BuildRequires: hostname
+BuildRequires: java-devel
+BuildRequires: kabi-dw
+BuildRequires: kernel-rpm-macros
+BuildRequires: kmod, bash, coreutils, tar, git-core, which
+BuildRequires: libbabeltrace-devel
+BuildRequires: libbpf-devel >= 0.6.0-1
+BuildRequires: libcap-devel libcap-ng-devel
+BuildRequires: libcap-devel libcap-ng-devel rsync libmnl-devel
+BuildRequires: libnl3-devel
+BuildRequires: libtraceevent-devel
+BuildRequires: libtracefs-devel
+BuildRequires: lvm2
+BuildRequires: net-tools, hostname, bc, elfutils-devel
+BuildRequires: nss-tools
+BuildRequires: numactl-devel
+BuildRequires: opencsd-devel >= 1.0.0
+BuildRequires: openssl
+BuildRequires: openssl-devel
+BuildRequires: pciutils-devel
+BuildRequires: pesign >= 0.10-4
+BuildRequires: python3
+BuildRequires: python3-devel
+BuildRequires: python3-docutils
+BuildRequires: python3-pyyaml
+BuildRequires: rpm-build, elfutils
+BuildRequires: rsync
+BuildRequires: rust, rust-src, bindgen
+BuildRequires: sparse
+BuildRequires: systemd-boot-unsigned
+BuildRequires: systemd-udev >= 252-1
+BuildRequires: systemd-ukify
+BuildRequires: tpm2-tools
+BuildRequires: wget
+BuildRequires: xmlto
+BuildRequires: xmlto, asciidoc, python3-sphinx, python3-sphinx_rtd_theme
+BuildRequires: zlib-devel binutils-devel newt-devel perl(ExtUtils::Embed) bison flex xz-devel
+
+
 Requires: %{name}-core-%{rpmver} = %{kverstr}
 Requires: %{name}-modules-%{rpmver} = %{kverstr}
 Provides: %{name}%{_basekver} = %{rpmver}
@@ -284,6 +306,32 @@ Obsoletes: kernel-bore-devel-matched <= 6.5.10-%{customver}
 %description devel-matched
 This meta package is used to install matching core and devel packages for a given %{?flavor:%{flavor}} kernel.
 
+%package -n perf
+Summary: Performance monitoring for the Linux kernel
+Requires: bzip2
+%description -n perf
+This package contains the perf tool, which enables performance monitoring
+of the Linux kernel.
+
+%package -n python3-perf
+Summary: Python bindings for apps which will manipulate perf events
+%description -n python3-perf
+The python3-perf package contains a module that permits applications
+written in the Python programming language to use the interface
+to manipulate perf events.
+
+%package -n libperf
+Summary: The perf library from kernel source
+%description -n libperf
+This package contains the kernel source perf library.
+
+%package -n libperf-devel
+Summary: Developement files for the perf library from kernel source
+Requires: libperf = %{version}-%{release}
+%description -n libperf-devel
+This package includes libraries and header files needed for development
+of applications which use perf library from kernel source.
+
 %prep
 %setup -q -n linux-%{_tarkver}
 
@@ -310,6 +358,7 @@ patch -p1 -i %{PATCH14}
 patch -p1 -i %{PATCH15}
 patch -p1 -i %{PATCH16}
 patch -p1 -i %{PATCH17}
+patch -p1 -i %{PATCH18}
 
 # Fetch the config and move it to the proper directory
 cp %{SOURCE1} .config
@@ -405,6 +454,22 @@ make %{?_smp_mflags} %{?llvm_build_env_vars} EXTRAVERSION=-%{krelstr}
 clang ./scripts/sign-file.c -o ./scripts/sign-file -lssl -lcrypto
 %else
 gcc ./scripts/sign-file.c -o ./scripts/sign-file -lssl -lcrypto
+%endif
+
+%if "%{?_lto_cflags}" != ""
+%global _lto_cflags %{nil}
+
+%global perf_make \
+  %{__make} %{?make_opts} EXTRA_CFLAGS="${RPM_OPT_FLAGS}" EXTRA_CXXFLAGS="${RPM_OPT_FLAGS}" LDFLAGS="%{__global_ldflags} -Wl,-E" %{?cross_opts} -C tools/perf V=1 NO_LIBLLVM=1 NO_PERF_READ_VDSO32=1 NO_PERF_READ_VDSOX32=1 WERROR=0 NO_LIBUNWIND=1 HAVE_CPLUS_DEMANGLE=1 NO_GTK2=1 NO_STRLCPY=1 NO_BIONIC=1 LIBBPF_DYNAMIC=1 LIBTRACEEVENT_DYNAMIC=1 prefix=%{_prefix} PYTHON=%{__python3}
+# perf
+# make sure check-headers.sh is executable
+chmod +x tools/perf/check-headers.sh
+%{perf_make} DESTDIR=$RPM_BUILD_ROOT all
+
+%global libperf_make \
+  %{__make} %{?make_opts} EXTRA_CFLAGS="${RPM_OPT_FLAGS}" LDFLAGS="%{__global_ldflags}" %{?cross_opts} -C tools/lib/perf V=1
+%{libperf_make} DESTDIR=$RPM_BUILD_ROOT
+
 %endif
 
 %install
@@ -644,6 +709,36 @@ cp -v  %{buildroot}/boot/vmlinuz-%{kverstr} %{buildroot}/lib/modules/%{kverstr}/
 # create dummy initramfs image to inflate the disk space requirement for the initramfs. 48M seems to be the right size nowadays with more and more hardware requiring initramfs-located firmware to work properly (for reference, Fedora has it set to 20M)
 dd if=/dev/zero of=%{buildroot}/boot/initramfs-%{kverstr}.img bs=1M count=48
 
+# perf tool binary and supporting scripts/binaries
+%{perf_make} DESTDIR=$RPM_BUILD_ROOT lib=%{_lib} install-bin
+# remove the 'trace' symlink.
+rm -f %{buildroot}%{_bindir}/trace
+
+# For both of the below, yes, this should be using a macro but right now
+# it's hard coded and we don't actually want it anyway right now.
+# Whoever wants examples can fix it up!
+
+# remove examples
+rm -rf %{buildroot}/usr/lib/perf/examples
+rm -rf %{buildroot}/usr/lib/perf/include
+
+# python-perf extension
+%{perf_make} DESTDIR=$RPM_BUILD_ROOT install-python_ext
+
+# perf man pages (note: implicit rpm magic compresses them later)
+mkdir -p %{buildroot}/%{_mandir}/man1
+%{perf_make} DESTDIR=$RPM_BUILD_ROOT install-man
+
+# remove any tracevent files, eg. its plugins still gets built and installed,
+# even if we build against system's libtracevent during perf build (by setting
+# LIBTRACEEVENT_DYNAMIC=1 above in perf_make macro). Those files should already
+# ship with libtraceevent package.
+rm -rf %{buildroot}%{_libdir}/traceevent
+
+%{libperf_make} DESTDIR=%{buildroot} prefix=%{_prefix} libdir=%{_libdir} install install_headers
+# This is installed on some arches and we don't want to ship it
+rm -rf %{buildroot}%{_libdir}/libperf.a
+
 %clean
 rm -rf %{buildroot}
 
@@ -652,11 +747,9 @@ if [ `uname -i` == "x86_64" -o `uname -i` == "i386" ] &&
    [ -f /etc/sysconfig/kernel ]; then
   /bin/sed -r -i -e 's/^DEFAULTKERNEL=kernel-smp$/DEFAULTKERNEL=kernel/' /etc/sysconfig/kernel || exit $?
 fi
-if [ -x /bin/kernel-install ] && [ -d /boot ]; then
-/bin/kernel-install add %{kverstr} /lib/modules/%{kverstr}/vmlinuz || exit $?
-fi
 
 %posttrans core
+/bin/kernel-install add %{kverstr} /lib/modules/%{kverstr}/vmlinuz || exit $?
 if [ ! -z $(rpm -qa | grep grubby) ]; then
   grubby --set-default="/boot/vmlinuz-%{kverstr}"
 fi
@@ -719,5 +812,45 @@ fi
 /lib/modules/%{kverstr}/source
 
 %files devel-matched
+
+%files -n perf
+%{_bindir}/perf
+%{_libdir}/libperf-jvmti.so
+%dir %{_libexecdir}/perf-core
+%{_libexecdir}/perf-core/*
+%{_datadir}/perf-core/*
+%{_mandir}/man[1-8]/perf*
+%{_sysconfdir}/bash_completion.d/perf
+%doc tools/perf/Documentation/examples.txt
+%{_docdir}/perf-tip/tips.txt
+%{_includedir}/perf/perf_dlfilter.h
+
+%files -n python3-perf
+%{python3_sitearch}/*
+
+%files -n libperf
+%{_libdir}/libperf.so.0
+%{_libdir}/libperf.so.0.0.1
+
+%files -n libperf-devel
+%{_libdir}/libperf.so
+%{_libdir}/pkgconfig/libperf.pc
+%{_includedir}/internal/*.h
+%{_includedir}/perf/bpf_perf.h
+%{_includedir}/perf/core.h
+%{_includedir}/perf/cpumap.h
+%{_includedir}/perf/event.h
+%{_includedir}/perf/evlist.h
+%{_includedir}/perf/evsel.h
+%{_includedir}/perf/mmap.h
+%{_includedir}/perf/threadmap.h
+%{_mandir}/man3/libperf.3.gz
+%{_mandir}/man7/libperf-counting.7.gz
+%{_mandir}/man7/libperf-sampling.7.gz
+%{_docdir}/libperf/examples/sampling.c
+%{_docdir}/libperf/examples/counting.c
+%{_docdir}/libperf/html/libperf.html
+%{_docdir}/libperf/html/libperf-counting.html
+%{_docdir}/libperf/html/libperf-sampling.html
 
 %files
