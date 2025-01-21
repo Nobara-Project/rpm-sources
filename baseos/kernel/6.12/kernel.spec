@@ -46,7 +46,7 @@ Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 Version: %{_basekver}.%{_stablekver}
 
-%define customver 200
+%define customver 202
 
 Release:%{customver}.nobara%{?dist}
 
@@ -63,6 +63,8 @@ Vendor: The Linux Community and CachyOS maintainer(s)
 URL: https://cachyos.org
 Source0: https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-%{_tarkver}.tar.xz
 Source1: https://raw.githubusercontent.com/CachyOS/linux-cachyos/master/linux-cachyos/config
+# needed for kernel-tools
+Source2: kvm_stat.logrotate
 
 # https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
 ExcludeArch:    %{ix86}
@@ -116,48 +118,71 @@ Patch20: 0001-Add-xpadneo-bluetooth-hid-driver-module.patch
 
 %define __spec_install_post /usr/lib/rpm/brp-compress || :
 %define debug_package %{nil}
-BuildRequires: python3-devel
-BuildRequires: make
-BuildRequires: perl-generators
-BuildRequires: perl-interpreter
-BuildRequires: openssl-devel
-BuildRequires: bison
-BuildRequires: flex
-BuildRequires: findutils
-BuildRequires: git-core
-BuildRequires: perl-devel
-BuildRequires: openssl
-BuildRequires: elfutils-devel
-BuildRequires: gawk
-BuildRequires: binutils
-BuildRequires: m4
-BuildRequires: tar
-BuildRequires: hostname
-BuildRequires: bzip2
-BuildRequires: bash
-BuildRequires: gzip
-BuildRequires: xz
-BuildRequires: bc
-BuildRequires: diffutils
-BuildRequires: redhat-rpm-config
-BuildRequires: net-tools
-BuildRequires: elfutils
-BuildRequires: patch
-BuildRequires: rpm-build
-BuildRequires: dwarves
-BuildRequires: kmod
-BuildRequires: libkcapi-hmaccalc
-BuildRequires: perl-Carp
-BuildRequires: rsync
-BuildRequires: grubby
-BuildRequires: wget
-BuildRequires: gcc
-BuildRequires: gcc-c++
+# Default compression algorithm
+%global compression xz
+%global compression_flags --compress
+%global compext xz
+
 %if %{llvm_kbuild}
 BuildRequires: llvm
 BuildRequires: clang
 BuildRequires: lld
 %endif
+BuildRequires: asciidoc
+BuildRequires: audit-libs-devel python3-setuptools
+BuildRequires: bash
+BuildRequires: bc
+BuildRequires: binutils
+BuildRequires: binutils-%{_build_arch}-linux-gnu, gcc-%{_build_arch}-linux-gnu
+BuildRequires: bzip2, xz, findutils, m4, perl-interpreter, perl-Carp, perl-devel, perl-generators, make, diffutils, gawk, %compression
+BuildRequires: dracut
+BuildRequires: dwarves
+BuildRequires: gcc, binutils, redhat-rpm-config, hmaccalc, bison, flex, gcc-c++
+BuildRequires: gettext ncurses-devel
+BuildRequires: glibc-static
+BuildRequires: grubby
+BuildRequires: gzip
+BuildRequires: hostname
+BuildRequires: java-devel
+BuildRequires: kabi-dw
+BuildRequires: kernel-rpm-macros
+BuildRequires: kmod, bash, coreutils, tar, git-core, which
+BuildRequires: libbabeltrace-devel
+BuildRequires: libbpf-devel >= 0.6.0-1
+BuildRequires: libcap-devel libcap-ng-devel
+BuildRequires: libcap-devel libcap-ng-devel rsync libmnl-devel
+BuildRequires: libnl3-devel
+BuildRequires: libtraceevent-devel
+BuildRequires: libtracefs-devel
+BuildRequires: lvm2
+BuildRequires: net-tools, hostname, bc, elfutils-devel
+BuildRequires: nss-tools
+BuildRequires: numactl-devel
+BuildRequires: opencsd-devel >= 1.0.0
+BuildRequires: openssl
+BuildRequires: openssl-devel
+BuildRequires: pciutils-devel
+BuildRequires: pesign >= 0.10-4
+BuildRequires: python3
+BuildRequires: python3-devel
+BuildRequires: python3-docutils
+BuildRequires: python3-pyyaml
+BuildRequires: rpm-build, elfutils
+BuildRequires: rsync
+BuildRequires: rust, rust-src, bindgen
+BuildRequires: sparse
+BuildRequires: systemd-boot-unsigned
+BuildRequires: systemd-udev >= 252-1
+BuildRequires: systemd-ukify
+BuildRequires: tpm2-tools
+BuildRequires: wget
+BuildRequires: xmlto
+BuildRequires: xmlto, asciidoc, python3-sphinx, python3-sphinx_rtd_theme
+BuildRequires: zlib-devel binutils-devel newt-devel perl(ExtUtils::Embed) bison flex xz-devel
+
+
+
+
 Requires: %{name}-core-%{rpmver} = %{kverstr}
 Requires: %{name}-modules-%{rpmver} = %{kverstr}
 Provides: %{name}%{_basekver} = %{rpmver}
@@ -165,6 +190,8 @@ Provides: kernel-bore-eevdf >= 6.5.7-%{customver}
 Provides: kernel-bore >= 6.5.7-%{customver}
 Obsoletes: kernel-bore-eevdf <= 6.5.10-%{customver}
 Obsoletes: kernel-bore <= 6.5.10-%{customver}
+Provides: kernel-uki-vert = %{rpmver}
+Obsoletes: kernel-uki-vert <= 6.12.9-202
 
 %description
 The kernel-%{flaver} meta package
@@ -286,6 +313,85 @@ Obsoletes: kernel-bore-eevdf-devel-matched <= 6.5.10-%{customver}
 Obsoletes: kernel-bore-devel-matched <= 6.5.10-%{customver}
 %description devel-matched
 This meta package is used to install matching core and devel packages for a given %{?flavor:%{flavor}} kernel.
+
+%package -n perf
+Summary: Performance monitoring for the Linux kernel
+Requires: bzip2
+%description -n perf
+This package contains the perf tool, which enables performance monitoring
+of the Linux kernel.
+
+%package -n python3-perf
+Summary: Python bindings for apps which will manipulate perf events
+%description -n python3-perf
+The python3-perf package contains a module that permits applications
+written in the Python programming language to use the interface
+to manipulate perf events.
+
+%package -n libperf
+Summary: The perf library from kernel source
+%description -n libperf
+This package contains the kernel source perf library.
+
+%package -n libperf-devel
+Summary: Developement files for the perf library from kernel source
+Requires: libperf = %{version}-%{release}
+%description -n libperf-devel
+This package includes libraries and header files needed for development
+of applications which use perf library from kernel source.
+
+%package tools
+Summary: Assortment of tools for the Linux kernel
+Provides:  cpupowerutils = 1:009-0.6.p1
+Obsoletes: cpupowerutils < 1:009-0.6.p1
+Provides:  cpufreq-utils = 1:009-0.6.p1
+Provides:  cpufrequtils = 1:009-0.6.p1
+Obsoletes: cpufreq-utils < 1:009-0.6.p1
+Obsoletes: cpufrequtils < 1:009-0.6.p1
+Obsoletes: cpuspeed < 1:1.5-16
+Requires: %{name}-tools-libs = %{version}-%{release}
+%define __requires_exclude ^%{_bindir}/python
+%description tools
+This package contains the tools/ directory from the kernel source
+and the supporting documentation.
+
+%package tools-libs
+Summary: Libraries for the kernels-tools
+%description tools-libs
+This package contains the libraries built from the tools/ directory
+from the kernel source.
+
+%package tools-libs-devel
+Summary: Assortment of tools for the Linux kernel
+Requires: %{name}-tools = %{version}-%{release}
+Provides:  cpupowerutils-devel = 1:009-0.6.p1
+Obsoletes: cpupowerutils-devel < 1:009-0.6.p1
+Requires: %{name}-tools-libs = %{version}-%{release}
+Provides: %{name}-tools-devel
+%description tools-libs-devel
+This package contains the development files for the tools/ directory from
+the kernel source.
+
+%package -n rtla
+Summary: Real-Time Linux Analysis tools
+Requires: libtraceevent
+Requires: libtracefs
+%description -n rtla
+The rtla meta-tool includes a set of commands that aims to analyze
+the real-time properties of Linux. Instead of testing Linux as a black box,
+rtla leverages kernel tracing capabilities to provide precise information
+about the properties and root causes of unexpected results.
+
+%package -n rv
+Summary: RV: Runtime Verification
+%description -n rv
+Runtime Verification (RV) is a lightweight (yet rigorous) method that
+complements classical exhaustive verification techniques (such as model
+checking and theorem proving) with a more practical approach for
+complex systems.
+The rv tool is the interface for a collection of monitors that aim
+analysing the logical and timing behavior of Linux.
+
 
 %prep
 %setup -q -n linux-%{_tarkver}
@@ -413,6 +519,78 @@ clang ./scripts/sign-file.c -o ./scripts/sign-file -lssl -lcrypto
 %else
 gcc ./scripts/sign-file.c -o ./scripts/sign-file -lssl -lcrypto
 %endif
+
+# non-kernel userspace packages -- disable LTO
+%if "%{?_lto_cflags}" != ""
+%global _lto_cflags %{nil}
+
+# perf
+%global perf_make \
+  %{__make} %{?make_opts} EXTRA_CFLAGS="${RPM_OPT_FLAGS}" EXTRA_CXXFLAGS="${RPM_OPT_FLAGS}" LDFLAGS="%{__global_ldflags} -Wl,-E" %{?cross_opts} -C tools/perf V=1 NO_LIBLLVM=1 NO_PERF_READ_VDSO32=1 NO_PERF_READ_VDSOX32=1 WERROR=0 NO_LIBUNWIND=1 HAVE_CPLUS_DEMANGLE=1 NO_GTK2=1 NO_STRLCPY=1 NO_BIONIC=1 LIBBPF_DYNAMIC=1 LIBTRACEEVENT_DYNAMIC=1 prefix=%{_prefix} PYTHON=%{__python3}
+# perf
+# make sure check-headers.sh is executable
+chmod +x tools/perf/check-headers.sh
+%{perf_make} DESTDIR=$RPM_BUILD_ROOT all
+
+# libperf
+%global libperf_make \
+  %{__make} %{?make_opts} EXTRA_CFLAGS="${RPM_OPT_FLAGS}" LDFLAGS="%{__global_ldflags}" %{?cross_opts} -C tools/lib/perf V=1
+%{libperf_make} DESTDIR=$RPM_BUILD_ROOT
+
+%define make %{__make} %{?cross_opts} %{?make_opts} HOSTCFLAGS="%{?build_hostcflags}" HOSTLDFLAGS="%{?build_hostldflags}"
+
+# kernel-tools
+%global tools_make \
+  CFLAGS="${RPM_OPT_FLAGS}" LDFLAGS="%{__global_ldflags}" EXTRA_CFLAGS="${RPM_OPT_FLAGS}" %{make} %{?make_opts}
+# cpupower
+# make sure version-gen.sh is executable.
+chmod +x tools/power/cpupower/utils/version-gen.sh
+%{tools_make} %{?_smp_mflags} -C tools/power/cpupower CPUFREQ_BENCH=false DEBUG=false
+%ifarch x86_64
+    pushd tools/power/cpupower/debug/x86_64
+    %{tools_make} %{?_smp_mflags} centrino-decode powernow-k8-decode
+    popd
+%endif
+%ifarch x86_64
+   pushd tools/power/x86/x86_energy_perf_policy/
+   %{tools_make}
+   popd
+   pushd tools/power/x86/turbostat
+   %{tools_make}
+   popd
+   pushd tools/power/x86/intel-speed-select
+   %{tools_make}
+   popd
+   pushd tools/arch/x86/intel_sdsi
+   %{tools_make} CFLAGS="${RPM_OPT_FLAGS}"
+   popd
+%endif
+pushd tools/thermal/tmon/
+%{tools_make}
+popd
+pushd tools/bootconfig/
+%{tools_make}
+popd
+pushd tools/iio/
+%{tools_make}
+popd
+pushd tools/gpio/
+%{tools_make}
+popd
+# build VM tools
+pushd tools/mm/
+%{tools_make} slabinfo page_owner_sort
+popd
+pushd tools/verification/rv/
+%{tools_make}
+popd
+pushd tools/tracing/rtla
+%{tools_make}
+popd
+
+
+%endif
+
 
 %install
 
@@ -651,6 +829,103 @@ cp -v  %{buildroot}/boot/vmlinuz-%{kverstr} %{buildroot}/lib/modules/%{kverstr}/
 # create dummy initramfs image to inflate the disk space requirement for the initramfs. 48M seems to be the right size nowadays with more and more hardware requiring initramfs-located firmware to work properly (for reference, Fedora has it set to 20M)
 dd if=/dev/zero of=%{buildroot}/boot/initramfs-%{kverstr}.img bs=1M count=48
 
+# perf tool binary and supporting scripts/binaries
+%{perf_make} DESTDIR=$RPM_BUILD_ROOT lib=%{_lib} install-bin
+# remove the 'trace' symlink.
+rm -f %{buildroot}%{_bindir}/trace
+
+# For both of the below, yes, this should be using a macro but right now
+# it's hard coded and we don't actually want it anyway right now.
+# Whoever wants examples can fix it up!
+
+# remove examples
+rm -rf %{buildroot}/usr/lib/perf/examples
+rm -rf %{buildroot}/usr/lib/perf/include
+
+# python-perf extension
+%{perf_make} DESTDIR=$RPM_BUILD_ROOT install-python_ext
+
+# perf man pages (note: implicit rpm magic compresses them later)
+mkdir -p %{buildroot}/%{_mandir}/man1
+%{perf_make} DESTDIR=$RPM_BUILD_ROOT install-man
+
+# remove any tracevent files, eg. its plugins still gets built and installed,
+# even if we build against system's libtracevent during perf build (by setting
+# LIBTRACEEVENT_DYNAMIC=1 above in perf_make macro). Those files should already
+# ship with libtraceevent package.
+rm -rf %{buildroot}%{_libdir}/traceevent
+
+# perf/libperf
+%{libperf_make} DESTDIR=%{buildroot} prefix=%{_prefix} libdir=%{_libdir} install install_headers
+# This is installed on some arches and we don't want to ship it
+rm -rf %{buildroot}%{_libdir}/libperf.a
+
+# kernel-tools
+%{make} -C tools/power/cpupower DESTDIR=$RPM_BUILD_ROOT libdir=%{_libdir} mandir=%{_mandir} CPUFREQ_BENCH=false install
+%find_lang cpupower
+cp cpupower.lang ../../
+%ifarch x86_64
+    pushd tools/power/cpupower/debug/x86_64
+    install -m755 centrino-decode %{buildroot}%{_bindir}/centrino-decode
+    install -m755 powernow-k8-decode %{buildroot}%{_bindir}/powernow-k8-decode
+    popd
+%endif
+chmod 0755 %{buildroot}%{_libdir}/libcpupower.so*
+%ifarch x86_64
+   mkdir -p %{buildroot}%{_mandir}/man8
+   pushd tools/power/x86/x86_energy_perf_policy
+   %{tools_make} DESTDIR=%{buildroot} install
+   popd
+   pushd tools/power/x86/turbostat
+   %{tools_make} DESTDIR=%{buildroot} install
+   popd
+   pushd tools/power/x86/intel-speed-select
+   %{tools_make} DESTDIR=%{buildroot} install
+   popd
+   pushd tools/arch/x86/intel_sdsi
+   %{tools_make} CFLAGS="${RPM_OPT_FLAGS}" DESTDIR=%{buildroot} install
+   popd
+%endif
+pushd tools/thermal/tmon
+%{tools_make} INSTALL_ROOT=%{buildroot} install
+popd
+pushd tools/bootconfig
+%{tools_make} DESTDIR=%{buildroot} install
+popd
+pushd tools/iio
+%{tools_make} DESTDIR=%{buildroot} install
+popd
+pushd tools/gpio
+%{tools_make} DESTDIR=%{buildroot} install
+popd
+install -m644 -D %{SOURCE2} %{buildroot}%{_sysconfdir}/logrotate.d/kvm_stat
+pushd tools/kvm/kvm_stat
+%{__make} INSTALL_ROOT=%{buildroot} install-tools
+%{__make} INSTALL_ROOT=%{buildroot} install-man
+install -m644 -D kvm_stat.service %{buildroot}%{_unitdir}/kvm_stat.service
+popd
+# install VM tools
+pushd tools/mm/
+install -m755 slabinfo %{buildroot}%{_bindir}/slabinfo
+install -m755 page_owner_sort %{buildroot}%{_bindir}/page_owner_sort
+popd
+pushd tools/verification/rv/
+%{tools_make} DESTDIR=%{buildroot} install
+popd
+pushd tools/tracing/rtla/
+%{tools_make} DESTDIR=%{buildroot} install
+rm -f %{buildroot}%{_bindir}/hwnoise
+rm -f %{buildroot}%{_bindir}/osnoise
+rm -f %{buildroot}%{_bindir}/timerlat
+(cd %{buildroot}
+
+        ln -sf rtla ./%{_bindir}/hwnoise
+        ln -sf rtla ./%{_bindir}/osnoise
+        ln -sf rtla ./%{_bindir}/timerlat
+)
+popd
+
+
 %clean
 rm -rf %{buildroot}
 
@@ -659,11 +934,11 @@ if [ `uname -i` == "x86_64" -o `uname -i` == "i386" ] &&
    [ -f /etc/sysconfig/kernel ]; then
   /bin/sed -r -i -e 's/^DEFAULTKERNEL=kernel-smp$/DEFAULTKERNEL=kernel/' /etc/sysconfig/kernel || exit $?
 fi
-if [ -x /bin/kernel-install ] && [ -d /boot ]; then
-/bin/kernel-install add %{kverstr} /lib/modules/%{kverstr}/vmlinuz || exit $?
-fi
 
 %posttrans core
+if [ -x /bin/kernel-install ] && [ -d /boot ]; then
+  /bin/kernel-install add %{kverstr} /lib/modules/%{kverstr}/vmlinuz || exit $?
+fi
 if [ ! -z $(rpm -qa | grep grubby) ]; then
   grubby --set-default="/boot/vmlinuz-%{kverstr}"
 fi
@@ -690,6 +965,12 @@ fi
 
 %post modules
 /sbin/depmod -a %{kverstr}
+
+%post tools-libs
+/sbin/ldconfig
+
+%postun tools-libs
+/sbin/ldconfig
 
 %files core
 %ghost %attr(0600, root, root) /boot/vmlinuz-%{kverstr}
@@ -726,5 +1007,109 @@ fi
 /lib/modules/%{kverstr}/source
 
 %files devel-matched
+
+%files -n perf
+%{_bindir}/perf
+%{_libdir}/libperf-jvmti.so
+%dir %{_libexecdir}/perf-core
+%{_libexecdir}/perf-core/*
+%{_datadir}/perf-core/*
+%{_mandir}/man[1-8]/perf*
+%{_sysconfdir}/bash_completion.d/perf
+%doc tools/perf/Documentation/examples.txt
+%{_docdir}/perf-tip/tips.txt
+%{_includedir}/perf/perf_dlfilter.h
+
+%files -n python3-perf
+%{python3_sitearch}/*
+
+%files -n libperf
+%{_libdir}/libperf.so.0
+%{_libdir}/libperf.so.0.0.1
+
+%files -n libperf-devel
+%{_libdir}/libperf.so
+%{_libdir}/pkgconfig/libperf.pc
+%{_includedir}/internal/*.h
+%{_includedir}/perf/bpf_perf.h
+%{_includedir}/perf/core.h
+%{_includedir}/perf/cpumap.h
+%{_includedir}/perf/event.h
+%{_includedir}/perf/evlist.h
+%{_includedir}/perf/evsel.h
+%{_includedir}/perf/mmap.h
+%{_includedir}/perf/threadmap.h
+%{_mandir}/man3/libperf.3.gz
+%{_mandir}/man7/libperf-counting.7.gz
+%{_mandir}/man7/libperf-sampling.7.gz
+%{_docdir}/libperf/examples/sampling.c
+%{_docdir}/libperf/examples/counting.c
+%{_docdir}/libperf/html/libperf.html
+%{_docdir}/libperf/html/libperf-counting.html
+%{_docdir}/libperf/html/libperf-sampling.html
+
+%files tools -f cpupower.lang
+%{_bindir}/cpupower
+%{_datadir}/bash-completion/completions/cpupower
+%ifarch x86_64
+%{_bindir}/centrino-decode
+%{_bindir}/powernow-k8-decode
+%endif
+%{_mandir}/man[1-8]/cpupower*
+%ifarch x86_64
+%{_bindir}/x86_energy_perf_policy
+%{_mandir}/man8/x86_energy_perf_policy*
+%{_bindir}/turbostat
+%{_mandir}/man8/turbostat*
+%{_bindir}/intel-speed-select
+%{_sbindir}/intel_sdsi
+%endif
+%{_bindir}/tmon
+%{_bindir}/bootconfig
+%{_bindir}/iio_event_monitor
+%{_bindir}/iio_generic_buffer
+%{_bindir}/lsiio
+%{_bindir}/lsgpio
+%{_bindir}/gpio-hammer
+%{_bindir}/gpio-event-mon
+%{_bindir}/gpio-watch
+%{_mandir}/man1/kvm_stat*
+%{_bindir}/kvm_stat
+%{_unitdir}/kvm_stat.service
+%config(noreplace) %{_sysconfdir}/logrotate.d/kvm_stat
+%{_bindir}/page_owner_sort
+%{_bindir}/slabinfo
+
+%files tools-libs
+%{_libdir}/libcpupower.so.1
+%{_libdir}/libcpupower.so.0.0.1
+
+%files tools-libs-devel
+%{_libdir}/libcpupower.so
+%{_includedir}/cpufreq.h
+%{_includedir}/cpuidle.h
+%{_includedir}/powercap.h
+
+%files -n rtla
+%{_bindir}/rtla
+%{_bindir}/hwnoise
+%{_bindir}/osnoise
+%{_bindir}/timerlat
+%{_mandir}/man1/rtla-hwnoise.1.gz
+%{_mandir}/man1/rtla-osnoise-hist.1.gz
+%{_mandir}/man1/rtla-osnoise-top.1.gz
+%{_mandir}/man1/rtla-osnoise.1.gz
+%{_mandir}/man1/rtla-timerlat-hist.1.gz
+%{_mandir}/man1/rtla-timerlat-top.1.gz
+%{_mandir}/man1/rtla-timerlat.1.gz
+%{_mandir}/man1/rtla.1.gz
+
+%files -n rv
+%{_bindir}/rv
+%{_mandir}/man1/rv-list.1.gz
+%{_mandir}/man1/rv-mon-wip.1.gz
+%{_mandir}/man1/rv-mon-wwnr.1.gz
+%{_mandir}/man1/rv-mon.1.gz
+%{_mandir}/man1/rv.1.gz
 
 %files
