@@ -46,7 +46,7 @@ Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 Version: %{_basekver}.%{_stablekver}
 
-%define customver 203
+%define customver 204
 
 Release:%{customver}.nobara%{?dist}
 
@@ -113,6 +113,7 @@ Patch15: 0001-Revert-PCI-Add-a-REBAR-size-quirk-for-Sapphire-RX-56.patch
 Patch16: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
 # Add xpadneo as patch instead of using dkms module
 Patch17: 0001-Add-xpadneo-bluetooth-hid-driver-module.patch
+Patch18: legion-16arx8h-hda-quirk.patch
 
 %define __spec_install_post /usr/lib/rpm/brp-compress || :
 %define debug_package %{nil}
@@ -419,6 +420,7 @@ patch -p1 -i %{PATCH14}
 patch -p1 -i %{PATCH15}
 patch -p1 -i %{PATCH16}
 patch -p1 -i %{PATCH17}
+patch -p1 -i %{PATCH18}
 
 # Fetch the config and move it to the proper directory
 cp %{SOURCE1} .config
