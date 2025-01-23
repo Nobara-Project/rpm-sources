@@ -9,9 +9,9 @@
 # check buildresult after a while
 
 %define _lto_cflags %{nil}
-%define realver     9.22
-%define stagingver  9.22
-%define packagever  9.22
+%define realver     10.0
+%define stagingver  10.0
+%define packagever  10.0
 
 %global flavor %nil
 %global build_type_safety_c 0
@@ -31,7 +31,7 @@
 
 Name:       %pkg
 Version:    %ver
-Release:    15
+Release:    1
 Epoch:      2
 Summary:    WINE Is Not An Emulator - runs MS Windows programs
 License:    LGPLv2+
@@ -43,13 +43,16 @@ URL:        https://www.winehq.org/
 %define mark64  ()(64bit)
 
 
-Source0:	https://dl.winehq.org/wine/source/9.x/wine-%{realver}.tar.xz
-Source1:	https://dl.winehq.org/wine/source/9.x/wine-%{realver}.tar.xz.sign
+Source0:	https://dl.winehq.org/wine/source/10.0/wine-%{realver}.tar.xz
+Source1:	https://dl.winehq.org/wine/source/10.0/wine-%{realver}.tar.xz.sign
 
 Source100:	https://github.com/wine-staging/wine-staging/archive/v%{realver}.tar.gz#/wine-staging-%{stagingver}.tar.xz
 
 # Alexandres key
 Source99:	wine.keyring
+
+# https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
+ExcludeArch:    %{ix86}
 
 BuildRequires:  mingw32-gcc
 BuildRequires:  mingw64-gcc
