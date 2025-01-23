@@ -1,5 +1,5 @@
 Name:           gamescope-session-plus
-Version:        0.3.215
+Version:        0.3.216
 Release:        1.git.d8ab829%{?dist}
 Summary:        Gamescope session plus based on Valve's gamescope
 
@@ -37,12 +37,10 @@ tar -xf %{SOURCE0}
 %install
 mkdir -p %{buildroot}%{_bindir}/
 mkdir -p %{buildroot}%{_datadir}/
-mkdir -p %{buildroot}%{_sysconfdir}/
 mkdir -p %{buildroot}%{_userunitdir}/
 mkdir -p %{buildroot}%{_libexecdir}/
 cp -rv gamescope-session-plus/usr/bin/* %{buildroot}%{_bindir}
 cp -rv gamescope-session-plus/usr/share/* %{buildroot}%{_datadir}
-cp -rv gamescope-session-plus/etc/* %{buildroot}%{_sysconfdir}
 cp -rv gamescope-session-plus/usr/lib/systemd/user/* %{buildroot}%{_userunitdir}
 cp -rv gamescope-session-plus/usr/libexec/* %{buildroot}%{_libexecdir}/
 mv gamescope-session-plus/LICENSE .
@@ -80,11 +78,9 @@ fi
 %doc README.md
 %{_bindir}/export-gpu
 %{_bindir}/gamescope-session-plus
-%{_bindir}/deckscale
 %{_datadir}/gamescope-session-plus/device-quirks
 %{_datadir}/gamescope-session-plus/gamescope-session-plus
 %{_datadir}/polkit-1/actions/org.gamescope.start.policy
-%{_sysconfdir}/xdg/autostart/deckscale.desktop
 %{_userunitdir}/gamescope-session-plus@.service
 %{_libexecdir}/*
 
