@@ -46,7 +46,7 @@ Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 Version: %{_basekver}.%{_stablekver}
 
-%define customver 202
+%define customver 203
 
 Release:%{customver}.nobara%{?dist}
 
@@ -234,8 +234,12 @@ Provides: installonlypkg(kernel-module)
 Provides: %{name}%{_basekver}-modules = %{rpmver}
 Provides: kernel-modules = %{rpmver}
 Provides: kernel-modules%{_isa} = %{rpmver}
+Provides: kernel-modules-core = %{_rpmver}
+Provides: kernel-modules-extra = %{_rpmver}
 Provides: kernel-modules-uname-r = %{kverstr}
 Provides: kernel-modules-%{_arch} = %{rpmver}
+Provides: kernel-modules-core-uname-r = %{_kver}
+Provides: kernel-modules-extra-uname-r = %{_kver}
 Provides: kernel-modules-%{rpmver} = %{kverstr}
 Provides: %{name}-modules-%{rpmver} = %{kverstr}
 Supplements: %{name} = %{rpmver}
