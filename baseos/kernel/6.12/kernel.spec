@@ -37,7 +37,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.12
-%define _stablekver 10
+%define _stablekver 11
 %if %{_stablekver} == 0
 %define _tarkver %{_basekver}
 %else
@@ -46,7 +46,7 @@ Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 Version: %{_basekver}.%{_stablekver}
 
-%define customver 203
+%define customver 200
 
 Release:%{customver}.nobara%{?dist}
 
@@ -115,6 +115,7 @@ Patch18: add-RTL8125D.patch
 Patch19: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
 # Add xpadneo as patch instead of using dkms module
 Patch20: 0001-Add-xpadneo-bluetooth-hid-driver-module.patch
+Patch21: legion-16arx8h-hda-quirk.patch
 
 %define __spec_install_post /usr/lib/rpm/brp-compress || :
 %define debug_package %{nil}
@@ -180,9 +181,6 @@ BuildRequires: xmlto
 BuildRequires: xmlto, asciidoc, python3-sphinx, python3-sphinx_rtd_theme
 BuildRequires: zlib-devel binutils-devel newt-devel perl(ExtUtils::Embed) bison flex xz-devel
 
-
-
-
 Requires: %{name}-core-%{rpmver} = %{kverstr}
 Requires: %{name}-modules-%{rpmver} = %{kverstr}
 Provides: %{name}%{_basekver} = %{rpmver}
@@ -190,8 +188,10 @@ Provides: kernel-bore-eevdf >= 6.5.7-%{customver}
 Provides: kernel-bore >= 6.5.7-%{customver}
 Obsoletes: kernel-bore-eevdf <= 6.5.10-%{customver}
 Obsoletes: kernel-bore <= 6.5.10-%{customver}
-Provides: kernel-uki-vert = %{rpmver}
-Obsoletes: kernel-uki-vert <= 6.12.9-202
+Provides: kernel-uki-virt = %{rpmver}
+Obsoletes: kernel-uki-virt <= 6.12.9-202
+Provides: kernel > 6.12.9-200.fsync
+Obsoletes: kernel <= 6.12.9-200.fsync
 
 %description
 The kernel-%{flaver} meta package
@@ -221,6 +221,7 @@ Provides: kernel-bore-eevdf-core >= 6.5.7-%{customver}
 Provides: kernel-bore-core >= 6.5.7-%{customver}
 Obsoletes: kernel-bore-eevdf-core <= 6.5.10-%{customver}
 Obsoletes: kernel-bore-core <= 6.5.10-%{customver}
+
 %description core
 The kernel package contains the Linux kernel (vmlinuz), the core of any
 Linux operating system.  The kernel handles the basic functions
@@ -247,6 +248,10 @@ Provides: kernel-bore-eevdf-modules >= 6.5.7-%{customver}
 Provides: kernel-bore-modules >= 6.5.7-%{customver}
 Obsoletes: kernel-bore-eevdf-modules <= 6.5.10-%{customver}
 Obsoletes: kernel-bore-modules <= 6.5.10-%{customver}
+Provides: kernel-modules-core > 6.12.9-200.fsync
+Obsoletes: kernel-modules-core <= 6.12.9-200.fsync
+Provides: kernel-modules-extra > 6.12.9-200.fsync
+Obsoletes: kernel-modules-extra <= 6.12.9-200.fsync
 %description modules
 This package provides kernel modules for the core %{?flavor:%{flavor}} kernel package.
 
@@ -426,7 +431,7 @@ patch -p1 -i %{PATCH17}
 patch -p1 -i %{PATCH18}
 patch -p1 -i %{PATCH19}
 patch -p1 -i %{PATCH20}
-
+patch -p1 -i %{PATCH21}
 
 # Fetch the config and move it to the proper directory
 cp %{SOURCE1} .config
