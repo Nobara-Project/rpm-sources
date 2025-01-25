@@ -37,6 +37,7 @@ Install some dependencies:
 Add your user to the mock group:
 
 `sudo usermod -aG mock $USER`
+
 `su - $USER`
 
 Use mock to build the rpm. Mock config files are in the mock folder. Most packages only need a 64 bit build:
