@@ -46,7 +46,7 @@ Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 Version: %{_basekver}.%{_stablekver}
 
-%define customver 201
+%define customver 204
 
 Release:%{customver}.nobara%{?dist}
 
@@ -54,6 +54,7 @@ Release:%{customver}.nobara%{?dist}
 %define _rawhidever 42
 
 %define rpmver %{version}-%{release}
+%define rpmverobsolete 6.12.9-200.fsync%{?dist}
 %define krelstr %{release}.%{_arch}
 %define kverstr %{version}-%{krelstr}
 
@@ -188,8 +189,8 @@ Provides: kernel-bore-eevdf >= 6.5.7-%{customver}
 Provides: kernel-bore >= 6.5.7-%{customver}
 Obsoletes: kernel-bore-eevdf <= 6.5.10-%{customver}
 Obsoletes: kernel-bore <= 6.5.10-%{customver}
-Provides: kernel-uki-virt > 6.12.9-200.fsync%{?dist}
-Obsoletes: kernel-uki-virt <= 6.12.9-200.fsync%{?dist}
+Provides: kernel-uki-virt = %{rpmver}
+Obsoletes: kernel <= %{rpmverobsolete}
 
 %description
 The kernel-%{flaver} meta package
@@ -219,14 +220,6 @@ Provides: kernel-bore-eevdf-core >= 6.5.7-%{customver}
 Provides: kernel-bore-core >= 6.5.7-%{customver}
 Obsoletes: kernel-bore-eevdf-core <= 6.5.10-%{customver}
 Obsoletes: kernel-bore-core <= 6.5.10-%{customver}
-Provides: kernel > 6.12.9-200.fsync%{?dist}
-Obsoletes: kernel <= 6.12.9-200.fsync%{?dist}
-Provides: kernel-core > 6.12.9-200.fsync%{?dist}
-Obsoletes: kernel-core <= 6.12.9-200.fsync%{?dist}
-Provides: kernel-core-uname-r > 6.12.9-200.fsync%{?dist}
-Obsoletes: kernel-core-uname-r <= 6.12.9-200.fsync%{?dist}
-Provides: kernel-uname-r > 6.12.9-200.fsync%{?dist}
-Obsoletes: kernel-uname-r <= 6.12.9-200.fsync%{?dist}
 
 %description core
 The kernel package contains the Linux kernel (vmlinuz), the core of any
@@ -241,12 +234,12 @@ Provides: installonlypkg(kernel-module)
 Provides: %{name}%{_basekver}-modules = %{rpmver}
 Provides: kernel-modules = %{rpmver}
 Provides: kernel-modules%{_isa} = %{rpmver}
-Provides: kernel-modules-core = %{_rpmver}
-Provides: kernel-modules-extra = %{_rpmver}
+Provides: kernel-modules-core = %{rpmver}
+Provides: kernel-modules-extra = %{rpmver}
 Provides: kernel-modules-uname-r = %{kverstr}
 Provides: kernel-modules-%{_arch} = %{rpmver}
-Provides: kernel-modules-core-uname-r = %{_kver}
-Provides: kernel-modules-extra-uname-r = %{_kver}
+Provides: kernel-modules-core-uname-r = %{kverstr}
+Provides: kernel-modules-extra-uname-r = %{kverstr}
 Provides: kernel-modules-%{rpmver} = %{kverstr}
 Provides: %{name}-modules-%{rpmver} = %{kverstr}
 Supplements: %{name} = %{rpmver}
@@ -255,18 +248,6 @@ Provides: kernel-bore-modules >= 6.5.7-%{customver}
 Obsoletes: kernel-bore-eevdf-modules <= 6.5.10-%{customver}
 Obsoletes: kernel-bore-modules <= 6.5.10-%{customver}
 
-Provides: kernel-modules > 6.12.9-200.fsync%{?dist}
-Obsoletes: kernel-modules <= 6.12.9-200.fsync%{?dist}
-Provides: kernel-modules-core > 6.12.9-200.fsync%{?dist}
-Obsoletes: kernel-modules-core <= 6.12.9-200.fsync%{?dist}
-Provides: kernel-modules-extra > 6.12.9-200.fsync%{?dist}
-Obsoletes: kernel-modules-extra <= 6.12.9-200.fsync%{?dist}
-Provides: kernel-modules-uname-r > 6.12.9-200.fsync%{?dist}
-Obsoletes: kernel-modules-uname-r <= 6.12.9-200.fsync%{?dist}
-Provides: kernel-modules-core-uname-r > 6.12.9-200.fsync%{?dist}
-Obsoletes: kernel-modules-core-uname-r <= 6.12.9-200.fsync%{?dist}
-Provides: kernel-modules-extra-uname-r > 6.12.9-200.fsync%{?dist}
-Obsoletes: kernel-modules-extra-uname-r <= 6.12.9-200.fsync%{?dist}
 %description modules
 This package provides kernel modules for the core %{?flavor:%{flavor}} kernel package.
 
