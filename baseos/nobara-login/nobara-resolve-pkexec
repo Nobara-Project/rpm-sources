@@ -13,7 +13,7 @@ run_file = sys.argv[1]
 shortcut_file = sys.argv[2]
 
 # Step 1: Install necessary packages as root
-subprocess.run(["dnf", "install", "-y", "rocm-meta", "nobara-resolve-runtime", "zlib"], check=True)
+subprocess.run(["dnf", "install", "-y", "rocm-meta", "nobara-resolve-runtime", "zlib", "libxcrypt-compat"], check=True)
 
 # Step 2: Remove old version if it exists
 os.chmod(run_file, 0o775)
