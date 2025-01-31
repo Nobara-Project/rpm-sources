@@ -4,8 +4,8 @@
 %global cache_dir %{builddir}/zig-cache
 
 Name:           ghostty
-Version:        1.0.1
-Release:        2%{?dist}
+Version:        1.1.0
+Release:        1%{?dist}
 Summary:        Fast, native, feature-rich terminal emulator pushing modern features.
 
 
@@ -13,7 +13,6 @@ License:        MIT AND MPL-2.0 AND OFL-1.1
 URL:            https://github.com/ghostty-org/ghostty
 Source0:        https://release.files.ghostty.org/%{version}/ghostty-%{version}.tar.gz
 Source1:        https://release.files.ghostty.org/%{version}/ghostty-%{version}.tar.gz.minisig
-Patch0:         no-strip.diff
 
 ExclusiveArch: x86_64
 
@@ -99,7 +98,7 @@ Supplements:    %{name}
 
 %prep
 /usr/bin/minisign -V -m %{SOURCE0} -x %{SOURCE1} -P %{public_key}
-%autosetup -p1
+%autosetup
 
 # Download everything ahead of time so we can enable system integration mode
 ZIG_GLOBAL_CACHE_DIR="%{cache_dir}" ./nix/build-support/fetch-zig-cache.sh
@@ -117,8 +116,11 @@ zig build \
     --verbose \
     -Dversion-string=%{version}-%{release} \
     -Dcpu=baseline \
+    -Dstrip=false \
     -Dpie=true \
-    -Demit-docs
+    -Demit-docs \
+    -Demit-termcap \
+    -Demit-terminfo
     
 %files
 %doc README.md
@@ -128,9 +130,12 @@ zig build \
 %_datadir/bat/syntaxes/ghostty.sublime-syntax
 %_datadir/ghostty/
 %_datadir/kio/servicemenus/com.mitchellh.ghostty.desktop
+%_datadir/nautilus-python/extensions/com.mitchellh.ghostty.py
+%_datadir/nvim/site/compiler/ghostty.vim
 %_datadir/nvim/site/ftdetect/ghostty.vim
 %_datadir/nvim/site/ftplugin/ghostty.vim
 %_datadir/nvim/site/syntax/ghostty.vim
+%_datadir/vim/vimfiles/compiler/ghostty.vim
 %_datadir/vim/vimfiles/ftdetect/ghostty.vim
 %_datadir/vim/vimfiles/ftplugin/ghostty.vim
 %_datadir/vim/vimfiles/syntax/ghostty.vim
