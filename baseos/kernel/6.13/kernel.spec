@@ -37,7 +37,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.13
-%define _stablekver 0
+%define _stablekver 1
 %if %{_stablekver} == 0
 %define _tarkver %{_basekver}
 %else
@@ -46,7 +46,7 @@ Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 Version: %{_basekver}.%{_stablekver}
 
-%define customver 204
+%define customver 200
 
 Release:%{customver}.nobara%{?dist}
 
@@ -54,6 +54,7 @@ Release:%{customver}.nobara%{?dist}
 %define _rawhidever 42
 
 %define rpmver %{version}-%{release}
+%define rpmverobsolete 6.12.9-200.fsync%{?dist}
 %define krelstr %{release}.%{_arch}
 %define kverstr %{version}-%{krelstr}
 
@@ -188,7 +189,7 @@ Provides: kernel-bore >= 6.5.7-%{customver}
 Obsoletes: kernel-bore-eevdf <= 6.5.10-%{customver}
 Obsoletes: kernel-bore <= 6.5.10-%{customver}
 Provides: kernel-uki-vert = %{rpmver}
-Obsoletes: kernel-uki-vert <= 6.12.9-202
+Obsoletes: kernel <= %{rpmverobsolete}
 
 %description
 The kernel-%{flaver} meta package
@@ -231,12 +232,12 @@ Provides: installonlypkg(kernel-module)
 Provides: %{name}%{_basekver}-modules = %{rpmver}
 Provides: kernel-modules = %{rpmver}
 Provides: kernel-modules%{_isa} = %{rpmver}
-Provides: kernel-modules-core = %{_rpmver}
-Provides: kernel-modules-extra = %{_rpmver}
+Provides: kernel-modules-core = %{rpmver}
+Provides: kernel-modules-extra = %{rpmver}
 Provides: kernel-modules-uname-r = %{kverstr}
 Provides: kernel-modules-%{_arch} = %{rpmver}
-Provides: kernel-modules-core-uname-r = %{_kver}
-Provides: kernel-modules-extra-uname-r = %{_kver}
+Provides: kernel-modules-core-uname-r = %{kverstr}
+Provides: kernel-modules-extra-uname-r = %{kverstr}
 Provides: kernel-modules-%{rpmver} = %{kverstr}
 Provides: %{name}-modules-%{rpmver} = %{kverstr}
 Supplements: %{name} = %{rpmver}
