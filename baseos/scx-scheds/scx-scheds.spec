@@ -1,5 +1,5 @@
 Name:           scx-scheds
-Version:        1.0.8
+Version:        1.0.9
 Release:        1%{?dist}
 Summary:        Sched_ext Schedulers and Tools
 
@@ -62,4 +62,3 @@ The %{name}-devel package contains libraries header files for developing applica
 
 %files devel
 %{_includedir}/scx/
-%{_includedir}/lib/
