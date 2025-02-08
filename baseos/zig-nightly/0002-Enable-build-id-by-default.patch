@@ -8,13 +8,13 @@ Subject: [PATCH 2/2] Enable build-id by default
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/src/Compilation.zig b/src/Compilation.zig
-index a08c3e09f..95ade766a 100644
+index 1362b16..4299e2b 100644
 --- a/src/Compilation.zig
 +++ b/src/Compilation.zig
-@@ -1278,7 +1278,7 @@ pub fn create(gpa: Allocator, arena: Allocator, options: CreateOptions) !*Compil
+@@ -1276,7 +1276,7 @@ pub fn create(gpa: Allocator, arena: Allocator, options: CreateOptions) !*Compil
          const any_fuzz = options.config.any_fuzz or options.root_mod.fuzz;
  
-         const link_eh_frame_hdr = options.link_eh_frame_hdr or any_unwind_tables != .none;
+         const link_eh_frame_hdr = options.link_eh_frame_hdr or any_unwind_tables;
 -        const build_id = options.build_id orelse .none;
 +        const build_id = options.build_id orelse .sha1;
  

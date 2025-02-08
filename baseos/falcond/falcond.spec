@@ -1,5 +1,5 @@
 Name:           falcond
-Version:        1.0.8
+Version:        1.0.9
 Release:        %autorelease
 Summary:        Advanced Linux Gaming Performance Daemon
 
