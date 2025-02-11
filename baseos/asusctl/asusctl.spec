@@ -21,13 +21,12 @@
 %endif
 
 %define specrelease %{?dist}
-%define pkg_release 4%{specrelease}
-%define vendor_upload_hash 386fd37e8a3185dba7ec57dacdb025fc
+%define pkg_release 8%{specrelease}
 
 # Use hardening ldflags.
 %global rustflags -Clink-arg=-Wl,-z,relro,-z,now
 Name:           asusctl
-Version:        6.0.12
+Version:        6.1.2
 Release: %{pkg_release}
 Summary:        Control fan speeds, LEDs, graphics modes, and charge levels for ASUS notebooks
 License:        MPLv2
@@ -36,30 +35,32 @@ Group:          System Environment/Kernel
 
 URL:            https://gitlab.com/asus-linux/asusctl
 Source:         %{URL}/-/archive/%{version}/%{name}-%{version}.tar.gz
-Source1:        https://gitlab.com/-/project/20328305/uploads/%{vendor_upload_hash}/vendor_%{name}_%{version}.tar.xz
+Source1:        vendor_%{name}_%{version}.tar.xz
 Source2:        cargo-config
 
-BuildRequires:  cargo
 BuildRequires:  rust-packaging
 BuildRequires:  systemd-rpm-macros
 BuildRequires:  clang-devel
+BuildRequires:  cargo
 BuildRequires:  cmake
 BuildRequires:  rust
 BuildRequires:  rust-std-static
-BuildRequires:  pkgconfig(expat)
+# BuildRequires:  pkgconfig(expat)
 BuildRequires:  pkgconfig(gbm)
-BuildRequires:  pkgconfig(dbus-1)
-BuildRequires:  pkgconfig(libdrm)
+# BuildRequires:  pkgconfig(dbus-1)
+# BuildRequires:  pkgconfig(libdrm)
 BuildRequires:  pkgconfig(libinput)
 BuildRequires:  pkgconfig(libseat)
 BuildRequires:  pkgconfig(libudev)
 BuildRequires:  pkgconfig(xkbcommon)
 BuildRequires:  pkgconfig(libzstd)
-BuildRequires:  pkgconfig(gtk+-3.0)
-BuildRequires:  pkgconfig(gdk-3.0)
+# BuildRequires:  pkgconfig(gtk+-3.0)
+# BuildRequires:  pkgconfig(gdk-3.0)
 BuildRequires:  desktop-file-utils
 Requires: libappindicator-gtk3
 Requires: asusctl-rog-gui
+
+# expat-devel pcre2-devel
 
 %description
 asus-nb-ctrl is a utility for Linux to control many aspects of various
@@ -77,8 +78,8 @@ A one-stop-shop GUI tool for asusd/asusctl. It aims to provide most controls,
 a notification service, and ability to run in the background.
 
 %prep
-# %setup -D -T -a 1 -c -n %{name}-%{version}/vendor
-# %setup -D -T -a 0 -c
+#%setup -D -T -a 1 -c -n %{name}-%{version}-rc4/vendor
+#%setup -D -T -a 0 -c -n %{name}-%{version}-rc4
 %autosetup
 %setup -D -T -a 1
 
@@ -115,7 +116,7 @@ cp %{buildroot}%{_datadir}/applications/rog-control-center.desktop %{buildroot}%
 %{_unitdir}/asusd.service
 %{_userunitdir}/asusd-user.service
 %{_udevrulesdir}/99-asusd.rules
-# %dir %{_sysconfdir}/asusd/
+#%dir %{_sysconfdir}/asusd/
 %{_datadir}/asusd/aura_support.ron
 %{_datadir}/dbus-1/system.d/asusd.conf
 %{_datadir}/icons/hicolor/512x512/apps/asus_notif_yellow.png
