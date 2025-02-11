@@ -9,9 +9,9 @@
 # check buildresult after a while
 
 %define _lto_cflags %{nil}
-%define realver     10.0
-%define stagingver  10.0
-%define packagever  10.0
+%define realver     10.1
+%define stagingver  10.1
+%define packagever  10.1
 
 %global flavor %nil
 %global build_type_safety_c 0
@@ -43,8 +43,8 @@ URL:        https://www.winehq.org/
 %define mark64  ()(64bit)
 
 
-Source0:	https://dl.winehq.org/wine/source/10.0/wine-%{realver}.tar.xz
-Source1:	https://dl.winehq.org/wine/source/10.0/wine-%{realver}.tar.xz.sign
+Source0:	https://dl.winehq.org/wine/source/10.x/wine-%{realver}.tar.xz
+Source1:	https://dl.winehq.org/wine/source/10.x/wine-%{realver}.tar.xz.sign
 
 Source100:	https://github.com/wine-staging/wine-staging/archive/v%{realver}.tar.gz#/wine-staging-%{stagingver}.tar.xz
 
@@ -191,9 +191,6 @@ consists of a program loader which loads and executes a Microsoft \
 Windows binary, and a library (called Winelib) that implements Windows \
 API calls using their Unix or X11 equivalents.  The library may also \
 be used for porting Win32 code into native Unix executables.
-
-%description
-%desc
 
 %description -n %{wine}
 %desc
