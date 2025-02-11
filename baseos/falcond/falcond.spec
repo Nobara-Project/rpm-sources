@@ -1,5 +1,5 @@
 Name:           falcond
-Version:        1.0.9
+Version:        1.1.0
 Release:        %autorelease
 Summary:        Advanced Linux Gaming Performance Daemon
 
@@ -14,6 +14,7 @@ BuildRequires:  systemd-rpm-macros
 
 Recommends:	falcond-profiles
 Requires:	falcond-profiles
+Requires:	scx-scheds
 
 %description
 falcond is a powerful system daemon designed to automatically optimize your Linux gaming experience. It intelligently manages system resources and performance settings on a per-game basis, eliminating the need to manually configure settings for each game.
