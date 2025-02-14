@@ -1,7 +1,7 @@
-%global gitcommit d9fea2e41a27995f86fba334f06ecac4b798df63
+%global gitcommit f450c5a8486c4777e8441720079201d208744014
 
 Name:           kde-rounded-corners
-Version:        0.6.7
+Version:        0.7.1
 Release:        1%{?dist}
 Summary:        Rounds the corners of your windows in KDE Plasma
 
@@ -23,6 +23,7 @@ BuildRequires:  cmake(KF6CoreAddons)
 BuildRequires:  cmake(KF6GlobalAccel)
 BuildRequires:  cmake(KF6KCMUtils)
 BuildRequires:  cmake(KF6WindowSystem)
+BuildRequires:  cmake(KF6I18n)
 
 BuildRequires:  cmake(Qt6Core)
 BuildRequires:  cmake(Qt6DBus)
@@ -55,6 +56,7 @@ Obsoletes:  plasma-rounded-corners
 %files
 %license LICENSE
 %doc README.md
+%{_datadir}/locale/*/LC_MESSAGES/kcmcorners.mo
 %{_kf6_datadir}/kwin/shaders/shapecorners*.frag
 %{_qt6_plugindir}/kwin/effects/configs/kwin_shapecorners_config.so
 %{_qt6_plugindir}/kwin/effects/plugins/kwin4_effect_shapecorners.so

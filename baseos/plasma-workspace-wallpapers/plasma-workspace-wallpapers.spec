@@ -1,8 +1,9 @@
 Name:    plasma-workspace-wallpapers
-Version: 6.2.5
+Version: 6.3.0
 Release: 1%{?dist}
 Summary: Additional wallpapers for Plasma workspace
-License: LGPLv3
+# Automatically converted from old format: LGPLv3 - review is highly recommended.
+License: LGPL-3.0-only
 URL:     https://cgit.kde.org/%{name}.git
 
 Source0: https://download.kde.org/stable/plasma/%{version}/%{name}-%{version}.tar.xz
@@ -68,12 +69,70 @@ Obsoletes:      plasma-workspace-wallpapers < 5.2.0-2
 %{_datadir}/wallpapers/Patak/
 %{_datadir}/wallpapers/Path/
 %{_datadir}/wallpapers/SafeLanding/
-%{_datadir}/wallpapers/Shell/
 %{_datadir}/wallpapers/ScarletTree/
+%{_datadir}/wallpapers/Shell/
 %{_datadir}/wallpapers/summer_1am/
 %{_datadir}/wallpapers/Volna/
+%{_datadir}/wallpapers/Nexus/
 
 %changelog
+* Thu Feb 06 2025 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.3.0-1
+- 6.3.0
+
+* Thu Jan 23 2025 Steve Cossette <farchord@gmail.com> - 6.2.91-1
+- 6.2.91
+
+* Sat Jan 18 2025 Fedora Release Engineering <releng@fedoraproject.org> - 6.2.90-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_42_Mass_Rebuild
+
+* Thu Jan 09 2025 Steve Cossette <farchord@gmail.com> - 6.2.90-1
+- Beta 6.2.90
+
+* Tue Dec 31 2024 Steve Cossette <farchord@gmail.com> - 6.2.5-1
+- 6.2.5
+
+* Tue Nov 26 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.2.4-1
+- 6.2.4
+
+* Tue Nov 05 2024 Steve Cossette <farchord@gmail.com> - 6.2.3-1
+- 6.2.3
+
+* Tue Oct 22 2024 Steve Cossette <farchord@gmail.com> - 6.2.2-1
+- 6.2.2
+
+* Tue Oct 15 2024 Steve Cossette <farchord@gmail.com> - 6.2.1-1
+- 6.2.1
+
+* Thu Oct 03 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.2.0-1
+- 6.2.0
+
+* Thu Sep 12 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.90-1
+- 6.1.90
+
+* Tue Sep 10 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.5-1
+- 6.1.5
+
+* Fri Aug 09 2024 Steve Cossette <farchord@gmail.com> - 6.1.4-1
+- 6.1.4
+
+* Fri Jul 26 2024 Miroslav Suchý <msuchy@redhat.com> - 6.1.3-4
+- convert license to SPDX
+
+* Wed Jul 24 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.3-3
+- rebuilt
+
+* Fri Jul 19 2024 Fedora Release Engineering <releng@fedoraproject.org> - 6.1.3-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_41_Mass_Rebuild
+
+* Tue Jul 16 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.3-1
+- 6.1.3
+
+* Wed Jul 03 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.2-1
+- 6.1.2
+
+* Tue Jun 25 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.1-1
+- 6.1.1
+
 * Thu Jun 13 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.1.0-1
 - 6.1.0
 

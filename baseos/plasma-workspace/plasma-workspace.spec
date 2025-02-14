@@ -4,7 +4,7 @@
 
 Name:    plasma-workspace
 Summary: Plasma workspace, applications and applets
-Version: 6.2.5
+Version: 6.3.0
 Release: 1%{?dist}
 
 # Automatically converted from old format: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only) AND MIT - review is highly recommended.
@@ -25,8 +25,6 @@ Source40:       ssh-agent.conf
 Source41:       spice-vdagent.conf
 
 ## upstream patches
-# Drop xsetroot dependency, drop patch with 6.3.0
-Patch1:         https://invent.kde.org/plasma/plasma-workspace/-/merge_requests/4700.patch
 
 ## upstreamable Patches
 
@@ -66,6 +64,7 @@ BuildRequires:  boost-devel
 BuildRequires:  pkgconfig(libusb)
 BuildRequires:  libbsd-devel
 BuildRequires:  pam-devel
+BuildRequires:  libxcrypt-devel
 BuildRequires:  lm_sensors-devel
 BuildRequires:  pciutils-devel
 BuildRequires:  pipewire-devel
@@ -74,7 +73,6 @@ Requires:       unity-gtk3-module
 %ifnarch s390 s390x
 BuildRequires:  libraw1394-devel
 %endif
-BuildRequires:  gpsd-devel
 BuildRequires:  libqalculate-devel
 BuildRequires:  libicu-devel
 
@@ -332,21 +330,6 @@ BuildArch: noarch
 %description    doc
 Documentation and user manuals for %{name}.
 
-%package geolocation
-Summary: Plasma5 geolocation components
-# when split out
-Obsoletes: plasma-workspace < 5.4.2-2
-Requires: %{name}-geolocation-libs%{?_isa} = %{version}-%{release}
-%description geolocation
-%{summary}.
-
-%package geolocation-libs
-Summary: Plasma5 geolocation runtime libraries
-Requires: %{name}-common = %{version}-%{release}
-Requires: %{name}-geolocation = %{version}-%{release}
-%description geolocation-libs
-%{summary}.
-
 
 %package -n sddm-wayland-plasma
 Summary:        Plasma Wayland SDDM greeter configuration
@@ -559,6 +542,8 @@ fi
 %{_userunitdir}/plasma-workspace-wayland.target
 %{_userunitdir}/plasma-workspace-x11.target
 %dir %{_userunitdir}/plasma-workspace@.target.d/
+%{_libdir}/kconf_update_bin/plasma6.3-update-clipboard-database-2-to-3
+%{_datadir}/kconf_update/plasma6.3-update-clipboard-database-2-to-3.upd
 # PAM
 %config(noreplace) %{_sysconfdir}/pam.d/kde
 %config(noreplace) %{_sysconfdir}/pam.d/kde-fingerprint
@@ -620,25 +605,15 @@ fi
 %{_libdir}/kconf_update_bin/plasmashell-6.0-keep-custom-position-of-panels
 %{_kf6_datadir}/kglobalaccel/org.kde.krunner.desktop
 
-%files geolocation
-%{_kf6_qtplugindir}/plasma5support/geolocationprovider/plasma-geolocation-gps.so
-%{_kf6_qtplugindir}/plasma5support/geolocationprovider/plasma-geolocation-ip.so
-
-%files geolocation-libs
-%{_libdir}/libplasma-geolocation-interface.so.*
-
 %files devel
 %{_libdir}/libbatterycontrol.so
 %{_libdir}/libcolorcorrect.so
 %{_libdir}/libklipper.so
 %{_libdir}/libweather_ion.so
 %{_libdir}/libtaskmanager.so
-%{_libdir}/libplasma-geolocation-interface.so
 %{_libdir}/libkworkspace6.so
-%dir %{_includedir}/plasma/
 %{_includedir}/colorcorrect/
 %{_includedir}/kworkspace6/
-%{_includedir}/plasma/geolocation/
 %{_includedir}/taskmanager/
 %{_includedir}/notificationmanager/
 %{_libdir}/cmake/KRunnerAppDBusInterface/
@@ -652,7 +627,6 @@ fi
 %{_includedir}/krdb/krdb_export.h
 %{_includedir}/plasma5support/weather/ion.h
 %{_includedir}/plasma5support/weather/ion_export.h
-%{_libdir}/libkmpris.so
 
 %files -n sddm-wayland-plasma
 %{_prefix}/lib/sddm/sddm.conf.d/plasma-wayland.conf
@@ -670,6 +644,27 @@ fi
 
 
 %changelog
+* Thu Feb 06 2025 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.3.0-1
+- 6.3.0
+
+* Sat Feb 01 2025 Björn Esser <besser82@fedoraproject.org> - 6.2.91-2
+- Add explicit BR: libxcrypt-devel
+
+* Thu Jan 23 2025 Steve Cossette <farchord@gmail.com> - 6.2.91-1
+- 6.2.91
+
+* Sat Jan 18 2025 Fedora Release Engineering <releng@fedoraproject.org> - 6.2.90-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_42_Mass_Rebuild
+
+* Thu Jan 09 2025 Steve Cossette <farchord@gmail.com> - 6.2.90-1
+- Beta 6.2.90
+
+* Tue Dec 31 2024 Steve Cossette <farchord@gmail.com> - 6.2.5-1
+- 6.2.5
+
+* Sun Dec 08 2024 Pete Walter <pwalter@fedoraproject.org> - 6.2.4-2
+- Rebuild for ICU 76
+
 * Tue Nov 26 2024 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.2.4-1
 - 6.2.4
 
