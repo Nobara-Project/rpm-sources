@@ -1,0 +1,36 @@
+From d1267d26ad0fe8e7d43b9fb00c5cdc7a8dfc06c0 Mon Sep 17 00:00:00 2001
+From: Glorious Eggroll <gloriouseggroll@gmail.com>
+Date: Wed, 12 Feb 2025 21:34:31 -0700
+Subject: [PATCH] cmake-fixup
+
+---
+ cmake/common/helpers_common.cmake | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/cmake/common/helpers_common.cmake b/cmake/common/helpers_common.cmake
+index b61fa54..84d508a 100644
+--- a/cmake/common/helpers_common.cmake
++++ b/cmake/common/helpers_common.cmake
+@@ -81,12 +81,13 @@ macro(find_qt)
+ 
+   # Check for versionless targets of each requested component and create if necessary
+   foreach(component IN LISTS qt_components)
+-    message(DEBUG "Checking for target Qt::${component}")
+-    if(NOT TARGET Qt::${component} AND TARGET Qt${_QT_VERSION}::${component})
+-      add_library(Qt::${component} INTERFACE IMPORTED)
+-      set_target_properties(Qt::${component} PROPERTIES INTERFACE_LINK_LIBRARIES Qt${_QT_VERSION}::${component})
+-    endif()
+-    set_property(TARGET Qt::${component} PROPERTY INTERFACE_COMPILE_FEATURES "")
++      if(NOT TARGET Qt::${component} AND TARGET Qt${_QT_VERSION}::${component})
++          add_library(Qt::${component} INTERFACE IMPORTED)
++          set_target_properties(Qt::${component} PROPERTIES
++              INTERFACE_LINK_LIBRARIES Qt${_QT_VERSION}::${component}
++              INTERFACE_COMPILE_FEATURES ""
++          )
++      endif()
+   endforeach()
+ 
+ endmacro()
+-- 
+2.48.1
+
