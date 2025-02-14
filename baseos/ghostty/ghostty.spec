@@ -1,107 +1,109 @@
 # Signing key from https://github.com/ghostty-org/ghostty/blob/main/PACKAGING.md
 %global public_key RWQlAjJC23149WL2sEpT/l0QKy7hMIFhYdQOFy0Z7z7PbneUgvlsnYcV
-
 %global cache_dir %{builddir}/zig-cache
 
 Name:           ghostty
-Version:        1.1.0
-Release:        1%{?dist}
-Summary:        Fast, native, feature-rich terminal emulator pushing modern features.
-
-
-License:        MIT AND MPL-2.0 AND OFL-1.1
-URL:            https://github.com/ghostty-org/ghostty
+Version:        1.1.2
+Release:        1%?dist
+Summary:        A fast, native terminal emulator written in Zig.
+License:        MIT AND MPL-2.0 AND OFL-1.1 AND (WTFPL OR CC0-1.0) AND Apache-2.0
+URL:            https://ghostty.org/
 Source0:        https://release.files.ghostty.org/%{version}/ghostty-%{version}.tar.gz
 Source1:        https://release.files.ghostty.org/%{version}/ghostty-%{version}.tar.gz.minisig
 
-ExclusiveArch: x86_64
+# https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
+ExcludeArch:    %{ix86}
 
 BuildRequires:  gtk4-devel
 BuildRequires:  libadwaita-devel
+BuildRequires:  libX11-devel
+BuildRequires:  minisign
 BuildRequires:  ncurses
 BuildRequires:  ncurses-devel
 BuildRequires:  pandoc-cli
 BuildRequires:  zig
-BuildRequires:  minisign
 BuildRequires:  pkgconfig(bzip2)
 BuildRequires:  pkgconfig(freetype2)
 BuildRequires:  pkgconfig(fontconfig)
-BuildRequires:  pkgconfig(harfbuzz)
-BuildRequires:  pkgconfig(libpng)
-BuildRequires:  pkgconfig(zlib)
-BuildRequires:  pkgconfig(oniguruma)
-BuildRequires:  pkgconfig(libxml-2.0)
 BuildRequires:  pkgconfig(gtk4)
+BuildRequires:  pkgconfig(harfbuzz)
 BuildRequires:  pkgconfig(libadwaita-1)
-BuildRequires:  libX11-devel
-
+BuildRequires:  pkgconfig(libpng)
+BuildRequires:  pkgconfig(libxml-2.0)
+BuildRequires:  pkgconfig(oniguruma)
+BuildRequires:  pkgconfig(zlib)
 Requires:       %{name}-terminfo = %{version}-%{release}
 Requires:       %{name}-shell-integration = %{version}-%{release}
-Requires:       fontconfig
-Requires:       freetype
-Requires:       glib2
 Requires:       gtk4
-Requires:       harfbuzz
 Requires:       libadwaita
-Requires:       libpng
-Requires:       oniguruma
-Requires:       pixman
-Requires:       zlib-ng
+Conflicts:      ghostty-nightly
+Packager:       ShinyGil <rockgrub@disroot.org>
 
 %description
-Ghostty is a terminal emulator that differentiates itself by being fast, feature-rich, and native. While there are many excellent terminal emulators available, they all force you to choose between speed, features, or native UIs. Ghostty provides all three.
-
-In all categories, I am not trying to claim that Ghostty is the best (i.e. the fastest, most feature-rich, or most native). But Ghostty is competitive in all three categories and Ghostty doesn't make you choose between them.
-
-Ghostty also intends to push the boundaries of what is possible with a terminal emulator by exposing modern, opt-in features that enable CLI tool developers to build more feature rich, interactive applications.
-
-While aiming for this ambitious goal, our first step is to make Ghostty one of the best fully standards compliant terminal emulator, remaining compatible with all existing shells and software while supporting all of the latest terminal innovations in the ecosystem. You can use Ghostty as a drop-in replacement for your existing terminal emulator.
+👻 Ghostty is a fast, feature-rich, and cross-platform terminal emulator that uses platform-native UI and GPU acceleration.
 
 %package        bash-completion
 Summary:        Ghostty Bash completion
+Requires:       %{name} = %{version}-%{release}
 Requires:       bash-completion
 Supplements:    (%{name} and bash-completion)
+BuildArch:      noarch
 
 %description    bash-completion
-%summary.
+Bash shell completion for Ghostty.
 
 %package        fish-completion
 Summary:        Ghostty Fish completion
+Requires:       %{name} = %{version}-%{release}
 Requires:       fish
 Supplements:    (%{name} and fish)
+BuildArch:      noarch
 
 %description    fish-completion
-%summary.
+Fish shell completion for Ghostty.
 
 %package        zsh-completion
 Summary:        Ghostty Zsh completion
+Requires:       %{name} = %{version}-%{release}
 Requires:       zsh
 Supplements:    (%{name} and zsh)
+BuildArch:      noarch
 
 %description    zsh-completion
-%summary.
+Zsh shell completion for Ghostty.
 
 %package        shell-integration
 Summary:        Ghostty shell integration
 Supplements:    %{name}
+BuildArch:      noarch
 
 %description    shell-integration
-%summary.
+This package contains files allowing Ghostty to integrate with various shells.
 
 %package        terminfo
 Summary:        Ghostty terminfo
-Requires:       %{name}
 Supplements:    %{name}
+BuildArch:      noarch
 
 %description    terminfo
-%summary.
+Ghostty's terminfo. Needed for basic terminal function.
+
+%package        terminfo-source
+Summary:        Source files for Ghostty's terminfo
+Requires:       %{name}
+Requires:       %{name}-terminfo
+BuildArch:      noarch
+
+%description    terminfo-source
+Source files for Ghostty's terminfo. Available for debugging use.
 
 %prep
 /usr/bin/minisign -V -m %{SOURCE0} -x %{SOURCE1} -P %{public_key}
 %autosetup
 
-# Download everything ahead of time so we can enable system integration mode
-ZIG_GLOBAL_CACHE_DIR="%{cache_dir}" ./nix/build-support/fetch-zig-cache.sh
+ZIG_GLOBAL_CACHE_DIR="%{cache_dir}" \
+zig build \
+    --fetch
 
 %build
 
@@ -114,14 +116,14 @@ zig build \
     --prefix "%{_prefix}" --prefix-lib-dir "%{_libdir}" \
     --prefix-exe-dir "%{_bindir}" --prefix-include-dir "%{_includedir}" \
     --verbose \
-    -Dversion-string=%{version}-%{release} \
+    -Dversion-string=%{version} \
     -Dcpu=baseline \
     -Dstrip=false \
     -Dpie=true \
     -Demit-docs \
     -Demit-termcap \
     -Demit-terminfo
-    
+
 %files
 %doc README.md
 %license LICENSE
@@ -130,7 +132,7 @@ zig build \
 %_datadir/bat/syntaxes/ghostty.sublime-syntax
 %_datadir/ghostty/
 %_datadir/kio/servicemenus/com.mitchellh.ghostty.desktop
-%_datadir/nautilus-python/extensions/com.mitchellh.ghostty.py
+%_datadir/nautilus-python/extensions/ghostty.py
 %_datadir/nvim/site/compiler/ghostty.vim
 %_datadir/nvim/site/ftdetect/ghostty.vim
 %_datadir/nvim/site/ftplugin/ghostty.vim
@@ -170,10 +172,23 @@ zig build \
 %_datadir/ghostty/shell-integration/zsh/ghostty-integration
 
 %files terminfo
-%_datadir/terminfo/ghostty.termcap
-%_datadir/terminfo/ghostty.terminfo
 %_datadir/terminfo/g/ghostty
 %_datadir/terminfo/x/xterm-ghostty
 
+%files terminfo-source
+%_datadir/terminfo/ghostty.termcap
+%_datadir/terminfo/ghostty.terminfo
+
 %changelog
-%autochangelog
+* Fri Jan 31 2025 ShinyGil <rockgrub@disroot.org>
+- Update to 1.1.0-1%{?dist}
+ * Low GHSA-98wc-794w-gjx3: Ghostty leaked file descriptors allowing the shell and any of its child processes to impact other Ghostty terminal instances
+ * Ghostty terminfo source files are now a subpackage
+ * Shell integration and completion and terminfo subpackages are now properly noarch
+* Tue Dec 31 2024 ShinyGil <rockgrub@disroot.org>
+- Update to 1.0.1
+ * High CVE-2003-0063: Allows execution of arbitrary commands
+ * Medium CVE-2003-0070: Allows execution of arbitrary commands
+
+* Thu Dec 26 2024 ShinyGil <rockgrub@disroot.org>
+- Initial package
