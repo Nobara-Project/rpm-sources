@@ -116,6 +116,9 @@ systemctl disable inputplumber.servce
 /usr/share/inputplumber/devices/50-gpd_winmini.yaml
 /usr/share/inputplumber/devices/50-legion_go.yaml
 /usr/share/inputplumber/devices/50-msi_claw.yaml
+/usr/share/inputplumber/devices/50-legion_go_s.yaml
+/usr/share/inputplumber/devices/50-msi_claw8.yaml
+/usr/share/inputplumber/devices/60-horipad_steam.yaml
 /usr/share/inputplumber/devices/50-onexplayer_2.yaml
 /usr/share/inputplumber/devices/50-onexplayer_amd.yaml
 /usr/share/inputplumber/devices/50-onexplayer_intel.yaml
