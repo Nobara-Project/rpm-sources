@@ -2,7 +2,7 @@
 %define __spec_install_post /usr/lib/rpm/brp-compress || :
 %define debug_package %{nil}
 
-Name:       obs-vertical-canvas
+Name:       obs-studio-plugin-vertical-canvas
 Version:    1.5.2
 Release:    1%{?dist}
 Summary:    Vertical canvas plugin for OBS
@@ -24,11 +24,15 @@ BuildRequires:  qt6-qtwayland-devel
 Requires:       obs-studio
 Requires:       qt6-qtbase
 
+Provides:   obs-studio-plugin-vertical-canvas
+Provides:   obs-vertical-canvas
+Obsoletes:  obs-vertical-canvas
+
 %description
 Plugin for OBS Studio to add vertical canvas by Aitum
 
 %prep
-%autosetup -p1
+%autosetup -p1 -n obs-vertical-canvas-%{version}
 
 %build
 %cmake \
