@@ -1,27 +1,29 @@
-# Define the manual commit as a fallback
-%define manual_commit 09d38d98b3237232532cb9453b78249a65ca1978
+# Tag is auto-inserted by workflow
+%global tag 1.2.5
 
-# Optionally define the tag
-%define tag 1.2.1
-# Check if tag is defined and get the commit hash for the tag, otherwise use manual commit
-%{!?tag: %global commit %{manual_commit}}
-%{?tag: %global commit %(git rev-list -n 1 %{tag} 2>/dev/null || echo %{manual_commit})}
+# Manual commit is auto-inserted by workflow
+%global commit a11540cbf2221a5671c4ced97c0bf7e61c98d21e
 
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 %global build_timestamp %(date +"%Y%m%d")
 
-%global rel_build 6.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 1.%{build_timestamp}.%{shortcommit}%{?dist}
+
+# F41 doesn't ship urllib3 >= 2.0 needed
+%global urllib3 2.3.0
 
 Name:           umu-launcher
-Version:        1.2.1
+Version:        %{tag}
 Release:        %{rel_build}
 Summary:        A tool for launching non-steam games with proton
 
 License:        GPLv3
 URL:            https://github.com/Open-Wine-Components/umu-launcher
+Source0:        %{url}/archive/refs/tags/%{tag}.tar.gz#/%{name}-%{tag}.tar.gz
+Source1:        https://github.com/urllib3/urllib3/releases/download/%{urllib3}/urllib3-%{urllib3}.tar.gz
 
-BuildArch:  noarch
+BuildArch:  x86_64
 BuildRequires:  meson >= 0.54.0
 BuildRequires:  ninja-build
 BuildRequires:  cmake
@@ -35,30 +37,55 @@ BuildRequires:  python3-installer
 BuildRequires:  python3-hatchling
 BuildRequires:  python
 BuildRequires:  python3
+BuildRequires:  python3-pip
+BuildRequires:  libzstd-devel
+BuildRequires:  python3-hatch-vcs
+BuildRequires:  python3-wheel
+BuildRequires:  python3-xlib
+BuildRequires:  python3-pyzstd
+BuildRequires:  cargo
+
+# Can't use these yet, F41 doesn't ship urllib3 >= 2.0 needed
+#BuildRequires:  python3-urllib3
 
 Requires:	python
 Requires:	python3
 Requires:	python3-xlib
 Requires:	python3-filelock
+Requires:	python3-pyzstd
+
+# Can't use these yet, F41 doesn't ship urllib3 >= 2.0 needed
+#Requires:  python3-urllib3
+
+Recommends:	python3-cbor2
+Recommends:	python3-xxhash
+Recommends:	libzstd
+
+# We need this for now to allow umu's builtin urllib3 version to be used.
+# Can be removed when python3-urllib3 version is bumped >= 2.0
+AutoReqProv: no
 
 
 %description
 %{name} A tool for launching non-steam games with proton
 
 %prep
-git clone --single-branch --branch main https://github.com/Open-Wine-Components/umu-launcher.git
-cd umu-launcher
-git checkout %{tag}
-#git checkout %{manual_commit}
-git submodule update --init --recursive
+%autosetup -p 1
+if ! find subprojects/urllib3/ -mindepth 1 -maxdepth 1 | read; then
+    # Directory is empty, perform action
+    mv %{SOURCE1} .
+    tar -xf urllib3-%{urllib3}.tar.gz
+    rm *.tar.gz
+    mv urllib3-%{urllib3}/* subprojects/urllib3/
+fi
 
 %build
-cd umu-launcher
-./configure.sh --prefix=/usr
+# Update this when fedora ships urllib3 >= 2.0
+#./configure.sh --prefix=/usr --use-system-pyzstd --use-system-urllib
+./configure.sh --prefix=/usr --use-system-pyzstd
 make
 
 %install
-cd umu-launcher
 make DESTDIR=%{buildroot} PYTHONDIR=%{python3_sitelib} install
 
 %files
