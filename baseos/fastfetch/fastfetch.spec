@@ -1,6 +1,6 @@
 Name:           fastfetch
-Version:        2.33.0
-Release:        2%{?dist}
+Version:        2.34.1
+Release:        1%{?dist}
 Summary:        Like neofetch, but much faster because written in c
 
 License:        MIT
