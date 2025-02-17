@@ -4,7 +4,7 @@
 ## END: Set by rpmautospec
 
 Name:           opengamepadui
-Version:        0.35.7
+Version:        0.35.8
 Release:        1%{?dist}
 Summary:        A free and open source game launcher and overlay written using the Godot Game Engine 4 designed with a gamepad native experience in mind
 License:        GPL-3.0-only
