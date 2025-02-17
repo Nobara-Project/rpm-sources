@@ -1,0 +1,22 @@
+From 79eb41c0a8b8e70adf59a374dc357be3962e7b12 Mon Sep 17 00:00:00 2001
+From: tytan652 <tytan652@tytanium.xyz>
+Date: Thu, 30 Jan 2025 19:58:05 +0100
+Subject: [PATCH] Revert "Enable Qt message loop on Linux"
+
+This reverts commit 98d94a432264c1754e4dea1501a5ce36b04b1718.
+---
+ cmake/os-linux.cmake | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/cmake/os-linux.cmake b/cmake/os-linux.cmake
+index d80f9d4ad..7c95a9efe 100644
+--- a/cmake/os-linux.cmake
++++ b/cmake/os-linux.cmake
+@@ -1,7 +1,5 @@
+ find_package(X11 REQUIRED)
+ 
+-target_compile_definitions(obs-browser PRIVATE ENABLE_BROWSER_QT_LOOP)
+-
+ target_link_libraries(obs-browser PRIVATE CEF::Wrapper CEF::Library X11::X11)
+ set_target_properties(obs-browser PROPERTIES BUILD_RPATH "$ORIGIN/" INSTALL_RPATH "$ORIGIN/")
+ 

@@ -32,17 +32,17 @@
 %global version_cef 6533
 %global version_aja v16.2-bugfix5
 
-%define version_string 31.0.0
+%define version_string 31.0.1
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build %{build_timestamp}.%{shortcommit}%{?dist}
 %global _default_patch_fuzz 2
 # obs version and commit
-%global commit 0b2c85845e20f41c612cfe2583e380bd436b6b3c
+%global commit b7b7c4cbbcd86eb29d8bbc51765be0338ed6814d
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 Name:           obs-studio
 Version:        %{version_string}
-Release:        2.%{rel_build}
+Release:        1.%{rel_build}
 Summary:        Open Broadcaster Software Studio
 
 # OBS itself is GPL-2.0-or-later, while various plugin dependencies are of various other licenses
@@ -52,35 +52,13 @@ URL:            https://obsproject.com/
 Source0:        https://github.com/obsproject/obs-studio/archive/%{commit}/%{name}-%{shortcommit}.tar.gz
 Source1:        https://github.com/obsproject/obs-websocket/archive/%{obswebsocket_version}/obs-websocket-%{obswebsocket_version}.tar.gz
 Source2:        https://github.com/obsproject/obs-browser/archive/%{obsbrowser_commit}/obs-browser-%{obsbrowser_commit}.tar.gz
-
 Source3:        https://cdn-fastly.obsproject.com/downloads/cef_binary_%{version_cef}_linux_x86_64.tar.xz
-# CMake snippets for finding systemwide obs-cef
-#Source3:        FindCEF.cmake
 Source4:        https://github.com/aja-video/ntv2/archive/refs/tags/%{version_aja}.tar.gz
 
-# Disabled for now
-# Source4:        0001-Revert-Disable-browser-panels-on-Wayland.patch
-
 # Backports from upstream
-
-# Nobara patches
-Patch0:         add-plugins.patch
-#Patch1:         fedora-obs-cef-findcef-fixup.patch
-
-## Encoder name cleanup
-Patch8:         encoder-rename.patch
-
-## Needed for Media Playlist Source plugin
-## https://github.com/obsproject/obs-studio/pull/8051
-## Media Playlist Source plugin provides alternative to VLC video source plugin
-## This is a better solution as Fedora does not ship vlc video source plugin
-Patch9:       8051.patch
-
-# Disabled for now
-# Enable Oauth in UI alongside re-enabling browser panels
-# Patch10:      0001-Revert-UI-Avoid-registering-CEF-OAuth-integrations-o.patch
-
-# Backports from upstream
+# https://github.com/obsproject/obs-browser/pull/472
+# Fixes CPU usage regression in obs-browser
+Source5:        472.patch
 
 # Proposed upstream
 ## From: https://github.com/obsproject/obs-studio/pull/8529
@@ -174,15 +152,17 @@ Requires:      %{cef_runtime_deps}
 
 Recommends:	mesa-va-drivers
 Recommends:	mesa-vdpau-drivers
-Requires:	obs-ndi
-Requires:	libndi-sdk
+
 Recommends:	obs-studio-plugin-media-playlist-source
 Recommends:	obs-studio-plugin-vlc-video
 Recommends:	obs-studio-plugin-backgroundremoval
 Recommends:	obs-studio-plugin-pipewire-audio-capture
 Recommends:	obs-studio-plugin-vkcapture
 Recommends:	obs-studio-plugin-vkcapture(x86-32)
-
+Recommends:	obs-studio-plugin-vertical-canvas
+Recommends:	obs-studio-plugin-aitum-multistream
+Recommends:	obs-studio-plugin-source-record
+Recommends:	obs-studio-plugin-distroav
 
 # Ensure QtWayland is installed when libwayland-client is installed
 Requires:      (qt6-qtwayland%{?_isa} if libwayland-client%{?_isa})
@@ -274,14 +254,6 @@ Header files for Open Broadcaster Software
 %ifarch x86_64
 %package plugin-browser
 Summary:        Open Broadcaster Software Studio - CEF-based browser plugin
-#BuildRequires:  obs-cef-devel
-#BuildRequires:  obs-cef
-
-# Filter out bogus libcef.so requires as this is handled manually
-# with an explicit dependency
-#%global __requires_exclude ^libcef\\.so.*$
-
-#Requires:       (obs-cef%{?_isa} with obs-cef(abi) = %{version_cef})
 Requires:       obs-studio%{?_isa} = %{version}-%{release}
 Supplements:    obs-studio%{?_isa}
 Conflicts:      obs-studio-plugin-webkitgtk
@@ -305,6 +277,10 @@ tar -xf %{SOURCE1} -C plugins/obs-websocket --strip-components=1
 tar -xf %{SOURCE2} -C plugins/obs-browser --strip-components=1
 %autopatch -p1
 
+# hotfix CPU usage regression in obs-browser
+pushd plugins/obs-browser
+patch -Np1 < %{SOURCE5}
+popd
 
 # unpack CEF wrapper
 mkdir -p %{_builddir}/SOURCES/CEF
@@ -313,33 +289,6 @@ tar -x --xz -f %{SOURCE3} -C %{_builddir}/SOURCES/CEF --strip-components=1
 # unpack AJA Libs
 mkdir -p %{_builddir}/SOURCES/AJA/source/cmake-build
 tar -xf %{SOURCE4} -C %{_builddir}/SOURCES/AJA/source --strip-components=1
-# compile AJA libs
-# cd %{_builddir}/SOURCES/AJA/source/cmake-build
-# cmake -DCMAKE_BUILD_TYPE=Release -GNinja -DCMAKE_INSTALL_PREFIX=%{_builddir}/SOURCES/AJA/install ..
-# ninja -f build.ninja
-# cmake --install ajalibraries/ajantv2
-
-# Disabled for now
-# Re-enable browser panels on wayland
-# cd plugins/obs-browser
-# patch -Np1 < %{SOURCE4}
-# cd ../../
-
-#%ifarch x86_64
-# Fix include paths
-#sed -e 's,include/,obs-cef/,g' -i plugins/obs-browser/{cef-headers.hpp,browser-scheme.cpp}
-
-# Fix obs-browser rpath setting
-#sed -e 's,INSTALL_RPATH ".*",INSTALL_RPATH "%{_libdir}/obs-cef/",' -i plugins/obs-browser/cmake/os-linux.cmake
-#%endif
-
-### NOBARA-ADDED ###
-
-# Prepare plugins/obs-source-record
-git clone --recurse-submodules https://github.com/exeldro/obs-source-record plugins/obs-source-record
-
-### END NOBARA-ADDED ###
-
 
 %if ! %{with x264}
 # disable x264 plugin
@@ -377,8 +326,6 @@ cp libobs/util/simde/LICENSE.simde .fedora-rpm/licenses/deps/
 cp plugins/decklink/LICENSE.decklink-sdk .fedora-rpm/licenses/deps
 cp plugins/obs-qsv11/obs-qsv11-LICENSE.txt .fedora-rpm/licenses/plugins/
 
-       #-DCEF_INCLUDE_DIR="%{_includedir}/obs-cef" \
-       #-DCEF_ROOT_DIR="%{_libdir}/obs-cef/" \
 %build
 %cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo \
        -DOBS_VERSION_OVERRIDE=%{version_no_tilde} \
