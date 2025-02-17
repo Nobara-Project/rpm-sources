@@ -1,17 +1,21 @@
-%define commit 79d7d6e0e2b39948d30335ac7acd9d1f70f572b2
-%define shortcommit 79d7d6e
+%define commit 70adad87231e57b73c838bcd20f084f242d6ae4c
+%define shortcommit 70adad8
 %global appid net.lutris.Lutris
 %define debug_package %{nil}
 
 Name:           lutris
 Version:        0.5.18
-Release:        1.git.%{shortcommit}%{?dist}
+Release:        2.git.%{shortcommit}%{?dist}
 Summary:        Video game preservation platform
 
 License:        GPL-3.0+
 Group:          Amusements/Games/Other
 URL:            http://lutris.net
 Source0:        https://github.com/lutris/lutris/archive/%{commit}.tar.gz#/lutris-%{commit}.tar.gz
+
+# python-evdev 1.9.0 fixup
+# https://github.com/lutris/lutris/pull/5935
+Patch0:         5935.patch
 
 BuildRequires:  desktop-file-utils
 BuildRequires:  python3-devel
