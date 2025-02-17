@@ -1,6 +1,6 @@
 Name:          nobara-updater
 Version:       1.0.0
-Release:       120%{?dist}
+Release:       123%{?dist}
 License:       GPL-3.0-or-later
 Summary:       Nobara System Updater
 
@@ -70,13 +70,6 @@ fi
 
 # Set the default application for .rpm files
 xdg-mime default /usr/share/applications/nobara-rpm-installer.desktop application/x-rpm
-update-mime-database /usr/share/mime
-
-%postun
-#!/bin/bash
-
-# Remove the default application setting for .rpm files
-xdg-mime default "" application/x-rpm
 update-mime-database /usr/share/mime
 
 %files
