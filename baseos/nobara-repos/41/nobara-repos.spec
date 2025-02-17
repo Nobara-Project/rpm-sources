@@ -3,7 +3,7 @@
 Summary:        Nobara package repositories
 Name:           nobara-repos
 Version:        41
-Release:        6%{?eln:.eln%{eln}}
+Release:        8%{?eln:.eln%{eln}}
 License:        MIT
 URL:            https://fedoraproject.org/
 
@@ -25,6 +25,7 @@ Source3:       RPM-GPG-KEY-nobara-pubkey
 Source4:       RPM-GPG-KEY-nobara-baseos-pubkey-39
 Source5:       RPM-GPG-KEY-nobara-baseos-pubkey-40
 Source6:       RPM-GPG-KEY-nobara-baseos-pubkey-41
+Source7:       RPM-GPG-KEY-fedora-41-primary
 
 %description
 Nobara package repository files for yum and dnf along with gpg public keys.
