@@ -1,16 +1,6 @@
-## START: Set by rpmautospec
-## (rpmautospec version 0.3.5)
-## RPMAUTOSPEC: autorelease, autochangelog
-%define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
-    release_number = 2;
-    base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
-    print(release_number + base_release_number - 1);
-}%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
-## END: Set by rpmautospec
-
 %global appname MangoHud
 %global forgeurl https://github.com/flightlessmango/MangoHud
-%global commit a109f0baf5b5477fb1b4c3ccdfbac2284077caec
+%global commit f77864d5ee59a82c33220267bf47fe0b82eafdad
 %forgemeta
 %global imgui_ver 1.89.9
 %global imgui_wrap_ver 2
@@ -22,7 +12,7 @@
 %global tarball_version %%(echo %{version} | tr '~' '-')
 
 Name:           mangohud
-Version:        0.7.2
+Version:        0.8.0
 Release:        %autorelease
 Summary:        Vulkan and OpenGL overlay for monitoring FPS, temperatures, CPU/GPU load
 
@@ -40,12 +30,7 @@ Source5:        https://github.com/epezent/implot/archive/v%{implot_ver}/implot-
 Source6:        https://wrapdb.mesonbuild.com/v%{implot_wrap_ver}/implot_%{implot_ver}-1/get_patch#/implot-%{implot_ver}-%{implot_wrap_ver}-wrap.zip
 Source20:       README.Fedora.md
 
-# MangoHud switched to bundled vulkan-headers since 0.6.9 version. This rebased
-# upstream patch which reverts this change.
-# https://github.com/flightlessmango/MangoHud/commit/bc282cf300ed5b6831177cf3e6753bc20f48e942
-# Patch0:         mangohud-0.6.9-use-system-vulkan-headers.patch
 BuildRequires:  vulkan-headers
-
 BuildRequires:  appstream
 BuildRequires:  dbus-devel
 BuildRequires:  gcc-c++
@@ -74,7 +59,6 @@ BuildRequires:  pkgconfig(x11)
 
 Requires:       python3-matplotlib
 Requires:       python3-numpy
-
 Requires:       hicolor-icon-theme
 Requires:       vulkan-loader%{?_isa}
 
@@ -124,7 +108,6 @@ mv implot-%{implot_ver} subprojects/
 %build
 %meson \
     -Dmangoapp=true \
-    -Dmangoapp_layer=true \
     -Dmangohudctl=true \
     -Dinclude_doc=true \
     -Duse_system_spdlog=enabled \
@@ -168,6 +151,9 @@ install -D -p -m 0644 %{SOURCE20} %{buildroot}%{_docdir}/%{name}/README.Fedora.m
 
 
 %changelog
+* Wed Feb 12 2025 LionHeartP <LionHeartP@proton.me> - 0.8.0-1
+- build: Update to 0.8.0
+
 * Mon Oct 02 2023 Artem Polishchuk <ego.cordatus@gmail.com> - 0.7.0-6
 - build: Fix description about 'mangoplot'
 
