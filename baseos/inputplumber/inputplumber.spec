@@ -2,7 +2,7 @@
 
 Name:           inputplumber
 Version:        0.47.2
-Release:        1%{?dist}
+Release:        3%{?dist}
 Summary:        InputPlumber is an open source input routing and control daemon for Linux. It can be used to combine any number of input devices (like gamepads, mice, and keyboards) and translate their input to a variety of virtual device formats.
 
 License:        GPLv3+
@@ -56,6 +56,9 @@ sed -i 's/- xbox-elite/- ds5-edge/g' %{buildroot}/usr/share/inputplumber/devices
 sed -i 's/- xbox-elite/- ds5-edge/g' %{buildroot}/usr/share/inputplumber/devices/50-legion_go.yaml
 sed -i 's/- xbox-elite/- ds5-edge/g' %{buildroot}/usr/share/inputplumber/devices/50-msi_claw.yaml
 
+# Fixup for elite v2 not being detected
+sed -i 's/02e3,0b00/02e3,0b00,0b22,0b05/g' %{buildroot}/usr/share/inputplumber/devices/60-xbox_one_elite_gamepad.yaml
+
 
 %post
 udevadm control --reload-rules
@@ -65,8 +68,8 @@ systemctl enable inputplumber.service
 systemctl start inputplumber.service
 
 %preun
-systemctl stop inputplumber.servce
-systemctl disable inputplumber.servce
+systemctl stop inputplumber.service
+systemctl disable inputplumber.service
 %systemd_preun inputplumber.service
 
 %files
