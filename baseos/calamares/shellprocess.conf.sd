@@ -29,6 +29,8 @@ script:
       timeout: 3600
     - command: "echo \"GRUB_HIDDEN_TIMEOUT_QUIET='true'\" >> /etc/default/grub"
       timeout: 3600
+    - command: "echo \"GRUB_CMDLINE_LINUX='console=tty1 rd.systemd.gpt_auto=no log_buf_len=4M amd_iommu=off amdgpu.lockup_timeout=5000,10000,10000,5000 amdgpu.gttsize=8128 amdgpu.sched_hw_submission=4 audit=0 fsck.mode=auto fsck.repair=preen loglevel=3 plymouth.ignore-serial-consoles fbcon=vc:4-6 fbcon=rotate:3'\" >> /etc/default/grub"
+      timeout: 3600
     - command: "/usr/sbin/grub2-mkconfig -o /boot/grub2/grub.cfg"
       timeout: 3600
     - command: "/usr/sbin/plymouth-set-default-theme steamos"

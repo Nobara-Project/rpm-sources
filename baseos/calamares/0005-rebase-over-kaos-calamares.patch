@@ -4426,7 +4426,7 @@ index 709d2a80f85393d832f9e9dc336398995fa5371f..69d9697dfb03f23d4a77829cbd337128
  #     name[en_GB]: "Just a moment"
 +
 +script:
-+    - command: "/bin/kernel-install add $(ls /lib/modules) /lib/modules/$(ls /lib/modules)/vmlinuz"
++    - command: "/bin/kernel-install add $(uname -r) /lib/modules/$(uname -r)/vmlinuz"
 +      timeout: 3600
 +    - command: "/usr/sbin/grub2-mkconfig -o /boot/grub2/grub.cfg"
 +      timeout: 3600

@@ -1,24 +1,12 @@
 Name:           calamares
 Version:        3.3.12
-Release:        76%{?dist}
+Release:        81%{?dist}
 Summary:        Installer from a live CD/DVD/USB to disk
 
 License:        GPL-3.0-or-later
 URL:            https://codeberg.org/KaOS/calamares/
 Source0:        https://codeberg.org/KaOS/calamares/archive/8ef84cf0b0c80ba834887f1a87645dc94a8da68c.tar.gz
-Source2:        show.qml
-# Run:
-# lupdate-qt6 show.qml -ts calamares-auto_fr.ts
-# then translate the template in linguist-qt6.
-Source3:        calamares-auto_fr.ts
-# Run:
-# lupdate-qt6 show.qml -ts calamares-auto_de.ts
-# then translate the template in linguist-qt6.
-Source4:        calamares-auto_de.ts
-# Run:
-# lupdate-qt6 show.qml -ts calamares-auto_it.ts
-# then translate the template in linguist-qt6.
-Source5:        calamares-auto_it.ts
+Source2:        samegame.tar.gz
 
 Source6:        install-icon.svg
 Source7:        input-keyboard-virtual-off.svg
@@ -26,8 +14,9 @@ Source8:        input-keyboard-virtual-on.svg
 Source9:        shellprocess.conf.landscape
 Source10:        shellprocess.conf.left
 Source11:        shellprocess.conf.right
-Source12:        shellprocess.conf.htpc
-Source13:        shellprocess.conf.htpc.nv
+Source12:        shellprocess.conf.sd
+Source13:        shellprocess.conf.htpc
+Source14:        shellprocess.conf.htpc.nv
 
 # Backports from upstream
 Source1001:       packages.tar.gz
@@ -240,8 +229,6 @@ cd ../../
 %patch 1006 -p1
 %patch 1007 -p1
 
-# show.qml
-mv %{SOURCE2} src/branding/nobara_branding/
 mv %{SOURCE1009} src/branding/nobara_branding/
 mv %{SOURCE1010} src/branding/nobara_branding/
 
@@ -283,11 +270,15 @@ mkdir -p %{buildroot}%{_sysconfdir}/calamares/branding
 # delete dummypythonqt translations, we do not use PythonQt at this time
 rm -f %{buildroot}%{_datadir}/locale/*/LC_MESSAGES/calamares-dummypythonqt.mo
 
+# samegame (minigame while installing)
+tar -zxvf %{SOURCE2} -C  %{buildroot}%{_datadir}/calamares/branding/nobara_branding/
+
 cp %{SOURCE9} %{buildroot}%{_datadir}/calamares/modules/
 cp %{SOURCE10} %{buildroot}%{_datadir}/calamares/modules/
 cp %{SOURCE11} %{buildroot}%{_datadir}/calamares/modules/
 cp %{SOURCE12} %{buildroot}%{_datadir}/calamares/modules/
 cp %{SOURCE13} %{buildroot}%{_datadir}/calamares/modules/
+cp %{SOURCE14} %{buildroot}%{_datadir}/calamares/modules/
 
 
 %check
@@ -368,7 +359,7 @@ style:
    SidebarTextCurrent:    "#292F34"
    SidebarBackgroundCurrent: "#760da6"
 
-slideshow:               "show.qml"
+slideshow:               "samegame.qml"
 
 slideshowAPI: 2
 
@@ -477,7 +468,7 @@ EOF
 * Wed Jul 19 2023 Fedora Release Engineering <releng@fedoraproject.org> - 3.2.61-8
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_39_Mass_Rebuild
 
-* Tue Jul 11 2023 František Zatloukal <fzatlouk@redhat.com> - 3.2.61-7
+* Tue Jul 11 2023 FrantiÅ¡ek Zatloukal <fzatlouk@redhat.com> - 3.2.61-7
 - Rebuilt for ICU 73.2
 
 * Thu Jun 15 2023 Python Maint <python-maint@redhat.com> - 3.2.61-6
@@ -593,7 +584,7 @@ EOF
 * Sat May 30 2020 Jonathan Wakely <jwakely@redhat.com> - 3.2.11-9
 - Rebuilt for Boost 1.73
 
-* Tue May 26 2020 Miro Hrončok <mhroncok@redhat.com> - 3.2.11-8
+* Tue May 26 2020 Miro HronÄok <mhroncok@redhat.com> - 3.2.11-8
 - Rebuilt for Python 3.9
 
 * Mon Feb 10 2020 Mattia Verga <mattia.verga@protonmail.com> - 3.2.11-7
@@ -605,10 +596,10 @@ EOF
 * Fri Oct 18 2019 Richard Shaw <hobbes1069@gmail.com> - 3.2.11-5
 - Rebuild for yaml-cpp 0.6.3.
 
-* Thu Oct 03 2019 Miro Hrončok <mhroncok@redhat.com> - 3.2.11-4
+* Thu Oct 03 2019 Miro HronÄok <mhroncok@redhat.com> - 3.2.11-4
 - Rebuilt for Python 3.8.0rc1 (#1748018)
 
-* Mon Aug 19 2019 Miro Hrončok <mhroncok@redhat.com> - 3.2.11-3
+* Mon Aug 19 2019 Miro HronÄok <mhroncok@redhat.com> - 3.2.11-3
 - Rebuilt for Python 3.8
 
 * Wed Jul 24 2019 Fedora Release Engineering <releng@fedoraproject.org> - 3.2.11-2
@@ -686,13 +677,13 @@ EOF
 * Thu Jan 24 2019 Jonathan Wakely <jwakely@redhat.com> - 3.1.8-12
 - Rebuilt for Boost 1.69
 
-* Mon Jan 14 2019 Björn Esser <besser82@fedoraproject.org> - 3.1.8-11
+* Mon Jan 14 2019 BjÃ¶rn Esser <besser82@fedoraproject.org> - 3.1.8-11
 - Rebuilt for libcrypt.so.2 (#1666033)
 
 * Thu Jul 12 2018 Fedora Release Engineering <releng@fedoraproject.org> - 3.1.8-10
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_29_Mass_Rebuild
 
-* Tue Jun 19 2018 Miro Hrončok <mhroncok@redhat.com> - 3.1.8-9
+* Tue Jun 19 2018 Miro HronÄok <mhroncok@redhat.com> - 3.1.8-9
 - Rebuilt for Python 3.7
 
 * Wed Feb 14 2018 Richard Shaw <hobbes1069@gmail.com> - 3.1.8-8
@@ -704,7 +695,7 @@ EOF
 * Tue Jan 23 2018 Jonathan Wakely <jwakely@redhat.com> - 3.1.8-6
 - Rebuilt for Boost 1.66
 
-* Sat Jan 20 2018 Björn Esser <besser82@fedoraproject.org> - 3.1.8-5
+* Sat Jan 20 2018 BjÃ¶rn Esser <besser82@fedoraproject.org> - 3.1.8-5
 - Rebuilt for switch to libxcrypt
 
 * Sun Jan 07 2018 Igor Gnatenko <ignatenkobrain@fedoraproject.org> - 3.1.8-4
@@ -747,7 +738,7 @@ EOF
 - Add manpage to the file list
 - Disable crash reporter for now (as was the default in previous releases)
 
-* Sun Aug 06 2017 Björn Esser <besser82@fedoraproject.org> - 3.1.0-6
+* Sun Aug 06 2017 BjÃ¶rn Esser <besser82@fedoraproject.org> - 3.1.0-6
 - Rebuilt for AutoReq cmake-filesystem
 
 * Wed Aug 02 2017 Fedora Release Engineering <releng@fedoraproject.org> - 3.1.0-5
@@ -785,7 +776,7 @@ EOF
 - Update to 2.5-alpha1
 - Rebase default-settings and kdesu patches
 
-* Mon Dec 19 2016 Miro Hrončok <mhroncok@redhat.com> - 2.4.80-0.4.20161119git34516e9477b2f
+* Mon Dec 19 2016 Miro HronÄok <mhroncok@redhat.com> - 2.4.80-0.4.20161119git34516e9477b2f
 - Rebuild for Python 3.6
 
 * Sat Nov 19 2016 Kevin Kofler <Kevin@tigcc.ticalc.org> - 2.4.80-0.3.20161119git34516e9477b2f

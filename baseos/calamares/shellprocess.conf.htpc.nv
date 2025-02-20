@@ -2,7 +2,7 @@ dontChroot: false
 timeout: 10
 verbose: false
 script:
-    - command: "/bin/kernel-install add $(ls /lib/modules) /lib/modules/$(ls /lib/modules)/vmlinuz"
+    - command: "/bin/kernel-install add $(uname -r) /lib/modules/$(uname -r)/vmlinuz"
       timeout: 3600
     - command: "/usr/sbin/grub2-mkconfig -o /boot/grub2/grub.cfg"
       timeout: 3600
@@ -38,14 +38,6 @@ script:
     - command: "akmods"
       timeout: 3600
     - command: "/usr/bin/dracut --regenerate-all --force"
-      timeout: 3600
-    - command: "rpm -e --nodeps steamdeck-dsp"
-      timeout: 3600
-    - command: "rpm -e --nodeps steamdeck-firmware"
-      timeout: 3600
-    - command: "rpm -e --nodeps jupiter-hw-support"
-      timeout: 3600
-    - command: "rpm -e --nodeps jupiter-fan-control"
       timeout: 3600
     - command: "rm -Rf /etc/xdg/autostart/orientation-check.desktop /usr/bin/orientation-check"
       timeout: 3600
