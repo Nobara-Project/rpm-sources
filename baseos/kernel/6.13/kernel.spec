@@ -46,7 +46,7 @@ Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 Version: %{_basekver}.%{_stablekver}
 
-%define customver 200
+%define customver 201
 
 Release:%{customver}.nobara%{?dist}
 
@@ -245,6 +245,8 @@ Provides: kernel-bore-eevdf-modules >= 6.5.7-%{customver}
 Provides: kernel-bore-modules >= 6.5.7-%{customver}
 Obsoletes: kernel-bore-eevdf-modules <= 6.5.10-%{customver}
 Obsoletes: kernel-bore-modules <= 6.5.10-%{customver}
+# kmod needed for depmod command in %%post
+Requires: kmod
 %description modules
 This package provides kernel modules for the core %{?flavor:%{flavor}} kernel package.
 
