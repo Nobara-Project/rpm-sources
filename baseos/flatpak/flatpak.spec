@@ -1,5 +1,5 @@
 %global appstream_version 1.0.0~
-%global bubblewrap_version 0.8.0
+%global bubblewrap_version 0.10.0
 %global glib_version 2.46.0
 %global gpgme_version 1.8.0
 %global libcurl_version 7.29.0
@@ -11,8 +11,8 @@
 %bcond malcontent %[!0%{?rhel}]
 
 Name:           flatpak
-Version:        1.15.10
-Release:        4%{?dist}
+Version:        1.16.0
+Release:        2%{?dist}
 Summary:        Application deployment framework for desktop apps
 
 License:        LGPL-2.1-or-later
@@ -263,8 +263,8 @@ fi
 %{_sysconfdir}/dbus-1/system.d/org.freedesktop.Flatpak.SystemHelper.conf
 %dir %{_sysconfdir}/flatpak
 %{_sysconfdir}/flatpak/remotes.d
-%{_sysconfdir}/profile.d/flatpak.sh
 %{_sysconfdir}/profile.d/flatpak.csh
+%{_sysconfdir}/profile.d/flatpak.sh
 %{_sysusersdir}/%{name}.conf
 %{_unitdir}/flatpak-system-helper.service
 %{_userunitdir}/flatpak-oci-authenticator.service
@@ -306,6 +306,24 @@ fi
 
 
 %changelog
+* Mon Jan 13 2025 David King <amigadave@amigadave.com> - 1.16.0-1
+- Update to 1.16.0 (#2336719)
+
+* Sat Dec 21 2024 David King <amigadave@amigadave.com> - 1.15.91-1
+- Update to 1.15.91 (#2333542)
+
+* Thu Nov 28 2024 Kalev Lember <klember@redhat.com> - 1.15.12-1
+- Update to 1.15.12
+
+* Wed Nov 27 2024 Kalev Lember <klember@redhat.com> - 1.15.11-1
+- Update to 1.15.11
+
+* Fri Aug 30 2024 Kalev Lember <klember@redhat.com> - 1.15.10-1
+- Update to 1.15.10 (#2299621)
+
+* Wed Jul 17 2024 Fedora Release Engineering <releng@fedoraproject.org> - 1.15.8-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_41_Mass_Rebuild
+
 * Fri Apr 19 2024 David King <amigadave@amigadave.com> - 1.15.8-1
 - Update to 1.15.8 (#2275983)
 
