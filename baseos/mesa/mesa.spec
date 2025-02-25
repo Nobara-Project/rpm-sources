@@ -246,7 +246,6 @@ Obsoletes:      %{name}-libglapi < 25.0.0~rc2-1
 %package libgallium
 Summary:        Mesa-based libgallium driver
 Requires:       %{name}-filesystem%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
-Requires:       %{name}-libglapi%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
 %if 0%{?with_va}
 Recommends:     %{name}-va-drivers%{?_isa}
 %endif
