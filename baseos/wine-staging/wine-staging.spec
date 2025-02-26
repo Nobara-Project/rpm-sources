@@ -9,9 +9,9 @@
 # check buildresult after a while
 
 %define _lto_cflags %{nil}
-%define realver     10.1
-%define stagingver  10.1
-%define packagever  10.1
+%define realver     10.2
+%define stagingver  10.2
+%define packagever  10.2
 
 %global flavor %nil
 %global build_type_safety_c 0
@@ -140,8 +140,6 @@ BuildRequires:  unzip
 BuildRequires:  util-linux
 # BuildRequires:  zlib-devel
 
-Summary:    WINE Is Not An Emulator - runs MS Windows programs
-Group:      Emulators
 Provides:  %{name}
 Provides:  %{name}64
 Obsoletes:  %{name}64
@@ -241,7 +239,7 @@ autoreconf -i -f
     --enable-archs=i386,x86_64 \
     --with-x
 
-make -j4
+make %{?_smp_mflags}
 
 %install
 %makeinstall LDCONFIG=/bin/true
@@ -274,10 +272,10 @@ for _dir in man1 de.UTF-8/man1 fr.UTF-8/man1 pl.UTF-8/man1; do \
 done
 %endif
 
-install -p -m 0644 loader/wine.man          "%{buildroot}/usr/share/man/man1/wine.1"
-install -p -m 0644 loader/wine.de.UTF-8.man "%{buildroot}/usr/share/man/de.UTF-8/man1/wine.1"
-install -p -m 0644 loader/wine.fr.UTF-8.man "%{buildroot}/usr/share/man/fr.UTF-8/man1/wine.1"
-install -p -m 0644 loader/wine.pl.UTF-8.man "%{buildroot}/usr/share/man/pl.UTF-8/man1/wine.1"
+install -p -m 0644 tools/wine/wine.man          "%{buildroot}/usr/share/man/man1/wine.1"
+install -p -m 0644 tools/wine/wine.de.UTF-8.man "%{buildroot}/usr/share/man/de.UTF-8/man1/wine.1"
+install -p -m 0644 tools/wine/wine.fr.UTF-8.man "%{buildroot}/usr/share/man/fr.UTF-8/man1/wine.1"
+install -p -m 0644 tools/wine/wine.pl.UTF-8.man "%{buildroot}/usr/share/man/pl.UTF-8/man1/wine.1"
 
 
 %files -n %{wine}
@@ -340,7 +338,7 @@ install -p -m 0644 loader/wine.pl.UTF-8.man "%{buildroot}/usr/share/man/pl.UTF-8
 # %{_datadir}/wine/color/*
 
 %{_bindir}/wine
-%{_bindir}/wine-preloader
+#%{_bindir}/wine-preloader
 %{_mandir}/man?/wine.?*
 %lang(de) %{_mandir}/de.UTF-8/man?/wine.?*
 %lang(fr) %{_mandir}/fr.UTF-8/man?/wine.?*
@@ -348,8 +346,9 @@ install -p -m 0644 loader/wine.pl.UTF-8.man "%{buildroot}/usr/share/man/pl.UTF-8
 
 
 %{_libdir}/wine/i386-windows/*.*
-%{_libdir}/wine/x86_64-unix/*.*
+%{_libdir}/wine/x86_64-unix/*
 %{_libdir}/wine/x86_64-windows/*.*
+
 
 %files -n %{wine}-devel
 %{_includedir}/*
