@@ -1,21 +1,17 @@
-%define commit 70adad87231e57b73c838bcd20f084f242d6ae4c
-%define shortcommit 70adad8
+%define commit f935de038dfbfd549927cd3a0fc90c243ef3d764
+%define shortcommit f935de0
 %global appid net.lutris.Lutris
 %define debug_package %{nil}
 
 Name:           lutris
-Version:        0.5.18
-Release:        2.git.%{shortcommit}%{?dist}
+Version:        0.5.19
+Release:        1.git.%{shortcommit}%{?dist}
 Summary:        Video game preservation platform
 
 License:        GPL-3.0+
 Group:          Amusements/Games/Other
 URL:            http://lutris.net
 Source0:        https://github.com/lutris/lutris/archive/%{commit}.tar.gz#/lutris-%{commit}.tar.gz
-
-# python-evdev 1.9.0 fixup
-# https://github.com/lutris/lutris/pull/5935
-Patch0:         5935.patch
 
 BuildRequires:  desktop-file-utils
 BuildRequires:  python3-devel
@@ -98,14 +94,14 @@ desktop-file-install --dir=%{buildroot}%{_datadir}/applications share/applicatio
 %{_bindir}/%{name}
 %{_datadir}/%{name}/
 %{_datadir}/applications/net.%{name}.Lutris.desktop
-%{_datadir}/icons/hicolor/scalable/apps/%{name}.svg
-%{_datadir}/icons/hicolor/16x16/apps/%{name}.png
-%{_datadir}/icons/hicolor/22x22/apps/%{name}.png
-%{_datadir}/icons/hicolor/24x24/apps/%{name}.png
-%{_datadir}/icons/hicolor/32x32/apps/%{name}.png
-%{_datadir}/icons/hicolor/48x48/apps/%{name}.png
-%{_datadir}/icons/hicolor/64x64/apps/%{name}.png
-%{_datadir}/icons/hicolor/128x128/apps/%{name}.png
+%{_datadir}/icons/hicolor/scalable/apps/net.%{name}.Lutris.svg
+%{_datadir}/icons/hicolor/16x16/apps/net.%{name}.Lutris.png
+%{_datadir}/icons/hicolor/22x22/apps/net.%{name}.Lutris.png
+%{_datadir}/icons/hicolor/24x24/apps/net.%{name}.Lutris.png
+%{_datadir}/icons/hicolor/32x32/apps/net.%{name}.Lutris.png
+%{_datadir}/icons/hicolor/48x48/apps/net.%{name}.Lutris.png
+%{_datadir}/icons/hicolor/64x64/apps/net.%{name}.Lutris.png
+%{_datadir}/icons/hicolor/128x128/apps/net.%{name}.Lutris.png
 %{_datadir}/man/man1/%{name}.1.gz
 # Some files being missed by the Python macros
 %{python3_sitelib}/%{name}/__pycache__/optional_settings.*.pyc
