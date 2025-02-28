@@ -1,13 +1,13 @@
 %global libliftoff_minver 0.5.0
 
 # latest git
-%define commit 1c9495c359e88a95e4f681a6d3f72974bbe1f236
+%define commit 4da5e4a37560f9b3c85af2679330f9ec292c8ee1
 
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global _default_patch_fuzz 2
 %global build_timestamp %(date +"%Y%m%d")
 
-%global rel_build 3.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 4.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           gamescope
 Version:        3.16.1
@@ -25,16 +25,6 @@ Patch0:         0001-cstdint.patch
 
 # https://github.com/ChimeraOS/gamescope
 Patch1:         chimeraos.patch
-# https://hhd.dev/
-#Patch2:         disable-steam-touch-click-atom.patch
-#Patch3:         v2-0001-always-send-ctrl-1-2-to-steam-s-wayland-session.patch
-
-# https://github.com/ValveSoftware/gamescope/pull/1335
-# causes coredumps and hang on switch to desktop, drop for now
-#Patch4:         1335.patch
-
-# https://github.com/ValveSoftware/gamescope/pull/1231
-#Patch5:         1231.patch
 
 Patch2:         1671.patch
 
