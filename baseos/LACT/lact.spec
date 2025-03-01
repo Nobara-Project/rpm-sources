@@ -1,10 +1,10 @@
 Name:           lact
-Version:        0.7.0
+Version:        0.7.1
 Release:        1
 Summary:        AMDGPU control utility
 License:        MIT
 URL:            https://github.com/ilya-zlobintsev/LACT
-Source0:        https://github.com/ilya-zlobintsev/LACT/archive/refs/tags/v0.7.0.tar.gz
+Source0:        %{url}/archive/refs/tags/v%{version}.tar.gz
 
 # https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
 ExcludeArch:    %{ix86}
