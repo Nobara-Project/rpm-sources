@@ -32,17 +32,21 @@ Requires:      rocalution
 Requires:      roctracer
 Requires:      rocm-opencl
 Requires:      opencl-filesystem
+Requires:      rocm-hip-devel
 
 Provides:      rocm-meta
 
 BuildArch:     x86_64
 Name:          rocm-meta
 Version:       %{ROCM_MAJOR_VERSION}.%{ROCM_MINOR_VERSION}.%{ROCM_PATCH_VERSION}
-Release:       6.copr%{?dist}
+Release:       7.copr%{?dist}
 License:       MIT
 Group:         System Environment/Libraries
 Summary:       Radeon Open Compute (ROCm) Runtime software stack
 Source0:       rocm-meta.sh
+
+# https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
+ExcludeArch:    %{ix86}
 
 %description
 Radeon Open Compute (ROCm) Runtime software stack
