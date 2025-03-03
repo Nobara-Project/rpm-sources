@@ -1,7 +1,7 @@
 Summary: A set of scripts to run upon first user login
 Name: nobara-login
 Version: 1.1
-Release: 69%{?dist}
+Release: 70%{?dist}
 License: Public Domain
 Group: System Environment/Base
 Source0: hwcheck.sh
@@ -33,6 +33,7 @@ Requires: system-release
 Requires: nobara-login-sysctl
 Requires: nobara-welcome
 Requires: nobara-nvidia-wizard
+Requires: pbcli-nobara
 Provides: nobara-amdgpu-config > 2.1
 Obsoletes: nobara-amdgpu-config <= 2.1
 
