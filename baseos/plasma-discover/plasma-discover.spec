@@ -8,15 +8,19 @@
 
 Name:    plasma-discover
 Summary: KDE and Plasma resources management GUI
-Version: 6.2.5
-Release: 3%{?dist}
+Version: 6.3.2
+Release: 1%{?dist}
 
 License: BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-3.0-only AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only)
 URL:     https://invent.kde.org/plasma/discover
 
-Source0: https://download.kde.org/%{stable_kf6}/plasma/%{version}/%{base_name}-%{version}.tar.xz
+Source0: https://download.kde.org/stable/plasma/%{version}/%{base_name}-%{version}.tar.xz
 
 ## upstream patches
+# Hide Plasma categories on a non-KDE desktop
+# Requested by Fedora Budgie (Cf. https://pagure.io/fedora-kde/SIG/issue/607)
+# Drop with 6.4
+Patch0: https://invent.kde.org/plasma/discover/-/commit/55ec79edc1892e9db5c8ab0743923387c56d1465.patch
 
 ## downstream patches
 # Adjust periodic refresh from 1/24hr to 1/12hr

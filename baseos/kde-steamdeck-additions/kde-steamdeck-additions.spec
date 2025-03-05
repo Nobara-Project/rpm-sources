@@ -2,7 +2,7 @@
 %define debug_package %{nil}
 
 Name:           kde-steamdeck-additions
-Version:        6.3.0
+Version:        6.3.2
 Release:        1%{?dist}
 Summary:        SteamOS Nested Desktop + "Add to Steam" right-click services
 License:        GPLv2
@@ -64,5 +64,3 @@ cp -rv usr/share/X11/xorg.conf.d/* %{buildroot}%{_datadir}/X11/xorg.conf.d
 %changelog
 * Sat Dec 9 2023 Matthew Schwartz <njtransit215@gmail.com> - 2.0
 - implemented updated nested desktop script that follows native display resolution when creating nested desktop session.tested: rog ally, steam deck, legion go
-
-
