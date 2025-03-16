@@ -1,5 +1,5 @@
 Name:           lact
-Version:        0.7.1
+Version:        0.7.2
 Release:        1
 Summary:        AMDGPU control utility
 License:        MIT
