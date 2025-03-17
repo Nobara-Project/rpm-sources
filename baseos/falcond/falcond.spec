@@ -1,5 +1,5 @@
 Name:           falcond
-Version:        1.1.0
+Version:        1.1.2
 Release:        %autorelease
 Summary:        Advanced Linux Gaming Performance Daemon
 
@@ -9,7 +9,7 @@ Source0:        %{url}/archive/v%{version}.tar.gz
 
 ExclusiveArch:	x86_64
 
-BuildRequires:  zig-nightly
+BuildRequires:  zig >= 0.14.0
 BuildRequires:  systemd-rpm-macros
 
 Recommends:	falcond-profiles
