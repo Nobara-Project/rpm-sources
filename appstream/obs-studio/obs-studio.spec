@@ -27,17 +27,17 @@
 %endif
 
 
-%global obswebsocket_version 5.5.4
-%global obsbrowser_commit a76b4d8810a0a33e91ac5b76a0b1af2f22bf8efd
+%global obswebsocket_version 5.5.5
+%global obsbrowser_commit b56fd78936761891475458447c1cc9058bb9c2d4
 %global version_cef 6533
 %global version_aja v16.2-bugfix5
 
-%define version_string 31.0.1
+%define version_string 31.0.2
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build %{build_timestamp}.%{shortcommit}%{?dist}
 %global _default_patch_fuzz 2
 # obs version and commit
-%global commit b7b7c4cbbcd86eb29d8bbc51765be0338ed6814d
+%global commit e6137e15e0fb26b3aa47a66df28e9f056d54b9af
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 Name:           obs-studio
@@ -56,9 +56,9 @@ Source3:        https://cdn-fastly.obsproject.com/downloads/cef_binary_%{version
 Source4:        https://github.com/aja-video/ntv2/archive/refs/tags/%{version_aja}.tar.gz
 
 # Backports from upstream
-# https://github.com/obsproject/obs-browser/pull/472
-# Fixes CPU usage regression in obs-browser
-Source5:        472.patch
+# Fix for Virtual Camera
+## From: https://github.com/obsproject/obs-studio/pull/11906
+Patch0100:        11906.patch
 
 # Proposed upstream
 ## From: https://github.com/obsproject/obs-studio/pull/8529
@@ -72,7 +72,6 @@ Patch1001:      obs-studio-UI-use-fdk-aac-by-default.patch
 ## Fix error: passing argument 4 of ‘query_dmabuf_modifiers’ from
 ##            incompatible pointer type [-Wincompatible-pointer-types]
 Patch1003:      obs-studio-fix-incompatible-pointer-type.patch
-
 
 BuildRequires:  gcc
 BuildRequires:  cmake >= 3.22
@@ -276,11 +275,6 @@ a video stream or recording using the Chromium Embedded Framework (CEF).
 tar -xf %{SOURCE1} -C plugins/obs-websocket --strip-components=1
 tar -xf %{SOURCE2} -C plugins/obs-browser --strip-components=1
 %autopatch -p1
-
-# hotfix CPU usage regression in obs-browser
-pushd plugins/obs-browser
-patch -Np1 < %{SOURCE5}
-popd
 
 # unpack CEF wrapper
 mkdir -p %{_builddir}/SOURCES/CEF
