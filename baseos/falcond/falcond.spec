@@ -1,6 +1,6 @@
 Name:           falcond
-Version:        1.1.0
-Release:        %autorelease
+Version:        1.1.2
+Release:        %autorelease -b2
 Summary:        Advanced Linux Gaming Performance Daemon
 
 License:        MIT
@@ -9,7 +9,7 @@ Source0:        %{url}/archive/v%{version}.tar.gz
 
 ExclusiveArch:	x86_64
 
-BuildRequires:  zig-nightly
+BuildRequires:  zig >= 0.14.0
 BuildRequires:  systemd-rpm-macros
 
 Recommends:	falcond-profiles
@@ -31,7 +31,8 @@ mkdir -p %{buildroot}%{_unitdir}/
 install -Dm644 debian/falcond.service %{buildroot}%{_unitdir}
 DESTDIR="%{buildroot}" \
 zig build \
-    -Doptimize=ReleaseFast
+    -Doptimize=ReleaseFast \
+    -Dcpu=baseline
     
 %post
 %systemd_post falcond.service
