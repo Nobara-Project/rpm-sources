@@ -1,6 +1,6 @@
 Name:           falcond
 Version:        1.1.2
-Release:        %autorelease
+Release:        %autorelease -b2
 Summary:        Advanced Linux Gaming Performance Daemon
 
 License:        MIT
@@ -31,7 +31,8 @@ mkdir -p %{buildroot}%{_unitdir}/
 install -Dm644 debian/falcond.service %{buildroot}%{_unitdir}
 DESTDIR="%{buildroot}" \
 zig build \
-    -Doptimize=ReleaseFast
+    -Doptimize=ReleaseFast \
+    -Dcpu=baseline
     
 %post
 %systemd_post falcond.service
