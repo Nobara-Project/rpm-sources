@@ -83,9 +83,6 @@ Source1:        Mesa-MLAA-License-Clarification-Email.txt
 
 Patch10:        gnome-shell-glthread-disable.patch
 
-# https://gitlab.freedesktop.org/mesa/mesa/-/issues/11480
-Patch11:        0001-Revert-c452a4d-https-gitlab.freedesktop.org-mesa-mes.patch
-
 BuildRequires:  meson >= 1.3.0
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
