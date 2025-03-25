@@ -1,14 +1,14 @@
 # Tag is auto-inserted by workflow
-%global tag 1.2.5
+%global tag 1.2.6
 
 # Manual commit is auto-inserted by workflow
-%global commit a11540cbf2221a5671c4ced97c0bf7e61c98d21e
+%global commit 63639092eff1c2e8d25ff2f20a15cf0bfda8272a
 
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 %global build_timestamp %(date +"%Y%m%d")
 
-%global rel_build 3.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 1.%{build_timestamp}.%{shortcommit}%{?dist}
 
 # F41 doesn't ship urllib3 >= 2.0 needed
 %global urllib3 2.3.0
@@ -20,8 +20,7 @@ Summary:        A tool for launching non-steam games with proton
 
 License:        GPLv3
 URL:            https://github.com/Open-Wine-Components/umu-launcher
-#Source0:        %{url}/archive/refs/tags/%{tag}.tar.gz#/%{name}-%{tag}.tar.gz
-Source0:        %{url}/archive/refs/heads/main.tar.gz#/%{name}-main.tar.gz
+Source0:        %{url}/archive/refs/tags/%{tag}.tar.gz#/%{name}-%{tag}.tar.gz
 Source1:        https://github.com/urllib3/urllib3/releases/download/%{urllib3}/urllib3-%{urllib3}.tar.gz
 
 BuildArch:  x86_64
@@ -71,8 +70,7 @@ AutoReqProv: no
 %{name} A tool for launching non-steam games with proton
 
 %prep
-#%%autosetup -p 1
-%autosetup -p 1 -n %{name}-main
+%autosetup -p 1
 if ! find subprojects/urllib3/ -mindepth 1 -maxdepth 1 | read; then
     # Directory is empty, perform action
     mv %{SOURCE1} .
