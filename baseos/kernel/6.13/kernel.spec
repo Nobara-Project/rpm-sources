@@ -46,7 +46,7 @@ Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 Version: %{_basekver}.%{_stablekver}
 
-%define customver 200
+%define customver 201
 
 Release:%{customver}.nobara%{?dist}
 
@@ -188,6 +188,8 @@ Obsoletes: kernel-bore-eevdf <= 6.5.10-%{customver}
 Obsoletes: kernel-bore <= 6.5.10-%{customver}
 Provides: kernel-uki-vert = %{rpmver}
 Obsoletes: kernel <= %{rpmverobsolete}
+# v4l2loopback module is provided by cachy-base-all patch
+Obsoletes: akmod-v4l2loopback
 
 %description
 The kernel-%{flaver} meta package
