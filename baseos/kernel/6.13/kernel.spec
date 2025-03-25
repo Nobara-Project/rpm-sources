@@ -37,7 +37,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.13
-%define _stablekver 6
+%define _stablekver 8
 %if %{_stablekver} == 0
 %define _tarkver %{_basekver}
 %else
@@ -46,7 +46,7 @@ Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 Version: %{_basekver}.%{_stablekver}
 
-%define customver 200
+%define customver 201
 
 Release:%{customver}.nobara%{?dist}
 
@@ -105,16 +105,14 @@ Patch13: valve-gamescope-framerate-control-fixups.patch
 # fixes HAINAN amdgpu card not being bootable
 # https://gitlab.freedesktop.org/drm/amd/-/issues/1839
 Patch14: amdgpu-HAINAN-variant-fixup.patch
-# https://lore.kernel.org/amd-gfx/20250217151053.420882-1-alexander.deucher@amd.com/T/#u
-Patch15: PCI-fix-Sapphire-PCI-rebar-quirk.patch
 # Allow to set custom USB pollrate for specific devices like so:
 # usbcore.interrupt_interval_override=045e:00db:16,1bcf:0005:1
 # useful for setting polling rate of wired PS4/PS5 controller to 1000Hz
 # https://github.com/KarsMulder/Linux-Pollrate-Patch
 # https://gitlab.com/GloriousEggroll/nobara-images/-/issues/64
-Patch16: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
+Patch15: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
 # Add xpadneo as patch instead of using dkms module
-Patch17: 0001-Add-xpadneo-bluetooth-hid-driver-module.patch
+Patch16: 0001-Add-xpadneo-bluetooth-hid-driver-module.patch
 
 %define __spec_install_post /usr/lib/rpm/brp-compress || :
 %define debug_package %{nil}
@@ -190,6 +188,8 @@ Obsoletes: kernel-bore-eevdf <= 6.5.10-%{customver}
 Obsoletes: kernel-bore <= 6.5.10-%{customver}
 Provides: kernel-uki-vert = %{rpmver}
 Obsoletes: kernel <= %{rpmverobsolete}
+# v4l2loopback module is provided by cachy-base-all patch
+Obsoletes: akmod-v4l2loopback
 
 %description
 The kernel-%{flaver} meta package
@@ -422,7 +422,6 @@ patch -p1 -i %{PATCH13}
 patch -p1 -i %{PATCH14}
 patch -p1 -i %{PATCH15}
 patch -p1 -i %{PATCH16}
-patch -p1 -i %{PATCH17}
 
 # Fetch the config and move it to the proper directory
 cp %{SOURCE1} .config
