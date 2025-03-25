@@ -1,0 +1,86 @@
+From 6262717c6f0526bc83cea30f15c4d09f967d4e20 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Barnab=C3=A1s=20P=C5=91cze?= <pobrn@protonmail.com>
+Date: Sun, 2 Feb 2025 14:14:06 +0100
+Subject: [PATCH 2/2] spa: libcamera: don't use fixed size buffers for
+ properties
+
+Use `std::string` and `std::ostringstream` when processing the
+camera properties, in order to avoid truncation.
+
+See !2095
+See !2268
+---
+ spa/plugins/libcamera/libcamera-device.cpp | 29 +++++++++++++---------
+ 1 file changed, 17 insertions(+), 12 deletions(-)
+
+diff --git a/spa/plugins/libcamera/libcamera-device.cpp b/spa/plugins/libcamera/libcamera-device.cpp
+index 65c743741..5eb46a1ae 100644
+--- a/spa/plugins/libcamera/libcamera-device.cpp
++++ b/spa/plugins/libcamera/libcamera-device.cpp
+@@ -8,6 +8,8 @@
+ 
+ #include <stddef.h>
+ 
++#include <sstream>
++
+ #include <spa/support/plugin.h>
+ #include <spa/support/log.h>
+ #include <spa/support/loop.h>
+@@ -110,8 +112,6 @@ static int emit_info(struct impl *impl, bool full)
+ 	uint32_t n_items = 0;
+ 	struct spa_device_info info;
+ 	struct spa_param_info params[2];
+-	char path[256], name[256], devices_str[256];
+-	struct spa_strbuf buf;
+ 	Camera& camera = *impl->camera;
+ 
+ 	info = SPA_DEVICE_INFO_INIT();
+@@ -119,8 +119,10 @@ static int emit_info(struct impl *impl, bool full)
+ 	info.change_mask = SPA_DEVICE_CHANGE_MASK_PROPS;
+ 
+ #define ADD_ITEM(key, value) items[n_items++] = SPA_DICT_ITEM_INIT(key, value)
+-	snprintf(path, sizeof(path), "libcamera:%s", impl->device_id.c_str());
+-	ADD_ITEM(SPA_KEY_OBJECT_PATH, path);
++
++	const auto path = "libcamera:" + impl->device_id;
++	ADD_ITEM(SPA_KEY_OBJECT_PATH, path.c_str());
++
+ 	ADD_ITEM(SPA_KEY_DEVICE_API, "libcamera");
+ 	ADD_ITEM(SPA_KEY_MEDIA_CLASS, "Video/Device");
+ 	ADD_ITEM(SPA_KEY_API_LIBCAMERA_PATH, impl->device_id.c_str());
+@@ -134,21 +136,24 @@ static int emit_info(struct impl *impl, bool full)
+ 	ADD_ITEM(SPA_KEY_DEVICE_PRODUCT_NAME, model.c_str());
+ 	ADD_ITEM(SPA_KEY_DEVICE_DESCRIPTION, model.c_str());
+ 
+-	snprintf(name, sizeof(name), "libcamera_device.%s", impl->device_id.c_str());
+-	ADD_ITEM(SPA_KEY_DEVICE_NAME, name);
++	const auto name = "libcamera_device." + impl->device_id;
++	ADD_ITEM(SPA_KEY_DEVICE_NAME, name.c_str());
+ 
+ 	auto device_numbers = cameraDevice(camera);
++	std::string devids;
+ 
+ 	if (!device_numbers.empty()) {
+-		spa_strbuf_init(&buf, devices_str, sizeof(devices_str));
++		std::ostringstream s;
++
+ 
+ 		/* encode device numbers into a json array */
+-		spa_strbuf_append(&buf, "[ ");
+-		for(int64_t device_number : device_numbers)
+-			spa_strbuf_append(&buf, "%" PRId64 " ", device_number);
++		s << "[ ";
++		for (const auto& devid : device_numbers)
++			s << devid << ' ';
++		s << ']';
+ 
+-		spa_strbuf_append(&buf, "]");
+-		ADD_ITEM(SPA_KEY_DEVICE_DEVIDS, devices_str);
++		devids = std::move(s).str();
++		ADD_ITEM(SPA_KEY_DEVICE_DEVIDS, devids.c_str());
+ 	}
+ 
+ #undef ADD_ITEM
+-- 
+2.48.1
+
