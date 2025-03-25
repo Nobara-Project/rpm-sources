@@ -1,25 +1,30 @@
-%global commit 2d44c2f3a33844dfd9928dc536288283289bbc34
-%global commitdate 20240524
+%global commit 60a0315c6db154597dc733ea42139cf159644a7a
+%global commitdate 20250228
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 Name:           v4l2loopback
 Summary:        Utils for V4L2 loopback devices
-Version:        0.13.2^%{commitdate}g%{shortcommit}
+Version:        0.14.0
 Release:        1%{?dist}
 License:        GPLv2+
 
 URL:            https://github.com/umlaeute/v4l2loopback
-Source0:        %{url}/archive/%{commit}/%{name}-%{shortcommit}.tar.gz
+Source0:        %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
 Source1:        modprobe-d-98-v4l2loopback.conf
 Source2:        modules-load-d-v4l2loopback.conf
+
+# https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
+ExcludeArch:    %{ix86}
 
 BuildRequires:  gcc
 BuildRequires:  make
 BuildRequires:  help2man
 BuildRequires:  systemd-rpm-macros
+# We don't need the kmod packages anymore because of cachy-base-all providing it in the kernel so stop Requiring them
 # For kmod package
 Provides:       %{name}-kmod-common = %{version}-%{release}
-Requires:       %{name}-kmod >= %{version}
+# Requires:       %{name}-kmod >= %{version}
+Obsoletes: 	akmod-v4l2loopback < 0.14.0
 # For compatibility with older name
 Provides:       %{name}-utils = %{version}-%{release}
 Obsoletes:      %{name}-utils < 0.12.5-2
@@ -34,7 +39,7 @@ This package contains the utilties for %{name}.
 
 
 %prep
-%autosetup -p1 -n %{name}-%{commit}
+%autosetup -p1 -n %{name}-%{version}
 
 %build
 # Nothing to build
@@ -56,6 +61,23 @@ install -D -m 0644 %{SOURCE2} %{buildroot}%{_modulesloaddir}/v4l2loopback.conf
 
 
 %changelog
+* Tue Mar 25 2025 LionHeartP <LionHeartP@proton.me> - 0.14.0-1
+- Update to 0.14.0
+
+* Fri Sep 27 2024 Nicolas Chauvet <kwizart@gmail.com> - 0.13.2-1
+- Update to 0.13.2
+
+* Fri Aug 02 2024 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 0.13.1-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_41_Mass_Rebuild
+
+* Thu Mar 21 2024 Leigh Scott <leigh123linux@gmail.com> - 0.13.1-1
+- Update to 0.13.1
+
+* Sun Feb 04 2024 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 0.12.7^20230503g2c9b670-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
+* Wed Aug 02 2023 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 0.12.7^20230503g2c9b670-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_39_Mass_Rebuild
 * Tue May 09 2023 Kate Hsuan <hpa@redhat.com> - 0.12.7-20230503g2c9b670-1
 - Updated to commit 2c9b67072b15d903fecde67c7f269abeafee4c25
 
