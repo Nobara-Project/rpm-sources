@@ -1,5 +1,5 @@
 Name:           kde-steamdeck
-Version:        6.3.2.git.84.1c1d05a9
+Version:        6.3.3.git.84.1c1d05a9
 Release:        1%{?dist}
 Summary:        KDE Presets from Valve's SteamOS 3.0
 License:    	GPLv2

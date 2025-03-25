@@ -1,7 +1,7 @@
 Summary: A set of scripts to run upon first user login
 Name: nobara-login
 Version: 1.1
-Release: 70%{?dist}
+Release: 71%{?dist}
 License: Public Domain
 Group: System Environment/Base
 Source0: hwcheck.sh
@@ -9,7 +9,6 @@ Source1: nobara-firstrun.sh
 Source3: nobara-firstrun.desktop
 Source5: 20-starcitizen-max_map_count.conf
 Source7: 20-disable-split-lock-detect.conf
-Source8: v4l2loopback.conf
 Source9: nobara.conf
 Source10: 40-hpet-permissions.rules
 Source11: 60-ioschedulers.rules
@@ -74,7 +73,6 @@ install -m 0755 %{SOURCE1} $RPM_BUILD_ROOT%{_bindir}/nobara-firstrun
 install -m 0755 %{SOURCE3} $RPM_BUILD_ROOT%{_sysconfdir}/xdg/autostart/nobara-firstrun.desktop
 install -m 0644 %{SOURCE5} $RPM_BUILD_ROOT%{_prefix}/lib/sysctl.d/20-starcitizen-max_map_count.conf
 install -m 0644 %{SOURCE7} $RPM_BUILD_ROOT%{_prefix}/lib/sysctl.d/20-disable-split-lock-detect.conf
-install -m 0644 %{SOURCE8} $RPM_BUILD_ROOT%{_sysconfdir}/modprobe.d/v4l2loopback.conf
 install -m 0644 %{SOURCE9} $RPM_BUILD_ROOT%{_sysconfdir}/dnf/protected.d/nobara.conf
 install -m 0644 %{SOURCE10} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/40-hpet-permissions.rules
 install -m 0644 %{SOURCE11} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/60-ioschedulers.rules
@@ -105,7 +103,6 @@ sysctl -p
 %{_libexecdir}/nobara-resolve-pkexec
 %{_sysconfdir}/xdg/autostart/nobara-automount.desktop
 %{_sysconfdir}/xdg/autostart/nobara-firstrun.desktop
-%{_sysconfdir}/modprobe.d/v4l2loopback.conf
 %{_sysconfdir}/dnf/protected.d/nobara.conf
 %{_sysconfdir}/udev/rules.d/40-hpet-permissions.rules
 %{_sysconfdir}/udev/rules.d/60-ioschedulers.rules
