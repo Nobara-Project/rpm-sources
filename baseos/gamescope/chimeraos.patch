@@ -1663,15 +1663,6 @@ index 11a7cad..0b0d17f 100644
  			int nOldLayerCount = frameInfo.layerCount;
  
  			uint32_t flags = 0;
-@@ -2324,7 +2324,7 @@ paint_all(bool async)
- 				flags |= PaintWindowFlag::BasePlane;
- 			paint_window(w, w, &frameInfo, global_focus.cursor, flags);
- 			update_touch_scaling( &frameInfo );
--			
-+
- 			// paint UI unless it's fully hidden, which it communicates to us through opacity=0
- 			// we paint it to extract scaling coefficients above, then remove the layer if one was added
- 			if ( w->opacity == TRANSLUCENT && bHasVideoUnderlay && nOldLayerCount < frameInfo.layerCount )
 @@ -2337,7 +2337,7 @@ paint_all(bool async)
  				float opacityScale = g_bPendingFade
  					? 0.0f
@@ -1779,15 +1770,6 @@ index 11a7cad..0b0d17f 100644
  			{
  				std::unique_lock lock( ctx->list_mutex );
  				*prev = w->xwayland().next;
-@@ -4660,7 +4632,7 @@ destroy_win(xwayland_ctx_t *ctx, Window id, bool gone, bool fade)
- 		global_focus.overrideWindow = nullptr;
- 	if (x11_win(global_focus.fadeWindow) == id && gone)
- 		global_focus.fadeWindow = nullptr;
--		
-+
- 	MakeFocusDirty();
- 
- 	finish_destroy_win(ctx, id, gone);
 @@ -5284,7 +5256,7 @@ handle_property_notify(xwayland_ctx_t *ctx, XPropertyEvent *ev)
  		{
  			get_win_type(ctx, w);
@@ -1815,15 +1797,6 @@ index 11a7cad..0b0d17f 100644
  	uint32_t one = 1;
  	XChangeProperty(root_ctx->dpy, root_ctx->root, root_ctx->atoms.gamescopeDisplayIsExternal, XA_CARDINAL, 32, PropModeReplace,
  		(unsigned char *)&one, 1 );
-@@ -8054,7 +8026,7 @@ void steamcompmgr_send_frame_done_to_focus_window()
- 	{
- 		wlserver_lock();
- 		wlserver_send_frame_done( global_focus.focusWindow->xwayland().surface.main_surface , &now );
--		wlserver_unlock();		
-+		wlserver_unlock();
- 	}
- }
- 
 -- 
 2.47.1
 
@@ -1841,11 +1814,11 @@ This reverts commit 299bc3410dcfd46da5e3c988354b60ed3a356900.
  2 files changed, 24 insertions(+), 16 deletions(-)
 
 diff --git a/src/steamcompmgr.cpp b/src/steamcompmgr.cpp
-index 0b0d17f..d6aecec 100644
+index d7498e5..d1800a8 100644
 --- a/src/steamcompmgr.cpp
 +++ b/src/steamcompmgr.cpp
 @@ -3271,7 +3271,7 @@ found:;
- 		if ( window_has_commits( focus ) )
+ 		if ( window_has_commits( focus ) ) 
  			out->focusWindow = focus;
  		else
 -			focus->outdatedInteractiveFocus = true;
@@ -1853,7 +1826,7 @@ index 0b0d17f..d6aecec 100644
  
  		// Always update X's idea of focus, but still dirty
  		// the it being outdated so we can resolve that globally later.
-@@ -6016,28 +6016,37 @@ bool handle_done_commit( steamcompmgr_win_t *w, xwayland_ctx_t *ctx, uint64_t co
+@@ -5995,28 +5995,37 @@ bool handle_done_commit( steamcompmgr_win_t *w, xwayland_ctx_t *ctx, uint64_t co
  			// Window just got a new available commit, determine if that's worth a repaint
  
  			// If this is an overlay that we're presenting, repaint
@@ -1905,18 +1878,6 @@ index 0b0d17f..d6aecec 100644
  			// If this is the main plane, repaint
  			if ( w == global_focus.focusWindow && !w->isSteamStreamingClient )
  			{
-diff --git a/src/steamcompmgr_shared.hpp b/src/steamcompmgr_shared.hpp
-index 095694e..e41fad9 100644
---- a/src/steamcompmgr_shared.hpp
-+++ b/src/steamcompmgr_shared.hpp
-@@ -125,7 +125,6 @@ struct steamcompmgr_win_t {
- 	unsigned int requestedHeight = 0;
- 	bool is_dialog = false;
- 	bool maybe_a_dropdown = false;
--	bool outdatedInteractiveFocus = false;
- 
- 	bool hasHwndStyle = false;
- 	uint32_t hwndStyle = 0;
 -- 
 2.47.1
 
@@ -2412,3 +2373,124 @@ index 7adf7db..346ff57 100644
 -- 
 2.47.1
 
+From c58bbb6765e831b9c6b7aaed69cb514d2428c81f Mon Sep 17 00:00:00 2001
+From: Joshua Tam <297250+joshuatam@users.noreply.github.com>
+Date: Tue, 24 Dec 2024 09:11:33 +0800
+Subject: [PATCH] only apply rotation if the screen is internal
+
+---
+ src/Backends/DRMBackend.cpp | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/src/Backends/DRMBackend.cpp b/src/Backends/DRMBackend.cpp
+index 4f859cb28..6f540100f 100644
+--- a/src/Backends/DRMBackend.cpp
++++ b/src/Backends/DRMBackend.cpp
+@@ -3063,10 +3063,12 @@ bool drm_set_mode( struct drm_t *drm, const drmModeModeInfo *mode )
+ 		g_nOutputWidth = mode->hdisplay;
+ 		g_nOutputHeight = mode->vdisplay;
+ 
+-		if (g_bUseRotationShader) {
++		if (g_bUseRotationShader && drm->pConnector->GetScreenType() == gamescope::GAMESCOPE_SCREEN_TYPE_INTERNAL) {
+ 			g_bRotated = true;
+ 			g_nOutputWidth = mode->vdisplay;
+ 			g_nOutputHeight = mode->hdisplay;
++		} else {
++			g_bUseRotationShader = false;
+ 		}
+ 
+ 		break;
+From 3148c2c86a96df4bfcd7fe7a3163156a1895d56c Mon Sep 17 00:00:00 2001
+From: Joshua Tam <297250+joshuatam@users.noreply.github.com>
+Date: Thu, 16 Jan 2025 22:55:31 +0800
+Subject: [PATCH] fix rotation shader when switching display
+
+---
+ src/Backends/DRMBackend.cpp | 22 +++++++++++++++-------
+ 1 file changed, 15 insertions(+), 7 deletions(-)
+
+diff --git a/src/Backends/DRMBackend.cpp b/src/Backends/DRMBackend.cpp
+index 6f540100f..3727928b4 100644
+--- a/src/Backends/DRMBackend.cpp
++++ b/src/Backends/DRMBackend.cpp
+@@ -56,6 +56,8 @@
+ 
+ static constexpr bool k_bUseCursorPlane = false;
+ 
++bool l_bEnableRotationShader = false;
++
+ extern int g_nPreferredOutputWidth;
+ extern int g_nPreferredOutputHeight;
+ bool panelTypeChanged = false;
+@@ -1518,6 +1520,10 @@ static void update_drm_effective_orientations( struct drm_t *drm, const drmModeM
+ 		if ( pDRMInternalConnector != drm->pConnector )
+ 			pInternalMode = find_mode( pDRMInternalConnector->GetModeConnector(), 0, 0, 0 );
+ 
++		if ( g_bUseRotationShader ) {
++			l_bEnableRotationShader = true;
++		}
++
+ 		pDRMInternalConnector->UpdateEffectiveOrientation( pInternalMode );
+ 	}
+ 
+@@ -1529,6 +1535,10 @@ static void update_drm_effective_orientations( struct drm_t *drm, const drmModeM
+ 		if ( pDRMExternalConnector != drm->pConnector )
+ 			pExternalMode = find_mode( pDRMExternalConnector->GetModeConnector(), 0, 0, 0 );
+ 
++		if ( g_bUseRotationShader ) {
++			l_bEnableRotationShader = false;
++		}
++
+ 		pDRMExternalConnector->UpdateEffectiveOrientation( pExternalMode );
+ 	}
+ }
+@@ -1742,7 +1752,7 @@ LiftoffStateCacheEntry FrameInfoToLiftoffStateCacheEntry( struct drm_t *drm, con
+ 		uint64_t crtcW = srcWidth / frameInfo->layers[ i ].scale.x;
+ 		uint64_t crtcH = srcHeight / frameInfo->layers[ i ].scale.y;
+ 
+-		if (g_bRotated && !g_bUseRotationShader)
++		if (g_bRotated && !l_bEnableRotationShader)
+ 		{
+ 			int64_t imageH = frameInfo->layers[ i ].tex->contentHeight() / frameInfo->layers[ i ].scale.y;
+ 
+@@ -2035,7 +2045,7 @@ namespace gamescope
+ 
+ 	void CDRMConnector::UpdateEffectiveOrientation( const drmModeModeInfo *pMode )
+ 	{
+-		if (g_bUseRotationShader)
++		if (l_bEnableRotationShader)
+ 		{
+ 			drm_log.infof("Using rotation shader");
+ 			if (g_DesiredInternalOrientation == GAMESCOPE_PANEL_ORIENTATION_270) {
+@@ -3063,12 +3073,10 @@ bool drm_set_mode( struct drm_t *drm, const drmModeModeInfo *mode )
+ 		g_nOutputWidth = mode->hdisplay;
+ 		g_nOutputHeight = mode->vdisplay;
+ 
+-		if (g_bUseRotationShader && drm->pConnector->GetScreenType() == gamescope::GAMESCOPE_SCREEN_TYPE_INTERNAL) {
++		if (l_bEnableRotationShader) {
+ 			g_bRotated = true;
+ 			g_nOutputWidth = mode->vdisplay;
+ 			g_nOutputHeight = mode->hdisplay;
+-		} else {
+-			g_bUseRotationShader = false;
+ 		}
+ 
+ 		break;
+@@ -3330,7 +3338,7 @@ namespace gamescope
+ 
+ 			bNeedsFullComposite |= !!(g_uCompositeDebug & CompositeDebugFlag::Heatmap);
+ 
+-			if (g_bUseRotationShader)
++			if (l_bEnableRotationShader)
+ 			{
+ 				bNeedsFullComposite = true;
+ 			}
+@@ -3425,7 +3433,7 @@ namespace gamescope
+ 			if ( bDefer && !!( g_uCompositeDebug & CompositeDebugFlag::Markers ) )
+ 				g_uCompositeDebug |= CompositeDebugFlag::Markers_Partial;
+ 
+-			std::optional oCompositeResult = vulkan_composite( &compositeFrameInfo, nullptr, !bNeedsFullComposite, nullptr, true, nullptr, g_bUseRotationShader );
++			std::optional oCompositeResult = vulkan_composite( &compositeFrameInfo, nullptr, !bNeedsFullComposite, nullptr, true, nullptr, l_bEnableRotationShader );
+ 
+ 			m_bWasCompositing = true;
+ 
