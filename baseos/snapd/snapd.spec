@@ -52,7 +52,7 @@
 %global provider_prefix %{provider}.%{provider_tld}/%{project}/%{repo}
 %global import_path     %{provider_prefix}
 
-%global snappy_svcs      snapd.service snapd.socket snapd.autoimport.service snapd.seeded.service snapd.apparmor.service snapd.mounts.target snapd.mounts-pre.target
+%global snappy_svcs      snapd.service snapd.socket snapd.autoimport.service snapd.apparmor.service snapd.mounts.target
 %global snappy_user_svcs snapd.session-agent.service snapd.session-agent.socket
 
 # Until we have a way to add more extldflags to gobuild macro...
@@ -85,7 +85,7 @@
 
 Name:           snapd
 Version:        2.67.1
-Release:        1%{?dist}
+Release:        3%{?dist}
 Summary:        A transactional software package manager
 License:        GPL-3.0-only
 URL:            https://%{provider_prefix}
@@ -99,6 +99,7 @@ ExclusiveArch:  %{?golang_arches}%{!?golang_arches:%{ix86} x86_64 %{arm} aarch64
 BuildRequires: make
 BuildRequires:  %{?go_compiler:compiler(go-compiler)}%{!?go_compiler:golang >= 1.9}
 BuildRequires:  systemd
+BuildRequires:  systemd-rpm-macros
 %{?systemd_requires}
 
 Requires:       snap-confine%{?_isa} = %{version}-%{release}
@@ -548,6 +549,15 @@ make BINDIR="%{_bindir}" LIBEXECDIR="%{_libexecdir}" DATADIR="%{_datadir}" \
 popd
 
 %install
+# Create preset directory
+mkdir -p %{buildroot}%{_presetdir}/
+
+# Create preset file
+cat > %{buildroot}%{_presetdir}/snapd.preset << EOF
+enable snapd.service
+enable snapd.apparmor.service
+EOF
+
 install -d -p %{buildroot}%{_bindir}
 install -d -p %{buildroot}%{_libexecdir}/snapd
 install -d -p %{buildroot}%{_mandir}/man8
@@ -711,6 +721,8 @@ make check
 popd
 
 %files
+%dir %{_presetdir}/
+%{_presetdir}/snapd.preset
 #define license tag if not already defined
 %{!?_licensedir:%global license %doc}
 %license COPYING
@@ -836,24 +848,18 @@ popd
 %sysctl_apply 99-snap.conf
 %endif
 %apparmor_reload /etc/apparmor.d/%{apparmor_snapconfine_profile}
-%systemd_post %{snappy_svcs}
-%systemd_user_post %{snappy_user_svcs}
-if [ -x /usr/bin/systemctl ]; then
-    if systemctl is-enabled snapd.service >/dev/null 2>&1 || systemctl is-enabled snapd.socket >/dev/null 2>&1; then
-        # either the snapd.service or the snapd.socket are enabled, meaning snapd is
-        # being actively used
-        if ! systemctl is-enabled snapd.apparmor.service >/dev/null 2>&1; then
-            # also apparmor appears to be enabled, but loading of apparmor profiles
-            # of the snaps is not, so enable that now so that the snaps continue to
-            # work after the update
-            systemctl enable --now snapd.apparmor.service || :
-        fi
-    fi
+systemctl enable --now %{snappy_svcs}
+systemctl --user enable --now %{snappy_user_svcs}
+if systemctl is-active snapd.apparmor.service >/dev/null 2>&1; then
+  if systemctl is-active snapd.service >/dev/null 2>&1; then
+    sleep 5
+    snap install snap-store
+  fi
 fi
 
 %preun
-%systemd_preun %{snappy_svcs}
-%systemd_user_preun %{snappy_user_svcs}
+systemctl stop %{snappy_svcs}
+systemctl --user stop %{snappy_user_svcs}
 
 # Remove all Snappy content if snapd is being fully uninstalled
 if [ $1 -eq 0 ]; then
@@ -861,17 +867,9 @@ if [ $1 -eq 0 ]; then
 fi
 
 %postun
-%systemd_postun_with_restart %{snappy_svcs}
-%systemd_user_postun_with_restart %{snappy_user_svcs}
+systemctl disable --now %{snappy_svcs}
+systemctl --user disable --now %{snappy_user_svcs}
 
-%posttrans
-# install snap store if it does not exist
-if [[ -n $(which snap) ]]; then
-    if [[ -z $(snap list | grep snap-store) ]]; then
-        sleep 5
-        snap install snap-store
-    fi
-fi
 
 %changelog
 * Wed Jan 22 2025 Zygmunt Krynicki <zygmunt.krynicki@canonical.com>
