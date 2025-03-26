@@ -4,8 +4,11 @@ After=syslog.target
 
 [Service]
 Type=forking
+PIDFile=/var/run/nvidia-persistenced/nvidia-persistenced.pid
+Restart=always
 ExecStart=/usr/bin/nvidia-persistenced --verbose
 ExecStopPost=/bin/rm -rf /var/run/nvidia-persistenced/*
+TimeoutSec=300
 
 [Install]
 WantedBy=multi-user.target
