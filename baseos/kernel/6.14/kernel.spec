@@ -77,7 +77,7 @@ Patch1: https://raw.githubusercontent.com/CachyOS/kernel-patches/master/%{_basek
 
 # Nobara
 #surface
-#Patch2: linux-surface.patch
+Patch2: linux-surface.patch
 # Steam deck
 Patch3: steam-deck.patch
 Patch4: steamdeck-oled-hw-quirks.patch
@@ -183,6 +183,8 @@ Obsoletes: kernel-bore-eevdf <= 6.5.10-%{customver}
 Obsoletes: kernel-bore <= 6.5.10-%{customver}
 Provides: kernel-uki-vert = %{rpmver}
 Obsoletes: kernel <= %{rpmverobsolete}
+# v4l2loopback module is provided by cachy-base-all patch
+Obsoletes: akmod-v4l2loopback
 
 %description
 The kernel-%{flaver} meta package
@@ -400,7 +402,7 @@ patch -p1 -i %{PATCH0}
 patch -p1 -i %{PATCH1}
 
 # Apply Nobara patches:
-#patch -p1 -i %{PATCH2}
+patch -p1 -i %{PATCH2}
 patch -p1 -i %{PATCH3}
 patch -p1 -i %{PATCH4}
 patch -p1 -i %{PATCH5}
