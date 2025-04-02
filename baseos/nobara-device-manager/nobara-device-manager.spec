@@ -22,7 +22,7 @@ BuildRequires:    pkgconfig(libpci)
 Requires:      cfhdb
 
 %prep
-%autosetup -p1 -n {version}
+%autosetup -p1 -n %{version}
 
 %build
 DESTDIR=%{buildroot} make install
