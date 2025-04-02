@@ -8,6 +8,9 @@ Summary:       Nobara Device Manager - Device and Driver control adw gui
 URL:            https://github.com/Nobara-Project/nobara-device-manager
 Source0:        %{URL}/archive/refs/tags/%{version}.tar.gz
 
+# https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
+ExcludeArch:    %{ix86}
+
 BuildRequires:    cargo
 BuildRequires:    clang-devel
 BuildRequires:    gdk-pixbuf2-devel
@@ -22,7 +25,7 @@ BuildRequires:    pkgconfig(libpci)
 Requires:      cfhdb
 
 %prep
-%autosetup -p1 -n %{version}
+%autosetup -p1 -n %{name}-%{version}
 
 %build
 DESTDIR=%{buildroot} make install
