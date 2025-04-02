@@ -8,6 +8,9 @@ Summary:       CosmicFusion Hardware Database - Nobara Edition
 URL:            https://github.com/Nobara-Project/cfhdb
 Source0:        %{URL}/archive/refs/tags/%{version}.tar.gz
 
+# https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
+ExcludeArch:    %{ix86}
+
 BuildRequires:    cargo
 BuildRequires:    clang-devel
 BuildRequires:    kernel-devel
@@ -20,10 +23,12 @@ Requires:      /usr/bin/bash
 Requires:      usbutils
 
 %prep
-%autosetup -p1 -n %{version}
+%autosetup -p1 -n %{name}-%{version}
 
 %build
 DESTDIR=%{buildroot} make install
+mkdir -p %{buildroot}/usr/share/polkit-1/actions
+mv %{buildroot}/usr/share/actions/* %{buildroot}/usr/share/polkit-1/actions/
 
 %description
 CosmicFusion Hardware Database - Nobara Edition
