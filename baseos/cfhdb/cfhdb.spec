@@ -20,7 +20,7 @@ Requires:      /usr/bin/bash
 Requires:      usbutils
 
 %prep
-%autosetup -p1 -n {version}
+%autosetup -p1 -n %{version}
 
 %build
 DESTDIR=%{buildroot} make install
