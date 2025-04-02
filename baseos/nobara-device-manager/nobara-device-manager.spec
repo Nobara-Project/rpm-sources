@@ -6,7 +6,7 @@ Group:         System Environment/Libraries
 Summary:       Nobara Device Manager - Device and Driver control adw gui
 
 URL:            https://github.com/Nobara-Project/nobara-device-manager
-Source0:        %{URL}/archive/refs/tags/{version}.tar.gz
+Source0:        %{URL}/archive/refs/tags/%{version}.tar.gz
 
 BuildRequires:    cargo
 BuildRequires:    clang-devel
