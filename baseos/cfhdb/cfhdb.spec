@@ -6,7 +6,7 @@ Group:         System Environment/Libraries
 Summary:       CosmicFusion Hardware Database - Nobara Edition
 
 URL:            https://github.com/Nobara-Project/cfhdb
-Source0:        %{URL}/archive/refs/tags/{version}.tar.gz
+Source0:        %{URL}/archive/refs/tags/%{version}.tar.gz
 
 BuildRequires:    cargo
 BuildRequires:    clang-devel
