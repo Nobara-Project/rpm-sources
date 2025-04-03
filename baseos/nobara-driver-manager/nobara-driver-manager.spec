@@ -1,66 +1,43 @@
 Name:          nobara-driver-manager
-Version:       1.1
-Release:       16%{?dist}
-License:       GPLv2
+Epoch:	       2
+Version:       0.1.0
+Release:       1%{?dist}
+License:       MPLv2
 Group:         System Environment/Libraries
-Summary:       Nobara's Driver Manager
+Summary:       Nobara Driver Manager - Device and Driver control adw gui
 
+URL:            https://github.com/Nobara-Project/nobara-device-manager
+Source0:        %{URL}/archive/refs/tags/%{version}.tar.gz
 
-URL:            https://github.com/nobara-project/nobara-core-packages
-Source0:        %{URL}/releases/download/1.0/nobara-drivers-gtk4.tar.gz
+# https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
+ExcludeArch:    %{ix86}
 
-BuildRequires:	wget
-BuildRequires:	cargo
-BuildRequires:	gdk-pixbuf2-devel
-BuildRequires:	gtk4-devel
-BuildRequires:	gtk3-devel
-BuildRequires:	libadwaita-devel
-BuildRequires:	openssl-devel
+BuildRequires:    cargo
+BuildRequires:    clang-devel
+BuildRequires:    gdk-pixbuf2-devel
+BuildRequires:    gtk4-devel
+BuildRequires:    kernel-devel
+BuildRequires:    libadwaita-devel
+BuildRequires:    llvm-devel
+BuildRequires:    openssl-devel
+BuildRequires:    pkgconfig(libusb-1.0)
+BuildRequires:    pkgconfig(libpci)
 
+Requires:	cfhdb
 
-Requires:      /usr/bin/bash
-Requires:	python3
-Requires:	python
-Requires:	gtk3
-Requires:	gtk4
-Requires:	libadwaita
-Requires: 	glib2
-
-# App Deps
-Requires:	python3-gobject
-Requires:	nobara-login
-Requires:	nobara-controller-config
 Provides:	nobara-nvidia-wizard
 Obsoletes:	nobara-nvidia-wizard
-Requires:	webapp-manager
-Requires:	papirus-icon-theme
-Requires: 	gperftools-libs(x86-32)
-Requires: 	xterm-resize
-Requires: 	colorized-logs
-Requires: 	util-linux
-Requires: 	nobara-driver-manager
-Requires: 	vte291
-
-Provides: nobara-nvidia-wizard
-Obsoletes: nobara-nvidia-wizard
-
-# Gnome Deps
-Suggests:	gnome-tweaks
-
-# KDE Deps
-Suggests:	kde-runtime
 
 %prep
-%autosetup -p1 -n nobara-drivers-gtk4
+%autosetup -p1 -n nobara-device-manager-%{version}
 
 %build
 DESTDIR=%{buildroot} make install
 
 %description
-Nobara's Python3 & GTK4 built Welcome App
+Nobara Driver Manager - Device and Driver control adw gui
 
 %files
-%{_prefix}/lib/nobara/drivers/*
 %{_bindir}/*
 %{_datadir}/applications/*
 %{_datadir}/glib-2.0/schemas/*
@@ -68,4 +45,3 @@ Nobara's Python3 & GTK4 built Welcome App
 
 %post
 glib-compile-schemas /usr/share/glib-2.0/schemas/
-
