@@ -1,13 +1,3 @@
-## START: Set by rpmautospec
-## (rpmautospec version 0.7.2)
-## RPMAUTOSPEC: autorelease, autochangelog
-%define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
-    release_number = 1;
-    base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
-    print(release_number + base_release_number - 1);
-}%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
-## END: Set by rpmautospec
-
 %bcond cloudproviders %{undefined rhel}
 
 %global glib2_version 2.79.0
@@ -16,7 +6,7 @@
 %global libadwaita_version 1.6~beta
 
 Name:           nautilus
-Version:        47.0
+Version:        47.3
 
 %global tarball_version %%(echo %{version} | tr '~' '.')
 %global major_version %%(cut -d "." -f 1 <<<%{tarball_version})
@@ -30,12 +20,6 @@ URL:            https://apps.gnome.org/Nautilus/
 Source0:        https://download.gnome.org/sources/%{name}/%{major_version}/%{name}-%{tarball_version}.tar.xz
 # https://pagure.io/fedora-workstation/issue/442
 Patch:          default-terminal.patch
-# These patches all revert commits that handle 'tracker' being renamed
-# to 'localsearch', because that change hasn't landed in Rawhide yet
-# Drop these patches when the package gets renamed
-Patch:          0001-Revert-general-React-to-tracker-projects-rename.patch
-Patch:          0002-Revert-test-Update-to-localsearch-CLI-rename.patch
-Patch:          0003-Revert-tests-Use-localsearch3-test-sandbox.patch
 Patch:		nautilus-restore-typeahead.patch
 Patch:		0001-patch-re-add-breadcrumb-address-bar-toggle.patch
 
@@ -137,8 +121,8 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 %{_bindir}/*
 %{_datadir}/dbus-1/services/org.freedesktop.FileManager1.service
 %{_datadir}/dbus-1/services/org.gnome.Nautilus.service
-%{_datadir}/dbus-1/services/org.gnome.Nautilus.Tracker3.Miner.Extract.service
-%{_datadir}/dbus-1/services/org.gnome.Nautilus.Tracker3.Miner.Files.service
+%exclude %{_datadir}/dbus-1/services/org.gnome.Nautilus.Tracker3.Miner.Extract.service
+%exclude %{_datadir}/dbus-1/services/org.gnome.Nautilus.Tracker3.Miner.Files.service
 %dir %{_datadir}/gnome-shell
 %dir %{_datadir}/gnome-shell/search-providers
 %{_datadir}/gnome-shell/search-providers/org.gnome.Nautilus.search-provider.ini
@@ -148,7 +132,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 %{_mandir}/man1/nautilus-autorun-software.1*
 %{_datadir}/glib-2.0/schemas/org.gnome.nautilus.gschema.xml
 %{_datadir}/nautilus/
-%{_datadir}/tracker3/domain-ontologies/org.gnome.Nautilus.domain.rule
+%exclude %{_datadir}/localsearch3/domain-ontologies/org.gnome.Nautilus.domain.rule
 %{_libdir}/nautilus/extensions-4/libnautilus-image-properties.so
 %{_libdir}/nautilus/extensions-4/libtotem-properties-page.so
 %{_metainfodir}/org.gnome.Nautilus.metainfo.xml
