@@ -46,7 +46,7 @@ Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 Version: %{_basekver}.%{_stablekver}
 
-%define customver 201
+%define customver 202
 
 Release:%{customver}.nobara%{?dist}
 
