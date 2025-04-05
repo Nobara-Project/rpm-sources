@@ -1,5 +1,5 @@
 Name:           lact
-Version:        0.7.2
+Version:        0.7.3
 Release:        1
 Summary:        AMDGPU control utility
 License:        MIT
@@ -10,8 +10,8 @@ Source0:        %{url}/archive/refs/tags/v%{version}.tar.gz
 ExcludeArch:    %{ix86}
 
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-BuildRequires:  rust cargo gtk4-devel gcc libdrm-devel blueprint-compiler dbus curl make clang git
-Requires:       gtk4 libdrm hwdata
+BuildRequires:  rust cargo gtk4-devel gcc libdrm-devel dbus curl make clang git vulkan-tools
+Requires:       gtk4 libdrm hwdata vulkan-tools
 
 %description
 AMDGPU control utility
@@ -30,11 +30,12 @@ make install PREFIX=/usr DESTDIR=%{buildroot}
 %defattr(-,root,root,-)
 %license LICENSE
 %doc README.md
-/usr/bin/lact
-/usr/lib/systemd/system/lactd.service
-/usr/share/applications/io.github.lact-linux.desktop
-/usr/share/icons/hicolor/scalable/apps/io.github.lact-linux.svg
-/usr/share/pixmaps/io.github.lact-linux.png
+%{_bindir}/lact
+%{_prefix}/lib/systemd/system/lactd.service
+%{_datadir}/applications/io.github.ilya_zlobintsev.LACT.desktop
+%{_datadir}/icons/hicolor/scalable/apps/io.github.ilya_zlobintsev.LACT.svg
+%{_datadir}/metainfo/io.github.ilya_zlobintsev.LACT.metainfo.xml
+%{_datadir}/pixmaps/io.github.ilya_zlobintsev.LACT.png
 
 %changelog
 %autochangelog
