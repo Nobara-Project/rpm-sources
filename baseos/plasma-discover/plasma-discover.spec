@@ -1,14 +1,12 @@
 %global base_name discover
 %global flatpak_version 0.8.0
-# enable snap support (or not)
-%global snap 0
-%global snapd_glib_version 1.66
+
 # enable fwupd support (or not)
 %global fwupd 1
 
 Name:    plasma-discover
 Summary: KDE and Plasma resources management GUI
-Version: 6.3.2
+Version: 6.3.3
 Release: 1%{?dist}
 
 License: BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-3.0-only AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only)
@@ -109,9 +107,6 @@ Requires: fedora-third-party
 %endif
 
 # handle upgrade path
-%if ! 0%{?snap}
-Obsoletes: plasma-discover-snap < %{version}-%{release}
-%endif
 Provides: plasma-discover-offline-updates
 Obsoletes: plasma-discover-offline-updates
 Provides: plasma-discover-packagekit
@@ -154,19 +149,6 @@ Recommends: fedora-flathub-remote
 %description flatpak
 %{summary}.
 
-%if 0%{?snap}
-%package snap
-Summary: Plasma Discover snap support
-BuildRequires: cmake(Snapd) >= %{snapd_glib_version}
-Requires: %{name} = %{version}-%{release}
-Requires: %{name}-libs = %{version}-%{release}
-Requires: snapd-qt%{?_isa} >= %{snapd_glib_version}
-Requires: snapd
-Supplements: (%{name} and snapd)
-%description snap
-%{summary}.
-%endif
-
 %package offline-updates
 Summary: Plasma Discover Offline updates enablement
 Requires: %{name} = %{version}-%{release}
@@ -204,9 +186,7 @@ Plasma Discover backend for rpm-ostree support in %{name}.
 %cmake_install
 
 ## unpackaged files
-%if !0%{?snap}
 rm -fv %{buildroot}%{_datadir}/applications/org.kde.discover.snap.desktop
-%endif
 
 %find_lang libdiscover
 %find_lang kcm_updates
@@ -231,9 +211,6 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/org.kde.discover.desk
 %{_datadir}/icons/hicolor/*/apps/plasmadiscover.*
 %{_datadir}/icons/hicolor/*/apps/flatpak-discover.*
 %{_datadir}/kxmlgui5/plasmadiscover/
-%if 0%{?snap}
-%{_libexecdir}/discover/
-%endif
 %{_kf6_datadir}/applications/kcm_updates.desktop
 
 %files notifier -f plasma-discover-notifier.lang
@@ -264,19 +241,6 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/org.kde.discover.desk
 %{_kf6_qtplugindir}/discover-notifier/FlatpakNotifier.so
 %{_kf6_qtplugindir}/discover/flatpak-backend.so
 %{_datadir}/libdiscover/categories/flatpak-backend-categories.xml
-
-%if 0%{?snap}
-%files snap
-%dir %{_libexecdir}/discover/
-%{_libexecdir}/discover/SnapMacaroonDialog
-%{_kf6_libexecdir}/kauth/libsnap_helper
-%{_kf6_metainfodir}/org.kde.discover.snap.appdata.xml
-%{_kf6_qtplugindir}/discover/snap-backend.so
-%{_datadir}/dbus-1/system.d/org.kde.discover.libsnapclient.conf
-%{_datadir}/dbus-1/system-services/org.kde.discover.libsnapclient.service
-%{_datadir}/polkit-1/actions/org.kde.discover.libsnapclient.policy
-%{_kf6_datadir}/applications/org.kde.discover.snap.desktop
-%endif
 
 %if 0%{?fedora}
 %files rpm-ostree
