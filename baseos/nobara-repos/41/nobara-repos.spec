@@ -3,7 +3,7 @@
 Summary:        Nobara package repositories
 Name:           nobara-repos
 Version:        41
-Release:        8%{?eln:.eln%{eln}}
+Release:        9%{?eln:.eln%{eln}}
 License:        MIT
 URL:            https://fedoraproject.org/
 
@@ -21,11 +21,15 @@ BuildRequires:  gnupg sed
 Conflicts:    terra-release
 
 Source2:       nobara.repo
-Source3:       RPM-GPG-KEY-nobara-pubkey
-Source4:       RPM-GPG-KEY-nobara-baseos-pubkey-39
-Source5:       RPM-GPG-KEY-nobara-baseos-pubkey-40
-Source6:       RPM-GPG-KEY-nobara-baseos-pubkey-41
-Source7:       RPM-GPG-KEY-fedora-41-primary
+Source3:       nv-nvp.repo
+Source4:       nv-nvb.repo
+Source5:       nv-nvnf.repo
+
+Source6:       RPM-GPG-KEY-nobara-pubkey
+Source7:       RPM-GPG-KEY-nobara-baseos-pubkey-39
+Source8:       RPM-GPG-KEY-nobara-baseos-pubkey-40
+Source9:       RPM-GPG-KEY-nobara-baseos-pubkey-41
+Source10:       RPM-GPG-KEY-fedora-41-primary
 
 %description
 Nobara package repository files for yum and dnf along with gpg public keys.
@@ -52,7 +56,7 @@ install -m 644 %{_sourcedir}/RPM-GPG-KEY* $RPM_BUILD_ROOT/etc/pki/rpm-gpg/
 
 # Install repo files
 install -d -m 755 $RPM_BUILD_ROOT/etc/yum.repos.d
-install -m 644 %{_sourcedir}/nobara.repo $RPM_BUILD_ROOT/etc/yum.repos.d
+install -m 644 %{_sourcedir}/*.repo $RPM_BUILD_ROOT/etc/yum.repos.d/
 
 %posttrans
 if [[ -f /etc/yum.repos.d/nobara.repo.rpmsave ]]; then
@@ -65,6 +69,9 @@ fi
 %files
 %dir /etc/yum.repos.d
 /etc/yum.repos.d/nobara.repo
+%config(noreplace) /etc/yum.repos.d/nv-nvp.repo
+%config(noreplace) /etc/yum.repos.d/nv-nvb.repo
+%config(noreplace) /etc/yum.repos.d/nv-nvnf.repo
 
 %files -n nobara-gpg-keys
 %dir /etc/pki/rpm-gpg
