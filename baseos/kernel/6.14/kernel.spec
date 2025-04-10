@@ -37,7 +37,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.14
-%define _stablekver 0
+%define _stablekver 1
 %if %{_stablekver} == 0
 %define _tarkver %{_basekver}
 %else
@@ -46,7 +46,7 @@ Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 Version: %{_basekver}.%{_stablekver}
 
-%define customver 202
+%define customver 201
 
 Release:%{customver}.nobara%{?dist}
 
@@ -74,40 +74,39 @@ ExcludeArch:    %{ix86}
 # Stable patches
 Patch0: https://raw.githubusercontent.com/CachyOS/kernel-patches/master/%{_basekver}/all/0001-cachyos-base-all.patch
 Patch1: https://raw.githubusercontent.com/CachyOS/kernel-patches/master/%{_basekver}/sched/0001-bore-cachy.patch
+# For handhelds
+Patch2: https://raw.githubusercontent.com/CachyOS/kernel-patches/master/%{_basekver}/misc/0001-handheld.patch
 
 # Nobara
 #surface
-Patch2: linux-surface.patch
-# Steam deck
-Patch3: steam-deck.patch
-Patch4: steamdeck-oled-hw-quirks.patch
+Patch3: linux-surface.patch
 # Asus laptops
-Patch5: asus-linux.patch
+Patch4: asus-linux.patch
 # rog ally/x
-Patch6: ROG-ALLY-NCT6775-PLATFORM.patch
+Patch5: ROG-ALLY-NCT6775-PLATFORM.patch
 # ayaneo
-Patch7: bmi160_ayaneo.patch
+Patch6: bmi160_ayaneo.patch
 # minisforum v3
-Patch8: amd-tablet-sfh.patch
+Patch7: amd-tablet-sfh.patch
 # Logitech wheel
-Patch9: ps-logitech-wheel.patch
+Patch8: ps-logitech-wheel.patch
 # give kernel taint warning when amdgpu power controls are enabled
-Patch10: amdgpu.ppfeaturemask-taint_warning.patch
+Patch9: amdgpu.ppfeaturemask-taint_warning.patch
 # fixes framerate control in gamescope
-Patch11: valve-gamescope-framerate-control-fixups.patch
+Patch10: valve-gamescope-framerate-control-fixups.patch
 
 # temporary patches
 # fixes HAINAN amdgpu card not being bootable
 # https://gitlab.freedesktop.org/drm/amd/-/issues/1839
-Patch12: amdgpu-HAINAN-variant-fixup.patch
+Patch11: amdgpu-HAINAN-variant-fixup.patch
 # Allow to set custom USB pollrate for specific devices like so:
 # usbcore.interrupt_interval_override=045e:00db:16,1bcf:0005:1
 # useful for setting polling rate of wired PS4/PS5 controller to 1000Hz
 # https://github.com/KarsMulder/Linux-Pollrate-Patch
 # https://gitlab.com/GloriousEggroll/nobara-images/-/issues/64
-Patch13: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
+Patch12: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
 # Add xpadneo as patch instead of using dkms module
-Patch14: 0001-Add-xpadneo-bluetooth-hid-driver-module.patch
+Patch13: 0001-Add-xpadneo-bluetooth-hid-driver-module.patch
 
 %define __spec_install_post /usr/lib/rpm/brp-compress || :
 %define debug_package %{nil}
@@ -414,7 +413,6 @@ patch -p1 -i %{PATCH10}
 patch -p1 -i %{PATCH11}
 patch -p1 -i %{PATCH12}
 patch -p1 -i %{PATCH13}
-patch -p1 -i %{PATCH14}
 
 # Fetch the config and move it to the proper directory
 cp %{SOURCE1} .config
