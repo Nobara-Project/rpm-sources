@@ -1,51 +1,54 @@
 # This spec file should work on Fedora, openSUSE and Mageia
 
 %define dkms_name openrazer-driver
-%define dkms_version 3.9.0
+%define dkms_version 3.10.1
 
 %global _default_patch_fuzz 2
 
-%define gitcommit 227096056fa0b0ad4bf0334150b4be73ea3074ee
+%define gitcommit 67cf9173c450e9766bfe9126d050cc385af77624
 
-Name: openrazer-meta
-Version: 3.9.0
-Release: 2.2
-Summary: Open source driver and user-space daemon for managing Razer devices
+Name: 		openrazer-meta
+Version: 	3.10.1
+Release: 	%autorelease
+Summary: 	Open source driver and user-space daemon for managing Razer devices
 
-License: GPL-2.0
-URL: https://github.com/openrazer/openrazer
+License: 	GPL-2.0
+URL: 		https://github.com/openrazer/openrazer
 
 %if 0%{?gitcommit:1}
-Source0: https://github.com/crstmkt/openrazer/archive/%{gitcommit}.tar.gz
+Source0: 	https://github.com/crstmkt/openrazer/archive/%{gitcommit}.tar.gz
 %else
-Source0: https://github.com/openrazer/openrazer/releases/download/v%{version}/openrazer-%{version}.tar.xz
+Source0: 	https://github.com/openrazer/openrazer/releases/download/v%{version}/openrazer-%{version}.tar.xz
 %endif
 
-BuildArch: noarch
-BuildRequires: make
+# https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
+ExcludeArch:    %{ix86}
 
-Requires: openrazer-kernel-modules-dkms
-Requires: openrazer-daemon
-Requires: python3-openrazer
+BuildArch: 	noarch
+BuildRequires: 	make
+
+Requires: 	openrazer-kernel-modules-dkms
+Requires: 	openrazer-daemon
+Requires: 	python3-openrazer
 
 %description
 Meta package for installing all required openrazer packages.
 
 
 %package -n openrazer-kernel-modules-dkms
-Summary: OpenRazer Driver DKMS package
-Group: System Environment/Kernel
-Obsoletes: razer-kernel-modules-dkms
-Provides: razer-kernel-modules-dkms
-Requires: dkms
-Requires: make
-Requires: udev
+Summary: 	OpenRazer Driver DKMS package
+Group: 		System Environment/Kernel
+Obsoletes: 	razer-kernel-modules-dkms
+Provides: 	razer-kernel-modules-dkms
+Requires: 	dkms
+Requires: 	make
+Requires: 	udev
 # OBS fails without that
 %if 0%{?suse_version}
-Requires(pre): shadow
+Requires(pre): 	shadow
 Requires(post): dkms
 %else
-Requires(pre): shadow-utils
+Requires(pre): 	shadow-utils
 %endif
 
 %description -n openrazer-kernel-modules-dkms
@@ -53,54 +56,54 @@ Kernel driver for Razer devices (DKMS-variant)
 
 
 %package -n openrazer-daemon
-Summary: OpenRazer Service package
-Group: System Environment/Daemons
-Obsoletes: razer-daemon
-Provides: razer-daemon
-BuildRequires: python3-devel
-BuildRequires: python3-setuptools
-Requires: openrazer-kernel-modules-dkms
-Requires: python3
+Summary: 	OpenRazer Service package
+Group: 		System Environment/Daemons
+Obsoletes: 	razer-daemon
+Provides: 	razer-daemon
+BuildRequires: 	python3-devel
+BuildRequires: 	python3-setuptools
+Requires: 	openrazer-kernel-modules-dkms
+Requires: 	python3
 %if 0%{?suse_version}
-Requires: dbus-1-python3
-Requires: typelib(Gdk) = 3.0
+Requires: 	dbus-1-python3
+Requires: 	typelib(Gdk) = 3.0
 %else
-Requires: python3-dbus
+Requires: 	python3-dbus
 %endif
 %if 0%{?mageia}
-Requires: python3-gobject3
+Requires: 	python3-gobject3
 %else
-Requires: python3-gobject
+Requires: 	python3-gobject
 %endif
-Requires: python3-setproctitle
-Requires: python3-pyudev
-Requires: python3-daemonize
-Requires: xautomation
+Requires: 	python3-setproctitle
+Requires: 	python3-pyudev
+Requires: 	python3-daemonize
+Requires: 	xautomation
 
 %description -n openrazer-daemon
 Userspace daemon that abstracts access to the kernel driver. Provides a DBus service for applications to use.
 
 
 %package -n python3-openrazer
-Summary: OpenRazer Python library
-Group: System Environment/Libraries
-Obsoletes: python3-razer
-Provides: python3-razer
-BuildRequires: python3-devel
-BuildRequires: python3-setuptools
-Requires: openrazer-daemon
-Requires: python3
+Summary: 	OpenRazer Python library
+Group: 		System Environment/Libraries
+Obsoletes: 	python3-razer
+Provides: 	python3-razer
+BuildRequires: 	python3-devel
+BuildRequires: 	python3-setuptools
+Requires: 	openrazer-daemon
+Requires: 	python3
 %if 0%{?suse_version}
-Requires: dbus-1-python3
+Requires: 	dbus-1-python3
 %else
-Requires: python3-dbus
+Requires: 	python3-dbus
 %endif
 %if 0%{?mageia}
-Requires: python3-gobject3
+Requires: 	python3-gobject3
 %else
-Requires: python3-gobject
+Requires: 	python3-gobject
 %endif
-Requires: python3-numpy
+Requires: 	python3-numpy
 
 %description -n python3-openrazer
 Python library for accessing the daemon from Python.
