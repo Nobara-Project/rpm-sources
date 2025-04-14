@@ -3,7 +3,7 @@
 Summary:        Nobara package repositories
 Name:           nobara-repos
 Version:        41
-Release:        10%{?eln:.eln%{eln}}
+Release:        14%{?eln:.eln%{eln}}
 License:        MIT
 URL:            https://fedoraproject.org/
 
@@ -18,18 +18,19 @@ Requires:       nobara-gpg-keys >= %{version}-%{release}
 BuildArch:      noarch
 # Required by %%check
 BuildRequires:  gnupg sed
-Conflicts:    terra-release
 
 Source2:       nobara.repo
 Source3:       nv-nvp.repo
 Source4:       nv-nvb.repo
 Source5:       nv-nvnf.repo
+Source6:       nobara-pikaos-additional.repo
+Source7:       brave-browser.repo
 
-Source6:       RPM-GPG-KEY-nobara-pubkey
-Source7:       RPM-GPG-KEY-nobara-baseos-pubkey-39
-Source8:       RPM-GPG-KEY-nobara-baseos-pubkey-40
-Source9:       RPM-GPG-KEY-nobara-baseos-pubkey-41
-Source10:       RPM-GPG-KEY-fedora-41-primary
+Source8:       RPM-GPG-KEY-nobara-pubkey
+Source9:       RPM-GPG-KEY-nobara-baseos-pubkey-39
+Source10:       RPM-GPG-KEY-nobara-baseos-pubkey-40
+Source11:       RPM-GPG-KEY-nobara-baseos-pubkey-41
+Source12:       brave-core.asc
 
 %description
 Nobara package repository files for yum and dnf along with gpg public keys.
@@ -53,6 +54,7 @@ This package provides the RPM signature keys.
 # Install the keys
 install -d -m 755 $RPM_BUILD_ROOT/etc/pki/rpm-gpg
 install -m 644 %{_sourcedir}/RPM-GPG-KEY* $RPM_BUILD_ROOT/etc/pki/rpm-gpg/
+install -m 644 %{_sourcedir}/brave-core.asc $RPM_BUILD_ROOT/etc/pki/rpm-gpg/
 
 # Install repo files
 install -d -m 755 $RPM_BUILD_ROOT/etc/yum.repos.d
@@ -69,14 +71,16 @@ fi
 %files
 %dir /etc/yum.repos.d
 /etc/yum.repos.d/nobara.repo
+/etc/yum.repos.d/nobara-pikaos-additional.repo
 %config(noreplace) /etc/yum.repos.d/nv-nvp.repo
 %config(noreplace) /etc/yum.repos.d/nv-nvb.repo
 %config(noreplace) /etc/yum.repos.d/nv-nvnf.repo
+%config(noreplace) /etc/yum.repos.d/brave-browser.repo
 
 %files -n nobara-gpg-keys
 %dir /etc/pki/rpm-gpg
 /etc/pki/rpm-gpg/RPM-GPG-KEY-*
-
+/etc/pki/rpm-gpg/brave-core.asc
 
 %changelog
 * Mon Oct 11 2021 Kevin Fenzi <kevin@scrye.com> - 35-1
