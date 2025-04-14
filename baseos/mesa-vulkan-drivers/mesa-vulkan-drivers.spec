@@ -1,6 +1,6 @@
 %global _default_patch_fuzz 2
 
-%global commit 5b11c3ff0a4f20fecfea718b06e726a404cc0300
+%global commit b7ff9dddd4b28ed017edc3386ed6d8e0d674f15a
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
@@ -215,9 +215,9 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
   -Dplatforms=x11,wayland \
   -Dosmesa=true \
 %if 0%{?with_hardware}
-  -Dgallium-drivers=swrast,virgl,nouveau%{?with_r300:,r300}%{?with_crocus:,crocus}%{?with_i915:,i915}%{?with_iris:,iris}%{?with_vmware:,svga}%{?with_radeonsi:,radeonsi}%{?with_r600:,r600}%{?with_freedreno:,freedreno}%{?with_etnaviv:,etnaviv}%{?with_tegra:,tegra}%{?with_vc4:,vc4}%{?with_v3d:,v3d}%{?with_kmsro:,kmsro}%{?with_lima:,lima}%{?with_panfrost:,panfrost}%{?with_vulkan_hw:,zink} \
+  -Dgallium-drivers=softpipe,llvmpipe,virgl,nouveau%{?with_r300:,r300}%{?with_crocus:,crocus}%{?with_i915:,i915}%{?with_iris:,iris}%{?with_vmware:,svga}%{?with_radeonsi:,radeonsi}%{?with_r600:,r600}%{?with_freedreno:,freedreno}%{?with_etnaviv:,etnaviv}%{?with_tegra:,tegra}%{?with_vc4:,vc4}%{?with_v3d:,v3d}%{?with_lima:,lima}%{?with_panfrost:,panfrost}%{?with_vulkan_hw:,zink} \
 %else
-  -Dgallium-drivers=swrast,virgl \
+  -Dgallium-drivers=softpipe,llvmpipe,virgl \
 %endif
   -Dgallium-vdpau=%{?with_vdpau:enabled}%{!?with_vdpau:disabled} \
   -Dgallium-va=%{?with_va:enabled}%{!?with_va:disabled} \
@@ -300,6 +300,7 @@ rm -Rf %{buildroot}%{_libdir}/libgbm.so.1
 rm -Rf %{buildroot}%{_libdir}/libgbm.so.1.*
 rm -Rf %{buildroot}%{_libdir}/libgbm.so
 rm -Rf %{buildroot}%{_includedir}/gbm.h
+rm -Rf %{buildroot}%{_includedir}/gbm_backend_abi.h
 rm -Rf %{buildroot}%{_libdir}/pkgconfig/gbm.pc
 rm -Rf %{buildroot}%{_libdir}/libxatracker.so.2
 rm -Rf %{buildroot}%{_libdir}/libxatracker.so.2.*
