@@ -1,6 +1,6 @@
 %global appname MangoHud
 %global forgeurl https://github.com/flightlessmango/MangoHud
-%global commit fea4292519a3085881d567a18ad3e1fee37078d8
+%global commit d416a8314f87910f3c37f15347ebfa5918bac9c2
 %forgemeta
 %global imgui_ver 1.89.9
 %global imgui_wrap_ver 2
@@ -29,6 +29,7 @@ Source4:        https://wrapdb.mesonbuild.com/v%{vulkan_headers_wrap_ver}/projec
 Source5:        https://github.com/epezent/implot/archive/v%{implot_ver}/implot-%{implot_ver}.tar.gz
 Source6:        https://wrapdb.mesonbuild.com/v%{implot_wrap_ver}/implot_%{implot_ver}-1/get_patch#/implot-%{implot_ver}-%{implot_wrap_ver}-wrap.zip
 Source20:       README.Fedora.md
+Patch0:         0001-convert_to_explicit.patch
 
 BuildRequires:  vulkan-headers
 BuildRequires:  appstream
@@ -139,7 +140,7 @@ install -D -p -m 0644 %{SOURCE20} %{buildroot}%{_docdir}/%{name}/README.Fedora.m
 %{_bindir}/%{name}*
 %{_bindir}/mangoapp
 %{_datadir}/icons/hicolor/scalable/*/*.svg
-%{_datadir}/vulkan/implicit_layer.d/*Mango*.json
+%{_datadir}/vulkan/explicit_layer.d/*Mango*.json
 %{_docdir}/%{name}/%{appname}.conf.example
 %{_libdir}/%{name}/
 %{_mandir}/man1/%{name}.1*
