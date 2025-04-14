@@ -3,13 +3,13 @@
 # SPDX-FileCopyrightText: 2023 Wesley Gimenes <wehagy+github@gmail.com>
 # See %%{name}.spec.license for the full license text.
 
-%global SHA256SUM0      9f64a88a6fc5d6752bfe9c11633598f39d0161f514c0872da79a937427333d9d
+%global SHA256SUM0      3fe5d8548fe4d3669fd002d5d23997894932ed6a7d9b23943ceaf2af5dd29e77
 
 %global provider        github
 %global provider_tld    com
 %global owner           vysp3r
 %global repo            ProtonPlus
-%global built_tag       v0.4.20
+%global built_tag       v0.4.27
 %global built_tag_strip %(b=%{built_tag}; echo ${b:1})
 %global gen_version     %(b=%{built_tag_strip}; echo ${b/-/"."})
 
@@ -36,6 +36,7 @@ Source1:        %{name}.rpmlintrc
 # License of the specfile
 Source2:        %{name}.spec.license
 
+ExcludeArch:    %{ix86}
 
 # fdupes need to fix file rpmlint W: files-duplicate
 # /usr/share/icons/hicolor/symbolic/apps/com.vysp3r.ProtonPlus-symbolic.svg /usr/share/icons/hicolor/scalable/apps/com.vysp3r.ProtonPlus.svg
@@ -120,6 +121,9 @@ appstream-util validate-relax --nonet \
 
 
 %changelog
+* Mon Apr 14 2025 LionHeartP <LionHeartP@proton.me> - 0.4.27-1
+- new upstream version v0.4.27
+
 * Mon May 27 2024 Wesley Gimenes <wehagy@proton.me> - 0.4.10-1
 - new upstream version v0.4.10
 
