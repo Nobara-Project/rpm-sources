@@ -4,7 +4,7 @@
 ## END: Set by rpmautospec
 
 Name:           opengamepadui
-Version:        0.35.8
+Version:        0.39.0
 Release:        1%{?dist}
 Summary:        A free and open source game launcher and overlay written using the Godot Game Engine 4 designed with a gamepad native experience in mind
 License:        GPL-3.0-only
@@ -51,6 +51,7 @@ make install PREFIX=%{buildroot}%{_prefix} INSTALL_PREFIX=%{_prefix}
 %{_datadir}/icons/hicolor/scalable/apps/opengamepadui.svg
 %{_datadir}/polkit-1/actions/org.shadowblip.manage_input.policy
 %{_datadir}/polkit-1/actions/org.shadowblip.setcap.policy
+%{_datadir}/polkit-1/actions/org.shadowblip.nixos_updater.policy
 %{_userunitdir}/systemd-sysext-updater.service
 %{_userunitdir}/ogui-overlay-mode.service
 
