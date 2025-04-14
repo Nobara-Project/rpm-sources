@@ -1,6 +1,6 @@
 Name:           gamescope-session-plus
 Version:        0.3.216
-Release:        1.git.d8ab829%{?dist}
+Release:        2.git.d8ab829%{?dist}
 Summary:        Gamescope session plus based on Valve's gamescope
 
 License:        MIT
@@ -16,11 +16,11 @@ Requires:       steam
 Requires:       gamescope-session-steam
 Requires:       gamescope-session-common
 Requires:       steam-powerbuttond
-Requires:       deckyloader
 
 BuildRequires:  systemd-rpm-macros
 
 Obsoletes:      gamescope-session
+Obsoletes:      deckyloader
 Obsoletes:      gamescope-session-plus <= 0.2.git.201.5538cd66
 
 %description
@@ -46,30 +46,6 @@ cp -rv gamescope-session-plus/usr/libexec/* %{buildroot}%{_libexecdir}/
 mv gamescope-session-plus/LICENSE .
 mv gamescope-session-plus/README.md .
 
-# Do post-installation
-%post
-
-# KDE/SDDM
-if [[ ! -z $(systemctl status sddm | grep running) ]]; then
-  if [[ -f /etc/sddm.conf ]]; then
-    sed -i "s|Relogin=.*|Relogin=true|g" /etc/sddm.conf
-    if [[ -z $(cat /etc/sddm.conf | grep Relogin) ]]; then
-      sed -i '/\[Autologin\]/a\Relogin=true' /etc/sddm.conf
-    fi
-  fi
-  if [[ -f /etc/sddm.conf.d/kde_settings.conf ]]; then
-    sed -i "s|Relogin=.*|Relogin=true|g" /etc/sddm.conf.d/kde_settings.conf
-    if [[ -z $(cat /etc/sddm.conf.d/kde_settings.conf | grep Relogin) ]]; then
-      sed -i '/\[Autologin\]/a\Relogin=true' /etc/sddm.conf.d/kde_settings.conf
-    fi
-  fi
-fi
-
-# Do before uninstallation
-%preun
-
-# Do after uninstallation
-%postun
 
 # This lists all the files that are included in the rpm package and that
 # are going to be installed into target system where the rpm is installed.
