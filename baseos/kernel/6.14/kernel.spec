@@ -94,19 +94,23 @@ Patch8: ps-logitech-wheel.patch
 Patch9: amdgpu.ppfeaturemask-taint_warning.patch
 # fixes framerate control in gamescope
 Patch10: valve-gamescope-framerate-control-fixups.patch
+# fixes orientation on SuiPlay0X1
+Patch11: suiplay0x1-orientation-quirk.patch
+# fixes headphones on various Aya Neo devices
+Patch12: ayaneo-headset-fix.patch
 
 # temporary patches
 # fixes HAINAN amdgpu card not being bootable
 # https://gitlab.freedesktop.org/drm/amd/-/issues/1839
-Patch11: amdgpu-HAINAN-variant-fixup.patch
+Patch13: amdgpu-HAINAN-variant-fixup.patch
 # Allow to set custom USB pollrate for specific devices like so:
 # usbcore.interrupt_interval_override=045e:00db:16,1bcf:0005:1
 # useful for setting polling rate of wired PS4/PS5 controller to 1000Hz
 # https://github.com/KarsMulder/Linux-Pollrate-Patch
 # https://gitlab.com/GloriousEggroll/nobara-images/-/issues/64
-Patch12: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
+Patch14: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
 # Add xpadneo as patch instead of using dkms module
-Patch13: 0001-Add-xpadneo-bluetooth-hid-driver-module.patch
+Patch15: 0001-Add-xpadneo-bluetooth-hid-driver-module.patch
 
 %define __spec_install_post /usr/lib/rpm/brp-compress || :
 %define debug_package %{nil}
@@ -413,6 +417,8 @@ patch -p1 -i %{PATCH10}
 patch -p1 -i %{PATCH11}
 patch -p1 -i %{PATCH12}
 patch -p1 -i %{PATCH13}
+patch -p1 -i %{PATCH14}
+patch -p1 -i %{PATCH15}
 
 # Fetch the config and move it to the proper directory
 cp %{SOURCE1} .config
