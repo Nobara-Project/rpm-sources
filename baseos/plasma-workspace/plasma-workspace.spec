@@ -4,7 +4,7 @@
 
 Name:    plasma-workspace
 Summary: Plasma workspace, applications and applets
-Version: 6.3.3
+Version: 6.3.4
 Release: 1%{?dist}
 
 # Automatically converted from old format: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only) AND MIT - review is highly recommended.
@@ -25,6 +25,8 @@ Source40:       ssh-agent.conf
 Source41:       spice-vdagent.conf
 
 ## upstream patches
+# https://invent.kde.org/plasma/plasma-workspace/-/commit/47d502353720004fa2d0e7b0065994b75b3e0ded.patch
+Patch0: 47d502353720004fa2d0e7b0065994b75b3e0ded.patch
 
 ## upstreamable Patches
 
@@ -644,6 +646,24 @@ fi
 
 
 %changelog
+* Thu Apr 03 2025 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.3.4-2
+- Backport upstream patch
+
+* Wed Apr 02 2025 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.3.4-1
+- 6.3.4
+
+* Tue Mar 25 2025 Jan Grulich <jgrulich@redhat.com> - 6.3.3-2
+- Rebuild (qt6)
+
+* Tue Mar 11 2025 Steve Cossette <farchord@gmail.com> - 6.3.3-1
+- 6.3.3
+
+* Tue Feb 25 2025 Steve Cossette <farchord@gmail.com> - 6.3.2-1
+- 6.3.2
+
+* Tue Feb 18 2025 Steve Cossette <farchord@gmail.com> - 6.3.1-1
+- 6.3.1
+
 * Thu Feb 06 2025 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.3.0-1
 - 6.3.0
 
@@ -674,9 +694,6 @@ fi
 
 * Tue Nov 05 2024 Steve Cossette <farchord@gmail.com> - 6.2.3-1
 - 6.2.3
-
-* Wed Oct 30 2024 Jan Grulich <jgrulich@redhat.com> - 6.2.2-2
-- Rebuild (qt6)
 
 * Tue Oct 22 2024 Steve Cossette <farchord@gmail.com> - 6.2.2-1
 - 6.2.2
