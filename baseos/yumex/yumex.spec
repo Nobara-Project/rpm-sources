@@ -1,13 +1,13 @@
-%global app_id dk.yumex.Yumex
+%global app_id nobara.package.manager
 %global app_build release
 %global dnf_backend DNF5
 %global app_name yumex
-%global gitcommit 5b099461ea07292d4d41c237b3ede3274f082bf9
-%global shortcommit 5b09946
+%global gitcommit 9b46dce4984f524784981033147278dfb5a5aecc
+%global shortcommit 9b46dce
 
 Name:     %{app_name}
-Version:  5.0.3
-Release:  18.git.%{shortcommit}%{?dist}
+Version:  5.2.0
+Release:  1.git.%{shortcommit}%{?dist}
 Summary:  Yum Extender graphical package management tool
 
 Group:    Applications/System
@@ -15,9 +15,9 @@ License:  GPLv3+
 URL:      http://yumex.dk
 Source0:  https://github.com/timlau/yumex-ng/archive/%{gitcommit}.zip#/%{name}-%{shortcommit}.tar.gz
 Source1:  nobara.package.manager.svg
-Patch0:   rename-desktop-shortcut.patch
-Patch1:   0001-add-nobara-update-system-button.patch
-Patch2:   109.patch
+Patch0:   0001-add-nobara-update-system-button.patch
+Patch1:   0001-revert-manual-dark-light-mode-changes-just-use-symbo.patch
+Patch2:   0001-rename-dk.yumex.Yumex-to-nobara.package.manager.patch
 
 BuildArch: noarch
 BuildRequires: python3-devel
@@ -31,16 +31,18 @@ BuildRequires: pkgconfig(gtk4)
 BuildRequires: pkgconfig(libadwaita-1)
 BuildRequires: pkgconfig(pygobject-3.0)
 BuildRequires: systemd-rpm-macros
+BuildRequires: git
 
 Requires: python3-gobject
-Requires: libadwaita
+Requires: libadwaita >= 1.6
 Requires: gtk4
 Requires: nobara-welcome
-Requires: python3-dasbus
+Requires: flatpost
+Requires: python3-dbus
 Requires: flatpak-libs > 1.15.0
 Requires: appstream >= 1.0.2
 
-Recommends: %{name}-updater-systray
+Recommends: %{name}-updater
 
 # dnf4 requirements
 %if "%{dnf_backend}" == "DNF4"
@@ -51,7 +53,7 @@ Requires: python3-dnf
 # dnf5 requirements
 %if "%{dnf_backend}" == "DNF5"
 Requires: python3-libdnf5
-Requires: dnf5daemon-server
+Requires: dnf5daemon-server >= 5.2.12
 Provides: yumex-dnf5 = %{version}-%{release}
 Obsoletes: yumex-dnf5 < %{version}-%{release}
 %endif
@@ -63,8 +65,8 @@ Obsoletes: yumex-dnf <= 4.5.1
 %description
 Graphical package tool for maintain packages on the system
 
-%package -n %{name}-updater-systray
-Summary:  Yum Extender updater systray app
+%package -n %{name}-updater
+Summary:  Yum Extender updater app
 Requires: %{name} = %{version}-%{release}
 Requires: python3-gobject
 Requires: gtk3
@@ -72,21 +74,21 @@ Requires: python3-dasbus
 Requires: flatpak-libs > 1.15.0
 Requires: libappindicator-gtk3
 
-%if "%{dnf_backend}" == "DNF5"
 Provides: yumex-dnf5-updater-systray = %{version}-%{release}
 Obsoletes: yumex-dnf5-updater-systray < %{version}-%{release}
-%endif
+Provides: yumex-updater-systray = %{version}-%{release}
+Obsoletes: yumex-updater-systray < %{version}-%{release}
 
-%description -n %{name}-updater-systray
-Systray application to check and show available updates
+%description -n %{name}-updater
+Service to check and notify about available updates
 
 
 %prep
-%autosetup -n %{name}-ng-%{gitcommit} -p1
+%autosetup -S git -n %{name}-ng-%{gitcommit} -p1
 cp %{SOURCE1} ./data/icons/hicolor/scalable/apps/
 
 # Add nobara-updater as custom_updater option
-sed -i 's|""|"/usr/bin/python3 /usr/bin/nobara-updater"|g'  data/dk.yumex.Yumex.gschema.xml.in
+sed -i 's|""|"/usr/bin/python3 /usr/bin/nobara-updater"|g'  data/nobara.package.manager.gschema.xml.in
 
 %check
 appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/*.metainfo.xml
@@ -106,8 +108,8 @@ desktop-file-validate %{buildroot}/%{_datadir}/applications/%{app_id}.desktop
 update-desktop-database %{_datadir}/applications &> /dev/null || :
 glib-compile-schemas /usr/share/glib-2.0/schemas/
 
-%post -n %{name}-updater-systray
-%systemd_user_post yumex-updater-systray.service
+%post -n %{name}-updater
+%systemd_user_post yumex-updater.service
 
 %postun
 if [ $1 -eq 0 ] ; then
@@ -127,19 +129,17 @@ update-desktop-database %{_datadir}/applications &> /dev/null || :
 %{_metainfodir}/%{app_id}.metainfo.xml
 %{_datadir}/glib-2.0/schemas/%{app_id}.gschema.xml
 
-%files -n %{name}-updater-systray
+%files -n %{name}-updater
 %{_userunitdir}/*.service
 %{_prefix}/lib/systemd/user-preset/*.preset
-%{_bindir}/yumex_updater_systray
-%{_datadir}/icons/hicolor/scalable/apps/yumex-system-software-update-dark.svg
-%{_datadir}/icons/hicolor/scalable/apps/yumex-system-software-update-light.svg
+%{_bindir}/yumex_updater
 
 %posttrans
 /usr/bin/gtk-update-icon-cache -f %{_datadir}/icons/hicolor &>/dev/null || :
 
-%posttrans -n %{name}-updater-systray
+%posttrans -n %{name}-updater
 /usr/bin/gtk-update-icon-cache -f %{_datadir}/icons/hicolor &>/dev/null || :
-%systemd_user_post yumex-updater-systray.service
+%systemd_user_post yumex-updater.service
 
 # Iterate over all user sessions
 for session in $(loginctl list-sessions --no-legend | awk '{print $1}'); do
@@ -154,17 +154,31 @@ for session in $(loginctl list-sessions --no-legend | awk '{print $1}'); do
     DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
 
     # Apply the preset for the user session
-    su - $user -c "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS systemctl --user preset yumex-updater-systray.service" || echo "Failed to apply preset for user $user"
+    su - $user -c "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS systemctl --user preset yumex-updater.service" || echo "Failed to apply preset for user $user"
 
     # Reload the user daemon and restart the service
     su - $user -c "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS systemctl --user daemon-reload" || echo "Failed to perform daemon-reload for user $user"
-    su - $user -c "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS systemctl --user restart yumex-updater-systray.service" || echo "Failed to restart service for user $user"
+    su - $user -c "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS systemctl --user restart yumex-updater.service" || echo "Failed to restart service for user $user"
 done
 
-%preun -n %{name}-updater-systray
-%systemd_user_preun yumex-updater-systray.service
+%preun -n %{name}-updater
+%systemd_user_preun yumex-updater.service
 
 %changelog
+
+* Tue Apr 15 2025 Tim Lauridsen <timlau@fedoraproject.org> 5.3.0-1
+- bump version to 5.3.0
+
+* Tue Apr 15 2025 Tim Lauridsen <timlau@fedoraproject.org> 5.2.0-1
+- the 5.2.0 stable release
+
+* Mon Mar 31 2025 Tim Lauridsen <timlau@fedoraproject.org> 5.1.0-1
+- the 5.1.0 release
+- cleanup requirement for only using dnf5daemon for everything
+
+* Thu Mar 27 2025 Tim Lauridsen <timlau@fedoraproject.org> 5.0.3-2
+- remove support for dnf4
+
 * Thu Nov 7 2024 Tim Lauridsen <timlau@fedoraproject.org> 5.0.3-1
 - the 5.0.3 release
 
