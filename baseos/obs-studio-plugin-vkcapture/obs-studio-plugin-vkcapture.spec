@@ -2,13 +2,12 @@
 
 Name:           obs-studio-plugin-vkcapture
 Version:        1.5.1
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        OBS plugin for Vulkan/OpenGL game capture
 
 License:        GPL-2.0-or-later and Zlib
 URL:            https://github.com/nowrep/obs-vkcapture
 Source0:        %{url}/archive/v%{version}/%{srcname}-%{version}.tar.gz
-Patch0:         convert_to_explicit.patch
 
 # elfhacks FTBFS on IBM Z
 ExcludeArch:    s390x
@@ -71,7 +70,7 @@ Provides:       obs-studio-plugin-gamecapture%{?_isa} = %{version}-%{release}
 # Preload libraries
 %{_libdir}/obs_glcapture/libobs_glcapture.so
 %{_libdir}/libVkLayer_obs_vkcapture.so
-%{_datadir}/vulkan/explicit_layer.d/obs_vkcapture_%{__isa_bits}.json
+%{_datadir}/vulkan/implicit_layer.d/obs_vkcapture_%{__isa_bits}.json
 # OBS plugin
 %{_libdir}/obs-plugins/linux-vkcapture.so
 # OBS plugin data
