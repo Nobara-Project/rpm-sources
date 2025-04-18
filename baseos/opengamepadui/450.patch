@@ -1,0 +1,24 @@
+From 7f701ac7f4adc15530ad2a83434e26eafcaa9bd0 Mon Sep 17 00:00:00 2001
+From: William Edwards <shadowapex@gmail.com>
+Date: Thu, 17 Apr 2025 20:30:55 -0700
+Subject: [PATCH] fix(Overlay Mode): enable inputplumber management of all
+ gamepads
+
+---
+ core/ui/card_ui_overlay_mode/card_ui_overlay_mode.gd | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/core/ui/card_ui_overlay_mode/card_ui_overlay_mode.gd b/core/ui/card_ui_overlay_mode/card_ui_overlay_mode.gd
+index 8b913388..255841fa 100644
+--- a/core/ui/card_ui_overlay_mode/card_ui_overlay_mode.gd
++++ b/core/ui/card_ui_overlay_mode/card_ui_overlay_mode.gd
+@@ -190,6 +190,9 @@ func _setup_overlay_mode(args: PackedStringArray) -> void:
+ 	_remove_children(remove_list, quick_bar_menu)
+ 	_remove_children(settings_remove_list, settings_menu)
+ 
++	# Enable InputPlumber management of all supported input devices
++	input_plumber.manage_all_devices = true
++
+ 	# Setup inputplumber to receive guide presses.
+ 	input_plumber.set_intercept_mode(InputPlumberInstance.INTERCEPT_MODE_PASS)
+ 	input_plumber.set_intercept_activation(PackedStringArray(["Gamepad:Button:Guide", "Gamepad:Button:East"]), "Gamepad:Button:QuickAccess2")

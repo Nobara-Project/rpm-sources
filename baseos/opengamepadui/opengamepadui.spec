@@ -12,6 +12,7 @@ URL:            https://github.com/ShadowBlip/OpenGamepadUI
 BuildArch:      x86_64
 
 Patch0:         fedora.patch
+Patch1:         450.patch
 
 Requires:       gamescope
 Requires:       python3
@@ -34,6 +35,7 @@ git clone https://github.com/ShadowBlip/OpenGamepadUI
 cd OpenGamepadUI
 git checkout v%{version}
 patch -Np1 < %{PATCH0}
+patch -Np1 < %{PATCH1}
 
 %build
 cd OpenGamepadUI
