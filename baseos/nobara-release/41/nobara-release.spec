@@ -2,7 +2,7 @@
 ## (rpmautospec version 0.3.5)
 ## RPMAUTOSPEC: autorelease, autochangelog
 %define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
-    release_number = 2;
+    release_number = 3;
     base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
     print(release_number + base_release_number - 1);
 }%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
@@ -261,7 +261,7 @@ Provides:       system-release-product
 # Third-party repositories, disabled by default unless the user opts in through fedora-third-party
 # Requires(meta) to avoid ordering loops - does not need to be installed before the release package
 # Keep this in sync with silverblue above
-Requires(meta):	fedora-flathub-remote
+#Requires(meta):	fedora-flathub-remote
 Requires(meta):	fedora-workstation-repositories
 
 # fedora-release-common Requires: fedora-release-identity, so at least one
