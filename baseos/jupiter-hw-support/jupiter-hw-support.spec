@@ -1,6 +1,6 @@
 Name:           jupiter-hw-support
 Version:        0.0.git.1256.484fa801
-Release:        33%{?dist}
+Release:        34%{?dist}
 Summary:        Steam Deck Hardware Support Package
 License:        MIT
 URL:            https://github.com/nobara-project/steamdeck-edition-packages
@@ -34,6 +34,7 @@ BuildRequires:  sed
 SteamOS 3.0 Steam Deck Hardware Support Package
 
 %package -n gamescope-session-common
+Requires:       gamescope-session-steam
 Summary: Gamescope Session required files
 %description -n gamescope-session-common
 
