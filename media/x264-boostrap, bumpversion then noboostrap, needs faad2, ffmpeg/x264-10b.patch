@@ -1,0 +1,37 @@
+diff -up generic10/configure.10b generic10/configure
+--- generic10/configure.10b    2016-08-26 19:48:41.447839506 +0200
++++ generic10/configure    2016-08-26 19:49:26.902033893 +0200
+@@ -1473,6 +1473,12 @@ PROF_USE_LD=$PROF_USE_LD
+ HAVE_OPENCL=$opencl
+ EOF
+ 
++if [ "$bit_depth" -gt "8" ]; then
++    echo "LIBNAME=libx264${bit_depth}b" >> config.mak
++else
++    echo "LIBNAME=libx264" >> config.mak
++fi
++
+ if [ $compiler_style = MS ]; then
+     echo 'CC_O=-Fo$@' >> config.mak
+ else
+@@ -1512,7 +1518,7 @@ if [ "$shared" = "yes" ]; then
+         echo "SOFLAGS=-shared -Wl,-h,\$(SONAME) $SOFLAGS" >> config.mak
+     else
+         echo "SOSUFFIX=so" >> config.mak
+-        echo "SONAME=libx264.so.$API" >> config.mak
++        echo "SONAME=\$(LIBNAME).so.$API" >> config.mak
+         echo "SOFLAGS=-shared -Wl,-soname,\$(SONAME) $SOFLAGS" >> config.mak
+     fi
+     echo 'default: lib-shared' >> config.mak
+diff -up generic10/Makefile.10b generic10/Makefile
+--- generic10/Makefile.10b 2016-06-14 14:04:37.000000000 +0200
++++ generic10/Makefile 2016-08-26 19:48:41.449839514 +0200
+@@ -398,7 +398,7 @@ ifneq ($(IMPLIBNAME),)
+ 	$(INSTALL) -m 755 $(SONAME) $(DESTDIR)$(bindir)
+ 	$(INSTALL) -m 644 $(IMPLIBNAME) $(DESTDIR)$(libdir)
+ else ifneq ($(SONAME),)
+-	ln -f -s $(SONAME) $(DESTDIR)$(libdir)/libx264.$(SOSUFFIX)
++	ln -f -s $(SONAME) $(DESTDIR)$(libdir)/$(LIBNAME).$(SOSUFFIX)
+ 	$(INSTALL) -m 755 $(SONAME) $(DESTDIR)$(libdir)
+ endif
+ 

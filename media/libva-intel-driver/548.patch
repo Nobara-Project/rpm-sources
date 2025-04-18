@@ -1,0 +1,29 @@
+From 65cc3fdfd9632c92f4012d793801b33188cbfd60 Mon Sep 17 00:00:00 2001
+From: Alexandru Gagniuc <mr.nuke.me@gmail.com>
+Date: Thu, 28 Apr 2022 15:03:54 -0500
+Subject: [PATCH] i965_pci_ids: Add CFL PCI ID found on Xeon W-1290P
+
+I found this PCI ID on my Xeon W-1290P machine. libva acceleration
+wasn;t working, and `vainfo` would fail with an unknown error.
+
+I traced this back to a missing PCI ID in this driver. After adding
+the ID, VLC confirms that hardware acceleration is in use:
+    Using Intel i965 driver for Intel(R) Coffee Lake ...
+
+Signed-off-by: Alexandru Gagniuc <mr.nuke.me@gmail.com>
+---
+ src/i965_pciids.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/i965_pciids.h b/src/i965_pciids.h
+index 292ea6e94..907561117 100644
+--- a/src/i965_pciids.h
++++ b/src/i965_pciids.h
+@@ -207,6 +207,7 @@ CHIPSET(0x3E98, cfl, cfl,       "Intel(R) Coffee Lake")
+ CHIPSET(0x3E99, cfl, cfl,       "Intel(R) Coffee Lake")
+ CHIPSET(0x3E9A, cfl, cfl,       "Intel(R) Coffee Lake")
+ CHIPSET(0x3E9B, cfl, cfl,       "Intel(R) Coffee Lake")
++CHIPSET(0x9BC6, cfl, cfl,       "Intel(R) Coffee Lake")
+ CHIPSET(0x5A40, cnl, cnl,       "Intel(R) CannonLake")
+ CHIPSET(0x5A41, cnl, cnl,       "Intel(R) CannonLake")
+ CHIPSET(0x5A42, cnl, cnl,       "Intel(R) CannonLake")

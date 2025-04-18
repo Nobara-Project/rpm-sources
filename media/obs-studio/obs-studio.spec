@@ -32,18 +32,20 @@
 %global version_cef 6533
 %global version_aja v16.2-bugfix5
 
-%define version_string 31.0.2
+%define version_string 31.0.3
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build %{build_timestamp}.%{shortcommit}%{?dist}
 %global _default_patch_fuzz 2
 # obs version and commit
-%global commit e6137e15e0fb26b3aa47a66df28e9f056d54b9af
+%global commit fcd1910bf5116b69404a6ecdda6efedd1d00ebdf
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 Name:           obs-studio
 Version:        %{version_string}
 Release:        1.%{rel_build}
 Summary:        Open Broadcaster Software Studio
+Provides:       obs-studio-plugin-x264
+Obsoletes:      obs-studio-plugin-x264
 
 # OBS itself is GPL-2.0-or-later, while various plugin dependencies are of various other licenses
 # The licenses for those dependencies are captured with the bundled provides statements

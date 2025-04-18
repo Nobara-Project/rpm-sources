@@ -1,0 +1,58 @@
+diff -up mplayer-export-2011-01-10/etc/example.conf.config mplayer-export-2011-01-10/etc/example.conf
+--- mplayer-export-2011-01-10/etc/example.conf.config	2011-01-05 15:55:45.000000000 +0100
++++ mplayer-export-2011-01-10/etc/example.conf	2011-01-10 19:46:06.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # MPlayer configuration file
+ #
+-# Configuration files are read system-wide from /usr/local/etc/mplayer.conf
++# Configuration files are read system-wide from /etc/mplayer/mplayer.conf
+ # and per-user from ~/.mplayer/config, where per-user settings override
+ # system-wide settings, all of which are overrriden by the command line.
+ #
+@@ -74,7 +74,7 @@
+ ##################
+ 
+ # Specify default audio driver (see -ao help for a list).
+-#ao=oss
++ao = pulse,alsa,
+ 
+ # Use SDL audio driver with the esd subdriver by default.
+ #ao = sdl:esd
+@@ -114,7 +114,7 @@
+ #framedrop = yes
+ 
+ # Specify your preferred skin here (skins are searched for in
+-# /usr/local/share/mplayer/skins/<name> and ~/.mplayer/skins/<name>).
++# /usr/share/mplayer/skins/<name> and ~/.mplayer/skins/<name>).
+ #skin = Abyss
+ 
+ # Resample the font alphamap.
+@@ -124,6 +124,15 @@
+ # 10    bold black outline
+ #ffactor = 0.75
+ 
++# FriBidi can do "funny" things to some ISO-8859-* subtitles
++flip-hebrew = no
++
++# Use fontconfig for font selection
++fontconfig = yes
++
++# Default font for unstyled subtitles
++font = "Sans"
++
+ # cache settings
+ #
+ # Use 8MB input cache by default.
+@@ -141,6 +150,11 @@
+ # DVD: Play English audio tracks if available.
+ #alang = en
+ 
++# A plugged in joystick can interfere with keyboard shortcuts
++joystick = no
++
++# Inhibit (a XScrnSaver compatible) screensaver while playing a movie
++stop-xscreensaver = yes
+ 
+ ############
+ # Profiles #

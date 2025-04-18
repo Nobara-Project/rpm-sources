@@ -1,0 +1,12 @@
+diff -up mplayer-export-2015-05-05/Makefile.ffmpeg mplayer-export-2015-05-05/Makefile
+--- mplayer-export-2015-05-05/Makefile.ffmpeg	2015-05-06 07:22:42.638716016 +0200
++++ mplayer-export-2015-05-05/Makefile	2015-05-06 07:22:42.642716037 +0200
+@@ -754,7 +754,7 @@ mencoder$(EXESUF) mplayer$(EXESUF):
+ codec-cfg-test$(EXESUF): HOSTCFLAGS := $(HOSTCFLAGS) -DTESTING
+ codec-cfg$(EXESUF) codecs2html$(EXESUF):  HOSTCFLAGS := $(HOSTCFLAGS) -DCODECS2HTML
+ codec-cfg$(EXESUF) codec-cfg-test$(EXESUF) codecs2html$(EXESUF): codec-cfg.c codec-cfg.h help_mp.h
+-	$(HOST_CC) $(HOSTCFLAGS) -o $@ $<
++	$(HOST_CC) $(HOSTCFLAGS) $(CFLAGS) -o $@ $<
+ 
+ codecs.conf.h: codec-cfg$(EXESUF) etc/codecs.conf
+ 	./$^ > $@

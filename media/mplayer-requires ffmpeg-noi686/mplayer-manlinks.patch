@@ -1,0 +1,33 @@
+--- a/Makefile
++++ b/Makefile
+@@ -880,10 +880,10 @@ install-mencoder-man: $(foreach lang,$(M
+ install-mplayer-man:  $(foreach lang,$(MAN_LANGS),install-mplayer-man-$(lang))
+ 
+ install-gui-man-en: install-mplayer-man-en
+-	cd $(MANDIR)/man1/ && ln -sf mplayer.1 gmplayer.1
++	echo ".so mplayer.1" > $(MANDIR)/man1/gmplayer.1
+ 
+ install-mencoder-man-en: install-mplayer-man-en
+-	cd $(MANDIR)/man1 && ln -sf mplayer.1 mencoder.1
++	echo ".so mplayer.1" > $(MANDIR)/man1/mencoder.1
+ 
+ install-mplayer-man-en:
+ 	$(INSTALL) -d $(MANDIR)/man1
+@@ -897,7 +897,7 @@ endef
+ 
+ define GUI_MAN_RULE
+ install-gui-man-$(lang): install-mplayer-man-$(lang)
+-	cd $(MANDIR)/$(lang)/man1/ && ln -sf mplayer.1 gmplayer.1
++	echo ".so mplayer.1" > $(MANDIR)/$(lang)/man1/gmplayer.1
+ endef
+ 
+ define GUI_MSG_RULE
+@@ -908,7 +908,7 @@ endef
+ 
+ define MENCODER_MAN_RULE
+ install-mencoder-man-$(lang): install-mplayer-man-$(lang)
+-	cd $(MANDIR)/$(lang)/man1 && ln -sf mplayer.1 mencoder.1
++	echo ".so mplayer.1" > $(MANDIR)/$(lang)/man1/mencoder.1
+ endef
+ 
+ define MPLAYER_MAN_RULE

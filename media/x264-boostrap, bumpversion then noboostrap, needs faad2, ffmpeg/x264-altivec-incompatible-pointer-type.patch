@@ -1,0 +1,21 @@
+diff -up generic/common/ppc/pixel.c.orig generic/common/ppc/pixel.c
+--- generic/common/ppc/pixel.c.orig	2023-10-01 16:28:26.000000000 +0200
++++ generic/common/ppc/pixel.c	2024-03-10 22:23:23.415298686 +0100
+@@ -855,7 +855,7 @@ static void pixel_sad_x4_16x8_altivec( u
+         sum2v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix2v ), (vec_u32_t) sum2v );
+ 
+ #define PIXEL_SAD_X3_ALTIVEC( name, ly )            \
+-static int name( uint8_t *fenc, uint8_t *pix0,      \
++static void name( uint8_t *fenc, uint8_t *pix0,      \
+                  uint8_t *pix1, uint8_t *pix2,      \
+                  intptr_t i_stride, int scores[3] ) \
+ {                                                   \
+@@ -965,7 +965,7 @@ static void pixel_sad_x3_16x8_altivec( u
+ }
+ 
+ #define PIXEL_SAD_X4_ALTIVEC( name, ly )                                              \
+-static int name( uint8_t *fenc,                                                       \
++static void name( uint8_t *fenc,                                                       \
+                  uint8_t *pix0, uint8_t *pix1,                                        \
+                  uint8_t *pix2, uint8_t *pix3,                                        \
+                  intptr_t i_stride, int scores[4] )                                   \

@@ -1,0 +1,133 @@
+diff -uNrp a/ext/meson.build b/ext/meson.build
+--- a/ext/meson.build	2024-03-05 00:51:42.000000000 +0100
++++ b/ext/meson.build	2024-04-09 12:33:30.676577192 +0200
+@@ -1,79 +1,7 @@
+-subdir('aes')
+-subdir('analyticsoverlay')
+-subdir('assrender')
+-subdir('aom')
+-subdir('avtp')
+-subdir('bs2b')
+-subdir('bz2')
+-subdir('chromaprint')
+-subdir('closedcaption')
+-subdir('codec2json')
+-subdir('colormanagement')
+-subdir('curl')
+-subdir('dash')
+-subdir('dc1394')
+-subdir('directfb')
+-subdir('dtls')
+-subdir('dts')
+-subdir('faac')
+ subdir('faad')
+-subdir('fdkaac')
+-subdir('flite')
+-subdir('fluidsynth')
+-subdir('gme')
+-subdir('gs')
+-subdir('gsm')
+-subdir('gtk')
+-subdir('hls')
+-subdir('iqa')
+-subdir('isac')
+-subdir('ladspa')
+-subdir('lc3')
+-subdir('ldac')
+ subdir('libde265')
+-subdir('lv2')
+-subdir('mdns')
+-subdir('modplug')
+ subdir('mpeg2enc')
+ subdir('mplex')
+-subdir('musepack')
+-subdir('neon')
+-subdir('onnx')
+-subdir('openal')
+-subdir('openaptx')
+-subdir('opencv')
+-subdir('openexr')
+-subdir('openh264')
+-subdir('openjpeg')
+-subdir('openmpt')
+-subdir('openni2')
+-subdir('opus')
+-subdir('qroverlay')
+-subdir('qt6d3d11')
+-subdir('resindvd')
+-subdir('rsvg')
+ subdir('rtmp')
+-subdir('sbc')
+-subdir('sctp')
+-subdir('smoothstreaming')
+-subdir('sndfile')
+-subdir('soundtouch')
+-subdir('spandsp')
+-subdir('srt')
+-subdir('srtp')
+-subdir('svtav1')
+ subdir('svthevcenc')
+-subdir('teletextdec')
+-subdir('ttml')
+-subdir('voaacenc')
+-subdir('voamrwbenc')
+-subdir('vulkan')
+-subdir('wayland')
+-subdir('webrtc')
+-subdir('webrtcdsp')
+-subdir('webp')
+-subdir('wildmidi')
+-subdir('wpe')
+ subdir('x265')
+-subdir('zxing')
+-subdir('zbar')
+diff -uNrp a/gst/meson.build b/gst/meson.build
+--- a/gst/meson.build	2024-03-05 00:51:42.000000000 +0100
++++ b/gst/meson.build	2024-04-09 12:37:08.086453510 +0200
+@@ -1,19 +1,4 @@
+-foreach plugin : ['accurip', 'adpcmdec', 'adpcmenc', 'aiff', 'asfmux',
+-                  'audiobuffersplit', 'audiofxbad', 'audiomixmatrix',
+-                  'audiolatency', 'audiovisualizers', 'autoconvert', 'bayer',
+-                  'camerabin2', 'codecalpha', 'codectimestamper', 'coloreffects',
+-                  'debugutils', 'dvbsubenc',
+-                  'dvbsuboverlay', 'dvdspu', 'faceoverlay', 'festival',
+-                  'fieldanalysis', 'freeverb', 'frei0r', 'gaudieffects', 'gdp',
+-                  'geometrictransform', 'id3tag', 'insertbin', 'inter', 'interlace',
+-                  'ivfparse', 'ivtc', 'jp2kdecimator', 'jpegformat', 'librfb',
+-                  'midi', 'mpegdemux', 'mpegpsmux', 'mpegtsdemux', 'mpegtsmux',
+-                  'mse', 'mxf', 'netsim', 'onvif', 'pcapparse', 'pnm', 'proxy',
+-                  'rawparse', 'removesilence', 'rist', 'rtmp2', 'rtp', 'sdp',
+-                  'segmentclip', 'siren', 'smooth', 'speed', 'subenc', 'switchbin',
+-                  'timecode', 'transcode', 'unixfd', 'videofilters',
+-                  'videoframe_audiolevel', 'videoparsers', 'videosignal',
+-                  'vmnc', 'y4m']
++foreach plugin : ['dvdspu']
+   if not get_option(plugin).disabled()
+     subdir(plugin)
+   endif
+diff -uNrp a/meson.build b/meson.build
+--- a/meson.build	2023-01-23 19:29:34.000000000 +0000
++++ b/meson.build	2023-02-19 12:17:51.743137626 +0000
+@@ -309,6 +309,8 @@ gstapp_dep = dependency('gstreamer-app-1
+     fallback : ['gst-plugins-base', 'app_dep'])
+ gstaudio_dep = dependency('gstreamer-audio-1.0', version : gst_req,
+     fallback : ['gst-plugins-base', 'audio_dep'])
++gstcodecparsers_dep = dependency('gstreamer-codecparsers-1.0', version : gst_req,
++    fallback : ['gst-plugins-bad', 'codecparsers_dep'])
+ gstfft_dep = dependency('gstreamer-fft-1.0', version : gst_req,
+     fallback : ['gst-plugins-base', 'fft_dep'])
+ gstriff_dep = dependency('gstreamer-riff-1.0', version : gst_req,
+@@ -540,13 +542,9 @@ pkgconfig.generate(
+ 
+ gpl_allowed = get_option('gpl').allowed()
+ 
+-subdir('gst-libs')
+ subdir('gst')
+-subdir('sys')
+ subdir('ext')
+-subdir('tests')
+ subdir('data')
+-subdir('tools')
+ 
+ if have_orcc
+   update_orc_dist_files = find_program('scripts/update-orc-dist-files.py')

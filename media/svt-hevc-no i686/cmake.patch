@@ -1,0 +1,27 @@
+diff -uNdr SVT-HEVC-1.5.0_old/CMakeLists.txt SVT-HEVC-1.5.0_new/CMakeLists.txt
+--- SVT-HEVC-1.5.0_old/CMakeLists.txt	2020-08-04 00:57:25.000000000 +0300
++++ SVT-HEVC-1.5.0_new/CMakeLists.txt	2021-02-07 10:58:15.333859295 +0300
+@@ -100,11 +100,9 @@
+     -Wformat-security
+     -fPIE
+     -fPIC
+-    -D_FORTIFY_SOURCE=2
+-    /GS
+-    /sdl)
++    -D_FORTIFY_SOURCE=2)
+ if(MSVC)
+-    list(APPEND flags_to_test /MP)
++    list(APPEND flags_to_test /MP /GS /sdl)
+ else()
+     option(NATIVE "Build for native performance (march=native)")
+     list(INSERT flags_to_test 0 -Wall)
+@@ -119,8 +117,7 @@
+     endif()
+ endif()
+ set(release_flags_to_test
+-    -O2
+-    -O3)
++    -O2)
+ set(debug_flags_to_test
+     -O0)
+ 
