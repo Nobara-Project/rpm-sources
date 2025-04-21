@@ -3,8 +3,8 @@
 %bcond_with tests
 
 Name:           apparmor
-Version:        4.0.3
-Release:        0.3%{?dist}
+Version:        4.1.0
+Release:        1%{?dist}
 Summary:        AppArmor userspace components
 
 %define baseversion %(echo %{version} | cut -d. -f-2)
@@ -16,9 +16,6 @@ Source10:       %{name}.preset
 Patch01:	0001-fix-avahi-daemon-authselect-denial-in-fedora.patch
 Patch02:	0001-fix-denial-on-dnsmask-for-nsswitch.patch
 Patch03:	0001-fix-apparmor-waydroid-denials.patch
-
-# https://gitlab.com/apparmor/apparmor/-/merge_requests/1439
-Patch04:	1439.patch
 
 # https://gitlab.com/apparmor/apparmor/-/commit/243162ca2938b391724f547596787c7f77d1fc5f
 # Breaks login on Fedora until pwunconv and pwconv are run to regenerate /etc/shadow.
@@ -190,7 +187,7 @@ popd
 %make_install -C binutils
 %make_install -C parser \
     APPARMOR_BIN_PREFIX=%{buildroot}%{_prefix}/lib/apparmor \
-    SBINDIR=%{buildroot}%{_sbindir}
+    SBINDIR=%{buildroot}%{_bindir}
 %make_install -C profiles
 %make_install -C utils
 %make_install -C changehat/pam_apparmor \
@@ -205,6 +202,10 @@ find %{buildroot} \( -name "*.a" -o -name "*.la" \) -delete
 %find_lang aa-binutils
 %find_lang apparmor-parser
 %find_lang apparmor-utils
+
+mkdir -p %{buildroot}%{_prefix}/bin/
+mv %{buildroot}%{_prefix}/sbin/* %{buildroot}%{_prefix}/bin/
+rm -Rf %{buildroot}%{_prefix}/sbin
 
 
 %if %{with tests}
@@ -285,6 +286,9 @@ make -C utils check
 %config(noreplace) %{_sysconfdir}/apparmor.d/local/*
 %dir %{_datadir}/apparmor/
 %{_datadir}/apparmor/extra-profiles
+%dir %{_sysconfdir}/apparmor
+%{_sysconfdir}/apparmor/default_unconfined.template
+
 
 
 %files parser -f apparmor-parser.lang -f aa-binutils.lang
@@ -292,12 +296,12 @@ make -C utils check
 %doc parser/README
 %doc parser/*.[1-9].html
 %doc common/apparmor.css
-%{_sbindir}/apparmor_parser
+%{_bindir}/apparmor_parser
 %{_bindir}/aa-enabled
 %{_bindir}/aa-exec
 %{_bindir}/aa-features-abi
-%{_sbindir}/aa-teardown
-%{_sbindir}/aa-load
+%{_bindir}/aa-teardown
+%{_bindir}/aa-load
 %{_unitdir}/apparmor.service
 %{_presetdir}/70-apparmor.preset
 %{_prefix}/lib/apparmor
@@ -323,25 +327,27 @@ make -C utils check
 %config(noreplace) %{_sysconfdir}/apparmor/logprof.conf
 %config(noreplace) %{_sysconfdir}/apparmor/notify.conf
 %config(noreplace) %{_sysconfdir}/apparmor/severity.db
-%{_sbindir}/aa-audit
-%{_sbindir}/aa-autodep
-%{_sbindir}/aa-cleanprof
-%{_sbindir}/aa-complain
-%{_sbindir}/aa-decode
-%{_sbindir}/aa-disable
-%{_sbindir}/aa-enforce
-%{_sbindir}/aa-genprof
-%{_sbindir}/aa-logprof
-%{_sbindir}/aa-mergeprof
-%{_sbindir}/aa-notify
-%{_sbindir}/aa-remove-unknown
-%{_sbindir}/aa-status
-%{_sbindir}/aa-unconfined
-%{_sbindir}/apparmor_status
+%{_bindir}/aa-audit
+%{_bindir}/aa-autodep
+%{_bindir}/aa-cleanprof
+%{_bindir}/aa-complain
+%{_bindir}/aa-decode
+%{_bindir}/aa-disable
+%{_bindir}/aa-enforce
+%{_bindir}/aa-genprof
+%{_bindir}/aa-logprof
+%{_bindir}/aa-mergeprof
+%{_bindir}/aa-notify
+%{_bindir}/aa-remove-unknown
+%{_bindir}/aa-status
+%{_bindir}/aa-unconfined
+%{_bindir}/apparmor_status
 %{_bindir}/aa-easyprof
 %dir %{_datadir}/apparmor
 %{_datadir}/apparmor/easyprof
 %{_datadir}/apparmor/apparmor.vim
+%dir %{_datadir}/polkit-1/actions
+%{_datadir}/polkit-1/actions/net.apparmor.pkexec.aa-notify.policy
 %{_mandir}/man5/logprof.conf.5.gz
 %{_mandir}/man8/aa-audit.8.gz
 %{_mandir}/man8/aa-autodep.8.gz
@@ -359,6 +365,7 @@ make -C utils check
 %{_mandir}/man8/aa-status.8.gz
 %{_mandir}/man8/aa-unconfined.8.gz
 %{_mandir}/man8/apparmor_status.8.gz
+%{_mandir}/man8/aa-load.8.gz
 
 
 %files -n pam_apparmor
