@@ -42,10 +42,8 @@
 
 Name:           obs-studio
 Version:        %{version_string}
-Release:        1.%{rel_build}
+Release:        5.%{rel_build}
 Summary:        Open Broadcaster Software Studio
-Provides:       obs-studio-plugin-x264
-Obsoletes:      obs-studio-plugin-x264
 
 # OBS itself is GPL-2.0-or-later, while various plugin dependencies are of various other licenses
 # The licenses for those dependencies are captured with the bundled provides statements
@@ -141,9 +139,7 @@ Requires:       /usr/bin/ffmpeg
 ## Note, we can do this because openh264 is provided in a default-enabled
 ## third party repository provided by Cisco.
 Recommends:     openh264%{?_isa}
-%if %{with x264}
-Requires:       x264%{?_isa}
-%endif
+Recommends:     obs-studio-plugins-x264 >= %{version}-%{release}
 
 # CEF dependencies, both for compiling Browser Source and running it
 %define cef_runtime_deps nss, nss-util, nspr, atk, at-spi2-atk, libXrandr, at-spi2-core, libXdamage
@@ -270,6 +266,7 @@ a video stream or recording using the Chromium Embedded Framework (CEF).
 %{_libdir}/obs-plugins/obs-browser*
 %{_datadir}/obs/obs-plugins/obs-browser*
 %endif
+
 
 %prep
 %setup -q -n %{name}-%{commit}
