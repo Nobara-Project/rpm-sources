@@ -21,12 +21,12 @@
 %endif
 
 %define specrelease %{?dist}
-%define pkg_release 8%{specrelease}
+%define pkg_release 1%{specrelease}
 
 # Use hardening ldflags.
 %global rustflags -Clink-arg=-Wl,-z,relro,-z,now
 Name:           asusctl
-Version:        6.1.7
+Version:        6.1.12
 Release: %{pkg_release}
 Summary:        Control fan speeds, LEDs, graphics modes, and charge levels for ASUS notebooks
 License:        MPLv2
