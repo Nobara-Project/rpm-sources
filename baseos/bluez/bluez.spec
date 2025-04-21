@@ -5,7 +5,7 @@
 %endif
 
 Name:    bluez
-Version: 5.79
+Version: 5.81
 Release: 2%{?dist}
 Summary: Bluetooth utilities
 License: GPL-2.0-or-later
@@ -14,35 +14,22 @@ URL:     http://www.bluez.org/
 Source0: https://www.kernel.org/pub/linux/bluetooth/%{name}-%{version}.tar.xz
 Source1: bluetooth.modprobe
 
+Patch0:  bluez-5.81-fixes.patch
+
 # SteamOS: Enable compatibility with devices like AirPods Pro
-Patch0: 0001-valve-bluetooth-config.patch
+Patch1: 0001-valve-bluetooth-config.patch
 # SteamOS: For Bluetooth qualification tests GAP/SEC/SEM/BV-56-C, GAP/SEC/SEM/BV-57-C and GAP/SEC/SEM/BV-58-C # not upstreamable
-Patch1: 0014-shared-gatt-Add-env-variable-to-prefer-indication-ov.patch
-Patch2: 0018-disable-unreliable-vcp-tests.patch
-Patch3: 0019-plugins-Add-new-plugin-to-manage-wake-policy.patch
-Patch4: 0020-plugins-wake-policy-Only-allow-Peripherals-to-wake-u.patch
-Patch5: 0021-valve-bluetooth-ll-privacy.patch
+Patch2: 0014-shared-gatt-Add-env-variable-to-prefer-indication-ov.patch
+Patch3: 0018-disable-unreliable-vcp-tests.patch
+Patch4: 0019-plugins-Add-new-plugin-to-manage-wake-policy.patch
+Patch5: 0020-plugins-wake-policy-Only-allow-Peripherals-to-wake-u.patch
+Patch6: 0021-valve-bluetooth-ll-privacy.patch
 
 # Holo: Fix for the Steam Controller that could block a suspend request
 # Part of https://gitlab.steamos.cloud/holo-team/tasks/-/issues/1267
 # At the moment of writing, the upstream patch has still not being merged
 # https://lore.kernel.org/all/CABBYNZKFEBuW2OeU4uOSfku=-jCnn3oXJENDMBGmkqP-4rybDA@mail.gmail.com/t/#u
-Patch6: 0001-BlueZ-adapter-Fix-execute-LE-Add-Device-To-Resolving.patch
-
-# Holo: Fix toggling wake from suspend option.
-# These upstream patches fix toggling the WakeAllowed option.
-# Internal issue: https://gitlab.steamos.cloud/holo-team/tasks/-/issues/1428
-# Both patches are merged upstream, and expected to be included in BlueZ 5.80
-Patch7: 0001-device-Fix-not-being-able-to-set-WakeAllowed.patch
-Patch8: 0002-device-clear-pending_wake_allowed-on-error.patch
-
-# Holo: Fix devices that don't work correctly after being re-connected, like
-# the Steam Controller. Keep this patch until we figure out the root cause and
-# propose a patch upstream.
-# Part of https://gitlab.steamos.cloud/holo-team/tasks/-/issues/1483 and
-# https://gitlab.steamos.cloud/holo-team/tasks/-/issues/1247
-# Upstream issue https://github.com/bluez/bluez/issues/919
-Patch9: 0001-Revert-hog-lib-Use-bt_uhid-functions.patch
+Patch7: 0001-BlueZ-adapter-Fix-execute-LE-Add-Device-To-Resolving.patch
 
 BuildRequires: dbus-devel >= 1.6
 BuildRequires: glib2-devel
@@ -208,7 +195,7 @@ install -m0755 tools/avinfo $RPM_BUILD_ROOT%{_bindir}
 
 # btmgmt is not installed by "make install", but it is useful for debugging
 # some issues and to set the MAC address on HCIs which don't have their
-# MAC address configured 
+# MAC address configured
 install -m0755 tools/btmgmt $RPM_BUILD_ROOT%{_bindir}
 
 # Remove libtool archive
@@ -342,6 +329,7 @@ install emulator/btvirt ${RPM_BUILD_ROOT}/%{_libexecdir}/bluetooth/
 %{_mandir}/man7/hci.7.*
 %{_mandir}/man7/l2cap.7.*
 %{_mandir}/man7/rfcomm.7.*
+%{_mandir}/man7/sco.7.*
 %{_libdir}/libbluetooth.so
 %{_includedir}/bluetooth
 %{_libdir}/pkgconfig/bluez.pc
@@ -371,9 +359,25 @@ install emulator/btvirt ${RPM_BUILD_ROOT}/%{_libexecdir}/bluetooth/
 %{_libexecdir}/bluetooth/obexd
 %{_datadir}/dbus-1/services/org.bluez.obex.service
 /usr/lib/systemd/user/dbus-org.bluez.obex.service
+%{_datadir}/dbus-1/system.d/obex.conf
 %{_userunitdir}/obex.service
 
 %changelog
+* Wed Apr 02 2025 Peter Robinson <pbrobinson@fedoraproject.org> - 5.81-2
+- Upstream patches to fix broken 5.81
+
+* Tue Apr 01 2025 Peter Robinson <pbrobinson@fedoraproject.org> - 5.81-1
+- Update to 5.81
+
+* Mon Mar 17 2025 Peter Robinson <pbrobinson@fedoraproject.org> - 5.80-1
+- Update to 5.80
+
+* Thu Mar 06 2025 Peter Robinson <pbrobinson@fedoraproject.org> - 5.79-3
+- Fixes for gcc-15
+
+* Thu Jan 16 2025 Fedora Release Engineering <releng@fedoraproject.org> - 5.79-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_42_Mass_Rebuild
+
 * Sat Nov 02 2024 Peter Robinson <pbrobinson@fedoraproject.org> - 5.79-1
 - Update to 5.79
 

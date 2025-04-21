@@ -27,12 +27,12 @@ second case Peripheral should also be uncommented and set to '01;02'.
  create mode 100644 plugins/wake-policy.conf
 
 diff --git a/Makefile.plugins b/Makefile.plugins
-index 4aa2c9c92..fbd4e4155 100644
+index bae4363..f7bab90 100644
 --- a/Makefile.plugins
 +++ b/Makefile.plugins
-@@ -11,6 +11,10 @@ builtin_sources += plugins/autopair.c
- builtin_modules += policy
- builtin_sources += plugins/policy.c
+@@ -12,6 +12,10 @@ builtin_sources += profiles/audio/media.h profiles/audio/media.c \
+ 			profiles/audio/transport.h profiles/audio/transport.c \
+ 			profiles/audio/player.h profiles/audio/player.c
  
 +builtin_modules += wake_policy
 +builtin_sources += plugins/wake-policy.c
@@ -43,7 +43,7 @@ index 4aa2c9c92..fbd4e4155 100644
  builtin_sources += plugins/admin.c
 diff --git a/plugins/wake-policy.c b/plugins/wake-policy.c
 new file mode 100644
-index 000000000..34e77c615
+index 0000000..34e77c6
 --- /dev/null
 +++ b/plugins/wake-policy.c
 @@ -0,0 +1,180 @@
@@ -229,7 +229,7 @@ index 000000000..34e77c615
 +			wake_policy_init, wake_policy_exit)
 diff --git a/plugins/wake-policy.conf b/plugins/wake-policy.conf
 new file mode 100644
-index 000000000..e6220bad1
+index 0000000..e6220ba
 --- /dev/null
 +++ b/plugins/wake-policy.conf
 @@ -0,0 +1,21 @@
@@ -255,10 +255,10 @@ index 000000000..e6220bad1
 +#Health=true
 +#Uncategorized=true
 diff --git a/src/device.c b/src/device.c
-index 1d4b8ab36..d970745f5 100644
+index b82a905..f1c61d7 100644
 --- a/src/device.c
 +++ b/src/device.c
-@@ -1500,7 +1500,7 @@ dev_property_advertising_data_exist(const GDBusPropertyTable *property,
+@@ -1524,7 +1524,7 @@ dev_property_advertising_data_exist(const GDBusPropertyTable *property,
  	return bt_ad_has_data(device->ad, NULL);
  }
  
@@ -268,10 +268,10 @@ index 1d4b8ab36..d970745f5 100644
  	return device->wake_support;
  }
 diff --git a/src/device.h b/src/device.h
-index 5722ca9ca..f8c744baf 100644
+index 2e4a977..57594e8 100644
 --- a/src/device.h
 +++ b/src/device.h
-@@ -149,6 +149,7 @@ void device_set_wake_support(struct btd_device *device, bool wake_support);
+@@ -152,6 +152,7 @@ void device_set_wake_support(struct btd_device *device, bool wake_support);
  void device_set_wake_override(struct btd_device *device, bool wake_override);
  void device_set_wake_allowed(struct btd_device *device, bool wake_allowed,
  			     guint32 id);
@@ -280,5 +280,5 @@ index 5722ca9ca..f8c744baf 100644
  
  typedef void (*disconnect_watch) (struct btd_device *device, gboolean removal,
 -- 
-2.34.1
+2.49.0
 
