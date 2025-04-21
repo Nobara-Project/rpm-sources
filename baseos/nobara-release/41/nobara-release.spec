@@ -2,7 +2,7 @@
 ## (rpmautospec version 0.3.5)
 ## RPMAUTOSPEC: autorelease, autochangelog
 %define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
-    release_number = 3;
+    release_number = 4;
     base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
     print(release_number + base_release_number - 1);
 }%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
@@ -14,7 +14,7 @@
 %define eol_date 2025-12-15
 
 %define dist_version 41
-%define rhel_dist_version 11
+%define rhel_dist_version 12
 
 %if %{is_rawhide}
 %define bug_version rawhide
@@ -110,6 +110,7 @@ Suggests:   nobara-release
 Requires:   fedora-repos(%{version})
 Requires:   nobara-release-identity = %{version}-%{release}
 Provides:	nobara-release-common = %{version}-%{release}
+Provides:	fedora-release-common
 Obsoletes:	fedora-release-common
 
 
