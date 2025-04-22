@@ -1,8 +1,8 @@
 ## START: Set by rpmautospec
-## (rpmautospec version 0.6.5)
+## (rpmautospec version 0.7.3)
 ## RPMAUTOSPEC: autorelease, autochangelog
 %define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
-    release_number = 1;
+    release_number = 2;
     base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
     print(release_number + base_release_number - 1);
 }%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
@@ -10,12 +10,12 @@
 
 %global rh_backgrounds_version 15
 %global waves_version 0.1.2
-%global fedora_release_name f41
+%global fedora_release_name f42
 %global gnome_default default
-%global picture_ext png
+%global picture_ext jxl
 
 Name:           desktop-backgrounds
-Version:        41.0.0
+Version:        42.0.0
 Release:        %autorelease
 Summary:        Desktop backgrounds
 
@@ -26,9 +26,7 @@ Source3:        README.Propaganda
 Source5:        waves-%{waves_version}.tar.bz2
 Source6:        FedoraWaves-metadata.desktop
 BuildArch:      noarch
-%if "x%{?picture_ext}" != "xpng"
 BuildRequires:   ImageMagick
-%endif
 
 %description
 The desktop-backgrounds package contains artwork intended to be used as
@@ -154,67 +152,72 @@ ln -s ../../../../backgrounds/waves/waves-wide-3-night.png 1920x1200.png
 mkdir -p %{buildroot}%{_datadir}/glib-2.0/schemas
 /bin/echo '[org.gnome.desktop.background:Budgie]' > \
     %{buildroot}%{_datadir}/glib-2.0/schemas/30_budgie_org.gnome.desktop.background.fedora.gschema.override
-/bin/echo "picture-uri='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}.png'" >> \
+/bin/echo "picture-uri='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}.%{picture_ext}'" >> \
     %{buildroot}%{_datadir}/glib-2.0/schemas/30_budgie_org.gnome.desktop.background.fedora.gschema.override
-/bin/echo "picture-uri-dark='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}.png'" >> \
+/bin/echo "picture-uri-dark='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}.%{picture_ext}'" >> \
     %{buildroot}%{_datadir}/glib-2.0/schemas/30_budgie_org.gnome.desktop.background.fedora.gschema.override
 
 /bin/echo '[org.gnome.desktop.screensaver:Budgie]' > \
     %{buildroot}%{_datadir}/glib-2.0/schemas/30_budgie_org.gnome.desktop.screensaver.fedora.gschema.override
-/bin/echo "picture-uri='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}.png'" >> \
+/bin/echo "picture-uri='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}.%{picture_ext}'" >> \
     %{buildroot}%{_datadir}/glib-2.0/schemas/30_budgie_org.gnome.desktop.screensaver.fedora.gschema.override
-/bin/echo "picture-uri-dark='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}.png'" >> \
+/bin/echo "picture-uri-dark='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}.%{picture_ext}'" >> \
     %{buildroot}%{_datadir}/glib-2.0/schemas/30_budgie_org.gnome.desktop.screensaver.fedora.gschema.override
 
 /bin/echo '[x.dm.slick-greeter:Budgie]' > \
     %{buildroot}%{_datadir}/glib-2.0/schemas/30_budgie_x.dm.slick_greeter.fedora.gschema.override
-/bin/echo "background='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}.png'" >> \
+/bin/echo "background='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}.%{picture_ext}'" >> \
     %{buildroot}%{_datadir}/glib-2.0/schemas/30_budgie_x.dm.slick_greeter.fedora.gschema.override
 
 #   for GNOME
+
 mkdir -p %{buildroot}%{_datadir}/glib-2.0/schemas
 /bin/echo '[org.gnome.desktop.background]' > \
     %{buildroot}%{_datadir}/glib-2.0/schemas/10_org.gnome.desktop.background.fedora.gschema.override
-/bin/echo "picture-uri='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}.png'" >> \
+/bin/echo "picture-uri='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}.%{picture_ext}'" >> \
     %{buildroot}%{_datadir}/glib-2.0/schemas/10_org.gnome.desktop.background.fedora.gschema.override
-/bin/echo "picture-uri-dark='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}.png'" >> \
+/bin/echo "picture-uri-dark='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}.%{picture_ext}'" >> \
     %{buildroot}%{_datadir}/glib-2.0/schemas/10_org.gnome.desktop.background.fedora.gschema.override
+
 # Use the Fedora background on the GNOME lockscreen as well. Would be awesome to
 # have a separate image here to complement the default Fedora background, rather
 # than using the same image in both places, but previously we've mixed Fedora
 # desktop backgrounds with GNOME lockscreens, and they just do not match at all.
+
 /bin/echo '[org.gnome.desktop.screensaver]' > \
     %{buildroot}%{_datadir}/glib-2.0/schemas/10_org.gnome.desktop.screensaver.fedora.gschema.override
-/bin/echo "picture-uri='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}.png'" >> \
+/bin/echo "picture-uri='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}.%{picture_ext}'" >> \
     %{buildroot}%{_datadir}/glib-2.0/schemas/10_org.gnome.desktop.screensaver.fedora.gschema.override
-/bin/echo "picture-uri-dark='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}.png'" >> \
+/bin/echo "picture-uri-dark='file://%{_datadir}/backgrounds/%{fedora_release_name}/%{gnome_default}/%{fedora_release_name}.%{picture_ext}'" >> \
     %{buildroot}%{_datadir}/glib-2.0/schemas/10_org.gnome.desktop.screensaver.fedora.gschema.override
+
 #   for KDE, this is handled in kde-settings
 #   for XFCE, LXDE, etc.
-%if "x%{?picture_ext}" == "xpng"
+
+%if "x%{?picture_ext}" == "xjxl"
   (cd %{buildroot}%{_datadir}/backgrounds/images;
-  ln -s ../%{fedora_release_name}/default/%{fedora_release_name}.png \
-      default.png
-  ln -s ../%{fedora_release_name}/default/%{fedora_release_name}.png \
-      default-5_4.png
-  ln -s ../%{fedora_release_name}/default/%{fedora_release_name}.png \
-      default-16_9.png
-  ln -s ../%{fedora_release_name}/default/%{fedora_release_name}.png \
-      default-16_10.png
+  ln -s ../%{fedora_release_name}/default/%{fedora_release_name}.%{picture_ext} \
+      default.%{picture_ext}
+  ln -s ../%{fedora_release_name}/default/%{fedora_release_name}.%{picture_ext} \
+      default-5_4.%{picture_ext}
+  ln -s ../%{fedora_release_name}/default/%{fedora_release_name}.%{picture_ext} \
+      default-16_9.%{picture_ext}
+  ln -s ../%{fedora_release_name}/default/%{fedora_release_name}.%{picture_ext} \
+      default-16_10.%{picture_ext}
   cd ..
-  ln -s ./%{fedora_release_name}/default/%{fedora_release_name}.png \
-      default.png
+  ln -s ./%{fedora_release_name}/default/%{fedora_release_name}.%{picture_ext} \
+      default.%{picture_ext}
   )
 %else
   (cd %{buildroot}%{_datadir}/backgrounds/images;
   convert %{_datadir}/backgrounds/%{fedora_release_name}/default/%{fedora_release_name}.%{picture_ext} \
-        -alpha off default.png
+        -alpha off default.jxl
   convert %{_datadir}/backgrounds/%{fedora_release_name}/default/%{fedora_release_name}.%{picture_ext} \
-        -alpha off default-5_4.png
+        -alpha off default-5_4.jxl
   convert %{_datadir}/backgrounds/%{fedora_release_name}/default/%{fedora_release_name}.%{picture_ext} \
-        -alpha off default-16_9.png
+        -alpha off default-16_9.jxl
   convert %{_datadir}/backgrounds/%{fedora_release_name}/default/%{fedora_release_name}.%{picture_ext} \
-        -alpha off default-16_10.png
+        -alpha off default-16_10.jxl
   )
 %endif
 
@@ -227,12 +230,12 @@ mkdir -p %{buildroot}%{_datadir}/glib-2.0/schemas
 # Nobara Hack to restore KDE default wallpaper
 cd %{buildroot}%{_datadir}/backgrounds;
 mkdir -p ./%{fedora_release_name}/default/
-ln -s %{_datadir}/wallpapers/Next/contents/images/3840x2160.png \
-      %{fedora_release_name}/default/f37-01-day.png
-ln -s %{_datadir}/wallpapers/Next/contents/images/3840x2160.png \
-      %{fedora_release_name}/default/f37-02-night.png
-ln -s %{_datadir}/wallpapers/Next/contents/images/3840x2160.png \
-      %{fedora_release_name}/default/%{fedora_release_name}.png
+ln -s %{_datadir}/wallpapers/Next/contents/images/3840x2160.%{picture_ext} \
+      %{fedora_release_name}/default/%{fedora_release_name}-01-day.%{picture_ext}
+ln -s %{_datadir}/wallpapers/Next/contents/images/3840x2160.%{picture_ext} \
+      %{fedora_release_name}/default/%{fedora_release_name}-02-night.%{picture_ext}
+ln -s %{_datadir}/wallpapers/Next/contents/images/3840x2160.%{picture_ext} \
+      %{fedora_release_name}/default/%{fedora_release_name}.%{picture_ext}
 
 %files basic
 %dir %{_datadir}/backgrounds
@@ -268,13 +271,22 @@ ln -s %{_datadir}/wallpapers/Next/contents/images/3840x2160.png \
 %files compat
 %dir %{_datadir}/backgrounds/images/
 %{_datadir}/backgrounds/images/default*
-%{_datadir}/backgrounds/default.png
-%{_datadir}/backgrounds/%{fedora_release_name}/default/%{fedora_release_name}.png
-%{_datadir}/backgrounds/f41/default/f37-01-day.png
-%{_datadir}/backgrounds/f41/default/f37-02-night.png
+%{_datadir}/backgrounds/default.%{picture_ext}
+%{_datadir}/backgrounds/%{fedora_release_name}/default/%{fedora_release_name}.%{picture_ext}
+%{_datadir}/backgrounds/%{fedora_release_name}/default/%{fedora_release_name}-01-day.%{picture_ext}
+%{_datadir}/backgrounds/%{fedora_release_name}/default/%{fedora_release_name}-02-night.%{picture_ext}
 
 %changelog
 ## START: Generated by rpmautospec
+* Fri Feb 14 2025 Luya Tshimbalanga <luya@fedoraproject.org> - 42.0.0-2
+- Fix symlink for compat subpackage
+
+* Thu Feb 13 2025 Luya Tshimbalanga <luya@fedoraproject.org> - 42.0.0-1
+- Switch to Fedora 42 theme with jxl format support
+
+* Thu Jan 16 2025 Fedora Release Engineering <releng@fedoraproject.org> - 41.0.0-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_42_Mass_Rebuild
+
 * Wed Aug 14 2024 Luya Tshimbalanga <luya@fedoraproject.org> - 41.0.0-1
 - Enable F41 theme
 
