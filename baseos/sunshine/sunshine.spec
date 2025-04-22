@@ -1,9 +1,9 @@
 %global build_timestamp %(date +"%Y%m%d")
 
 # use sed to replace these values
-%global build_version 2024.1109.210203
+%global build_version 2025.122.141614
 %global branch master
-%global commit d1e7865f31f46b9466626b7c0536275af1d8c0a6
+%global commit 64544e7960f5141f71438d72e5dedad81c03729c
 
 %undefine _hardened_build
 
@@ -73,9 +73,6 @@ Requires: openssl >= 3.0.2
 Requires: pulseaudio-libs >= 10.0
 Requires: libayatana-appindicator3 >= 0.5.3
 
-Provides: Sunshine
-Provides: sunshine
-
 %description
 Self-hosted game stream host for Moonlight.
 
@@ -98,14 +95,12 @@ fedora_version=%{fedora}
 cuda_supported_architectures=("x86_64" "aarch64")
 
 # set cuda_version based on Fedora version
-# these are the same right now, but leave this structure to make it easier to set different versions
-if [ "$fedora_version" == 39 ]; then
-  cuda_version="12.6.2"
-  cuda_build="560.35.03"
-else
-  cuda_version="12.6.2"
-  cuda_build="560.35.03"
-fi
+case "$fedora_version" in
+  *)
+    cuda_version="12.6.3"
+    cuda_build="560.35.05"
+    ;;
+esac
 
 # prepare CMAKE args
 cmake_args=(
@@ -135,7 +130,7 @@ function install_cuda() {
 
   if [ "$fedora_version" -ge 40 ]; then
     # update environment variables for CUDA, necessary when using cuda-gcc-c++
-    export NVCC_PREPEND_FLAGS='-ccbin /usr/bin/cuda'
+    export NVCC_PREPEND_FLAGS='-ccbin /usr/bin/g++-13'
     export PATH=/usr/bin/cuda:"%{_builddir}/cuda/bin:${PATH}"
     export LD_LIBRARY_PATH="%{_builddir}/cuda/lib64:${LD_LIBRARY_PATH}"
   fi
@@ -172,6 +167,8 @@ export CXXFLAGS=""
 export FFLAGS=""
 export FCFLAGS=""
 export LDFLAGS=""
+export CC=gcc-13
+export CXX=g++-13
 
 if [ -n "$cuda_version" ] && [[ " ${cuda_supported_architectures[@]} " =~ " ${architecture} " ]]; then
   install_cuda

@@ -63,4 +63,3 @@ install -m 644 %{_builddir}/98-ds-inhibit.preset %{buildroot}%{_presetdir}/
 # Finally, changes from the latest release of your application are generated from
 # your project's Git history. It will be empty until you make first annotated Git tag.
 %changelog
-{{{ git_dir_changelog }}}

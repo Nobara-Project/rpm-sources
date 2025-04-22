@@ -1,0 +1,28 @@
+From e4b31d2e6cba763f4427bc689c7aa27978d47f49 Mon Sep 17 00:00:00 2001
+From: Jan200101 <sentrycraft123@gmail.com>
+Date: Mon, 21 Apr 2025 23:28:27 +0200
+Subject: [PATCH 3/3] increase upper bounds of main zig executable to 9G
+
+On Fedora 42 aarch64 memory usage peaked at 8736403456 bytes
+
+Signed-off-by: Jan200101 <sentrycraft123@gmail.com>
+---
+ build.zig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/build.zig b/build.zig
+index c7dec601b4..bc08eed298 100644
+--- a/build.zig
++++ b/build.zig
+@@ -704,7 +704,7 @@ fn addCompilerStep(b: *std.Build, options: AddCompilerStepOptions) *std.Build.St
+ 
+     const exe = b.addExecutable(.{
+         .name = "zig",
+-        .max_rss = 7_800_000_000,
++        .max_rss = 9_000_000_000,
+         .root_module = compiler_mod,
+     });
+     exe.stack_size = stack_size;
+-- 
+2.49.0
+

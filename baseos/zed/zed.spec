@@ -6,13 +6,14 @@
 
 
 Name:           zed
-Version:        0.177.10
+Version:        0.182.11
 Release:        0.1%{?dist}
 Summary:        a high-performance multiplayer code editor
 
 License:        GPL3 AGPL
 URL:            https://github.com/zed-industries/zed
-Source0:        %{url}/archive/refs/tags/v%{version}.tar.gz
+Source0:        %{name}-%{version}.tar.gz
+#Patch0:         a2d83ec6195c0f3e254a16d4dc7d47f6c6a7bf18.patch
 
 BuildRequires:  cargo-rpm-macros
 BuildRequires:  gcc

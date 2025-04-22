@@ -1,14 +1,14 @@
 # Uncomment these, set snapshot to 0.
 %global snapshot 1
-%global commit0  b7cf27d70af3dc5ddbd6cd604206d1f932a7f702
+%global commit0  e73c4d8f71801fe842c0276b603d9c8024d6d957
 
 Name:           winetricks
 Version:        20250102
-Release:        1%{?dist}
+Release:        2%{?dist}
 
 Summary:        Work around common problems in Wine
 
-License:        LGPLv2+
+License:        LGPL-2.1-or-later
 URL:            https://github.com/Winetricks/%{name}
 %if 0%{?snapshot}
 Source0:        %{url}/archive/%{commit0}.tar.gz#/%{name}-%{commit0}.tar.gz

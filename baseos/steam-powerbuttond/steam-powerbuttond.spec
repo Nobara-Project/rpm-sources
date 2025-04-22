@@ -5,7 +5,7 @@
 
 Name:           steam-powerbuttond
 Version:        0.0.git.6c89b0e
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Steam Deck power button daemon
 
 License:        BSD

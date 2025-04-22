@@ -2,10 +2,10 @@ diff --git a/pipewire-confs/hardware-profiles/pipewire-hwconfig b/pipewire-confs
 index ac7adb6..d46bb14 100755
 --- a/pipewire-confs/hardware-profiles/pipewire-hwconfig
 +++ b/pipewire-confs/hardware-profiles/pipewire-hwconfig
-@@ -51,40 +51,24 @@ dmi_info ()
- install_hwprofile ()
+@@ -52,41 +52,24 @@ install_hwprofile ()
  {
      local -r prpath="$1"
+     local -r hwprof="${2:-}"
 -    local -r runconf=/run/pipewire
 +    local -r confdir=/etc/pipewire
      local confd
@@ -37,6 +37,7 @@ index ac7adb6..d46bb14 100755
 - - installed in $runconf
 - - by $0
 - - from $prpath
+- - requested hardware profile was: "${hwprof:-}"
 -
 -It will be regenerated every time the system restarts.
 -
@@ -51,10 +52,10 @@ diff --git a/wireplumber/hardware-profiles/wireplumber-hwconfig b/wireplumber/ha
 index 3f03354..1e43489 100755
 --- a/wireplumber/hardware-profiles/wireplumber-hwconfig
 +++ b/wireplumber/hardware-profiles/wireplumber-hwconfig
-@@ -46,49 +46,33 @@ dmi_info ()
- install_hwprofile ()
+@@ -47,50 +47,33 @@ install_hwprofile ()
  {
      local -r prpath="$1"
+     local -r hwprof="${2:-}"
 -    local -r runconf=/run/wireplumber
 +    local -r confdir=/etc/wireplumber
      local confd
@@ -96,6 +97,7 @@ index 3f03354..1e43489 100755
 - - installed in $runconf
 - - by $0
 - - from $prpath
+- - requested hardware profile was: "${hwprof:-}"
 -
 -It will be regenerated every time the system restarts.
 -
