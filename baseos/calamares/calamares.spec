@@ -1,11 +1,11 @@
 Name:           calamares
-Version:        3.3.12
-Release:        81%{?dist}
+Version:        3.3.14
+Release:        82%{?dist}
 Summary:        Installer from a live CD/DVD/USB to disk
 
 License:        GPL-3.0-or-later
 URL:            https://codeberg.org/KaOS/calamares/
-Source0:        https://codeberg.org/KaOS/calamares/archive/8ef84cf0b0c80ba834887f1a87645dc94a8da68c.tar.gz
+Source0:        https://codeberg.org/KaOS/calamares/archive/b005897c8870399ed34a901b6a4d012a1c292928.tar.gz
 Source2:        samegame.tar.gz
 
 Source6:        install-icon.svg

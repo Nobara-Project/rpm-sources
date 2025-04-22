@@ -4253,7 +4253,7 @@ index 11e49c5a8d20925cccaf01667dfffd606ef2e633..9755288403d337950c4a595364899e1c
  
          // For zfs, we need to make the passphrase available to later modules
 diff --git a/src/modules/partition/partition.conf b/src/modules/partition/partition.conf
-index f6fe96da..2534ebc7 100644
+index 5121475..f993e89 100644
 --- a/src/modules/partition/partition.conf
 +++ b/src/modules/partition/partition.conf
 @@ -32,10 +32,10 @@
@@ -4271,31 +4271,17 @@ index f6fe96da..2534ebc7 100644
  
  # Deprecated alias of efi.mountPoint
  # efiSystemPartition:     "/boot/efi"
-@@ -78,17 +78,22 @@ userSwapChoices:
-     # - reuse     # Re-use existing swap, but don't create any (unsupported right now)
-     - file      # To swap file instead of partition
- 
--# This optional setting specifies the name of the swap partition (see
--# PARTLABEL; gpt only; requires KPMCore >= 4.2.0).
--# If nothing is specified, the partition name is left unset.
--# swapPartitionName:      swap
--
--# LEGACY SETTINGS (these will generate a warning)
--# ensureSuspendToDisk:    true
--# neverCreateSwap:        false
-+# This setting specifies the LUKS generation (i.e LUKS1, LUKS2) used internally by
-+# cryptsetup when creating an encrypted partition.
-+#
-+# This option is set to luks1 by default, as grub doesn't support LUKS2 + Argon2id
-+# currently. On the other hand grub does support LUKS2 with PBKDF2 and could therefore be
-+# also set to luks2. Also there are some patches for grub and Argon2.
-+# See: https://aur.archlinux.org/packages/grub-improved-luks2-git
-+#
-+# Choices: luks1, luks2 (in addition, "luks" means "luks1")
-+#
-+# The default is luks1
-+#
+@@ -99,7 +99,7 @@ userSwapChoices:
+ #
+ # The default is luks1
+ #
+-luksGeneration: luks1
 +luksGeneration: luks2
+ 
+ # This setting determines if encryption should be allowed when using zfs.  This
+ # setting has no effect unless zfs support is provided.
+@@ -112,7 +112,7 @@ luksGeneration: luks1
+ # allowZfsEncryption: true
  
  # Correctly draw nested (e.g. logical) partitions as such.
 -drawNestedPartitions:   false
@@ -4303,7 +4289,7 @@ index f6fe96da..2534ebc7 100644
  
  # Show/hide partition labels on manual partitioning page.
  alwaysShowPartitionLabels: true
-@@ -121,7 +126,7 @@ initialPartitioningChoice: none
+@@ -154,7 +154,7 @@ initialPartitioningChoice: none
  #
  # The default is "none" (no swap) if that is one of the enabled options, otherwise
  # one of the items from the options.
@@ -4312,7 +4298,7 @@ index f6fe96da..2534ebc7 100644
  
  # Default partition table type, used when a "erase" disk is made.
  #
-@@ -135,7 +140,7 @@ initialSwapChoice: none
+@@ -168,7 +168,7 @@ initialSwapChoice: none
  # efi or "msdos".
  #
  # Names are case-sensitive and defined by KPMCore.
@@ -4321,7 +4307,7 @@ index f6fe96da..2534ebc7 100644
  
  # Requirement for partition table type
  #
-@@ -166,7 +171,7 @@ initialSwapChoice: none
+@@ -199,7 +199,7 @@ initialSwapChoice: none
  # If nothing is specified, Calamares defaults to "ext4".
  #
  # Names are case-sensitive and defined by KPMCore.
@@ -4330,16 +4316,16 @@ index f6fe96da..2534ebc7 100644
  
  # Selectable filesystem type, used when "erase" is done.
  #
-@@ -180,7 +185,7 @@ defaultFileSystemType:  "xfs"
+@@ -213,7 +213,7 @@ defaultFileSystemType:  "xfs"
  #
  # If not specified at all, uses *defaultFileSystemType* without a
  # warning (this matches traditional no-choice-available behavior best).
 -availableFileSystemTypes:  ["xfs","ext4","btrfs","zfs"]
 +availableFileSystemTypes:  ["btrfs","xfs","ext4","zfs"]
  
- # Show/hide LUKS related functionality in automated partitioning modes.
- # Disable this if you choose not to deploy early unlocking support in GRUB2
-@@ -282,3 +287,12 @@ availableFileSystemTypes:  ["xfs","ext4","btrfs","zfs"]
+ # Per-directory filesystem restrictions.
+ #
+@@ -372,3 +372,12 @@ lvm:
  #                  the welcome module, **and** configure this value in
  #                  `welcome.conf`, not here.
  # requiredStorage: 3.5
@@ -4662,18 +4648,6 @@ index 2d958634d671354debb3ef0e3f29784fec5f5c75..40d81a74548bf08e990eb09da12b16ec
 2.47.1
 
 
-diff --git a/CMakeModules/KPMcoreHelper.cmake b/CMakeModules/KPMcoreHelper.cmake
-index 888b4aea..58888164 100644
---- a/CMakeModules/KPMcoreHelper.cmake
-+++ b/CMakeModules/KPMcoreHelper.cmake
-@@ -37,6 +37,7 @@ if(NOT TARGET calapmcore)
-     if(KPMcore_FOUND)
-         find_package(${qtname} REQUIRED DBus) # Needed for KPMCore
-         find_package(${kfname} REQUIRED I18n WidgetsAddons) # Needed for KPMCore
-+        find_package(${kfname}WidgetsAddons REQUIRED) # Needed for KPMCore
- 
-         target_link_libraries(calapmcore INTERFACE kpmcore ${qtname}::DBus ${kfname}::I18n ${kfname}::WidgetsAddons)
-         target_include_directories(calapmcore INTERFACE ${KPMCORE_INCLUDE_DIR})
 diff --git a/src/modules/usersq/usersq.qrc b/src/modules/usersq/usersq.qrc
 index c64d047..a38727b 100644
 --- a/src/modules/usersq/usersq.qrc
