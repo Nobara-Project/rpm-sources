@@ -1,3 +1,6 @@
+%global _include_minidebuginfo 0
+%global debug_package %{nil}
+
 Name:           falcond
 Version:        1.1.2
 Release:        %autorelease -b2

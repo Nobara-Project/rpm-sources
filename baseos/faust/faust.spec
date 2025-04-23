@@ -3,7 +3,7 @@
 # Category: Audio, Programming
 
 Name:	 faust
-Version: 2.75.7
+Version: 2.79.3
 Release: 1%{?dist}
 Summary: Compiled language for real-time audio signal processing
 # Examples are BSD
@@ -20,9 +20,6 @@ Distribution: Audinux
 Source0: faust.tar.gz
 Source1: faust-backends.cmake
 Source2: faust-source.sh
-# Support for released LLVM 19.
-# https://github.com/grame-cncm/faust/commit/5b275806093fb2e3348043de1150f01ff892d232
-Patch0:  5b275806093fb2e3348043de1150f01ff892d232.patch
 
 BuildRequires: gcc-c++
 BuildRequires: libxml2-devel

@@ -1,10 +1,10 @@
-%global rawhide_release 42
+%global rawhide_release 43
 %global updates_testing_enabled 0
 
 Summary:        Fedora package repositories
 Name:           fedora-repos
-Version:        41
-Release:        9%{?eln:.eln%{eln}}
+Version:        42
+Release:        1%{?eln:.eln%{eln}}
 License:        MIT
 URL:            https://fedoraproject.org/
 
@@ -19,7 +19,6 @@ Requires:       fedora-gpg-keys >= %{version}-%{release}
 BuildArch:      noarch
 # Required by %%check
 BuildRequires:  gnupg sed rpm
-Conflicts:      terra-release
 
 Source1:        archmap
 Source2:        fedora.repo
@@ -84,6 +83,7 @@ Source60:       RPM-GPG-KEY-fedora-40-primary
 Source61:       RPM-GPG-KEY-fedora-41-primary
 Source62:       RPM-GPG-KEY-fedora-42-primary
 Source63:       RPM-GPG-KEY-fedora-43-primary
+Source64:       RPM-GPG-KEY-fedora-44-primary
 
 # When bumping Rawhide to fN, create N+1 key (and update archmap). (This
 # ensures users have the next future key installed and referenced, even if they
@@ -267,8 +267,8 @@ for repo in $RPM_BUILD_ROOT/etc/yum.repos.d/*.repo; do
 done
 
 # Make sure correct repos were enabled/disabled
-enabled_repos=(fedora-cisco-openh264)
-disabled_repos=()
+enabled_repos=()
+disabled_repos=(fedora-cisco-openh264)
 
 %if 0%{?eln}
 enabled_repos+=(fedora-eln)
@@ -279,8 +279,8 @@ enabled_repos+=(fedora-rawhide fedora-cisco-openh264)
 disabled_repos+=(fedora fedora-updates fedora-updates-archive \
   fedora-updates-testing)
 %else
-enabled_repos+=(fedora fedora-updates)
-disabled_repos+=(fedora-rawhide)
+enabled_repos+=()
+disabled_repos+=(fedora fedora-updates fedora-updates-archive fedora-rawhide)
 %if %{updates_testing_enabled}
 enabled_repos+=(fedora-updates-testing)
 %else
@@ -288,12 +288,12 @@ disabled_repos+=(fedora-updates-testing)
 %endif
 %endif
 
-#for repo in ${enabled_repos[@]}; do
-    #if ! grep -q 'enabled=1' $RPM_BUILD_ROOT/etc/yum.repos.d/${repo}.repo; then
-    #    echo "ERROR: Repo $repo should have been enabled, but it isn't"
-    #    exit 1
-    #fi
-#done
+for repo in ${enabled_repos[@]}; do
+    if ! grep -q 'enabled=1' $RPM_BUILD_ROOT/etc/yum.repos.d/${repo}.repo; then
+        echo "ERROR: Repo $repo should have been enabled, but it isn't"
+        exit 1
+    fi
+done
 for repo in ${disabled_repos[@]}; do
     if grep -q 'enabled=1' $RPM_BUILD_ROOT/etc/yum.repos.d/${repo}.repo; then
         echo "ERROR: Repo $repo should have been disabled, but it isn't"
@@ -417,13 +417,23 @@ fi
 
 
 %changelog
-* Fri Oct 18 2024 Kevin Fenzi <kevin@scrye.com> - 41-1
-- Disable updates-testing before f41 release.
+* Tue Apr 01 2025 Adam Williamson <awilliam@redhat.com> - 42-1
+- Disable updates-testing for F42 release
 
-* Tue Sep 03 2024 Samyak Jain <samyak.jn11@gmail.com> - 41-0.5
-- Enable updates-testing for branched. Fixes rhbz#2308952
+* Fri Jan 31 2025 Patrik Polakovic <patrik@alphamail.org> - 42-0.5
+- Rawhide is now F43
+- Update testing repository for F42 enabled
 
-* Tue Aug 13 2024 Samyak Jain <samyak.jn11@gmail.com> - 41-0.4
+* Wed Jan 10 2025 Samyak Jain <samyak.jn11@gmail.com> - 42-0.4
+- Add RPM-GPG-KEY-fedora-44-primary
+
+* Tue Oct 22 2024 Stephen Gallagher <sgallagh@redhat.com> - 42-0.3
+- ELN: Drop ResilientStorage
+
+* Wed Sep 18 2024 Stephen Gallagher <sgallagh@redhat.com> - 42-0.2
+- Use mirror links for ELN
+
+* Tue Aug 13 2024 Samyak Jain <samyak.jn11@gmail.com> - 42-0.1
 - Setup for rawhide being F42
 
 * Sat Aug 10 2024 Samyak Jain <samyak.jn11@gmail.com> - 41-0.3
