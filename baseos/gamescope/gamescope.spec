@@ -1,7 +1,7 @@
 %global libliftoff_minver 0.5.0
 
 # latest git
-%define commit 2ccfa53b619d43d7a08f2457474f471552b7e6fb
+%define commit 1ab8009d5dc5faaff5d890ef896483ef14363536
 
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global _default_patch_fuzz 2
@@ -10,7 +10,7 @@
 %global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           gamescope
-Version:        3.16.2
+Version:        3.16.4
 Release:        %{rel_build}
 Summary:        Micro-compositor for video games on Wayland
 
@@ -26,10 +26,15 @@ Patch0:         0001-cstdint.patch
 # https://github.com/ChimeraOS/gamescope
 Patch1:         chimeraos.patch
 
-Patch2:         1671.patch
-
-# temp, fixed upstream
-Patch3:         f0c0c6afa10305a739329f48261ca713bd7caeb7.patch
+# Use this instead of reverting commit 299bc3410dcfd46da5e3c988354b60ed3a356900 for now
+# https://github.com/ValveSoftware/gamescope/issues/1369
+# matt_schwartz — 4:30 PM
+# if people notice the issue theres a convar you can use now, adaptive_sync_ignore_overlay that doesnt require patching gamescope. it really should be dealt with upstream at some point.
+# GloriousEggroll — 4:30 PM
+# should adaptive_sync_ignore_overlay be set as a default for now?"
+# matt_schwartz — 4:31 PM
+# its not ideal but functionally its the same as that patch (reverting the commit), yes
+Patch3:         adaptive_sync_enable_ignore_mangohud.patch
 
 BuildRequires:  meson >= 0.54.0
 BuildRequires:  ninja-build
