@@ -1,5 +1,5 @@
 %global ROCM_MAJOR_VERSION 6
-%global ROCM_MINOR_VERSION 2
+%global ROCM_MINOR_VERSION 3
 %global ROCM_PATCH_VERSION 1
 
 Requires:      libc.so.6()(64bit)
@@ -39,7 +39,7 @@ Provides:      rocm-meta
 BuildArch:     x86_64
 Name:          rocm-meta
 Version:       %{ROCM_MAJOR_VERSION}.%{ROCM_MINOR_VERSION}.%{ROCM_PATCH_VERSION}
-Release:       7.copr%{?dist}
+Release:       1.copr%{?dist}
 License:       MIT
 Group:         System Environment/Libraries
 Summary:       Radeon Open Compute (ROCm) Runtime software stack

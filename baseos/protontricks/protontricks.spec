@@ -1,17 +1,7 @@
-## START: Set by rpmautospec
-## (rpmautospec version 0.6.1)
-## RPMAUTOSPEC: autorelease, autochangelog
-%define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
-    release_number = 1;
-    base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
-    print(release_number + base_release_number - 1);
-}%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
-## END: Set by rpmautospec
-
 %bcond_with tests
 
 Name:       protontricks
-Version:    1.12.0
+Version:    1.12.1
 Release:    %autorelease
 Summary:    Simple wrapper that does winetricks things for Proton enabled games
 BuildArch:  noarch

@@ -3,7 +3,7 @@
 %define         pkgname             scrcpy
 %global         forgeurl            https://github.com/Genymobile/%{pkgname}
 %global         _default_patch_fuzz 2
-Version:        3.1
+Version:        3.2
 
 %forgemeta -i
 
@@ -15,6 +15,8 @@ License:        ASL 2.0
 URL:            %{forgeurl}
 Source0:        %{forgesource}
 Source1:        https://github.com/Genymobile/%{pkgname}/releases/download/v%{version}/%{pkgname}-server-v%{version}
+
+ExcludeArch:    %{ix86}
 
 BuildRequires:  meson gcc
 BuildRequires:  java-devel >= 11

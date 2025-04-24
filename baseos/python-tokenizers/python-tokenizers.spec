@@ -1,5 +1,5 @@
 Name: python-tokenizers
-Version: 0.21.0
+Version: 0.21.1
 Release: 1%{?dist}
 Summary: Provides an implementation of today's most used tokenizers, with a focus on performance and versatility.
 
@@ -16,7 +16,9 @@ BuildRequires: python3-pdm-backend
 BuildRequires: python3-devel
 BuildRequires: python3-maturin
 BuildRequires: cargo
-BuildRequires: gcc-g++
+# Build fails due to gcc15, so use clang for now (also see line 41) 
+#BuildRequires: gcc-g++
+BuildRequires: clang
 
 Requires: python3-aiohttp
 Requires: python3-numpy
@@ -36,6 +38,7 @@ Provides an implementation of today's most used tokenizers, with a focus on perf
 %autosetup -n tokenizers-%{version}
 
 %build
+export CC=clang
 python3 -m build --wheel --no-isolation
 
 %install
