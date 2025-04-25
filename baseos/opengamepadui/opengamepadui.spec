@@ -4,15 +4,16 @@
 ## END: Set by rpmautospec
 
 Name:           opengamepadui
-Version:        0.39.0
+Version:        0.39.2
 Release:        1%{?dist}
 Summary:        A free and open source game launcher and overlay written using the Godot Game Engine 4 designed with a gamepad native experience in mind
 License:        GPL-3.0-only
 URL:            https://github.com/ShadowBlip/OpenGamepadUI
 BuildArch:      x86_64
 
+ExcludeArch:    %{ix86}
+
 Patch0:         fedora.patch
-Patch1:         450.patch
 
 Requires:       gamescope
 Requires:       python3
@@ -35,7 +36,6 @@ git clone https://github.com/ShadowBlip/OpenGamepadUI
 cd OpenGamepadUI
 git checkout v%{version}
 patch -Np1 < %{PATCH0}
-patch -Np1 < %{PATCH1}
 
 %build
 cd OpenGamepadUI

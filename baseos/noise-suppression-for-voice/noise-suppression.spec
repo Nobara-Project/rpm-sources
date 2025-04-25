@@ -1,14 +1,14 @@
 # Global variables for github repository
-%global commit0 9e76db3f3e4b7dc7c304fd58591a352bb2b6c894
+%global commit0 9c4e5c28d8950e2cef837d8a0abd36c2fd9b5c2d
 %global gittag0 master
 %global shortcommit0 %(c=%{commit0}; echo ${c:0:7})
 
 Name:    noise-suppression-for-voice
-Version: 1.03
-Release: 3%{?dist}
+Version: 1.10
+Release: 1%{?dist}
 Summary: Real-time Noise Suppression LADSPA / LV2 Plugin
 License: GPLv2+
-URL:     https://github.com/werman/noise-suppression-for-voice
+URL:     https://github.com/werman/%{name}
 
 Vendor:       Audinux
 Distribution: Audinux
@@ -98,6 +98,9 @@ mv %{buildroot}/%{_libdir}/lxvst/ %{buildroot}/%{_libdir}/vst/
 %{_libdir}/vst/*
 
 %changelog
+* Fri Apr 25 2025 LionHeartP <LionHeartP@proton.me> - 1.10-1
+- update to 1.10
+
 * Mon Mar 06 2023 Yann Collette <ycollette.nospam@free.fr> - 1.03-3
 - update to 1.03
 

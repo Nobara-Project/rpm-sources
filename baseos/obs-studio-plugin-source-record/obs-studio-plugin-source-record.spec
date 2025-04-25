@@ -7,12 +7,12 @@
 # Establish the name and source
 
 Name:       obs-studio-plugin-source-record
-Version:    0.4.4
+Version:    0.4.5
 Release:    1%{?dist}
 Summary:    Multistream plugin for OBS
 License:    GPL=2.0
 URL:        https://github.com/exeldro/obs-source-record
-Source0:    %{URL}/archive/refs/tags/0.4.4.tar.gz
+Source0:    %{URL}/archive/refs/tags/%{version}.tar.gz
 
 BuildRequires:  cmake
 BuildRequires:  obs-studio-devel

@@ -8,11 +8,14 @@
 
 Name:       obs-studio-plugin-aitum-multistream
 Version:    1.0.7
-Release:    1%{?dist}
+Release:    2%{?dist}
 Summary:    Multistream plugin for OBS
 License:    GPL=2.0
 URL:        https://github.com/Aitum/obs-aitum-multistream
 Source0:    %{URL}/archive/refs/tags/%{version}.tar.gz
+
+ExcludeArch:%{ix86}
+
 Patch0:     0001-cmake-fixup.patch
 
 BuildRequires:  cmake
