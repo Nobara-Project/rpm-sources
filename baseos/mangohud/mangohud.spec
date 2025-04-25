@@ -1,6 +1,6 @@
 %global appname MangoHud
 %global forgeurl https://github.com/flightlessmango/MangoHud
-%global commit d416a8314f87910f3c37f15347ebfa5918bac9c2
+%global commit dc309505247e0cc18218c15e32f034131f96fe12
 %forgemeta
 %global imgui_ver 1.89.9
 %global imgui_wrap_ver 2

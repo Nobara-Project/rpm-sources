@@ -96,6 +96,12 @@ Patch24:        0004-vulkan-wsi-handle-the-compositor-not-supporting-exte.patch
 Patch25:        0001-meson-update-wayland-protocols-source_hash.patch
 Patch26:        0001-docs-features-add-VK_EXT_hdr_metadata.patch
 
+# This patch makes Fedora CI fail and causes issues in QEMU. Revert it until
+# we find a fix.
+# https://bugzilla.redhat.com/show_bug.cgi?id=2360851
+# https://gitlab.freedesktop.org/mesa/mesa/-/issues/13009
+Patch30:        0001-Revert-kopper-Explicitly-choose-zink.patch
+
 BuildRequires:  meson >= 1.3.0
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
@@ -421,9 +427,9 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
   -Dplatforms=x11,wayland \
   -Dosmesa=true \
 %if 0%{?with_hardware}
-  -Dgallium-drivers=swrast,virgl,nouveau%{?with_r300:,r300}%{?with_crocus:,crocus}%{?with_i915:,i915}%{?with_iris:,iris}%{?with_vmware:,svga}%{?with_radeonsi:,radeonsi}%{?with_r600:,r600}%{?with_freedreno:,freedreno}%{?with_etnaviv:,etnaviv}%{?with_tegra:,tegra}%{?with_vc4:,vc4}%{?with_v3d:,v3d}%{?with_lima:,lima}%{?with_panfrost:,panfrost}%{?with_vulkan_hw:,zink} \
+  -Dgallium-drivers=llvmpipe,virgl,nouveau%{?with_r300:,r300}%{?with_crocus:,crocus}%{?with_i915:,i915}%{?with_iris:,iris}%{?with_vmware:,svga}%{?with_radeonsi:,radeonsi}%{?with_r600:,r600}%{?with_freedreno:,freedreno}%{?with_etnaviv:,etnaviv}%{?with_tegra:,tegra}%{?with_vc4:,vc4}%{?with_v3d:,v3d}%{?with_lima:,lima}%{?with_panfrost:,panfrost}%{?with_vulkan_hw:,zink} \
 %else
-  -Dgallium-drivers=swrast,virgl \
+  -Dgallium-drivers=llvmpipe,virgl \
 %endif
   -Dgallium-vdpau=%{?with_vdpau:enabled}%{!?with_vdpau:disabled} \
   -Dgallium-va=%{?with_va:enabled}%{!?with_va:disabled} \

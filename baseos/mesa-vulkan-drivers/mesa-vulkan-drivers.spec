@@ -1,6 +1,6 @@
 %global _default_patch_fuzz 2
 
-%global commit b7ff9dddd4b28ed017edc3386ed6d8e0d674f15a
+%global commit 7f358797382329243e121c5b307a042ce202f013
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
@@ -223,7 +223,6 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
   -Dgallium-va=%{?with_va:enabled}%{!?with_va:disabled} \
   -Dgallium-xa=%{?with_xa:enabled}%{!?with_xa:disabled} \
   -Dgallium-nine=%{?with_nine:true}%{!?with_nine:false} \
-  -Dgallium-opencl=%{?with_opencl:icd}%{!?with_opencl:disabled} \
 %if 0%{?with_opencl}
   -Dgallium-rusticl=true \
 %endif
