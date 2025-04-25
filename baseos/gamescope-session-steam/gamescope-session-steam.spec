@@ -1,6 +1,6 @@
 Name:           gamescope-session-steam
 Version:        0.2.git.201.5538cd66
-Release:        62%{?dist}
+Release:        63%{?dist}
 Summary:        Steam Deck Mode session
 
 License:        MIT
@@ -15,6 +15,7 @@ Requires:       edid-decode
 Requires:       python3
 Requires:       pulseaudio-utils
 Requires:       steam
+Requires:       opengamepadui
 
 BuildRequires:  systemd-rpm-macros
 BuildRequires:  wget
