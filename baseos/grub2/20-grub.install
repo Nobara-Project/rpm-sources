@@ -96,12 +96,12 @@ case "$COMMAND" in
                 command -v restorecon &>/dev/null && \
                     restorecon "/boot/symvers-${KERNEL_VERSION}.gz"
             fi
-            # symvers is symvers-<version>.bz symlink, needs a special treatment
-            i="$KERNEL_DIR/symvers.bz"
+            # symvers is symvers-<version>.xz symlink, needs a special treatment
+            i="$KERNEL_DIR/symvers.xz"
             if [[ -e "$i" ]]; then
-                ln -fs "$i" "/boot/symvers-${KERNEL_VERSION}.bz"
+                ln -fs "$i" "/boot/symvers-${KERNEL_VERSION}.xz"
                 command -v restorecon &>/dev/null && \
-                    restorecon "/boot/symvers-${KERNEL_VERSION}.bz"
+                    restorecon "/boot/symvers-${KERNEL_VERSION}.xz"
             fi
         fi
 

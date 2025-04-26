@@ -1,11 +1,11 @@
-%global appstream_version 0.14.0
-%global flatpak_version 1.9.1
-%global fwupd_version 1.5.6
-%global glib2_version 2.70.0
-%global gtk4_version 4.14.0
+%global appstream_version 0.16.4
+%global flatpak_version 1.14.1
+%global fwupd_version 1.6.2
+%global glib2_version 2.76.0
+%global gtk4_version 4.16.0
 %global json_glib_version 1.6.0
-%global libadwaita_version 1.6~alpha
-%global libxmlb_version 0.1.7
+%global libadwaita_version 1.6.0
+%global libxmlb_version 0.3.4
 
 # Disable WebApps for RHEL builds
 %bcond webapps %[!0%{?rhel}]
@@ -17,22 +17,20 @@
 %bcond dkms %[!0%{?rhel}]
 
 # this is not a library version
-%define gs_plugin_version 21
+%define gs_plugin_version 22
 
 %global tarball_version %%(echo %{version} | tr '~' '.')
 
 %global __provides_exclude_from ^%{_libdir}/%{name}/plugins-%{gs_plugin_version}/.*\\.so.*$
 
 Name:      gnome-software
-Version:   47.2
-Release:   3%{?dist}
+Version:   48.1
+Release:   1%{?dist}
 Summary:   A software center for GNOME
 
 License:   GPL-2.0-or-later
 URL:       https://apps.gnome.org/Software
-Source0:   https://download.gnome.org/sources/gnome-software/47/%{name}-%{tarball_version}.tar.xz
-
-Patch01:   0001-crash-under-gs_appstream_gather_merge_data.patch
+Source0:   https://download.gnome.org/sources/gnome-software/48/%{name}-%{tarball_version}.tar.xz
 
 # ostree and flatpak not on i686 for Fedora and RHEL 10
 # https://github.com/containers/composefs/pull/229#issuecomment-1838735764
@@ -83,7 +81,9 @@ Requires: flatpak%{?_isa} >= %{flatpak_version}
 Requires: flatpak-libs%{?_isa} >= %{flatpak_version}
 Requires: fwupd%{?_isa} >= %{fwupd_version}
 Requires: glib2%{?_isa} >= %{glib2_version}
+%if !0%{?rhel}
 Requires: gnome-app-list
+%endif
 # gnome-menus is needed for app folder .directory entries
 Requires: gnome-menus%{?_isa}
 Requires: gsettings-desktop-schemas%{?_isa}
@@ -246,9 +246,9 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/*.desktop
 %{_libdir}/gnome-software/plugins-%{gs_plugin_version}/libgs_plugin_provenance.so
 %{_libdir}/gnome-software/plugins-%{gs_plugin_version}/libgs_plugin_repos.so
 %{_sysconfdir}/xdg/autostart/org.gnome.Software.desktop
+%if %{with webapps}
 %dir %{_datadir}/swcatalog
 %dir %{_datadir}/swcatalog/xml
-%if %{with webapps}
 %{_datadir}/swcatalog/xml/gnome-pwa-list-foss.xml
 %endif
 %{_datadir}/dbus-1/services/org.gnome.Software.service
@@ -282,14 +282,41 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/*.desktop
 %{_datadir}/gtk-doc/html/gnome-software/
 
 %changelog
-* Mon Dec 09 2024 Milan Crha <mcrha@redhat.com> - 47.2-2
+* Fri Apr 11 2025 Milan Crha <mcrha@redhat.com> - 48.1-1
+- Update to 48.1
+
+* Fri Mar 14 2025 Milan Crha <mcrha@redhat.com> - 48.0-1
+- Update to 48.0
+
+* Mon Mar 03 2025 Milan Crha <mcrha@redhat.com> - 48~rc-1
+- Update to 48.rc
+
+* Mon Feb 03 2025 Milan Crha <mcrha@redhat.com> - 48~beta-1
+- Update to 48.beta
+
+* Thu Jan 16 2025 Fedora Release Engineering <releng@fedoraproject.org> - 48~alpha3-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_42_Mass_Rebuild
+
+* Tue Jan 14 2025 Milan Crha <mcrha@redhat.com> - 48~alpha3-1
+- Update to 48.alpha3
+
+* Tue Jan 07 2025 Milan Crha <mcrha@redhat.com> - 48~alpha2-1
+- Update to 48.alpha2
+
+* Mon Dec 09 2024 Milan Crha <mcrha@redhat.com> - 47.2-3
 - Resolves: #2272232 (Crash under gs_appstream_gather_merge_data())
+
+* Thu Dec 05 2024 Yaakov Selkowitz <yselkowi@redhat.com> - 47.2-2
+- Rebuild for fwupd 2.0
 
 * Mon Nov 25 2024 Milan Crha <mcrha@redhat.com> - 47.2-1
 - Update to 47.2
 
 * Thu Oct 10 2024 Milan Crha <mcrha@redhat.com> - 47.1-1
 - Update to 47.1
+
+* Fri Oct 04 2024 Richard Hughes <rhughes@redhat.com> - 47.0-3
+- Rebuild against fwupd 2.0.0
 
 * Thu Sep 19 2024 Milan Crha <mcrha@redhat.com> - 47.0-2
 - Resolves: #2312882 (dkms: Fix callback user data in a reload() function)
@@ -1264,4 +1291,3 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/*.desktop
 
 * Wed Aug 28 2013 Richard Hughes <richard@hughsie.com> 0.1-1
 - First release for Fedora package review
-

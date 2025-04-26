@@ -1,5 +1,5 @@
 ## START: Set by rpmautospec
-## (rpmautospec version 0.6.3)
+## (rpmautospec version 0.7.3)
 ## RPMAUTOSPEC: autorelease, autochangelog
 %define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
     release_number = 1;
@@ -8,43 +8,38 @@
 }%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
 ## END: Set by rpmautospec
 
-%global amtk_version 5.6
-%global glib2_version 2.70
+%global amtk_version 5.9
+%global glib2_version 2.76
 %global gtk3_version 3.22
-%global gtksourceview_version 299.0.1
+%global gtksourceview_version 299.4
 %global libpeas_version 1.14.1
 %global gspell_version 1.0
-%global pygo_version 3.0.0
-%global tepl_version 6.8
+%global tepl_version 6.12
 
 # Filter provides for plugin .so files
 %global __provides_exclude_from ^%{_libdir}/gedit/plugins/
-
-%global apiver 46
 
 %global tarball_version %%(echo %{version} | tr '~' '.')
 
 Name:		gedit
 Epoch:		2
-Version:	46.2
+Version:	48.1
 Release:	%autorelease
 Summary:	Text editor for the GNOME desktop
-
-License:	GPLv2+ and GFDL
-URL:		https://wiki.gnome.org/Apps/Gedit
-Source0:	https://download.gnome.org/sources/%{name}/46/%{name}-%{tarball_version}.tar.xz
+License:	GPL-3.0-or-later AND LGPL-3.0-or-later
+URL:		https://gedit-text-editor.org/
+Source0:	https://download.gnome.org/sources/%{name}/48/%{name}-%{tarball_version}.tar.xz
 Patch0:		change_default_color_scheme_to_more_legible_highlight_default.patch
 
-BuildRequires: pkgconfig(amtk-5) >= %{amtk_version}
 BuildRequires: pkgconfig(glib-2.0) >= %{glib2_version}
 BuildRequires: pkgconfig(gobject-introspection-1.0)
 BuildRequires: pkgconfig(gsettings-desktop-schemas)
 BuildRequires: pkgconfig(gspell-1) >= %{gspell_version}
 BuildRequires: pkgconfig(gtk+-3.0) >= %{gtk3_version}
+BuildRequires: pkgconfig(libgedit-amtk-5) >= %{amtk_version}
 BuildRequires: pkgconfig(libgedit-gtksourceview-300) >= %{gtksourceview_version}
+BuildRequires: pkgconfig(libgedit-tepl-6) >= %{tepl_version}
 BuildRequires: pkgconfig(libpeas-gtk-1.0) >= %{libpeas_version}
-BuildRequires: pkgconfig(pygobject-3.0)
-BuildRequires: pkgconfig(tepl-6) >= %{tepl_version}
 BuildRequires: desktop-file-utils
 BuildRequires: gettext
 BuildRequires: gtk-doc
@@ -54,19 +49,16 @@ BuildRequires: itstool
 BuildRequires: meson
 BuildRequires: vala
 BuildRequires: python3-devel
-BuildRequires: python3-gobject >= %{pygo_version}
 BuildRequires: /usr/bin/appstream-util
 
 Requires: glib2%{?_isa} >= %{glib2_version}
 Requires: gspell%{?_isa} >= %{gspell_version}
 Requires: gtk3%{?_isa} >= %{gtk3_version}
 Requires: libgedit-gtksourceview%{?_isa} >= %{gtksourceview_version}
-Requires: libpeas-loader-python3%{?_isa}
-Requires: python3-gobject >= %{pygo_version}
-# the run-command plugin uses zenity
-Requires: zenity
+Requires: libgedit-tepl%{?_isa} >= %{tepl_version}
+Requires: libpeas1-loader-python3%{?_isa}
+Requires: python3-gobject
 Requires: gsettings-desktop-schemas
-Requires: gvfs-client
 
 Obsoletes: gedit-collaboration < 3.6.1-6
 Obsoletes: gedit-plugin-zeitgeist < 3.35.90
@@ -75,6 +67,8 @@ Obsoletes: gedit-plugin-findinfiles < 43.0
 Obsoletes: gedit-plugin-translate < 43.0
 Obsoletes: gedit-plugin-colorschemer < 45.0
 Obsoletes: gedit-plugin-synctex < 45.0
+Obsoletes: gedit-plugin-git < 48.0
+Obsoletes: gedit-plugin-textsize < 48.0
 
 
 %description
@@ -102,8 +96,6 @@ Install gedit-devel if you want to write plugins for gedit.
 
 %prep
 %autosetup -p1 -n %{name}-%{tarball_version}
-# renamed with no API changes
-sed -i -e 's|libgedit-amtk|amtk|g' meson.build docs/reference/meson.build
 
 %build
 %meson -Dgtk_doc=true
@@ -120,7 +112,7 @@ sed -i -e 's|libgedit-amtk|amtk|g' meson.build docs/reference/meson.build
 %find_lang %{name} --with-gnome
 
 %check
-appstream-util validate-relax --nonet %{buildroot}/%{_metainfodir}/org.gnome.gedit.appdata.xml
+appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/org.gnome.gedit.metainfo.xml
 desktop-file-validate %{buildroot}%{_datadir}/applications/org.gnome.gedit.desktop
 
 %files -f %{name}.lang
@@ -135,50 +127,60 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/org.gnome.gedit.deskt
 %{_libdir}/gedit/girepository-1.0/
 %dir %{_libdir}/gedit
 %dir %{_libdir}/gedit/plugins
-%{_libdir}/gedit/libgedit-%{apiver}.so
+%{_libdir}/gedit/libgedit-%{version}.so
 %{_libdir}/gedit/plugins/docinfo.plugin
 %{_libdir}/gedit/plugins/libdocinfo.so
 %{_libdir}/gedit/plugins/filebrowser.plugin
 %{_libdir}/gedit/plugins/libfilebrowser.so
 %{_libdir}/gedit/plugins/modelines.plugin
 %{_libdir}/gedit/plugins/libmodelines.so
-%{_libdir}/gedit/plugins/externaltools.plugin
-%{_libdir}/gedit/plugins/externaltools
-%{_libdir}/gedit/plugins/pythonconsole.plugin
-%{_libdir}/gedit/plugins/pythonconsole
-%{_libdir}/gedit/plugins/quickopen.plugin
-%{_libdir}/gedit/plugins/quickopen
-%{_libdir}/gedit/plugins/snippets.plugin
-%{_libdir}/gedit/plugins/snippets
 %{_libdir}/gedit/plugins/quickhighlight.plugin
 %{_libdir}/gedit/plugins/libquickhighlight.so
 %{_libdir}/gedit/plugins/sort.plugin
 %{_libdir}/gedit/plugins/libsort.so
 %{_libdir}/gedit/plugins/spell.plugin
 %{_libdir}/gedit/plugins/libspell.so
+%{_libdir}/gedit/plugins/textsize.plugin
+%{_libdir}/gedit/plugins/libtextsize.so
 %{_libdir}/gedit/plugins/time.plugin
 %{_libdir}/gedit/plugins/libtime.so
 %{_datadir}/glib-2.0/schemas/org.gnome.gedit.gschema.xml
 %{_datadir}/glib-2.0/schemas/org.gnome.gedit.enums.xml
-%{_datadir}/glib-2.0/schemas/org.gnome.gedit.plugins.externaltools.gschema.xml
-%{_datadir}/glib-2.0/schemas/org.gnome.gedit.plugins.pythonconsole.gschema.xml
 %{_datadir}/glib-2.0/schemas/org.gnome.gedit.plugins.filebrowser.gschema.xml
 %{_datadir}/glib-2.0/schemas/org.gnome.gedit.plugins.filebrowser.enums.xml
 %{_datadir}/glib-2.0/schemas/org.gnome.gedit.plugins.spell.gschema.xml
 %{_datadir}/glib-2.0/schemas/org.gnome.gedit.plugins.time.gschema.xml
 %{_datadir}/glib-2.0/schemas/org.gnome.gedit.plugins.time.enums.xml
 %{_datadir}/dbus-1/services/org.gnome.gedit.service
-%{_datadir}/icons/hicolor/*/apps/org.gnome.gedit.svg
+%{_datadir}/icons/hicolor/*/apps/org.gnome.gedit.png
 %{_datadir}/icons/hicolor/symbolic/apps/org.gnome.gedit-symbolic.svg
-%{_metainfodir}/org.gnome.gedit.appdata.xml
+%{_metainfodir}/org.gnome.gedit.metainfo.xml
 
 %files devel
-%{_includedir}/gedit-%{apiver}/
+%{_includedir}/gedit-%{version}/
 %{_libdir}/pkgconfig/gedit.pc
 %{_datadir}/gtk-doc/
 
 %changelog
 ## START: Generated by rpmautospec
+* Sun Mar 30 2025 Yaakov Selkowitz <yselkowi@redhat.com> - 2:48.1-1
+- Update to 48.1
+
+* Thu Jan 16 2025 Fedora Release Engineering <releng@fedoraproject.org> - 2:46.2-6
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_42_Mass_Rebuild
+
+* Wed Aug 28 2024 Miroslav Suchý <msuchy@redhat.com> - 2:46.2-5
+- convert license to SPDX
+
+* Mon Aug 26 2024 David King <amigadave@amigadave.com> - 2:46.2-4
+- Rebuild against gspell
+
+* Thu Jul 18 2024 Fedora Release Engineering <releng@fedoraproject.org> - 2:46.2-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_41_Mass_Rebuild
+
+* Fri Jun 07 2024 Python Maint <python-maint@redhat.com> - 2:46.2-2
+- Rebuilt for Python 3.13
+
 * Thu Apr 04 2024 Nieves Montero <nmontero@redhat.com> - 2:46.2-1
 - Update to 46.2
 

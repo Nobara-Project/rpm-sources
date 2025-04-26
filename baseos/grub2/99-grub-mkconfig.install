@@ -4,6 +4,12 @@ if ! [[ $KERNEL_INSTALL_MACHINE_ID ]]; then
     exit 0
 fi
 
+# Run grub2-mkconfig if ENABLE_BLSCFG is false
+if grep -q '^GRUB_ENABLE_BLSCFG="*false"*\s*$' /etc/default/grub; then
+    RUN_MKCONFIG=true
+    DISABLE_BLS=true
+fi
+
 # PV and PVH Xen DomU guests boot with pygrub that doesn't have BLS support,
 # also Xen Dom0 use the menuentries from 20_linux_xen and not the ones from
 # 10_linux. So BLS support needs to be disabled for both Xen Dom0 and DomU.
@@ -15,25 +21,10 @@ if [[ -e /sys/hypervisor/type ]] && grep -q "^xen$" /sys/hypervisor/type; then
 fi
 
 ARCH=$(uname -m)
-# Older ppc64le OPAL firmware (petitboot version < 1.8.0) don't have BLS support
-# so grub2-mkconfig has to be run to generate a config with menuentry commands.
+# Older ppc64le OPAL firmware don't have BLS support so grub2-mkconfig has to be
+# run to generate a config with menuentry commands.
 if [[ $ARCH = "ppc64le" ]] && [ -d /sys/firmware/opal ]; then
-
-    petitboot_path="/sys/firmware/devicetree/base/ibm,firmware-versions/petitboot"
-
-    if test -e ${petitboot_path}; then
-        read -r -d '' petitboot_version < ${petitboot_path}
-        petitboot_version="$(echo ${petitboot_version//v})"
-        major_version="$(echo ${petitboot_version} | cut -d . -f1)"
-        minor_version="$(echo ${petitboot_version} | cut -d . -f2)"
-
-        if test -z ${petitboot_version} || test ${major_version} -lt 1 || \
-           test ${major_version} -eq 1 -a ${minor_version} -lt 8; then
-            RUN_MKCONFIG=true
-        fi
-    else
-        RUN_MKCONFIG=true
-    fi
+    RUN_MKCONFIG=true
 fi
 
 if [[ $DISABLE_BLS = "true" ]]; then
