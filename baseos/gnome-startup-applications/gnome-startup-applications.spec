@@ -1,7 +1,7 @@
-%global tarball_version 1ubuntu4
+%global tarball_version 2ubuntu3
 
 Name: gnome-startup-applications
-Version: 46.0
+Version: 47.0.1
 Release: 1%{?dist}
 Summary: GNOME startup applications manager
 
