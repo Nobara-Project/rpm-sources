@@ -152,6 +152,9 @@ install -D -p -m 0644 %{SOURCE20} %{buildroot}%{_docdir}/%{name}/README.Fedora.m
 
 
 %changelog
+* Sun Apr 27 2025 LionHeartP <LionHeartP@proton.me> - 0.8.1-2
+- build: Update to latest commit
+
 * Wed Feb 12 2025 LionHeartP <LionHeartP@proton.me> - 0.8.0-1
 - build: Update to 0.8.0
 
