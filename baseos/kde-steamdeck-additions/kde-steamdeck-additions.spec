@@ -8,6 +8,9 @@ Summary:        SteamOS Nested Desktop + "Add to Steam" right-click services
 License:        GPLv2
 URL:            https://github.com/nobara-project/steamdeck-edition-packages
 Source0:        %{URL}/releases/download/1.0/kde-steamdeck-additions.tar.gz
+
+ExcludeArch:    %{ix86}
+
 BuildArch:      noarch
 
 Requires:       kde-filesystem

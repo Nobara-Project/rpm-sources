@@ -37,7 +37,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.14
-%define _stablekver 3
+%define _stablekver 4
 %if %{_stablekver} == 0
 %define _tarkver %{_basekver}
 %else
@@ -877,7 +877,7 @@ chmod 0755 %{buildroot}%{_libdir}/libcpupower.so*
    %{tools_make} DESTDIR=%{buildroot} install
    popd
    pushd tools/arch/x86/intel_sdsi
-   %{tools_make} CFLAGS="${RPM_OPT_FLAGS}" DESTDIR=%{buildroot} install
+   %{tools_make} CFLAGS="${RPM_OPT_FLAGS}" DESTDIR=%{buildroot} BINDIR=%{_sbindir} install
    popd
 %endif
 pushd tools/thermal/tmon
