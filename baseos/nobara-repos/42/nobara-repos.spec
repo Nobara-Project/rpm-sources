@@ -1,0 +1,208 @@
+%global updates_testing_enabled 0
+
+Summary:        Nobara package repositories
+Name:           nobara-repos
+Version:        42
+Release:        1%{?eln:.eln%{eln}}
+License:        MIT
+URL:            https://fedoraproject.org/
+
+Provides:       nobara-repos(%{version}) = %{release}
+Provides:       nobara-theming-repos
+Provides:       fedora-workstation-repositories
+Requires:       system-release(%{version})
+#Obsoletes:      fedora-workstation-repositories
+Obsoletes:      nobara-repos < %{version}
+Obsoletes:      nobara-theming-repos
+Requires:       nobara-gpg-keys >= %{version}-%{release}
+BuildArch:      noarch
+# Required by %%check
+BuildRequires:  gnupg sed
+
+Source2:       nobara.repo
+Source3:       nv-nvp.repo
+Source4:       nv-nvb.repo
+Source5:       nv-nvnf.repo
+Source6:       nobara-pikaos-additional.repo
+Source7:       brave-browser.repo
+
+Source8:       RPM-GPG-KEY-nobara-pubkey
+Source9:       RPM-GPG-KEY-nobara-baseos-pubkey-39
+Source10:       RPM-GPG-KEY-nobara-baseos-pubkey-40
+Source11:       RPM-GPG-KEY-nobara-baseos-pubkey-41
+Source12:       RPM-GPG-KEY-nobara-baseos-pubkey-42
+Source13:       brave-core.asc
+
+%description
+Nobara package repository files for yum and dnf along with gpg public keys.
+
+%package -n nobara-gpg-keys
+Summary:        Nobara RPM keys
+Provides:       nobara-gpg-keys
+Provides:       nobara-theming-gpg-keys
+Obsoletes:      nobara-theming-gpg-keys
+
+
+%description -n nobara-gpg-keys
+This package provides the RPM signature keys.
+
+
+%prep
+
+%build
+
+%install
+# Install the keys
+install -d -m 755 $RPM_BUILD_ROOT/etc/pki/rpm-gpg
+install -m 644 %{_sourcedir}/RPM-GPG-KEY* $RPM_BUILD_ROOT/etc/pki/rpm-gpg/
+install -m 644 %{_sourcedir}/brave-core.asc $RPM_BUILD_ROOT/etc/pki/rpm-gpg/
+
+# Install repo files
+install -d -m 755 $RPM_BUILD_ROOT/etc/yum.repos.d
+install -m 644 %{_sourcedir}/*.repo $RPM_BUILD_ROOT/etc/yum.repos.d/
+
+%posttrans
+if [[ -f /etc/yum.repos.d/nobara.repo.rpmsave ]]; then
+  rm /etc/yum.repos.d/nobara.repo.rpmsave
+fi
+if [[ -f /etc/yum.repos.d/nobara.repo.rpmnew ]]; then
+  mv /etc/yum.repos.d/nobara.repo.rpmnew /etc/yum.repos.d/nobara.repo
+fi
+
+%files
+%dir /etc/yum.repos.d
+/etc/yum.repos.d/nobara.repo
+/etc/yum.repos.d/nobara-pikaos-additional.repo
+%config(noreplace) /etc/yum.repos.d/nv-nvp.repo
+%config(noreplace) /etc/yum.repos.d/nv-nvb.repo
+%config(noreplace) /etc/yum.repos.d/nv-nvnf.repo
+%config(noreplace) /etc/yum.repos.d/brave-browser.repo
+
+%files -n nobara-gpg-keys
+%dir /etc/pki/rpm-gpg
+/etc/pki/rpm-gpg/RPM-GPG-KEY-*
+/etc/pki/rpm-gpg/brave-core.asc
+
+%changelog
+* Mon Oct 11 2021 Kevin Fenzi <kevin@scrye.com> - 35-1
+- Disable updates-testing for GA. (#2012948)
+
+* Tue Aug 17 2021 Adam Williamson <awilliam@redhat.com> - 35-0.6
+- Remove spurious space in RPM-GPG-KEY-fedora-37-primary (cgwalters)
+
+* Tue Aug 10 2021 Tomas Hrcka <thrcka@redhat.com> - 35-0.5
+- Update Rawhide definition, enable updates-testing for Branched
+
+* Wed Apr 28 2021 Dusty Mabe <dusty@dustymabe.com> - 35-0.4
+- Enable the updates archive repo on non-rawhide.
+
+* Fri Feb 19 2021 Petr Menšík <pemensik@redhat.com> - 35-0.3
+- Check arch key imports during build (#1872248)
+
+* Wed Feb 17 2021 Mohan Boddu <mboddu@bhujji.com> - 35-0.2
+- Support $releasever=rawhide on Rawhide (kparal)
+- Make archmap entries mandatory, except symlinks (kparal)
+- Fixing F36 key
+
+* Tue Feb 09 2021 Tomas Hrcka <thrcka@redhat.com> - 35-0.1
+- Setup for rawhide being F35
+
+* Tue Feb 09 2021 Mohan Boddu <mboddu@bhujji.com> - 34-0.10
+- Fixing archmap for F35
+
+* Thu Feb 04 2021 Mohan Boddu <mboddu@bhujji.com> - 34-0.9
+- Adding F35 key
+
+* Wed Oct 14 2020 Stephen Gallagher <sgallagh@redhat.com> - 34-0.8
+- ELN: Drop dependency on fedora-repos-rawhide-modular
+
+* Tue Oct 13 2020 Stephen Gallagher <sgallagh@redhat.com> - 34-0.7
+- Ensure that the ELN GPG key always points at the Rawhide key
+
+* Tue Oct 13 2020 Stephen Gallagher <sgallagh@redhat.com> - 34-0.6
+- Drop the fedora-eln-modular.repo
+
+* Thu Oct 08 2020 Stephen Gallagher <sgallagh@redhat.com> - 34-0.5
+- Update the ELN repos for the BaseOS and AppStream split
+
+* Mon Oct 05 2020 Dusty Mabe <dusty@dustymabe.com> - 34-0.4
+- Add the fedora-repos-archive subpackage.
+
+* Fri Aug 21 2020 Miro Hrončok <mhroncok@redhat.com> - 34-0.3
+- Fix a copy-paste error in eln repo name
+- Drop fedora-modular from base package since it's in the modular subpackage
+- Fixes: rhbz#1869150
+
+* Wed Aug 19 2020 Stephen Gallagher <sgallagh@redhat.com> - 34-0.2
+- Enable rebuilding of fedora-repos in ELN
+- Drop unused modularity-specific release information
+
+* Mon Aug 10 2020 Tomas Hrcka <thrcka@redhat.com> - 34-0.1
+- Setup for rawhide being F34
+
+* Thu Aug 06 2020 Mohan Boddu <mboddu@bhujji.com> - 33-0.9
+- Adding F34 key
+
+* Tue Jun 30 2020 Stephen Gallagher <sgallagh@redhat.com> - 33-0.8
+- Add optional repositories for ELN
+
+* Mon Jun 29 21:10:15 CEST 2020 Igor Raits <ignatenkobrain@fedoraproject.org> - 33-0.7
+- Split modular repos to the separate packages
+
+* Mon Jun 01 2020 Dusty Mabe <dusty@dustymabe.com> - 33-0.6
+- Add fedora compose ostree repo to fedora-repos-ostree
+
+* Mon Apr 13 2020 Stephen Gallagher <sgallagh@redhat.com> - 33-0.5
+- Add the release to the fedora-repos(NN) Provides:
+
+* Thu Apr 09 2020 Kalev Lember <klember@redhat.com> - 33-0.4
+- Switch to metalink for fedora-cisco-openh264 and disable repo gpgcheck
+  (#1768206)
+- Use the same metadata_expire time for fedora-cisco-openh264 and -debuginfo
+- Remove enabled_metadata key for fedora-cisco-openh264
+
+* Sat Feb 22 2020 Neal Gompa <ngompa13@gmail.com> - 33-0.3
+- Enable fedora-cisco-openh264 repo by default
+
+* Wed Feb 19 2020 Adam Williamson <awilliam@redhat.com> - 33-0.2
+- Restore baseurl lines, but with example domain
+
+* Tue Feb 11 2020 Mohan Boddu <mboddu@bhujji.com> - 33-0.1
+- Setup for rawhide being F33
+
+* Tue Feb 11 2020 Mohan Boddu <mboddu@bhujji.com> - 32-0.4
+- Remove baseurl download.fp.o (puiterwijk)
+- Enabling dnf countme
+
+* Tue Jan 28 2020 Mohan Boddu <mboddu@bhujji.com> - 32-0.3
+- Adding F33 key
+
+* Mon Aug 19 2019 Kevin Fenzi <kevin@scrye.com> - 32-0.2
+- Fix f32 key having extra spaces.
+
+* Tue Aug 13 2019 Mohan Boddu <mboddu@bhujji.com> - 32-0.1
+- Adding F32 key
+- Setup for rawhide being f32
+
+* Tue Mar 12 2019 Vít Ondruch <vondruch@redhat.com> - 31-0.3
+- Allow to use newer GPG keys, so Rawhide can be updated after branch.
+
+* Thu Mar 07 2019 Sinny Kumari <skumari@redhat.com> - 31-0.2
+- Create fedora-repos-ostree sub-package
+
+* Tue Feb 19 2019 Tomas Hrcka <thrcka@redhat.com> - 31-0.1
+- Setup for rawhide being f31
+
+* Mon Feb 18 2019 Mohan Boddu <mboddu@bhujji.com> - 30-0.4
+- Adding F31 key
+
+* Sat Jan 05 2019 Kevin Fenzi <kevin@scrye.com> - 30-0.3
+- Add fedora-7-primary to archmap. Fixes bug #1531957
+- Remove failovermethod option in repos (augenauf(Florian H))
+
+* Tue Nov 13 2018 Mohan Boddu <mboddu@bhujji.com> - 30-0.2
+- Adding fedora-iot-2019 key
+- Enable skip_if_unavailable for cisco-openh264 repo
+
+* Tue Aug 14 2018 Mohan Boddu <mboddu@bhujji.com> - 30-0.1
+- Setup for rawhide being f30

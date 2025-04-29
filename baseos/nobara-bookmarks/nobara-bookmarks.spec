@@ -8,11 +8,11 @@
 ## END: Set by rpmautospec
 
 Name:           nobara-bookmarks
-Version:        41
+Version:        42
 Release:        %autorelease
 Summary:        Nobara bookmarks
 License:        GFDL
-URL:            http://fedoraproject.org/
+URL:            http://nobaraproject.org/
 # I had to strip the embedded icons out of the bookmarks file, because they are not 
 # distributable under the GFDL. See https://bugzilla.redhat.com/show_bug.cgi?id=433471
 Source0:        default-bookmarks.html
