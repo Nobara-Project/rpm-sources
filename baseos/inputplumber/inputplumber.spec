@@ -1,7 +1,7 @@
 %global _name   inputplumber
 
 Name:           inputplumber
-Version:        0.55.0
+Version:        0.55.3
 Release:        1%{?dist}
 Summary:        InputPlumber is an open source input routing and control daemon for Linux. It can be used to combine any number of input devices (like gamepads, mice, and keyboards) and translate their input to a variety of virtual device formats.
 
@@ -41,7 +41,7 @@ mkdir -p %{buildroot}/usr/share/inputplumber/devices
 mkdir -p %{buildroot}/usr/share/inputplumber/profiles
 mkdir -p %{buildroot}/usr/share/inputplumber/schema
 
-install -D -m 755 %{_builddir}/InputPlumber/target/release/inputplumber %{buildroot}/usr/bin/inputplumber
+install -D -m 755 %{_builddir}/InputPlumber/target/%{_arch}-unknown-linux-gnu/release/inputplumber %{buildroot}/usr/bin/inputplumber
 install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/share/dbus-1/system.d/org.shadowblip.InputPlumber.conf %{buildroot}/usr/share/dbus-1/system.d/org.shadowblip.InputPlumber.conf
 install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/lib/systemd/system/* %{buildroot}/usr/lib/systemd/system/
 install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/lib/udev/hwdb.d/59-inputplumber.hwdb %{buildroot}/usr/lib/udev/hwdb.d/59-inputplumber.hwdb
