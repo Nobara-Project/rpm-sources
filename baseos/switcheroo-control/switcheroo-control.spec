@@ -1,6 +1,6 @@
 Name:           switcheroo-control
 Version:        2.6
-Release:        7%{?dist}
+Release:        8%{?dist}
 Summary:        D-Bus service to check the availability of dual-GPU
 
 License:        GPLv3
@@ -20,6 +20,7 @@ BuildRequires:  systemd
 BuildRequires:  python3-dbusmock
 BuildRequires:  umockdev
 BuildRequires:  libdrm-devel
+BuildRequires:  kernel-headers
 
 %{?systemd_requires}
 
@@ -69,6 +70,7 @@ fi
 %{_libexecdir}/switcheroo-control
 %{_libexecdir}/check-discrete-amdgpu
 %{_libexecdir}/check-discrete-nouveau
+%{_libexecdir}/check-discrete-xe
 %{_udevhwdbdir}/30-pci-intel-gpu.hwdb
 %{_mandir}/man1/switcherooctl.1*
 %{_udevrulesdir}/30-discrete-gpu.rules
@@ -79,6 +81,9 @@ fi
 %{_datadir}/gtk-doc/html/%{name}/
 
 %changelog
+* Wed Apr 30 2025 Jan200101 <sentrycraft123@gmail.com> - 2.6-8
+- Update discrete patch
+
 * Sat Jan 21 2023 Fedora Release Engineering <releng@fedoraproject.org> - 2.6-3
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_38_Mass_Rebuild
 
