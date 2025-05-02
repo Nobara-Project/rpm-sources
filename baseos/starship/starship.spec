@@ -2,8 +2,8 @@
 %undefine _package_note_file
 
 Name: starship
-Version: 1.21.1
-Release: 2%{?dist}
+Version: 1.22.1
+Release: 1%{?dist}
 Summary: â˜„ðŸŒŒï¸� The minimal, blazing-fast, and infinitely customizable prompt for any shell!
 
 License: ISC
@@ -57,6 +57,9 @@ cp %{SOURCE2} %{buildroot}/etc/profile.d/
 %config(noreplace) /etc/profile.d/nobara_profile_starship.sh
 
 %changelog
+* Thu Apr 24 2025 LionHeartP <LionHeartP@proton.me> - 1.22.1-1
+- chore: Update to latest release
+
 * Wed May 15 2024 Artem Polishchuk <ego.cordatus@gmail.com> - 1.19.0-1
 - chore: Update to latest release
 

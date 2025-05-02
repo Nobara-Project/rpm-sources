@@ -84,8 +84,8 @@
 %define apparmor_snapconfine_profile %as_apparmor_path %{_libexecdir}/snapd/snap-confine
 
 Name:           snapd
-Version:        2.67.1
-Release:        3%{?dist}
+Version:        2.68.3
+Release:        1%{?dist}
 Summary:        A transactional software package manager
 License:        GPL-3.0-only
 URL:            https://%{provider_prefix}

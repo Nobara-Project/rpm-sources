@@ -2,7 +2,7 @@
 %define __cmake_in_source_build 1
 
 # default dependencies
-%global hawkey_version 0.73.1
+%global hawkey_version 0.74.0
 %global libcomps_version 0.1.8
 %global libmodulemd_version 2.9.3
 %global rpm_version 4.14.0
@@ -12,7 +12,7 @@
 %global conflicts_dnf_plugins_extras_version 4.0.4
 %global conflicts_dnfdaemon_version 0.3.19
 
-%bcond dnf5_obsoletes_dnf %[0%{?fedora} > 40 || 0%{?rhel} > 11]
+%bcond dnf5_obsoletes_dnf %[0%{?fedora} > 40 || 0%{?rhel} > 10]
 
 # override dependencies for rhel 7
 %if 0%{?rhel} == 7
@@ -65,17 +65,17 @@
 It supports RPMs, modules and comps groups & environments.
 
 Name:           dnf
-Version:        4.22.0
-Release:        4%{?dist}
+Version:        4.23.0
+Release:        1%{?dist}
 Summary:        %{pkg_summary}
 # For a breakdown of the licensing, see PACKAGE-LICENSING
 License:        GPL-2.0-or-later AND GPL-1.0-only
 URL:            https://github.com/rpm-software-management/dnf
 Source0:        %{url}/archive/%{version}/%{name}-%{version}.tar.gz
-Patch0:      0001-increase-parallel-downloads.patch
-Patch1:      0001-disable-zchunk-for-Nobara-snapshots.patch
+Patch0:		0001-increase-parallel-downloads.patch
+Patch1:		0001-disable-zchunk-for-Nobara-snapshots.patch
 BuildArch:      noarch
-BuildRequires:  cmake
+BuildRequires:  cmake >= 3.5.0
 BuildRequires:  gettext
 # Documentation
 BuildRequires:  systemd
@@ -156,6 +156,7 @@ Requires:       rpm-plugin-systemd-inhibit
 %else
 Recommends:     (rpm-plugin-systemd-inhibit if systemd)
 %endif
+Provides:       dnf4 = %{version}-%{release}
 Provides:       dnf-command(alias)
 Provides:       dnf-command(autoremove)
 Provides:       dnf-command(check-update)
@@ -191,6 +192,17 @@ Requires:       python3-%{name} = %{version}-%{release}
 
 %description automatic
 Systemd units that can periodically download package upgrades and apply them.
+
+%package bootc
+Summary:        %{pkg_summary} - additional bootc dependencies
+Requires:       python3-%{name} = %{version}-%{release}
+Requires:       ostree
+Requires:       ostree-libs
+Requires:       python3-gobject-base
+Requires:       util-linux-core
+
+%description bootc
+Additional dependencies needed to perform transactions on booted bootc (bootable containers) systems.
 
 
 %prep
@@ -422,7 +434,27 @@ popd
 %{python3_sitelib}/%{name}/automatic/
 %endif
 
+%files bootc
+# bootc subpackage does not include any files
+
 %changelog
+* Fri Mar 07 2025 Evan Goode <egoode@redhat.com> - 4.23.0-1
+- Update to 4.23.0
+
+* Tue Jan 28 2025 Petr Pisar <ppisar@redhat.com> - 4.22.0-5
+- Fix reporting a reboot failure by dnf-automatic
+- Fix a documentation of --disableexcludes option
+- Provide dnf4 by python3-dnf package (bug #2328463)
+
+* Thu Jan 16 2025 Fedora Release Engineering <releng@fedoraproject.org> - 4.22.0-4
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_42_Mass_Rebuild
+
+* Tue Jan 07 2025 Petr Pisar <ppisar@redhat.com> - 4.22.0-3
+- Adapt tests to Python 3.14 (bug #2323186)
+
+* Thu Nov 21 2024 Yaakov Selkowitz <yselkowi@redhat.com> - 4.22.0-2
+- Toggle dnf5_obsoletes_dnf for ELN
+
 * Tue Nov 12 2024 Evan Goode <egoode@redhat.com> - 4.22.0-1
 - doc: Naming of source and debug repos
 - spec: Move /var/cache/dnf from dnf to python3-dnf
@@ -978,7 +1010,7 @@ popd
 - Improve modularity documentation (RhBug:1730162,1730162,1730807,1734081)
 - Fix detection whether system is running on battery (used by metadata caching timer) (RhBug:1498680)
 - New repoquery queryformat: %{reason}
-- Print rpm errors during test transaction (RhBug:1730348)
+- Print rpm errors during test transaction (RhBug:1730348) 
 - Fix: --setopt and repo with dots
 - Fix incorrectly marked profile and stream after failed rpm transaction check (RhBug:1719679)
 - Show transaction errors inside dnf shell (RhBug:1743644)

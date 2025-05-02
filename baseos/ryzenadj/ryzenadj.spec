@@ -1,5 +1,5 @@
-%global commit a89d59c1b7f99b527e3b14a80a0b4edb47de0e42
-%global shortcommit a89d59c
+%global commit c9b07e009a51c2fb9a6fc40ea74fbee27994b4a5
+%global shortcommit c9b07e0
 
 Name:           ryzenadj
 Version:        0.16.0

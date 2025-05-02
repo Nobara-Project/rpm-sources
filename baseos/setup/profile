@@ -9,6 +9,9 @@
 # will prevent the need for merging in future updates.
 
 pathmunge () {
+    # If the path is a compat symlink, do nothing.
+    [ -h "$1" ] && return
+
     case ":${PATH}:" in
         *:"$1":*)
             ;;

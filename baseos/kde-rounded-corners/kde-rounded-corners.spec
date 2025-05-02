@@ -1,13 +1,13 @@
-%global gitcommit f450c5a8486c4777e8441720079201d208744014
+%global gitcommit e776177bf7359d5e163864d6afdc22fb534256c1
 
 Name:           kde-rounded-corners
 Version:        0.7.1
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Rounds the corners of your windows in KDE Plasma
 
 License:        GPL-3.0-only
 URL:            https://github.com/matinlotfali/KDE-Rounded-Corners
-Source0:        https://github.com/matinlotfali/KDE-Rounded-Corners/archive/%{gitcommit}.tar.gz
+Source0:        %{URL}/archive/%{gitcommit}.tar.gz
 Patch0:         0001-use-some-sane-default-shadows-and-outlines.patch
 
 
@@ -56,12 +56,16 @@ Obsoletes:  plasma-rounded-corners
 %files
 %license LICENSE
 %doc README.md
-%{_datadir}/locale/*/LC_MESSAGES/kcmcorners.mo
-%{_kf6_datadir}/kwin/shaders/shapecorners*.frag
-%{_qt6_plugindir}/kwin/effects/configs/kwin_shapecorners_config.so
-%{_qt6_plugindir}/kwin/effects/plugins/kwin4_effect_shapecorners.so
+%{_libdir}/qt6/plugins/kwin/effects/configs/kwin_shapecorners_config.so
+%{_libdir}/qt6/plugins/kwin/effects/plugins/kwin4_effect_shapecorners.so
+%{_datadir}/kwin/shaders/shapecorners.frag
+%{_datadir}/kwin/shaders/shapecorners_core.frag
+%{_datadir}/locale/*/LC_MESSAGES/kcmcorners.mo*
 
 %changelog
+* Sun Apr 27 2025 LionHeartP <LionHeartP@proton.me> - 0.7.1-3
+- update to latest commit for Nobara 42
+
 * Thu May 23 2024 Pavel Solovev <daron439@gmail.com> - 0.6.5-2
 - rebuilt
 

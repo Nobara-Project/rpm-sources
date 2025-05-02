@@ -31,7 +31,7 @@
 # simplify cut and pasting.
 #
 Version: 3.3.0
-Release: 0.1%{?dist}
+Release: 0.2%{?dist}
 URL:     https://github.com/ryanoasis/nerd-fonts
 
 # The identifier of the entity, that released the font family.
@@ -41,14 +41,14 @@ URL:     https://github.com/ryanoasis/nerd-fonts
 %global fontlicense       OFL
 #
 # The following directives are lists of space-separated shell globs
-#   – matching files associated with the font family,
-#   – as they exist in the build root,
-#   — at the end of the %build stage:
-# – legal files (licensing…)
-%global fontlicenses      OFL.txt
-# – documentation files
-%global fontdocs          *.txt
-# – exclusions from the ”fontdocs” list
+#   â€“ matching files associated with the font family,
+#   â€“ as they exist in the build root,
+#   â€” at the end of the %build stage:
+# â€“ legal files (licensingâ€¦)
+%global fontlicenses      LICENSE
+# â€“ documentation files
+%global fontdocs          *.md
+# â€“ exclusions from the â€fontdocsâ€ list
 %global fontdocsex        %{fontlicenses}
 
 # The human-friendly font family name, whitespace included, restricted to the
@@ -57,9 +57,9 @@ URL:     https://github.com/ryanoasis/nerd-fonts
 %global fontsummary       nerd fonts symbols
 #
 # More shell glob lists:
-# – font family files
+# â€“ font family files
 %global fonts             *.ttf
-# – fontconfig files
+# â€“ fontconfig files
 %global fontconfs         %{SOURCE10}
 #
 # A multi-line description block for the generated package.

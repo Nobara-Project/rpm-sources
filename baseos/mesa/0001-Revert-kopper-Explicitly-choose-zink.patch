@@ -1,0 +1,46 @@
+From 24f85c06c28736b73c14208a0ffa6657d2aee9cd Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Jos=C3=A9=20Exp=C3=B3sito?= <jexposit@redhat.com>
+Date: Mon, 21 Apr 2025 13:52:14 +0200
+Subject: [PATCH] Revert "kopper: Explicitly choose zink"
+
+On QEMU (virtio driver), without 3D acceleration enabled and without
+mesa-vulkan-drivers installed, this commit prevents Mutter to start.
+
+This reverts commit c0bc957c5d8c7edd57626284b712dd6ea1e375fc.
+
+Related: https://bugzilla.redhat.com/show_bug.cgi?id=2360851
+Related: https://gitlab.freedesktop.org/mesa/mesa/-/issues/13009
+---
+ .pick_status.json                  | 2 +-
+ src/gallium/frontends/dri/kopper.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/.pick_status.json b/.pick_status.json
+index 99df2fb30c2..cdf3965678c 100644
+--- a/.pick_status.json
++++ b/.pick_status.json
+@@ -16204,7 +16204,7 @@
+         "description": "kopper: Explicitly choose zink",
+         "nominated": false,
+         "nomination_type": 0,
+-        "resolution": 1,
++        "resolution": 4,
+         "main_sha": null,
+         "because_sha": null,
+         "notes": null
+diff --git a/src/gallium/frontends/dri/kopper.c b/src/gallium/frontends/dri/kopper.c
+index a1d7dcb79b4..3bdb56022a9 100644
+--- a/src/gallium/frontends/dri/kopper.c
++++ b/src/gallium/frontends/dri/kopper.c
+@@ -73,7 +73,7 @@ kopper_init_screen(struct dri_screen *screen, bool driver_name_is_inferred)
+    bool success;
+ #ifdef HAVE_LIBDRM
+    if (screen->fd != -1)
+-      success = pipe_loader_drm_probe_fd(&screen->dev, screen->fd, true);
++      success = pipe_loader_drm_probe_fd(&screen->dev, screen->fd, false);
+    else
+       success = pipe_loader_vk_probe_dri(&screen->dev);
+ #else
+-- 
+2.49.0
+

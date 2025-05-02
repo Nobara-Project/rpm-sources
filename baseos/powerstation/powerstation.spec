@@ -11,6 +11,8 @@ License:        GPL-3.0-or-later
 URL:            https://github.com/ShadowBlip/PowerStation
 Source0:        %{url}/archive/refs/tags/v%{version}.tar.gz
 
+ExcludeArch:    %{ix86}
+
 BuildRequires:  rust
 BuildRequires:  cargo
 BuildRequires:  pciutils-devel

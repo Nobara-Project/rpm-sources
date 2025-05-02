@@ -5,6 +5,9 @@ Summary:        KDE Presets from Valve's SteamOS 3.0
 License:    	GPLv2
 URL:            https://github.com/nobara-project/steamdeck-edition-packages
 Source0:        %{URL}/releases/download/1.0/kde-steamdeck.tar.gz
+
+ExcludeArch:    %{ix86}
+
 BuildArch:      noarch
 
 Requires:		kde-filesystem

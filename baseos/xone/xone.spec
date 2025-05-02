@@ -1,6 +1,6 @@
 %global _default_patch_fuzz 2
-%global commit 58004bff8bda0ea36dce4b970a054b95800e3c3f
-%global commitdate 20240405
+%global commit 29ec3577e52a50f876440c81267f609575c5161e
+%global commitdate 20240425
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 %if 0%{?fedora}
@@ -10,7 +10,7 @@
 
 Name:     xone
 Version:  0.3
-Release:  15%{?dist}
+Release:  16%{?dist}
 Summary:  Linux kernel driver for Xbox One and Xbox Series X|S accessories
 License:  GPLv2
 URL:      https://github.com/medusalix/xone

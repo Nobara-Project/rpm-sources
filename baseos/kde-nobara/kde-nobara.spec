@@ -1,10 +1,13 @@
 Name:           kde-nobara
 Version:        6.3.4
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        KDE Presets from NobaraProject Official
 License:    	GPLv2
 URL:            https://github.com/nobara-project/nobara-core-packages
 Source0:        %{URL}/releases/download/1.0/kde-nobara.tar.gz
+
+ExcludeArch:    %{ix86}
+
 BuildArch:      noarch
 
 BuildRequires: systemd-rpm-macros

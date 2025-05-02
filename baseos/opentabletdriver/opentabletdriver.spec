@@ -1,10 +1,12 @@
 Name: opentabletdriver
-Version: 0.6.4.0
+Version: 0.6.5.1
 Release: 1%{?dist}
 Summary: A cross-platform open-source tablet driver
 
 # This needs to be cloned from git recursively due to submodules
-Source0: opentabletdriver-%{version}.tar.gz
+Source0: https://github.com/OpenTabletDriver/OpenTabletDriver/archive/refs/tags/v%{version}.tar.gz
+
+ExcludeArch:    %{ix86}
 
 License: LGPLv3
 URL: https://opentabletdriver.net
@@ -79,5 +81,6 @@ cp -r bin "%{buildroot}/%{_prefix}/lib/opentabletdriver"
 %{_prefix}/share/doc/opentabletdriver/LICENSE
 %{_prefix}/share/pixmaps/otd.ico
 %{_prefix}/share/pixmaps/otd.png
+%{_prefix}/share/libinput/30-vendor-opentabletdriver.quirks
 
 %changelog

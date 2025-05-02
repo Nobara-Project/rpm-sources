@@ -1,5 +1,5 @@
 Name:           python-accelerate
-Version:        1.4.0
+Version:        1.6.0
 Release:        1%{?dist}
 # Fill in the actual package summary to submit package to Fedora
 Summary:        Accelerate
@@ -9,6 +9,8 @@ Summary:        Accelerate
 License:        Apache-2.0
 URL:            https://github.com/huggingface/accelerate
 Source:         %{pypi_source accelerate}
+
+ExcludeArch:    %{ix86}
 
 BuildArch:      noarch
 BuildRequires:  python3-devel

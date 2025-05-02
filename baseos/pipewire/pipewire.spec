@@ -1,6 +1,6 @@
 %global majorversion 1
-%global minorversion 2
-%global microversion 7
+%global minorversion 4
+%global microversion 2
 
 %global apiversion   0.3
 %global spaversion   0.2
@@ -9,7 +9,7 @@
 %global ms_version   0.4.2
 
 # For rpmdev-bumpspec and releng automation
-%global baserelease 8
+%global baserelease 1
 
 #global snapdate   20210107
 #global gitcommit  b17db2cebc1a5ab2c01851d29c05f79cd2f262bb
@@ -76,12 +76,9 @@ Source0:        https://gitlab.freedesktop.org/pipewire/pipewire/-/archive/%{ver
 Source1:        pipewire.sysusers
 
 ## upstream patches
-Patch0001:	0001-spa-libcamera-use-references-when-getting-camera-pro.patch
-Patch0002:	0002-spa-libcamera-don-t-use-fixed-size-buffers-for-prope.patch
 
 ## Valve patches
-Patch0003:	0001-pipeware-bluez5-backend-native-Enable-SCO-offload.patch
-Patch0004:	0002-bluez-aac-airpods-fix-when-reconnecting.patch
+Patch0001:	0001-pipeware-bluez5-backend-native-Enable-SCO-offload.patch
 
 ## upstreamable patches
 
@@ -133,9 +130,9 @@ BuildRequires:  libcanberra-devel
 BuildRequires:  libuv-devel
 BuildRequires:  speexdsp-devel
 BuildRequires:  systemd-rpm-macros
-%{?sysusers_requires_compat}
+BuildRequires:  libebur128-devel
+BuildRequires:  fftw-devel
 
-Requires(pre):  shadow-utils
 Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
 Requires:       systemd
 Requires:       rtkit
@@ -478,7 +475,6 @@ install -p -D -m 0644 %{SOURCE1} %{buildroot}%{_sysusersdir}/pipewire.conf
 # Own this directory so add-ons can use it
 install -d -m 0755 %{buildroot}%{_datadir}/pipewire/pipewire.conf.d/
 install -d -m 0755 %{buildroot}%{_datadir}/pipewire/client.conf.d/
-install -d -m 0755 %{buildroot}%{_datadir}/pipewire/client-rt.conf.d/
 
 %if %{with jack}
 mkdir -p %{buildroot}%{_sysconfdir}/ld.so.conf.d/
@@ -522,8 +518,6 @@ ln -s ../pipewire.conf.avail/20-upmix.conf \
 		%{buildroot}%{_datadir}/pipewire/pipewire.conf.d/20-upmix.conf
 ln -s ../client.conf.avail/20-upmix.conf \
 		%{buildroot}%{_datadir}/pipewire/client.conf.d/20-upmix.conf
-ln -s ../client-rt.conf.avail/20-upmix.conf \
-		%{buildroot}%{_datadir}/pipewire/client-rt.conf.d/20-upmix.conf
 
 
 %find_lang %{name}
@@ -535,8 +529,6 @@ echo "test failed"
 %{!?tests_nonfatal:exit $TESTS_ERROR}
 fi
 
-%pre
-%sysusers_create_compat %{SOURCE1}
 
 %post
 %systemd_user_post pipewire.service
@@ -637,15 +629,17 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 %{_libdir}/spa-%{spaversion}/avb/
 %{_libdir}/spa-%{spaversion}/bluez5/
 %{_libdir}/spa-%{spaversion}/control/
+%{_libdir}/spa-%{spaversion}/filter-graph/libspa-filter-graph.so
+%{_libdir}/spa-%{spaversion}/filter-graph/libspa-filter-graph-plugin-builtin.so
+%{_libdir}/spa-%{spaversion}/filter-graph/libspa-filter-graph-plugin-ebur128.so
+%{_libdir}/spa-%{spaversion}/filter-graph/libspa-filter-graph-plugin-ladspa.so
 %{_libdir}/spa-%{spaversion}/support/
 %{_libdir}/spa-%{spaversion}/v4l2/
 %{_libdir}/spa-%{spaversion}/videoconvert/
+%{_libdir}/spa-%{spaversion}/libspa.so
 %{_datadir}/pipewire/client.conf
 %dir %{_datadir}/pipewire/client.conf.d/
 %{_datadir}/pipewire/client.conf.avail/20-upmix.conf
-%{_datadir}/pipewire/client-rt.conf
-%dir %{_datadir}/pipewire/client-rt.conf.d/
-%{_datadir}/pipewire/client-rt.conf.avail/20-upmix.conf
 %{_mandir}/man5/pipewire-client.conf.5.gz
 %{_mandir}/man7/pipewire-props.7.gz
 %{_mandir}/man7/libpipewire-module-access.7.gz
@@ -685,6 +679,10 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 %{_mandir}/man7/libpipewire-module-rtp-session.7.gz
 %{_mandir}/man7/libpipewire-module-rtp-sink.7.gz
 %{_mandir}/man7/libpipewire-module-rtp-source.7.gz
+%{_mandir}/man7/libpipewire-module-spa-device-factory.7.gz
+%{_mandir}/man7/libpipewire-module-spa-device.7.gz
+%{_mandir}/man7/libpipewire-module-spa-node-factory.7.gz
+%{_mandir}/man7/libpipewire-module-spa-node.7.gz
 %{_mandir}/man7/libpipewire-module-session-manager.7.gz
 %{_mandir}/man7/libpipewire-module-snapcast-discover.7.gz
 %{_mandir}/man7/libpipewire-module-vban-recv.7.gz
@@ -784,6 +782,7 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 %{_libdir}/pipewire-%{apiversion}/jack/libjacknet.so
 %{_libdir}/pipewire-%{apiversion}/jack/libjackserver.so
 %{_libdir}/pkgconfig/jack.pc
+%{_libdir}/pkgconfig/jackserver.pc
 %endif
 
 %if %{with jackserver_plugin}
@@ -874,12 +873,12 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 
 %if %{with libmysofa}
 %files module-filter-chain-sofa
-%{_libdir}/pipewire-%{apiversion}/libpipewire-module-filter-chain-sofa.so
+%{_libdir}/spa-%{spaversion}/filter-graph/libspa-filter-graph-plugin-sofa.so
 %endif
 
 %if %{with lv2}
 %files module-filter-chain-lv2
-%{_libdir}/pipewire-%{apiversion}/libpipewire-module-filter-chain-lv2.so
+%{_libdir}/spa-%{spaversion}/filter-graph/libspa-filter-graph-plugin-lv2.so
 %endif
 
 %files config-rates
@@ -888,19 +887,21 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 %files config-upmix
 %{_datadir}/pipewire/pipewire.conf.d/20-upmix.conf
 %{_datadir}/pipewire/client.conf.d/20-upmix.conf
-%{_datadir}/pipewire/client-rt.conf.d/20-upmix.conf
 %if %{with pulse}
 %{_datadir}/pipewire/pipewire-pulse.conf.d/20-upmix.conf
 %endif
 
 %changelog
-* Fri Mar 14 2025 Wim Taymans <wtaymans@redhat.com> - 1.2.7-7
-- Remove the Conflicts: with JACK. We can install both but the
-  pipewire libjack.so will be used when installed.
+* Mon Apr 14 2025 Wim Taymans <wtaymans@redhat.com> - 1.4.2-1
+- Update version to 1.4.2
 
-* Tue Mar 11 2025 Wim Taymans <wtaymans@redhat.com> - 1.2.7-6
-- Require jack-audio-connection-kit or otherwise it is not taken
-  into consideration while building.
+* Fri Mar 14 2025 Wim Taymans <wtaymans@redhat.com> - 1.4.1-1
+- Update version to 1.4.1
+- Remove the Conflicts: with JACK, we can install both but if the
+  pipewire version is installed, all goes to pipewire.
+
+* Fri Mar 07 2025 Wim Taymans <wtaymans@redhat.com> - 1.4.0-1
+- Update version to 1.4.0
 
 * Fri Mar 07 2025 Wim Taymans <wtaymans@redhat.com> - 1.2.7-5
 - Recommend jack-audio-connection-kit from jack-audio-connection-kit-libs

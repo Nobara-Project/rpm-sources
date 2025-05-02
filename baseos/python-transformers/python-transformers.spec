@@ -1,5 +1,5 @@
 Name: python-transformers
-Version: 4.49.0
+Version: 4.51.3
 Release: 1%{?dist}
 Summary: State-of-the-art Machine Learning for JAX, PyTorch and TensorFlow
 
