@@ -44,7 +44,7 @@ if [[ $USER != "liveuser" ]]; then
           if [[ "$filesystem" != "" ]]; then
 
               # Setup ownership and mount options for non-windows partitions
-              if [[ "$filesystem" == "btrfs" ]] || [[ "$filesystem" == "ext4" ]] || [[ "$filesystem" == "ext3" ]] || [[ "$filesystem" == "ext2" ]] || [[ "$filesystem" == "xfs" ]]; then
+              if [[ "$filesystem" == "btrfs" ]] || [[ "$filesystem" == "ext4" ]] || [[ "$filesystem" == "ext3" ]] || [[ "$filesystem" == "ext2" ]] || [[ "$filesystem" == "xfs" ]] || [[ "$filesystem" == "f2fs" ]]; then
                 ownershipcomm="sudo chown $rwuser:$rwuser /run/media/$rwuser/$partition_name"
               else
                 mountopts="-o umask=000"
