@@ -26,7 +26,7 @@
 
 Name:           obs-studio-freeworld
 Version:        31.0.3
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        Open Broadcaster Software Studio -- Freeworld plugins
 
 # OBS itself is GPL-2.0-or-later, while various plugin dependencies are of various other licenses
@@ -41,6 +41,12 @@ Source0:        https://github.com/obsproject/obs-studio/archive/%{version_no_ti
 Source1:        https://github.com/obsproject/obs-websocket/archive/%{obswebsocket_version}/obs-websocket-%{obswebsocket_version}.tar.gz
 
 # Backports from upstream
+# Fix for Virtual Camera
+## From: https://github.com/obsproject/obs-studio/pull/11906
+Patch099:        11906.patch
+
+## Fix missing include
+Patch0100:       add_missing_include.patch
 
 # Proposed upstream
 ## From: https://github.com/obsproject/obs-studio/pull/8529
@@ -54,8 +60,7 @@ Patch1001:      obs-studio-UI-use-fdk-aac-by-default.patch
 ## Fix error: passing argument 4 of ‘query_dmabuf_modifiers’ from
 ##            incompatible pointer type [-Wincompatible-pointer-types]
 Patch1003:      obs-studio-fix-incompatible-pointer-type.patch
-## Fix gcc-15 compile issue
-Patch1004:      add_missing_include.patch
+
 
 BuildRequires:  gcc
 BuildRequires:  cmake >= 3.22

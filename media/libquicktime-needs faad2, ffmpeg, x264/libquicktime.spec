@@ -7,7 +7,7 @@
 Summary:    Library for reading and writing Quicktime files
 Name:       libquicktime
 Version:    1.2.4
-Release:    60%{?rel_string}%{?dist}
+Release:    61%{?rel_string}%{?dist}
 License:    LGPLv2+
 URL:        http://libquicktime.sourceforge.net/
 Source0:    https://sourceforge.net/code-snapshots/git/l/li/libquicktime/git.git/libquicktime-git-%{githash}.zip
@@ -20,7 +20,6 @@ BuildRequires:  libjpeg-devel
 BuildRequires:  libGLU-devel
 BuildRequires:  libvorbis-devel
 BuildRequires:  ffmpeg-devel
-BuildRequires:  schroedinger-devel
 BuildRequires:  lame-devel
 BuildRequires:  alsa-lib-devel
 BuildRequires:  libXt-devel
@@ -32,7 +31,6 @@ BuildRequires:  faad2-devel
 BuildRequires:  libavc1394-devel
 BuildRequires:  libraw1394-devel >= 0.9.0-12
 BuildRequires:  gtk2-devel >= 2.4.0
-BuildRequires:  schroedinger-devel
 BuildRequires:  gettext-devel
 %{?_with_faac:BuildRequires: faac-devel}
 
@@ -137,6 +135,9 @@ find $RPM_BUILD_ROOT%{_libdir} -type f -a -name \*.la -exec rm {} \;
 # --------------------------------------------------------------------
 
 %changelog
+* Tue Jan 28 2025 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 1.2.4-61.124.20210720git2729591
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_42_Mass_Rebuild
+
 * Fri Aug 02 2024 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 1.2.4-60.124.20210720git2729591
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_41_Mass_Rebuild
 

@@ -1,17 +1,17 @@
-%global commit f1b83c10d8beb43fcc70a6e88cf4325499f25857
+%global commit 6f6bb1353fc84f4cc37138baa99f586750028a01
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
-%global gitdate 20210219
+%global gitdate 20240301
 
 Name:           rtmpdump
-Version:        2.4
-Release:        26.%{gitdate}.git%{shortcommit}%{?dist}
+Version:        2.6
+Release:        1.%{gitdate}.git%{shortcommit}%{?dist}
 Summary:        Toolkit for RTMP streams
 
 # The tools are GPLv2+. The library is LGPLv2+, see below.
 License:        GPLv2+
 URL:            https://rtmpdump.mplayerhq.hu/
-Source0:        https://git.ffmpeg.org/gitweb/rtmpdump.git/snapshot/%{commit}.tar.gz#/rtmpdump-%{shortcommit}.tar.gz
-Patch0:         gcc14_buildfix.patch
+Source0:        https://github.com/mirror/rtmpdump/archive/%{commit}/rtmpdump-%{shortcommit}.tar.gz
+
 
 BuildRequires:  gcc
 BuildRequires:  gnutls-devel
@@ -44,7 +44,7 @@ librtmp is a support library for RTMP streams. The librtmp-devel package
 contains include files needed to develop applications using librtmp.
 
 %prep
-%autosetup -p1 -n %{name}-%{shortcommit}
+%autosetup -p1 -n %{name}-%{commit}
 
 %build
 # The fact that we have to add -ldl for gnutls is Fedora bug #611318
@@ -78,6 +78,9 @@ rm -f %{buildroot}%{_libdir}/librtmp.a
 %{_mandir}/man3/librtmp.3*
 
 %changelog
+* Thu Feb 06 2025 Sérgio Basto <sergio@serjux.com> - 2.6-1.20240301.git6f6bb13
+- Version 2.6 from git
+
 * Tue Jan 28 2025 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 2.4-26.20210219.gitf1b83c1
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_42_Mass_Rebuild
 

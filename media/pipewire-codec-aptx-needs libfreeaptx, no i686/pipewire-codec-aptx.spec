@@ -2,7 +2,7 @@
 
 Name:           pipewire-codec-aptx
 Summary:        PipeWire Bluetooth aptX codec plugin
-Version:        1.2.6
+Version:        1.4.2
 Release:        1%{?dist}
 License:        MIT
 URL:            https://pipewire.org/
@@ -10,11 +10,11 @@ Source0:        https://gitlab.freedesktop.org/pipewire/pipewire/-/archive/%{ver
 
 BuildRequires:  meson >= 0.59.0
 BuildRequires:  gcc-c++
-BuildRequires:  pkgconfig(glib-2.0)
-BuildRequires:  pkgconfig(dbus-1)
 BuildRequires:  pkgconfig(bluez)
-BuildRequires:  sbc-devel
-BuildRequires:  libfreeaptx-devel
+BuildRequires:  pkgconfig(dbus-1)
+BuildRequires:  pkgconfig(glib-2.0)
+BuildRequires:  pkgconfig(libfreeaptx)
+BuildRequires:  pkgconfig(sbc)
 
 Requires:       pipewire >= %{version}
 
@@ -40,6 +40,18 @@ install -pm 0755 %{_vpath_builddir}/spa/plugins/bluez5/libspa-codec-bluez5-aptx.
 %{_libdir}/spa-%{spaversion}/bluez5/libspa-codec-bluez5-aptx.so
 
 %changelog
+* Mon Apr 14 2025 Leigh Scott <leigh123linux@gmail.com> - 1.4.2-1
+- Update to 1.4.2
+
+* Fri Mar 14 2025 Leigh Scott <leigh123linux@gmail.com> - 1.4.1-1
+- Update to 1.4.1
+
+* Sun Mar 09 2025 Leigh Scott <leigh123linux@gmail.com> - 1.4.0-1
+- Update to 1.4.0
+
+* Tue Jan 28 2025 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 1.2.6-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_42_Mass_Rebuild
+
 * Fri Oct 25 2024 Leigh Scott <leigh123linux@gmail.com> - 1.2.6-1
 - Update to 1.2.6
 

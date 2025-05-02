@@ -4,11 +4,12 @@
 
 Name:           mjpegtools
 Version:        2.2.1
-Release:        9%{?dist}
+Release:        8%{?dist}
 Summary:        Tools to manipulate MPEG data
 License:        GPLv2
 URL:            https://mjpeg.sourceforge.io/
 Source0:        https://downloads.sourceforge.net/mjpeg/%{name}/%{version}/%{name}-%{version}.tar.gz
+Patch1:         7b1989861157b1af5b98a797bd7a9080609a31f2.patch
 
 BuildRequires:  automake
 BuildRequires:  gcc-c++
@@ -26,7 +27,7 @@ Requires:       %{name}-lav%{?_isa} = %{version}-%{release}
 # mencoder for lav2avi.sh
 Requires:       mencoder%{?_isa}
 # ffmpeg main package, y4mscaler and which for anytovcd.sh
-Requires:       ffmpeg-free%{?_isa}
+Requires:       ffmpeg%{?_isa}
 Provides:       y4mscaler = 9.0-14
 # Could be dropped on Fedora 22
 Obsoletes:      y4mscaler < 9.0-14
@@ -171,6 +172,7 @@ rm %buildroot%{_bindir}/mpegtranscode
 %changelog
 * Tue Jan 28 2025 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 2.2.1-8
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_42_Mass_Rebuild
+- Add GCC-15 patch from upstream
 
 * Tue Oct 08 2024 Nicolas Chauvet <kwizart@gmail.com> - 2.2.1-7
 - Rebuilt

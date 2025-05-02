@@ -7,8 +7,8 @@
 %global __provides_exclude_from ^%{_libdir}/mozilla/plugins/
 
 Name:           openh264
-Version:        2.5.1
-Release:        1%{?dist}
+Version:        2.4.1
+Release:        2%{?dist}
 Summary:        H.264 codec library
 
 License:        BSD-2-Clause
@@ -26,7 +26,6 @@ Obsoletes:      noopenh264 < 1:0
 %description
 OpenH264 is a codec library which supports H.264 encoding and decoding. It is
 suitable for use in real time applications such as WebRTC.
-
 
 
 %package        devel
@@ -133,16 +132,6 @@ rm $RPM_BUILD_ROOT%{_libdir}/*.a
 
 
 %changelog
-* Wed Mar 12 2025 Wim Taymans <wtaymans@redhat.com> - 2.5.1-1
-- Update to 2.5.1
-
-* Wed Feb 26 2025 Wim Taymans <wtaymans@redhat.com> - 2.6.0-1
-- Update to 2.6.0
-- Add patch to revert the Makefile major version increase.
-
-* Sat Nov 09 2024 Kalev Lember <klember@redhat.com> - 2.5.0-1
-- Update to 2.5.0
-
 * Fri Feb 09 2024 Kalev Lember <klember@redhat.com> - 2.4.1-2
 - Drop the gstreamer plugin as it's part of Fedora proper now
 

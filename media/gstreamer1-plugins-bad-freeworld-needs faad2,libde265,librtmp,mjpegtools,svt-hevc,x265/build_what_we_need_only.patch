@@ -1,7 +1,7 @@
-diff -uNrp a/ext/meson.build b/ext/meson.build
---- a/ext/meson.build	2024-03-05 00:51:42.000000000 +0100
-+++ b/ext/meson.build	2024-04-09 12:33:30.676577192 +0200
-@@ -1,79 +1,7 @@
+diff -up gst-plugins-bad-1.26.0/ext/meson.build.orig gst-plugins-bad-1.26.0/ext/meson.build
+--- gst-plugins-bad-1.26.0/ext/meson.build.orig	2025-03-11 21:14:44.000000000 +0100
++++ gst-plugins-bad-1.26.0/ext/meson.build	2025-03-18 14:19:53.976162678 +0100
+@@ -1,84 +1,7 @@
 -subdir('aes')
 -subdir('analyticsoverlay')
 -subdir('assrender')
@@ -33,6 +33,8 @@ diff -uNrp a/ext/meson.build b/ext/meson.build
 -subdir('isac')
 -subdir('ladspa')
 -subdir('lc3')
+-subdir('lcevcdecoder')
+-subdir('lcevcencoder')
 -subdir('ldac')
  subdir('libde265')
 -subdir('lv2')
@@ -42,6 +44,8 @@ diff -uNrp a/ext/meson.build b/ext/meson.build
  subdir('mplex')
 -subdir('musepack')
 -subdir('neon')
+-subdir('nvcomp')
+-subdir('nvdswrapper')
 -subdir('onnx')
 -subdir('openal')
 -subdir('openaptx')
@@ -67,6 +71,7 @@ diff -uNrp a/ext/meson.build b/ext/meson.build
 -subdir('srtp')
 -subdir('svtav1')
  subdir('svthevcenc')
+-subdir('svtjpegxs')
 -subdir('teletextdec')
 -subdir('ttml')
 -subdir('voaacenc')
@@ -81,10 +86,10 @@ diff -uNrp a/ext/meson.build b/ext/meson.build
  subdir('x265')
 -subdir('zxing')
 -subdir('zbar')
-diff -uNrp a/gst/meson.build b/gst/meson.build
---- a/gst/meson.build	2024-03-05 00:51:42.000000000 +0100
-+++ b/gst/meson.build	2024-04-09 12:37:08.086453510 +0200
-@@ -1,19 +1,4 @@
+diff -up gst-plugins-bad-1.26.0/gst/meson.build.orig gst-plugins-bad-1.26.0/gst/meson.build
+--- gst-plugins-bad-1.26.0/gst/meson.build.orig	2025-03-11 21:14:44.000000000 +0100
++++ gst-plugins-bad-1.26.0/gst/meson.build	2025-03-18 14:20:39.974723229 +0100
+@@ -1,18 +1,3 @@
 -foreach plugin : ['accurip', 'adpcmdec', 'adpcmenc', 'aiff', 'asfmux',
 -                  'audiobuffersplit', 'audiofxbad', 'audiomixmatrix',
 -                  'audiolatency', 'audiovisualizers', 'autoconvert', 'bayer',
@@ -98,17 +103,16 @@ diff -uNrp a/gst/meson.build b/gst/meson.build
 -                  'mse', 'mxf', 'netsim', 'onvif', 'pcapparse', 'pnm', 'proxy',
 -                  'rawparse', 'removesilence', 'rist', 'rtmp2', 'rtp', 'sdp',
 -                  'segmentclip', 'siren', 'smooth', 'speed', 'subenc', 'switchbin',
--                  'timecode', 'transcode', 'unixfd', 'videofilters',
+-                  'tensordecoders', 'timecode', 'transcode', 'unixfd', 'videofilters',
 -                  'videoframe_audiolevel', 'videoparsers', 'videosignal',
 -                  'vmnc', 'y4m']
 +foreach plugin : ['dvdspu']
-   if not get_option(plugin).disabled()
-     subdir(plugin)
-   endif
-diff -uNrp a/meson.build b/meson.build
---- a/meson.build	2023-01-23 19:29:34.000000000 +0000
-+++ b/meson.build	2023-02-19 12:17:51.743137626 +0000
-@@ -309,6 +309,8 @@ gstapp_dep = dependency('gstreamer-app-1
+   subdir(plugin)
+ endforeach
+diff -up gst-plugins-bad-1.26.0/meson.build.orig gst-plugins-bad-1.26.0/meson.build
+--- gst-plugins-bad-1.26.0/meson.build.orig	2025-03-11 21:14:44.000000000 +0100
++++ gst-plugins-bad-1.26.0/meson.build	2025-03-18 14:17:43.512445249 +0100
+@@ -315,6 +315,8 @@ gstapp_dep = dependency('gstreamer-app-1
      fallback : ['gst-plugins-base', 'app_dep'])
  gstaudio_dep = dependency('gstreamer-audio-1.0', version : gst_req,
      fallback : ['gst-plugins-base', 'audio_dep'])
@@ -117,9 +121,9 @@ diff -uNrp a/meson.build b/meson.build
  gstfft_dep = dependency('gstreamer-fft-1.0', version : gst_req,
      fallback : ['gst-plugins-base', 'fft_dep'])
  gstriff_dep = dependency('gstreamer-riff-1.0', version : gst_req,
-@@ -540,13 +542,9 @@ pkgconfig.generate(
- 
- gpl_allowed = get_option('gpl').allowed()
+@@ -583,13 +585,9 @@ else
+   pathsep = ':'
+ endif
  
 -subdir('gst-libs')
  subdir('gst')

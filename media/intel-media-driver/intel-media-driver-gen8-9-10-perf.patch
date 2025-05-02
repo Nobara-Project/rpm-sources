@@ -1,0 +1,81 @@
+From a3abfe783f6404de18728394caed30dc8de44147 Mon Sep 17 00:00:00 2001
+From: Jay Yang <jay.yang@intel.com>
+Date: Mon, 9 Jan 2023 14:45:39 +0800
+Subject: [PATCH] [Media Common] SW swizzling regression fix for Gen8/9/10
+
+Signed-off-by: Jay Yang <jay.yang@intel.com>
+
+Add sw swizzling sku for Gen8/9/10, without which there will be perf
+drop because mos_gem_bo_map_unsynchronized is called.
+---
+ media_driver/linux/gen10/ddi/media_sku_wa_g10.cpp | 2 ++
+ media_driver/linux/gen8/ddi/media_sku_wa_g8.cpp   | 2 ++
+ media_driver/linux/gen9/ddi/media_sku_wa_g9.cpp   | 8 ++++++++
+ 3 files changed, 12 insertions(+)
+
+diff --git a/media_driver/linux/gen10/ddi/media_sku_wa_g10.cpp b/media_driver/linux/gen10/ddi/media_sku_wa_g10.cpp
+index 9ada819e4..6698bd4f4 100644
+--- a/media_driver/linux/gen10/ddi/media_sku_wa_g10.cpp
++++ b/media_driver/linux/gen10/ddi/media_sku_wa_g10.cpp
+@@ -152,6 +152,8 @@ static bool InitCnlMediaSku(struct GfxDeviceInfo *devInfo,
+ 
+     MEDIA_WR_SKU(skuTable, FtrTileY, 1);
+ 
++    MEDIA_WR_SKU(skuTable, FtrUseSwSwizzling, 1);
++
+     return true;
+ }
+ 
+diff --git a/media_driver/linux/gen8/ddi/media_sku_wa_g8.cpp b/media_driver/linux/gen8/ddi/media_sku_wa_g8.cpp
+index 2a216dcbf..ae4da5165 100644
+--- a/media_driver/linux/gen8/ddi/media_sku_wa_g8.cpp
++++ b/media_driver/linux/gen8/ddi/media_sku_wa_g8.cpp
+@@ -105,6 +105,8 @@ static bool InitBdwMediaSku(struct GfxDeviceInfo *devInfo,
+     MEDIA_WR_SKU(skuTable, FtrSliceShutdownOverride, 1);
+     MEDIA_WR_SKU(skuTable, FtrTileY, 1);
+ 
++    MEDIA_WR_SKU(skuTable, FtrUseSwSwizzling, 1);
++
+     return true;
+ }
+ 
+diff --git a/media_driver/linux/gen9/ddi/media_sku_wa_g9.cpp b/media_driver/linux/gen9/ddi/media_sku_wa_g9.cpp
+index 16ce3a4fb..e009550bb 100755
+--- a/media_driver/linux/gen9/ddi/media_sku_wa_g9.cpp
++++ b/media_driver/linux/gen9/ddi/media_sku_wa_g9.cpp
+@@ -206,6 +206,8 @@ static bool InitSklMediaSku(struct GfxDeviceInfo *devInfo,
+ 
+     MEDIA_WR_SKU(skuTable, FtrTileY, 1);
+ 
++    MEDIA_WR_SKU(skuTable, FtrUseSwSwizzling, 1);
++
+     return true;
+ }
+ 
+@@ -301,6 +303,8 @@ static bool InitBxtMediaSku(struct GfxDeviceInfo *devInfo,
+ 
+     MEDIA_WR_SKU(skuTable, FtrVpP010Output, 1);
+ 
++    MEDIA_WR_SKU(skuTable, FtrUseSwSwizzling, 1);
++
+     return true;
+ }
+ 
+@@ -433,6 +437,8 @@ static bool InitKblMediaSku(struct GfxDeviceInfo *devInfo,
+ 
+     MEDIA_WR_SKU(skuTable, FtrPerCtxtPreemptionGranularityControl, 1);
+ 
++    MEDIA_WR_SKU(skuTable, FtrUseSwSwizzling, 1);
++
+     return true;
+ }
+ 
+@@ -540,6 +546,8 @@ static bool InitGlkMediaSku(struct GfxDeviceInfo *devInfo,
+ 
+     MEDIA_WR_SKU(skuTable, FtrHDR, 1);
+ 
++    MEDIA_WR_SKU(skuTable, FtrUseSwSwizzling, 1);
++
+     return true;
+ }
+ 

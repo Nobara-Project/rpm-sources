@@ -3,7 +3,7 @@
 %global         codecdir %{_libdir}/codecs
 %global         pre 20250127svn
 %global         svn 1
-%global         svnbuild 2025-01-27
+%global         svnbuild 2025-05-01
 
 Name:           mplayer
 Version:        1.5.1

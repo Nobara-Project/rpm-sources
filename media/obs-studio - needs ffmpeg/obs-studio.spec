@@ -28,7 +28,7 @@
 
 
 %global obswebsocket_version 5.5.5
-%global obsbrowser_commit b56fd78936761891475458447c1cc9058bb9c2d4
+%global obsbrowser_commit 4023fad79e2e9ff277b706432fe33eddbdab6d6a
 %global version_cef 6533
 %global version_aja v16.2-bugfix5
 
@@ -42,7 +42,7 @@
 
 Name:           obs-studio
 Version:        %{version_string}
-Release:        5.%{rel_build}
+Release:        6.%{rel_build}
 Summary:        Open Broadcaster Software Studio
 
 # OBS itself is GPL-2.0-or-later, while various plugin dependencies are of various other licenses
@@ -58,7 +58,10 @@ Source4:        https://github.com/aja-video/ntv2/archive/refs/tags/%{version_aj
 # Backports from upstream
 # Fix for Virtual Camera
 ## From: https://github.com/obsproject/obs-studio/pull/11906
-Patch0100:        11906.patch
+Patch099:        11906.patch
+
+## Fix missing include
+Patch0100:       add_missing_include.patch
 
 # Proposed upstream
 ## From: https://github.com/obsproject/obs-studio/pull/8529

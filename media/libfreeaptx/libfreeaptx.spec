@@ -1,7 +1,7 @@
 %global sonamebase 0
 
 Name:           libfreeaptx
-Version:        %{sonamebase}.1.1
+Version:        %{sonamebase}.2.2
 Release:        7%{?dist}
 Summary:        Open Source implementation of Audio Processing Technology codec (aptX)
 
