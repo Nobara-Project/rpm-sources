@@ -37,7 +37,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.14
-%define _stablekver 4
+%define _stablekver 5
 %if %{_stablekver} == 0
 %define _tarkver %{_basekver}
 %else
@@ -51,7 +51,7 @@ Version: %{_basekver}.%{_stablekver}
 Release:%{customver}.nobara%{?dist}
 
 # Define rawhide fedora version
-%define _rawhidever 42
+%define _rawhidever 43
 
 %define rpmver %{version}-%{release}
 %define rpmverobsolete 6.12.9-200.fsync%{?dist}
