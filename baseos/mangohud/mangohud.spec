@@ -1,6 +1,6 @@
 %global appname MangoHud
 %global forgeurl https://github.com/flightlessmango/MangoHud
-%global commit dc309505247e0cc18218c15e32f034131f96fe12
+%global commit 24d88a7487ddd2f49b3bb1b74f7f5716037264a8
 %forgemeta
 %global imgui_ver 1.89.9
 %global imgui_wrap_ver 2
@@ -13,7 +13,7 @@
 
 Name:           mangohud
 Version:        0.8.1
-Release:        %autorelease -b2
+Release:        %autorelease -b4
 Summary:        Vulkan and OpenGL overlay for monitoring FPS, temperatures, CPU/GPU load
 
 License:        MIT
@@ -29,7 +29,6 @@ Source4:        https://wrapdb.mesonbuild.com/v%{vulkan_headers_wrap_ver}/projec
 Source5:        https://github.com/epezent/implot/archive/v%{implot_ver}/implot-%{implot_ver}.tar.gz
 Source6:        https://wrapdb.mesonbuild.com/v%{implot_wrap_ver}/implot_%{implot_ver}-1/get_patch#/implot-%{implot_ver}-%{implot_wrap_ver}-wrap.zip
 Source20:       README.Fedora.md
-Patch0:         0001-convert_to_explicit.patch
 
 BuildRequires:  vulkan-headers
 BuildRequires:  appstream
@@ -140,7 +139,7 @@ install -D -p -m 0644 %{SOURCE20} %{buildroot}%{_docdir}/%{name}/README.Fedora.m
 %{_bindir}/%{name}*
 %{_bindir}/mangoapp
 %{_datadir}/icons/hicolor/scalable/*/*.svg
-%{_datadir}/vulkan/explicit_layer.d/*Mango*.json
+%{_datadir}/vulkan/implicit_layer.d/*Mango*.json
 %{_docdir}/%{name}/%{appname}.conf.example
 %{_libdir}/%{name}/
 %{_mandir}/man1/%{name}.1*
@@ -152,6 +151,9 @@ install -D -p -m 0644 %{SOURCE20} %{buildroot}%{_docdir}/%{name}/README.Fedora.m
 
 
 %changelog
+* Mon May 5 2025 LionHeartP <LionHeartP@proton.me> - 0.8.1-4
+- build: Update to latest commit
+
 * Sun Apr 27 2025 LionHeartP <LionHeartP@proton.me> - 0.8.1-2
 - build: Update to latest commit
 
