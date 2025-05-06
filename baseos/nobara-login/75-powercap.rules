@@ -1,0 +1,2 @@
+ENV{SUBSYSTEM}=="powercap", ACTION=="add|change", MODE="0444", OWNER="root", GROUP="wheel"
+ENV{SUBSYSTEM}=="powercap", ACTION=="add|change", OWNER="root", PROGRAM+="/usr/bin/find /sys$env{DEVPATH} -name energy_uj -exec chmod 444 {} + -exec chown root:wheel {} +"

@@ -1,7 +1,7 @@
 Summary: A set of scripts to run upon first user login
 Name: nobara-login
 Version: 1.2
-Release: 1%{?dist}
+Release: 2%{?dist}
 License: Public Domain
 Group: System Environment/Base
 Source0: hwcheck.sh
@@ -25,6 +25,7 @@ Source22: 70-wooting.rules
 Source24: 70-drunkdeer.rules
 Source25: nobara-resolve-pkexec
 Source26: org.nobaraproject.resolvewizard.policy
+Source27: 75-powercap.rules
 
 BuildArch: noarch
 BuildRequires: filesystem
@@ -89,6 +90,7 @@ install -m 0644 %{SOURCE22} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/70-wootin
 install -m 0644 %{SOURCE24} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/70-drunkdeer.rules
 install -m 0755 %{SOURCE25} $RPM_BUILD_ROOT%{_libexecdir}/nobara-resolve-pkexec
 install -m 0755 %{SOURCE26} $RPM_BUILD_ROOT%{_datadir}/polkit-1/actions/org.nobaraproject.resolvewizard.policy
+install -m 0644 %{SOURCE27} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/75-powercap.rules
 
 echo '# list of enabled automount partitions' > enabled.conf
 install -m 0755 enabled.conf $RPM_BUILD_ROOT%{_sysconfdir}/nobara/automount/enabled.conf
@@ -115,6 +117,7 @@ sysctl -p
 %{_datadir}/polkit-1/actions/org.nobaraproject.automount.policy
 %{_datadir}/polkit-1/actions/org.nobaraproject.resolvewizard.policy
 %{_datadir}/pipewire/pipewire-pulse.conf.d/wine_gaming.conf
+%{_sysconfdir}/udev/rules.d/75-powercap.rules
 
 %files sysctl
 %{_prefix}/lib/sysctl.d/20-starcitizen-max_map_count.conf
@@ -122,5 +125,8 @@ sysctl -p
 %{_prefix}/lib/sysctl.d/20-uplay-mtu-probing.conf
 
 %changelog
+* Mon May 5 2025 LionHeartP <LionHeartP@proton.me> - 1.2-2
+- Add udev rule for MangoHud power reading
+
 * Thu Nov 25 2021 Thomas Crider <gloriouseggroll@gmail.com> - 1.0.0
 - New version v1.0.0
