@@ -1,6 +1,6 @@
 Name:           libheif-freeworld
 Version:        1.19.8
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        HEVC support for HEIF and AVIF file format decoder and encoder
 
 License:        LGPL-3.0-or-later and MIT
