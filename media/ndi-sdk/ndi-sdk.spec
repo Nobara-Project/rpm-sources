@@ -2,13 +2,13 @@
 %global __strip /bin/true
 
 Name:           ndi-sdk
-Version:        5.6.0
+Version:        6.1.1
 Release:        3%{?dist}
-Summary:        NewTek NDI SDK
+Summary:        NDI SDK
 
 License:        Proprietary
-URL:            https://ndi.tv/sdk
-Source0:        https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v5_Linux.tar.gz
+URL:            https://ndi.video/sdk
+Source0:        https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v6_Linux.tar.gz
 Source1:        ndi.pc.in
 
 ExclusiveArch: i686 x86_64 armv7hl aarch64
@@ -48,8 +48,8 @@ The %{name}-documentation documentations for %{name}.
 %autosetup -c
 
 # Uncompress installer
-ARCHIVE=$(awk '/^__NDI_ARCHIVE_BEGIN__/ { print NR+1; exit 0; }' Install_NDI_SDK_v5_Linux.sh)
-tail -n+$ARCHIVE Install_NDI_SDK_v5_Linux.sh | tar -xz
+ARCHIVE=$(awk '/^__NDI_ARCHIVE_BEGIN__/ { print NR+1; exit 0; }' Install_NDI_SDK_v6_Linux.sh)
+tail -n+$ARCHIVE Install_NDI_SDK_v6_Linux.sh | tar -xz
 mv 'NDI SDK for Linux'/* .
 
 
