@@ -1,6 +1,6 @@
 Name:           calamares
 Version:        3.3.14
-Release:        82%{?dist}
+Release:        90%{?dist}
 Summary:        Installer from a live CD/DVD/USB to disk
 
 License:        GPL-3.0-or-later
@@ -27,8 +27,8 @@ Source1005:       fsresizer.tar.gz
 Source1006:       services-systemd.tar.gz
 Source1007:       hwclock.tar.gz
 Source1008:       displaymanager.tar.gz
-Source1009:       fedora-gdm-logo-calamares.png
-Source1010:       fedora-logo.png
+Source1009:       nobara-gdm-logo-calamares.png
+Source1010:       nobara-logo.png
 
 Patch1006:       0005-rebase-over-kaos-calamares.patch
 Patch1007:       calamares-3.3.3-kdesu.patch
@@ -289,10 +289,10 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/calamares.desktop
 # generate the "auto" branding
 . %{_sysconfdir}/os-release
 
-LOGO="%{_datadir}/calamares/branding/nobara_branding/fedora-logo.png"
-SPRITE="%{_datadir}/calamares/branding/nobara_branding/fedora-gdm-logo-calamares.png"
-if [ -e %{_datadir}/icons/hicolor/48x48/apps/fedora-logo-icon.png ] ; then
-  ICON="%{_datadir}/icons/hicolor/48x48/apps/fedora-logo-icon.png"
+LOGO="%{_datadir}/calamares/branding/nobara_branding/nobara-logo.png"
+SPRITE="%{_datadir}/calamares/branding/nobara_branding/nobara-gdm-logo-calamares.png"
+if [ -e %{_datadir}/icons/hicolor/48x48/apps/nobara-logo-icon.png ] ; then
+  ICON="%{_datadir}/icons/hicolor/48x48/apps/nobara-logo-icon.png"
 else
   ICON="$SPRITE"
 fi
@@ -378,6 +378,8 @@ EOF
 %{_datadir}/icons/hicolor/scalable/apps/calamares-nobara.svg
 %{_mandir}/man8/calamares.8*
 %{_sysconfdir}/calamares/
+%{_datadir}/polkit-1/actions/com.github.calamares.calamares.policy
+
 
 %files libs
 %{_libdir}/libcalamares.so.*

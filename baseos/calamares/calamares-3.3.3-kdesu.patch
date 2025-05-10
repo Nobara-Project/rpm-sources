@@ -17,15 +17,6 @@ diff --git a/CMakeLists.txt b/CMakeLists.txt
 index 26bf724..6b34a52 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -78,7 +78,7 @@ set(CALAMARES_SOVERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")
- 
- ### OPTIONS
- #
--option(INSTALL_POLKIT "Install Polkit configuration" ON)
-+option(INSTALL_POLKIT "Install Polkit configuration" OFF)
- option(INSTALL_COMPLETION "Install shell completions" OFF)
- option(INSTALL_CONFIG "Install configuration files" OFF)
- # When adding WITH_* that affects the ABI offered by libcalamares,
 diff --git a/calamares.desktop b/calamares.desktop
 index 9a1416e16..46e234e88 100644
 --- a/calamares.desktop
@@ -35,7 +26,7 @@ index 9a1416e16..46e234e88 100644
  Keywords=calamares;system;installer;
  TryExec=calamares
 -Exec=sh -c "pkexec calamares"
-+Exec=kdesu /usr/bin/calamares
++Exec=kdesu calamares
  Comment=Calamares — System Installer
  Icon=calamares
  Terminal=false
@@ -48,7 +39,7 @@ index ed1d4def8..24f18c141 100644
  Keywords=calamares;system;installer;
  TryExec=calamares
 -Exec=sh -c "pkexec calamares"
-+Exec=kdesu /usr/bin/calamares
++Exec=kdesu calamares
  Comment=Calamares — System Installer
  Icon=calamares
  Terminal=false
