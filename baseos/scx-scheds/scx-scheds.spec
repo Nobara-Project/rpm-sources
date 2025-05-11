@@ -1,5 +1,5 @@
 Name:           scx-scheds
-Version:        1.0.11
+Version:        1.0.12
 Release:        1%{?dist}
 Summary:        Sched_ext Schedulers and Tools
 
@@ -26,6 +26,8 @@ BuildRequires:  jq
 BuildRequires:  jq-devel
 BuildRequires:  systemd
 BuildRequires:  bpftool
+BuildRequires:  protobuf-compiler
+BuildRequires:  libseccomp-devel
 Requires:  elfutils-libelf
 Requires:  zlib
 Requires:  jq
@@ -62,3 +64,8 @@ The %{name}-devel package contains libraries header files for developing applica
 
 %files devel
 %{_includedir}/scx/
+
+%changelog
+* Sun May 11 2025 LionHeartP <LionHeartP@proton.me> - 1.0.12-1
+- Update to 1.0.12
+- Add new runtime dependencies
