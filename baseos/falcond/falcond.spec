@@ -2,7 +2,7 @@
 %global debug_package %{nil}
 
 Name:           falcond
-Version:        1.1.4
+Version:        1.1.5
 Release:        %autorelease
 Summary:        Advanced Linux Gaming Performance Daemon
 
