@@ -75,7 +75,7 @@ Name:           mesa
 Summary:        Mesa graphics libraries
 %global ver 25.1.0
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
-Release:        %autorelease
+Release:        %autorelease -b4
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
 URL:            http://www.mesa3d.org
 
@@ -92,6 +92,20 @@ Patch10:        gnome-shell-glthread-disable.patch
 # https://bugzilla.redhat.com/show_bug.cgi?id=2360851
 # https://gitlab.freedesktop.org/mesa/mesa/-/issues/13009
 Patch30:        0001-Revert-kopper-Explicitly-choose-zink.patch
+
+# https://gitlab.com/evlaV/mesa/
+Patch31:         valve.patch
+
+# https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/34918
+Patch32:        34918.patch
+
+# DOOM: Dark Ages
+# https://github.com/ValveSoftware/Proton/issues/8690#issuecomment-2875004046
+Patch33:        8119f91113b775afe34cdf980550425639bab7cd.patch
+Patch34:        17676b7686aa3f99a4132656376c62e6f5360c4b.patch
+
+# Path of Exile
+Patch35:        min_image_count.patch
 
 BuildRequires:  meson >= 1.3.0
 BuildRequires:  gcc
