@@ -1,5 +1,5 @@
-%{!?_daemon_version:%global _daemon_version 6.1.0-17}
-%{!?_version:%global _version 1.14.9}
+%{!?_daemon_version:%global _daemon_version 6.1.1-17}
+%{!?_version:%global _version 1.14.10}
 %{!?_release:%global _release 1}
 
 # Disable RPATH since DisplayLinkManager contains this.
@@ -9,13 +9,8 @@
 
 %global debug_package %{nil}
 
-# asahi-linux is kernel-16k
-%global _kernel_pagesize %(getconf PAGE_SIZE | awk '{print $1/1024}')
-
 %if 0%{?rhel} && 0%{?rhel} <= 7
 %global kernel_pkg_name kernel-ml
-%elif 0%{?_kernel_pagesize} > 4
-%global kernel_pkg_name kernel-%{_kernel_pagesize}k
 %else
 %global kernel_pkg_name kernel
 %endif
@@ -58,7 +53,8 @@ Requires: epel-release
 %endif
 
 Requires:   dkms
-Requires:   %{kernel_pkg_name} >= 4.15, %{kernel_pkg_name}-devel >= 4.15
+# Asahi Fedora requires kernel-16k, kernel-16k-devel.
+Requires:   ((%{kernel_pkg_name} >= 4.15 and %{kernel_pkg_name}-devel >= 4.15) or (kernel-16k >= 6.4 and kernel-16k-devel >= 6.4))
 Requires:   make
 Requires:   libusbx
 Requires:   xorg-x11-server-Xorg >= 1.16
@@ -249,6 +245,21 @@ fi
 %systemd_postun_with_restart displaylink-driver.service
 
 %changelog
+* Tue May 13 2025 Crashdummy <crashdummy1337@proton.me> 1.14.10-1
+- Bump evdi to 1.14.10 with preliminary support for kernel 6.15
+- Build Fedora42 package as well
+
+* Sat Apr 26 2025 Michael L. Young <elgueromexicano@gmail.com> 1.14.9-2
+- Update to new DisplayLink 6.1.1 package
+- Remove old patch since DisplayLink package includes the latest
+  evdi 1.14.9 package
+- Add patch when using the release on Github. Official release has
+  newer updates to evdi which adds support for kernel 6.15. These updates
+  have not made their way back into the repo as of this release.
+
+* Wed Mar 26 2025 Crashdummy <crashdummy1337@proton.me> 1.14.9-1
+- Bump evdi to 1.14.9 to support kernel 6.14
+
 * Wed Mar 26 2025 Crashdummy <crashdummy1337@proton.me> 1.14.9-1
 - Bump evdi to 1.14.9 to support kernel 6.14
 
