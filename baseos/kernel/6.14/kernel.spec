@@ -37,7 +37,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.14
-%define _stablekver 6
+%define _stablekver 7
 %if %{_stablekver} == 0
 %define _tarkver %{_basekver}
 %else
