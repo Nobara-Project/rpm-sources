@@ -46,7 +46,7 @@ Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 Version: %{_basekver}.%{_stablekver}
 
-%define customver 201
+%define customver 202
 
 Release:%{customver}.nobara%{?dist}
 
@@ -111,7 +111,7 @@ Patch13: amdgpu-HAINAN-variant-fixup.patch
 Patch14: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
 # Add xpadneo as patch instead of using dkms module
 Patch15: 0001-Add-xpadneo-bluetooth-hid-driver-module.patch
-Patch16: revert-886980d.patch
+Patch16: revert-cfb2d418.patch
 
 %define __spec_install_post /usr/lib/rpm/brp-compress || :
 %define debug_package %{nil}
