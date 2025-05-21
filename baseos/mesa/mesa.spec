@@ -73,9 +73,9 @@
 
 Name:           mesa
 Summary:        Mesa graphics libraries
-%global ver 25.1.0
+%global ver 25.1.1
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
-Release:        %autorelease -b4
+Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
 URL:            http://www.mesa3d.org
 
@@ -99,13 +99,8 @@ Patch31:         valve.patch
 # https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/34918
 Patch32:        34918.patch
 
-# DOOM: Dark Ages
-# https://github.com/ValveSoftware/Proton/issues/8690#issuecomment-2875004046
-Patch33:        8119f91113b775afe34cdf980550425639bab7cd.patch
-Patch34:        17676b7686aa3f99a4132656376c62e6f5360c4b.patch
-
 # Path of Exile
-Patch35:        min_image_count.patch
+Patch33:        min_image_count.patch
 
 BuildRequires:  meson >= 1.3.0
 BuildRequires:  gcc
@@ -428,9 +423,9 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
   -Dgallium-xa=%{?with_xa:enabled}%{!?with_xa:disabled} \
   -Dgallium-nine=%{?with_nine:true}%{!?with_nine:false} \
   -Dteflon=%{?with_teflon:true}%{!?with_teflon:false} \
-  -Dgallium-opencl=%{?with_opencl:icd}%{!?with_opencl:disabled} \
 %if 0%{?with_opencl}
   -Dgallium-rusticl=true \
+  -Dgallium-opencl=disabled \
 %endif
   -Dvulkan-drivers=%{?vulkan_drivers} \
   -Dvulkan-layers=device-select \
@@ -548,13 +543,10 @@ popd
 
 %if 0%{?with_opencl}
 %files libOpenCL
-%{_libdir}/libMesaOpenCL.so.*
 %{_libdir}/libRusticlOpenCL.so.*
-%{_sysconfdir}/OpenCL/vendors/mesa.icd
 %{_sysconfdir}/OpenCL/vendors/rusticl.icd
 
 %files libOpenCL-devel
-%{_libdir}/libMesaOpenCL.so
 %{_libdir}/libRusticlOpenCL.so
 %endif
 
@@ -638,10 +630,6 @@ popd
 %if 0%{?with_vmware}
 %{_libdir}/dri/vmwgfx_dri.so
 %endif
-%endif
-%if 0%{?with_opencl}
-%dir %{_libdir}/gallium-pipe
-%{_libdir}/gallium-pipe/*.so
 %endif
 %if 0%{?with_kmsro}
 %{_libdir}/dri/armada-drm_dri.so

@@ -76,7 +76,7 @@ algorithms and decoding only VC1 algorithm.
 
 Name:           %{srcname}-freeworld
 Summary:        Mesa graphics libraries
-%global ver 25.1.0
+%global ver 25.1.1
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
@@ -270,9 +270,9 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
   -Dgallium-xa=%{!?with_xa:enabled}%{?with_xa:disabled} \
   -Dgallium-nine=%{!?with_nine:true}%{?with_nine:false} \
   -Dteflon=%{!?with_teflon:true}%{?with_teflon:false} \
-  -Dgallium-opencl=%{!?with_opencl:icd}%{?with_opencl:disabled} \
 %if 0%{?with_opencl}
   -Dgallium-rusticl=true \
+  -Dgallium-opencl=disabled \
 %endif
   -Dvideo-codecs=h264dec,h264enc,h265dec,h265enc,vc1dec,av1dec,av1enc,vp9dec \
   -Dvulkan-drivers=%{?vulkan_drivers} \
