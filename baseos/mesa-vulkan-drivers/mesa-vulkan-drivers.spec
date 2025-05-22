@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit 154c3934d686afb297f4d4313d87e7cfae5f60f2
+%global commit 8547f8b557fe56e445a91a787607f162938ccc6f
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 2.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -80,12 +80,19 @@ Source0:        https://gitlab.freedesktop.org/mesa/mesa/-/archive/%{commit}/mes
 # Fedora opts to ignore the optional part of clause 2 and treat that code as 2 clause BSD.
 Source1:        Mesa-MLAA-License-Clarification-Email.txt
 
-# Performance bumps
+Patch10:        gnome-shell-glthread-disable.patch
 
 # https://gitlab.com/evlaV/mesa/
-Patch4: valve.patch
+Patch31:         valve.patch
 
-Patch10:        gnome-shell-glthread-disable.patch
+# https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/34918
+Patch32:        34918.patch
+
+# Path of Exile
+Patch35:        min_image_count.patch
+
+# FSR4
+Patch40:	fsr4new.patch
 
 BuildRequires:  meson >= 1.3.0
 BuildRequires:  cbindgen
@@ -141,7 +148,7 @@ BuildRequires:  pkgconfig(libva) >= 0.38.0
 BuildRequires:  pkgconfig(libelf)
 BuildRequires:  pkgconfig(libglvnd) >= 1.3.2
 BuildRequires:  llvm-devel >= 7.0.0
-%if 0%{?with_opencl} || 0%{?with_nvk}
+%if 0%{?with_} || 0%{?with_nvk}
 BuildRequires:  clang-devel
 BuildRequires:  bindgen
 BuildRequires:  rust-packaging
@@ -156,6 +163,7 @@ BuildRequires:  (crate(quote) >= 1.0.25 with crate(quote) < 2)
 BuildRequires:  (crate(syn/clone-impls) >= 2.0.15 with crate(syn/clone-impls) < 3)
 BuildRequires:  (crate(unicode-ident) >= 1.0.6 with crate(unicode-ident) < 2)
 BuildRequires:  rustfmt
+BuildRequires:  rust-rustc-hash-devel
 %endif
 %if %{with valgrind}
 BuildRequires:  pkgconfig(valgrind)
