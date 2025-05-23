@@ -39,7 +39,7 @@ Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.15
 %define _stablekver 0
-%define _rcver rc6
+%define _rcver rc7
 %if %{_stablekver} == 0
 %define _tarkver %{_basekver}
 %else
@@ -51,7 +51,11 @@ Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 Version: %{_basekver}.%{_stablekver}
 
-%define customver 0.rc6
+%if 0%{?_is_rc}
+%define customver 0.%{_rcver}
+%else
+%define customver 200
+%endif
 
 Release:%{customver}.nobara%{?dist}
 
@@ -67,8 +71,12 @@ License: GPLv2 and Redistributable, no modifications permitted
 Group: System Environment/Kernel
 Vendor: The Linux Community and CachyOS maintainer(s)
 URL: https://cachyos.org
-Source0: linux-6.15-rc6.tar.gz
+Source0: linux-6.15-rc7.tar.gz
+%if 0%{?_is_rc}
+Source1: https://raw.githubusercontent.com/CachyOS/linux-cachyos/master/linux-cachyos-rc/config
+%else
 Source1: https://raw.githubusercontent.com/CachyOS/linux-cachyos/master/linux-cachyos/config
+%endif
 
 # needed for kernel-tools
 Source2: kvm_stat.logrotate
@@ -80,7 +88,7 @@ ExcludeArch:    %{ix86}
 Patch0: https://raw.githubusercontent.com/CachyOS/kernel-patches/master/%{_basekver}/all/0001-cachyos-base-all.patch
 Patch1: https://raw.githubusercontent.com/CachyOS/kernel-patches/master/%{_basekver}/sched/0001-bore-cachy.patch
 # For handhelds
-#Patch2: https://raw.githubusercontent.com/CachyOS/kernel-patches/master/%%{_basekver}/misc/0001-handheld.patch
+Patch2: https://raw.githubusercontent.com/CachyOS/kernel-patches/master/%{_basekver}/misc/0001-handheld.patch
 
 # Nobara
 #surface
@@ -408,7 +416,7 @@ patch -p1 -i %{PATCH0}
 patch -p1 -i %{PATCH1}
 
 # Apply Nobara patches:
-#patch -p1 -i %%{PATCH2}
+patch -p1 -i %{PATCH2}
 #patch -p1 -i %%{PATCH3}
 patch -p1 -i %{PATCH4}
 patch -p1 -i %{PATCH5}
