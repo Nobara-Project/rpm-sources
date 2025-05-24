@@ -9,7 +9,7 @@
 %endif
 
 Name:           nvidia-driver
-Version:        570.144
+Version:        570.153.02
 Release:        1%{?dist}
 Summary:        NVIDIA's proprietary display driver for NVIDIA graphic cards
 Epoch:          3
@@ -119,7 +119,6 @@ graphics scenarios.
 %package -n libnvidia-ml
 Summary:        NVIDIA Management Library (NVML)
 Provides:       cuda-nvml%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
-Requires:       cuda-nvml-devel
 Provides:       nvidia-driver-NVML = %{?epoch:%{epoch}:}%{version}-%{release}
 Obsoletes:      nvidia-driver-NVML < %{?epoch:%{epoch}:}%{version}-%{release}
 
@@ -484,9 +483,11 @@ appstream-util validate --nonet %{buildroot}%{_metainfodir}/com.nvidia.driver.me
 %{_libdir}/libnvidia-ml.so.%{version}
 
 %changelog
-* Wed Apr 16 2025 Simone Caronni <negativo17@gmail.com> - 3:575.51.02-1
-- Update to 575.51.02.
-- libnvidia-gpucomp is now required by both desktop and CUDA only components.
+* Tue May 20 2025 Simone Caronni <negativo17@gmail.com> - 3:570.153.02-1
+- Update to 570.153.02.
+
+* Tue Apr 22 2025 Simone Caronni <negativo17@gmail.com> - 3:570.144-1
+- Update to 570.144.
 
 * Wed Mar 19 2025 Simone Caronni <negativo17@gmail.com> - 3:570.133.07-1
 - Update to 570.133.07.

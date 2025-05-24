@@ -2,7 +2,7 @@
 %global dkms_name nvidia
 
 Name:           dkms-%{dkms_name}
-Version:        570.144
+Version:        570.153.02
 Release:        1%{?dist}
 Summary:        NVIDIA display driver kernel module
 Epoch:          3
@@ -14,9 +14,6 @@ ExclusiveArch:  x86_64 aarch64
 Source0:        %{dkms_name}-kmod-%{version}-x86_64.tar.xz
 Source1:        %{dkms_name}-kmod-%{version}-aarch64.tar.xz
 Source2:        %{name}.conf
-
-# Kbuild: Convert EXTRA_CFLAGS to ccflags-y (6.15+) + std=gnu17
-Patch0:         nvidia-kernel-ccflags-y.patch
 
 BuildRequires:  sed
 
@@ -72,8 +69,11 @@ fi
 %{_usrsrc}/%{dkms_name}-%{version}
 
 %changelog
-* Tue Apr 22 2025 Simone Caronni <negativo17@gmail.com> - 3:575.51.02-1
-- Update to 575.51.02.
+* Tue May 20 2025 Simone Caronni <negativo17@gmail.com> - 3:570.153.02-1
+- Update to 570.153.02.
+
+* Sat May 10 2025 Simone Caronni <negativo17@gmail.com> - 3:570.144-2
+- Update dkms.conf file.
 
 * Tue Apr 22 2025 Simone Caronni <negativo17@gmail.com> - 3:570.144-1
 - Update to 570.144.

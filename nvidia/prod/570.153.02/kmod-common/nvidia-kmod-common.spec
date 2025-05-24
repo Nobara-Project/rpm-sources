@@ -1,9 +1,11 @@
+%global _dracut_conf_d  %{_prefix}/lib/dracut/dracut.conf.d
+
 # gsp_*.bin: ELF 64-bit LSB executable, UCB RISC-V
 %global _binaries_in_noarch_packages_terminate_build 0
 %global __brp_strip %{nil}
 
 Name:           nvidia-kmod-common
-Version:        570.144
+Version:        570.153.02
 Release:        1%{?dist}
 Summary:        Common file for NVIDIA's proprietary driver kernel modules
 Epoch:          3
@@ -68,6 +70,12 @@ fi ||:
 %{_udevrulesdir}/60-nvidia.rules
 
 %changelog
+* Tue May 20 2025 Simone Caronni <negativo17@gmail.com> - 3:570.153.02-1
+- Update to 570.153.02.
+
+* Tue Apr 22 2025 Simone Caronni <negativo17@gmail.com> - 3:570.144-1
+- Update to 570.144.
+
 * Wed Mar 19 2025 Simone Caronni <negativo17@gmail.com> - 3:570.133.07-1
 - Update to 570.133.07.
 
