@@ -1,8 +1,8 @@
 #!/bin/sh
 
 # First we ensure the fedora flatpak repos are deleted if they exist and ignore errors if they don't exist
-/usr/bin/flatpak remote-delete --force --system fedora || true
-/usr/bin/flatpak remote-delete --force --system fedora-testing || true
+/usr/bin/flatpak remote-delete --force --system fedora &> /dev/null || true
+/usr/bin/flatpak remote-delete --force --system fedora-testing &> /dev/null || true
 
 # Next enable flathub for system/admin installs (add/delete/add to fix gpg error):
 /usr/bin/flatpak remote-add --system --if-not-exists --title "Flatpak Official Flathub" flathub /etc/flatpak/remotes.d/flathub.flatpakrepo
