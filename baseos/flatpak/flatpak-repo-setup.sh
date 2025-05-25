@@ -15,7 +15,8 @@
 /usr/bin/flatpak search --system chromium &> /dev/null
 
 # Now we get a list of all users and enable flathub for them, also perform a search to populate metadata
-for user in $(getent passwd {1000..60000} | cut -d: -f1)
+for user in $(getent passwd | awk -F: -v min_uid=1000 -v max_uid=60000 \
+        '$3 >= min_uid && $3 <= max_uid && $NF !~ /(\/sbin\/nologin|\/bin\/false)$/ {print $1}')
 do
 	sudo -H -u $user bash -c '/usr/bin/flatpak remote-add --user --if-not-exists --title "Flatpak Official Flathub" flathub /etc/flatpak/remotes.d/flathub.flatpakrepo'
 	sudo -H -u $user bash -c '/usr/bin/flatpak search --user chromium &> /dev/null'
