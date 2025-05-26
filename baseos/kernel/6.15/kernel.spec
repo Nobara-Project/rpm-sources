@@ -9,7 +9,7 @@
 # bieszczaders <zbyszek@linux.pl>
 # https://copr.fedorainfracloud.org/coprs/bieszczaders/
 %global _default_patch_fuzz 2
-%global _is_rc 1
+%global _is_rc 0
 
 %define _build_id_links none
 %define _disable_source_fetch 0
@@ -71,7 +71,7 @@ License: GPLv2 and Redistributable, no modifications permitted
 Group: System Environment/Kernel
 Vendor: The Linux Community and CachyOS maintainer(s)
 URL: https://cachyos.org
-Source0: linux-6.15-rc7.tar.gz
+Source0: https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-%{_tarkver}.tar.xz
 %if 0%{?_is_rc}
 Source1: https://raw.githubusercontent.com/CachyOS/linux-cachyos/master/linux-cachyos-rc/config
 %else
