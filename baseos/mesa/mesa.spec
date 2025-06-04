@@ -73,7 +73,7 @@
 
 Name:           mesa
 Summary:        Mesa graphics libraries
-%global ver 25.1.1
+%global ver 25.1.2
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
@@ -87,20 +87,14 @@ Source1:        Mesa-MLAA-License-Clarification-Email.txt
 
 Patch10:        gnome-shell-glthread-disable.patch
 
-# This patch makes Fedora CI fail and causes issues in QEMU. Revert it until
-# we find a fix.
-# https://bugzilla.redhat.com/show_bug.cgi?id=2360851
-# https://gitlab.freedesktop.org/mesa/mesa/-/issues/13009
-Patch30:        0001-Revert-kopper-Explicitly-choose-zink.patch
-
 # https://gitlab.com/evlaV/mesa/
-Patch31:         valve.patch
+Patch30:         valve.patch
 
 # https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/34918
-Patch32:        34918.patch
+Patch31:        34918.patch
 
 # Path of Exile
-Patch33:        min_image_count.patch
+Patch32:        min_image_count.patch
 
 BuildRequires:  meson >= 1.3.0
 BuildRequires:  gcc
