@@ -1,6 +1,6 @@
 %global _default_patch_fuzz 2
-%global commit 29ec3577e52a50f876440c81267f609575c5161e
-%global commitdate 20240425
+%global commit 197b160f7806d7d27117b12198cacb7656a07f1f
+%global commitdate 20250510
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 %if 0%{?fedora}
@@ -9,19 +9,16 @@
 %endif
 
 Name:     xone
-Version:  0.3
-Release:  16%{?dist}
+Version:  0.3.1
+Release:  1%{?dist}
 Summary:  Linux kernel driver for Xbox One and Xbox Series X|S accessories
 License:  GPLv2
-URL:      https://github.com/medusalix/xone
+URL:      https://github.com/dlundqvist/xone
 Source0:  %{url}/archive/%{commit}/%{name}-%{shortcommit}.tar.gz
 Source1:  modules-load-d-%{name}.conf
 #Patch0:   0001-revert-powera-changes.patch
 Patch1:   0001-convert-to-dongle-only-build.patch
 Patch2:   elite-paddles.patch
-Patch3:   https://github.com/medusalix/xone/pull/20.patch#/%{name}-%{version}-share-button.patch
-Patch4:   https://github.com/medusalix/xone/pull/45.patch#/%{name}-%{version}-pairing-attrib.patch
-Patch5:   6.11-fixup.patch
 
 BuildRequires:  gcc
 BuildRequires:  make
