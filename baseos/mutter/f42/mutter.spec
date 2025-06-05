@@ -12,7 +12,7 @@
 %global tarball_version %%(echo %{version} | tr '~' '.')
 
 Name:          mutter
-Version:       48.2
+Version:       48.3
 Release:       %autorelease
 Summary:       Window and compositing manager based on Clutter
 
@@ -25,18 +25,13 @@ Source1:       org.gnome.mutter.fedora.gschema.override
 # https://bugzilla.redhat.com/show_bug.cgi?id=1936991
 Patch1:         mutter-42.alpha-disable-tegra.patch
 
-# https://bugzilla.redhat.com/show_bug.cgi?id=2239128
-# https://gitlab.gnome.org/GNOME/mutter/-/issues/3068
-# not upstreamed because for upstream we'd really want to find a way
-# to fix *both* problems
-Patch2:         0001-Revert-x11-Use-input-region-from-frame-window-for-de.patch
+# https://gitlab.gnome.org/GNOME/mutter/-/issues/4133
+# https://bugzilla.redhat.com/show_bug.cgi?id=2369567
+Patch2:         window-tracker-regression.patch
 
 # Nobara addons
 Patch3:	       mutter_increase_check_alive_timeout.patch
-Patch4:        enable-vrr-setting.patch
-
-# Enable Fractional Scaling
-Patch5:	       enable-fractional-scaling.patch
+Patch4:        enable-vrr-and-fractional-scaling.patch
 
 BuildRequires: pkgconfig(gobject-introspection-1.0) >= 1.41.0
 BuildRequires: pkgconfig(sm)
