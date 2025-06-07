@@ -1,7 +1,5 @@
-%global snapshot r1104.b248778
-
 Name:           gpu-screen-recorder
-Version:        5.5.5
+Version:        5.5.6
 Release:        1%{dist}
 Summary:        A shadowplay-like screen recorder for Linux. The fastest screen recorder for Linux.
 
@@ -9,7 +7,7 @@ License:        GPL-3.0-or-later
 
 URL:            https://git.dec05eba.com/%{name}/about
 
-Source:         https://dec05eba.com/snapshot/%{name}.git.%{snapshot}.tar.gz
+Source:         https://dec05eba.com/snapshot/%{name}.git.%{version}.tar.gz
 
 BuildRequires:  gcc
 BuildRequires:  (gcc-g++ or gcc-c++)
@@ -53,7 +51,6 @@ Shadowplay like screen recorder for Linux. It is the fastest screen recorder for
 %meson_test
 
 %post
-setcap cap_sys_nice+ep %{_bindir}/gpu-screen-recorder
 setcap cap_sys_admin+ep %{_bindir}/gsr-kms-server
 
 %files
@@ -67,10 +64,17 @@ setcap cap_sys_admin+ep %{_bindir}/gsr-kms-server
 
 
 %changelog
-* Wed Jun 4 2025 LionHeartP <LionHeartP@proton.me> -  5.5.5-1
-- Update to 5.5.1
+* Sat Jun 7 2025 LionHeartP <LionHeartP@proton.me> - 5.5.6-1
+- Update to 5.5.6
+- Switch to versioned source instead of snapshots
+- Remove cap_sys_nice as per upstream change
+
+* Wed Jun 4 2025 LionHeartP <LionHeartP@proton.me> - 5.5.5-1
+- Update to 5.5.5
 - Remove Epoch in preparation to ship for Nobara
+
 * Tue Mar 18 2025 Brycen G <brycengranville@outlook.com> - 5.3.3-1
 - Update to 5.3.3
+
 * Thu Sep 05 2024 Brycen G <brycengranville@outlook.com> - 4.3.3-3
 - Update to 4.3.3
