@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit c5500cd12fa6d7b550ed289f775a84737c702d34
+%global commit b937d8be9df0c4116b8131ede634fc0aef17026d
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 3.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 4.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -427,6 +427,9 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Sat Jun 7 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-4
+- Update to latest commit
+
 * Wed Jun 4 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-3
 - Update to latest commit
 - Stop building xa and nine due to upstream changes
