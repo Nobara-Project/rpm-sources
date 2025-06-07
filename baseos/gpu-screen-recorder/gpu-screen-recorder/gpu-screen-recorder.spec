@@ -1,5 +1,5 @@
 Name:           gpu-screen-recorder
-Version:        5.5.6
+Version:        5.5.7
 Release:        1%{dist}
 Summary:        A shadowplay-like screen recorder for Linux. The fastest screen recorder for Linux.
 
