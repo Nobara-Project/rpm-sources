@@ -64,6 +64,9 @@ setcap cap_sys_admin+ep %{_bindir}/gsr-kms-server
 
 
 %changelog
+* Sat Jun 7 2025 LionHeartP <LionHeartP@proton.me> - 5.5.7-1
+- Update to 5.5.7
+
 * Sat Jun 7 2025 LionHeartP <LionHeartP@proton.me> - 5.5.6-1
 - Update to 5.5.6
 - Switch to versioned source instead of snapshots
