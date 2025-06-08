@@ -1,22 +1,23 @@
 #!/bin/sh
 
-# First we enable the fedora flatpak repos if they dont exist, then we delete them. This ensures deletion without exit code 1 in case they dont exist to begin with (new installs). If they do exist (old installs) it wont create them due to the --if-not-exists option, but it will delete them as expected.
-/usr/bin/flatpak remote-add --system --if-not-exists --title "Fedora Flatpaks" fedora oci+https://registry.fedoraproject.org
-/usr/bin/flatpak remote-add --system --if-not-exists --disable --title "Fedora Flatpaks (testing)" fedora-testing oci+https://registry.fedoraproject.org#testing
-/usr/bin/flatpak remote-delete --force --system fedora
-/usr/bin/flatpak remote-delete --force --system fedora-testing
+# First we ensure the fedora flatpak repos are deleted if they exist and ignore errors if they don't exist
+/usr/bin/flatpak remote-delete --force --system fedora &> /dev/null || true
+/usr/bin/flatpak remote-delete --force --system fedora-testing &> /dev/null || true
 
 # Next enable flathub for system/admin installs (add/delete/add to fix gpg error):
 /usr/bin/flatpak remote-add --system --if-not-exists --title "Flatpak Official Flathub" flathub /etc/flatpak/remotes.d/flathub.flatpakrepo
 /usr/bin/flatpak remote-delete --force --system flathub
 /usr/bin/flatpak remote-add --system --if-not-exists --title "Flatpak Official Flathub" flathub /etc/flatpak/remotes.d/flathub.flatpakrepo
 
-# Perform a search to populate metadata
-/usr/bin/flatpak search --system chromium &> /dev/null
+# Perform an appstream update to populate metadata
+/usr/bin/flatpak update --system --appstream &> /dev/null
 
-# Now we get a list of all users and enable flathub for them, also perform a search to populate metadata
-for user in $(getent passwd {1000..60000} | cut -d: -f1)
+# Now we get a list of all users and enable flathub for them, also perform an appstream update to populate metadata
+for user in $(getent passwd | awk -F: -v min_uid=1000 -v max_uid=60000 \
+        '$3 >= min_uid && $3 <= max_uid && $NF !~ /(\/sbin\/nologin|\/bin\/false)$/ {print $1}')
 do
-	sudo -H -u $user bash -c '/usr/bin/flatpak remote-add --user --if-not-exists --title "Flatpak Official Flathub" flathub /etc/flatpak/remotes.d/flathub.flatpakrepo'
-	sudo -H -u $user bash -c '/usr/bin/flatpak search --user chromium &> /dev/null'
+    sudo -H -u $user bash -c '
+        /usr/bin/flatpak remote-add --user --if-not-exists --title "Flatpak Official Flathub" flathub /etc/flatpak/remotes.d/flathub.flatpakrepo && \
+        /usr/bin/flatpak update --user --appstream &> /dev/null
+    '
 done
