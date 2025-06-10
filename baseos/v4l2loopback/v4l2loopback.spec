@@ -1,11 +1,11 @@
-%global commit 60a0315c6db154597dc733ea42139cf159644a7a
-%global commitdate 20250228
+%global commit b9d5c7591ae96db3919c6f56b884955ae2f37236
+%global commitdate 20250528
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 Name:           v4l2loopback
 Summary:        Utils for V4L2 loopback devices
-Version:        0.14.0
-Release:        2%{?dist}
+Version:        0.15.0
+Release:        1%{?dist}
 License:        GPLv2+
 
 URL:            https://github.com/umlaeute/v4l2loopback
@@ -23,7 +23,7 @@ BuildRequires:  systemd-rpm-macros
 # We don't need the kmod packages anymore because of cachy-base-all providing it in the kernel so stop Requiring them
 # For kmod package
 Provides:       %{name}-kmod-common = %{version}-%{release}
-# Requires:       %{name}-kmod >= %{version}
+# Requires:       %%{name}-kmod >= %%{version}
 Obsoletes: 	akmod-v4l2loopback < 0.14.0
 # For compatibility with older name
 Provides:       %{name}-utils = %{version}-%{release}
@@ -61,6 +61,9 @@ install -D -m 0644 %{SOURCE2} %{buildroot}%{_modulesloaddir}/v4l2loopback.conf
 
 
 %changelog
+* Tue Jun 10 2025 LionHeartP <LionHeartP@proton.me> - 0.15.0-1
+- Update to 0.15.0
+
 * Tue Mar 25 2025 LionHeartP <LionHeartP@proton.me> - 0.14.0-1
 - Update to 0.14.0
 
