@@ -1,61 +1,31 @@
-# This specfile is licensed under:
-# SPDX-License-Identifier: GPL-3.0-or-later
-# SPDX-FileCopyrightText: 2023 Wesley Gimenes <wehagy+github@gmail.com>
-# See %%{name}.spec.license for the full license text.
-
-%global SHA256SUM0      3fe5d8548fe4d3669fd002d5d23997894932ed6a7d9b23943ceaf2af5dd29e77
-
-%global provider        github
-%global provider_tld    com
-%global owner           vysp3r
-%global repo            ProtonPlus
-%global built_tag       v0.4.27
-%global built_tag_strip %(b=%{built_tag}; echo ${b:1})
-%global gen_version     %(b=%{built_tag_strip}; echo ${b/-/"."})
-
-# com.vysp3r.ProtonPlus
-%global flatpak_name    %{provider_tld}.%{owner}.%{repo}
-
-# https://github.com/vysp3r/ProtonPlus
-%global provider_prefix %{provider}.%{provider_tld}/%{owner}/%{repo}
-%global import_path     %{provider_prefix}
-%global git_repo        https://%{import_path}
-
-
+%global 	SHA256SUM0 87dc92c01867eedbb58a34a739e4c89bb08faa37108d03d52c7d6241e1593c4a
+%define         appid com.vysp3r.ProtonPlus
 
 Name:           protonplus-next
-Version:        %{gen_version}
+Version:        0.5.2
 Release:        1%{?dist}
 Summary:        Simple and powerful manager for Wine, Proton, DXVK and VKD3D
 
 ExclusiveArch:  x86_64
 License:        GPL-3.0-or-later
-URL:            %{git_repo}
-Source0:        %{url}/archive/%{built_tag}/%{repo}-%{version}.tar.gz
-Source1:        %{name}.rpmlintrc
-# License of the specfile
-Source2:        %{name}.spec.license
+URL:            https://github.com/vysp3r/ProtonPlus
+Source0:        %{url}/archive/refs/tags/v%{version}.tar.gz
 
-ExcludeArch:    %{ix86}
-
-# fdupes need to fix file rpmlint W: files-duplicate
-# /usr/share/icons/hicolor/symbolic/apps/com.vysp3r.ProtonPlus-symbolic.svg /usr/share/icons/hicolor/scalable/apps/com.vysp3r.ProtonPlus.svg
+BuildRequires:  cmake
+BuildRequires:  desktop-file-utils
 BuildRequires:  fdupes
 BuildRequires:  gettext
-BuildRequires:  meson >= 0.62.0
+BuildRequires:  git-core
+BuildRequires:  libappstream-glib
+BuildRequires:  meson >= 1.0.0
+BuildRequires:  ninja-build
 BuildRequires:  vala
-
-BuildRequires:  /usr/bin/appstream-util
-BuildRequires:  /usr/bin/desktop-file-validate
-
 BuildRequires:  pkgconfig(gee-0.8)
 BuildRequires:  pkgconfig(gtk4)
 BuildRequires:  pkgconfig(json-glib-1.0)
-BuildRequires:  pkgconfig(libadwaita-1) >= 1.4
+BuildRequires:  pkgconfig(libadwaita-1) >= 1.5.0
 BuildRequires:  pkgconfig(libarchive)
 BuildRequires:  pkgconfig(libsoup-3.0)
-
-
 
 # Need for TLS support
 Requires:       glib-networking
@@ -63,7 +33,7 @@ Requires:       glib-networking
 Obsoletes:  protonup-qt
 
 %description
-%{repo} is a simple and powerful manager for:
+ProtonPlus is a simple and powerful manager for:
  - Wine
  - Proton
  - DXVK
@@ -72,55 +42,41 @@ Obsoletes:  protonup-qt
 
 Supports Steam, Lutris, Heroic and Bottles.
 
-
-
 %prep
 echo "%SHA256SUM0 %{SOURCE0}" | sha256sum -c -
-%autosetup -n %{repo}-%{built_tag_strip}
-
-
+%autosetup -n ProtonPlus-%{version}
 
 %build
 %meson
 %meson_build
 
-
-
 %install
 %meson_install
-
-%find_lang %{flatpak_name}
-
-# create symlink prontonplus -> com.vysp3r.ProtonPlus
-%{__ln_s} %{_bindir}/%{flatpak_name} %{buildroot}%{_bindir}/%{name}
-
+%find_lang %{appid}
 # create symlinks for icons
 # fix rpmlint W: files-duplicate
 %fdupes -s %{buildroot}%{_datadir}/icons/hicolor
 
-
-
 %check
-desktop-file-validate %{buildroot}%{_datadir}/applications/%{flatpak_name}.desktop
-
+desktop-file-validate %{buildroot}%{_datadir}/applications/%{appid}.desktop
 appstream-util validate-relax --nonet \
-    %{buildroot}%{_datadir}/metainfo/%{flatpak_name}.metainfo.xml
+    %{buildroot}%{_datadir}/metainfo/%{appid}.metainfo.xml
 
-
-
-%files -f %{flatpak_name}.lang
+%files -f %{appid}.lang
 %license LICENSE.md
 %doc README.md CONTRIBUTING.md CODE_OF_CONDUCT.md SECURITY.md
-# install symlink prontonplus -> com.vysp3r.ProtonPlus
-%{_bindir}/%{name}
-%{_bindir}/%{flatpak_name}
-%{_datadir}/metainfo/%{flatpak_name}.metainfo.xml
-%{_datadir}/applications/%{flatpak_name}.desktop
-%{_datadir}/glib-2.0/schemas/%{flatpak_name}.gschema.xml
-%{_datadir}/icons/hicolor/*/apps/%{flatpak_name}.*
+%{_bindir}/protonplus
+%{_datadir}/metainfo/%{appid}.metainfo.xml
+%{_datadir}/applications/%{appid}.desktop
+%{_datadir}/glib-2.0/schemas/%{appid}.gschema.xml
+%{_datadir}/icons/hicolor/*/apps/%{appid}.*
 
 
 %changelog
+* Wed Jun 11 2025 LionHeartP <LionHeartP@proton.me> - 0.5.2-1
+- new upstream version v0.5.2
+- refactor .spec file
+
 * Mon Apr 14 2025 LionHeartP <LionHeartP@proton.me> - 0.4.27-1
 - new upstream version v0.4.27
 
