@@ -11,8 +11,8 @@
 %bcond malcontent %[!0%{?rhel}]
 
 Name:           flatpak
-Version:        1.16.0
-Release:        3%{?dist}
+Version:        1.16.1
+Release:        2%{?dist}
 Summary:        Application deployment framework for desktop apps
 
 License:        LGPL-2.1-or-later
