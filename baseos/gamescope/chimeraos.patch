@@ -688,9 +688,9 @@ index ceeef24..e386765 100644
  {
  	wl_resource_destroy( resource );
 @@ -1052,6 +1101,7 @@ static const struct gamescope_control_interface gamescope_control_impl = {
- 	.destroy = gamescope_control_handle_destroy,
  	.set_app_target_refresh_cycle = gamescope_control_set_app_target_refresh_cycle,
  	.take_screenshot = gamescope_control_take_screenshot,
+ 	.display_sleep = gamescope_control_display_sleep,
 +	.rotate_display = gamescope_control_rotate_display,
  };
  
@@ -1672,8 +1672,8 @@ index 11a7cad..0b0d17f 100644
  				paint_cached_base_layer(g_HeldCommits[HELD_COMMIT_FADE], g_CachedPlanes[HELD_COMMIT_FADE], &frameInfo, 1.0f - opacityScale, false);
  				paint_window(w, w, &frameInfo, global_focus.cursor, PaintWindowFlag::BasePlane | PaintWindowFlag::FadeTarget | PaintWindowFlag::DrawBorders, opacityScale, override);
  			}
-@@ -2411,34 +2411,6 @@ paint_all(bool async)
- 		if ( overlay == global_focus.inputFocusWindow )
+@@ -2562,35 +2562,6 @@ paint_all( global_focus_t *pFocus, bool async )
+ 		if ( overlay == pFocus->inputFocusWindow && pFocus == GetCurrentFocus() )
  			update_touch_scaling( &frameInfo );
  	}
 -	else if ( !GetBackend()->UsesVulkanSwapchain() && GetBackend()->IsSessionBased() )
@@ -1697,6 +1697,7 @@ index 11a7cad..0b0d17f 100644
 -			layer->applyColorMgmt = g_ColorMgmt.pending.enabled;
 -
 -			layer->colorspace = GAMESCOPE_APP_TEXTURE_COLORSPACE_LINEAR;
+-			layer->hdr_metadata_blob = nullptr;
 -			layer->ctm = nullptr;
 -			layer->tex = tex;
 -
