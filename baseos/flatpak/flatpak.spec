@@ -89,7 +89,7 @@ Requires:       ostree-libs%{?_isa} >= %{ostree_version}
 Requires:       /usr/bin/fusermount3
 Requires:       /usr/bin/xdg-dbus-proxy
 # https://fedoraproject.org/wiki/SELinux/IndependentPolicy
-Requires:       (flatpak-selinux = %{?epoch:%{epoch}:}%{version}-%{release} if selinux-policy-targeted)
+Requires:       flatpak-selinux
 Requires:       %{name}-session-helper%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
 Recommends:     p11-kit-server
 
