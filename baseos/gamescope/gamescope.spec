@@ -7,7 +7,7 @@
 %global _default_patch_fuzz 2
 %global build_timestamp %(date +"%Y%m%d")
 
-%global rel_build 3.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 2.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           gamescope
 Version:        3.16.11
@@ -31,7 +31,7 @@ Patch2:		1846.patch
 
 # https://github.com/ValveSoftware/gamescope/pull/1867
 # WaylandBackend: Use sRGB cm description for sRGB
-Patch3: 	1867.patch
+Patch3: 	1867-2.patch
 
 Patch4:         Add-pixman-udev-deps.patch
 
