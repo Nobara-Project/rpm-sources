@@ -1,84 +1,75 @@
-%global debug_package %{nil}
-%global dkms_name nvidia
+# Build only the akmod package and no kernel module packages:
+%define buildforkernels akmod
 
-Name:           dkms-%{dkms_name}
+%global debug_package %{nil}
+
+Name:           nvidia-kmod
 Version:        570.153.02
-Release:        3%{?dist}
+Release:        1%{?dist}
 Summary:        NVIDIA display driver kernel module
 Epoch:          3
 License:        NVIDIA License
 URL:            http://www.nvidia.com/object/unix.html
-# Package is not noarch as it contains pre-compiled binary code
 ExclusiveArch:  x86_64 aarch64
 
-Source0:        %{dkms_name}-kmod-%{version}-x86_64.tar.xz
-Source1:        %{dkms_name}-kmod-%{version}-aarch64.tar.xz
-Source2:        %{name}.conf
+Source0:        %{name}-%{version}-x86_64.tar.xz
+Source1:        %{name}-%{version}-aarch64.tar.xz
 
-Patch0:         0001-Enable-atomic-kernel-modesetting-by-default.patch
-Patch3:         0003-Workaround-nv_vm_flags_-calling-GPL-only-code.patch
-Patch8:         0008-kbuild-Add-workaround-for-GCC-15-Compilation.patch
+# Get the needed BuildRequires (in parts depending on what we build for):
+BuildRequires:  kmodtool
 
-
-BuildRequires:  sed
-
-Provides:       %{dkms_name}-kmod = %{?epoch:%{epoch}:}%{version}
-Requires:       %{dkms_name}-kmod-common = %{?epoch:%{epoch}:}%{version}
-Requires:       dkms
-
-Conflicts:      akmod-nvidia
+# kmodtool does its magic here:
+%{expand:%(kmodtool --target %{_target_cpu} --repo negativo17.org --kmodname %{name} %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null) }
 
 %description
-This package provides the proprietary Nvidia kernel driver modules.
-The modules are rebuilt through the DKMS system when a new kernel or modules
-become available.
+The NVidia %{version} display driver kernel module for kernel %{kversion}.
 
 %prep
+# Error out if there was something wrong with kmodtool:
+%{?kmodtool_check}
+# Print kmodtool output for debugging purposes:
+kmodtool  --target %{_target_cpu}  --repo negativo17.org --kmodname %{name} %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null
+
 %ifarch x86_64
-%autosetup -p1 -n %{dkms_name}-kmod-%{version}-x86_64
+%autosetup -p1 -n %{name}-%{version}-x86_64
 %endif
 
 %ifarch aarch64
-%autosetup -p1 -T -b 1 -n %{dkms_name}-kmod-%{version}-aarch64
+%autosetup -p1 -T -b 1 -n %{name}-%{version}-aarch64
 %endif
 
-cp -f %{SOURCE2} dkms.conf
+rm -f */dkms.conf
 
-sed -i -e 's/__VERSION_STRING/%{version}/g' dkms.conf
+for kernel_version in %{?kernel_versions}; do
+    mkdir _kmod_build_${kernel_version%%___*}
+    cp -fr kernel* _kmod_build_${kernel_version%%___*}
+done
 
 %build
+if [ -f /etc/nvidia/kernel.conf ]; then
+    . /etc/nvidia/kernel.conf
+fi
+for kernel_version in %{?kernel_versions}; do
+    pushd _kmod_build_${kernel_version%%___*}/
+        make %{?_smp_mflags} -C ${MODULE_VARIANT} \
+            KERNEL_UNAME="${kernel_version%%___*}" modules
+    popd
+done
 
 %install
-# Create empty tree:
-mkdir -p %{buildroot}%{_usrsrc}/%{dkms_name}-%{version}/
-cp -fr * %{buildroot}%{_usrsrc}/%{dkms_name}-%{version}/
-rm -f %{buildroot}%{_usrsrc}/%{dkms_name}-%{version}/*/dkms.conf
-
-%post
-dkms add -m %{dkms_name} -v %{version} -q --rpm_safe_upgrade || :
-# Rebuild and make available for the currently running kernel:
-dkms build -m %{dkms_name} -v %{version} -q || :
-dkms install -m %{dkms_name} -v %{version} -q --force || :
-dracut --regenerate-all --force --quiet
-
-%preun
-# Remove all versions from DKMS registry:
-dkms remove -m %{dkms_name} -v %{version} -q --all --rpm_safe_upgrade || :
-# Regenerate the initrd only if it's a complete uninstall, otherwise the post
-# scriptlet of the update will take care of it:
-if [ "$1" == 0 ]; then
-    dracut --regenerate-all --force --quiet
+if [ -f /etc/nvidia/kernel.conf ]; then
+    . /etc/nvidia/kernel.conf
 fi
-
-%files
-%{_usrsrc}/%{dkms_name}-%{version}
+for kernel_version in %{?kernel_versions}; do
+    mkdir -p %{buildroot}/%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/
+    install -p -m 0755 _kmod_build_${kernel_version%%___*}/${MODULE_VARIANT}/*.ko \
+        %{buildroot}/%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/
+done
+%{?akmod_install}
 
 %changelog
 * Tue May 20 2025 Simone Caronni <negativo17@gmail.com> - 3:570.153.02-1
 - Update to 570.153.02.
-
-* Sat May 10 2025 Simone Caronni <negativo17@gmail.com> - 3:570.144-2
-- Update dkms.conf file.
 
 * Tue Apr 22 2025 Simone Caronni <negativo17@gmail.com> - 3:570.144-1
 - Update to 570.144.
@@ -92,9 +83,6 @@ fi
 
 * Fri Feb 28 2025 Simone Caronni <negativo17@gmail.com> - 3:570.124.04-1
 - Update to 570.124.04.
-
-* Sun Feb 09 2025 Simone Caronni <negativo17@gmail.com> - 3:570.86.16-2
-- Simplify DKMS configuration.
 
 * Fri Jan 31 2025 Simone Caronni <negativo17@gmail.com> - 3:570.86.16-1
 - Update to 570.86.16.
@@ -111,12 +99,8 @@ fi
 * Wed Oct 23 2024 Simone Caronni <negativo17@gmail.com> - 3:565.57.01-1
 - Update to 565.57.01.
 
-* Wed Oct 16 2024 Simone Caronni <negativo17@gmail.com> - 3:560.35.03-3
-- Do not uninstall in preun scriptlet in case of an upgrade.
-
 * Fri Oct 11 2024 Simone Caronni <negativo17@gmail.com> - 3:560.35.03-2
-- Fix versioning in the dkms.conf file.
-- Add kernel 6.11 patch
+- Add kernel 6.11 patch.
 
 * Wed Aug 21 2024 Simone Caronni <negativo17@gmail.com> - 3:560.35.03-1
 - Update to 560.35.03.
@@ -161,13 +145,14 @@ fi
 - Add patch to fix build with the latest 6.6/6.7 kernels.
 
 * Fri Dec 01 2023 Simone Caronni <negativo17@gmail.com> - 3:545.29.06-1
-- Update to 545.29.06.
+- Update to version 545.29.06.
 
 * Tue Nov 14 2023 Simone Caronni <negativo17@gmail.com> - 3:545.29.02-3
 - Update location of configuration file.
 
-* Tue Nov 14 2023 Simone Caronni <negativo17@gmail.com> - 3:545.29.02-2
+* Mon Nov 13 2023 Simone Caronni <negativo17@gmail.com> - 3:545.29.02-2
 - Trim changelog.
+- Drop custom signing and compressing in favour of kmodtool.
 - Allow building proprietary or open source modules.
 - Adjust compile command to match with what Nvidia ships nowadays.
 

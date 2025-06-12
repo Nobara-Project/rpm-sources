@@ -3,7 +3,7 @@
 
 Name:           dkms-%{dkms_name}
 Version:        570.153.02
-Release:        3%{?dist}
+Release:        1%{?dist}
 Summary:        NVIDIA display driver kernel module
 Epoch:          3
 License:        NVIDIA License
@@ -14,11 +14,6 @@ ExclusiveArch:  x86_64 aarch64
 Source0:        %{dkms_name}-kmod-%{version}-x86_64.tar.xz
 Source1:        %{dkms_name}-kmod-%{version}-aarch64.tar.xz
 Source2:        %{name}.conf
-
-Patch0:         0001-Enable-atomic-kernel-modesetting-by-default.patch
-Patch3:         0003-Workaround-nv_vm_flags_-calling-GPL-only-code.patch
-Patch8:         0008-kbuild-Add-workaround-for-GCC-15-Compilation.patch
-
 
 BuildRequires:  sed
 

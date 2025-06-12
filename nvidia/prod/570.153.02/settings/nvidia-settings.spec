@@ -1,6 +1,6 @@
 Name:           nvidia-settings
 Version:        570.153.02
-Release:        1%{?dist}
+Release:        3%{?dist}
 Summary:        Configure the NVIDIA graphics driver
 Epoch:          3
 License:        GPLv2+
