@@ -38,7 +38,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.15
-%define _stablekver 2
+%define _stablekver 3
 %define _rcver rc7
 %if %{_stablekver} == 0
 %define _tarkver %{_basekver}
@@ -417,8 +417,8 @@ patch -p1 -i %{PATCH1}
 
 # Apply Nobara patches:
 patch -p1 -i %{PATCH2}
-# Disable Surface patch until rebase
-# https://github.com/linux-surface/linux-surface/pull/1770
+# Wait for rebase
+# https://github.com/linux-surface/linux-surface/pull/1790
 #patch -p1 -i %%{PATCH3}
 patch -p1 -i %{PATCH4}
 patch -p1 -i %{PATCH5}
