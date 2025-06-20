@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit 1c3f238ce99ee1fe9d66032eef779ca523141f36
+%global commit f39240b98fc353b54e8f40501805d1959836fa22
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 5.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 6.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -92,7 +92,7 @@ Patch32:        34918.patch
 Patch35:        min_image_count.patch
 
 # FSR4
-Patch40:	fsr4new.patch
+Patch40:	fsr4.patch
 
 BuildRequires:  meson >= 1.3.0
 BuildRequires:  cbindgen
@@ -427,6 +427,9 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Thu Jun 19 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-6
+- Update to latest commit
+
 * Sun Jun 15 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-5
 - Update to latest commit
 
