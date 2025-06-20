@@ -1,15 +1,11 @@
 Name:           obs-studio-plugin-distroav
-Version:        6.0.0
+Version:        6.1.1
 Release:        1%{?dist}
-Summary:        Network A/V in OBS Studio with NewTek's NDI technology
+Summary:        Network Audio/Video in OBS-Studio using NDI technology
 
 License:        GPLv2+
 URL:            https://github.com/DistroAV/DistroAV
 Source0:        %{url}/archive/%{version}/DistroAV-%{version}.tar.gz
-
-# OBS 31+ Compat
-# https://github.com/DistroAV/DistroAV/pull/1152
-Patch0:         1152.patch
 
 ExclusiveArch:  i686 x86_64 aarch64
 
@@ -21,23 +17,23 @@ BuildRequires:  cmake(Qt6Widgets)
 BuildRequires:  libcurl-devel
 BuildRequires:  obs-studio-devel
 Requires:       obs-studio
-# A libndi.so.5 implementation is meant to be dlopen
+# A libndi.so.6 implementation is meant to be dlopen
 Requires: libndi-sdk%{?isa}
 Requires: ndi-sdk%{?isa}
 Provides: obs-ndi
 Obsoletes: obs-ndi
 
 %description
-* NDI Source : receive NDI video and audio in OBS
-* NDI Output : transmit video and audio from OBS to NDI
-* NDI Filter (a.k.a NDI Dedicated Output) : transmit a single source or
+* NDI Source : Receive NDI video and audio in OBS
+* NDI Output : Transmit video and audio from OBS to NDI
+* NDI Filter (a.k.a NDI Dedicated Output) : Transmit a single source or
 scene to NDI
 
 
 %prep
 %autosetup -n DistroAV-%{version} -p1
 
-# Where to find the libndi.so.5 library
+# Where to find the libndi.so.6 library
 sed -i -e 's|/usr/lib|%{_libdir}|' src/plugin-main.cpp
 sed -i -e 's|/usr/local/lib|/usr/local/%{_lib}|' src/plugin-main.cpp
 
@@ -64,6 +60,9 @@ sed -i -e 's|/usr/local/lib|/usr/local/%{_lib}|' src/plugin-main.cpp
 
 
 %changelog
+* Tue Jun 20 2025 Isaie Simonnet <trouffman@gmail.com> - 6.1.1-1
+- Update to 6.1.1
+
 * Sun Feb 04 2024 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 4.13.0-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
 
