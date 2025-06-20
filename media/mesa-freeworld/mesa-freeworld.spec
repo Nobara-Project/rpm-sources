@@ -49,11 +49,15 @@ algorithms and decoding only VC1 algorithm.
 %global with_vc4       0
 %global with_etnaviv   0
 %global with_tegra     0
+%global with_asahi     0
 %endif
 %global with_freedreno 0
 %global with_panfrost  0
 %global with_v3d       0
 %global with_xa        0
+#%%if 0%%{?with_asahi}
+#%%global asahi_platform_vulkan %%{?with_vulkan_hw:,asahi}%%{!?with_vulkan_hw:%%{nil}}
+#%%endif
 #%%global extra_platform_vulkan %%{?with_vulkan_hw:,broadcom,freedreno,panfrost,imagination-experimental}%%{!?with_vulkan_hw:%%{nil}}
 %endif
 
@@ -68,11 +72,11 @@ algorithms and decoding only VC1 algorithm.
 %bcond_with valgrind
 %endif
 
-#%%global vulkan_drivers swrast%%{?base_vulkan}%%{?intel_platform_vulkan}%%{?extra_platform_vulkan}%%{?with_nvk:,nouveau}
+#%%global vulkan_drivers swrast,virtio%%{?base_vulkan}%%{?intel_platform_vulkan}%%{?asahi_platform_vulkan}%%{?extra_platform_vulkan}%%{?with_nvk:,nouveau}
 
 Name:           %{srcname}-freeworld
 Summary:        Mesa graphics libraries
-%global ver 25.0.5
+%global ver 25.1.3
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
@@ -87,19 +91,6 @@ Source2:        org.mesa3d.vaapi.freeworld.metainfo.xml
 Source3:        org.mesa3d.vdpau.freeworld.metainfo.xml
 
 Patch10:        gnome-shell-glthread-disable.patch
-
-# Backport of https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/33805
-# to fix clover with libclc from LLVM 20.
-Patch20:        e4eb5e80c316c0af3fff310ca89e1175d81556c1.patch
- 
-# Backport of https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/32038
-# and fixes: vulkan/wsi: implement the Wayland color management protocol
-Patch21:        0001-increase-required-wayland-protocols-version-to-1.41.patch
-Patch22:        0002-vulkan-wsi-implement-the-Wayland-color-management-pr.patch
-Patch23:        0003-vulkan-wsi-implement-support-for-VK_EXT_hdr_metadata.patch
-Patch24:        0004-vulkan-wsi-handle-the-compositor-not-supporting-exte.patch
-Patch25:        0001-meson-update-wayland-protocols-source_hash.patch
-Patch26:        0001-docs-features-add-VK_EXT_hdr_metadata.patch
 
 BuildRequires:  meson >= 1.3.0
 BuildRequires:  gcc
@@ -156,9 +147,6 @@ BuildRequires:  pkgconfig(libva) >= 0.38.0
 BuildRequires:  pkgconfig(libelf)
 BuildRequires:  pkgconfig(libglvnd) >= 1.3.2
 BuildRequires:  llvm-devel >= 7.0.0
-%if 0%{?fedora} >= 41
-BuildRequires:  llvm-devel >= 19.0.0
-%endif
 %if 0%{?with_teflon}
 BuildRequires:  flatbuffers-devel
 BuildRequires:  flatbuffers-compiler
@@ -245,6 +233,19 @@ cp %{SOURCE1} docs/
 # ensure standard Rust compiler flags are set
 export RUSTFLAGS="%build_rustflags"
 
+%if 0%{?with_nvk}
+export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
+# So... Meson can't actually find them without tweaks
+%define inst_crate_nameversion() %(basename %{cargo_registry}/%{1}-*)
+%define rewrite_wrap_file() sed -e "/source.*/d" -e "s/%{1}-.*/%{inst_crate_nameversion %{1}}/" -i subprojects/%{1}.wrap
+
+%rewrite_wrap_file proc-macro2
+%rewrite_wrap_file quote
+%rewrite_wrap_file syn
+%rewrite_wrap_file unicode-ident
+%rewrite_wrap_file paste
+%endif
+
 # We've gotten a report that enabling LTO for mesa breaks some games. See
 # https://bugzilla.redhat.com/show_bug.cgi?id=1862771 for details.
 # Disable LTO for now
@@ -254,18 +255,18 @@ export RUSTFLAGS="%build_rustflags"
   -Dplatforms=x11,wayland \
   -Dosmesa=false \
 %if 0%{?with_hardware}
-  -Dgallium-drivers=swrast,virgl,nouveau%{?with_r300:,r300}%{?with_crocus:,crocus}%{?with_i915:,i915}%{?with_iris:,iris}%{?with_vmware:,svga}%{?with_radeonsi:,radeonsi}%{?with_r600:,r600}%{?with_freedreno:,freedreno}%{?with_etnaviv:,etnaviv}%{?with_tegra:,tegra}%{?with_vc4:,vc4}%{?with_v3d:,v3d}%{?with_lima:,lima}%{?with_panfrost:,panfrost}%{?with_vulkan_hw:,zink} \
+  -Dgallium-drivers=llvmpipe,virgl,nouveau%{?with_r300:,r300}%{?with_crocus:,crocus}%{?with_i915:,i915}%{?with_iris:,iris}%{?with_vmware:,svga}%{?with_radeonsi:,radeonsi}%{?with_r600:,r600}%{?with_asahi:,asahi}%{?with_freedreno:,freedreno}%{?with_etnaviv:,etnaviv}%{?with_tegra:,tegra}%{?with_vc4:,vc4}%{?with_v3d:,v3d}%{?with_lima:,lima}%{?with_panfrost:,panfrost}%{?with_vulkan_hw:,zink} \
 %else
-  -Dgallium-drivers=swrast,virgl \
+  -Dgallium-drivers=llvmpipe,virgl \
 %endif
   -Dgallium-vdpau=%{?with_vdpau:enabled}%{!?with_vdpau:disabled} \
   -Dgallium-va=%{?with_va:enabled}%{!?with_va:disabled} \
   -Dgallium-xa=%{!?with_xa:enabled}%{?with_xa:disabled} \
   -Dgallium-nine=%{!?with_nine:true}%{?with_nine:false} \
   -Dteflon=%{!?with_teflon:true}%{?with_teflon:false} \
-  -Dgallium-opencl=%{!?with_opencl:icd}%{?with_opencl:disabled} \
 %if 0%{?with_opencl}
   -Dgallium-rusticl=true \
+  -Dgallium-opencl=disabled \
 %endif
   -Dvideo-codecs=h264dec,h264enc,h265dec,h265enc,vc1dec,av1dec,av1enc,vp9dec \
   -Dvulkan-drivers=%{?vulkan_drivers} \
@@ -317,13 +318,19 @@ rm -vf %{buildroot}%{_libdir}/libEGL_mesa.so
 # XXX can we just not build this
 rm -vf %{buildroot}%{_libdir}/libGLES*
 
+%if ! 0%{?with_asahi}
+# This symlink is unconditionally created when any kmsro driver is enabled
+# We don't want this one so delete it
+rm -vf %{buildroot}%{_libdir}/dri/apple_dri.so
+%endif
+
 # glvnd needs a default provider for indirect rendering where it cannot
 # determine the vendor
 ln -s %{_libdir}/libGLX_mesa.so.0 %{buildroot}%{_libdir}/libGLX_system.so.0
 
 # this keeps breaking, check it early.  note that the exit from eu-ftr is odd.
 pushd %{buildroot}%{_libdir}
-for i in libOSMesa*.so libGL.so ; do
+for i in libGL.so ; do
     eu-findtextrel $i && exit 1
 done
 popd
@@ -339,6 +346,7 @@ rm -fr %{buildroot}%{_libdir}/libOSMesa.so*
 rm -fr %{buildroot}%{_libdir}/pkgconfig/osmesa.pc
 rm -fr %{buildroot}%{_libdir}/libgbm.so*
 rm -fr %{buildroot}%{_includedir}/gbm.h
+rm -fr %{buildroot}%{_includedir}/gbm_backend_abi.h
 rm -fr %{buildroot}%{_libdir}{,/dri}/libxatracker.so*
 rm -fr %{buildroot}%{_includedir}/xa_*.h
 rm -fr %{buildroot}%{_libdir}/libMesaOpenCL.so*
@@ -384,6 +392,89 @@ rm -fr %{buildroot}%{_libdir}/libGLX*
 %{_libdir}/libgallium-*.so
 
 %changelog
+* Thu May 8 2025 Thorsten Leemhuis <fedora@leemhuis.info> - 25.1.0-1
+- Update to 25.1.0
+- Sync new bits with Fedora
+
+* Fri Apr 25 2025 Thorsten Leemhuis <fedora@leemhuis.info> - 25.1.0~rc2-1
+- Update to 25.1.0~rc2
+- Sync new bits with Fedora, which includes enabling of the asahi driver
+
+* Tue Apr 22 2025 Thorsten Leemhuis <fedora@leemhuis.info> - 25.0.4-1
+- Update to 25.0.4
+- Sync a few bits with Fedora
+
+* Thu Apr 3 2025 Thorsten Leemhuis <fedora@leemhuis.info> - 25.0.3-1
+- Update to 25.0.3
+
+* Thu Mar 27 2025 Thorsten Leemhuis <fedora@leemhuis.info> - 25.0.2-2
+- pick up backport and fixes from Fedora for clover/llvm20 and
+  vulkan/wsi: implement the Wayland color management protocol
+
+* Thu Mar 20 2025 Thorsten Leemhuis <fedora@leemhuis.info> - 25.0.2-1
+- Update to 25.0.2
+
+* Thu Mar 06 2025 Thorsten Leemhuis <fedora@leemhuis.info> - 25.0.1-1
+- Update to 25.0.1
+- drop 0001-vulkan-wsi-x11-fix-use-of-uninitialised-xfixes-regio.patch
+
+* Thu Feb 20 2025 Björn Esser <besser82@fedoraproject.org> - 25.0.0-4
+- Add archless provides for mesa-vulkan-drivers
+
+* Thu Feb 20 2025 Björn Esser <besser82@fedoraproject.org> - 25.0.0-3
+- Fix mesa-filesystem requires in mesa-vulkan-drivers-freeworld
+
+* Thu Feb 20 2025 Björn Esser <besser82@fedoraproject.org> - 25.0.0-2
+- Fix general installability of mesa-vulkan-drivers-freeworld
+
+* Wed Feb 19 2025 Thorsten Leemhuis <fedora@leemhuis.info> - 25.0.0-1
+- Update to 25.0.0
+- add 0001-vulkan-wsi-x11-fix-use-of-uninitialised-xfixes-regio.patch
+
+* Thu Feb 13 2025 Thorsten Leemhuis <fedora@leemhuis.info> - 25.0.0~rc3-1
+- Update to 25.0.0~rc3
+
+* Tue Feb 11 2025 Thorsten Leemhuis <fedora@leemhuis.info> - 25.0.0~rc2-2
+- create mesa-vulkan-drivers-freeworld, conflicting with mesa-vulkan-drivers
+
+* Thu Feb 06 2025 Thorsten Leemhuis <fedora@leemhuis.info> - 25.0.0~rc2-1
+- Update to 25.0.0~rc2
+- drop upstreamed patch
+
+* Tue Jan 28 2025 Björn Esser <besser82@fedoraproject.org> - 24.3.4-8
+- Add patch for radeonsi to disallow compute queues on Raven/Raven2
+  due to hangs
+
+* Mon Jan 27 2025 Thorsten Leemhuis <fedora@leemhuis.info> - 24.3.4-7
+- Drop conflicts with mesa-va-drivers, as its files do not conclict
+  anymore with the ones in mesa-va-drivers-freeworld
+- Drop now unneeded BR on a specific LLVM version
+
+* Fri Jan 24 2025 Thorsten Leemhuis <fedora@leemhuis.info> - 24.3.4-6
+- Rebuild due to mishap with the release number
+
+* Fri Jan 24 2025 Thorsten Leemhuis <fedora@leemhuis.info> - 24.3.4-2
+- Reapply ldconfig changes from Leigh
+- Enable GLES stuff and exclude some of the files now getting build
+
+* Fri Jan 24 2025 Thorsten Leemhuis <fedora@leemhuis.info> - 24.3.4-1
+- Update to 24.3.4
+
+* Fri Jan 17 2025 Leigh Scott <leigh123linux@gmail.com> - 24.3.3-5
+- Remove ldconfig as it breaks some apps
+
+* Sat Jan 11 2025 Leigh Scott <leigh123linux@gmail.com> - 24.3.3-4
+- Fix ldconfig scriptlets
+
+* Sat Jan 11 2025 Leigh Scott <leigh123linux@gmail.com> - 24.3.3-3
+- Add ldconfig scriptlets
+
+* Fri Jan 10 2025 Leigh Scott <leigh123linux@gmail.com> - 24.3.3-2
+- Fix tearing due to fedora libgallium
+
+* Fri Jan 10 2025 Thorsten Leemhuis <fedora@leemhuis.info> - 24.3.3-1
+- Update to 24.3.3
+
 * Fri Dec 20 2024 Thorsten Leemhuis <fedora@leemhuis.info> - 24.3.2-1
 - Update to 24.3.2
 

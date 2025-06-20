@@ -13,7 +13,7 @@
 %endif
 
 # x264 is not in Fedora
-%bcond x264 0
+%bcond x264 1
 
 %ifarch x86_64 aarch64
 # OBS-CEF is only available on x86_64 and aarch64
@@ -28,7 +28,7 @@
 
 
 %global obswebsocket_version 5.5.5
-%global obsbrowser_commit 4023fad79e2e9ff277b706432fe33eddbdab6d6a
+%global obsbrowser_commit b56fd78936761891475458447c1cc9058bb9c2d4
 %global version_cef 6533
 %global version_aja v16.2-bugfix5
 
@@ -42,7 +42,7 @@
 
 Name:           obs-studio
 Version:        %{version_string}
-Release:        6.%{rel_build}
+Release:        7.%{rel_build}
 Summary:        Open Broadcaster Software Studio
 
 # OBS itself is GPL-2.0-or-later, while various plugin dependencies are of various other licenses
@@ -75,6 +75,8 @@ Patch1001:      obs-studio-UI-use-fdk-aac-by-default.patch
 ## Fix error: passing argument 4 of ‘query_dmabuf_modifiers’ from
 ##            incompatible pointer type [-Wincompatible-pointer-types]
 Patch1003:      obs-studio-fix-incompatible-pointer-type.patch
+
+Patch1004:      libcef_loading_workaround.patch
 
 BuildRequires:  gcc
 BuildRequires:  cmake >= 3.22
@@ -198,6 +200,7 @@ Provides:      bundled(intel-mediasdk)
 Open Broadcaster Software is free and open source
 software for video recording and live streaming.
 
+
 %files
 %doc README.rst
 %license UI/data/license/gplv2.txt
@@ -212,6 +215,27 @@ software for video recording and live streaming.
 %ifarch x86_64
 %exclude %{_datadir}/obs/obs-plugins/obs-browser*
 %endif
+
+# --------------------------------------------------------------------------
+
+%package -n obs-studio-plugin-x264
+Summary:        Open Broadcaster Software Studio - x264 encoding plugin
+License:        GPL-2.0-or-later
+Requires:       obs-studio%{?_isa} >= %{version}
+Supplements:    obs-studio%{?_isa}
+
+%description -n obs-studio-plugin-x264
+Open Broadcaster Software is free and open source software
+for video recording and live streaming.
+
+This package contains the plugin for using the x264 encoder for
+streaming or recording AVC/H.264 video.
+
+%files -n obs-studio-plugin-x264
+%license COPYING
+%{_libdir}/obs-plugins/obs-x264.so
+%{_datadir}/obs/obs-plugins/obs-x264/
+
 # --------------------------------------------------------------------------
 
 %package libs

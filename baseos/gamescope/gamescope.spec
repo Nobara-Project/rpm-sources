@@ -1,16 +1,16 @@
 %global libliftoff_minver 0.5.0
 
 # latest git
-%define commit 1ab8009d5dc5faaff5d890ef896483ef14363536
+%define commit df15bcd81ec65e109c740019cacff06ac6fb07db
 
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global _default_patch_fuzz 2
 %global build_timestamp %(date +"%Y%m%d")
 
-%global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 2.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           gamescope
-Version:        3.16.4
+Version:        3.16.11
 Release:        %{rel_build}
 Summary:        Micro-compositor for video games on Wayland
 
@@ -26,15 +26,14 @@ Patch0:         0001-cstdint.patch
 # https://github.com/ChimeraOS/gamescope
 Patch1:         chimeraos.patch
 
-# Use this instead of reverting commit 299bc3410dcfd46da5e3c988354b60ed3a356900 for now
-# https://github.com/ValveSoftware/gamescope/issues/1369
-# matt_schwartz — 4:30 PM
-# if people notice the issue theres a convar you can use now, adaptive_sync_ignore_overlay that doesnt require patching gamescope. it really should be dealt with upstream at some point.
-# GloriousEggroll — 4:30 PM
-# should adaptive_sync_ignore_overlay be set as a default for now?"
-# matt_schwartz — 4:31 PM
-# its not ideal but functionally its the same as that patch (reverting the commit), yes
-Patch3:         adaptive_sync_enable_ignore_mangohud.patch
+# https://github.com/ValveSoftware/gamescope/pull/1846
+Patch2:		1846.patch
+
+# https://github.com/ValveSoftware/gamescope/pull/1867
+# WaylandBackend: Use sRGB cm description for sRGB
+Patch3: 	1867-2.patch
+
+Patch4:         Add-pixman-udev-deps.patch
 
 BuildRequires:  meson >= 0.54.0
 BuildRequires:  ninja-build
@@ -49,7 +48,7 @@ BuildRequires:  libXcursor-devel
 BuildRequires:  libeis-devel
 BuildRequires:  pixman-devel
 BuildRequires:  pkgconfig(libdisplay-info)
-BuildRequires:  pkgconfig(pixman-1)
+BuildRequires:  pkgconfig(pixman-1) >= 0.42.0
 BuildRequires:  pkgconfig(x11)
 BuildRequires:  pkgconfig(xdamage)
 BuildRequires:  pkgconfig(xcomposite)
@@ -59,13 +58,14 @@ BuildRequires:  pkgconfig(xfixes)
 BuildRequires:  pkgconfig(xxf86vm)
 BuildRequires:  pkgconfig(xtst)
 BuildRequires:  pkgconfig(xres)
-BuildRequires:  pkgconfig(libdrm)
+BuildRequires:  pkgconfig(libdrm) >= 2.4.113
 BuildRequires:  pkgconfig(vulkan)
 BuildRequires:  pkgconfig(wayland-scanner)
-BuildRequires:  pkgconfig(wayland-server)
-BuildRequires:  pkgconfig(wayland-protocols) >= 1.17
+BuildRequires:  pkgconfig(wayland-server) >= 1.21
+BuildRequires:  pkgconfig(wayland-protocols) >= 1.41
 BuildRequires:  pkgconfig(xkbcommon)
 BuildRequires:  pkgconfig(sdl2)
+BuildRequires:  pkgconfig(openvr) >= 2.7
 BuildRequires:  pkgconfig(libpipewire-0.3)
 BuildRequires:  pkgconfig(libavif)
 # Use subproject wlroots -- per discussion with valve/joshie
@@ -140,8 +140,19 @@ sed -i 's^../thirdparty/SPIRV-Headers/include/spirv/^/usr/include/spirv/^' src/m
 cd gamescope
 export PKG_CONFIG_PATH=pkgconfig
 %meson \
-    --auto-features=enabled \
-    -Dforce_fallback_for=vkroots,wlroots,libliftoff
+    -Davif_screenshots=enabled \
+    -Dbenchmark=enabled \
+    -Ddrm_backend=enabled \
+    -Denable_gamescope=true \
+    -Denable_gamescope_wsi_layer=true \
+    -Denable_openvr_support=true \
+    -Dforce_fallback_for=vkroots,wlroots,libliftoff \
+    -Dglm_include_dir=/usr/include/glm \
+    -Dinput_emulation=enabled \
+    -Dpipewire=enabled \
+    -Drt_cap=enabled \
+    -Dsdl2_backend=enabled \
+    -Dstb_include_dir=/usr/include/stb
 %meson_build
 
 %install

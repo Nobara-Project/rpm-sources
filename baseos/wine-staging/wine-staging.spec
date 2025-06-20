@@ -9,9 +9,9 @@
 # check buildresult after a while
 
 %define _lto_cflags %{nil}
-%define realver     10.7
-%define stagingver  10.7
-%define packagever  10.7
+%define realver     10.10
+%define stagingver  10.10
+%define packagever  10.10
 
 %global flavor %nil
 %global build_type_safety_c 0
@@ -91,7 +91,7 @@ BuildRequires:  giflib-devel
 BuildRequires:  ImageMagick-devel
 BuildRequires:  libpcap-devel
 BuildRequires:  libXxf86dga-devel
-BuildRequires:  mesa-libOSMesa-devel
+BuildRequires:  mesa-compat-libOSMesa-devel
 BuildRequires:  libgphoto2-devel
 BuildRequires:  libusb1-devel
 BuildRequires:  alsa-lib-devel
@@ -157,16 +157,16 @@ Requires:   %dlopenreq dbus-1
 Requires:   %dlopenreq fontconfig
 Requires:   %dlopenreq freetype
 Requires:   %dlopenreq gnutls
-# Requires:   %dlopenreq gsm
-# Requires:   %dlopenreq jpeg
+# Requires:   %%dlopenreq gsm
+# Requires:   %%dlopenreq jpeg
 Requires:   %dlopenreq krb5
 Requires:   %dlopenreq ncurses
 Requires:   %dlopenreq odbc
 Requires:   %dlopenreq OSMesa
-# Requires:   %dlopenreq png
+# Requires:   %%dlopenreq png
 Requires:   %dlopenreq sane
 Requires:   %dlopenreq SDL2
-# Requires:   %dlopenreq tiff
+# Requires:   %%dlopenreq tiff
 Requires:   %dlopenreq v4l1
 Requires:   %dlopenreq vulkan
 Requires:   %dlopenreq Xcomposite
@@ -175,8 +175,9 @@ Requires:   %dlopenreq Xi
 Requires:   %dlopenreq Xinerama
 Requires:   %dlopenreq Xrandr
 Requires:   %dlopenreq Xrender
-# Requires:   %dlopenreq xslt
+# Requires:   %%dlopenreq xslt
 Requires:   %dlopenreq Xxf86vm
+Requires:   mesa-compat-libOSMesa
 %if 0%{?fedora_version}
 Suggests:   sane-frontends
 %endif
@@ -335,10 +336,10 @@ install -p -m 0644 tools/wine/wine.pl.UTF-8.man "%{buildroot}/usr/share/man/pl.U
 %{_datadir}/applications/*.desktop
 %dir %{_datadir}/wine/fonts
 %{_datadir}/wine/fonts/*
-# %{_datadir}/wine/color/*
+#%%{_datadir}/wine/color/*
 
 %{_bindir}/wine
-#%{_bindir}/wine-preloader
+#%%{_bindir}/wine-preloader
 %{_mandir}/man?/wine.?*
 %lang(de) %{_mandir}/de.UTF-8/man?/wine.?*
 %lang(fr) %{_mandir}/fr.UTF-8/man?/wine.?*

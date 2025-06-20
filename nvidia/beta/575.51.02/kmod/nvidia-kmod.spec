@@ -5,7 +5,7 @@
 
 Name:           nvidia-kmod
 Version:        575.51.02
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        NVIDIA display driver kernel module
 Epoch:          3
 License:        NVIDIA License
@@ -14,6 +14,8 @@ ExclusiveArch:  x86_64 aarch64
 
 Source0:        %{name}-%{version}-x86_64.tar.xz
 Source1:        %{name}-%{version}-aarch64.tar.xz
+# Kbuild: Convert EXTRA_CFLAGS to ccflags-y (6.15+) + std=gnu17
+Patch0:         nvidia-kernel-ccflags-y.patch
 
 # Get the needed BuildRequires (in parts depending on what we build for):
 BuildRequires:  kmodtool
@@ -68,6 +70,22 @@ done
 %{?akmod_install}
 
 %changelog
+* Tue Apr 22 2025 Simone Caronni <negativo17@gmail.com> - 3:575.51.02-1
+- Update to 575.51.02.
+
+* Tue Apr 22 2025 Simone Caronni <negativo17@gmail.com> - 3:570.144-1
+- Update to 570.144.
+
+* Sat Apr 12 2025 Simone Caronni <negativo17@gmail.com> - 3:570.133.07-2
+- Convert EXTRA_CFLAGS to ccflags-y for kernel 6.15 and add -std=gnu17 to fix
+  compilation on Fedora 42's 6.14.1 kernel.
+
+* Wed Mar 19 2025 Simone Caronni <negativo17@gmail.com> - 3:570.133.07-1
+- Update to 570.133.07.
+
+* Fri Feb 28 2025 Simone Caronni <negativo17@gmail.com> - 3:570.124.04-1
+- Update to 570.124.04.
+
 * Fri Jan 31 2025 Simone Caronni <negativo17@gmail.com> - 3:570.86.16-1
 - Update to 570.86.16.
 
@@ -127,87 +145,3 @@ done
 
 * Tue Feb 06 2024 Simone Caronni <negativo17@gmail.com> - 3:545.29.06-2
 - Add patch to fix build with the latest 6.6/6.7 kernels.
-
-* Fri Dec 01 2023 Simone Caronni <negativo17@gmail.com> - 3:545.29.06-1
-- Update to version 545.29.06.
-
-* Tue Nov 14 2023 Simone Caronni <negativo17@gmail.com> - 3:545.29.02-3
-- Update location of configuration file.
-
-* Mon Nov 13 2023 Simone Caronni <negativo17@gmail.com> - 3:545.29.02-2
-- Trim changelog.
-- Drop custom signing and compressing in favour of kmodtool.
-- Allow building proprietary or open source modules.
-- Adjust compile command to match with what Nvidia ships nowadays.
-
-* Tue Oct 31 2023 Simone Caronni <negativo17@gmail.com> - 3:545.29.02-1
-- Update to 545.29.02.
-
-* Wed Oct 18 2023 Simone Caronni <negativo17@gmail.com> - 3:545.23.06-1
-- Update to 545.23.06.
-
-* Fri Sep 22 2023 Simone Caronni <negativo17@gmail.com> - 3:535.113.01-1
-- Update to 535.113.01.
-
-* Thu Aug 24 2023 Simone Caronni <negativo17@gmail.com> - 3:535.104.05-1
-- Update to 535.104.05.
-
-* Wed Aug 09 2023 Simone Caronni <negativo17@gmail.com> - 3:535.98-1
-- Update to 535.98.
-
-* Wed Jul 19 2023 Simone Caronni <negativo17@gmail.com> - 3:535.86.05-1
-- Update to 535.86.05.
-
-* Thu Jun 15 2023 Simone Caronni <negativo17@gmail.com> - 3:535.54.03-1
-- Update to 535.54.03.
-
-* Tue Jun 13 2023 Simone Caronni <negativo17@gmail.com> - 3:535.43.02-1
-- Update to 535.43.02.
-
-* Fri Mar 24 2023 Simone Caronni <negativo17@gmail.com> - 3:530.41.03-1
-- Update to 530.41.03.
-
-* Wed Mar 08 2023 Simone Caronni <negativo17@gmail.com> - 3:530.30.02-1
-- Update to 530.30.02.
-
-* Fri Feb 10 2023 Simone Caronni <negativo17@gmail.com> - 3:525.89.02-1
-- Update to 525.89.02.
-
-* Fri Jan 20 2023 Simone Caronni <negativo17@gmail.com> - 3:525.85.05-1
-- Update to 525.85.05.
-
-* Mon Jan 09 2023 Simone Caronni <negativo17@gmail.com> - 3:525.78.01-1
-- Update to 525.78.01.
-
-* Tue Nov 29 2022 Simone Caronni <negativo17@gmail.com> - 3:525.60.11-1
-- Update to 525.60.11.
-
-* Thu Oct 13 2022 Simone Caronni <negativo17@gmail.com> - 3:520.56.06-1
-- Update to 520.56.06.
-
-* Wed Sep 21 2022 Simone Caronni <negativo17@gmail.com> - 3:515.76-1
-- Update to 515.76.
-
-* Mon Aug 08 2022 Simone Caronni <negativo17@gmail.com> - 3:515.65.01-1
-- Update to 515.65.01.
-
-* Wed Jun 29 2022 Simone Caronni <negativo17@gmail.com> - 3:515.57-1
-- Update to 515.57.
-
-* Wed Jun 01 2022 Simone Caronni <negativo17@gmail.com> - 3:515.48.07-1
-- Update to 515.48.07.
-
-* Thu May 12 2022 Simone Caronni <negativo17@gmail.com> - 3:515.43.04-1
-- Update to 515.43.04.
-
-* Mon May 02 2022 Simone Caronni <negativo17@gmail.com> - 3:510.68.02-1
-- Update to 510.68.02.
-
-* Mon Mar 28 2022 Simone Caronni <negativo17@gmail.com> - 3:510.60.02-1
-- Update to 510.60.02.
-
-* Mon Feb 14 2022 Simone Caronni <negativo17@gmail.com> - 3:510.54-1
-- Update to 510.54.
-
-* Wed Feb 02 2022 Simone Caronni <negativo17@gmail.com> - 3:510.47.03-1
-- Update to 510.47.03.

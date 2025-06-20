@@ -1,0 +1,34 @@
+From 8c8aee47b2fc022b82b8ce8842af47a640cdec3a Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Franti=C5=A1ek=20Zatloukal?= <fzatlouk@redhat.com>
+Date: Wed, 28 May 2025 12:16:36 +0200
+Subject: [PATCH] Add pixman/udev deps
+
+---
+ src/meson.build | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/src/meson.build b/src/meson.build
+index df839cd..04c8717 100644
+--- a/src/meson.build
++++ b/src/meson.build
+@@ -23,6 +23,8 @@ cap_dep = dependency('libcap', required: get_option('rt_cap'))
+ epoll_dep = dependency('epoll-shim', required: false)
+ sdl2_dep = dependency('SDL2', required: get_option('sdl2_backend'))
+ avif_dep = dependency('libavif', version: '>=1.0.0', required: get_option('avif_screenshots'))
++pixman_dep = dependency('pixman-1')
++libudev_dep = dependency('libudev', required: true)
+ 
+ wlroots_dep = dependency(
+   'wlroots-0.18',
+@@ -197,7 +199,7 @@ gamescope_version = configure_file(
+       xkbcommon, thread_dep, sdl2_dep, wlroots_dep,
+       vulkan_dep, liftoff_dep, dep_xtst, dep_xmu, cap_dep, epoll_dep, pipewire_dep, librt_dep,
+       stb_dep, displayinfo_dep, openvr_dep, dep_xcursor, avif_dep, dep_xi,
+-      libdecor_dep, eis_dep, luajit_dep, libinput_dep, libsystemd_dep,
++      libdecor_dep, eis_dep, luajit_dep, libinput_dep, libsystemd_dep, pixman_dep, libudev_dep,
+     ],
+     install: true,
+     cpp_args: gamescope_cpp_args,
+-- 
+2.49.0
+

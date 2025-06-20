@@ -1,8 +1,24 @@
 diff --git a/bin_steam.sh b/bin_steam.sh
-index fb81d47..134f94e 100755
+index e7d40c6..969be6f 100755
 --- a/bin_steam.sh
 +++ b/bin_steam.sh
-@@ -200,6 +206,22 @@ fi
+@@ -24,6 +24,15 @@ log () {
+ 
+ export STEAMSCRIPT_VERSION=1.0.0.83
+ 
++# nvidia rendering fixup
++if [ -f /bin/lspci ]; then
++  nvgpu=$(lspci | grep -iE 'VGA|3D' | grep -i nvidia | cut -d ":" -f 3)
++  if [ -n "$nvgpu" ]; then
++	export __GL_CONSTANT_FRAME_RATE_HINT=3
++  fi
++fi
++
++
+ # Set up domain for script localization
+ export TEXTDOMAIN=steam
+ 
+@@ -308,6 +317,22 @@ if [ -x "$STEAMDEPS" ]; then
  fi
  
  # go to the install directory and run the client
@@ -25,4 +41,4 @@ index fb81d47..134f94e 100755
 +fi
 +
  
- exec "$LAUNCHSTEAMDIR/$STEAMBOOTSTRAP" "$@"
+ exec "$LAUNCHSTEAMDIR/$STEAMBOOTSTRAP" ${log_opened+-srt-logger-opened} "$@"

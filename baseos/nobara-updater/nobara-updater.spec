@@ -1,6 +1,6 @@
 Name:          nobara-updater
 Version:       2.0.0
-Release:       19%{?dist}
+Release:       20%{?dist}
 License:       GPL-3.0-or-later
 Summary:       Nobara System Updater
 
@@ -78,7 +78,6 @@ update-mime-database /usr/share/mime
 %{_bindir}/nobara-sync
 %{_bindir}/nobara-updater
 %{_bindir}/nobara-tweak-tool
-%{_bindir}/nobara-updater-gamescope-gui
 %{_bindir}/nobara-browser-select
 %{_bindir}/nobara-rpm-installer
 %{_datadir}/applications/nobara-updater.desktop

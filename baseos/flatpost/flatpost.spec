@@ -1,7 +1,7 @@
-%global tag 1.0.5
+%global tag 1.0.6
 
 # Manual commit is auto-inserted by workflow
-%global commit 4d3dc59ab28311ff90f640b88c5a156b349cc74b
+%global commit 4c1540b7889fb394b4d76f35c333ebff9c990fb4
 
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
@@ -21,6 +21,7 @@ Source0:        %{url}/archive/refs/tags/%{tag}.tar.gz#/%{name}-%{tag}.tar.gz
 BuildArch:      noarch
 BuildRequires:  python3-devel
 BuildRequires:  make
+BuildRequires:  desktop-file-utils
 
 Provides:	nobara-updater
 
@@ -40,6 +41,10 @@ Requires: gtk3
 Requires: gtk4
 Requires: xdg-utils
 
+Requires(post):      shared-mime-info
+Requires(postun):    shared-mime-info
+Requires(posttrans): shared-mime-info
+
 Provides: flatpost
 
 %description
@@ -52,19 +57,23 @@ installation, removal, updating, and permission management of flatpak packages a
 %build
 make all DESTDIR=%{buildroot}
 
+%check
+desktop-file-validate %{buildroot}%{_datadir}/applications/com.flatpost.flatpostapp.desktop
+
 %post
-#!/bin/bash
+xdg-icon-resource forceupdate --theme hicolor &>/dev/null
+update-mime-database usr/share/mime &>/dev/null
+update-desktop-database -q
 
-# Check if we already have the association
-if [ ! -f /usr/bin/xdg-mime ]; then
-    # If xdg-mime is not available, skip this step
-    exit 0
-fi
+%postun
+xdg-icon-resource forceupdate --theme hicolor &>/dev/null
+update-mime-database usr/share/mime &>/dev/null
+update-desktop-database -q
 
-# Set the default application for .rpm files
-xdg-mime default /usr/share/applications/com.flatpost.flatpostapp.desktop application/vnd.flatpak.ref
-xdg-mime default /usr/share/applications/com.flatpost.flatpostapp.desktop application/vnd.flatpak.repo
-update-mime-database /usr/share/mime
+%posttrans
+xdg-icon-resource forceupdate --theme hicolor &>/dev/null
+update-mime-database usr/share/mime &>/dev/null
+update-desktop-database -q
 
 %files
 %{python3_sitelib}/flatpost/
@@ -73,6 +82,7 @@ update-mime-database /usr/share/mime
 %{_datadir}/flatpost/collections_data.json
 %{_datadir}/icons/hicolor/1024x1024/apps/com.flatpost.flatpostapp.png
 %{_datadir}/icons/hicolor/64x64/apps/com.flatpost.flatpostapp.png
+%{_datadir}/mime/packages/flatpost.xml
 %license %{_datadir}/licenses/flatpost/LICENSE
 
 %clean

@@ -1,0 +1,58 @@
+diff --git a/UI/obs-app.cpp b/UI/obs-app.cpp
+index ebd38cb..a6dc84c 100644
+--- a/UI/obs-app.cpp
++++ b/UI/obs-app.cpp
+@@ -81,6 +81,43 @@
+ 
+ #include "ui-config.h"
+ 
++#ifndef _WIN32
++#include <dlfcn.h>
++#include <filesystem>
++#include <iostream>
++#include <cstdlib>
++
++static void preload_libcef()
++{
++	const char *env_path = std::getenv("OBS_PLUGINDIR");
++	std::vector<std::filesystem::path> base_paths;
++
++	if (env_path)
++		base_paths.emplace_back(env_path);
++
++	base_paths.emplace_back("/usr/lib64");
++	base_paths.emplace_back("/usr/lib");
++	base_paths.emplace_back("/usr/local/lib");
++	base_paths.emplace_back("/app/lib");         // Flatpak
++	base_paths.emplace_back("/opt/homebrew/lib"); // macOS/Homebrew
++
++	for (const auto &base : base_paths) {
++		auto path = base / "obs-plugins" / "libcef.so";
++		if (std::filesystem::exists(path)) {
++			void *handle = dlopen(path.c_str(), RTLD_NOW | RTLD_GLOBAL);
++			if (handle) {
++				std::cerr << "Preloaded libcef from: " << path << std::endl;
++				return;
++			} else {
++				std::cerr << "Failed to preload libcef: " << path << " — " << dlerror() << std::endl;
++			}
++		}
++	}
++
++	std::cerr << "Could not preload libcef.so — not found in known plugin paths." << std::endl;
++}
++#endif
++
+ using namespace std;
+ 
+ static log_handler_t def_log_handler;
+@@ -2451,6 +2488,9 @@ static bool vc_runtime_outdated()
+ 
+ int main(int argc, char *argv[])
+ {
++#ifndef _WIN32
++	preload_libcef();  // Load before any plugins to avoid TLS error
++#endif
+ #ifndef _WIN32
+ 	signal(SIGPIPE, SIG_IGN);
+ 

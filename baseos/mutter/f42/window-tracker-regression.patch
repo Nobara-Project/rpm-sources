@@ -1,0 +1,45 @@
+From 0443dcbb62a100c1bc37be3fb36d3621ef9abeb0 Mon Sep 17 00:00:00 2001
+From: Michael Catanzaro <mcatanzaro@redhat.com>
+Date: Sun, 1 Jun 2025 12:36:58 -0500
+Subject: [PATCH] Revert "frames/window-tracker: Handle override-redirect
+ attribute change."
+
+This reverts commit 02068a8f97df39055bc5e8d631847f5499a821a0.
+
+This avoids a notable regression:
+
+https://gitlab.gnome.org/GNOME/mutter/-/issues/4133
+https://bugzilla.redhat.com/show_bug.cgi?id=2369567
+---
+ src/frames/meta-window-tracker.c | 15 ---------------
+ 1 file changed, 15 deletions(-)
+
+diff --git a/src/frames/meta-window-tracker.c b/src/frames/meta-window-tracker.c
+index cfd62b6a5..490e52c7c 100644
+--- a/src/frames/meta-window-tracker.c
++++ b/src/frames/meta-window-tracker.c
+@@ -263,21 +263,6 @@ on_xevent (GdkDisplay *display,
+       xwindow = xevent->xcreatewindow.window;
+       listen_set_up_frame (window_tracker, xwindow);
+     }
+-  else if (xevent->type == ConfigureNotify &&
+-           xevent->xconfigure.event == xroot)
+-    {
+-      gboolean has_frame;
+-
+-      xwindow = xevent->xconfigure.window;
+-      has_frame =
+-        g_hash_table_contains (window_tracker->frames,
+-                               GUINT_TO_POINTER (xwindow));
+-
+-      if (!xevent->xconfigure.override_redirect && !has_frame)
+-        listen_set_up_frame (window_tracker, xwindow);
+-      else if (xevent->xconfigure.override_redirect && has_frame)
+-        remove_frame (window_tracker, xwindow);
+-    }
+   else if (xevent->type == DestroyNotify)
+     {
+       xwindow = xevent->xdestroywindow.window;
+-- 
+2.49.0
+

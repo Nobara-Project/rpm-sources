@@ -1,6 +1,6 @@
 Name:           kde-nobara
-Version:        6.3.4
-Release:        2%{?dist}
+Version:        6.3.5
+Release:        1%{?dist}
 Summary:        KDE Presets from NobaraProject Official
 License:    	GPLv2
 URL:            https://github.com/nobara-project/nobara-core-packages
@@ -100,8 +100,7 @@ cp -rv etc/* %{buildroot}%{_sysconfdir}
 %{_datadir}/plasma/look-and-feel/org.nobaraproject.desktop/*
 %{_datadir}/plasma/layout-templates/*
 %{_datadir}/plasma/plasmoids/*
-%{_datadir}/wallpapers/nobara-39*
-%{_datadir}/wallpapers/nobara-40*
+%{_datadir}/wallpapers/nobara-42*
 %{_datadir}/wallpapers/nobara-41*
 %{_datadir}/themes/Nobara/assets/*
 %{_datadir}/themes/Nobara/gtk-2.0/*
@@ -118,6 +117,8 @@ cp -rv etc/* %{buildroot}%{_sysconfdir}
 %files extras-wallpapers
 %{_datadir}/wallpapers/nobara-mecha-penguins*
 %{_datadir}/wallpapers/nobara-weebara*
+%{_datadir}/wallpapers/nobara-39*
+%{_datadir}/wallpapers/nobara-40*
 
 %files sddm
 %{_datadir}/sddm/*

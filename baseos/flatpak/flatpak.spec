@@ -11,8 +11,8 @@
 %bcond malcontent %[!0%{?rhel}]
 
 Name:           flatpak
-Version:        1.16.0
-Release:        3%{?dist}
+Version:        1.16.1
+Release:        2%{?dist}
 Summary:        Application deployment framework for desktop apps
 
 License:        LGPL-2.1-or-later
@@ -89,7 +89,7 @@ Requires:       ostree-libs%{?_isa} >= %{ostree_version}
 Requires:       /usr/bin/fusermount3
 Requires:       /usr/bin/xdg-dbus-proxy
 # https://fedoraproject.org/wiki/SELinux/IndependentPolicy
-Requires:       (flatpak-selinux = %{?epoch:%{epoch}:}%{version}-%{release} if selinux-policy-targeted)
+Requires:       flatpak-selinux
 Requires:       %{name}-session-helper%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
 Recommends:     p11-kit-server
 
