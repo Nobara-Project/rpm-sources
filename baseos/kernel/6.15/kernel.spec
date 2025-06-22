@@ -54,7 +54,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 200
+%define customver 201
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -417,9 +417,7 @@ patch -p1 -i %{PATCH1}
 
 # Apply Nobara patches:
 patch -p1 -i %{PATCH2}
-# Wait for rebase
-# https://github.com/linux-surface/linux-surface/pull/1790
-#patch -p1 -i %%{PATCH3}
+patch -p1 -i %{PATCH3}
 patch -p1 -i %{PATCH4}
 patch -p1 -i %{PATCH5}
 patch -p1 -i %{PATCH6}
