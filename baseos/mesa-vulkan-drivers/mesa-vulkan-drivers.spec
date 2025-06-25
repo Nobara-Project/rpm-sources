@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit f39240b98fc353b54e8f40501805d1959836fa22
+%global commit ef91ad64d5cd3b202dc0b3ddcc29277e2c8b49ec
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 6.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 7.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -83,16 +83,16 @@ Source1:        Mesa-MLAA-License-Clarification-Email.txt
 Patch10:        gnome-shell-glthread-disable.patch
 
 # https://gitlab.com/evlaV/mesa/
-Patch31:         valve.patch
+Patch30:	valve.patch
 
 # https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/34918
-Patch32:        34918.patch
+Patch31:        34918.patch
+
+# https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/35269
+Patch32:	35269.patch
 
 # Path of Exile
-Patch35:        min_image_count.patch
-
-# FSR4
-Patch40:	fsr4.patch
+Patch33:        min_image_count.patch
 
 BuildRequires:  meson >= 1.3.0
 BuildRequires:  cbindgen
@@ -221,7 +221,6 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
 
 %meson \
   -Dplatforms=x11,wayland \
-  -Dosmesa=true \
 %if 0%{?with_hardware}
   -Dgallium-drivers=softpipe,llvmpipe,virgl,nouveau%{?with_r300:,r300}%{?with_crocus:,crocus}%{?with_i915:,i915}%{?with_iris:,iris}%{?with_vmware:,svga}%{?with_radeonsi:,radeonsi}%{?with_r600:,r600}%{?with_freedreno:,freedreno}%{?with_etnaviv:,etnaviv}%{?with_tegra:,tegra}%{?with_vc4:,vc4}%{?with_v3d:,v3d}%{?with_lima:,lima}%{?with_panfrost:,panfrost}%{?with_vulkan_hw:,zink} \
 %else
@@ -235,7 +234,6 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
 %endif
   -Dvulkan-drivers=%{?vulkan_drivers} \
   -Dvulkan-layers=device-select%{?with_vulkan_overlay:,overlay} \
-  -Dshared-glapi=enabled \
   -Dgles1=enabled \
   -Dgles2=enabled \
   -Dopengl=true \
@@ -254,7 +252,6 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
   -Dshared-llvm=enabled \
   -Dvalgrind=%{?with_valgrind:enabled}%{!?with_valgrind:disabled} \
   -Dbuild-tests=false \
-  -Dselinux=true \
   -Dandroid-libbacktrace=disabled \
 %ifarch %{ix86}
   -Dglx-read-only-text=true \
@@ -281,7 +278,7 @@ ln -s %{_libdir}/libGLX_mesa.so.0 %{buildroot}%{_libdir}/libGLX_system.so.0
 
 # this keeps breaking, check it early.  note that the exit from eu-ftr is odd.
 pushd %{buildroot}%{_libdir}
-for i in libOSMesa*.so libGL*.so ; do
+for i in libGL*.so ; do
     sleep 1
     eu-findtextrel $i && exit 1
 done
@@ -298,9 +295,6 @@ rm -Rf %{buildroot}%{_libdir}/libEGL_mesa.so.0*
 rm -Rf %{buildroot}%{_includedir}/EGL/
 rm -Rf %{buildroot}%{_libdir}/libglapi.so.0
 rm -Rf %{buildroot}%{_libdir}/libglapi.so.0.*
-rm -Rf %{buildroot}%{_libdir}/libOSMesa.so.8*
-rm -Rf %{buildroot}%{_libdir}/libOSMesa.so
-rm -Rf %{buildroot}%{_libdir}/pkgconfig/osmesa.pc
 rm -Rf %{buildroot}%{_libdir}/libgallium-*-devel.so
 rm -Rf %{buildroot}%{_libdir}/libgbm.so.1
 rm -Rf %{buildroot}%{_libdir}/libgbm.so.1.*
@@ -427,6 +421,11 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Wed Jun 25 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-7
+- Update to latest commit
+- Remove fsr4.patch due to upstream solution
+- Add #35269 MR patch
+
 * Thu Jun 19 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-6
 - Update to latest commit
 
