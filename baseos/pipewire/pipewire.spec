@@ -9,7 +9,7 @@
 %global ms_version   0.4.2
 
 # For rpmdev-bumpspec and releng automation
-%global baserelease 1
+%global baserelease 2
 
 #global snapdate   20210107
 #global gitcommit  b17db2cebc1a5ab2c01851d29c05f79cd2f262bb
@@ -74,6 +74,7 @@ Source0:        https://gitlab.freedesktop.org/pipewire/pipewire/-/archive/%{git
 Source0:        https://gitlab.freedesktop.org/pipewire/pipewire/-/archive/%{version}/pipewire-%{version}.tar.gz
 %endif
 Source1:        pipewire.sysusers
+Source2:        99-force-clock.conf
 
 ## upstream patches
 
@@ -519,6 +520,8 @@ ln -s ../pipewire.conf.avail/20-upmix.conf \
 ln -s ../client.conf.avail/20-upmix.conf \
 		%{buildroot}%{_datadir}/pipewire/client.conf.d/20-upmix.conf
 
+# https://www.reddit.com/r/linux_gaming/comments/1htxdig/audio_crackles_nobara_41/
+install -p -D -m 0644 %{SOURCE2} %{buildroot}%{_datadir}/pipewire/pipewire.conf.d/99-force-clock.conf
 
 %find_lang %{name}
 
@@ -570,6 +573,7 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 %{_mandir}/man5/pipewire.conf.5*
 %{_mandir}/man5/pipewire-filter-chain.conf.5*
 %config(noreplace) %{_sysconfdir}/security/limits.d/*.conf
+%{_datadir}/pipewire/pipewire.conf.d/99-force-clock.conf
 %{_sysusersdir}/pipewire.conf
 
 %files libs -f %{name}.lang
