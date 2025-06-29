@@ -1,7 +1,7 @@
 Summary: A set of scripts to run upon first user login
 Name: nobara-login
 Version: 1.2
-Release: 2%{?dist}
+Release: 3%{?dist}
 License: Public Domain
 Group: System Environment/Base
 Source0: hwcheck.sh
@@ -26,6 +26,7 @@ Source24: 70-drunkdeer.rules
 Source25: nobara-resolve-pkexec
 Source26: org.nobaraproject.resolvewizard.policy
 Source27: 75-powercap.rules
+Source28: krunnerrc
 
 BuildArch: noarch
 BuildRequires: filesystem
@@ -91,6 +92,7 @@ install -m 0644 %{SOURCE24} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/70-drunkd
 install -m 0755 %{SOURCE25} $RPM_BUILD_ROOT%{_libexecdir}/nobara-resolve-pkexec
 install -m 0755 %{SOURCE26} $RPM_BUILD_ROOT%{_datadir}/polkit-1/actions/org.nobaraproject.resolvewizard.policy
 install -m 0644 %{SOURCE27} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/75-powercap.rules
+install -m 0644 %{SOURCE28} $RPM_BUILD_ROOT%{_sysconfdir}/xdg/krunnerrc
 
 echo '# list of enabled automount partitions' > enabled.conf
 install -m 0755 enabled.conf $RPM_BUILD_ROOT%{_sysconfdir}/nobara/automount/enabled.conf
