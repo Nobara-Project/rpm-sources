@@ -1,6 +1,6 @@
 Name:          nobara-welcome
 Version:       5.0.2
-Release:       21%{?dist}
+Release:       22%{?dist}
 License:       GPLv2
 Group:         System Environment/Libraries
 Summary:       Nobara's Welcome App
