@@ -2,7 +2,7 @@
 %global debug_package %{nil}
 
 Name:           falcond
-Version:        1.1.5
+Version:        1.1.6
 Release:        %autorelease
 Summary:        Advanced Linux Gaming Performance Daemon
 
@@ -35,7 +35,7 @@ install -Dm644 debian/falcond.service %{buildroot}%{_unitdir}
 DESTDIR="%{buildroot}" \
 zig build \
     -Doptimize=ReleaseFast \
-    -Dcpu=baseline
+    -Dcpu=x86_64_v3
     
 %post
 %systemd_post falcond.service
@@ -53,4 +53,6 @@ zig build \
 %{_unitdir}/falcond.service
 
 %changelog
-%autochangelog
+* Mon Jun 23 2025 LionHeartP <LionHeartP@proton.me> - 1.1.6-1
+- Update to 1.1.6
+- Change CPU arch to x86_64_v3
