@@ -1,0 +1,225 @@
+From 9d923e79d060d8c7218c8229c65c964b7f04e864 Mon Sep 17 00:00:00 2001
+From: Simon Ser <contact@emersion.fr>
+Date: Tue, 30 Aug 2022 17:29:26 +0000
+Subject: [PATCH] drm: introduce
+ drm_mode_config.atomic_async_page_flip_not_supported
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This new field indicates whether the driver has the necessary logic
+to support async page-flips via the atomic uAPI. This is leveraged by
+the next commit to allow user-space to use this functionality.
+
+All atomic drivers setting drm_mode_config.async_page_flip are updated
+to also set drm_mode_config.atomic_async_page_flip_not_supported. We
+will gradually check and update these drivers to properly handle
+drm_crtc_state.async_flip in their atomic logic.
+
+The goal of this negative flag is the same as
+fb_modifiers_not_supported: we want to eventually get rid of all
+drivers missing atomic support for async flips. New drivers should not
+set this flag, instead they should support atomic async flips (if
+they support async flips at all). IOW, we don't want more drivers
+with async flip support for legacy but not atomic.
+
+v2: only set the flag on atomic drivers (remove it on amdgpu DCE and
+on radeon)
+
+Signed-off-by: Simon Ser <contact@emersion.fr>
+Cc: Daniel Vetter <daniel.vetter@ffwll.ch>
+Cc: Joshua Ashton <joshua@froggi.es>
+Cc: Melissa Wen <mwen@igalia.com>
+Cc: Alex Deucher <alexander.deucher@amd.com>
+Cc: Harry Wentland <hwentlan@amd.com>
+Cc: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Cc: André Almeida <andrealmeid@igalia.com>
+Cc: Ville Syrjälä <ville.syrjala@linux.intel.com>
+Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
+Link: https://lore.kernel.org/r/20220830172851.269402-4-contact@emersion.fr
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c   |  1 +
+ drivers/gpu/drm/atmel-hlcdc/atmel_hlcdc_dc.c        |  1 +
+ drivers/gpu/drm/i915/display/intel_display_driver.c |  1 +
+ drivers/gpu/drm/nouveau/nouveau_display.c           |  1 +
+ drivers/gpu/drm/vc4/vc4_kms.c                       |  1 +
+ include/drm/drm_mode_config.h                       | 11 +++++++++++
+ 6 files changed, 16 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 81672738a..05c404fcc 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -3998,6 +3998,7 @@ static int amdgpu_dm_mode_config_init(struct amdgpu_device *adev)
+ 		adev_to_drm(adev)->mode_config.prefer_shadow = 1;
+ 	/* indicates support for immediate flip */
+ 	adev_to_drm(adev)->mode_config.async_page_flip = true;
++	adev_to_drm(adev)->mode_config.atomic_async_page_flip_not_supported = true;
+
+ 	state = kzalloc(sizeof(*state), GFP_KERNEL);
+ 	if (!state)
+diff --git a/drivers/gpu/drm/atmel-hlcdc/atmel_hlcdc_dc.c b/drivers/gpu/drm/atmel-hlcdc/atmel_hlcdc_dc.c
+index fa0f9a93d..301b222c4 100644
+--- a/drivers/gpu/drm/atmel-hlcdc/atmel_hlcdc_dc.c
++++ b/drivers/gpu/drm/atmel-hlcdc/atmel_hlcdc_dc.c
+@@ -639,6 +639,7 @@ static int atmel_hlcdc_dc_modeset_init(struct drm_device *dev)
+ 	dev->mode_config.max_height = dc->desc->max_height;
+ 	dev->mode_config.funcs = &mode_config_funcs;
+ 	dev->mode_config.async_page_flip = true;
++	dev->mode_config.atomic_async_page_flip_not_supported = true;
+
+ 	return 0;
+ }
+diff --git a/drivers/gpu/drm/i915/display/intel_display_driver.c b/drivers/gpu/drm/i915/display/intel_display_driver.c
+index 8f144d4d3..f290c5c2e 100644
+--- a/drivers/gpu/drm/i915/display/intel_display_driver.c
++++ b/drivers/gpu/drm/i915/display/intel_display_driver.c
+@@ -123,6 +123,7 @@ static void intel_mode_config_init(struct intel_display *display)
+ 	mode_config->helper_private = &intel_mode_config_funcs;
+
+ 	mode_config->async_page_flip = HAS_ASYNC_FLIPS(display);
++	mode_config->atomic_async_page_flip_not_supported = true;
+
+ 	/*
+ 	 * Maximum framebuffer dimensions, chosen to match
+diff --git a/drivers/gpu/drm/nouveau/nouveau_display.c b/drivers/gpu/drm/nouveau/nouveau_display.c
+index 99977e5fe..540895dab 100644
+--- a/drivers/gpu/drm/nouveau/nouveau_display.c
++++ b/drivers/gpu/drm/nouveau/nouveau_display.c
+@@ -720,6 +720,7 @@ nouveau_display_create(struct drm_device *dev)
+ 		dev->mode_config.async_page_flip = false;
+ 	else
+ 		dev->mode_config.async_page_flip = true;
++	dev->mode_config.atomic_async_page_flip_not_supported = true;
+
+ 	drm_kms_helper_poll_init(dev);
+ 	drm_kms_helper_poll_disable(dev);
+diff --git a/drivers/gpu/drm/vc4/vc4_kms.c b/drivers/gpu/drm/vc4/vc4_kms.c
+index 5495f2a94..5b6b311e7 100644
+--- a/drivers/gpu/drm/vc4/vc4_kms.c
++++ b/drivers/gpu/drm/vc4/vc4_kms.c
+@@ -1068,6 +1068,7 @@ int vc4_kms_load(struct drm_device *dev)
+ 	dev->mode_config.helper_private = &vc4_mode_config_helpers;
+ 	dev->mode_config.preferred_depth = 24;
+ 	dev->mode_config.async_page_flip = true;
++	dev->mode_config.atomic_async_page_flip_not_supported = true;
+ 	dev->mode_config.normalize_zpos = true;
+
+ 	ret = vc4_ctm_obj_init(vc4);
+diff --git a/include/drm/drm_mode_config.h b/include/drm/drm_mode_config.h
+index 973119a91..47b005671 100644
+--- a/include/drm/drm_mode_config.h
++++ b/include/drm/drm_mode_config.h
+@@ -918,6 +918,17 @@ struct drm_mode_config {
+ 	 */
+ 	bool async_page_flip;
+
++	/**
++	 * @atomic_async_page_flip_not_supported:
++	 *
++	 * If true, the driver does not support async page-flips with the
++	 * atomic uAPI. This is only used by old drivers which haven't yet
++	 * accomodated for &drm_crtc_state.async_flip in their atomic logic,
++	 * even if they have &drm_mode_config.async_page_flip set to true.
++	 * New drivers shall not set this flag.
++	 */
++	bool atomic_async_page_flip_not_supported;
++
+ 	/**
+ 	 * @fb_modifiers_not_supported:
+ 	 *
+--
+2.43.0
+
+From 24ac301d6208f1135644fe32514994799e79a6a0 Mon Sep 17 00:00:00 2001
+From: Simon Ser <contact@emersion.fr>
+Date: Tue, 30 Aug 2022 17:29:52 +0000
+Subject: [PATCH] amd/display: indicate support for atomic async page-flips on
+ DC
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+amdgpu_dm_commit_planes() already sets the flip_immediate flag for
+async page-flips. This flag is used to set the UNP_FLIP_CONTROL
+register. Thus, no additional change is required to handle async
+page-flips with the atomic uAPI.
+
+v2: make it clear this commit is about DC and not only DCN
+
+Signed-off-by: Simon Ser <contact@emersion.fr>
+Cc: Joshua Ashton <joshua@froggi.es>
+Cc: Melissa Wen <mwen@igalia.com>
+Cc: Alex Deucher <alexander.deucher@amd.com>
+Cc: Harry Wentland <hwentlan@amd.com>
+Cc: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Cc: André Almeida <andrealmeid@igalia.com>
+Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
+Link: https://lore.kernel.org/r/20220830172851.269402-7-contact@emersion.fr
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 27a1e3a0046c9..a003e796aa183 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -3980,7 +3980,6 @@ static int amdgpu_dm_mode_config_init(struct amdgpu_device *adev)
+ 		adev_to_drm(adev)->mode_config.prefer_shadow = 1;
+ 	/* indicates support for immediate flip */
+ 	adev_to_drm(adev)->mode_config.async_page_flip = true;
+-	adev_to_drm(adev)->mode_config.atomic_async_page_flip_not_supported = true;
+
+ 	state = kzalloc(sizeof(*state), GFP_KERNEL);
+ 	if (!state)
+--
+GitLab
+
+From 1edf3fbbeb36440e1222c2fe0e8127fb804c5278 Mon Sep 17 00:00:00 2001
+From: Hamza Mahfooz <hamza.mahfooz@amd.com>
+Date: Fri, 4 Aug 2023 11:13:04 -0400
+Subject: [PATCH] drm/amd/display: ensure async flips are only accepted for
+ fast updates
+
+We should be checking to see if async flips are supported in
+amdgpu_dm_atomic_check() (i.e. not dm_crtc_helper_atomic_check()). Also,
+async flipping isn't supported if a plane's framebuffer changes memory
+domains during an atomic commit. So, move the check from
+dm_crtc_helper_atomic_check() to amdgpu_dm_atomic_check() and check if
+the memory domain has changed in amdgpu_dm_atomic_check().
+
+Cc: stable@vger.kernel.org
+Link: https://gitlab.freedesktop.org/drm/amd/-/issues/2733
+Fixes: c1e18c44dc7f ("drm/amd/display: only accept async flips for fast updates")
+Reviewed-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Hamza Mahfooz <hamza.mahfooz@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+(cherry picked from commit a7c0cad0dc060bb77e9c9d235d68441b0fc69507)
+Signed-off-by: Cristian Ciocaltea <cristian.ciocaltea@collabora.com>
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crtc.c   | 12 ------------
+ 1 file changed, 12 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crtc.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crtc.c
+index be1ebe826442a4..4b223db0cf2fe8 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crtc.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crtc.c
+@@ -473,18 +473,6 @@ static int dm_crtc_helper_atomic_check(struct drm_crtc *crtc,
+ 		return -EINVAL;
+ 	}
+
+-	/*
+-	 * Only allow async flips for fast updates that don't change the FB
+-	 * pitch, the DCC state, rotation, etc.
+-	 */
+-	if (crtc_state->async_flip &&
+-	    dm_crtc_state->update_type != UPDATE_TYPE_FAST) {
+-		drm_dbg_atomic(crtc->dev,
+-			       "[CRTC:%d:%s] async flips are only supported for fast updates\n",
+-			       crtc->base.id, crtc->name);
+-		return -EINVAL;
+-	}
+-
+ 	/* In some use cases, like reset, no stream is attached */
+ 	if (!dm_crtc_state->stream)
+ 		return 0;
