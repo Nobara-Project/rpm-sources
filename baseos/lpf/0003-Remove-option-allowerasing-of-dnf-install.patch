@@ -1,0 +1,26 @@
+From 289c498e920d53a581db07a902e77e77264422f3 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?S=C3=A9rgio=20M=2E=20Basto?= <sergio@serjux.com>
+Date: Thu, 24 Oct 2024 20:00:52 +0100
+Subject: [PATCH 3/3] Remove option --allowerasing of dnf install
+
+Fix dnf5 issue: Unknown argument "--allowerasing" for command "dnf5"
+---
+ scripts/lpf-sudo-install | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/scripts/lpf-sudo-install b/scripts/lpf-sudo-install
+index 7305903..d98fda3 100755
+--- a/scripts/lpf-sudo-install
++++ b/scripts/lpf-sudo-install
+@@ -23,7 +23,7 @@ done
+ 
+ (( ${#good_rpms} == 0 )) && { echo "$0: Nothing to install" >&2; exit 1; }
+ 
+-dnf -y --allowerasing install ${good_rpms[@]}
++dnf -y install ${good_rpms[@]}
+ 
+ 
+ # vim: set expandtab ts=4 sw=4:
+-- 
+2.46.2
+

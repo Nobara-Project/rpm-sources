@@ -1,0 +1,40 @@
+From 4f414697e6977da5fdeff7632ec3ea86ffdfbdfb Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?S=C3=A9rgio=20M=2E=20Basto?= <sergio@serjux.com>
+Date: Wed, 24 Nov 2021 23:23:45 +0000
+Subject: [PATCH] Fix "build all" v2
+
+---
+ scripts/lpf-update | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/scripts/lpf-update b/scripts/lpf-update
+index 52d19c8..e6e12ec 100755
+--- a/scripts/lpf-update
++++ b/scripts/lpf-update
+@@ -106,7 +106,7 @@ function gui_confirm_update()
+         $( list_states | egrep "$update_states" | sed 's/^/True /'))
+     zenity --list --title "Select packages to build and install" --checklist \
+         --column Install --column Package --column State --column Version  \
+-        ---width 700 --separator=' ' ${listdata[@]} \
++        --width 700 --separator=' ' ${listdata[@]} \
+             || $scriptdir/lpf-kill-pgroup
+ }
+ 
+@@ -134,7 +134,7 @@ function get_to_update()
+ 
+     local to_update
+     if (( $# == 1 && ${#states[@]} == 1 )); then
+-        to_update=( "${states[@]}" )
++        to_update=( "$@" )
+     elif [ -n "$*" ]; then
+         to_update=$( confirm_update_arg "$@" ) || to_update=()
+     elif [ -n "$DISPLAY" ]; then
+@@ -165,7 +165,7 @@ exec 5<&1 6<&2
+ export LPF_UPDATE=1
+ $scriptdir/lpf-notify lock
+ 
+-to_update=$( get_to_update " $@")
++to_update=$( get_to_update $@ )
+ for pkg in ${to_update[@]}; do
+     if [ -n "$DISPLAY" ]; then
+         update_packages $pkg  | "$scriptdir/update"

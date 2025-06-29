@@ -1,0 +1,29 @@
+From 6bb268599e5a5df949d8b1508e8eb6efb9df161b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?S=C3=A9rgio=20M=2E=20Basto?= <sergio@serjux.com>
+Date: Thu, 24 Oct 2024 20:13:49 +0100
+Subject: [PATCH] Use relative symbol links
+
+---
+ Makefile | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 1d69d7a..f5e00e2 100644
+--- a/Makefile
++++ b/Makefile
+@@ -30,9 +30,9 @@ install:
+ 	cp -a icons/*.png $(DESTDIR)$(DATADIR)/lpf/icons
+ 	rm -f  $(DESTDIR)$(DATADIR)/lpf/scripts/pylint.conf
+ 	cp -ar scripts CONFIG version $(DESTDIR)$(DATADIR)/lpf
+-	ln -s $(DATADIR)/lpf/scripts/lpf $(DESTDIR)$(BINDIR)/lpf
+-	ln -s $(DATADIR)/lpf/scripts/lpf-gui $(DESTDIR)$(BINDIR)/lpf-gui
+-	ln -s $(DATADIR)/lpf/scripts/lpf-kill-pgroup \
++	ln -sr $(DATADIR)/lpf/scripts/lpf $(DESTDIR)$(BINDIR)/lpf
++	ln -sr $(DATADIR)/lpf/scripts/lpf-gui $(DESTDIR)$(BINDIR)/lpf-gui
++	ln -sr $(DATADIR)/lpf/scripts/lpf-kill-pgroup \
+ 	    $(DESTDIR)/$(LIBEXECDIR)/lpf-kill-pgroup
+ 
+ 	for size in 24 32 48 64 128; do \
+-- 
+2.46.2
+

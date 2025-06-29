@@ -1,0 +1,28 @@
+diff --git a/scripts/lpf-notify b/scripts/lpf-notify
+index 3ac5534..8453bba 100755
+--- a/scripts/lpf-notify
++++ b/scripts/lpf-notify
+@@ -15,13 +15,18 @@ function get_uid() { echo "${SUDO_UID:-$UID}"; }
+ 
+ 
+ function check_pkgbuild_user()
+-# Check that we run as pkg-build user, exit if not
++# Ensure we're running as pkg-build or switch to pkg-build if root.
+ {
+-    [ "$USER" != 'pkg-build' ] && {
+-        echo >&2 "Error: must be run as pkg-build user."
++    if [ "$USER" == "pkg-build" ]; then
++        return 0
++    elif [ "$USER" == "root" ]; then
++        echo "Re-executing script as pkg-build user..."
++        exec sudo -u pkg-build -- "$0" "$@"
++        exit 1  # just in case exec fails
++    else
++        echo >&2 "Error: must be run as pkg-build or root user."
+         exit 1
+-    }
+-    return 0
++    fi
+ }
+ 
+ 
