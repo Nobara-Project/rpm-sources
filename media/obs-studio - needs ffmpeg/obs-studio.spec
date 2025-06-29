@@ -27,22 +27,22 @@
 %endif
 
 
-%global obswebsocket_version 5.5.5
-%global obsbrowser_commit b56fd78936761891475458447c1cc9058bb9c2d4
+%global obswebsocket_version 5.6.1
+%global obsbrowser_commit 9ffe3828da5fa87d481ad2df2ecb178154818a60
 %global version_cef 6533
 %global version_aja v16.2-bugfix5
 
-%define version_string 31.0.3
+%define version_string 31.1.0
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build %{build_timestamp}.%{shortcommit}%{?dist}
 %global _default_patch_fuzz 2
 # obs version and commit
-%global commit fcd1910bf5116b69404a6ecdda6efedd1d00ebdf
+%global commit d3c5d2ce0b15bac7a502f5aef4b3b5ec72ee8e09
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 Name:           obs-studio
 Version:        %{version_string}
-Release:        7.%{rel_build}
+Release:        0.rc1.%{rel_build}
 Summary:        Open Broadcaster Software Studio
 
 # OBS itself is GPL-2.0-or-later, while various plugin dependencies are of various other licenses
@@ -55,31 +55,25 @@ Source2:        https://github.com/obsproject/obs-browser/archive/%{obsbrowser_c
 Source3:        https://cdn-fastly.obsproject.com/downloads/cef_binary_%{version_cef}_linux_x86_64.tar.xz
 Source4:        https://github.com/aja-video/ntv2/archive/refs/tags/%{version_aja}.tar.gz
 
-# Backports from upstream
-# Fix for Virtual Camera
-## From: https://github.com/obsproject/obs-studio/pull/11906
-Patch099:        11906.patch
 
-## Fix missing include
-Patch0100:       add_missing_include.patch
-
+# Disable fedoras patches for now, they need rebasing, and x264 and ffmpeg aac both work fine.
 # Proposed upstream
 ## From: https://github.com/obsproject/obs-studio/pull/8529
-Patch0101:      0101-UI-Consistently-reference-the-software-H264-encoder-.patch
-Patch0102:      0102-obs-ffmpeg-Add-initial-support-for-the-OpenH264-H.26.patch
-Patch0103:      0103-UI-Add-support-for-OpenH264-as-the-worst-case-fallba.patch
+#Patch0101:      0101-UI-Consistently-reference-the-software-H264-encoder-.patch
+#Patch0102:      0102-obs-ffmpeg-Add-initial-support-for-the-OpenH264-H.26.patch
+#Patch0103:      0103-UI-Add-support-for-OpenH264-as-the-worst-case-fallba.patch
 
 # Downstream Fedora patches
 ## Use fdk-aac by default
-Patch1001:      obs-studio-UI-use-fdk-aac-by-default.patch
+#Patch1001:      obs-studio-UI-use-fdk-aac-by-default.patch
+
 ## Fix error: passing argument 4 of ‘query_dmabuf_modifiers’ from
 ##            incompatible pointer type [-Wincompatible-pointer-types]
 Patch1003:      obs-studio-fix-incompatible-pointer-type.patch
 
-Patch1004:      libcef_loading_workaround.patch
-
 BuildRequires:  gcc
 BuildRequires:  cmake >= 3.22
+BuildRequires:  extra-cmake-modules
 BuildRequires:  ninja-build
 BuildRequires:  libappstream-glib
 BuildRequires:  desktop-file-utils
@@ -114,7 +108,7 @@ BuildRequires:  luajit-devel
 BuildRequires:  mbedtls-devel
 BuildRequires:  nv-codec-headers
 %if %{with vpl}
-BuildRequires:  oneVPL-devel
+BuildRequires:  libvpl-devel
 %endif
 BuildRequires:  pciutils-devel
 BuildRequires:  pipewire-devel
@@ -203,16 +197,16 @@ software for video recording and live streaming.
 
 %files
 %doc README.rst
-%license UI/data/license/gplv2.txt
+%license frontend/data/license/gplv2.txt
 %license COPYING
 %{_bindir}/obs
 %{_bindir}/obs-ffmpeg-mux
-%{_bindir}/obs-nvenc-test
 %{_datadir}/metainfo/com.obsproject.Studio.metainfo.xml
 %{_datadir}/applications/com.obsproject.Studio.desktop
 %{_datadir}/icons/hicolor/*/apps/com.obsproject.Studio.*
 %{_datadir}/obs/
 %ifarch x86_64
+%{_bindir}/obs-nvenc-test
 %exclude %{_datadir}/obs/obs-plugins/obs-browser*
 %endif
 
