@@ -1,3 +1,13 @@
+## START: Set by rpmautospec
+## (rpmautospec version 0.8.1)
+## RPMAUTOSPEC: autorelease
+%define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
+    release_number = 1;
+    base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
+    print(release_number + base_release_number - 1);
+}%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
+## END: Set by rpmautospec
+
 %global _default_patch_fuzz 2
 
 %ifnarch s390x
@@ -75,7 +85,7 @@ Name:           mesa
 Summary:        Mesa graphics libraries
 %global ver 25.1.4
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
-Release:        %autorelease
+Release:        %autorelease -b2
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
 URL:            http://www.mesa3d.org
 
@@ -89,9 +99,6 @@ Patch10:        gnome-shell-glthread-disable.patch
 
 # https://gitlab.com/evlaV/mesa/
 Patch30:         valve.patch
-
-# https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/34918
-Patch31:        34918.patch
 
 # Path of Exile
 Patch32:        min_image_count.patch
