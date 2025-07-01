@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit ef91ad64d5cd3b202dc0b3ddcc29277e2c8b49ec
+%global commit 5ac532bfc702fddd03054937f3bf6a117b9e68ef
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 7.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 8.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -85,14 +85,11 @@ Patch10:        gnome-shell-glthread-disable.patch
 # https://gitlab.com/evlaV/mesa/
 Patch30:	valve.patch
 
-# https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/34918
-Patch31:        34918.patch
-
 # https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/35269
-Patch32:	35269.patch
+Patch31:	35269.patch
 
 # Path of Exile
-Patch33:        min_image_count.patch
+Patch32:        min_image_count.patch
 
 BuildRequires:  meson >= 1.3.0
 BuildRequires:  cbindgen
@@ -421,6 +418,10 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Tue Jul 1 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-8
+- Update to latest commit
+- Remove no longer needed #34918
+
 * Wed Jun 25 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-7
 - Update to latest commit
 - Remove fsr4.patch due to upstream solution
