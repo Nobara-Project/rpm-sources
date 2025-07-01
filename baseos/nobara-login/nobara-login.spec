@@ -120,6 +120,7 @@ sysctl -p
 %{_datadir}/polkit-1/actions/org.nobaraproject.resolvewizard.policy
 %{_datadir}/pipewire/pipewire-pulse.conf.d/wine_gaming.conf
 %{_sysconfdir}/udev/rules.d/75-powercap.rules
+%{_sysconfdir}/xdg/krunnerrc
 
 %files sysctl
 %{_prefix}/lib/sysctl.d/20-starcitizen-max_map_count.conf
