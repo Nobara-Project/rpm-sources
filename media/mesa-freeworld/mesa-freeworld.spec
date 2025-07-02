@@ -76,9 +76,9 @@ algorithms and decoding only VC1 algorithm.
 
 Name:           %{srcname}-freeworld
 Summary:        Mesa graphics libraries
-%global ver 25.1.4
+%global ver 25.1.5
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
-Release:        %autorelease -b2
+Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
 URL:            http://www.mesa3d.org
 
@@ -392,6 +392,9 @@ rm -fr %{buildroot}%{_libdir}/libGLX*
 %{_libdir}/libgallium-*.so
 
 %changelog
+* Wed Jul 02 2025 LionHeartP <LionHeartP@proton.me> - 25.1.5-1
+- Update to 25.1.5
+
 * Thu May 8 2025 Thorsten Leemhuis <fedora@leemhuis.info> - 25.1.0-1
 - Update to 25.1.0
 - Sync new bits with Fedora

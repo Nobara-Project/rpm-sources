@@ -1,13 +1,3 @@
-## START: Set by rpmautospec
-## (rpmautospec version 0.8.1)
-## RPMAUTOSPEC: autorelease
-%define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
-    release_number = 1;
-    base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
-    print(release_number + base_release_number - 1);
-}%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
-## END: Set by rpmautospec
-
 %global _default_patch_fuzz 2
 
 %ifnarch s390x
@@ -83,9 +73,9 @@
 
 Name:           mesa
 Summary:        Mesa graphics libraries
-%global ver 25.1.4
+%global ver 25.1.5
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
-Release:        %autorelease -b2
+Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
 URL:            http://www.mesa3d.org
 
@@ -728,5 +718,8 @@ popd
 %endif
 
 %changelog
+* Wed Jul 02 2025 LionHeartP <LionHeartP@proton.me> - 25.1.5-1
+- Update to 25.1.5
+
 * Thu Jun 19 2025 LionHeartP <LionHeartP@proton.me> - 25.1.4-1
 - Update to 25.1.4
