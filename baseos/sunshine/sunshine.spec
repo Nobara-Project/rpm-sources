@@ -1,9 +1,9 @@
 %global build_timestamp %(date +"%Y%m%d")
 
 # use sed to replace these values
-%global build_version 2025.426.10137
+%global build_version 2025.628.4510
 %global branch master
-%global commit c6f36474ba9b492eea2a60930ca7304ea96176af
+%global commit 65f14e1003f831e776c170621bd06d8292f65155
 
 %undefine _hardened_build
 
@@ -17,8 +17,11 @@ Source0: tarball.tar.gz
 
 ExcludeArch:    %{ix86}
 
+BuildRequires: appstream
 # BuildRequires: boost-devel >= 1.86.0
 BuildRequires: cmake >= 3.25.0
+BuildRequires: desktop-file-utils
+BuildRequires: libappstream-glib
 BuildRequires: libayatana-appindicator3-devel
 BuildRequires: libcap-devel
 BuildRequires: libcurl-devel
@@ -202,6 +205,11 @@ cmake "${cmake_args[@]}"
 make -j$(nproc) -C "%{_builddir}/Sunshine/build"
 
 %check
+# validate the metainfo file
+appstreamcli validate %{buildroot}%{_metainfodir}/*.metainfo.xml
+appstream-util validate %{buildroot}%{_metainfodir}/*.metainfo.xml
+desktop-file-validate %{buildroot}%{_datadir}/applications/*.desktop
+
 # run tests
 cd %{_builddir}/Sunshine/build
 xvfb-run ./tests/test_sunshine
@@ -257,14 +265,14 @@ rm -f /usr/lib/modules-load.d/uhid.conf
 %{_modulesloaddir}/uhid.conf
 
 # Desktop entries
-%{_datadir}/applications/sunshine*.desktop
+%{_datadir}/applications/*.desktop
 
 # Icons
 %{_datadir}/icons/hicolor/scalable/apps/sunshine.svg
 %{_datadir}/icons/hicolor/scalable/status/sunshine*.svg
 
 # Metainfo
-%{_datadir}/metainfo/sunshine.appdata.xml
+%{_datadir}/metainfo/*.metainfo.xml
 
 # Assets
 %{_datadir}/sunshine/**
