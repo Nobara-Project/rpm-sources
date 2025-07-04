@@ -1,8 +1,8 @@
-%global 	SHA256SUM0 4bd4e966d2bc07e85a2768c1f1a986db2e1e81a44fefe9070d17b843d1f229fc
+%global 	SHA256SUM0 74866ee1993ab77d79155012891089756d06dee7b6d40b850e8ab4f68c56867b
 %define         appid com.vysp3r.ProtonPlus
 
-Name:           protonplus-next
-Version:        0.5.6
+Name:           protonplus
+Version:        0.5.8
 Release:        1%{?dist}
 Summary:        Simple and powerful manager for Wine, Proton, DXVK and VKD3D
 
@@ -30,7 +30,8 @@ BuildRequires:  pkgconfig(libsoup-3.0)
 # Need for TLS support
 Requires:       glib-networking
 
-Obsoletes:  protonup-qt
+Obsoletes:  	protonup-qt
+Obsoletes:	protonplus-next
 
 %description
 ProtonPlus is a simple and powerful manager for:
@@ -73,6 +74,10 @@ appstream-util validate-relax --nonet \
 
 
 %changelog
+* Fri Jul 04 2025 LionHeartP <LionHeartP@proton.me> - 0.5.8-1
+- new upstream version v0.5.8
+- rename to protonplus and obsolete protonplus-next to match upstream
+
 * Sat Jun 28 2025 LionHeartP <LionHeartP@proton.me> - 0.5.6-1
 - new upstream version v0.5.6
 
