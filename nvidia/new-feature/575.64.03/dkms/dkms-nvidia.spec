@@ -2,8 +2,8 @@
 %global dkms_name nvidia
 
 Name:           dkms-%{dkms_name}
-Version:        575.51.02
-Release:        3%{?dist}
+Version:        575.64.03
+Release:        1%{?dist}
 Summary:        NVIDIA display driver kernel module
 Epoch:          3
 License:        NVIDIA License
@@ -14,8 +14,11 @@ ExclusiveArch:  x86_64 aarch64
 Source0:        %{dkms_name}-kmod-%{version}-x86_64.tar.xz
 Source1:        %{dkms_name}-kmod-%{version}-aarch64.tar.xz
 Source2:        %{name}.conf
-# Kbuild: Convert EXTRA_CFLAGS to ccflags-y (6.15+) + std=gnu17
-Patch0:         nvidia-kernel-ccflags-y.patch
+
+Patch0:         0001-Enable-atomic-kernel-modesetting-by-default.patch
+Patch3:         0003-Workaround-nv_vm_flags_-calling-GPL-only-code.patch
+Patch8:         0008-kbuild-Add-workaround-for-GCC-15-Compilation.patch
+
 
 BuildRequires:  sed
 
@@ -56,15 +59,40 @@ dkms add -m %{dkms_name} -v %{version} -q --rpm_safe_upgrade || :
 # Rebuild and make available for the currently running kernel:
 dkms build -m %{dkms_name} -v %{version} -q || :
 dkms install -m %{dkms_name} -v %{version} -q --force || :
+dracut --regenerate-all --force --quiet
 
 %preun
 # Remove all versions from DKMS registry:
 dkms remove -m %{dkms_name} -v %{version} -q --all --rpm_safe_upgrade || :
+# Regenerate the initrd only if it's a complete uninstall, otherwise the post
+# scriptlet of the update will take care of it:
+if [ "$1" == 0 ]; then
+    dracut --regenerate-all --force --quiet
+fi
 
 %files
 %{_usrsrc}/%{dkms_name}-%{version}
 
 %changelog
+* Tue May 20 2025 Simone Caronni <negativo17@gmail.com> - 3:570.153.02-1
+- Update to 570.153.02.
+
+* Sat May 10 2025 Simone Caronni <negativo17@gmail.com> - 3:570.144-2
+- Update dkms.conf file.
+
+* Tue Apr 22 2025 Simone Caronni <negativo17@gmail.com> - 3:570.144-1
+- Update to 570.144.
+
+* Sat Apr 12 2025 Simone Caronni <negativo17@gmail.com> - 3:570.133.07-2
+- Convert EXTRA_CFLAGS to ccflags-y for kernel 6.15 and add -std=gnu17 to fix
+  compilation on Fedora 42's 6.14.1 kernel.
+
+* Wed Mar 19 2025 Simone Caronni <negativo17@gmail.com> - 3:570.133.07-1
+- Update to 570.133.07.
+
+* Fri Feb 28 2025 Simone Caronni <negativo17@gmail.com> - 3:570.124.04-1
+- Update to 570.124.04.
+
 * Sun Feb 09 2025 Simone Caronni <negativo17@gmail.com> - 3:570.86.16-2
 - Simplify DKMS configuration.
 

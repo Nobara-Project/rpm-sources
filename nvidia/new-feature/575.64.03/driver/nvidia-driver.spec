@@ -9,8 +9,8 @@
 %endif
 
 Name:           nvidia-driver
-Version:        575.51.02
-Release:        3%{?dist}
+Version:        575.64.03
+Release:        1%{?dist}
 Summary:        NVIDIA's proprietary display driver for NVIDIA graphic cards
 Epoch:          3
 License:        NVIDIA License
@@ -45,9 +45,17 @@ BuildRequires:  systemd-rpm-macros
 Requires:       nvidia-driver-libs%{?_isa} = %{?epoch:%{epoch}:}%{version}
 Requires:       nvidia-kmod-common = %{?epoch:%{epoch}:}%{version}
 
-Conflicts:      nvidia-x11-drv
+Provides:       xorg-x11-nvidia
+Provides:       nvidia-x11-drv
+Provides:       xorg-x11-drv-nvidia
+Provides:       nvidia-xconfig
+
+Obsoletes:      xorg-x11-nvidia
+Obsoletes:      nvidia-x11-drv
+Obsoletes:      xorg-x11-drv-nvidia
+Obsoletes:      nvidia-xconfig
+
 Conflicts:      nvidia-x11-drv-470xx
-Conflicts:      xorg-x11-drv-nvidia
 Conflicts:      xorg-x11-drv-nvidia-470xx
 
 %description
@@ -122,9 +130,9 @@ other driver components.
 %package -n libnvidia-ml
 Summary:        NVIDIA Management Library (NVML)
 Provides:       cuda-nvml%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
-Requires:       cuda-nvml-devel
 Provides:       nvidia-driver-NVML = %{?epoch:%{epoch}:}%{version}-%{release}
 Obsoletes:      nvidia-driver-NVML < %{?epoch:%{epoch}:}%{version}-%{release}
+Requires:       cuda-nvml-devel
 
 %description -n libnvidia-ml
 A C-based API for monitoring and managing various states of the NVIDIA GPU
@@ -492,9 +500,24 @@ appstream-util validate --nonet %{buildroot}%{_metainfodir}/com.nvidia.driver.me
 %{_libdir}/libnvidia-ml.so.%{version}
 
 %changelog
-* Wed Apr 16 2025 Simone Caronni <negativo17@gmail.com> - 3:575.51.02-1
+* Tue Jul 01 2025 Simone Caronni <negativo17@gmail.com> - 3:575.64.03-1
+- Update to 575.64.03.
+
+* Wed Jun 18 2025 Simone Caronni <negativo17@gmail.com> - 3:575.64-1
+- Update to 575.64.
+
+* Thu May 29 2025 Simone Caronni <negativo17@gmail.com> - 3:575.57.08-1
+- Update to 575.57.08.
+
+* Tue May 20 2025 Simone Caronni <negativo17@gmail.com> - 3:575.51.02-1
 - Update to 575.51.02.
 - libnvidia-gpucomp is now required by both desktop and CUDA only components.
+
+* Tue May 20 2025 Simone Caronni <negativo17@gmail.com> - 3:570.153.02-1
+- Update to 570.153.02.
+
+* Tue Apr 22 2025 Simone Caronni <negativo17@gmail.com> - 3:570.144-1
+- Update to 570.144.
 
 * Wed Mar 19 2025 Simone Caronni <negativo17@gmail.com> - 3:570.133.07-1
 - Update to 570.133.07.
