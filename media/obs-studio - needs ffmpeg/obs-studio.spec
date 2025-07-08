@@ -37,12 +37,12 @@
 %global rel_build %{build_timestamp}.%{shortcommit}%{?dist}
 %global _default_patch_fuzz 2
 # obs version and commit
-%global commit d3c5d2ce0b15bac7a502f5aef4b3b5ec72ee8e09
+%global commit 9858e7e7228450630503b21063a0722a718ddf3a
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 Name:           obs-studio
 Version:        %{version_string}
-Release:        0.rc1.%{rel_build}
+Release:        1.%{rel_build}
 Summary:        Open Broadcaster Software Studio
 
 # OBS itself is GPL-2.0-or-later, while various plugin dependencies are of various other licenses
