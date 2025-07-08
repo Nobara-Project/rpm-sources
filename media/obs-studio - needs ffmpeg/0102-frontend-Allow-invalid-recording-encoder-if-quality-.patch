@@ -1,0 +1,41 @@
+From 22cb8efe8915ab3bb9574cb1711f25a1a525f5aa Mon Sep 17 00:00:00 2001
+From: Asahi Lina <lina@asahilina.net>
+Date: Tue, 1 Jul 2025 16:50:08 +0900
+Subject: [PATCH 2/4] frontend: Allow invalid recording encoder if quality set
+ to "Stream"
+
+The combo box is only visible if quality isn't "Stream", so otherwise an
+invalid/missing selection cannot be corrected. Only do the check when
+it's relevant.
+---
+ frontend/settings/OBSBasicSettings.cpp | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/frontend/settings/OBSBasicSettings.cpp b/frontend/settings/OBSBasicSettings.cpp
+index 1a2ab64fee80..de322bc1ee8f 100644
+--- a/frontend/settings/OBSBasicSettings.cpp
++++ b/frontend/settings/OBSBasicSettings.cpp
+@@ -3719,8 +3719,7 @@ bool OBSBasicSettings::QueryAllowedToClose()
+ 	bool invalidFormat = false;
+ 	bool invalidTracks = false;
+ 	if (simple) {
+-		if (ui->simpleOutRecEncoder->currentIndex() == -1 || ui->simpleOutStrEncoder->currentIndex() == -1 ||
+-		    ui->simpleOutRecAEncoder->currentIndex() == -1 || ui->simpleOutStrAEncoder->currentIndex() == -1)
++		if (ui->simpleOutStrEncoder->currentIndex() == -1 || ui->simpleOutStrAEncoder->currentIndex() == -1)
+ 			invalidEncoder = true;
+ 
+ 		if (ui->simpleOutRecFormat->currentIndex() == -1)
+@@ -3730,6 +3729,10 @@ bool OBSBasicSettings::QueryAllowedToClose()
+ 		QString format = ui->simpleOutRecFormat->currentData().toString();
+ 		if (SimpleOutGetSelectedAudioTracks() == 0 && qual != "Stream" && format != "flv")
+ 			invalidTracks = true;
++
++		if (qual != "Stream" &&
++		    (ui->simpleOutRecEncoder->currentIndex() == -1 || ui->simpleOutRecAEncoder->currentIndex() == -1))
++			invalidEncoder = true;
+ 	} else {
+ 		if (ui->advOutRecEncoder->currentIndex() == -1 || ui->advOutEncoder->currentIndex() == -1 ||
+ 		    ui->advOutRecAEncoder->currentIndex() == -1 || ui->advOutAEncoder->currentIndex() == -1)
+-- 
+2.49.0
+

@@ -1,0 +1,90 @@
+From d87d043a4dc833b8e353a60365bcdc143c2e1264 Mon Sep 17 00:00:00 2001
+From: Asahi Lina <lina@asahilina.net>
+Date: Tue, 1 Jul 2025 16:48:12 +0900
+Subject: [PATCH 1/4] frontend: Consider settings changed if an output setting
+ was reset
+
+If the previous selection is no longer available, the UI would default
+to the first index, but not allow the user to save the change (which
+then becomes impossible to save if the setting only has one possible
+value, since you can never trigger the "changed" status).
+
+If the settings load process clamped any setting to the default, enable
+the apply button and consider the setting changed.
+---
+ frontend/settings/OBSBasicSettings.cpp | 28 +++++++++++++++++++++++---
+ 1 file changed, 25 insertions(+), 3 deletions(-)
+
+diff --git a/frontend/settings/OBSBasicSettings.cpp b/frontend/settings/OBSBasicSettings.cpp
+index 32e2d92debb6..1a2ab64fee80 100644
+--- a/frontend/settings/OBSBasicSettings.cpp
++++ b/frontend/settings/OBSBasicSettings.cpp
+@@ -1737,19 +1737,30 @@ void OBSBasicSettings::LoadSimpleOutputSettings()
+ 	ui->simpleOutAdvanced->setChecked(advanced);
+ 	ui->simpleOutCustom->setText(custom);
+ 
++	bool outputSettingReset = false;
++
+ 	idx = ui->simpleOutRecQuality->findData(QString(recQual));
+-	if (idx == -1)
++	if (idx == -1) {
++		ui->simpleOutRecQuality->setProperty("changed", QVariant(true));
+ 		idx = 0;
++		outputSettingReset = true;
++	}
+ 	ui->simpleOutRecQuality->setCurrentIndex(idx);
+ 
+ 	idx = ui->simpleOutStrEncoder->findData(QString(streamEnc));
+-	if (idx == -1)
++	if (idx == -1) {
++		ui->simpleOutStrEncoder->setProperty("changed", QVariant(true));
+ 		idx = 0;
++		outputSettingReset = true;
++	}
+ 	ui->simpleOutStrEncoder->setCurrentIndex(idx);
+ 
+ 	idx = ui->simpleOutStrAEncoder->findData(QString(streamAudioEnc));
+-	if (idx == -1)
++	if (idx == -1) {
++		ui->simpleOutStrAEncoder->setProperty("changed", QVariant(true));
+ 		idx = 0;
++		outputSettingReset = true;
++	}
+ 	ui->simpleOutStrAEncoder->setCurrentIndex(idx);
+ 
+ 	idx = ui->simpleOutRecEncoder->findData(QString(recEnc));
+@@ -1765,6 +1776,10 @@ void OBSBasicSettings::LoadSimpleOutputSettings()
+ 	ui->simpleRBMegsMax->setValue(rbSize);
+ 
+ 	SimpleStreamingEncoderChanged();
++	if (outputSettingReset) {
++		outputsChanged = true;
++		EnableApplyButton(true);
++	}
+ }
+ 
+ static inline QString makeFormatToolTip()
+@@ -1905,6 +1920,10 @@ void OBSBasicSettings::LoadAdvOutputStreamingEncoderProperties()
+ 
+ 			ui->advOutEncoder->insertItem(0, encName, QT_UTF8(type));
+ 			SetComboByValue(ui->advOutEncoder, type);
++		} else {
++			ui->advOutEncoder->setProperty("changed", QVariant(true));
++			outputsChanged = true;
++			EnableApplyButton(true);
+ 		}
+ 	}
+ 
+@@ -2011,6 +2030,9 @@ void OBSBasicSettings::LoadAdvOutputRecordingEncoderProperties()
+ 			SetComboByValue(ui->advOutRecEncoder, type);
+ 		} else {
+ 			ui->advOutRecEncoder->setCurrentIndex(-1);
++			ui->advOutRecEncoder->setProperty("changed", QVariant(true));
++			outputsChanged = true;
++			EnableApplyButton(true);
+ 		}
+ 	}
+ }
+-- 
+2.49.0
+
