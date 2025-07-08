@@ -6,7 +6,7 @@
 
 Name:    plasma-discover
 Summary: KDE and Plasma resources management GUI
-Version: 6.3.4
+Version: 6.4.2
 Release: 1%{?dist}
 
 License: BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-3.0-only AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only)
@@ -15,10 +15,6 @@ URL:     https://invent.kde.org/plasma/discover
 Source0: https://download.kde.org/stable/plasma/%{version}/%{base_name}-%{version}.tar.xz
 
 ## upstream patches
-# Hide Plasma categories on a non-KDE desktop
-# Requested by Fedora Budgie (Cf. https://pagure.io/fedora-kde/SIG/issue/607)
-# Drop with 6.4
-Patch0: https://invent.kde.org/plasma/discover/-/commit/55ec79edc1892e9db5c8ab0743923387c56d1465.patch
 
 ## downstream patches
 # Adjust periodic refresh from 1/24hr to 1/12hr
@@ -73,6 +69,8 @@ BuildRequires: cmake(KF6IdleTime)
 BuildRequires: cmake(KF6NewStuff)
 BuildRequires: cmake(KF6Kirigami2)
 BuildRequires: cmake(KF6UserFeedback)
+BuildRequires: cmake(KF6XmlGui)
+BuildRequires: cmake(KF6GuiAddons)
 
 BuildRequires: pkgconfig(phonon4qt6)
 
@@ -91,6 +89,9 @@ BuildRequires: pkgconfig(Qt6Widgets)
 BuildRequires: pkgconfig(Qt6Xml)
 
 Requires: kf6-kirigami2
+Requires: kf6-kitemmodels
+Requires: kf6-purpose
+Requires: kf6-qqc2-desktop-style
 
 Requires: %{name}-libs%{?_isa} = %{version}-%{release}
 
@@ -124,7 +125,6 @@ Obsoletes: fedora-third-party
 
 %description
 KDE and Plasma resources management GUI.
-
 
 %package libs
 Summary: Runtime libraries for %{name}
@@ -176,6 +176,14 @@ Supplements: ((%{name} and rpm-ostree) unless dnf)
 Plasma Discover backend for rpm-ostree support in %{name}.
 %endif
 
+%package kns
+Summary: Plasma Discover KNewStuff support
+Requires: %{name} = %{version}-%{release}
+Requires: %{name}-libs = %{version}-%{release}
+Supplements: (%{name} and plasma-workspace%{?_isa})
+%description kns
+%{summary}.
+
 
 %prep
 %autosetup -n %{base_name}-%{version} -p1
@@ -214,7 +222,6 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/org.kde.discover.desk
 
 %files -f discover.lang
 %{_bindir}/plasma-discover
-%{_bindir}/plasma-discover-update
 %{_kf6_metainfodir}/org.kde.discover.appdata.xml
 %{_datadir}/applications/org.kde.discover.desktop
 %{_datadir}/applications/org.kde.discover.urlhandler.desktop
@@ -240,7 +247,6 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/org.kde.discover.desk
 %if 0%{?fwupd}
 %{_kf6_qtplugindir}/discover/fwupd-backend.so
 %endif
-%{_kf6_qtplugindir}/discover/kns-backend.so
 %dir %{_datadir}/libdiscover
 %dir %{_datadir}/libdiscover/categories
 %{_kf6_qtplugindir}/plasma/kcms/systemsettings/kcm_updates.so
@@ -259,8 +265,75 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/org.kde.discover.desk
 %{_kf6_qtplugindir}/discover-notifier/rpm-ostree-notifier.so
 %endif
 
+%files kns
+%{_kf6_qtplugindir}/discover/kns-backend.so
 
 %changelog
+* Thu Jul 03 2025 Steve Cossette <farchord@gmail.com> - 6.4.2-1
+- 6.4.2
+
+* Tue Jun 24 2025 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.4.1-1
+- 6.4.1
+
+* Mon Jun 16 2025 Steve Cossette <farchord@gmail.com> - 6.4.0-1
+- 6.4.0
+
+* Fri Jun 06 2025 Flori Gee <renner03@protonmail.com> - 6.3.91-3
+- Split KNS backend into a sub-package
+
+* Sat May 31 2025 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.3.91-2
+- Add signature file
+
+* Fri May 30 2025 Steve Cossette <farchord@gmail.com> - 6.3.91-1
+- 6.3.91
+
+* Thu May 15 2025 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.3.90-1
+- 6.3.90
+
+* Tue May 06 2025 Steve Cossette <farchord@gmail.com> - 6.3.5-1
+- 6.3.5
+
+* Wed Apr 02 2025 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.3.4-1
+- 6.3.4
+
+* Wed Mar 19 2025 Alessandro Astone <ales.astone@gmail.com> - 6.3.3-3
+- Require kf6-kitemmodels and kf6-purpose
+
+* Wed Mar 19 2025 Alessandro Astone <ales.astone@gmail.com> - 6.3.3-2
+- Require kf6-qqc2-desktop-style because the app explicitely sets this theme
+  (rhbz#2353411)
+
+* Tue Mar 11 2025 Steve Cossette <farchord@gmail.com> - 6.3.3-1
+- 6.3.3
+
+* Tue Feb 25 2025 Steve Cossette <farchord@gmail.com> - 6.3.2-1
+- 6.3.2
+
+* Tue Feb 18 2025 Steve Cossette <farchord@gmail.com> - 6.3.1-1
+- 6.3.1
+
+* Sun Feb 09 2025 Alessandro Astone <ales.astone@gmail.com> - 6.3.0-3
+- Temporarily disable GNU compiler extensions
+  + workaround for rhbz#2342065
+
+* Thu Feb 06 2025 Neal Gompa <ngompa@fedoraproject.org> - 6.3.0-2
+- Backport patch to disable Plasma addons on non-KDE desktops
+
+* Thu Feb 06 2025 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.3.0-1
+- 6.3.0
+
+* Fri Jan 24 2025 Steve Cossette <farchord@gmail.com> - 6.2.91-2
+- Drop the non-KDE DE patch for now as it makes Discover crash on start
+
+* Thu Jan 23 2025 Steve Cossette <farchord@gmail.com> - 6.2.91-1
+- 6.2.91
+
+* Sat Jan 18 2025 Neal Gompa <ngompa@fedoraproject.org> - 6.2.90-2
+- Backport patch to disable Plasma addons on non-KDE desktops
+
+* Thu Jan 09 2025 Steve Cossette <farchord@gmail.com> - 6.2.90-1
+- Beta 6.2.90
+
 * Tue Dec 31 2024 Steve Cossette <farchord@gmail.com> - 6.2.5-1
 - 6.2.5
 

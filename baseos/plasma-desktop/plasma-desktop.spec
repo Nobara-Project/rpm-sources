@@ -5,7 +5,7 @@
 
 Name:    plasma-desktop
 Summary: Plasma Desktop shell
-Version: 6.3.5
+Version: 6.4.2
 Release: 1%{?dist}
 
 License: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only)
@@ -86,6 +86,11 @@ BuildRequires:  plasma-workspace-devel
 BuildRequires:  cmake(PlasmaActivities)
 BuildRequires:  cmake(PlasmaActivitiesStats)
 BuildRequires:  cmake(Plasma)
+
+# For theming info
+# /usr/share/backgrounds/default.{jxl,png}
+BuildRequires:  desktop-backgrounds-compat
+
 
 # Optional
 %if 0%{?fedora}
@@ -221,8 +226,10 @@ Requires:       qt6-qtvirtualkeyboard
 # org.kde.plasma.*
 # The dependency is with 3 version numbers due to upstream occasional respins containing an etra number (i.e: 6.0.5.1)
 Requires:       plasma-workspace >= %{maj_ver_kf6}.%{min_ver_kf6}
-# /usr/share/backgrounds/default.png
+# /usr/share/backgrounds/default.{jxl,png}
 Requires:       desktop-backgrounds-compat
+# for jxl support
+Requires:       kf6-kimageformats
 BuildArch: noarch
 
 %description -n sddm-breeze
@@ -252,7 +259,7 @@ cat  %{name}.lang %{name}-doc.lang | sort | uniq -u > plasmadesktop6.lang
 
 
 %check
-desktop-file-validate %{buildroot}/%{_datadir}/applications/kcm_{keyboard,access,clock,splashscreen,landingpage,keys,smserver,desktoppaths,gamecontroller,activities,recentFiles,componentchooser,kded,krunnersettings,plasmasearch,qtquicksettings,tablet,touchscreen,workspace,baloofile,solid_actions,mouse,touchpad}.desktop
+desktop-file-validate %{buildroot}/%{_datadir}/applications/kcm_{keyboard,access,clock,splashscreen,landingpage,keys,smserver,desktoppaths,gamecontroller,activities,recentFiles,kded,krunnersettings,plasmasearch,qtquicksettings,tablet,touchscreen,workspace,baloofile,solid_actions,mouse,touchpad}.desktop
 desktop-file-validate %{buildroot}/%{_datadir}/applications/kcmspellchecking.desktop
 desktop-file-validate %{buildroot}/%{_datadir}/applications/org.kde.knetattach.desktop
 desktop-file-validate %{buildroot}/%{_datadir}/applications/org.kde.plasma.emojier.desktop
@@ -291,6 +298,7 @@ desktop-file-validate %{buildroot}/%{_datadir}/applications/kaccess.desktop
 %{_kf6_qtplugindir}/plasma/kcminit/kcm_mouse_init.so
 %{_datadir}/config.kcfg/*.kcfg
 %{_datadir}/kglobalaccel/org.kde.plasma.emojier.desktop
+%{_datadir}/kglobalaccel/org.kde.touchpadshortcuts.desktop
 %{_datadir}/qlogging-categories6/*.categories
 %{_kf6_datadir}/dbus-1/interfaces/org.kde.touchpad.xml
 %{_kf6_datadir}/kcmkeys
@@ -328,6 +336,54 @@ desktop-file-validate %{buildroot}/%{_datadir}/applications/kaccess.desktop
 
 
 %changelog
+* Thu Jul 03 2025 Steve Cossette <farchord@gmail.com> - 6.4.2-1
+- 6.4.2
+
+* Tue Jun 24 2025 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.4.1-1
+- 6.4.1
+
+* Sun Jun 22 2025 Steve Cossette <farchord@gmail.com> - 6.4.0-2
+- Fix an issue with icons not being clickable when specific alignment is set
+
+* Mon Jun 16 2025 Steve Cossette <farchord@gmail.com> - 6.4.0-1
+- 6.4.0
+
+* Sat May 31 2025 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.3.91-2
+- Add signature file
+
+* Fri May 30 2025 Steve Cossette <farchord@gmail.com> - 6.3.91-1
+- 6.3.91
+
+* Thu May 15 2025 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.3.90-1
+- 6.3.90
+
+* Tue May 06 2025 Steve Cossette <farchord@gmail.com> - 6.3.5-1
+- 6.3.5
+
+* Mon Apr 14 2025 Jan Grulich <jgrulich@redhat.com> - 6.3.4-2
+- Rebuild (qt6)
+
+* Wed Apr 02 2025 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.3.4-1
+- 6.3.4
+
+* Tue Mar 25 2025 Jan Grulich <jgrulich@redhat.com> - 6.3.3-2
+- Rebuild (qt6)
+
+* Tue Mar 11 2025 Steve Cossette <farchord@gmail.com> - 6.3.3-1
+- 6.3.3
+
+* Tue Feb 25 2025 Steve Cossette <farchord@gmail.com> - 6.3.2-1
+- 6.3.2
+
+* Wed Feb 19 2025 Steve Cossette <farchord@gmail.com> - 6.3.1.1-1
+- 6.3.1.1
+
+* Tue Feb 18 2025 Steve Cossette <farchord@gmail.com> - 6.3.1-1
+- 6.3.1
+
+* Sat Feb 15 2025 Neal Gompa <ngompa@fedoraproject.org> - 6.3.0-2
+- Adapt to backgrounds in JPEG-XL format
+
 * Thu Feb 06 2025 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.3.0-1
 - 6.3.0
 
@@ -354,9 +410,6 @@ desktop-file-validate %{buildroot}/%{_datadir}/applications/kaccess.desktop
 
 * Tue Nov 05 2024 Steve Cossette <farchord@gmail.com> - 6.2.3-1
 - 6.2.3
-
-* Wed Oct 30 2024 Jan Grulich <jgrulich@redhat.com> - 6.2.2-2
-- Rebuild (qt6)
 
 * Tue Oct 22 2024 Steve Cossette <farchord@gmail.com> - 6.2.2-1
 - 6.2.2

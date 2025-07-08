@@ -4,7 +4,7 @@
 
 Name:    plasma-workspace
 Summary: Plasma workspace, applications and applets
-Version: 6.3.5
+Version: 6.4.2
 Release: 1%{?dist}
 
 # Automatically converted from old format: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only) AND MIT - review is highly recommended.
@@ -23,6 +23,8 @@ Source102:      kde-smartcard
 ## in the repective pkgs themselves? -- rdieter)
 Source40:       ssh-agent.conf
 Source41:       spice-vdagent.conf
+
+## upstream patches
 
 ## upstreamable Patches
 
@@ -80,6 +82,7 @@ BuildRequires:  qt6-qtbase-private-devel
 BuildRequires:  qt6-qtdeclarative-devel
 BuildRequires:  qt6-qtsvg-devel
 BuildRequires:  qt6-qtwayland-devel
+BuildRequires:  cmake(Qt6Location)
 BuildRequires:  cmake(Qt6Positioning)
 BuildRequires:  cmake(Qt6ShaderTools)
 BuildRequires:  polkit-qt6-1-devel
@@ -276,8 +279,29 @@ Obsoletes: plasma-workspace < 5.19.5-2
 # khotkeys was dropped
 Obsoletes: khotkeys < 6
 
-# Require Wayland sessions appropriately
-Requires:   %{name}-wayland = %{version}-%{release}
+# Require Wayland session dependencies appropriately
+Requires:   kwin
+Requires:   xorg-x11-server-Xwayland
+Requires:   qt6-qtwayland%{?_isa}
+# startplasmacompositor deps
+Requires:   qt6-qttools
+Requires:   xdg-desktop-portal-kde
+# Enables X11 apps to screenshare a Wayland environment
+Recommends: xwaylandvideobridge
+# Replace the old -wayland subpackage
+Obsoletes:  %{name}-wayland < 6.4.1-2
+Conflicts:  %{name}-wayland < 6.4.1-2
+Provides:   %{name}-wayland = %{version}-%{release}
+Provides:   %{name}-wayland%{?_isa} = %{version}-%{release}
+
+%if ! %{with x11}
+%if 0%{?fedora}
+Obsoletes:      %{name}-x11 < 5.92.0
+%else
+Obsoletes:      %{name}-x11 < %{version}-%{release}
+Conflicts:      %{name}-x11 < %{version}-%{release}
+%endif
+%endif
 
 %description
 Plasma 6 libraries and runtime components
@@ -336,7 +360,7 @@ Conflicts:      sddm-greeter-displayserver
 Requires:       kwin-wayland
 Requires:       layer-shell-qt
 Requires:       maliit-keyboard
-Supplements:    (sddm and plasma-workspace-wayland)
+Supplements:    (sddm and plasma-workspace)
 %if ! (0%{?fedora} && 0%{?fedora} < 38)
 # Replace sddm-x11 with sddm-wayland-plasma
 ## N.B.: If sddm gets updated in F36/F37, this will need to be bumped
@@ -347,29 +371,6 @@ BuildArch:      noarch
 %description -n sddm-wayland-plasma
 This package contains configuration and dependencies for SDDM
 to use KWin for the Wayland compositor for the greeter.
-
-
-%package wayland
-Summary:        Wayland support for Plasma
-Requires:       %{name} = %{version}-%{release}
-Requires:       kwin-wayland
-Requires:       xorg-x11-server-Xwayland
-Requires:       qt6-qtwayland%{?_isa}
-# startplasmacompositor deps
-Requires:       qt6-qttools
-Requires:       xdg-desktop-portal-kde
-# Enables X11 apps to screenshare a Wayland environment
-Recommends:     xwaylandvideobridge
-%if ! %{with x11}
-%if 0%{?fedora}
-Obsoletes:      %{name}-x11 < 5.92.0
-%else
-Obsoletes:      %{name}-x11 < %{version}-%{release}
-Conflicts:      %{name}-x11 < %{version}-%{release}
-%endif
-%endif
-%description wayland
-%{summary}.
 
 %if %{with x11}
 %package x11
@@ -542,10 +543,15 @@ fi
 %dir %{_userunitdir}/plasma-workspace@.target.d/
 %{_libdir}/kconf_update_bin/plasma6.3-update-clipboard-database-2-to-3
 %{_datadir}/kconf_update/plasma6.3-update-clipboard-database-2-to-3.upd
+%{_kf6_datadir}/timezonefiles/timezones.json
 # PAM
 %config(noreplace) %{_sysconfdir}/pam.d/kde
 %config(noreplace) %{_sysconfdir}/pam.d/kde-fingerprint
 %config(noreplace) %{_sysconfdir}/pam.d/kde-smartcard
+# Plasma Wayland
+%{_kf6_bindir}/startplasma
+%{_kf6_bindir}/startplasma-wayland
+%{_datadir}/wayland-sessions/plasma.desktop
 
 %files doc -f %{name}-doc.lang
 
@@ -597,10 +603,12 @@ fi
 %{_kf6_datadir}/kconf_update/migrate-calendar-to-plugin-id.upd
 %{_kf6_datadir}/kconf_update/migrate-calendar-to-plugin-id.py
 %{_kf6_datadir}/kconf_update/plasmashell-6.0-keep-custom-position-of-panels.upd
+%{_kf6_datadir}/kconf_update/plasma6.4-migrate-fullscreen-notifications-to-dnd.upd
 %{_libdir}/kconf_update_bin/plasma6.0-remove-old-shortcuts
 %{_libdir}/kconf_update_bin/plasmashell-6.0-keep-default-floating-setting-for-plasma-5-panels
 %{_libdir}/kconf_update_bin/plasma6.0-remove-dpi-settings
 %{_libdir}/kconf_update_bin/plasmashell-6.0-keep-custom-position-of-panels
+%{_libdir}/kconf_update_bin/plasma6.4-migrate-fullscreen-notifications-to-dnd
 %{_kf6_datadir}/kglobalaccel/org.kde.krunner.desktop
 
 %files devel
@@ -629,11 +637,6 @@ fi
 %files -n sddm-wayland-plasma
 %{_prefix}/lib/sddm/sddm.conf.d/plasma-wayland.conf
 
-%files wayland
-%{_kf6_bindir}/startplasma
-%{_kf6_bindir}/startplasma-wayland
-%{_datadir}/wayland-sessions/plasma.desktop
-
 %if %{with x11}
 %files x11
 %{_kf6_bindir}/startplasma-x11
@@ -642,6 +645,33 @@ fi
 
 
 %changelog
+* Thu Jul 03 2025 Steve Cossette <farchord@gmail.com> - 6.4.2-1
+- 6.4.2
+
+* Wed Jun 25 2025 Neal Gompa <ngompa@fedoraproject.org> - 6.4.1-2
+- Merge plasma-workspace-wayland subpackage into main package
+
+* Tue Jun 24 2025 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.4.1-1
+- 6.4.1
+
+* Mon Jun 16 2025 Steve Cossette <farchord@gmail.com> - 6.4.0-1
+- 6.4.0
+
+* Sat May 31 2025 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.3.91-2
+- Add signature file
+
+* Fri May 30 2025 Steve Cossette <farchord@gmail.com> - 6.3.91-1
+- 6.3.91
+
+* Thu May 15 2025 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.3.90-1
+- 6.3.90
+
+* Tue May 06 2025 Steve Cossette <farchord@gmail.com> - 6.3.5-1
+- 6.3.5
+
+* Mon Apr 14 2025 Jan Grulich <jgrulich@redhat.com> - 6.3.4-3
+- Rebuild (qt6)
+
 * Thu Apr 03 2025 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.3.4-2
 - Backport upstream patch
 
