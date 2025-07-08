@@ -687,10 +687,10 @@ index ceeef24..e386765 100644
  static void gamescope_control_handle_destroy( struct wl_client *client, struct wl_resource *resource )
  {
  	wl_resource_destroy( resource );
-@@ -1052,6 +1101,7 @@ static const struct gamescope_control_interface gamescope_control_impl = {
- 	.set_app_target_refresh_cycle = gamescope_control_set_app_target_refresh_cycle,
- 	.take_screenshot = gamescope_control_take_screenshot,
+@@ -1185,6 +1274,7 @@ static const struct gamescope_control_interface gamescope_control_impl = {
  	.display_sleep = gamescope_control_display_sleep,
+ 	.set_look = gamescope_control_set_look,
+ 	.unset_look = gamescope_control_unset_look,
 +	.rotate_display = gamescope_control_rotate_display,
  };
  
@@ -1654,60 +1654,43 @@ index 11a7cad..0b0d17f 100644
  			std::vector<uint32_t> resizeBuffer( nDesiredWidth * nDesiredHeight );
  			stbir_resize_uint8_srgb( (unsigned char *)pixels.data(),       image->width,  image->height,  0,
  									 (unsigned char *)resizeBuffer.data(), nDesiredWidth, nDesiredHeight, 0,
-@@ -2316,7 +2316,7 @@ paint_all(bool async)
- 					}
- 				}
- 			}
--			
-+
- 			int nOldLayerCount = frameInfo.layerCount;
- 
- 			uint32_t flags = 0;
-@@ -2337,7 +2337,7 @@ paint_all(bool async)
- 				float opacityScale = g_bPendingFade
- 					? 0.0f
- 					: ((currentTime - fadeOutStartTime) / (float)g_FadeOutDuration);
--		
-+
- 				paint_cached_base_layer(g_HeldCommits[HELD_COMMIT_FADE], g_CachedPlanes[HELD_COMMIT_FADE], &frameInfo, 1.0f - opacityScale, false);
- 				paint_window(w, w, &frameInfo, global_focus.cursor, PaintWindowFlag::BasePlane | PaintWindowFlag::FadeTarget | PaintWindowFlag::DrawBorders, opacityScale, override);
- 			}
-@@ -2562,35 +2562,6 @@ paint_all( global_focus_t *pFocus, bool async )
- 		if ( overlay == pFocus->inputFocusWindow && pFocus == GetCurrentFocus() )
- 			update_touch_scaling( &frameInfo );
- 	}
--	else if ( !GetBackend()->UsesVulkanSwapchain() && GetBackend()->IsSessionBased() )
--	{
--		auto tex = vulkan_get_hacky_blank_texture();
--		if ( tex != nullptr )
+@@ -2604,36 +2604,6 @@ paint_all( global_focus_t *pFocus, bool async )
+ 			if ( overlay == pFocus->inputFocusWindow && pFocus == GetCurrentFocus() )
+ 				update_touch_scaling( &frameInfo );
+ 		}
+-		else if ( !GetBackend()->UsesVulkanSwapchain() && GetBackend()->IsSessionBased() )
 -		{
--			// HACK! HACK HACK HACK
--			// To avoid stutter when toggling the overlay on 
--			int curLayer = frameInfo.layerCount++;
+-			auto tex = vulkan_get_hacky_blank_texture();
+-			if ( tex != nullptr )
+-			{
+-				// HACK! HACK HACK HACK
+-				// To avoid stutter when toggling the overlay on 
+-				int curLayer = frameInfo.layerCount++;
 -
--			FrameInfo_t::Layer_t *layer = &frameInfo.layers[ curLayer ];
+-				FrameInfo_t::Layer_t *layer = &frameInfo.layers[ curLayer ];
 -
 -
--			layer->scale.x = g_nOutputWidth == tex->width() ? 1.0f : tex->width() / (float)g_nOutputWidth;
--			layer->scale.y = g_nOutputHeight == tex->height() ? 1.0f : tex->height() / (float)g_nOutputHeight;
--			layer->offset.x = 0.0f;
--			layer->offset.y = 0.0f;
--			layer->opacity = 1.0f; // BLAH
--			layer->zpos = g_zposOverlay;
--			layer->applyColorMgmt = g_ColorMgmt.pending.enabled;
+-				layer->scale.x = g_nOutputWidth == tex->width() ? 1.0f : tex->width() / (float)g_nOutputWidth;
+-				layer->scale.y = g_nOutputHeight == tex->height() ? 1.0f : tex->height() / (float)g_nOutputHeight;
+-				layer->offset.x = 0.0f;
+-				layer->offset.y = 0.0f;
+-				layer->opacity = 1.0f; // BLAH
+-				layer->zpos = g_zposOverlay;
+-				layer->applyColorMgmt = g_ColorMgmt.pending.enabled;
+-				layer->eAlphaBlendingMode = ALPHA_BLENDING_MODE_COVERAGE; // misyl: Always coverage and not premult in case of a Look applied.
 -
--			layer->colorspace = GAMESCOPE_APP_TEXTURE_COLORSPACE_LINEAR;
--			layer->hdr_metadata_blob = nullptr;
--			layer->ctm = nullptr;
--			layer->tex = tex;
+-				layer->colorspace = GAMESCOPE_APP_TEXTURE_COLORSPACE_LINEAR;
+-				layer->hdr_metadata_blob = nullptr;
+-				layer->ctm = nullptr;
+-				layer->tex = tex;
 -
--			layer->filter = GamescopeUpscaleFilter::NEAREST;
--			layer->blackBorder = true;
+-				layer->filter = GamescopeUpscaleFilter::NEAREST;
+-				layer->blackBorder = true;
+-			}
 -		}
--	}
- 
+ 	}
+ 	
  	if (notification)
- 	{
 @@ -3043,7 +3015,7 @@ win_maybe_a_dropdown( steamcompmgr_win_t *w )
  	//
  	// TODO: Come back to me for original Age of Empires HD launcher.
