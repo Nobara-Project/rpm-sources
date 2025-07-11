@@ -1,7 +1,7 @@
 Name:           fastfetch
-Version:        2.39.1
+Version:        2.47.0
 Release:        1%{?dist}
-Summary:        Like neofetch, but much faster because written in c
+Summary:        Fast neofetch-like system information tool
 
 License:        MIT
 URL:            https://github.com/fastfetch-cli/fastfetch
@@ -13,7 +13,6 @@ BuildRequires:  gcc
 BuildRequires:  gcc-c++
 BuildRequires:  hwdata-devel
 BuildRequires:  wayland-devel
-BuildRequires:  libxcb-devel
 BuildRequires:  libXrandr-devel
 BuildRequires:  dconf-devel
 BuildRequires:  dbus-devel
@@ -21,47 +20,43 @@ BuildRequires:  sqlite-devel
 BuildRequires:  ImageMagick-devel
 BuildRequires:  zlib-devel
 BuildRequires:  libglvnd-devel
-BuildRequires:  mesa-libOSMesa-devel
-BuildRequires:  xfconf-devel
+BuildRequires:  mesa-libGL-devel
 BuildRequires:  glib2-devel
 BuildRequires:  ocl-icd-devel
 BuildRequires:  rpm-devel
 BuildRequires:  libdrm-devel
 BuildRequires:  pulseaudio-libs-devel
 BuildRequires:  elfutils-libelf-devel
-# not available on s390x
-%if "%{_arch}" != "s390x"
-BuildRequires:  libddcutil-devel
-%endif
-# vulkan-loader not available in el8 on some arches
-%if 0%{?rhel} == 8
-  %if "%{_arch}" != "s390x" && "%{_arch}" != "ppc64le"
 BuildRequires:  vulkan-loader-devel
-  %endif
-%else
-BuildRequires:  vulkan-loader-devel
-%endif
 BuildRequires:  chafa-devel
 BuildRequires:  yyjson-devel
 
 Recommends:     hwdata
-Recommends:     libxcb
-Recommends:     libXrandr
-Recommends:     dconf
-Recommends:     sqlite
-Recommends:     zlib
-Recommends:     libglvnd-glx
-Recommends:     ImageMagick
-Recommends:     glib2
-Recommends:     ocl-icd
-Recommends:     chafa
-Recommends:     ddcutil
-Recommends:     libdrm
-Recommends:     pulseaudio-libs
-Recommends:     elfutils-libelf
+Suggests:       libXrandr
+Suggests:       dconf
+Suggests:       sqlite-libs
+Suggests:       zlib
+Suggests:       libglvnd-glx
+Suggests:       ImageMagick-libs
+Suggests:       glib2
+Suggests:       ocl-icd
+Suggests:       chafa-libs
+Suggests:       libddcutil
+Suggests:       libdrm
+Suggests:       pulseaudio-libs
+Suggests:       elfutils-libelf
 
-Provides: neofetch
-Obsoletes: neofetch
+# The shell completion files were previously provided as separate subpackages
+# which depended on their respective shell.  That was necessary to avoid the
+# parent directories of the completion files from being unowned.  However, the
+# filesystem package now owns those directories, so the separate subpackages
+# are no longer necessary.
+Provides:       fastfetch-bash-completion = %{version}%{release}
+Provides:       fastfetch-zsh-completion = %{version}%{release}
+Provides:       fastfetch-fish-completion = %{version}%{release}
+Obsoletes:      fastfetch-bash-completion < 2.31.0-2
+Obsoletes:      fastfetch-zsh-completion < 2.31.0-2
+Obsoletes:      fastfetch-fish-completion < 2.31.0-2
 
 ExcludeArch:    %{ix86}
 
@@ -72,46 +67,14 @@ performance, in return only Linux and Android are supported. It also uses
 mechanisms like multithreading and caching to finish as fast as possible.
 
 
-%package bash-completion
-Summary: Bash completion files for %{name}
-Requires: bash-completion
-Requires: %{name} = %{version}-%{release}
-BuildArch: noarch
-
-
-%description bash-completion
-%{summary}
-
-
-%package zsh-completion
-Summary: ZSH completion files for %{name}
-Requires: zsh
-Requires: %{name} = %{version}-%{release}
-BuildArch: noarch
-
-
-%description zsh-completion
-%{summary}
-
-
-%package fish-completion
-Summary: Fish completion files for %{name}
-Requires: fish
-Requires: %{name} = %{version}-%{release}
-BuildArch: noarch
-
-
-%description fish-completion
-%{summary}
-
-
 %prep
 %autosetup -p1
 
 
 %build
-%cmake -DBUILD_TESTS=ON -DENABLE_SYSTEM_YYJSON=ON
+%cmake -DBUILD_TESTS=ON -DENABLE_SYSTEM_YYJSON=ON -DBUILD_FLASHFETCH=OFF
 %cmake_build
+
 
 %check
 %ctest
@@ -119,28 +82,57 @@ BuildArch: noarch
 
 %install
 %cmake_install
-ln -s %{_bindir}/%{name} %{buildroot}%{_bindir}/neofetch
 
 
 %files
 %license LICENSE
 %doc README.md
 %{_bindir}/%{name}
-%{_bindir}/neofetch
-%{_bindir}/flashfetch
 %{_datadir}/%{name}/
 %{_mandir}/man1/fastfetch.1*
-
-%files bash-completion
 %{_datadir}/bash-completion/completions/%{name}
-
-%files fish-completion
 %{_datadir}/fish/vendor_completions.d/%{name}.fish
-
-%files zsh-completion
 %{_datadir}/zsh/site-functions/_%{name}
 
+
 %changelog
+* Fri Jul 11 2025 LionHeartP <LionHeartP@proton.me> - 2.47.0-1
+- update to 2.47.0
+
+* Fri May 30 2025 Adam Fidel <refuse@gmail.com> - 2.44.0-1
+- update to 2.44.0 rhbz#2368161
+
+* Mon May 19 2025 Jonathan Wright <jonathan@almalinux.org> - 2.43.0-1
+- update to 2.43.0 rhbz#2362855
+
+* Sun Apr 27 2025 Jonathan Wright <jonathan@almalinux.org> - 2.41.0-1
+- update to 2.41.0 rhbz#2357095
+
+* Wed Mar 26 2025 Jonathan Wright <jonathan@almalinux.org> - 2.39.1-1
+- update to 2.39.1 rhbz#2346605
+- improve recommends/suggests for lighter installs rhbz#2346954
+
+* Thu Feb 13 2025 Jonathan Wright <jonathan@almalinux.org> - 2.36.1-1
+- update to 2.36.1 rhbz#2342117
+
+* Thu Jan 16 2025 Fedora Release Engineering <releng@fedoraproject.org> - 2.34.1-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_42_Mass_Rebuild
+
+* Mon Jan 13 2025 Jonathan Wright <jonathan@almalinux.org> - 2.34.1-1
+- update to 2.34.1 rhbz#2336492
+
+* Fri Jan 03 2025 Jonathan Wright <jonathan@almalinux.org> - 2.33.0-1
+- update to 2.33.0 rhbz#2334157
+
+* Thu Dec 19 2024 Jonathan Wright <jonathan@almalinux.org> - 2.32.1-1
+- update to 2.32.1 rhbz#2332949
+
+* Thu Dec 19 2024 Carl George <carlwgeorge@fedoraproject.org> - 2.31.0-2
+- Remove shell completion subpackages
+
+* Sun Dec 15 2024 Jonathan Wright <jonathan@almalinux.org> - 2.31.0-1
+- update to 2.31.0 rhbz#2326886
+
 * Wed Nov 06 2024 Jonathan Wright <jonathan@almalinux.org> - 2.29.0-1
 - update to 2.29.0 rhbz#2321319
 
