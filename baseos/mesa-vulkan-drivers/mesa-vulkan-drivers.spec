@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit d45f375a9d6f9c7094c5bddaeb3a6cc92322a50e
+%global commit 5d4f59a3ed4498a08f440d2de39b3c5054aa3b51
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 10.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 11.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
