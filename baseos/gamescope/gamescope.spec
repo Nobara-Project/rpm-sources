@@ -1,13 +1,13 @@
 %global libliftoff_minver 0.5.0
 
 # latest git
-%define commit eb620ab0f2ce4c39a1321e8f594c157c2c810c3e
+%define commit 875a4e07c718fa4196283d620a8b4dac7b3a8c7f
 
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global _default_patch_fuzz 2
 %global build_timestamp %(date +"%Y%m%d")
 
-%global rel_build 2.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 3.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           gamescope
 Version:        3.16.14
@@ -65,12 +65,11 @@ BuildRequires:  pkgconfig(wayland-server) >= 1.21
 BuildRequires:  pkgconfig(wayland-protocols) >= 1.41
 BuildRequires:  pkgconfig(xkbcommon)
 BuildRequires:  pkgconfig(sdl2)
-BuildRequires:  pkgconfig(openvr) >= 2.7
 BuildRequires:  pkgconfig(libpipewire-0.3)
 BuildRequires:  pkgconfig(libavif)
 # Use subproject wlroots -- per discussion with valve/joshie
 #BuildRequires:  pkgconfig(wlroots-0.18)
-BuildRequires:  (pkgconfig(libliftoff) >= 0.5.0 with pkgconfig(libliftoff) < 0.6)
+BuildRequires:  (pkgconfig(libliftoff) >= %{libliftoff_minver} with pkgconfig(libliftoff) < 0.6)
 BuildRequires:  pkgconfig(libcap)
 BuildRequires:  pkgconfig(hwdata)
 BuildRequires:  spirv-headers-devel
@@ -166,7 +165,7 @@ cd gamescope
 %{_bindir}/gamescopectl
 %{_bindir}/gamescopestream
 %{_bindir}/gamescopereaper
-%{_datadir}/gamescope/scripts/
+%{_datadir}/gamescope
 
 %files libs
 %{_libdir}/libVkLayer_FROG_gamescope_wsi_*.so
