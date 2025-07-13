@@ -1,5 +1,5 @@
 Name:           scx-scheds
-Version:        1.0.13
+Version:        1.0.14
 Release:        1%{?dist}
 Summary:        Sched_ext Schedulers and Tools
 
@@ -68,6 +68,9 @@ The %{name}-devel package contains libraries header files for developing applica
 %{_includedir}/scx/
 
 %changelog
+* Tue Jul 08 2025 LionHeartP <LionHeartP@proton.me> - 1.0.14-1
+- Update to 1.0.14
+
 * Fri Jun 13 2025 LionHeartP <LionHeartP@proton.me> - 1.0.13-1
 - Update to 1.0.13
 - Add new runtime dependencies
