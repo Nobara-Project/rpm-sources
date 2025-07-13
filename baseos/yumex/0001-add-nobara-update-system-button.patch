@@ -10,10 +10,10 @@ Subject: [PATCH] add nobara update button
  3 files changed, 20 insertions(+)
 
 diff --git a/data/ui/window.blp b/data/ui/window.blp
-index 2c7c20a..f5f5462 100644
+index 15863a1..f03addd 100644
 --- a/data/ui/window.blp
 +++ b/data/ui/window.blp
-@@ -72,6 +72,15 @@ template $YumexMainWindow: Adw.ApplicationWindow {
+@@ -77,6 +77,15 @@ template $YumexMainWindow: Adw.ApplicationWindow {
            tooltip-text: _("Apply Package Actions");
            action-name: "app.apply_actions";
          }
@@ -30,33 +30,31 @@ index 2c7c20a..f5f5462 100644
  
        Gtk.Box {
 diff --git a/yumex/main.py b/yumex/main.py
-index ba26656..dcaed15 100644
+index 6ee7205..bca6468 100644
 --- a/yumex/main.py
 +++ b/yumex/main.py
-@@ -94,6 +94,7 @@ class YumexApplication(Adw.Application):
-         self.create_action("flatpak_remove_unused", self.win.on_actions)
+@@ -95,6 +95,7 @@ class YumexApplication(Adw.Application):
+         self.create_action("flatpak_remove_unused", self.win.action_dispatch)
  
-         self.create_action("apply_actions", self.win.on_actions, ["<Ctrl>Return"])
-+        self.create_action("update_actions", self.win.on_actions)
-         self.create_action("page_one", self.win.on_actions, ["<Alt>1"])
-         self.create_action("page_two", self.win.on_actions, ["<Alt>2"])
-         self.create_action("page_three", self.win.on_actions, ["<Alt>3"])
+         self.create_action("apply_actions", self.win.action_dispatch, ["<Ctrl>Return"])
++        self.create_action("update_actions", self.win.action_dispatch)
+         self.create_action("page_one", self.win.action_dispatch, ["<Alt>1"])
+         self.create_action("page_two", self.win.action_dispatch, ["<Alt>2"])
+         self.create_action("page_three", self.win.action_dispatch, ["<Alt>3"])
 diff --git a/yumex/ui/window.py b/yumex/ui/window.py
-index e852932..fc14e0a 100644
+index e46e538..49d2ebc 100644
 --- a/yumex/ui/window.py
 +++ b/yumex/ui/window.py
-@@ -14,7 +14,10 @@
- # Copyright (C) 2024 Tim Lauridsen
+@@ -14,6 +14,8 @@
+ # Copyright (C) 2025 Tim Lauridsen
  
  import logging
 +import os
- import re
 +import subprocess
-+
  from pathlib import Path
  
  from gi.repository import Adw, Gio, Gtk  # type: ignore
-@@ -323,6 +326,11 @@ class YumexMainWindow(Adw.ApplicationWindow):
+@@ -370,6 +370,11 @@ class YumexMainWindow(Adw.ApplicationWindow):
          self.load_packages(self._last_filter)
          self._last_filter = None
  
@@ -68,7 +66,7 @@ index e852932..fc14e0a 100644
      @Gtk.Template.Callback()
      def on_search_changed(self, widget):
          """handler for changes in the seach entry"""
-@@ -409,6 +417,8 @@ class YumexMainWindow(Adw.ApplicationWindow):
+@@ -447,6 +452,8 @@ class YumexMainWindow(Adw.ApplicationWindow):
              case "apply_actions":
                  if self.active_page in [Page.PACKAGES, Page.QUEUE]:
                      self.on_apply_actions_clicked()
@@ -78,5 +76,5 @@ index e852932..fc14e0a 100644
                  if self.active_page == Page.FLATPAKS:
                      self.flatpak_view.remove()
 -- 
-2.46.0
+2.50.0
 

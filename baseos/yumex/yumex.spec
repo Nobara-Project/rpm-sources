@@ -2,12 +2,12 @@
 %global app_build release
 %global dnf_backend DNF5
 %global app_name yumex
-%global gitcommit 9b46dce4984f524784981033147278dfb5a5aecc
-%global shortcommit 9b46dce
+%global gitcommit 09f15091a2f0f3a8c189bbd4dc59016a80e2debf
+%global shortcommit 09f1509
 
 Name:     %{app_name}
-Version:  5.2.0
-Release:  1.git.%{shortcommit}%{?dist}
+Version:  5.3.0
+Release:  4.git.%{shortcommit}%{?dist}
 Summary:  Yum Extender graphical package management tool
 
 Group:    Applications/System
@@ -84,7 +84,11 @@ Service to check and notify about available updates
 
 
 %prep
-%autosetup -S git -n %{name}-ng-%{gitcommit} -p1
+%autosetup -n %{name}-ng-%{gitcommit} -p1
+rm data/gfx/dark_panel.png
+rm data/gfx/light_panel.png
+rm data/icons/hicolor/scalable/apps/yumex-update-dark-symbolic.svg
+rm data/icons/hicolor/scalable/apps/yumex-update-symbolic.svg
 cp %{SOURCE1} ./data/icons/hicolor/scalable/apps/
 
 # Add nobara-updater as custom_updater option
