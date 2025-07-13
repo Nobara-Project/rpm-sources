@@ -2,9 +2,9 @@
 
 Name:		vlc-plugins-freeworld
 Version:	3.0.21
-Release:	2%{?dist}
-Summary:	AAC, H.264, and HEVC codec plugins for VLC media player
-License:	GPL-2.0-or-later AND LGPL-2.1-or-later AND BSD-2-Clause AND BSD-3-Clause
+Release:	5%{?dist}
+Summary:	H.264, and HEVC codec plugins for VLC media player
+License:	GPL-2.0-or-later AND LGPL-2.1-or-later
 URL:		https://www.videolan.org
 Source:		https://download.videolan.org/pub/videolan/vlc/%{version}/vlc-%{version}.tar.xz
 
@@ -20,7 +20,6 @@ BuildRequires:	gcc-c++
 BuildRequires:  pkgconfig(dbus-1)
 BuildRequires:  pkgconfig(libidn)
 
-BuildRequires:	faad2-devel
 BuildRequires:	pkgconfig(x264) >= 0.153
 BuildRequires:	pkgconfig(x265)
 
@@ -51,7 +50,7 @@ touch src/revision.txt
     --enable-dbus			\
     --disable-optimizations		\
     --disable-lua			\
-    --enable-faad			\
+    --disable-faad			\
     --enable-x264			\
     --enable-x26410b			\
     --enable-x265			\
@@ -184,7 +183,7 @@ sed -i -e 's! -shared ! -Wl,--as-needed\0!g' libtool
 
 %make_build -C compat
 %make_build -C modules LTLIBVLCCORE=-lvlccore \
-    codec_LTLIBRARIES="libfaad_plugin.la libx264_plugin.la libx26410b_plugin.la libx265_plugin.la" \
+    codec_LTLIBRARIES="libx264_plugin.la libx26410b_plugin.la libx265_plugin.la" \
     access_LTLIBRARIES= access_out_LTLIBRARIES= aout_LTLIBRARIES= \
     audio_filter_LTLIBRARIES= audio_mixer_LTLIBRARIES= check_LTLIBRARIES= \
     chroma_LTLIBRARIES= control_LTLIBRARIES= demux_LTLIBRARIES= gui_LTLIBRARIES= \
@@ -199,7 +198,7 @@ sed -i -e 's! -shared ! -Wl,--as-needed\0!g' libtool
 
 %install
 %make_install -C modules CPPROG="cp -p" LTLIBVLCCORE=-lvlccore \
-    codec_LTLIBRARIES="libfaad_plugin.la libx264_plugin.la libx26410b_plugin.la libx265_plugin.la" \
+    codec_LTLIBRARIES="libx264_plugin.la libx26410b_plugin.la libx265_plugin.la" \
     access_LTLIBRARIES= access_out_LTLIBRARIES= aout_LTLIBRARIES= \
     audio_filter_LTLIBRARIES= audio_mixer_LTLIBRARIES= check_LTLIBRARIES= \
     chroma_LTLIBRARIES= control_LTLIBRARIES= demux_LTLIBRARIES= gui_LTLIBRARIES= \
@@ -218,13 +217,22 @@ find %{buildroot}%{_libdir} -name '*.la' -delete
 %files
 %doc AUTHORS NEWS README THANKS
 %license COPYING COPYING.LIB
-%{vlc_plugindir}/codec/libfaad_plugin.so
 %{vlc_plugindir}/codec/libx264_plugin.so
 %{vlc_plugindir}/codec/libx26410b_plugin.so
 %{vlc_plugindir}/codec/libx265_plugin.so
 
 
 %changelog
+* Thu Jun 26 2025 Dominik Mierzejewski <dominik@greysector.net> - 3.0.21-5
+- faad2 plugin was moved to Fedora
+- update license tag as there's no BSD licensed code in binary RPMs
+
+* Wed Jan 29 2025 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 3.0.21-4
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_42_Mass_Rebuild
+
+* Sat Nov 23 2024 Leigh Scott <leigh123linux@gmail.com> - 3.0.21-3
+- Rebuild for new x265
+
 * Fri Aug 02 2024 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 3.0.21-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_41_Mass_Rebuild
 
