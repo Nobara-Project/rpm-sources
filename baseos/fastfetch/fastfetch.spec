@@ -1,6 +1,6 @@
 Name:           fastfetch
 Version:        2.47.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Fast neofetch-like system information tool
 
 License:        MIT
@@ -82,12 +82,14 @@ mechanisms like multithreading and caching to finish as fast as possible.
 
 %install
 %cmake_install
+ln -s %{_bindir}/%{name} %{buildroot}%{_bindir}/neofetch
 
 
 %files
 %license LICENSE
 %doc README.md
 %{_bindir}/%{name}
+%{_bindir}/neofetch
 %{_datadir}/%{name}/
 %{_mandir}/man1/fastfetch.1*
 %{_datadir}/bash-completion/completions/%{name}
@@ -96,6 +98,9 @@ mechanisms like multithreading and caching to finish as fast as possible.
 
 
 %changelog
+* Mon Jul 14 2025 LionHeartP <LionHeartP@proton.me> - 2.47.0-2
+- restore neofetch symlink
+
 * Fri Jul 11 2025 LionHeartP <LionHeartP@proton.me> - 2.47.0-1
 - update to 2.47.0
 
