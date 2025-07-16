@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit 5d4f59a3ed4498a08f440d2de39b3c5054aa3b51
+%global commit f146a3a13ac7811bd6b120c73fc34131be23b60c
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 11.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 12.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -84,9 +84,6 @@ Patch10:        gnome-shell-glthread-disable.patch
 
 # https://gitlab.com/evlaV/mesa/
 Patch30:	valve.patch
-
-# https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/35269
-Patch31:	35269.patch
 
 # Path of Exile
 Patch32:        min_image_count.patch
@@ -418,6 +415,10 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Wed Jul 16 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-12
+- Update to latest commit
+- Remove upstreamed #35269
+
 * Thu Jul 10 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-10
 - Update to latest commit
 
