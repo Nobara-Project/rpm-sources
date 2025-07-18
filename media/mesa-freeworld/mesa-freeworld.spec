@@ -76,7 +76,7 @@ algorithms and decoding only VC1 algorithm.
 
 Name:           %{srcname}-freeworld
 Summary:        Mesa graphics libraries
-%global ver 25.1.5
+%global ver 25.1.6
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
@@ -392,6 +392,9 @@ rm -fr %{buildroot}%{_libdir}/libGLX*
 %{_libdir}/libgallium-*.so
 
 %changelog
+* Wed Jul 16 2025 LionHeartP <LionHeartP@proton.me> - 25.1.6-1
+- Update to 25.1.6
+
 * Wed Jul 02 2025 LionHeartP <LionHeartP@proton.me> - 25.1.5-1
 - Update to 25.1.5
 
