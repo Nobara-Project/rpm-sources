@@ -5,7 +5,7 @@
 
 Name:           steam
 Version:        1.0.0.83
-Release:        1%{?dist}
+Release:        4%{?dist}
 Summary:        Installer for the Steam software distribution service
 # Redistribution and repackaging for Linux is allowed, see license file. udev rules are MIT.
 License:        Steam License Agreement and MIT
@@ -23,18 +23,8 @@ Source5:        README.Fedora
 # https://github.com/denilsonsa/udev-joystick-blacklist
 # https://github.com/systemd/systemd/issues/32773
 
-# Input devices seen as joysticks:
-Source6:        https://raw.githubusercontent.com/denilsonsa/udev-joystick-blacklist/master/after_kernel_4_9/51-these-are-not-joysticks-rm.rules
-
 # Configure limits in systemd
 Source7:        01-steam.conf
-
-# Newer udev rules than what is bundled in the tarball
-Source8:        https://raw.githubusercontent.com/ValveSoftware/steam-devices/master/60-steam-input.rules
-Source9:        https://raw.githubusercontent.com/ValveSoftware/steam-devices/master/60-steam-vr.rules
-
-# Steam Restart script
-Source11:       steamrestart.sh
 
 # Do not install desktop file in lib/steam, do not install apt sources
 Patch0:         %{name}-makefile.patch
@@ -71,8 +61,7 @@ Requires:       fontconfig%{?_isa}
 Requires:       gtk2%{?_isa}
 Requires:       libICE%{?_isa}
 Requires:       libnsl%{?_isa}
-Requires:       libxcrypt-compat%{?_isa}
-Requires:       libpng12%{?_isa}
+Requires:       libpng%{?_isa}
 Requires:       libXext%{?_isa}
 Requires:       libXinerama%{?_isa}
 Requires:       libXtst%{?_isa}
@@ -98,9 +87,6 @@ Requires(post): firewalld-filesystem
 # Required for hardware encoding/decoding during Remote Play (intel/radeon/amdgpu/nouveau)
 Requires:       libva%{?_isa}
 Requires:       libvdpau%{?_isa}
-
-# Required for having a functioning menu on the tray icon
-Requires:       libdbusmenu-gtk3%{?_isa} >= 16.04.0
 
 # Required by Feral interactive games
 Requires:       libatomic%{?_isa}
@@ -133,7 +119,7 @@ Recommends:     xdg-user-dirs
 # Allow using Steam Runtime Launch Options
 Recommends:     gobject-introspection
 
-Requires:       steam-devices = %{?epoch:%{epoch}:}%{version}-%{release}
+Requires:       steam-devices
 
 %description
 Steam is a software distribution service with an online store, automated
@@ -141,21 +127,6 @@ installation, automatic updates, achievements, SteamCloud synchronized savegame
 and screenshot functionality, and many social features.
 
 This package contains the installer for the Steam software distribution service.
-
-%package        devices
-Summary:        Permissions required by Steam for gaming devices
-# Until the infra can deal with noarch sub-packages from excludearch/exclusivearch
-# keep the sub-package arched
-#BuildArch:      noarch
-Provides:       steam-devices = %{?epoch:%{epoch}:}%{version}-%{release}
-Obsoletes:      steam-devices < %{?epoch:%{epoch}:}%{version}-%{release}
-
-%description    devices
-Steam is a software distribution service with an online store, automated
-installation, automatic updates, achievements, SteamCloud synchronized savegame
-and screenshot functionality, and many social features.
-
-This package contains the necessary permissions for gaming devices.
 
 %prep
 %autosetup -p1 -n %{name}-launcher
@@ -171,10 +142,6 @@ cp %{SOURCE5} .
 rm -fr %{buildroot}%{_docdir}/%{name}/ \
     %{buildroot}%{_bindir}/%{name}deps
 
-mkdir -p %{buildroot}%{_udevrulesdir}/
-install -m 644 -p %{SOURCE6} %{SOURCE8} %{SOURCE9} \
-    %{buildroot}%{_udevrulesdir}/
-
 # Environment files
 mkdir -p %{buildroot}%{_sysconfdir}/profile.d
 install -pm 644 %{SOURCE1} %{SOURCE2} %{buildroot}%{_sysconfdir}/profile.d
@@ -182,10 +149,8 @@ install -pm 644 %{SOURCE1} %{SOURCE2} %{buildroot}%{_sysconfdir}/profile.d
 # Raise file descriptor limit
 mkdir -p %{buildroot}%{_prefix}/lib/systemd/system.conf.d/
 mkdir -p %{buildroot}%{_prefix}/lib/systemd/user.conf.d/
-mkdir -p %{buildroot}%{_bindir}/
 install -m 644 -p %{SOURCE7} %{buildroot}%{_prefix}/lib/systemd/system.conf.d/
 install -m 644 -p %{SOURCE7} %{buildroot}%{_prefix}/lib/systemd/user.conf.d/
-install -m 775 -p %{SOURCE11} %{buildroot}%{_bindir}/steamrestart
 
 # Fixes steam open/close loop bug:
 # https://github.com/ValveSoftware/steam-for-linux/issues/8179
@@ -199,7 +164,6 @@ appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/%{appstream_id
 %license COPYING steam_subscriber_agreement.txt
 %doc debian/changelog README.Fedora
 %{_bindir}/%{name}
-%{_bindir}/steamrestart
 %{_datadir}/applications/%{name}.desktop
 %{_datadir}/icons/hicolor/*/apps/%{name}.png
 %{_datadir}/pixmaps/%{name}.png
@@ -213,10 +177,24 @@ appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/%{appstream_id
 %dir %{_prefix}/lib/systemd/user.conf.d/
 %{_prefix}/lib/systemd/user.conf.d/01-steam.conf
 
-%files devices
-%{_udevrulesdir}/*
-
 %changelog
+* Sun May 11 2025 Simone Caronni <negativo17@gmail.com> - 1.0.0.83-1
+- Update to 1.0.0.83.
+
+* Wed Apr 09 2025 Simone Caronni <negativo17@gmail.com> - 1.0.0.82-4
+- Drop steam-devices subpackage.
+
+* Wed Mar 19 2025 Simone Caronni <negativo17@gmail.com> - 1.0.0.82-3
+- Relax requirement on steam-devices.
+- Trim changelog.
+- Update README.
+
+* Wed Jan 29 2025 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 1.0.0.82-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_42_Mass_Rebuild
+
+* Sun Nov 10 2024 Simone Caronni <negativo17@gmail.com> - 1.0.0.82-1
+- Update to 1.0.0.82.
+
 * Sun Sep 01 2024 Simone Caronni <negativo17@gmail.com> - 1.0.0.81-1
 - Update to 1.0.0.81.
 
