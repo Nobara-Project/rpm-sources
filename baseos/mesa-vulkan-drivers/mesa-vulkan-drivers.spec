@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit f146a3a13ac7811bd6b120c73fc34131be23b60c
+%global commit d59c22b6e1a8dae1c41ec7a229185e49d552d6f4
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 12.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 13.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -415,6 +415,9 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Sun Jul 20 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-13
+- Update to latest commit
+
 * Wed Jul 16 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-12
 - Update to latest commit
 - Remove upstreamed #35269
