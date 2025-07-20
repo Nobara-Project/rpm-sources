@@ -21,7 +21,7 @@
 %global with_nvk 1
 %endif
 
-%ifarch %{ix86} x86_64
+%ifarch %{ix86} aarch64 x86_64
 %global with_crocus 1
 %global with_i915   1
 %if !0%{?rhel}
@@ -238,7 +238,7 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
 %if 0%{?with_intel_clc}
   -Dintel-clc=enabled \
 %endif
-%ifnarch x86_64
+%ifnarch aarch64 x86_64
   -Dintel-rt=disabled \
 %endif
   -Dmicrosoft-clc=disabled \
@@ -385,7 +385,7 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %{_datadir}/vulkan/implicit_layer.d/VkLayer_MESA_device_select.json
 %if 0%{?with_vulkan_hw}
 %{_libdir}/libvulkan_radeon.so
-%ifarch x86_64
+%ifarch aarch64 x86_64
 %{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 %{_datadir}/vulkan/icd.d/radeon_icd.*.json
@@ -393,7 +393,7 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %{_libdir}/libvulkan_nouveau.so
 %{_datadir}/vulkan/icd.d/nouveau_icd.*.json
 %endif
-%ifarch %{ix86} x86_64
+%ifarch %{ix86} aarch64 x86_64
 %{_libdir}/libvulkan_intel.so
 %{_datadir}/vulkan/icd.d/intel_icd.*.json
 %{_libdir}/libvulkan_intel_hasvk.so
