@@ -25,7 +25,7 @@
 %endif
 %endif
 
-%ifarch %{ix86} x86_64
+%ifarch %{ix86} aarch64 x86_64
 %global with_crocus 1
 %global with_i915   1
 %global with_iris   1
@@ -33,7 +33,7 @@
 %global with_intel_clc 1
 %global intel_platform_vulkan %{?with_vulkan_hw:,intel,intel_hasvk}%{!?with_vulkan_hw:%{nil}}
 %endif
-%ifarch x86_64
+%ifarch aarch64 x86_64
 %if !0%{?with_vulkan_hw}
 %global with_intel_vk_rt 1
 %endif
@@ -573,7 +573,7 @@ popd
 %endif
 %{_libdir}/dri/radeonsi_dri.so
 %endif
-%ifarch %{ix86} x86_64
+%ifarch %{ix86} aarch64 x86_64
 %{_libdir}/dri/crocus_dri.so
 %{_libdir}/dri/i915_dri.so
 %{_libdir}/dri/iris_dri.so
@@ -694,7 +694,7 @@ popd
 %{_libdir}/libvulkan_nouveau.so
 %{_datadir}/vulkan/icd.d/nouveau_icd.*.json
 %endif
-%ifarch %{ix86} x86_64
+%ifarch %{ix86} aarch64 x86_64
 %{_libdir}/libvulkan_intel.so
 %{_datadir}/vulkan/icd.d/intel_icd.*.json
 %{_libdir}/libvulkan_intel_hasvk.so
