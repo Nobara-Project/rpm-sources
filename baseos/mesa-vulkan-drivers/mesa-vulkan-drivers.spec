@@ -33,8 +33,6 @@
 %endif
 
 %ifarch aarch64
-%global with_crocus 1
-%global with_i915   1
 %if !0%{?rhel}
 %global with_intel_clc 1
 %global with_etnaviv   1
@@ -42,6 +40,8 @@
 %global with_vc4       1
 %global with_v3d       1
 %endif
+%global with_crocus 1
+%global with_i915   1
 %global with_freedreno 1
 %global with_kmsro     1
 %global with_panfrost  1
@@ -86,7 +86,7 @@ Source1:        Mesa-MLAA-License-Clarification-Email.txt
 Patch10:        gnome-shell-glthread-disable.patch
 
 # https://gitlab.com/evlaV/mesa/
-Patch30:	valve.patch
+Patch30:        valve.patch
 
 # Path of Exile
 Patch32:        min_image_count.patch
@@ -361,6 +361,32 @@ rm -Rf %{buildroot}%{_libdir}/dri/virtio_gpu_drv_video.so
 rm -Rf %{buildroot}%{_libdir}/dri/libdril_dri.so
 rm -Rf %{buildroot}%{_libdir}/dri/libgallium.so
 rm -Rf %{buildroot}%{_libdir}/dri/libgallium_drv_video.so
+rm -Rf %{buildroot}%{_libdir}/dri/apple_dri.so
+rm -Rf %{buildroot}%{_libdir}/dri/gm12u320_dri.so
+rm -Rf %{buildroot}%{_libdir}/dri/hdlcd_dri.so
+rm -Rf %{buildroot}%{_libdir}/dri/ili9163_dri.so
+rm -Rf %{buildroot}%{_libdir}/dri/ili9486_dri.so
+rm -Rf %{buildroot}%{_libdir}/dri/imx-dcss_dri.so
+rm -Rf %{buildroot}%{_libdir}/dri/imx-lcdif_dri.so
+rm -Rf %{buildroot}%{_libdir}/dri/ingenic-drm_dri.so
+rm -Rf %{buildroot}%{_libdir}/dri/kirin_dri.so
+rm -Rf %{buildroot}%{_libdir}/dri/komeda_dri.so
+rm -Rf %{buildroot}%{_libdir}/dri/mali-dp_dri.so
+rm -Rf %{buildroot}%{_libdir}/dri/mcde_dri.so
+rm -Rf %{buildroot}%{_libdir}/dri/mediatek_dri.so
+rm -Rf %{buildroot}%{_libdir}/dri/mxsfb-drm_dri.so
+rm -Rf %{buildroot}%{_libdir}/dri/panel-mipi-dbi_dri.so
+rm -Rf %{buildroot}%{_libdir}/dri/panthor_dri.so
+rm -Rf %{buildroot}%{_libdir}/dri/rcar-du_dri.so
+rm -Rf %{buildroot}%{_libdir}/dri/rzg2l-du_dri.so
+rm -Rf %{buildroot}%{_libdir}/dri/ssd130x_dri.so
+rm -Rf %{buildroot}%{_libdir}/dri/sti_dri.so
+rm -Rf %{buildroot}%{_libdir}/dri/stm_dri.so
+rm -Rf %{buildroot}%{_libdir}/dri/udl_dri.so
+rm -Rf %{buildroot}%{_libdir}/dri/v3d_dri.so
+rm -Rf %{buildroot}%{_libdir}/dri/vkms_dri.so
+rm -Rf %{buildroot}%{_libdir}/dri/zynqmp-dpsub_dri.so
+
 rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_nouveau.so.1*
 rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_r300.so.1*
 rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_r600.so.1*
