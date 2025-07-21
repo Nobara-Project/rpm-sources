@@ -21,7 +21,7 @@
 %global with_nvk 1
 %endif
 
-%ifarch %{ix86} aarch64 x86_64
+%ifarch %{ix86} x86_64
 %global with_crocus 1
 %global with_i915   1
 %if !0%{?rhel}
@@ -33,7 +33,10 @@
 %endif
 
 %ifarch aarch64
+%global with_crocus 1
+%global with_i915   1
 %if !0%{?rhel}
+%global with_intel_clc 1
 %global with_etnaviv   1
 %global with_lima      1
 %global with_vc4       1
@@ -44,7 +47,7 @@
 %global with_panfrost  1
 %global with_tegra     1
 %global with_xa        1
-%global platform_vulkan ,broadcom,freedreno,panfrost
+%global platform_vulkan ,broadcom,freedreno,panfrost,intel,intel_hasvk
 %endif
 
 %ifnarch s390x
