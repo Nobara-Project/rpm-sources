@@ -202,12 +202,12 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
     else \
         echo "Warning: No .wrap file found for %{1} in subprojects/. Skipping rewrite."; \
     fi
+%rewrite_wrap_file paste
 %rewrite_wrap_file proc-macro2
 %rewrite_wrap_file quote
+%rewrite_wrap_file rustc-hash
 %rewrite_wrap_file syn
 %rewrite_wrap_file unicode-ident
-%rewrite_wrap_file paste
-%rewrite_wrap_file rustc-hash
 %endif
 # We've gotten a report that enabling LTO for mesa breaks some games. See
 # https://bugzilla.redhat.com/show_bug.cgi?id=1862771 for details.
