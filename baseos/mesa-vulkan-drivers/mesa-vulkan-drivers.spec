@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit d59c22b6e1a8dae1c41ec7a229185e49d552d6f4
+%global commit dd71263c21ad6ea7ceb7b3cad807defdc0500040
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 13.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -68,7 +68,7 @@
 
 Name:           mesa-vulkan-drivers-git
 Summary:        The mesa graphics vulkan driver stack.
-%global ver 25.2.0
+%global ver 25.3.0
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %{rel_build}
 License:        MIT
@@ -192,17 +192,23 @@ export RUSTFLAGS="%build_rustflags"
 
 %if 0%{?with_nvk}
 export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
-# So... Meson can't actually find them without tweaks
 %define inst_crate_nameversion() %(basename %{cargo_registry}/%{1}-*)
-%define rewrite_wrap_file() sed -e "/source.*/d" -e "s/%{1}-.*/%{inst_crate_nameversion %{1}}/" -i subprojects/%{1}.wrap
-
-%rewrite_wrap_file paste
+%define rewrite_wrap_file() \
+    ACTUAL_WRAP_FILE=$(find subprojects/ -maxdepth 1 -name "%{1}-*.wrap" | head -n 1); \
+    if [ -n "${ACTUAL_WRAP_FILE}" ] && [ -f "${ACTUAL_WRAP_FILE}" ]; then \
+        echo "Rewriting ${ACTUAL_WRAP_FILE}"; \
+        ORIGINAL_CRATE_NAMEVERSION="%{inst_crate_nameversion %{1}}"; \
+        sed -i -e "s|^directory =.*|directory = ${ORIGINAL_CRATE_NAMEVERSION}|" "${ACTUAL_WRAP_FILE}"; \
+    else \
+        echo "Warning: No .wrap file found for %{1} in subprojects/. Skipping rewrite."; \
+    fi
 %rewrite_wrap_file proc-macro2
 %rewrite_wrap_file quote
 %rewrite_wrap_file syn
 %rewrite_wrap_file unicode-ident
+%rewrite_wrap_file paste
+%rewrite_wrap_file rustc-hash
 %endif
-
 # We've gotten a report that enabling LTO for mesa breaks some games. See
 # https://bugzilla.redhat.com/show_bug.cgi?id=1862771 for details.
 # Disable LTO for now
@@ -415,6 +421,11 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Sat Jul 26 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-14
+- Update to latest commit
+- Bump version to 25.3.0
+- Adapt rewrite_wrap_file macro to upstream changes
+
 * Sun Jul 20 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-13
 - Update to latest commit
 
