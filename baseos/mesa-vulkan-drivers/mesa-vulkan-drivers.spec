@@ -233,7 +233,7 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
   -Dgallium-rusticl=true \
 %endif
   -Dvulkan-drivers=%{?vulkan_drivers} \
-  -Dvulkan-layers=device-select%{?with_vulkan_overlay:,overlay} \
+  -Dvulkan-layers=device-select%{?with_vulkan_overlay:,overlay},anti-lag \
   -Dgles1=enabled \
   -Dgles2=enabled \
   -Dopengl=true \
@@ -387,7 +387,9 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %files
 %{_libdir}/libvulkan_lvp.so
 %{_datadir}/vulkan/icd.d/lvp_icd.*.json
+%{_libdir}/libVkLayer_MESA_anti_lag.so
 %{_libdir}/libVkLayer_MESA_device_select.so
+%{_datadir}/vulkan/implicit_layer.d/VkLayer_MESA_anti_lag.json
 %{_datadir}/vulkan/implicit_layer.d/VkLayer_MESA_device_select.json
 %if 0%{?with_vulkan_hw}
 %{_libdir}/libvulkan_radeon.so
@@ -421,10 +423,11 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
-* Sat Jul 26 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-14
+* Sat Jul 26 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-1
 - Update to latest commit
 - Bump version to 25.3.0
 - Adapt rewrite_wrap_file macro to upstream changes
+- Enable anti-lag
 
 * Sun Jul 20 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-13
 - Update to latest commit
