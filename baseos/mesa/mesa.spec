@@ -73,7 +73,7 @@
 
 Name:           mesa
 Summary:        Mesa graphics libraries
-%global ver 25.1.6
+%global ver 25.1.7
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
@@ -718,6 +718,9 @@ popd
 %endif
 
 %changelog
+* Thu Jul 31 2025 LionHeartP <LionHeartP@proton.me> - 25.1.7-1
+- Update to 25.1.7
+
 * Wed Jul 16 2025 LionHeartP <LionHeartP@proton.me> - 25.1.6-1
 - Update to 25.1.6
 

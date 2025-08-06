@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit f146a3a13ac7811bd6b120c73fc34131be23b60c
+%global commit a6a6c2f6915f4d95f34ef586a0e6418d04caed7e
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 12.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 2.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -71,7 +71,7 @@
 
 Name:           mesa-vulkan-drivers-git
 Summary:        The mesa graphics vulkan driver stack.
-%global ver 25.2.0
+%global ver 25.3.0
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %{rel_build}
 License:        MIT
@@ -195,17 +195,23 @@ export RUSTFLAGS="%build_rustflags"
 
 %if 0%{?with_nvk}
 export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
-# So... Meson can't actually find them without tweaks
 %define inst_crate_nameversion() %(basename %{cargo_registry}/%{1}-*)
-%define rewrite_wrap_file() sed -e "/source.*/d" -e "s/%{1}-.*/%{inst_crate_nameversion %{1}}/" -i subprojects/%{1}.wrap
-
+%define rewrite_wrap_file() \
+    ACTUAL_WRAP_FILE=$(find subprojects/ -maxdepth 1 -name "%{1}-*.wrap" | head -n 1); \
+    if [ -n "${ACTUAL_WRAP_FILE}" ] && [ -f "${ACTUAL_WRAP_FILE}" ]; then \
+        echo "Rewriting ${ACTUAL_WRAP_FILE}"; \
+        ORIGINAL_CRATE_NAMEVERSION="%{inst_crate_nameversion %{1}}"; \
+        sed -i -e "s|^directory =.*|directory = ${ORIGINAL_CRATE_NAMEVERSION}|" "${ACTUAL_WRAP_FILE}"; \
+    else \
+        echo "Warning: No .wrap file found for %{1} in subprojects/. Skipping rewrite."; \
+    fi
 %rewrite_wrap_file paste
 %rewrite_wrap_file proc-macro2
 %rewrite_wrap_file quote
+%rewrite_wrap_file rustc-hash
 %rewrite_wrap_file syn
 %rewrite_wrap_file unicode-ident
 %endif
-
 # We've gotten a report that enabling LTO for mesa breaks some games. See
 # https://bugzilla.redhat.com/show_bug.cgi?id=1862771 for details.
 # Disable LTO for now
@@ -230,7 +236,7 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
   -Dgallium-rusticl=true \
 %endif
   -Dvulkan-drivers=%{?vulkan_drivers} \
-  -Dvulkan-layers=device-select%{?with_vulkan_overlay:,overlay} \
+  -Dvulkan-layers=device-select%{?with_vulkan_overlay:,overlay},anti-lag \
   -Dgles1=enabled \
   -Dgles2=enabled \
   -Dopengl=true \
@@ -410,7 +416,9 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %files
 %{_libdir}/libvulkan_lvp.so
 %{_datadir}/vulkan/icd.d/lvp_icd.*.json
+%{_libdir}/libVkLayer_MESA_anti_lag.so
 %{_libdir}/libVkLayer_MESA_device_select.so
+%{_datadir}/vulkan/implicit_layer.d/VkLayer_MESA_anti_lag.json
 %{_datadir}/vulkan/implicit_layer.d/VkLayer_MESA_device_select.json
 %if 0%{?with_vulkan_hw}
 %{_libdir}/libvulkan_radeon.so
@@ -444,6 +452,18 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Thu Jul 31 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-2
+- Update to latest commit
+
+* Sat Jul 26 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-1
+- Update to latest commit
+- Bump version to 25.3.0
+- Adapt rewrite_wrap_file macro to upstream changes
+- Enable anti-lag
+
+* Sun Jul 20 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-13
+- Update to latest commit
+
 * Wed Jul 16 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-12
 - Update to latest commit
 - Remove upstreamed #35269
