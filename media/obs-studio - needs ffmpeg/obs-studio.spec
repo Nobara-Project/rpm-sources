@@ -34,19 +34,19 @@
 
 
 %global obswebsocket_version 5.6.2
-%global obsbrowser_commit 033a23befe01e0a2f85b95af384a89b82c8d6a40
+%global obsbrowser_commit bdabf8300ecefeb566b81f4a7ff75f8a8e21f62b
 
 # Upstream does not declare this yet. Arbitrarily pick 137.0 since it works
 # and it works around a CEF versioning teething issue:
 # https://github.com/chromiumembedded/cef/issues/3959
 %global cef_api_version 13700
 
-%define version_string 31.1.0
+%define version_string 31.1.2
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build %{build_timestamp}.%{shortcommit}%{?dist}
 %global _default_patch_fuzz 2
 # obs version and commit
-%global commit 9858e7e7228450630503b21063a0722a718ddf3a
+%global commit 7778070cbd8e4689d91d90068091ced467c5fdef
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 Name:           obs-studio
