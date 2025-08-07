@@ -8,8 +8,5 @@ if [ -f /bin/lspci ]; then
     export MOZ_DISABLE_RDD_SANDBOX=1
     export EGL_PLATFORM="$XDG_SESSION_TYPE"
     export GAMESCOPE_WSI_HIDE_PRESENT_WAIT_EXT=1
-    export __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json
-    export __NV_PRIME_RENDER_OFFLOAD=1
-    export __GLX_VENDOR_LIBRARY_NAME=nvidia
   fi
 fi
