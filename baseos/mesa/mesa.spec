@@ -75,7 +75,7 @@ Name:           mesa
 Summary:        Mesa graphics libraries
 %global ver 25.1.7
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
-Release:        %autorelease
+Release:        %autorelease -b 2
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
 URL:            http://www.mesa3d.org
 
@@ -560,9 +560,6 @@ popd
 %{_libdir}/dri/swrast_dri.so
 %{_libdir}/dri/virtio_gpu_dri.so
 
-%files libgallium
-%{_libdir}/libgallium-*.so
-
 %if 0%{?with_hardware}
 %if 0%{?with_r300}
 %{_libdir}/dri/r300_dri.so
@@ -665,6 +662,9 @@ popd
 %endif
 %{_libdir}/dri/virtio_gpu_drv_video.so
 %endif
+
+%files libgallium
+%{_libdir}/libgallium-*.so
 
 %if 0%{?with_vdpau}
 %files vdpau-drivers
