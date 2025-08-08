@@ -13,7 +13,6 @@ algorithms and decoding only VC1 algorithm.
 %if !0%{?rhel}
 %global with_r300 1
 %global with_r600 1
-%global with_nine 0
 #%%if 0%%{?with_vulkan_hw}
 %global with_nvk %{with_vulkan_hw}
 #%%endif
@@ -32,7 +31,6 @@ algorithms and decoding only VC1 algorithm.
 %global with_crocus 0
 %global with_i915   0
 %global with_iris   0
-%global with_xa     0
 %global with_intel_clc 0
 #%%global intel_platform_vulkan %%{?with_vulkan_hw:,intel,intel_hasvk}%%{!?with_vulkan_hw:%%{nil}}
 %endif
@@ -43,18 +41,18 @@ algorithms and decoding only VC1 algorithm.
 #%%endif
 
 %ifarch aarch64 x86_64 %{ix86}
-%global with_kmsro     0
 %if !0%{?rhel}
-%global with_lima      0
-%global with_vc4       0
-%global with_etnaviv   0
-%global with_tegra     0
 %global with_asahi     0
+%global with_d3d12     1
+%global with_etnaviv   0
+%global with_lima      0
+%global with_tegra     0
+%global with_vc4       0
+%global with_v3d       0
 %endif
 %global with_freedreno 0
+%global with_kmsro     0
 %global with_panfrost  0
-%global with_v3d       0
-%global with_xa        0
 #%%if 0%%{?with_asahi}
 #%%global asahi_platform_vulkan %%{?with_vulkan_hw:,asahi}%%{!?with_vulkan_hw:%%{nil}}
 #%%endif
@@ -64,6 +62,7 @@ algorithms and decoding only VC1 algorithm.
 %if !0%{?rhel}
 %global with_libunwind 1
 %global with_lmsensors 1
+%global with_virtio    1
 %endif
 
 %ifarch %{valgrind_arches}
@@ -76,9 +75,9 @@ algorithms and decoding only VC1 algorithm.
 
 Name:           %{srcname}-freeworld
 Summary:        Mesa graphics libraries
-%global ver 25.1.7
+%global ver 25.2.0
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
-Release:        %autorelease -b 2
+Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
 URL:            http://www.mesa3d.org
 
@@ -169,6 +168,7 @@ BuildRequires:  (crate(proc-macro2) >= 1.0.56 with crate(proc-macro2) < 2)
 BuildRequires:  (crate(quote) >= 1.0.25 with crate(quote) < 2)
 BuildRequires:  (crate(syn/clone-impls) >= 2.0.15 with crate(syn/clone-impls) < 3)
 BuildRequires:  (crate(unicode-ident) >= 1.0.6 with crate(unicode-ident) < 2)
+BuildRequires:  (crate(rustc-hash) >= 2.1.1 with crate(rustc-hash) < 3)
 %endif
 %if %{with valgrind}
 BuildRequires:  pkgconfig(valgrind)
@@ -184,6 +184,9 @@ BuildRequires:  vulkan-headers
 BuildRequires:  glslang
 %if 0%{?with_vulkan_hw}
 BuildRequires:  pkgconfig(vulkan)
+%endif
+%if 0%{?with_d3d12}
+BuildRequires:  pkgconfig(DirectX-Headers) >= 1.614.1
 %endif
 
 %description
@@ -253,20 +256,17 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
 
 %meson \
   -Dplatforms=x11,wayland \
-  -Dosmesa=false \
+  -Dgallium-mediafoundation=disabled \
 %if 0%{?with_hardware}
-  -Dgallium-drivers=llvmpipe,virgl,nouveau%{?with_r300:,r300}%{?with_crocus:,crocus}%{?with_i915:,i915}%{?with_iris:,iris}%{?with_vmware:,svga}%{?with_radeonsi:,radeonsi}%{?with_r600:,r600}%{?with_asahi:,asahi}%{?with_freedreno:,freedreno}%{?with_etnaviv:,etnaviv}%{?with_tegra:,tegra}%{?with_vc4:,vc4}%{?with_v3d:,v3d}%{?with_lima:,lima}%{?with_panfrost:,panfrost}%{?with_vulkan_hw:,zink} \
+  -Dgallium-drivers=llvmpipe,virgl,nouveau%{?with_r300:,r300}%{?with_crocus:,crocus}%{?with_i915:,i915}%{?with_iris:,iris}%{?with_vmware:,svga}%{?with_radeonsi:,radeonsi}%{?with_r600:,r600}%{?with_asahi:,asahi}%{?with_freedreno:,freedreno}%{?with_etnaviv:,etnaviv}%{?with_tegra:,tegra}%{?with_vc4:,vc4}%{?with_v3d:,v3d}%{?with_lima:,lima}%{?with_panfrost:,panfrost}%{?with_vulkan_hw:,zink}%{?with_d3d12:,d3d12} \
 %else
-  -Dgallium-drivers=llvmpipe,virgl \
+  -Dgallium-drivers=softpipe,llvmpipe,virgl \
 %endif
   -Dgallium-vdpau=%{?with_vdpau:enabled}%{!?with_vdpau:disabled} \
   -Dgallium-va=%{?with_va:enabled}%{!?with_va:disabled} \
-  -Dgallium-xa=%{!?with_xa:enabled}%{?with_xa:disabled} \
-  -Dgallium-nine=%{!?with_nine:true}%{?with_nine:false} \
-  -Dteflon=%{!?with_teflon:true}%{?with_teflon:false} \
+  -Dteflon=%{?with_teflon:true}%{!?with_teflon:false} \
 %if 0%{?with_opencl}
   -Dgallium-rusticl=true \
-  -Dgallium-opencl=disabled \
 %endif
   -Dvideo-codecs=h264dec,h264enc,h265dec,h265enc,vc1dec,av1dec,av1enc,vp9dec \
   -Dvulkan-drivers=%{?vulkan_drivers} \
@@ -359,6 +359,7 @@ rm -fr %{buildroot}%{_libdir}{,/dri}/libGLESv2*
 rm -fr %{buildroot}%{_libdir}/gbm
 rm -fr %{buildroot}%{_libdir}/libEGL*
 rm -fr %{buildroot}%{_libdir}/libGLX*
+rm -fr %{buildroot}%{_libdir}/libteflon*
 
 %if 0%{?with_va}
 %files -n %{srcname}-va-drivers-freeworld
@@ -368,6 +369,9 @@ rm -fr %{buildroot}%{_libdir}/libGLX*
 %endif
 %if 0%{?with_radeonsi}
 %{_libdir}/dri/radeonsi_drv_video.so
+%endif
+%if 0%{?with_d3d12}
+%{_libdir}/dri/d3d12_drv_video.so
 %endif
 %{_libdir}/dri/virtio_gpu_drv_video.so
 %{_metainfodir}/org.mesa3d.vaapi.freeworld.metainfo.xml
@@ -383,6 +387,9 @@ rm -fr %{buildroot}%{_libdir}/libGLX*
 %if 0%{?with_radeonsi}
 %{_libdir}/vdpau/libvdpau_radeonsi.so.1*
 %endif
+%if 0%{?with_d3d12}
+%{_libdir}/vdpau/libvdpau_d3d12.so.1*
+%endif
 %{_libdir}/vdpau/libvdpau_virtio_gpu.so.1*
 %{_metainfodir}/org.mesa3d.vdpau.freeworld.metainfo.xml
 %license docs/license.rst
@@ -392,6 +399,10 @@ rm -fr %{buildroot}%{_libdir}/libGLX*
 %{_libdir}/libgallium-*.so
 
 %changelog
+* Fri Aug 08 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-1
+- Update to 25.2.0
+- Fixup spec for packaging changes
+
 * Thu Jul 31 2025 LionHeartP <LionHeartP@proton.me> - 25.1.7-1
 - Update to 25.1.7
 
