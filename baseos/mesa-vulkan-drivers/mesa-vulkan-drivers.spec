@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit a6a6c2f6915f4d95f34ef586a0e6418d04caed7e
+%global commit 5b1104476f25a65304ee5d3f4c060ef8f5fce8e2
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 2.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 3.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -11,7 +11,6 @@
 %global with_vdpau 1
 %global with_va 1
 %if !0%{?rhel}
-%global with_nine 1
 %global with_opencl 1
 %endif
 %global base_vulkan ,amd
@@ -24,17 +23,12 @@
 %ifarch %{ix86} x86_64
 %global with_crocus 1
 %global with_i915   1
-%if !0%{?rhel}
-%global with_intel_clc 1
-%endif
 %global with_iris   1
-%global with_xa     1
 %global platform_vulkan ,intel,intel_hasvk
 %endif
 
 %ifarch aarch64
 %if !0%{?rhel}
-%global with_intel_clc 1
 %global with_etnaviv   1
 %global with_lima      1
 %global with_vc4       1
@@ -46,7 +40,6 @@
 %global with_kmsro     1
 %global with_panfrost  1
 %global with_tegra     1
-%global with_xa        1
 %global platform_vulkan ,broadcom,freedreno,panfrost,intel,intel_hasvk
 %endif
 
@@ -107,6 +100,7 @@ BuildRequires:  pkgconfig(libunwind)
 BuildRequires:  pkgconfig(expat)
 BuildRequires:  pkgconfig(zlib) >= 1.2.3
 BuildRequires:  pkgconfig(libzstd)
+BuildRequires:  pkgconfig(libdisplay-info)
 BuildRequires:  pkgconfig(libselinux)
 BuildRequires:  pkgconfig(wayland-scanner)
 BuildRequires:  pkgconfig(wayland-protocols) >= 1.8
@@ -159,17 +153,14 @@ BuildRequires:  (crate(proc-macro2) >= 1.0.56 with crate(proc-macro2) < 2)
 BuildRequires:  (crate(quote) >= 1.0.25 with crate(quote) < 2)
 BuildRequires:  (crate(syn/clone-impls) >= 2.0.15 with crate(syn/clone-impls) < 3)
 BuildRequires:  (crate(unicode-ident) >= 1.0.6 with crate(unicode-ident) < 2)
+BuildRequires:  (crate(rustc-hash) >= 2.1.1 with crate(rustc-hash) < 3)
 BuildRequires:  rustfmt
-BuildRequires:  rust-rustc-hash-devel
 %endif
 %if %{with valgrind}
 BuildRequires:  pkgconfig(valgrind)
 %endif
 BuildRequires:  python3-devel
 BuildRequires:  python3-mako
-%if 0%{?with_intel_clc}
-BuildRequires:  python3-ply
-%endif
 BuildRequires:  vulkan-headers
 BuildRequires:  glslang
 %if 0%{?with_vulkan_hw}
@@ -244,9 +235,6 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
   -Dglx=dri \
   -Degl=enabled \
   -Dglvnd=enabled \
-%if 0%{?with_intel_clc}
-  -Dintel-clc=enabled \
-%endif
 %ifnarch aarch64 x86_64
   -Dintel-rt=disabled \
 %endif
@@ -452,6 +440,9 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Fri Aug 08 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-3
+- Update to latest commit
+
 * Thu Jul 31 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-2
 - Update to latest commit
 
