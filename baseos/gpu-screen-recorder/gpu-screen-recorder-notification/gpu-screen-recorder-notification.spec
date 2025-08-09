@@ -1,12 +1,12 @@
-%global snapshot r78.1d19340
-
 Name:           gpu-screen-recorder-notification
-Version:        1.0.7
+Version:        1.0.8
 Release:        1%{dist}
 Summary:        A shadowplay-like screen recorder for Linux. The fastest screen recorder for Linux.
 License:        GPL-3.0-or-later
-Source:         https://dec05eba.com/snapshot/%{name}.git.%{snapshot}.tar.gz
+
 URL:            https://git.dec05eba.com/%{name}/about
+
+Source:         https://dec05eba.com/snapshot/%{name}.git.%{version}.tar.gz
 
 BuildRequires:  gcc
 BuildRequires:  (gcc-g++ or gcc-c++)
@@ -49,8 +49,13 @@ rm -rf %{_buildroot}%{_datadir}/gsr-notify/fonts
 %{_datadir}/gsr-notify
 
 %changelog
+* Sat Aug 09 2025 LionHeartP <LionHeartP@proton.me> -  1.0.8-1
+- Update to 1.0.8
+- Switch to versioned source instead of snapshots
+
 * Wed Jun 4 2025 LionHeartP <LionHeartP@proton.me> -  1.0.7-1
 - Update to 1.0.7
 - Remove Epoch in preparation to ship for Nobara
+
 * Fri Dec 13 2024 Brycen G <brycengranville@outlook.com> - r43.b03e4cd
 - Initial package
