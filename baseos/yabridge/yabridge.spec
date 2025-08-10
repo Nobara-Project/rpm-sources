@@ -13,14 +13,12 @@
 %global debug_package    %{nil}
 %global _lto_cflags      %{nil}
 
-%global with_32bit       1
-%global wineversion      9.21
 %global vst3sdkversion   v3.7.7_build_19-patched
 #%%global vst3sdkversion   v3.7.12_build_20-patched
 %global vst3ver          %(b=%{vst3sdkversion}; echo ${b:1:6})
 
-%global gitdate          20250601
-%global commit           918d24a16e8eda9ac2eac692704770dfed96f6ee
+%global gitdate          20250809
+%global commit           1e826f072ee79b0c1cab7833bed57fcfa11ae4f7
 %global shortcommit      %(c=%{commit}; echo ${c:0:7})
 
 %global version          5.1.2
@@ -44,8 +42,7 @@ Summary:        Yet Another VST bridge, run Windows VST2 plugins under Linux
 License:        GPLv3
 URL:            https://github.com/robbert-vdh/yabridge
 %if %{beta_or_rc}
-Source0:        https://github.com/robbert-vdh/yabridge/archive/{commit}/%{name}-%{version}-git%{shortcommit}.tar.gz
-#Source0:        https://github.com/robbert-vdh/yabridge/archive/yabridge-master.zip
+Source0:        https://github.com/robbert-vdh/yabridge/archive/%{commit}/%{name}-%{version}-git%{shortcommit}.tar.gz
 %else
 Source0:        https://github.com/robbert-vdh/yabridge/archive/%{version}/%{name}-%{version}.tar.gz
 %endif
@@ -77,23 +74,9 @@ BuildRequires:  glibc-devel
 BuildRequires:  libstdc++-devel
 BuildRequires:  libxcb-devel
 BuildRequires:  rust
-BuildRequires:  wine-devel = %{wineversion}
+BuildRequires:  wine-staging-devel
+BuildRequires:  winehq-staging
 BuildRequires:  xcb-util-wm-devel
-%if %{with_32bit}
-#BuildRequires:  asio-devel(x86-32)
-BuildRequires:  boost(x86-32)
-BuildRequires:  boost-devel(x86-32)
-BuildRequires:  boost-filesystem(x86-32)
-BuildRequires:  boost-iostreams(x86-32)
-BuildRequires:  boost-system(x86-32)
-BuildRequires:  dbus-devel(x86-32)
-BuildRequires:  glibc-devel(x86-32)
-BuildRequires:  libstdc++-devel(x86-32)
-BuildRequires:  libxcb-devel(x86-32)
-BuildRequires:  wine-devel(x86-32) = %{wineversion}
-BuildRequires:  xcb-util-wm-devel
-BuildRequires:  xcb-util-wm-devel(x86-32)
-%endif
 
 BuildArch:      x86_64
 
@@ -103,15 +86,8 @@ Requires:       boost-system
 Requires:       libxcb
 Requires:       libXau
 Requires:       python3
-Requires:       wine = %{wineversion}
+Requires:       winehq-staging
 
-%if %{with_32bit}
-Requires:       glibc(x86-32)
-Requires:       libgcc(x86-32)
-Requires:       libstdc++(x86-32)
-Requires:       libxcb(x86-32)
-Requires:       libXau(x86-32)
-%endif
 
 %description
 Yet Another way to use Windows VST plugins on Linux. Yabridge seamlessly
@@ -126,7 +102,7 @@ while also staying easy to debug and maintain.
 #-----------------------------------------------------------------------------
 %prep
 %if %{beta_or_rc}
-%autosetup -p1 -n %{name}
+%autosetup -p1 -n %{name}-%{commit}
 %else
 %autosetup -p1 -n %{name}-%{version}
 %endif
@@ -161,28 +137,12 @@ sed -i -e's|^version.*$|version = "%{version}"|' tools/yabridgectl/Cargo.toml
 ## see https://gcc.gnu.org/onlinedocs/gcc/C-Dialect-Options.html#Options-Controlling-C-Dialect
 #sed -i -e's|c++2a|c++20|g' meson.build
 
-# hack: fix problem with detecting the wine version
-sed -i -e"s|wine_version = wine_version.stdout()|wine_version = '%{wineversion}'|" meson.build
-
-
 #=============================================================================
 # build
 #-----------------------------------------------------------------------------
 %build
 export LDFLAGS="%{build_ldflags}"
 
-%if %{with_32bit}
-meson setup . \
-  --buildtype=release \
-  --cross-file cross-wine.conf \
-  -D bitbridge=true \
-  -D b_lto=false \
-  -D b_pie=false \
-  -D build.cpp_link_args="$LDFLAGS" \
-  -D cpp_link_args="$LDFLAGS -mwindows" \
-  --unity=on --unity-size=1000 \
-  build
-%else
 meson setup . \
   --buildtype=release \
   --cross-file cross-wine.conf \
@@ -193,7 +153,6 @@ meson setup . \
   -D cpp_link_args="$LDFLAGS -mwindows" \
   --unity=on --unity-size=1000 \
   build
-%endif
 
 #  --unity=on --unity-size=1000 \
 
@@ -250,10 +209,6 @@ install -D -m 0755 tools/migration/*.py %{buildroot}%{_bindir}/
 %attr(0755,root,root)        %{_bindir}/migrate-bitwig.py
 %attr(0755,root,root)        %{_bindir}/migrate-reaper.py
 %attr(0755,root,root)        %{_bindir}/migrate-renoise.py
-%if %{with_32bit}
-%attr(0755,root,root)        %{_bindir}/yabridge-host-32.exe
-%attr(0755,root,root)        %{_bindir}/yabridge-host-32.exe.so
-%endif
 %attr(0755,root,root)        %{_libdir}/libyabridge-chainloader-clap.so
 %attr(0755,root,root)        %{_libdir}/libyabridge-chainloader-vst2.so
 %attr(0755,root,root)        %{_libdir}/libyabridge-chainloader-vst3.so
