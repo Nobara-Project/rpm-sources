@@ -8,7 +8,7 @@
 %endif
 
 Name:           gnome-shell
-Version:        48.3
+Version:        48.4
 Release:        %autorelease
 Summary:        Window management and application launching for GNOME
 
@@ -270,6 +270,9 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/org.gnome.Shell.Porta
 %{_datadir}/glib-2.0/schemas/*.xml
 
 %changelog
+* Tue Aug 12 2025 LionHeartP <LionHeartP@proton.me> - 48.4-1
+- Update to 48.4
+
 * Mon May 26 2025 nmontero <nmontero@redhat.com> - 48.2-1
 - Update to 48.2
 
