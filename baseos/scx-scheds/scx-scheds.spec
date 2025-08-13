@@ -1,5 +1,5 @@
 Name:           scx-scheds
-Version:        1.0.14
+Version:        1.0.15
 Release:        1%{?dist}
 Summary:        Sched_ext Schedulers and Tools
 
@@ -43,8 +43,7 @@ sched_ext is a Linux kernel feature which enables implementing kernel thread sch
 %build
 %meson \
  -Dsystemd=enabled \
- -Dopenrc=disabled \
- -Dlibalpm=disabled
+ -Dopenrc=disabled
 %meson_build
 
 %install
@@ -68,6 +67,10 @@ The %{name}-devel package contains libraries header files for developing applica
 %{_includedir}/scx/
 
 %changelog
+* Wed Aug 13 2025 LionHeartP <LionHeartP@proton.me> - 1.0.15-1
+- Update to 1.0.15
+- Drop libalpm from meson build opts due to https://github.com/sched-ext/scx/pull/2458
+
 * Tue Jul 08 2025 LionHeartP <LionHeartP@proton.me> - 1.0.14-1
 - Update to 1.0.14
 
