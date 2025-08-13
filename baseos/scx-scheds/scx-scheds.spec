@@ -56,6 +56,7 @@ sched_ext is a Linux kernel feature which enables implementing kernel thread sch
 %attr(0644,root,root) %config(noreplace) %{_sysconfdir}/default/scx
 %{_datadir}/dbus-1/system.d/org.scx.Loader.conf
 %{_datadir}/dbus-1/system-services/org.scx.Loader.service
+%{_datadir}/scx_loader/config.toml
 
 %package devel
 Summary:        Development files for %{name}
@@ -70,6 +71,7 @@ The %{name}-devel package contains libraries header files for developing applica
 * Wed Aug 13 2025 LionHeartP <LionHeartP@proton.me> - 1.0.15-1
 - Update to 1.0.15
 - Drop libalpm from meson build opts due to https://github.com/sched-ext/scx/pull/2458
+- Add config.toml to file list
 
 * Tue Jul 08 2025 LionHeartP <LionHeartP@proton.me> - 1.0.14-1
 - Update to 1.0.14
