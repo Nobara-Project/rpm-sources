@@ -21417,6 +21417,63 @@ index 5ca7c268294e..8b01746c9ce6 100644
 -- 
 2.50.1
 
+From e0eee6a18e5155310d45bac180e8185c578f3184 Mon Sep 17 00:00:00 2001
+From: Eric Naim <dnaim@cachyos.org>
+Date: Thu, 31 Jul 2025 13:36:41 +0700
+Subject: [PATCH] CACHY: Refine default IO scheduler logic
+
+This stores the SQ device check into a local variable and fixes the
+subtle bug of, when CACHY is defined and IOSCHED_BFQ is not, it will
+default to stock behaviour whereas we would want it to still pick
+mq-deadline for MQ devices.
+
+Co-authored-by: Masahito S <firelzrd@gmail.com>
+Signed-off-by: Eric Naim <dnaim@cachyos.org>
+---
+ block/elevator.c | 18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/block/elevator.c b/block/elevator.c
+index 20981e8bd3f2..842a90a9461c 100644
+--- a/block/elevator.c
++++ b/block/elevator.c
+@@ -730,24 +730,24 @@ void elevator_set_default(struct request_queue *q)
+ 
+ #ifdef CONFIG_MQ_IOSCHED_DEFAULT_ADIOS
+ 	ctx.name = "adios";
+-	goto found;
+-#endif // CONFIG_MQ_IOSCHED_DEFAULT_ADIOS
+-
+-	if (q->nr_hw_queues == 1 || blk_mq_is_shared_tags(q->tag_set->flags))
+-#if defined(CONFIG_CACHY) && defined(CONFIG_IOSCHED_BFQ)
++#else // !CONFIG_MQ_IOSCHED_DEFAULT_ADIOS
++	bool is_sq = q->nr_hw_queues == 1 || blk_mq_is_shared_tags(q->tag_set->flags);
++#ifdef CONFIG_CACHY
++#ifdef CONFIG_IOSCHED_BFQ
++	if (is_sq)
+ 		ctx.name = "bfq";
++#endif /* CONFIG_IOSCHED_BFQ */
+ #else
+-		;
+-	else
++	if (!is_sq)
+ 		return;
+-#endif /* CONFIG_CACHY && CONFIG_IOSCHED_BFQ */
++#endif /* CONFIG_CACHY */
++#endif /* CONFIG_MQ_IOSCHED_DEFAULT_ADIOS */
+ 
+ 	/*
+ 	 * For single queue devices, default to using mq-deadline. If we
+ 	 * have multiple queues or mq-deadline is not available, default
+ 	 * to "none".
+ 	 */
+-found:
+ 	e = elevator_find_get(ctx.name);
+ 	if (!e)
+ 		return;
+-- 
+2.50.1
+
 From cc66b41be3df74ec55f57e9fd047315384fe1052 Mon Sep 17 00:00:00 2001
 From: Eric Naim <dnaim@cachyos.org>
 Date: Mon, 28 Jul 2025 11:50:38 +0700
@@ -21476,332 +21533,250 @@ index 452374d63c24..08f80d7c5df0 100644
 -- 
 2.50.1
 
-From 0fc382f7d5a69dcfabaa0d7a24b1bc1dd7af1d40 Mon Sep 17 00:00:00 2001
-From: Eric Naim <dnaim@cachyos.org>
-Date: Mon, 28 Jul 2025 11:50:38 +0700
-Subject: [PATCH 6/7] s5-power
+From 2f77044abce8b740d58da3fbcfe77f879e02ea65 Mon Sep 17 00:00:00 2001
+From: Filipe Manana <fdmanana@suse.com>
+Date: Wed, 30 Jul 2025 20:20:40 +0100
+Subject: [PATCH] btrfs: fix log tree replay failure due to file with 0 links
+ and extents
 
-Signed-off-by: Eric Naim <dnaim@cachyos.org>
+If we log a new inode (not persisted in a past transaction) that has 0
+links and extents, then log another inode with an higher inode number, we
+end up with failing to replay the log tree with -EINVAL. The steps for
+this are:
+
+1) create new file A
+2) write some data to file A
+3) open an fd on file A
+4) unlink file A
+5) fsync file A using the previously open fd
+6) create file B (has higher inode number than file A)
+7) fsync file B
+8) power fail before current transaction commits
+
+Now when attempting to mount the fs, the log replay will fail with
+-ENOENT at replay_one_extent() when attempting to replay the first
+extent of file A. The failure comes when trying to open the inode for
+file A in the subvolume tree, since it doesn't exist.
+
+Before commit 5f61b961599a ("btrfs: fix inode lookup error handling
+during log replay"), the returned error was -EIO instead of -ENOENT,
+since we converted any errors when attempting to read an inode during
+log replay to -EIO.
+
+The reason for this is that the log replay procedure fails to ignore
+the current inode when we are at the stage LOG_WALK_REPLAY_ALL, our
+current inode has 0 links and last inode we processed in the previous
+stage has a non 0 link count. In other words, the issue is that at
+replay_one_extent() we only update wc->ignore_cur_inode if the current
+replay stage is LOG_WALK_REPLAY_INODES.
+
+Fix this by updating wc->ignore_cur_inode whenever we find an inode item
+regardless of the current replay stage. This is a simple solution and easy
+to backport, but later we can do other alternatives like avoid logging
+extents or inode items other than the inode item for inodes with a link
+count of 0.
+
+The problem with the wc->ignore_cur_inode logic has been around since
+commit f2d72f42d5fa ("Btrfs: fix warning when replaying log after fsync
+of a tmpfile") but it only became frequent to hit since the more recent
+commit 5e85262e542d ("btrfs: fix fsync of files with no hard links not
+persisting deletion"), because we stopped skipping inodes with a link
+count of 0 when logging, while before the problem would only be triggered
+if trying to replay a log tree created with an older kernel which has a
+logged inode with 0 links.
+
+A test case for fstests will be submitted soon.
+
+Reported-by: Peter Jung <ptr1337@cachyos.org>
+Link: https://lore.kernel.org/linux-btrfs/fce139db-4458-4788-bb97-c29acf6cb1df@cachyos.org/
+Reported-by: burneddi <burneddi@protonmail.com>
+Link: https://lore.kernel.org/linux-btrfs/lh4W-Lwc0Mbk-QvBhhQyZxf6VbM3E8VtIvU3fPIQgweP_Q1n7wtlUZQc33sYlCKYd-o6rryJQfhHaNAOWWRKxpAXhM8NZPojzsJPyHMf2qY=@protonmail.com/#t
+Reported-by: Russell Haley <yumpusamongus@gmail.com>
+Link: https://lore.kernel.org/linux-btrfs/598ecc75-eb80-41b3-83c2-f2317fbb9864@gmail.com/
+Fixes: f2d72f42d5fa ("Btrfs: fix warning when replaying log after fsync of a tmpfile")
+Signed-off-by: Filipe Manana <fdmanana@suse.com>
+Reviewed-by: Boris Burkov <boris@bur.io>
 ---
- drivers/base/power/main.c                  |  7 ++
- drivers/gpu/drm/amd/amdgpu/amdgpu_device.c |  4 +
- drivers/pci/pci-driver.c                   | 94 ++++++++++++++--------
- drivers/scsi/mesh.c                        |  1 +
- drivers/scsi/stex.c                        |  1 +
- drivers/usb/host/sl811-hcd.c               |  1 +
- include/linux/pm.h                         |  3 +
- include/trace/events/power.h               |  3 +-
- kernel/reboot.c                            |  6 ++
- 9 files changed, 86 insertions(+), 34 deletions(-)
+ fs/btrfs/tree-log.c | 44 +++++++++++++++++++++++++++++---------------
+ 1 file changed, 29 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/base/power/main.c b/drivers/base/power/main.c
-index 7a50af416cac..b8f0343a8673 100644
---- a/drivers/base/power/main.c
-+++ b/drivers/base/power/main.c
-@@ -85,6 +85,8 @@ static const char *pm_verb(int event)
- 		return "restore";
- 	case PM_EVENT_RECOVER:
- 		return "recover";
-+	case PM_EVENT_POWEROFF:
-+		return "poweroff";
- 	default:
- 		return "(unknown PM event)";
- 	}
-@@ -355,6 +357,7 @@ static pm_callback_t pm_op(const struct dev_pm_ops *ops, pm_message_t state)
- 	case PM_EVENT_FREEZE:
- 	case PM_EVENT_QUIESCE:
- 		return ops->freeze;
-+	case PM_EVENT_POWEROFF:
- 	case PM_EVENT_HIBERNATE:
- 		return ops->poweroff;
- 	case PM_EVENT_THAW:
-@@ -389,6 +392,7 @@ static pm_callback_t pm_late_early_op(const struct dev_pm_ops *ops,
- 	case PM_EVENT_FREEZE:
- 	case PM_EVENT_QUIESCE:
- 		return ops->freeze_late;
-+	case PM_EVENT_POWEROFF:
- 	case PM_EVENT_HIBERNATE:
- 		return ops->poweroff_late;
- 	case PM_EVENT_THAW:
-@@ -423,6 +427,7 @@ static pm_callback_t pm_noirq_op(const struct dev_pm_ops *ops, pm_message_t stat
- 	case PM_EVENT_FREEZE:
- 	case PM_EVENT_QUIESCE:
- 		return ops->freeze_noirq;
-+	case PM_EVENT_POWEROFF:
- 	case PM_EVENT_HIBERNATE:
- 		return ops->poweroff_noirq;
- 	case PM_EVENT_THAW:
-@@ -1313,6 +1318,8 @@ static pm_message_t resume_event(pm_message_t sleep_state)
- 		return PMSG_RECOVER;
- 	case PM_EVENT_HIBERNATE:
- 		return PMSG_RESTORE;
-+	case PM_EVENT_POWEROFF:
-+		return PMSG_ON;
- 	}
- 	return PMSG_ON;
+diff --git a/fs/btrfs/tree-log.c b/fs/btrfs/tree-log.c
+index cea8a7e9d6d3..cd904f281489 100644
+--- a/fs/btrfs/tree-log.c
++++ b/fs/btrfs/tree-log.c
+@@ -2413,23 +2413,30 @@ static int replay_one_buffer(struct btrfs_root *log, struct extent_buffer *eb,
+ 
+ 	nritems = btrfs_header_nritems(eb);
+ 	for (i = 0; i < nritems; i++) {
+-		btrfs_item_key_to_cpu(eb, &key, i);
++		struct btrfs_inode_item *inode_item;
+ 
+-		/* inode keys are done during the first stage */
+-		if (key.type == BTRFS_INODE_ITEM_KEY &&
+-		    wc->stage == LOG_WALK_REPLAY_INODES) {
+-			struct btrfs_inode_item *inode_item;
+-			u32 mode;
++		btrfs_item_key_to_cpu(eb, &key, i);
+ 
+-			inode_item = btrfs_item_ptr(eb, i,
+-					    struct btrfs_inode_item);
++		if (key.type == BTRFS_INODE_ITEM_KEY) {
++			inode_item = btrfs_item_ptr(eb, i, struct btrfs_inode_item);
+ 			/*
+-			 * If we have a tmpfile (O_TMPFILE) that got fsync'ed
+-			 * and never got linked before the fsync, skip it, as
+-			 * replaying it is pointless since it would be deleted
+-			 * later. We skip logging tmpfiles, but it's always
+-			 * possible we are replaying a log created with a kernel
+-			 * that used to log tmpfiles.
++			 * An inode with no links is either:
++			 *
++			 * 1) A tmpfile (O_TMPFILE) that got fsync'ed and never
++			 *    got linked before the fsync, skip it, as replaying
++			 *    it is pointless since it would be deleted later.
++			 *    We skip logging tmpfiles, but it's always possible
++			 *    we are replaying a log created with a kernel that
++			 *    used to log tmpfiles;
++			 *
++			 * 2) A non-tmpfile which got its last link deleted
++			 *    while holding an open fd on it and later got
++			 *    fsynced through that fd. We always log the
++			 *    parent inodes when inode->last_unlink_trans is
++			 *    set to the current transaction, so ignore all the
++			 *    inode items for this inode. We will delete the
++			 *    inode when processing the parent directory with
++			 *    replay_dir_deletes().
+ 			 */
+ 			if (btrfs_inode_nlink(eb, inode_item) == 0) {
+ 				wc->ignore_cur_inode = true;
+@@ -2437,6 +2444,13 @@ static int replay_one_buffer(struct btrfs_root *log, struct extent_buffer *eb,
+ 			} else {
+ 				wc->ignore_cur_inode = false;
+ 			}
++		}
++
++		/* Inode keys are done during the first stage. */
++		if (key.type == BTRFS_INODE_ITEM_KEY &&
++		    wc->stage == LOG_WALK_REPLAY_INODES) {
++			u32 mode;
++
+ 			ret = replay_xattr_deletes(wc->trans, root, log,
+ 						   path, key.objectid);
+ 			if (ret)
+@@ -2875,7 +2889,7 @@ static inline void btrfs_remove_log_ctx(struct btrfs_root *root,
+ 	mutex_unlock(&root->log_mutex);
  }
-diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
-index aa32df7e2fb2..839117782949 100644
---- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
-+++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
-@@ -4961,6 +4961,10 @@ static int amdgpu_device_evict_resources(struct amdgpu_device *adev)
- 	if (!adev->in_s4 && (adev->flags & AMD_IS_APU))
- 		return 0;
  
-+	/* No need to evict when going to S5 through S4 callbacks */
-+	if (system_state == SYSTEM_HALT || system_state == SYSTEM_POWER_OFF)
-+		return 0;
-+
- 	ret = amdgpu_ttm_evict_resources(adev, TTM_PL_VRAM);
- 	if (ret)
- 		DRM_WARN("evicting device resources failed\n");
-diff --git a/drivers/pci/pci-driver.c b/drivers/pci/pci-driver.c
-index 67db34fd10ee..b78b98133e7d 100644
---- a/drivers/pci/pci-driver.c
-+++ b/drivers/pci/pci-driver.c
-@@ -758,6 +758,56 @@ static void pci_pm_complete(struct device *dev)
+-/* 
++/*
+  * Invoked in log mutex context, or be sure there is no other task which
+  * can access the list.
+  */
+-- 
+2.50.1
+
+From bd6ba7cfd2d262ed3b0c7188a8b68ebe457fbc24 Mon Sep 17 00:00:00 2001
+From: Xaver Hugl <xaver.hugl@kde.org>
+Date: Fri, 1 Aug 2025 15:10:53 +0200
+Subject: [PATCH] drm: don't run atomic_async_check for disabled planes
+
+It's entirely valid and correct for compositors to include disabled
+planes in the atomic commit, and doing that should not prevent async
+flips from working. To fix that, this commit moves the plane check
+to after all the properties of the object have been set, and skips
+the async checks if the plane was and still is not visible.
+
+Fixes: fd40a63c drm/atomic (Let drivers decide which planes to async flip)
+Closes: https://gitlab.freedesktop.org/drm/amd/-/issues/4263
+
+Signed-off-by: Xaver Hugl <xaver.hugl@kde.org>
+---
+ drivers/gpu/drm/drm_atomic_uapi.c | 51 +++++++++++++++++++++----------
+ 1 file changed, 35 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/gpu/drm/drm_atomic_uapi.c b/drivers/gpu/drm/drm_atomic_uapi.c
+index c2726af6698e..2ae41a522e92 100644
+--- a/drivers/gpu/drm/drm_atomic_uapi.c
++++ b/drivers/gpu/drm/drm_atomic_uapi.c
+@@ -1068,7 +1068,6 @@ int drm_atomic_set_property(struct drm_atomic_state *state,
+ 		struct drm_plane *plane = obj_to_plane(obj);
+ 		struct drm_plane_state *plane_state;
+ 		struct drm_mode_config *config = &plane->dev->mode_config;
+-		const struct drm_plane_helper_funcs *plane_funcs = plane->helper_private;
  
- #endif /* !CONFIG_PM_SLEEP */
- 
-+#if defined(CONFIG_SUSPEND) || defined(CONFIG_HIBERNATE_CALLBACKS)
-+/**
-+ * pci_pm_set_prepare_bus_pm
-+ * @pci_dev: pci device
-+ *
-+ * Prepare the device to go into a low power state by saving state
-+ * and configure bus PM policy.
-+ *
-+ * Return: TRUE for bus PM will be used
-+ *         FALSE for bus PM will be skipped
-+ */
-+static bool pci_pm_set_prepare_bus_pm(struct pci_dev *pci_dev)
-+{
-+	if (!pci_dev->state_saved) {
-+		pci_save_state(pci_dev);
-+
-+		/*
-+		 * If the device is a bridge with a child in D0 below it,
-+		 * it needs to stay in D0, so check skip_bus_pm to avoid
-+		 * putting it into a low-power state in that case.
-+		 */
-+		if (!pci_dev->skip_bus_pm && pci_power_manageable(pci_dev))
-+			pci_prepare_to_sleep(pci_dev);
-+	}
-+
-+	pci_dbg(pci_dev, "PCI PM: Sleep power state: %s\n",
-+		pci_power_name(pci_dev->current_state));
-+
-+	if (pci_dev->current_state == PCI_D0) {
-+		pci_dev->skip_bus_pm = true;
-+		/*
-+		 * Per PCI PM r1.2, table 6-1, a bridge must be in D0 if any
-+		 * downstream device is in D0, so avoid changing the power state
-+		 * of the parent bridge by setting the skip_bus_pm flag for it.
-+		 */
-+		if (pci_dev->bus->self)
-+			pci_dev->bus->self->skip_bus_pm = true;
-+	}
-+
-+	if (pci_dev->skip_bus_pm && pm_suspend_no_platform()) {
-+		pci_dbg(pci_dev, "PCI PM: Skipped\n");
-+		return FALSE;
-+	}
-+
-+	pci_pm_set_unknown_state(pci_dev);
-+
-+	return TRUE;
-+}
-+#endif /* CONFIG_SUSPEND || CONFIG_HIBERNATE_CALLBACKS */
-+
- #ifdef CONFIG_SUSPEND
- static void pcie_pme_root_status_cleanup(struct pci_dev *pci_dev)
- {
-@@ -877,38 +927,8 @@ static int pci_pm_suspend_noirq(struct device *dev)
+ 		plane_state = drm_atomic_get_plane_state(state, plane);
+ 		if (IS_ERR(plane_state)) {
+@@ -1084,21 +1083,8 @@ int drm_atomic_set_property(struct drm_atomic_state *state,
+ 				ret = drm_atomic_plane_get_property(plane, plane_state,
+ 								    prop, &old_val);
+ 				ret = drm_atomic_check_prop_changes(ret, old_val, prop_value, prop);
+-			}
+-
+-			/* ask the driver if this non-primary plane is supported */
+-			if (plane->type != DRM_PLANE_TYPE_PRIMARY) {
+-				ret = -EINVAL;
+-
+-				if (plane_funcs && plane_funcs->atomic_async_check)
+-					ret = plane_funcs->atomic_async_check(plane, state, true);
+-
+-				if (ret) {
+-					drm_dbg_atomic(prop->dev,
+-						       "[PLANE:%d:%s] does not support async flips\n",
+-						       obj->id, plane->name);
+-					break;
+-				}
++				if (ret)
++				    break;
+ 			}
  		}
+ 
+@@ -1394,6 +1380,10 @@ int drm_mode_atomic_ioctl(struct drm_device *dev,
+ 	int ret = 0;
+ 	unsigned int i, j, num_fences;
+ 	bool async_flip = false;
++	struct drm_plane *plane;
++	struct drm_plane_state *old_plane_state = NULL;
++	struct drm_plane_state *new_plane_state = NULL;
++	u64 fb_id = 0;
+ 
+ 	/* disallow for drivers not supporting atomic: */
+ 	if (!drm_core_check_feature(dev, DRIVER_ATOMIC))
+@@ -1521,6 +1511,35 @@ int drm_mode_atomic_ioctl(struct drm_device *dev,
+ 			copied_props++;
+ 		}
+ 
++		if (async_flip && obj->type == DRM_MODE_OBJECT_PLANE &&
++		    obj_to_plane(obj)->type != DRM_PLANE_TYPE_PRIMARY) {
++			/* need to ask the driver if this plane is supported */
++			plane = obj_to_plane(obj);
++			old_plane_state = drm_atomic_get_old_plane_state(state, plane);
++			new_plane_state = drm_atomic_get_new_plane_state(state, plane);
++			ret = drm_atomic_plane_get_property(plane, new_plane_state,
++							    dev->mode_config.prop_fb_id,
++							    &fb_id);
++			if (ret)
++				break;
++			/*
++			 * Only do the check if the plane was or is enabled.
++			 * Note that the new state doesn't have "visible" set yet,
++			 * so this uses fb_id instead.
++			 */
++			if (old_plane_state->visible || fb_id)
++				ret = -EINVAL;
++			if (ret && plane->helper_private &&
++			    plane->helper_private->atomic_async_check) {
++				ret = plane->helper_private->atomic_async_check(plane, state, true);
++			}
++			if (ret) {
++				drm_dbg_atomic(dev, "[PLANE:%d:%s] does not support async flips\n",
++						obj->id, plane->name);
++				break;
++			}
++		}
++
+ 		drm_mode_object_put(obj);
  	}
  
--	if (!pci_dev->state_saved) {
--		pci_save_state(pci_dev);
--
--		/*
--		 * If the device is a bridge with a child in D0 below it,
--		 * it needs to stay in D0, so check skip_bus_pm to avoid
--		 * putting it into a low-power state in that case.
--		 */
--		if (!pci_dev->skip_bus_pm && pci_power_manageable(pci_dev))
--			pci_prepare_to_sleep(pci_dev);
--	}
--
--	pci_dbg(pci_dev, "PCI PM: Suspend power state: %s\n",
--		pci_power_name(pci_dev->current_state));
--
--	if (pci_dev->current_state == PCI_D0) {
--		pci_dev->skip_bus_pm = true;
--		/*
--		 * Per PCI PM r1.2, table 6-1, a bridge must be in D0 if any
--		 * downstream device is in D0, so avoid changing the power state
--		 * of the parent bridge by setting the skip_bus_pm flag for it.
--		 */
--		if (pci_dev->bus->self)
--			pci_dev->bus->self->skip_bus_pm = true;
--	}
--
--	if (pci_dev->skip_bus_pm && pm_suspend_no_platform()) {
--		pci_dbg(pci_dev, "PCI PM: Skipped\n");
-+	if (!pci_pm_set_prepare_bus_pm(pci_dev))
- 		goto Fixup;
--	}
--
--	pci_pm_set_unknown_state(pci_dev);
- 
- 	/*
- 	 * Some BIOSes from ASUS have a bug: If a USB EHCI host controller's
-@@ -1135,6 +1155,8 @@ static int pci_pm_poweroff(struct device *dev)
- 	struct pci_dev *pci_dev = to_pci_dev(dev);
- 	const struct dev_pm_ops *pm = dev->driver ? dev->driver->pm : NULL;
- 
-+	pci_dev->skip_bus_pm = false;
-+
- 	if (pci_has_legacy_pm_support(pci_dev))
- 		return pci_legacy_suspend(dev, PMSG_HIBERNATE);
- 
-@@ -1198,8 +1220,8 @@ static int pci_pm_poweroff_noirq(struct device *dev)
- 			return error;
- 	}
- 
--	if (!pci_dev->state_saved && !pci_has_subordinate(pci_dev))
--		pci_prepare_to_sleep(pci_dev);
-+	if (!pci_pm_set_prepare_bus_pm(pci_dev))
-+		goto Fixup;
- 
- 	/*
- 	 * The reason for doing this here is the same as for the analogous code
-@@ -1208,6 +1230,7 @@ static int pci_pm_poweroff_noirq(struct device *dev)
- 	if (pci_dev->class == PCI_CLASS_SERIAL_USB_EHCI)
- 		pci_write_config_word(pci_dev, PCI_COMMAND, 0);
- 
-+Fixup:
- 	pci_fixup_device(pci_fixup_suspend_late, pci_dev);
- 
- 	return 0;
-@@ -1217,10 +1240,15 @@ static int pci_pm_restore_noirq(struct device *dev)
- {
- 	struct pci_dev *pci_dev = to_pci_dev(dev);
- 	const struct dev_pm_ops *pm = dev->driver ? dev->driver->pm : NULL;
-+	pci_power_t prev_state = pci_dev->current_state;
-+	bool skip_bus_pm = pci_dev->skip_bus_pm;
- 
- 	pci_pm_default_resume_early(pci_dev);
- 	pci_fixup_device(pci_fixup_resume_early, pci_dev);
- 
-+	if (!skip_bus_pm && prev_state == PCI_D3cold)
-+		pci_pm_bridge_power_up_actions(pci_dev);
-+
- 	if (pci_has_legacy_pm_support(pci_dev))
- 		return 0;
- 
-diff --git a/drivers/scsi/mesh.c b/drivers/scsi/mesh.c
-index 1c15cac41d80..768b85eecc8f 100644
---- a/drivers/scsi/mesh.c
-+++ b/drivers/scsi/mesh.c
-@@ -1762,6 +1762,7 @@ static int mesh_suspend(struct macio_dev *mdev, pm_message_t mesg)
- 	case PM_EVENT_SUSPEND:
- 	case PM_EVENT_HIBERNATE:
- 	case PM_EVENT_FREEZE:
-+	case PM_EVENT_POWEROFF:
- 		break;
- 	default:
- 		return 0;
-diff --git a/drivers/scsi/stex.c b/drivers/scsi/stex.c
-index 63ed7f9aaa93..ee9372e1f7f0 100644
---- a/drivers/scsi/stex.c
-+++ b/drivers/scsi/stex.c
-@@ -1965,6 +1965,7 @@ static int stex_choice_sleep_mic(struct st_hba *hba, pm_message_t state)
- 	case PM_EVENT_SUSPEND:
- 		return ST_S3;
- 	case PM_EVENT_HIBERNATE:
-+	case PM_EVENT_POWEROFF:
- 		hba->msi_lock = 0;
- 		return ST_S4;
- 	default:
-diff --git a/drivers/usb/host/sl811-hcd.c b/drivers/usb/host/sl811-hcd.c
-index ea3cab99c5d4..5d6dba681e50 100644
---- a/drivers/usb/host/sl811-hcd.c
-+++ b/drivers/usb/host/sl811-hcd.c
-@@ -1748,6 +1748,7 @@ sl811h_suspend(struct platform_device *dev, pm_message_t state)
- 		break;
- 	case PM_EVENT_SUSPEND:
- 	case PM_EVENT_HIBERNATE:
-+	case PM_EVENT_POWEROFF:
- 	case PM_EVENT_PRETHAW:		/* explicitly discard hw state */
- 		port_power(sl811, 0);
- 		break;
-diff --git a/include/linux/pm.h b/include/linux/pm.h
-index f0bd8fbae4f2..cb66f47631a7 100644
---- a/include/linux/pm.h
-+++ b/include/linux/pm.h
-@@ -506,6 +506,7 @@ const struct dev_pm_ops name = { \
-  * RECOVER	Creation of a hibernation image or restoration of the main
-  *		memory contents from a hibernation image has failed, call
-  *		->thaw() and ->complete() for all devices.
-+ * POWEROFF	System will poweroff, call ->poweroff() for all devices.
-  *
-  * The following PM_EVENT_ messages are defined for internal use by
-  * kernel subsystems.  They are never issued by the PM core.
-@@ -536,6 +537,7 @@ const struct dev_pm_ops name = { \
- #define PM_EVENT_USER		0x0100
- #define PM_EVENT_REMOTE		0x0200
- #define PM_EVENT_AUTO		0x0400
-+#define PM_EVENT_POWEROFF	0x0800
- 
- #define PM_EVENT_SLEEP		(PM_EVENT_SUSPEND | PM_EVENT_HIBERNATE)
- #define PM_EVENT_USER_SUSPEND	(PM_EVENT_USER | PM_EVENT_SUSPEND)
-@@ -550,6 +552,7 @@ const struct dev_pm_ops name = { \
- #define PMSG_QUIESCE	((struct pm_message){ .event = PM_EVENT_QUIESCE, })
- #define PMSG_SUSPEND	((struct pm_message){ .event = PM_EVENT_SUSPEND, })
- #define PMSG_HIBERNATE	((struct pm_message){ .event = PM_EVENT_HIBERNATE, })
-+#define PMSG_POWEROFF	((struct pm_message){ .event = PM_EVENT_POWEROFF, })
- #define PMSG_RESUME	((struct pm_message){ .event = PM_EVENT_RESUME, })
- #define PMSG_THAW	((struct pm_message){ .event = PM_EVENT_THAW, })
- #define PMSG_RESTORE	((struct pm_message){ .event = PM_EVENT_RESTORE, })
-diff --git a/include/trace/events/power.h b/include/trace/events/power.h
-index 6c631eec23e3..8fa70f239737 100644
---- a/include/trace/events/power.h
-+++ b/include/trace/events/power.h
-@@ -199,7 +199,8 @@ TRACE_EVENT(pstate_sample,
- 		{ PM_EVENT_HIBERNATE, "hibernate" }, \
- 		{ PM_EVENT_THAW, "thaw" }, \
- 		{ PM_EVENT_RESTORE, "restore" }, \
--		{ PM_EVENT_RECOVER, "recover" })
-+		{ PM_EVENT_RECOVER, "recover" }, \
-+		{ PM_EVENT_POWEROFF, "poweroff" })
- 
- DEFINE_EVENT(cpu, cpu_frequency,
- 
-diff --git a/kernel/reboot.c b/kernel/reboot.c
-index ec087827c85c..c8835f8e5f27 100644
---- a/kernel/reboot.c
-+++ b/kernel/reboot.c
-@@ -13,6 +13,7 @@
- #include <linux/kexec.h>
- #include <linux/kmod.h>
- #include <linux/kmsg_dump.h>
-+#include <linux/pm.h>
- #include <linux/reboot.h>
- #include <linux/suspend.h>
- #include <linux/syscalls.h>
-@@ -305,6 +306,11 @@ static void kernel_shutdown_prepare(enum system_states state)
- 		(state == SYSTEM_HALT) ? SYS_HALT : SYS_POWER_OFF, NULL);
- 	system_state = state;
- 	usermodehelper_disable();
-+#ifdef CONFIG_HIBERNATE_CALLBACKS
-+	if (!dpm_suspend_start(PMSG_POWEROFF) && !dpm_suspend_end(PMSG_POWEROFF))
-+		return;
-+	pr_emerg("Failed to power off devices, using shutdown instead.\n");
-+#endif
- 	device_shutdown();
- }
- /**
 -- 
 2.50.1
 
@@ -24292,7 +24267,7 @@ index 36f034ac605d..328df8118384 100644
  	return 0;
  }
  
-@@ -736,61 +1409,6 @@ static int magicmouse_input_configured(struct hid_device *hdev,
+@@ -1409,61 +1409,6 @@ static int magicmouse_input_configured(struct hid_device *hdev,
  	return 0;
  }
  
@@ -24351,9 +24326,9 @@ index 36f034ac605d..328df8118384 100644
 -		hid_err(msc->hdev, "unable to request touch data (%d)\n", ret);
 -}
 -
- static int magicmouse_fetch_battery(struct hid_device *hdev)
+ static bool is_usb_magicmouse2(__u32 vendor, __u32 product)
  {
- #ifdef CONFIG_HID_BATTERY_STRENGTH
+ 	if (vendor != USB_VENDOR_ID_APPLE)
 @@ -838,12 +1456,62 @@ static int magicmouse_probe(struct hid_device *hdev,
  	struct hid_report *report;
  	int ret;

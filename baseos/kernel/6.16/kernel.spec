@@ -38,7 +38,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.16
-%define _stablekver 0
+%define _stablekver 1
 %define _rcver rc7
 %if %{_stablekver} == 0
 %define _tarkver %{_basekver}
@@ -120,13 +120,11 @@ Patch11: amdgpu-HAINAN-variant-fixup.patch
 Patch12: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
 # Add xpadneo as patch instead of using dkms module
 Patch13: 0001-Add-xpadneo-bluetooth-hid-driver-module.patch
-# https://gitlab.freedesktop.org/drm/amd/-/issues/4263
-Patch14: drm-atomic-flip.1.patch
 
 # aarch64 patches
-Patch15: 0001-ampere-arm64-Add-a-fixup-handler-for-alignment-fault.patch
-Patch16: 0002-ampere-arm64-Work-around-Ampere-Altra-erratum-82288-.patch
-Patch17: xe-nonx86.patch
+Patch14: 0001-ampere-arm64-Add-a-fixup-handler-for-alignment-fault.patch
+Patch15: 0002-ampere-arm64-Work-around-Ampere-Altra-erratum-82288-.patch
+Patch16: xe-nonx86.patch
 
 %define __spec_install_post /usr/lib/rpm/brp-compress || :
 %define debug_package %{nil}
@@ -434,12 +432,11 @@ patch -p1 -i %{PATCH10}
 patch -p1 -i %{PATCH11}
 patch -p1 -i %{PATCH12}
 patch -p1 -i %{PATCH13}
-patch -p1 -i %{PATCH14}
 
 # Apply aarch64 patches
+patch -p1 -i %{PATCH14}
 patch -p1 -i %{PATCH15}
 patch -p1 -i %{PATCH16}
-patch -p1 -i %{PATCH17}
 
 # Fetch the config and move it to the proper directory
 cp %{SOURCE1} .config
@@ -1130,6 +1127,10 @@ fi
 %files
 
 %changelog
+* Fri Aug 15 2025 LionHeartP <LionHeartP@proton.me> - 6.16.1-200
+- Update to 6.16.1
+- Remove drm-atomic-flip.1.patch, now provided by 0001-cachyos-base-all.patch
+
 * Mon Jul 28 2025 LionHeartP <LionHeartP@proton.me> - 6.16.0-200
 - Update to 6.16.0
 - Update drm-atomic-flip.1.patch with patch from LKML
