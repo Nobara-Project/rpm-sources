@@ -54,7 +54,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 200
+%define customver 201
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -1127,6 +1127,9 @@ fi
 %files
 
 %changelog
+* Sat Aug 16 2025 LionHeartP <LionHeartP@proton.me> - 6.16.1-201
+- Update cachyos patches
+
 * Fri Aug 15 2025 LionHeartP <LionHeartP@proton.me> - 6.16.1-200
 - Update to 6.16.1
 - Remove drm-atomic-flip.1.patch, now provided by 0001-cachyos-base-all.patch
