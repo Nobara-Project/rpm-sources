@@ -1,0 +1,30 @@
+From 737a6ca6dca7ed9abd85afd8aecffe7f14b4ed10 Mon Sep 17 00:00:00 2001
+From: Vladislav Nepogodin <nepogodin.vlad@gmail.com>
+Date: Sat, 16 Aug 2025 22:01:13 +0400
+Subject: [PATCH] services: show options instead of setting any
+
+don't set default scheduler and instead show possible options that user
+can set in the configuration file
+---
+ services/scx_loader.toml | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
+
+diff --git a/services/scx_loader.toml b/services/scx_loader.toml
+index f0b6e1eba..84d54050f 100644
+--- a/services/scx_loader.toml
++++ b/services/scx_loader.toml
+@@ -1,2 +1,13 @@
+ # This field specifies the scheduler that will be started automatically when scx_loader starts (e.g., on boot).
+-default_sched = "scx_flash"
++#default_sched = "scx_flash"
++
++# This field specifies the mode which will be used when scx_loader starts (e.g., on boot).
++#default_mode = "Auto"
++
++# This "structure" allows configuring flags for each scheduler mode of particular scx scheduler
++#[scheds.'scheduler']
++#auto_mode = []
++#gaming_mode = []
++#lowlatency_mode = []
++#powersave_mode = []
++#server_mode = []
