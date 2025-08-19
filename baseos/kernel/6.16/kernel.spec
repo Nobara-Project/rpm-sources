@@ -54,7 +54,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 201
+%define customver 202
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -420,8 +420,7 @@ patch -p1 -i %{PATCH1}
 
 # Apply Nobara patches:
 patch -p1 -i %{PATCH2}
-# Disable surface patch until rebased
-# patch -p1 -i %{PATCH3}
+patch -p1 -i %{PATCH3}
 patch -p1 -i %{PATCH4}
 patch -p1 -i %{PATCH5}
 patch -p1 -i %{PATCH6}
@@ -1127,6 +1126,9 @@ fi
 %files
 
 %changelog
+* Tue Aug 19 2025 LionHeartP <LionHeartP@proton.me> - 6.16.1-202
+- Update and enable linux-surface.patch
+
 * Sat Aug 16 2025 LionHeartP <LionHeartP@proton.me> - 6.16.1-201
 - Update cachyos patches
 
