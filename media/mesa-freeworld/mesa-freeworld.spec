@@ -31,7 +31,6 @@ algorithms and decoding only VC1 algorithm.
 %global with_crocus 0
 %global with_i915   0
 %global with_iris   0
-%global with_intel_clc 0
 #%%global intel_platform_vulkan %%{?with_vulkan_hw:,intel,intel_hasvk}%%{!?with_vulkan_hw:%%{nil}}
 %endif
 #%%ifarch x86_64
@@ -75,7 +74,7 @@ algorithms and decoding only VC1 algorithm.
 
 Name:           %{srcname}-freeworld
 Summary:        Mesa graphics libraries
-%global ver 25.2.0
+%global ver 25.2.1
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
@@ -151,7 +150,7 @@ BuildRequires:  flatbuffers-devel
 BuildRequires:  flatbuffers-compiler
 BuildRequires:  xtensor-devel
 %endif
-%if 0%{?with_opencl} || 0%{?with_nvk} || 0%{?with_intel_clc}
+%if 0%{?with_opencl} || 0%{?with_nvk}
 BuildRequires:  rust-packaging
 %endif
 %ifarch %{ix86} x86_64
@@ -175,9 +174,6 @@ BuildRequires:  pkgconfig(valgrind)
 %endif
 BuildRequires:  python3-devel
 BuildRequires:  python3-mako
-%if 0%{?with_intel_clc}
-BuildRequires:  python3-ply
-%endif
 BuildRequires:  python3-pycparser
 BuildRequires:  python3-pyyaml
 BuildRequires:  vulkan-headers
@@ -279,9 +275,6 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
   -Dglx=dri \
   -Degl=enabled \
   -Dglvnd=enabled \
-%if 0%{?with_intel_clc}
-  -Dintel-clc=enabled \
-%endif
   -Dintel-rt=%{!?with_intel_vk_rt:enabled}%{?with_intel_vk_rt:disabled} \
   -Dmicrosoft-clc=disabled \
   -Dllvm=enabled \
@@ -399,6 +392,10 @@ rm -fr %{buildroot}%{_libdir}/libteflon*
 %{_libdir}/libgallium-*.so
 
 %changelog
+* Wed Aug 20 2025 LionHeartP <LionHeartP@proton.me> - 25.2.1-1
+- Update to 25.2.1
+- Drop intel-clc https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/36625
+
 * Fri Aug 08 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-1
 - Update to 25.2.0
 - Fixup spec for packaging changes
