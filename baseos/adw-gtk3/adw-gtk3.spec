@@ -1,4 +1,4 @@
-Name:           adw-gtk3
+Name:           adw-gtk3-theme
 Version:        6.2
 Release:        1%{?dist}
 Summary:        The theme from libadwaita ported to GTK-3
@@ -9,6 +9,9 @@ BuildRequires: nodejs-npm
 BuildRequires: git
 BuildRequires: meson
 BuildRequires: ninja-build
+Provides: adw-gtk3-theme
+Provides: adw-gtk3
+Obsoletes: adw-gtk3 <= 6.2
 
 %description
 The theme from libadwaita ported to GTK-3
