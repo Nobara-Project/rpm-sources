@@ -1,7 +1,7 @@
-%global tag 1.0.6
+%global tag 1.0.9
 
 # Manual commit is auto-inserted by workflow
-%global commit 4c1540b7889fb394b4d76f35c333ebff9c990fb4
+%global commit 12454b8e6494b691dc7476a3d30366ce06f55790
 
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
@@ -35,6 +35,8 @@ Requires: python3-svgwrite
 Requires: python3-fonttools
 Requires: python3-numpy
 
+Requires: adw-gtk3-theme
+Requires: adwaita-icon-theme
 Requires: flatpak
 Requires: glib2
 Requires: gtk3
