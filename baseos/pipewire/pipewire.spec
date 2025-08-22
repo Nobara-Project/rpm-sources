@@ -1,6 +1,6 @@
 %global majorversion 1
 %global minorversion 4
-%global microversion 2
+%global microversion 7
 
 %global apiversion   0.3
 %global spaversion   0.2
@@ -9,11 +9,11 @@
 %global ms_version   0.4.2
 
 # For rpmdev-bumpspec and releng automation
-%global baserelease 2
+%global baserelease 1
 
 #global snapdate   20210107
 #global gitcommit  b17db2cebc1a5ab2c01851d29c05f79cd2f262bb
-#global shortcommit %(c=%{gitcommit}; echo ${c:0:7})
+#global shortcommit %%(c=%{gitcommit}; echo ${c:0:7})
 
 # https://bugzilla.redhat.com/983606
 %global _hardened_build 1
@@ -433,6 +433,14 @@ Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
 %description config-upmix
 This package contains the configuration files to support upmixing.
 
+%package config-raop
+Summary:        PipeWire configuration enabling the raop module
+License:        MIT
+Recommends:     %{name}%{?_isa} = %{version}-%{release}
+Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
+
+%description config-raop
+This package contains the configuration file to enable the RAOP module.
 
 %prep
 %autosetup -p1 %{?snapdate:-n %{name}-%{gitcommit}}
@@ -523,6 +531,10 @@ ln -s ../client.conf.avail/20-upmix.conf \
 # https://www.reddit.com/r/linux_gaming/comments/1htxdig/audio_crackles_nobara_41/
 install -p -D -m 0644 %{SOURCE2} %{buildroot}%{_datadir}/pipewire/pipewire.conf.d/99-force-clock.conf
 
+# raop config
+ln -s ../pipewire.conf.avail/50-raop.conf \
+		%{buildroot}%{_datadir}/pipewire/pipewire.conf.d/50-raop.conf
+
 %find_lang %{name}
 
 %check
@@ -564,6 +576,7 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 %{_datadir}/pipewire/pipewire.conf
 %{_datadir}/pipewire/pipewire.conf.avail/10-rates.conf
 %{_datadir}/pipewire/pipewire.conf.avail/20-upmix.conf
+%{_datadir}/pipewire/pipewire.conf.avail/50-raop.conf
 %{_datadir}/pipewire/minimal.conf
 %{_datadir}/pipewire/filter-chain.conf
 %{_datadir}/pipewire/filter-chain/*.conf
@@ -895,7 +908,25 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 %{_datadir}/pipewire/pipewire-pulse.conf.d/20-upmix.conf
 %endif
 
+%files config-raop
+%{_datadir}/pipewire/pipewire.conf.d/50-raop.conf
+
 %changelog
+* Wed Jul 23 2025 Wim Taymans <wtaymans@redhat.com> - 1.4.7-1
+- Update version to 1.4.7
+
+* Fri Jun 27 2025 Wim Taymans <wtaymans@redhat.com> - 1.4.6-1
+- Update version to 1.4.6
+
+* Wed Jun 04 2025 Wim Taymans <wtaymans@redhat.com> - 1.4.5-1
+- Update version to 1.4.5
+
+* Fri May 30 2025 Christian Glombek <lorbus@fedoraproject.org> - 1.4.4-2
+- Add config-raop package with config enabling module-raop
+
+* Thu May 29 2025 Wim Taymans <wtaymans@redhat.com> - 1.4.4-1
+- Update version to 1.4.4
+
 * Mon Apr 14 2025 Wim Taymans <wtaymans@redhat.com> - 1.4.2-1
 - Update version to 1.4.2
 
