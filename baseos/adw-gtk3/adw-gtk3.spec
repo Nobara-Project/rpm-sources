@@ -1,10 +1,11 @@
 Name:           adw-gtk3
-Version:        5.10
+Version:        6.2
 Release:        1%{?dist}
 Summary:        The theme from libadwaita ported to GTK-3
 License:        GPLv2+
 URL:            https://github.com/lassekongo83/adw-gtk3
-BuildRequires: sassc
+BuildArch:      noarch
+BuildRequires: nodejs-npm
 BuildRequires: git
 BuildRequires: meson
 BuildRequires: ninja-build
@@ -18,7 +19,10 @@ git clone --recurse-submodules https://github.com/lassekongo83/adw-gtk3.git
 
 %build
 cd adw-gtk3
-git checkout tags/v5.5
+git checkout tags/v6.2
+npm config set prefix '~/.npm-global'
+export PATH=~/.npm-global/bin:$PATH
+npm install -g sass
 %meson
 %meson_build
 
