@@ -38,7 +38,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.16
-%define _stablekver 2
+%define _stablekver 3
 %define _rcver rc7
 %if %{_stablekver} == 0
 %define _tarkver %{_basekver}
@@ -54,7 +54,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 201
+%define customver 200
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -1126,8 +1126,8 @@ fi
 %files
 
 %changelog
-* Sat Aug 23 2025 LionHeartP <LionHeartP@proton.me> - 6.16.2-201
-- Update cachy patch with asus-wmi fix
+* Sat Aug 23 2025 LionHeartP <LionHeartP@proton.me> - 6.16.3-200
+- Update to 6.16.3
 
 * Thu Aug 21 2025 LionHeartP <LionHeartP@proton.me> - 6.16.2-200
 - Update to 6.16.2
