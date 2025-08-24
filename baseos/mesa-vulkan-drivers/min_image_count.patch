@@ -28,15 +28,15 @@ diff --git a/src/freedreno/vulkan/tu_device.cc b/src/freedreno/vulkan/tu_device.
 index 11d872733d5..90fe93a037d 100644
 --- a/src/freedreno/vulkan/tu_device.cc
 +++ b/src/freedreno/vulkan/tu_device.cc
-@@ -1623,7 +1623,7 @@ tu_destroy_physical_device(struct vk_physical_device *device)
+@@ -1679,7 +1679,7 @@ tu_destroy_physical_device(struct vk_physical_device *device)
  
  static const driOptionDescription tu_dri_options[] = {
     DRI_CONF_SECTION_PERFORMANCE
 -      DRI_CONF_VK_X11_OVERRIDE_MIN_IMAGE_COUNT(0)
 +      DRI_CONF_VK_OVERRIDE_MIN_IMAGE_COUNT(0)
-       DRI_CONF_VK_KHR_PRESENT_WAIT(false)
        DRI_CONF_VK_X11_STRICT_IMAGE_COUNT(false)
        DRI_CONF_VK_X11_ENSURE_MIN_IMAGE_COUNT(false)
+       DRI_CONF_VK_XWAYLAND_WAIT_READY(false)
 diff --git a/src/intel/vulkan/anv_instance.c b/src/intel/vulkan/anv_instance.c
 index bcb436f1250..bd7e9613e33 100644
 --- a/src/intel/vulkan/anv_instance.c
