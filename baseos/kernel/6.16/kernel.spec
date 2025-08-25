@@ -54,7 +54,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 200
+%define customver 201
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -120,11 +120,13 @@ Patch11: amdgpu-HAINAN-variant-fixup.patch
 Patch12: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
 # Add xpadneo as patch instead of using dkms module
 Patch13: 0001-Add-xpadneo-bluetooth-hid-driver-module.patch
+# https://lore.kernel.org/regressions/20250822165231.4353-4-bacs@librecast.net/
+Patch14: ipv4-regression-fix.patch
 
 # aarch64 patches
-Patch14: 0001-ampere-arm64-Add-a-fixup-handler-for-alignment-fault.patch
-Patch15: 0002-ampere-arm64-Work-around-Ampere-Altra-erratum-82288-.patch
-Patch16: xe-nonx86.patch
+Patch20: 0001-ampere-arm64-Add-a-fixup-handler-for-alignment-fault.patch
+Patch21: 0002-ampere-arm64-Work-around-Ampere-Altra-erratum-82288-.patch
+Patch22: xe-nonx86.patch
 
 %define __spec_install_post /usr/lib/rpm/brp-compress || :
 %define debug_package %{nil}
@@ -431,11 +433,12 @@ patch -p1 -i %{PATCH10}
 patch -p1 -i %{PATCH11}
 patch -p1 -i %{PATCH12}
 patch -p1 -i %{PATCH13}
+patch -p1 -i %{PATCH14}
 
 # Apply aarch64 patches
-patch -p1 -i %{PATCH14}
-patch -p1 -i %{PATCH15}
-patch -p1 -i %{PATCH16}
+patch -p1 -i %{PATCH20}
+patch -p1 -i %{PATCH21}
+patch -p1 -i %{PATCH22}
 
 # Fetch the config and move it to the proper directory
 cp %{SOURCE1} .config
@@ -1126,6 +1129,10 @@ fi
 %files
 
 %changelog
+* Sat Aug 23 2025 LionHeartP <LionHeartP@proton.me> - 6.16.3-201
+- Add ipv4-regression-fix.patch
+- Update config
+
 * Sat Aug 23 2025 LionHeartP <LionHeartP@proton.me> - 6.16.3-200
 - Update to 6.16.3
 
