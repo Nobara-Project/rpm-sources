@@ -38,7 +38,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.16
-%define _stablekver 3
+%define _stablekver 4
 %define _rcver rc7
 %if %{_stablekver} == 0
 %define _tarkver %{_basekver}
@@ -54,7 +54,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 201
+%define customver 200
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -120,8 +120,6 @@ Patch11: amdgpu-HAINAN-variant-fixup.patch
 Patch12: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
 # Add xpadneo as patch instead of using dkms module
 Patch13: 0001-Add-xpadneo-bluetooth-hid-driver-module.patch
-# https://lore.kernel.org/regressions/20250822165231.4353-4-bacs@librecast.net/
-Patch14: ipv4-regression-fix.patch
 
 # aarch64 patches
 Patch20: 0001-ampere-arm64-Add-a-fixup-handler-for-alignment-fault.patch
@@ -433,7 +431,6 @@ patch -p1 -i %{PATCH10}
 patch -p1 -i %{PATCH11}
 patch -p1 -i %{PATCH12}
 patch -p1 -i %{PATCH13}
-patch -p1 -i %{PATCH14}
 
 # Apply aarch64 patches
 patch -p1 -i %{PATCH20}
@@ -1129,6 +1126,10 @@ fi
 %files
 
 %changelog
+* Thu Aug 28 2025 LionHeartP <LionHeartP@proton.me> - 6.16.4-200
+- Update to 6.16.4
+- Rebase valve-gamescope-framerate-control-fixups.patch
+
 * Sat Aug 23 2025 LionHeartP <LionHeartP@proton.me> - 6.16.3-201
 - Add ipv4-regression-fix.patch
 - Update config
