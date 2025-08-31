@@ -2,7 +2,7 @@
 %global debug_package %{nil}
 
 Name:           mangojuice
-Version:        0.8.6
+Version:        0.8.7
 Release:        1%{?dist}
 Summary:        Graphical UI to manage Mangohud settings
 Group:          Graphics/Utilities
@@ -41,12 +41,14 @@ This program will be a convenient alternative to Goverlay for setting up Mangohu
 %{_bindir}/mangojuice
 %{_datadir}/applications/io.github.radiolamp.mangojuice.desktop
 %{_datadir}/icons/hicolor/scalable/apps/io.github.radiolamp.mangojuice*
-%{_datadir}/icons/hicolor/scalable/apps/list-drag-handle-symbolic.svg
-%{_datadir}/locale/ru/LC_MESSAGES/mangojuice.mo
+%{_datadir}/locale/ru_RU/LC_MESSAGES/mangojuice.mo
 %{_datadir}/locale/pt_BR/LC_MESSAGES/mangojuice.mo
 %{_datadir}/metainfo/io.github.radiolamp.mangojuice.metainfo.xml
 
 %changelog
+* Sun Aug 31 2025 LionHeartP <LionHeartP@proton.me> - 0.8.7-1
+- Update to 0.8.7
+
 * Thu Jul 24 2025 LionHeartP <LionHeartP@proton.me> - 0.8.6-1
 - Update to 0.8.6
 
