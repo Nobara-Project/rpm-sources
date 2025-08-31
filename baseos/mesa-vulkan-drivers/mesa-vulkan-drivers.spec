@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit 1de30797ae33476c89891444de7a78771006e4c2
+%global commit 9a03aee7035e7f474ac33edc92954d45e68670e4
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 6.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 7.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -440,6 +440,9 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Sun Aug 31 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-7
+- Update to latest commit
+
 * Sun Aug 24 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-6
 - Update to latest commit
 - Rebase min_image_count.patch
