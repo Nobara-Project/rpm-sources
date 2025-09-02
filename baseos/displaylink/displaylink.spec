@@ -1,5 +1,5 @@
 %{!?_daemon_version:%global _daemon_version 6.1.1-17}
-%{!?_version:%global _version 1.14.10}
+%{!?_version:%global _version 1.14.11}
 %{!?_release:%global _release 1}
 
 # Disable RPATH since DisplayLinkManager contains this.
@@ -245,6 +245,9 @@ fi
 %systemd_postun_with_restart displaylink-driver.service
 
 %changelog
+* Tue Sep 02 2025 Crashdummy <crashdummy1337@proton.me> 1.14.11-1
+- Bump evdi to 1.14.11 with preliminary support for kernel 6.17
+
 * Tue May 13 2025 Crashdummy <crashdummy1337@proton.me> 1.14.10-1
 - Bump evdi to 1.14.10 with preliminary support for kernel 6.15
 - Build Fedora42 package as well
