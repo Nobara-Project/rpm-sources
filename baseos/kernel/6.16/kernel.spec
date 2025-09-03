@@ -38,7 +38,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.16
-%define _stablekver 2
+%define _stablekver 4
 %define _rcver rc7
 %if %{_stablekver} == 0
 %define _tarkver %{_basekver}
@@ -54,7 +54,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 200
+%define customver 201
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -122,9 +122,9 @@ Patch12: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
 Patch13: 0001-Add-xpadneo-bluetooth-hid-driver-module.patch
 
 # aarch64 patches
-Patch14: 0001-ampere-arm64-Add-a-fixup-handler-for-alignment-fault.patch
-Patch15: 0002-ampere-arm64-Work-around-Ampere-Altra-erratum-82288-.patch
-Patch16: xe-nonx86.patch
+Patch20: 0001-ampere-arm64-Add-a-fixup-handler-for-alignment-fault.patch
+Patch21: 0002-ampere-arm64-Work-around-Ampere-Altra-erratum-82288-.patch
+Patch22: xe-nonx86.patch
 
 %define __spec_install_post /usr/lib/rpm/brp-compress || :
 %define debug_package %{nil}
@@ -433,9 +433,9 @@ patch -p1 -i %{PATCH12}
 patch -p1 -i %{PATCH13}
 
 # Apply aarch64 patches
-patch -p1 -i %{PATCH14}
-patch -p1 -i %{PATCH15}
-patch -p1 -i %{PATCH16}
+patch -p1 -i %{PATCH20}
+patch -p1 -i %{PATCH21}
+patch -p1 -i %{PATCH22}
 
 # Fetch the config and move it to the proper directory
 cp %{SOURCE1} .config
@@ -1126,6 +1126,20 @@ fi
 %files
 
 %changelog
+* Thu Aug 28 2025 LionHeartP <LionHeartP@proton.me> - 6.16.4-201
+- Update tearing patch via cachy
+
+* Thu Aug 28 2025 LionHeartP <LionHeartP@proton.me> - 6.16.4-200
+- Update to 6.16.4
+- Rebase valve-gamescope-framerate-control-fixups.patch
+
+* Sat Aug 23 2025 LionHeartP <LionHeartP@proton.me> - 6.16.3-201
+- Add ipv4-regression-fix.patch
+- Update config
+
+* Sat Aug 23 2025 LionHeartP <LionHeartP@proton.me> - 6.16.3-200
+- Update to 6.16.3
+
 * Thu Aug 21 2025 LionHeartP <LionHeartP@proton.me> - 6.16.2-200
 - Update to 6.16.2
 

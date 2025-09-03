@@ -204,10 +204,10 @@ diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crtc.c b/drivers/gp
 index be1ebe826442a4..4b223db0cf2fe8 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crtc.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crtc.c
-@@ -473,18 +473,6 @@ static int dm_crtc_helper_atomic_check(struct drm_crtc *crtc,
+@@ -668,18 +668,6 @@ static int amdgpu_dm_crtc_helper_atomic_check(struct drm_crtc *crtc,
  		return -EINVAL;
  	}
-
+ 
 -	/*
 -	 * Only allow async flips for fast updates that don't change the FB
 -	 * pitch, the DCC state, rotation, etc.
@@ -220,6 +220,6 @@ index be1ebe826442a4..4b223db0cf2fe8 100644
 -		return -EINVAL;
 -	}
 -
- 	/* In some use cases, like reset, no stream is attached */
- 	if (!dm_crtc_state->stream)
- 		return 0;
+ 	if (!state->legacy_cursor_update && amdgpu_dm_crtc_vrr_active(dm_crtc_state)) {
+ 		struct drm_plane_state *primary_state;
+ 
