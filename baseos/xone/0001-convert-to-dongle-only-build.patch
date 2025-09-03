@@ -16,18 +16,27 @@ diff --git a/Kbuild b/Kbuild
 index 37cdc0e..d4e7d71 100644
 --- a/Kbuild
 +++ b/Kbuild
-@@ -1,10 +1,4 @@
--xone-wired-y := transport/wired.o
- xone-dongle-y := transport/dongle.o transport/mt76.o
- xone-gip-y := bus/bus.o bus/protocol.o auth/auth.o auth/crypto.o driver/common.o
- xone-gip-gamepad-y := driver/gamepad.o
--xone-gip-headset-y := driver/headset.o
--xone-gip-chatpad-y := driver/chatpad.o
--xone-gip-madcatz-strat-y := driver/madcatz_strat.o
--xone-gip-madcatz-glam-y := driver/madcatz_glam.o
--xone-gip-pdp-jaguar-y := driver/pdp_jaguar.o
--obj-m := xone-wired.o xone-dongle.o xone-gip.o xone-gip-gamepad.o xone-gip-headset.o xone-gip-chatpad.o xone-gip-madcatz-strat.o xone-gip-madcatz-glam.o xone-gip-pdp-jaguar.o
-+obj-m := xone-dongle.o xone-gip.o xone-gip-gamepad.o
+@@ -1,19 +1,7 @@
+ xone_gip-y := bus/bus.o bus/protocol.o auth/auth.o auth/crypto.o driver/common.o
+-xone_wired-y := transport/wired.o
+ xone_dongle-y := transport/dongle.o transport/mt76.o
+ xone_gip_gamepad-y := driver/gamepad.o
+-xone_gip_headset-y := driver/headset.o
+-xone_gip_chatpad-y := driver/chatpad.o
+-xone_gip_madcatz_strat-y := driver/madcatz_strat.o
+-xone_gip_madcatz_glam-y := driver/madcatz_glam.o
+-xone_gip_pdp_jaguar-y := driver/pdp_jaguar.o
+ 
+ obj-m := xone_gip.o \
+-	xone_wired.o \
+ 	xone_dongle.o \
+-	xone_gip_gamepad.o \
+-	xone_gip_headset.o \
+-	xone_gip_chatpad.o \
+-	xone_gip_madcatz_strat.o \
+-	xone_gip_madcatz_glam.o \
+-	xone_gip_pdp_jaguar.o
++	xone_gip_gamepad.o
 diff --git a/dkms.conf b/dkms.conf
 index b6131c2..849962a 100644
 --- a/dkms.conf
@@ -35,15 +44,15 @@ index b6131c2..849962a 100644
 @@ -1,21 +1,9 @@
  PACKAGE_NAME="xone"
  PACKAGE_VERSION="#VERSION#"
--BUILT_MODULE_NAME[0]="xone-wired"
- BUILT_MODULE_NAME[1]="xone-dongle"
- BUILT_MODULE_NAME[2]="xone-gip"
- BUILT_MODULE_NAME[3]="xone-gip-gamepad"
--BUILT_MODULE_NAME[4]="xone-gip-headset"
--BUILT_MODULE_NAME[5]="xone-gip-chatpad"
--BUILT_MODULE_NAME[6]="xone-gip-madcatz-strat"
--BUILT_MODULE_NAME[7]="xone-gip-madcatz-glam"
--BUILT_MODULE_NAME[8]="xone-gip-pdp-jaguar"
+ BUILT_MODULE_NAME[0]="xone_gip"
+-BUILT_MODULE_NAME[1]="xone_wired"
+ BUILT_MODULE_NAME[2]="xone_dongle"
+ BUILT_MODULE_NAME[3]="xone_gip_gamepad"
+-BUILT_MODULE_NAME[4]="xone_gip_headset"
+-BUILT_MODULE_NAME[5]="xone_gip_chatpad"
+-BUILT_MODULE_NAME[6]="xone_gip_madcatz_strat"
+-BUILT_MODULE_NAME[7]="xone_gip_madcatz_glam"
+-BUILT_MODULE_NAME[8]="xone_gip_pdp_jaguar"
  DEST_MODULE_LOCATION[0]="/kernel/drivers/input/joystick"
  DEST_MODULE_LOCATION[1]="/kernel/drivers/input/joystick"
  DEST_MODULE_LOCATION[2]="/kernel/drivers/input/joystick"

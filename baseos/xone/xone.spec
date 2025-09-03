@@ -1,6 +1,6 @@
 %global _default_patch_fuzz 2
-%global commit 197b160f7806d7d27117b12198cacb7656a07f1f
-%global commitdate 20250510
+%global commit dba215d6ef580b1895bb5ea94bcf800e1965b8be
+%global commitdate 20250819
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 %if 0%{?fedora}
@@ -9,7 +9,7 @@
 %endif
 
 Name:     xone
-Version:  0.3.1
+Version:  0.4.3
 Release:  1%{?dist}
 Summary:  Linux kernel driver for Xbox One and Xbox Series X|S accessories
 License:  GPLv2
@@ -18,7 +18,6 @@ Source0:  %{url}/archive/%{commit}/%{name}-%{shortcommit}.tar.gz
 Source1:  modules-load-d-%{name}.conf
 #Patch0:   0001-revert-powera-changes.patch
 Patch1:   0001-convert-to-dongle-only-build.patch
-Patch2:   elite-paddles.patch
 
 BuildRequires:  gcc
 BuildRequires:  make
@@ -72,9 +71,9 @@ done
 
 %install
 for kernel_version in %{?kernel_versions}; do
- mkdir -p %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/
- install -D -m 755 _kmod_build_${kernel_version%%___*}/%{name}-*.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/
- chmod a+x %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/%{name}-*.ko
+    mkdir -p %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/
+    install -D -m 755 _kmod_build_${kernel_version%%___*}/*.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/
+    chmod a+x %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/*.ko
 done
 %{?akmod_install}
 
@@ -88,6 +87,11 @@ install -D -m 0644 %{SOURCE1} %{buildroot}%{_modulesloaddir}/%{name}.conf
 %{_modulesloaddir}/%{name}.conf
 
 %changelog
+* Sat Aug 23 2025 LionHeartP <LionHeartP@proton.me> - 0.4.3-1
+- Update to 0.4.3
+- Rebase 0001-convert-to-dongle-only-build.patch
+- Remove elite-paddles.patch (upstreamed)
+
 * Sun Jan 28 2024 Jan Drögehoff <sentrycraft123@gmail.com> - 0.3-4
 - Force bump release
 
