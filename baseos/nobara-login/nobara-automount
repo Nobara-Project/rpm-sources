@@ -1,76 +1,148 @@
 #!/bin/bash
+set -euo pipefail
 
-# Check if the user is not 'liveuser'
-if [[ $USER != "liveuser" ]]; then
+log() { echo "[nobara-automount] $*"; }
 
-  # If user is part of wheel(admin) group, re-execute script as root so that we can mount.
-  # We pass $USER to the script as $1 so that we can mount using the user's /run/media/$USER path
-  # and give the user ownership/control over the mounted partition.
-  # This is used alongside a polkit rule /usr/share/polkit-1/actions/org.nobaraproject.automount.policy
-  if [[ $EUID != 0 ]]; then
-    # Don't attempt to mount anything if user is not part of the wheel(admin) group:
-    if [[ -z $(groups $USER | grep wheel) ]]; then
-      echo "User $USER is not in wheel group. Non-admin users cannot mount drives. Exiting."
+if [[ ${USER:-} != "liveuser" ]]; then
+  if [[ $EUID -ne 0 ]]; then
+    if ! id -nG "${USER}" | grep -qw wheel; then
+      log "User ${USER} is not in wheel group. Non-admin users cannot mount drives. Exiting."
       exit 0
     fi
-
-    exec pkexec "$(realpath $0)" "$USER"
-    exit 0
+    log "Re-executing via pkexec for user ${USER}…"
+    exec pkexec "$(realpath "$0")" "$USER"
   fi
 
-  # Cleanup any previous mount points
-  while IFS= read -r mountpoint; do
-    if [[ -z $(lsblk | awk '{ print $7 }' | grep $mountpoint) ]]; then
-      # Make sure directory is empty (it should be if nothing is mounted to it)
-      if [ -z "$(ls -A /run/media/$2/$mountpoint)" ]; then
-        rm -Rf /run/media/$2/$mountpoint
-      fi
-    fi
-  done < <( ls /run/media/$2/ ) # list all partitions with lsblk
+  rwuser="${1:-${SUDO_USER:-${USER}}}"
+  if [[ -z "${rwuser}" ]]; then
+    log "Could not determine target user for mounts."
+    exit 1
+  fi
+  RW_UID="$(id -u "$rwuser")"
+  RW_GID="$(id -g "$rwuser")"
+  log "Mounts will be owned by ${rwuser} (uid=${RW_UID}, gid=${RW_GID})."
 
-  while IFS= read -r partition; do
-      # get all partitions that are not mounted. column 4 lists active mountpoints, ignore everything without UUID
-      if [ "$(echo $partition | awk '{ print $4 }')" == "" ] && [ "$(echo $partition | awk '{ print $2 }')" != "" ]; then
-              # for all partitions without a mountpoint get partition name, device path, and filesystem type
-        partition_name="$(echo $partition | awk '{ print $2 }')"
-        tomount="/dev/disk/by-uuid/$partition_name"
-        filesystem="$(echo $partition | awk '{ print $3 }')"
-        # if the filesystem type isn't a lux partition, attempt to automount it
-        if [[ "$filesystem" != "crypto_LUKS" ]]; then
-          mountopts=""
-          ownershipcomm=""
-          rwuser="$1"
-          # make sure the filesystem type isn't blank or empty
-          if [[ "$filesystem" != "" ]]; then
+  # Optional overrides like in your first script
+  if [[ -f /etc/default/steamos-btrfs ]]; then
+    # shellcheck source=/dev/null
+    source /etc/default/steamos-btrfs
+  fi
 
-              # Setup ownership and mount options for non-windows partitions
-              if [[ "$filesystem" == "btrfs" ]] || [[ "$filesystem" == "ext4" ]] || [[ "$filesystem" == "ext3" ]] || [[ "$filesystem" == "ext2" ]] || [[ "$filesystem" == "xfs" ]] || [[ "$filesystem" == "f2fs" ]]; then
-                ownershipcomm="sudo chown $rwuser:$rwuser /run/media/$rwuser/$partition_name"
-              else
-                mountopts="-o umask=000"
-              fi
-
-              # Only attempt to mount with ownership and mount options if the partition has been enabled for automounting
-              if [[ -f /etc/nobara/automount/enabled.conf ]]; then
-                if [[ -n $(grep $partition_name /etc/nobara/automount/enabled.conf) ]]; then
-                  # Make the directory to mount to
-                  sudo mkdir -p /run/media/$rwuser/$partition_name
-                  # Prevent ntfs metadata mount failure
-                  if [[ "$filesystem" == "ntfs" ]]; then
-                    sudo ntfsfix $tomount &>/dev/null
-                  fi
-                  # Mount the partition to the directory
-                  sudo mount -t $filesystem $mountopts $tomount /run/media/$rwuser/$partition_name
-                  # Set ownership if needed
-                  $ownershipcomm
-                  # We only need to echo the command for debugging purposes.
-                  # echo "sudo mount -t $filesystem $mountopts $tomount /run/media/$rwuser/$partition_name"
-                fi
-              fi
-
+  get_mount_opts() {
+    local fstype="$1"
+    local devpath="$2"
+    local opts=""
+    case "$fstype" in
+      ext4|xfs|ext3|ext2)
+        opts="rw,noatime,lazytime"
+        ;;
+      f2fs)
+        if [[ ! -f /etc/filesystems ]] || ! grep -q '\bf2fs\b' /etc/filesystems; then
+          echo "f2fs" >> /etc/filesystems
+        fi
+        opts="rw,noatime,lazytime,compress_algorithm=zstd,compress_chksum,atgc,gc_merge"
+        ;;
+      btrfs)
+        opts="rw,noatime,lazytime,compress-force=zstd,space_cache=v2,autodefrag,ssd_spread"
+        local tmpmp="/run/media/${rwuser}/.btrfs_probe.$$"
+        mkdir -p "$tmpmp"
+        if mount -t btrfs -o ro "$devpath" "$tmpmp" 2>/dev/null; then
+          local sub="@"
+          if [[ -d "$tmpmp/$sub" ]] && btrfs subvolume show "$tmpmp/$sub" &>/dev/null; then
+            opts+=",subvol=${sub}"
           fi
+          umount -l "$tmpmp" || true
+        fi
+        rmdir "$tmpmp" 2>/dev/null || true
+        ;;
+      vfat)
+        opts="rw,noatime,lazytime,uid=${RW_UID},gid=${RW_GID},utf8=1"
+        ;;
+      exfat)
+        opts="rw,noatime,lazytime,uid=${RW_UID},gid=${RW_GID}"
+        ;;
+      ntfs)
+        if grep -qw ntfs3 /proc/filesystems; then
+          # Kernel driver present → use full option set
+          opts="rw,noatime,lazytime,uid=${RW_UID},gid=${RW_GID},big_writes,umask=0022,ignore_case,windows_names"
+        else
+          # FUSE ntfs-3g → drop unsupported options
+          opts="rw,noatime,lazytime,uid=${RW_UID},gid=${RW_GID},big_writes,umask=0022"
+        fi
+        ;;
+      *)
+        opts="rw,noatime,lazytime"
+        ;;
+    esac
+    printf '%s' "$opts"
+  }
+
+  # Clean empty stale dirs under /run/media/$rwuser
+  if [[ -d "/run/media/$rwuser" ]]; then
+    while IFS= read -r mountpoint; do
+      if ! lsblk | awk '{print $7}' | grep -qx -- "/run/media/$rwuser/$mountpoint"; then
+        if [[ -d "/run/media/$rwuser/$mountpoint" && -z "$(ls -A "/run/media/$rwuser/$mountpoint" 2>/dev/null || true)" ]]; then
+          log "Removing stale mount dir /run/media/$rwuser/$mountpoint"
+          rm -rf -- "/run/media/$rwuser/$mountpoint"
         fi
       fi
-  done < <( lsblk -rno TYPE,UUID,FSTYPE,MOUNTPOINT | grep part ) # list all partitions with lsblk
+    done < <(ls -1 "/run/media/$rwuser" 2>/dev/null || true)
+  fi
 
+  # Enumerate candidate partitions
+  while IFS= read -r line; do
+    typ="$(awk '{print $1}' <<<"$line")"
+    uuid="$(awk '{print $2}' <<<"$line")"
+    fstype="$(awk '{print $3}' <<<"$line")"
+    mntp="$(awk '{print $4}' <<<"$line")"
+
+    [[ "$typ" == "part" ]] || continue
+    [[ -n "$uuid" ]] || continue
+    [[ -z "$mntp" ]] || continue
+    [[ "$fstype" != "crypto_LUKS" ]] || continue
+
+    partition_name="$uuid"
+    tomount="/dev/disk/by-uuid/$partition_name"
+    [[ -n "$fstype" ]] || continue
+
+    # ---- Relaxed allow-list check (matches your original behavior) ----
+    if [[ -f /etc/nobara/automount/enabled.conf ]]; then
+      if ! grep -Fq "$partition_name" /etc/nobara/automount/enabled.conf; then
+        log "Skipping $partition_name ($fstype): not in enabled.conf"
+        continue
+      fi
+    else
+      log "enabled.conf not found; skipping $partition_name (preserving original behavior)"
+      continue
+    fi
+    # -------------------------------------------------------------------
+
+    install -d -m 0755 -o "$RW_UID" -g "$RW_GID" "/run/media/$rwuser/$partition_name"
+
+    if [[ "$fstype" == "ntfs" ]]; then
+      ntfsfix "$tomount" &>/dev/null || true
+    fi
+
+    mountopts="$(get_mount_opts "$fstype" "$tomount")"
+    log "Mounting $tomount as $fstype -> /run/media/$rwuser/$partition_name with -o $mountopts"
+
+    if ! mount -t "$fstype" -o "$mountopts" "$tomount" "/run/media/$rwuser/$partition_name" 2>/dev/null; then
+      if [[ "$fstype" == "ntfs" ]] && command -v mount.ntfs-3g &>/dev/null; then
+        log "Kernel ntfs mount failed; retrying with ntfs-3g…"
+        mount -t ntfs-3g -o "$mountopts" "$tomount" "/run/media/$rwuser/$partition_name"
+      else
+        log "Failed to mount $tomount as $fstype."
+        rmdir "/run/media/$rwuser/$partition_name" 2>/dev/null || true
+        continue
+      fi
+    fi
+
+    case "$fstype" in
+      btrfs|ext4|ext3|ext2|xfs|f2fs)
+        chown "$RW_UID:$RW_GID" "/run/media/$rwuser/$partition_name" || true
+        ;;
+    esac
+
+    log "Mounted $tomount ($fstype) at /run/media/$rwuser/$partition_name"
+  done < <(lsblk -rno TYPE,UUID,FSTYPE,MOUNTPOINT | grep '^part ')
 fi
