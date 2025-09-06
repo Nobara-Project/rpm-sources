@@ -1,7 +1,7 @@
 Summary: A set of system configuration and setup files
 Name: setup
 Version: 2.15.0
-Release: %autorelease -b16
+Release: %autorelease -b17
 License: LicenseRef-Fedora-Public-Domain
 # This package is a downstream-only project
 URL: https://src.fedoraproject.org/rpms/setup
@@ -40,6 +40,7 @@ Source0039: nobara_profile_nvidia.sh
 Source0040: nobara_profile_obs.sh
 Source0042: nobara_profile_force_nobara_rpm_installer_default.sh
 Source0043: application-x-src+rpm.xml
+Source0044: nobara_profile_extest_wayland_input.sh
 
 BuildArch: noarch
 BuildRequires: bash
@@ -58,7 +59,7 @@ setup files, such as passwd, group, and profile.
 mkdir -p etc/profile.d
 mkdir -p usr/share/mime/packages/
 cp %{lua: for i=1,17 do print(sources[i]..' ') end} etc/
-cp %SOURCE21 %SOURCE22 %SOURCE36 %SOURCE37 %SOURCE38 %SOURCE39 %SOURCE40 %SOURCE42 etc/profile.d/
+cp %SOURCE21 %SOURCE22 %SOURCE36 %SOURCE37 %SOURCE38 %SOURCE39 %SOURCE40 %SOURCE42 %SOURCE44 etc/profile.d/
 cp %SOURCE43 usr/share/mime/packages/
 touch etc/{exports,motd,subgid,subuid}
 
@@ -205,6 +206,7 @@ end
 %config(noreplace) /etc/profile.d/nobara_profile_nvidia.sh
 %config(noreplace) /etc/profile.d/nobara_profile_obs.sh
 %config(noreplace) /etc/profile.d/nobara_profile_force_nobara_rpm_installer_default.sh
+%config(noreplace) /etc/profile.d/nobara_profile_extest_wayland_input.sh
 %{_datadir}/mime/packages/application-x-src+rpm.xml
 %dir /usr/share/dnf5
 %dir /usr/share/dnf5/libdnf.conf.d
