@@ -1,6 +1,6 @@
 Name:           jupiter-hw-support
 Version:        0.0.git.1256.484fa801
-Release:        37%{?dist}
+Release:        38%{?dist}
 Summary:        Steam Deck Hardware Support Package
 License:        MIT
 URL:            https://github.com/nobara-project/steamdeck-edition-packages
@@ -121,7 +121,6 @@ fi
 %{_bindir}/thumbstick_cal
 %{_bindir}/thumbstick_fine_cal
 %{_bindir}/trigger_cal
-%{_bindir}/steamos-polkit-helpers/jupiter*
 %{_prefix}/lib/systemd/system/jupiter-biosupdate.service
 %{_prefix}/lib/systemd/system/jupiter-controller-update.service
 %{_prefix}/lib/systemd/system/multi-user.target.wants/jupiter-biosupdate.service
@@ -147,7 +146,6 @@ fi
 %{_prefix}/lib/udev/rules.d/99-sdcard-rescan.rules
 
 %files -n gamescope-handheld-common
-%{_bindir}/steamos-polkit-helpers/*
 %{_libexecdir}/*
 %{_prefix}/lib/udev/rules.d/99-steamos-automount.rules
 %{_prefix}/lib/udev/rules.d/99-power-button.rules
