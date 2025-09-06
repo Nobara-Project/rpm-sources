@@ -1,7 +1,7 @@
 Summary: A set of scripts to run upon first user login
 Name: nobara-login
 Version: 1.2
-Release: 4%{?dist}
+Release: 5%{?dist}
 License: Public Domain
 Group: System Environment/Base
 Source0: hwcheck.sh
@@ -31,6 +31,8 @@ Source28: krunnerrc
 BuildArch: noarch
 BuildRequires: filesystem
 Requires: system-release
+Requires: fuse
+Requires: ntfs-3g
 Requires: nobara-login-sysctl
 Requires: nobara-welcome
 Requires: nobara-nvidia-wizard

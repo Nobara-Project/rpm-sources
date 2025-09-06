@@ -62,13 +62,8 @@ if [[ ${USER:-} != "liveuser" ]]; then
         opts="rw,noatime,lazytime,uid=${RW_UID},gid=${RW_GID}"
         ;;
       ntfs)
-        if grep -qw ntfs3 /proc/filesystems; then
-          # Kernel driver present → use full option set
-          opts="rw,noatime,lazytime,uid=${RW_UID},gid=${RW_GID},big_writes,umask=0022,ignore_case,windows_names"
-        else
-          # FUSE ntfs-3g → drop unsupported options
-          opts="rw,noatime,lazytime,uid=${RW_UID},gid=${RW_GID},big_writes,umask=0022"
-        fi
+        # FUSE ntfs-3g → drop unsupported options
+        opts="rw,noatime,lazytime,uid=${RW_UID},gid=${RW_GID},big_writes,umask=0022"
         ;;
       *)
         opts="rw,noatime,lazytime"
@@ -127,8 +122,7 @@ if [[ ${USER:-} != "liveuser" ]]; then
     log "Mounting $tomount as $fstype -> /run/media/$rwuser/$partition_name with -o $mountopts"
 
     if ! mount -t "$fstype" -o "$mountopts" "$tomount" "/run/media/$rwuser/$partition_name" 2>/dev/null; then
-      if [[ "$fstype" == "ntfs" ]] && command -v mount.ntfs-3g &>/dev/null; then
-        log "Kernel ntfs mount failed; retrying with ntfs-3g…"
+      if [[ "$fstype" == "ntfs" ]]; then
         mount -t ntfs-3g -o "$mountopts" "$tomount" "/run/media/$rwuser/$partition_name"
       else
         log "Failed to mount $tomount as $fstype."
