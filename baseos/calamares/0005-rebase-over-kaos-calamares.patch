@@ -1,134 +1,40 @@
-From c13ecd5819592cec37f47547cc2229f22316ca8e Mon Sep 17 00:00:00 2001
+From f8c76a4f9f9a122c6ed2ab293c3115a8eedd1722 Mon Sep 17 00:00:00 2001
 From: GloriousEggroll <gloriouseggroll@gmail.com>
-Date: Sat, 14 Dec 2024 23:51:53 -0500
-Subject: [PATCH] restore upstream dracut
+Date: Sun, 7 Sep 2025 15:07:11 -0400
+Subject: [PATCH] nobara-patching
 
 ---
- src/modules/dracut/dracut.conf        |  4 ++--
- src/modules/dracut/dracut.schema.yaml |  2 +-
- src/modules/dracut/main.py            | 29 ++++++++++++++++-----------
- 3 files changed, 20 insertions(+), 15 deletions(-)
-
-diff --git a/src/modules/dracut/dracut.conf b/src/modules/dracut/dracut.conf
-index 619ace5f..ba1a7b08 100644
---- a/src/modules/dracut/dracut.conf
-+++ b/src/modules/dracut/dracut.conf
-@@ -5,6 +5,6 @@
- ---
- # Dracut defaults to setting initramfs-<kernel-version>.img
- # If you want to specify another filename for the resulting image,
--# set a custom kernel name, including the path
-+# set a custom name, including the path
- #
--kernelName: /boot/initramfs-linux.img
-+initramfsName: /boot/initramfs-freebsd.img
-diff --git a/src/modules/dracut/dracut.schema.yaml b/src/modules/dracut/dracut.schema.yaml
-index 503b1a4f..d6008e1b 100644
---- a/src/modules/dracut/dracut.schema.yaml
-+++ b/src/modules/dracut/dracut.schema.yaml
-@@ -6,4 +6,4 @@ $id: https://calamares.io/schemas/dracut
- additionalProperties: false
- type: object
- properties:
--    kernelName: { type: string }
-+    initramfsName: { type: string }
-diff --git a/src/modules/dracut/main.py b/src/modules/dracut/main.py
-index e96fefa7..85e6f3e7 100644
---- a/src/modules/dracut/main.py
-+++ b/src/modules/dracut/main.py
-@@ -12,9 +12,10 @@
- #
- #   Calamares is Free Software: see the License-Identifier above.
- #
-+import subprocess
-
- import libcalamares
--from libcalamares.utils import check_target_env_call
-+from libcalamares.utils import target_env_process_output
-
-
- import gettext
-@@ -34,15 +35,20 @@ def run_dracut():
-
-     :return:
-     """
--    kernelName = libcalamares.job.configuration['kernelName']
-+    try:
-+        initramfs_name = libcalamares.job.configuration['initramfsName']
-+        target_env_process_output(['dracut', '-f', initramfs_name])
-+    except KeyError:
-+        try:
-+            target_env_process_output(['dracut', '-f'])
-+        except subprocess.CalledProcessError as cpe:
-+            libcalamares.utils.warning(f"Dracut failed with output: {cpe.output}")
-+            return cpe.returncode
-+    except subprocess.CalledProcessError as cpe:
-+        libcalamares.utils.warning(f"Dracut failed with output: {cpe.output}")
-+        return cpe.returncode
-
--    if not kernelName:
--        return check_target_env_call(['dracut', '-f'])
--    else:
--        return check_target_env_call(['dracut', '-f',
--                                      '--hostonly', '--no-hostonly-cmdline',
--                                      '{}'.format(kernelName),
--                                      '--no-early-microcode', '--zstd'])
-+    return 0
-
-
- def run():
-@@ -53,7 +59,6 @@ def run():
-     :return:
-     """
-     return_code = run_dracut()
--
-     if return_code != 0:
--        return (_("Failed to run dracut on the target"),
--                _("The exit code was {}").format(return_code))
-+        return (_("Failed to run dracut"),
-+                _(f"Dracut failed to run on the target with return code: {return_code}"))
---
-2.47.1
-
-
-From cb0b6ae47bfa2578b3924b3ecca1a632af15a35b Mon Sep 17 00:00:00 2001
-From: GloriousEggroll <gloriouseggroll@gmail.com>
-Date: Sat, 14 Dec 2024 07:07:04 -0500
-Subject: [PATCH 5/7] rebase-over-kaos-calamares
-
----
- lang/calamares_ast.ts                         |  14 ++---
- lang/calamares_bg.ts                          |  38 ++++++-------
- lang/calamares_ca.ts                          |  38 ++++++-------
- lang/calamares_cs.ts                          |  38 ++++++-------
- lang/calamares_da.ts                          |  38 ++++++-------
- lang/calamares_de.ts                          |  38 ++++++-------
- lang/calamares_en.ts                          |  38 ++++++-------
- lang/calamares_es.ts                          |  38 ++++++-------
- lang/calamares_es_AR.ts                       |  38 ++++++-------
- lang/calamares_fi.ts                          |  38 ++++++-------
- lang/calamares_fr.ts                          |  38 ++++++-------
- lang/calamares_hi_IN.ts                       |  38 ++++++-------
- lang/calamares_hr_HR.ts                       |  38 ++++++-------
- lang/calamares_hu.ts                          |  38 ++++++-------
- lang/calamares_id_ID.ts                       |  38 ++++++-------
- lang/calamares_it.ts                          |  38 ++++++-------
- lang/calamares_ja.ts                          |  38 ++++++-------
- lang/calamares_nl_NL.ts                       |  38 ++++++-------
- lang/calamares_pl.ts                          |  38 ++++++-------
- lang/calamares_pt_BR.ts                       |  38 ++++++-------
- lang/calamares_pt_PT.ts                       |  38 ++++++-------
- lang/calamares_ro_RO.ts                       |  38 ++++++-------
- lang/calamares_ru.ts                          |  38 ++++++-------
- lang/calamares_sr_RS.ts                       |  38 ++++++-------
- lang/calamares_sr_RS@latin.ts                 |  38 ++++++-------
- lang/calamares_sv.ts                          |  38 ++++++-------
- lang/calamares_tr_TR.ts                       |  38 ++++++-------
- settings.conf                                 |  50 +++++++++---------
+ lang/calamares_ast.ts                         |  14 +-
+ lang/calamares_bg.ts                          |  38 +-
+ lang/calamares_ca.ts                          |  38 +-
+ lang/calamares_cs.ts                          |  38 +-
+ lang/calamares_da.ts                          |  38 +-
+ lang/calamares_de.ts                          |  38 +-
+ lang/calamares_en.ts                          |  38 +-
+ lang/calamares_es.ts                          |  38 +-
+ lang/calamares_es_AR.ts                       |  38 +-
+ lang/calamares_fi.ts                          |  38 +-
+ lang/calamares_fr.ts                          |  38 +-
+ lang/calamares_hi_IN.ts                       |  38 +-
+ lang/calamares_hr_HR.ts                       |  38 +-
+ lang/calamares_hu.ts                          |  38 +-
+ lang/calamares_id_ID.ts                       |  38 +-
+ lang/calamares_it.ts                          |  38 +-
+ lang/calamares_ja.ts                          |  38 +-
+ lang/calamares_nl_NL.ts                       |  38 +-
+ lang/calamares_pl.ts                          |  38 +-
+ lang/calamares_pt_BR.ts                       |  38 +-
+ lang/calamares_pt_PT.ts                       |  38 +-
+ lang/calamares_ro_RO.ts                       |  38 +-
+ lang/calamares_ru.ts                          |  38 +-
+ lang/calamares_sr_RS.ts                       |  38 +-
+ lang/calamares_sr_RS@latin.ts                 |  38 +-
+ lang/calamares_sv.ts                          |  38 +-
+ lang/calamares_tr_TR.ts                       |  38 +-
+ settings.conf                                 |  67 +-
  src/branding/CMakeLists.txt                   |   2 +-
- src/branding/default/branding.desc            |  16 +++---
- src/branding/kaos_branding/.tx/config         |   8 ---
- src/branding/nobara_branding/.tx/config       |   8 +++
+ src/branding/default/branding.desc            |  16 +-
+ src/branding/nobara_branding/.tx/config       |   8 +
  .../Dia.qml                                   |   0
  .../Slider.qml                                |   0
  .../background.jpg                            | Bin
@@ -186,29 +92,32 @@ Subject: [PATCH 5/7] rebase-over-kaos-calamares
  .../show.qml                                  |   0
  .../stylesheet.qss                            |   0
  src/calamares/CMakeLists.txt                  |   2 +-
- src/modules/bootloader/bootloader.conf        |  14 ++---
- src/modules/bootloader/main.py                |   7 +--
- src/modules/dracut/dracut.conf                |   2 +-
+ src/modules/bootloader/bootloader.conf        |  14 +-
+ src/modules/bootloader/main.py                |   2 +
+ src/modules/dracut/dracut.conf                |   4 +-
+ src/modules/dracut/dracut.schema.yaml         |   2 +-
+ src/modules/dracut/main.py                    |  29 +-
  src/modules/grubcfg/grubcfg.conf              |   3 +-
  src/modules/grubconf/grubconf.conf            |   1 -
  src/modules/keyboard/keyboard.conf            |   2 +-
- src/modules/license/license.conf              |  12 ++---
+ src/modules/license/license.conf              |  12 +-
  src/modules/locale/locale.conf                |   4 +-
- src/modules/localeq/localeq.conf              |   6 +--
- src/modules/mount/mount.conf                  |   9 +---
- src/modules/packages/packages.conf            |  18 +++----
- .../partition/core/PartitionActions.cpp       |  33 ++++--------
- .../partition/core/PartitionLayout.cpp        |  40 ++++++++++----
- src/modules/partition/partition.conf          |  44 +++++++++------
- src/modules/plasmalnf/plasmalnf.conf          |  18 +++----
- src/modules/shellprocess/shellprocess.conf    |  29 +++++++---
- src/modules/unpackfs/unpackfs.conf            |   2 +-
- src/modules/users/users.conf                  |  18 +++----
- src/modules/usersq/usersq.conf                |  16 ++----
- src/modules/welcome/welcome.conf              |  13 +++--
- src/modules/welcomeq/welcomeq.conf            |  15 +++---
- 110 files changed, 703 insertions(+), 691 deletions(-)
- delete mode 100644 src/branding/kaos_branding/.tx/config
+ src/modules/localeq/localeq.conf              |   6 +-
+ src/modules/mount/mount.conf                  |   9 +-
+ src/modules/packages/packages.conf            |  18 +-
+ .../partition/core/PartitionActions.cpp       |  33 +-
+ .../partition/core/PartitionLayout.cpp        |  40 +-
+ src/modules/partition/partition.conf          |  29 +-
+ src/modules/plasmalnf/plasmalnf.conf          |  18 +-
+ src/modules/shellprocess/shellprocess.conf    |  29 +-
+ src/modules/unpackfs/unpackfs.conf            |   4 +-
+ src/modules/users/users.conf                  |  18 +-
+ src/modules/usersq/UserInput.qml              | 867 +++++++++---------
+ src/modules/usersq/usersq.conf                |  16 +-
+ src/modules/usersq/usersq.qrc                 |   2 +
+ src/modules/welcome/welcome.conf              |  13 +-
+ src/modules/welcomeq/welcomeq.conf            |  15 +-
+ 113 files changed, 1171 insertions(+), 1116 deletions(-)
  create mode 100644 src/branding/nobara_branding/.tx/config
  rename src/branding/{kaos_branding => nobara_branding}/Dia.qml (100%)
  rename src/branding/{kaos_branding => nobara_branding}/Slider.qml (100%)
@@ -268,7 +177,7 @@ Subject: [PATCH 5/7] rebase-over-kaos-calamares
  rename src/branding/{kaos_branding => nobara_branding}/stylesheet.qss (100%)
 
 diff --git a/lang/calamares_ast.ts b/lang/calamares_ast.ts
-index c12368dcf592d5f470ec6f0e590ead7c6f708272..057775aa363a6d8b94f9faf5c3f0ecd652bd4efb 100644
+index c12368d..057775a 100644
 --- a/lang/calamares_ast.ts
 +++ b/lang/calamares_ast.ts
 @@ -3740,7 +3740,7 @@ Output:
@@ -320,10 +229,10 @@ index c12368dcf592d5f470ec6f0e590ead7c6f708272..057775aa363a6d8b94f9faf5c3f0ecd6
          <translation type="unfinished"/>
      </message>
 diff --git a/lang/calamares_bg.ts b/lang/calamares_bg.ts
-index 4571c2ead6329d90e93f401ee3c474b9ccd4fbc3..a6f5c34bc426a14f5a4c1d9c2dd58141176f4033 100644
+index 54d7e30..ee42a3c 100644
 --- a/lang/calamares_bg.ts
 +++ b/lang/calamares_bg.ts
-@@ -4320,22 +4320,22 @@ Setup can continue, but some features might be disabled.&lt;/p&gt;</source>
+@@ -4476,22 +4476,22 @@ Setup can continue, but some features might be disabled.&lt;/p&gt;</source>
  <context>
      <name>calamares-navigation</name>
      <message>
@@ -350,7 +259,7 @@ index 4571c2ead6329d90e93f401ee3c474b9ccd4fbc3..a6f5c34bc426a14f5a4c1d9c2dd58141
          <source>Cancel</source>
          <translation>Прекъсване</translation>
      </message>
-@@ -4655,77 +4655,77 @@ The vertical scrollbar is adjustable, current width set to 10.</source>
+@@ -4807,77 +4807,77 @@ The vertical scrollbar is adjustable, current width set to 10.</source>
  <context>
      <name>show</name>
      <message>
@@ -444,10 +353,10 @@ index 4571c2ead6329d90e93f401ee3c474b9ccd4fbc3..a6f5c34bc426a14f5a4c1d9c2dd58141
          <translation>Не се колебайте да дадете мнението си за KaOS във форума</translation>
      </message>
 diff --git a/lang/calamares_ca.ts b/lang/calamares_ca.ts
-index ca9fda29bfaaad09389ad0ffa80407f5d690c1c5..986137f0b71556e862b95e1c069bf9efc077acd3 100644
+index bc165a8..7aeb762 100644
 --- a/lang/calamares_ca.ts
 +++ b/lang/calamares_ca.ts
-@@ -4337,22 +4337,22 @@ La configuració pot continuar, però algunes característiques podrien estar in
+@@ -4480,22 +4480,22 @@ La configuració pot continuar, però algunes característiques podrien estar in
  <context>
      <name>calamares-navigation</name>
      <message>
@@ -474,7 +383,7 @@ index ca9fda29bfaaad09389ad0ffa80407f5d690c1c5..986137f0b71556e862b95e1c069bf9ef
          <source>Cancel</source>
          <translation>Cancel·la</translation>
      </message>
-@@ -4696,77 +4696,77 @@ La barra de desplaçament vertical és ajustable, l&apos;amplada actual s&apos;e
+@@ -4835,77 +4835,77 @@ La barra de desplaçament vertical és ajustable, l&apos;amplada actual s&apos;e
  <context>
      <name>show</name>
      <message>
@@ -568,10 +477,10 @@ index ca9fda29bfaaad09389ad0ffa80407f5d690c1c5..986137f0b71556e862b95e1c069bf9ef
          <translation>No dubteu a donar l&apos;opinió sobre el KaOS al fòrum.</translation>
      </message>
 diff --git a/lang/calamares_cs.ts b/lang/calamares_cs.ts
-index 5e4f1ed4a2028b1fd13c2b3562f2d8577cf85511..6a837002165ce6c10f3221a07109544ce0beb5ed 100644
+index 4045f11..edd271f 100644
 --- a/lang/calamares_cs.ts
 +++ b/lang/calamares_cs.ts
-@@ -4220,22 +4220,22 @@ Výstup:
+@@ -4468,22 +4468,22 @@ Setup can continue, but some features might be disabled.&lt;/p&gt;</source>
  <context>
      <name>calamares-navigation</name>
      <message>
@@ -598,7 +507,7 @@ index 5e4f1ed4a2028b1fd13c2b3562f2d8577cf85511..6a837002165ce6c10f3221a07109544c
          <source>Cancel</source>
          <translation type="unfinished"/>
      </message>
-@@ -4592,77 +4592,77 @@ Výstup:
+@@ -4791,77 +4791,77 @@ The vertical scrollbar is adjustable, current width set to 10.</source>
  <context>
      <name>show</name>
      <message>
@@ -692,10 +601,10 @@ index 5e4f1ed4a2028b1fd13c2b3562f2d8577cf85511..6a837002165ce6c10f3221a07109544c
          <translation type="unfinished"/>
      </message>
 diff --git a/lang/calamares_da.ts b/lang/calamares_da.ts
-index ac6d6cb84ed25254c7a2d5a8b4a3fa2278e2fb00..23192ab326374bff3a6100a30f948b74646e5c6e 100644
+index 9e1cc76..7655e71 100644
 --- a/lang/calamares_da.ts
 +++ b/lang/calamares_da.ts
-@@ -4318,22 +4318,22 @@ Setup can continue, but some features might be disabled.&lt;/p&gt;</source>
+@@ -4474,22 +4474,22 @@ Setup can continue, but some features might be disabled.&lt;/p&gt;</source>
  <context>
      <name>calamares-navigation</name>
      <message>
@@ -722,7 +631,7 @@ index ac6d6cb84ed25254c7a2d5a8b4a3fa2278e2fb00..23192ab326374bff3a6100a30f948b74
          <source>Cancel</source>
          <translation type="unfinished"/>
      </message>
-@@ -4649,77 +4649,77 @@ The vertical scrollbar is adjustable, current width set to 10.</source>
+@@ -4803,77 +4803,77 @@ The vertical scrollbar is adjustable, current width set to 10.</source>
  <context>
      <name>show</name>
      <message>
@@ -816,10 +725,10 @@ index ac6d6cb84ed25254c7a2d5a8b4a3fa2278e2fb00..23192ab326374bff3a6100a30f948b74
          <translation type="unfinished"/>
      </message>
 diff --git a/lang/calamares_de.ts b/lang/calamares_de.ts
-index 64284c781d6b038e2b7f91178450f6afb1a563bb..46613fb24e1ed551f54bdedb481e8f63f14f2213 100644
+index 9b4f32f..77c9d10 100644
 --- a/lang/calamares_de.ts
 +++ b/lang/calamares_de.ts
-@@ -4221,22 +4221,22 @@ Ausgabe:
+@@ -4469,22 +4469,22 @@ Setup can continue, but some features might be disabled.&lt;/p&gt;</source>
  <context>
      <name>calamares-navigation</name>
      <message>
@@ -846,7 +755,7 @@ index 64284c781d6b038e2b7f91178450f6afb1a563bb..46613fb24e1ed551f54bdedb481e8f63
          <source>Cancel</source>
          <translation type="unfinished"/>
      </message>
-@@ -4593,77 +4593,77 @@ Ausgabe:
+@@ -4792,77 +4792,77 @@ The vertical scrollbar is adjustable, current width set to 10.</source>
  <context>
      <name>show</name>
      <message>
@@ -940,10 +849,10 @@ index 64284c781d6b038e2b7f91178450f6afb1a563bb..46613fb24e1ed551f54bdedb481e8f63
          <translation type="unfinished"/>
      </message>
 diff --git a/lang/calamares_en.ts b/lang/calamares_en.ts
-index d4d0822ca17ca6ab5d050d5f27967f2b0b1070cd..8008518ee120aac3e5ffbbb062ee5f16c9abe6b2 100644
+index 22d4896..e1838e3 100644
 --- a/lang/calamares_en.ts
 +++ b/lang/calamares_en.ts
-@@ -4343,22 +4343,22 @@ Setup can continue, but some features might be disabled.&lt;/p&gt;</source>
+@@ -4499,22 +4499,22 @@ Setup can continue, but some features might be disabled.&lt;/p&gt;</source>
  <context>
      <name>calamares-navigation</name>
      <message>
@@ -970,7 +879,7 @@ index d4d0822ca17ca6ab5d050d5f27967f2b0b1070cd..8008518ee120aac3e5ffbbb062ee5f16
          <source>Cancel</source>
          <translation type="unfinished"></translation>
      </message>
-@@ -4668,77 +4668,77 @@ The vertical scrollbar is adjustable, current width set to 10.</source>
+@@ -4822,77 +4822,77 @@ The vertical scrollbar is adjustable, current width set to 10.</source>
  <context>
      <name>show</name>
      <message>
@@ -1064,10 +973,10 @@ index d4d0822ca17ca6ab5d050d5f27967f2b0b1070cd..8008518ee120aac3e5ffbbb062ee5f16
          <translation type="unfinished"></translation>
      </message>
 diff --git a/lang/calamares_es.ts b/lang/calamares_es.ts
-index a18e20c4e2c177c30d4ec3443896bfb0f2940d78..edc264de3a2fdcb1c7be9df60f9d049801e78d9e 100644
+index 061d592..25bc2d8 100644
 --- a/lang/calamares_es.ts
 +++ b/lang/calamares_es.ts
-@@ -4318,22 +4318,22 @@ Setup can continue, but some features might be disabled.&lt;/p&gt;</source>
+@@ -4474,22 +4474,22 @@ Setup can continue, but some features might be disabled.&lt;/p&gt;</source>
  <context>
      <name>calamares-navigation</name>
      <message>
@@ -1094,7 +1003,7 @@ index a18e20c4e2c177c30d4ec3443896bfb0f2940d78..edc264de3a2fdcb1c7be9df60f9d0498
          <source>Cancel</source>
          <translation type="unfinished"/>
      </message>
-@@ -4646,77 +4646,77 @@ The vertical scrollbar is adjustable, current width set to 10.</source>
+@@ -4800,77 +4800,77 @@ The vertical scrollbar is adjustable, current width set to 10.</source>
  <context>
      <name>show</name>
      <message>
@@ -1188,10 +1097,10 @@ index a18e20c4e2c177c30d4ec3443896bfb0f2940d78..edc264de3a2fdcb1c7be9df60f9d0498
          <translation type="unfinished"/>
      </message>
 diff --git a/lang/calamares_es_AR.ts b/lang/calamares_es_AR.ts
-index 3bb7eefd3557ce8329c4e608e200042964da03f8..591250be9c4e01f1a32aacf9017c9e3a0f1a3c4a 100644
+index a938b66..2d77d35 100644
 --- a/lang/calamares_es_AR.ts
 +++ b/lang/calamares_es_AR.ts
-@@ -4318,22 +4318,22 @@ Setup can continue, but some features might be disabled.&lt;/p&gt;</source>
+@@ -4474,22 +4474,22 @@ Setup can continue, but some features might be disabled.&lt;/p&gt;</source>
  <context>
      <name>calamares-navigation</name>
      <message>
@@ -1218,7 +1127,7 @@ index 3bb7eefd3557ce8329c4e608e200042964da03f8..591250be9c4e01f1a32aacf9017c9e3a
          <source>Cancel</source>
          <translation type="unfinished"/>
      </message>
-@@ -4646,77 +4646,77 @@ The vertical scrollbar is adjustable, current width set to 10.</source>
+@@ -4800,77 +4800,77 @@ The vertical scrollbar is adjustable, current width set to 10.</source>
  <context>
      <name>show</name>
      <message>
@@ -1312,10 +1221,10 @@ index 3bb7eefd3557ce8329c4e608e200042964da03f8..591250be9c4e01f1a32aacf9017c9e3a
          <translation type="unfinished"/>
      </message>
 diff --git a/lang/calamares_fi.ts b/lang/calamares_fi.ts
-index 378f049ad971d65b963e823a1ab508a2e966da44..d161389c9f218f59ee02b0715a2b2a4f6f5fcb96 100644
+index aed5dec..c9b0ecb 100644
 --- a/lang/calamares_fi.ts
 +++ b/lang/calamares_fi.ts
-@@ -4337,22 +4337,22 @@ Asennusta voidaan jatkaa, mutta joitakin ominaisuuksia saattaa jäädä pois.&lt
+@@ -4480,22 +4480,22 @@ Asennusta voidaan jatkaa, mutta joitakin ominaisuuksia saattaa jäädä pois.&lt
  <context>
      <name>calamares-navigation</name>
      <message>
@@ -1342,7 +1251,7 @@ index 378f049ad971d65b963e823a1ab508a2e966da44..d161389c9f218f59ee02b0715a2b2a4f
          <source>Cancel</source>
          <translation>Peruuta</translation>
      </message>
-@@ -4697,77 +4697,77 @@ Pysty vierityspalkki on säädettävissä, nyt leveys on asetettu arvoon 10.</tr
+@@ -4836,77 +4836,77 @@ Pysty vierityspalkki on säädettävissä, nyt leveys on asetettu arvoon 10.</tr
  <context>
      <name>show</name>
      <message>
@@ -1436,10 +1345,10 @@ index 378f049ad971d65b963e823a1ab508a2e966da44..d161389c9f218f59ee02b0715a2b2a4f
          <translation>Liity keskusteluun ja kerro mielipiteesi KaOS foorumilla</translation>
      </message>
 diff --git a/lang/calamares_fr.ts b/lang/calamares_fr.ts
-index 0fd6cc0a7623d42e179a5a72a2fe93cf521cd63b..7b89c54f420b02104a33fe8344eab6aa7f7f52c9 100644
+index 549796d..f18420b 100644
 --- a/lang/calamares_fr.ts
 +++ b/lang/calamares_fr.ts
-@@ -4333,22 +4333,22 @@ L’installation peut continuer, mais certaines fonctionnalités peuvent être d
+@@ -4489,22 +4489,22 @@ L’installation peut continuer, mais certaines fonctionnalités peuvent être d
  <context>
      <name>calamares-navigation</name>
      <message>
@@ -1466,7 +1375,7 @@ index 0fd6cc0a7623d42e179a5a72a2fe93cf521cd63b..7b89c54f420b02104a33fe8344eab6aa
          <source>Cancel</source>
          <translation>Annuler</translation>
      </message>
-@@ -4693,77 +4693,77 @@ La barre de défilement verticale est réglable, la largeur actuelle étant fix
+@@ -4845,77 +4845,77 @@ La barre de défilement verticale est réglable, la largeur actuelle étant fix
  <context>
      <name>show</name>
      <message>
@@ -1560,10 +1469,10 @@ index 0fd6cc0a7623d42e179a5a72a2fe93cf521cd63b..7b89c54f420b02104a33fe8344eab6aa
          <translation>N’hésitez pas à donner votre opinion sur KaOS dans le forum.</translation>
      </message>
 diff --git a/lang/calamares_hi_IN.ts b/lang/calamares_hi_IN.ts
-index 9779c334fc18c0a66d85aa4c08270bf91236cb4a..d2cd7a8b38a52f24dd1160f185f2492098f8865b 100644
+index 897a113..3c82acd 100644
 --- a/lang/calamares_hi_IN.ts
 +++ b/lang/calamares_hi_IN.ts
-@@ -4318,22 +4318,22 @@ Setup can continue, but some features might be disabled.&lt;/p&gt;</source>
+@@ -4474,22 +4474,22 @@ Setup can continue, but some features might be disabled.&lt;/p&gt;</source>
  <context>
      <name>calamares-navigation</name>
      <message>
@@ -1590,7 +1499,7 @@ index 9779c334fc18c0a66d85aa4c08270bf91236cb4a..d2cd7a8b38a52f24dd1160f185f24920
          <source>Cancel</source>
          <translation type="unfinished"/>
      </message>
-@@ -4649,77 +4649,77 @@ The vertical scrollbar is adjustable, current width set to 10.</source>
+@@ -4803,77 +4803,77 @@ The vertical scrollbar is adjustable, current width set to 10.</source>
  <context>
      <name>show</name>
      <message>
@@ -1684,10 +1593,10 @@ index 9779c334fc18c0a66d85aa4c08270bf91236cb4a..d2cd7a8b38a52f24dd1160f185f24920
          <translation type="unfinished"/>
      </message>
 diff --git a/lang/calamares_hr_HR.ts b/lang/calamares_hr_HR.ts
-index e298df87d0e868b071fa2412046686e5c5aa72ca..98919a8b11d53ccf2bf0babcf0f8cdc1616950dd 100644
+index 3e8ad04..d8c5b99 100644
 --- a/lang/calamares_hr_HR.ts
 +++ b/lang/calamares_hr_HR.ts
-@@ -4309,22 +4309,22 @@ Setup can continue, but some features might be disabled.&lt;/p&gt;</source>
+@@ -4465,22 +4465,22 @@ Setup can continue, but some features might be disabled.&lt;/p&gt;</source>
  <context>
      <name>calamares-navigation</name>
      <message>
@@ -1714,7 +1623,7 @@ index e298df87d0e868b071fa2412046686e5c5aa72ca..98919a8b11d53ccf2bf0babcf0f8cdc1
          <source>Cancel</source>
          <translation type="unfinished"/>
      </message>
-@@ -4634,77 +4634,77 @@ The vertical scrollbar is adjustable, current width set to 10.</source>
+@@ -4788,77 +4788,77 @@ The vertical scrollbar is adjustable, current width set to 10.</source>
  <context>
      <name>show</name>
      <message>
@@ -1808,7 +1717,7 @@ index e298df87d0e868b071fa2412046686e5c5aa72ca..98919a8b11d53ccf2bf0babcf0f8cdc1
          <translation type="unfinished"/>
      </message>
 diff --git a/lang/calamares_hu.ts b/lang/calamares_hu.ts
-index 8a62538fdb2c2a4ef43dbf501276439f9220c02f..44c2061338f4c2c572d5dd6400aad430a61f527c 100644
+index 8a62538..44c2061 100644
 --- a/lang/calamares_hu.ts
 +++ b/lang/calamares_hu.ts
 @@ -4217,22 +4217,22 @@ Output:
@@ -1932,7 +1841,7 @@ index 8a62538fdb2c2a4ef43dbf501276439f9220c02f..44c2061338f4c2c572d5dd6400aad430
          <translation type="unfinished"/>
      </message>
 diff --git a/lang/calamares_id_ID.ts b/lang/calamares_id_ID.ts
-index b5fe472f65d51724b99d1e822da7f46dee9b91cd..77e87d553a22e48354d5b91b779c42780ca65407 100644
+index b5fe472..77e87d5 100644
 --- a/lang/calamares_id_ID.ts
 +++ b/lang/calamares_id_ID.ts
 @@ -4219,22 +4219,22 @@ Keluaran:
@@ -2056,10 +1965,10 @@ index b5fe472f65d51724b99d1e822da7f46dee9b91cd..77e87d553a22e48354d5b91b779c4278
          <translation type="unfinished"/>
      </message>
 diff --git a/lang/calamares_it.ts b/lang/calamares_it.ts
-index e664093d6d4d870c9edd6d0cb2ae562b67b641b7..cc2660640e129c66305ce1a2dbaed3bd61ef2adc 100644
+index 4f14884..5949c37 100644
 --- a/lang/calamares_it.ts
 +++ b/lang/calamares_it.ts
-@@ -4317,22 +4317,22 @@ Setup can continue, but some features might be disabled.&lt;/p&gt;</source>
+@@ -4473,22 +4473,22 @@ Setup can continue, but some features might be disabled.&lt;/p&gt;</source>
  <context>
      <name>calamares-navigation</name>
      <message>
@@ -2086,7 +1995,7 @@ index e664093d6d4d870c9edd6d0cb2ae562b67b641b7..cc2660640e129c66305ce1a2dbaed3bd
          <source>Cancel</source>
          <translation>Annulla</translation>
      </message>
-@@ -4649,77 +4649,77 @@ The vertical scrollbar is adjustable, current width set to 10.</source>
+@@ -4803,77 +4803,77 @@ The vertical scrollbar is adjustable, current width set to 10.</source>
  <context>
      <name>show</name>
      <message>
@@ -2180,10 +2089,10 @@ index e664093d6d4d870c9edd6d0cb2ae562b67b641b7..cc2660640e129c66305ce1a2dbaed3bd
          <translation>Non esitare a raccontarci la tua opinione su KaOS nel forum.</translation>
      </message>
 diff --git a/lang/calamares_ja.ts b/lang/calamares_ja.ts
-index c961dc63f217b110c9e4e9834ffa55282807be92..c6c9ba49ea187f454aeddfc6a10becc1934b1425 100644
+index 044aba2..e4b5c53 100644
 --- a/lang/calamares_ja.ts
 +++ b/lang/calamares_ja.ts
-@@ -4318,22 +4318,22 @@ Setup can continue, but some features might be disabled.&lt;/p&gt;</source>
+@@ -4474,22 +4474,22 @@ Setup can continue, but some features might be disabled.&lt;/p&gt;</source>
  <context>
      <name>calamares-navigation</name>
      <message>
@@ -2210,7 +2119,7 @@ index c961dc63f217b110c9e4e9834ffa55282807be92..c6c9ba49ea187f454aeddfc6a10becc1
          <source>Cancel</source>
          <translation type="unfinished"/>
      </message>
-@@ -4644,77 +4644,77 @@ The vertical scrollbar is adjustable, current width set to 10.</source>
+@@ -4798,77 +4798,77 @@ The vertical scrollbar is adjustable, current width set to 10.</source>
  <context>
      <name>show</name>
      <message>
@@ -2304,10 +2213,10 @@ index c961dc63f217b110c9e4e9834ffa55282807be92..c6c9ba49ea187f454aeddfc6a10becc1
          <translation type="unfinished"/>
      </message>
 diff --git a/lang/calamares_nl_NL.ts b/lang/calamares_nl_NL.ts
-index 343f6c06e5245bb03151d992871e96268bc1aa50..195a64c3afd2ed970ba6c8e26b10116651b0acab 100644
+index 120a06a..e3505c4 100644
 --- a/lang/calamares_nl_NL.ts
 +++ b/lang/calamares_nl_NL.ts
-@@ -4336,22 +4336,22 @@ De installatie kan doorgaan, maar sommige functies zijn mogelijk uitgeschakeld.&
+@@ -4492,22 +4492,22 @@ De installatie kan doorgaan, maar sommige functies zijn mogelijk uitgeschakeld.&
  <context>
      <name>calamares-navigation</name>
      <message>
@@ -2334,7 +2243,7 @@ index 343f6c06e5245bb03151d992871e96268bc1aa50..195a64c3afd2ed970ba6c8e26b101166
          <source>Cancel</source>
          <translation>Annuleren</translation>
      </message>
-@@ -4671,77 +4671,77 @@ The vertical scrollbar is adjustable, current width set to 10.</source>
+@@ -4823,77 +4823,77 @@ The vertical scrollbar is adjustable, current width set to 10.</source>
  <context>
      <name>show</name>
      <message>
@@ -2428,7 +2337,7 @@ index 343f6c06e5245bb03151d992871e96268bc1aa50..195a64c3afd2ed970ba6c8e26b101166
          <translation>Aarzel niet om je mening over KaOS te geven op het Forum</translation>
      </message>
 diff --git a/lang/calamares_pl.ts b/lang/calamares_pl.ts
-index e4cf104fbaed361a63c821ef4b53138f4d207ae1..d5e4358799d499fcb8e28734c595b97cfa8b8bd5 100644
+index e4cf104..d5e4358 100644
 --- a/lang/calamares_pl.ts
 +++ b/lang/calamares_pl.ts
 @@ -4216,22 +4216,22 @@ Output:
@@ -2552,7 +2461,7 @@ index e4cf104fbaed361a63c821ef4b53138f4d207ae1..d5e4358799d499fcb8e28734c595b97c
          <translation type="unfinished"/>
      </message>
 diff --git a/lang/calamares_pt_BR.ts b/lang/calamares_pt_BR.ts
-index c53694b03c929fc26c19998c3d8388874a76e8b1..00c732b276adea53458264a65d017669b3383217 100644
+index c53694b..00c732b 100644
 --- a/lang/calamares_pt_BR.ts
 +++ b/lang/calamares_pt_BR.ts
 @@ -4217,22 +4217,22 @@ Output:
@@ -2676,7 +2585,7 @@ index c53694b03c929fc26c19998c3d8388874a76e8b1..00c732b276adea53458264a65d017669
          <translation type="unfinished"/>
      </message>
 diff --git a/lang/calamares_pt_PT.ts b/lang/calamares_pt_PT.ts
-index c90978265d203fd82fcf6df317bab3c63796d32c..a46a14afd55fa4d4e7c97e034071792a5a74c6b0 100644
+index c909782..a46a14a 100644
 --- a/lang/calamares_pt_PT.ts
 +++ b/lang/calamares_pt_PT.ts
 @@ -4217,22 +4217,22 @@ Output:
@@ -2800,7 +2709,7 @@ index c90978265d203fd82fcf6df317bab3c63796d32c..a46a14afd55fa4d4e7c97e034071792a
          <translation type="unfinished"/>
      </message>
 diff --git a/lang/calamares_ro_RO.ts b/lang/calamares_ro_RO.ts
-index 315377375118ee9a664d97eac80ae5c1b93d271c..ed56a5bf7a9af30417519bb42212d173da4797ab 100644
+index 3153773..ed56a5b 100644
 --- a/lang/calamares_ro_RO.ts
 +++ b/lang/calamares_ro_RO.ts
 @@ -4217,22 +4217,22 @@ Output:
@@ -2924,7 +2833,7 @@ index 315377375118ee9a664d97eac80ae5c1b93d271c..ed56a5bf7a9af30417519bb42212d173
          <translation type="unfinished"/>
      </message>
 diff --git a/lang/calamares_ru.ts b/lang/calamares_ru.ts
-index 4377549667163a46465f22d30bb4b3ee8389fb4e..93e4086b08c04ea23b0c20d380c429c7f2fa3d39 100644
+index 4377549..93e4086 100644
 --- a/lang/calamares_ru.ts
 +++ b/lang/calamares_ru.ts
 @@ -4310,22 +4310,22 @@ Setup can continue, but some features might be disabled.&lt;/p&gt;</source>
@@ -3048,7 +2957,7 @@ index 4377549667163a46465f22d30bb4b3ee8389fb4e..93e4086b08c04ea23b0c20d380c429c7
          <translation type="unfinished"/>
      </message>
 diff --git a/lang/calamares_sr_RS.ts b/lang/calamares_sr_RS.ts
-index 4a32479cefcf8c1900bbc0f62fc471578b37c361..e0849ad9cbdfde8b7ba8f0fef6df8571dc7c3642 100644
+index 4a32479..e0849ad 100644
 --- a/lang/calamares_sr_RS.ts
 +++ b/lang/calamares_sr_RS.ts
 @@ -4217,22 +4217,22 @@ Output:
@@ -3172,7 +3081,7 @@ index 4a32479cefcf8c1900bbc0f62fc471578b37c361..e0849ad9cbdfde8b7ba8f0fef6df8571
          <translation type="unfinished"/>
      </message>
 diff --git a/lang/calamares_sr_RS@latin.ts b/lang/calamares_sr_RS@latin.ts
-index c81dd37d28bf03de98b47cda8baf446df3348abc..873d31dde1f4c872ffd90050c4ae9cb7fff4ded6 100644
+index c81dd37..873d31d 100644
 --- a/lang/calamares_sr_RS@latin.ts
 +++ b/lang/calamares_sr_RS@latin.ts
 @@ -4217,22 +4217,22 @@ Output:
@@ -3296,7 +3205,7 @@ index c81dd37d28bf03de98b47cda8baf446df3348abc..873d31dde1f4c872ffd90050c4ae9cb7
          <translation type="unfinished"/>
      </message>
 diff --git a/lang/calamares_sv.ts b/lang/calamares_sv.ts
-index 714373d724917820251ed5cdf3ffb28a1f31c617..d70d279b355e68cb9138e9661e5ebbd8f2d7735c 100644
+index 714373d..d70d279 100644
 --- a/lang/calamares_sv.ts
 +++ b/lang/calamares_sv.ts
 @@ -4216,22 +4216,22 @@ Output:
@@ -3420,7 +3329,7 @@ index 714373d724917820251ed5cdf3ffb28a1f31c617..d70d279b355e68cb9138e9661e5ebbd8
          <translation type="unfinished"/>
      </message>
 diff --git a/lang/calamares_tr_TR.ts b/lang/calamares_tr_TR.ts
-index 4448e6288fa94e1291042f0e5fdb422fcd560496..2b2e7b911fadf5b7c2ec8e4416f128289b166665 100644
+index 4448e62..2b2e7b9 100644
 --- a/lang/calamares_tr_TR.ts
 +++ b/lang/calamares_tr_TR.ts
 @@ -4217,22 +4217,22 @@ Output:
@@ -3544,7 +3453,7 @@ index 4448e6288fa94e1291042f0e5fdb422fcd560496..2b2e7b911fadf5b7c2ec8e4416f12828
          <translation type="unfinished"/>
      </message>
 diff --git a/settings.conf b/settings.conf
-index c355fc1d..6bbcc994 100644
+index c355fc1..6bbcc99 100644
 --- a/settings.conf
 +++ b/settings.conf
 @@ -120,60 +120,63 @@ instances:
@@ -3652,7 +3561,7 @@ index c355fc1d..6bbcc994 100644
  # If this is set to true, Calamares will show an "Are you sure?" prompt right
  # before each execution phase, i.e. at points of no return. If this is set to
 diff --git a/src/branding/CMakeLists.txt b/src/branding/CMakeLists.txt
-index 514d13ee7a447fdd4f312db7f8d9facb13c03671..667c3e1baabb8cfb3ebb7f39e8888165d213f83a 100644
+index 514d13e..667c3e1 100644
 --- a/src/branding/CMakeLists.txt
 +++ b/src/branding/CMakeLists.txt
 @@ -7,4 +7,4 @@
@@ -3662,7 +3571,7 @@ index 514d13ee7a447fdd4f312db7f8d9facb13c03671..667c3e1baabb8cfb3ebb7f39e8888165
 -calamares_add_branding_subdirectory( kaos_branding )
 +calamares_add_branding_subdirectory( nobara_branding )
 diff --git a/src/branding/default/branding.desc b/src/branding/default/branding.desc
-index 729b958e8d9910aa7caa23ef6ffec7bc3ade8bf2..0c0e60dba829167b8a9096ec97a55928000e8047 100644
+index 729b958..0c0e60d 100644
 --- a/src/branding/default/branding.desc
 +++ b/src/branding/default/branding.desc
 @@ -122,14 +122,14 @@ navigation: widget
@@ -3690,7 +3599,7 @@ index 729b958e8d9910aa7caa23ef6ffec7bc3ade8bf2..0c0e60dba829167b8a9096ec97a55928
      donateUrl:           https://kde.org/community/donations/index.php
 diff --git a/src/branding/nobara_branding/.tx/config b/src/branding/nobara_branding/.tx/config
 new file mode 100644
-index 0000000000000000000000000000000000000000..5ce2b61e952ad82245ddfa5acc229f425bacedb6
+index 0000000..5ce2b61
 --- /dev/null
 +++ b/src/branding/nobara_branding/.tx/config
 @@ -0,0 +1,8 @@
@@ -3927,7 +3836,7 @@ similarity index 100%
 rename from src/branding/kaos_branding/stylesheet.qss
 rename to src/branding/nobara_branding/stylesheet.qss
 diff --git a/src/calamares/CMakeLists.txt b/src/calamares/CMakeLists.txt
-index 3be6b92a3ff0b841bfe013eea081c5389d2bc094..965653c02bb05d11e2bc7bcffc1b9e435fa345a8 100644
+index 3be6b92..965653c 100644
 --- a/src/calamares/CMakeLists.txt
 +++ b/src/calamares/CMakeLists.txt
 @@ -50,7 +50,7 @@ install(TARGETS calamares_bin BUNDLE DESTINATION . RUNTIME DESTINATION ${CMAKE_I
@@ -3940,7 +3849,7 @@ index 3be6b92a3ff0b841bfe013eea081c5389d2bc094..965653c02bb05d11e2bc7bcffc1b9e43
  )
  
 diff --git a/src/modules/bootloader/bootloader.conf b/src/modules/bootloader/bootloader.conf
-index 9679f6696c2e535780163283103e82bb6aec5a1f..215cfad591f23d1b870131814121192f73cf113b 100644
+index 9679f66..215cfad 100644
 --- a/src/modules/bootloader/bootloader.conf
 +++ b/src/modules/bootloader/bootloader.conf
 @@ -14,7 +14,7 @@
@@ -3979,7 +3888,7 @@ index 9679f6696c2e535780163283103e82bb6aec5a1f..215cfad591f23d1b870131814121192f
  # Optionally install a copy of the GRUB EFI bootloader as the EFI
  # fallback loader (either bootia32.efi or bootx64.efi depending on
 diff --git a/src/modules/bootloader/main.py b/src/modules/bootloader/main.py
-index 0a9e965987f10aae7ee16542ccbca86e831b577d..b0e3abebfcb3bdc8e411a704a73e319e42b25188 100644
+index 0a9e965..a6b10e6 100644
 --- a/src/modules/bootloader/main.py
 +++ b/src/modules/bootloader/main.py
 @@ -41,6 +41,8 @@ _ = gettext.translation("calamares-python",
@@ -3991,8 +3900,86 @@ index 0a9e965987f10aae7ee16542ccbca86e831b577d..b0e3abebfcb3bdc8e411a704a73e319e
  
  def pretty_name():
      return _("Install bootloader.")
+diff --git a/src/modules/dracut/dracut.conf b/src/modules/dracut/dracut.conf
+index 619ace5..ba1a7b0 100644
+--- a/src/modules/dracut/dracut.conf
++++ b/src/modules/dracut/dracut.conf
+@@ -5,6 +5,6 @@
+ ---
+ # Dracut defaults to setting initramfs-<kernel-version>.img
+ # If you want to specify another filename for the resulting image,
+-# set a custom kernel name, including the path
++# set a custom name, including the path
+ #
+-kernelName: /boot/initramfs-linux.img
++initramfsName: /boot/initramfs-freebsd.img
+diff --git a/src/modules/dracut/dracut.schema.yaml b/src/modules/dracut/dracut.schema.yaml
+index 503b1a4..d6008e1 100644
+--- a/src/modules/dracut/dracut.schema.yaml
++++ b/src/modules/dracut/dracut.schema.yaml
+@@ -6,4 +6,4 @@ $id: https://calamares.io/schemas/dracut
+ additionalProperties: false
+ type: object
+ properties:
+-    kernelName: { type: string }
++    initramfsName: { type: string }
+diff --git a/src/modules/dracut/main.py b/src/modules/dracut/main.py
+index e96fefa..85e6f3e 100644
+--- a/src/modules/dracut/main.py
++++ b/src/modules/dracut/main.py
+@@ -12,9 +12,10 @@
+ #
+ #   Calamares is Free Software: see the License-Identifier above.
+ #
++import subprocess
+ 
+ import libcalamares
+-from libcalamares.utils import check_target_env_call
++from libcalamares.utils import target_env_process_output
+ 
+ 
+ import gettext
+@@ -34,15 +35,20 @@ def run_dracut():
+ 
+     :return:
+     """
+-    kernelName = libcalamares.job.configuration['kernelName']
++    try:
++        initramfs_name = libcalamares.job.configuration['initramfsName']
++        target_env_process_output(['dracut', '-f', initramfs_name])
++    except KeyError:
++        try:
++            target_env_process_output(['dracut', '-f'])
++        except subprocess.CalledProcessError as cpe:
++            libcalamares.utils.warning(f"Dracut failed with output: {cpe.output}")
++            return cpe.returncode
++    except subprocess.CalledProcessError as cpe:
++        libcalamares.utils.warning(f"Dracut failed with output: {cpe.output}")
++        return cpe.returncode
+ 
+-    if not kernelName:
+-        return check_target_env_call(['dracut', '-f'])
+-    else:
+-        return check_target_env_call(['dracut', '-f',
+-                                      '--hostonly', '--no-hostonly-cmdline',
+-                                      '{}'.format(kernelName),
+-                                      '--no-early-microcode', '--zstd'])
++    return 0
+ 
+ 
+ def run():
+@@ -53,7 +59,6 @@ def run():
+     :return:
+     """
+     return_code = run_dracut()
+-
+     if return_code != 0:
+-        return (_("Failed to run dracut on the target"),
+-                _("The exit code was {}").format(return_code))
++        return (_("Failed to run dracut"),
++                _(f"Dracut failed to run on the target with return code: {return_code}"))
 diff --git a/src/modules/grubcfg/grubcfg.conf b/src/modules/grubcfg/grubcfg.conf
-index 189d4c2a9c54d2a5f30ddb900cc4993fa9b95fb0..86bb61ea5d96e96e5cf462da96d1e85f188191d4 100644
+index 189d4c2..86bb61e 100644
 --- a/src/modules/grubcfg/grubcfg.conf
 +++ b/src/modules/grubcfg/grubcfg.conf
 @@ -18,7 +18,7 @@
@@ -4013,7 +4000,7 @@ index 189d4c2a9c54d2a5f30ddb900cc4993fa9b95fb0..86bb61ea5d96e96e5cf462da96d1e85f
  # Set to true to force defaults to be used even when not overwriting
  always_use_defaults: false
 diff --git a/src/modules/grubconf/grubconf.conf b/src/modules/grubconf/grubconf.conf
-index 99c8696b4d451e78996167b936ede84d25a33a43..43f68d8fd082bd20434da9b3f1cb33f367342aef 100644
+index 99c8696..43f68d8 100644
 --- a/src/modules/grubconf/grubconf.conf
 +++ b/src/modules/grubconf/grubconf.conf
 @@ -1,3 +1,2 @@
@@ -4021,7 +4008,7 @@ index 99c8696b4d451e78996167b936ede84d25a33a43..43f68d8fd082bd20434da9b3f1cb33f3
  # Replace 'LinuxDistribution' with your distribution name - for example with 'KaOS'
 -distributor: KaOS
 diff --git a/src/modules/keyboard/keyboard.conf b/src/modules/keyboard/keyboard.conf
-index fe82a9b61a04709d9a8d749d762afae417c1d89d..4184c59863029467b6c45e2e642a7cad42fb7c87 100644
+index fe82a9b..4184c59 100644
 --- a/src/modules/keyboard/keyboard.conf
 +++ b/src/modules/keyboard/keyboard.conf
 @@ -20,7 +20,7 @@ convertedKeymapPath: "/lib/kbd/keymaps/xkb"
@@ -4034,7 +4021,7 @@ index fe82a9b61a04709d9a8d749d762afae417c1d89d..4184c59863029467b6c45e2e642a7cad
  # Use the Locale1 service instead of directly managing configuration files.
  # This is the modern mechanism for configuring the systemwide keyboard layout,
 diff --git a/src/modules/license/license.conf b/src/modules/license/license.conf
-index 30e2ed99b3c24e0e6733cbcc1db6a5819db3a334..a9263c9decc72b42888df0e6294c6006dd71bbe5 100644
+index 30e2ed9..a9263c9 100644
 --- a/src/modules/license/license.conf
 +++ b/src/modules/license/license.conf
 @@ -6,12 +6,12 @@
@@ -4057,7 +4044,7 @@ index 30e2ed99b3c24e0e6733cbcc1db6a5819db3a334..a9263c9decc72b42888df0e6294c6006
  #- id:       amd
  #  name:     Catalyst
 diff --git a/src/modules/locale/locale.conf b/src/modules/locale/locale.conf
-index 4463f7a9455e71bd3f175b2778f323f65a5a5c32..bb022c1d06591d1f80107b4623af33a675e02b34 100644
+index 4463f7a..bb022c1 100644
 --- a/src/modules/locale/locale.conf
 +++ b/src/modules/locale/locale.conf
 @@ -118,8 +118,8 @@ zone:                       "New_York"
@@ -4072,7 +4059,7 @@ index 4463f7a9455e71bd3f175b2778f323f65a5a5c32..bb022c1d06591d1f80107b4623af33a6
  # For testing purposes, you could use *fixed* style, to see how Calamares
  # behaves in a particular zone:
 diff --git a/src/modules/localeq/localeq.conf b/src/modules/localeq/localeq.conf
-index dbe56fbd03fd7b355c7fc8d5a161c25df0257e6c..f6f2449c5fe8b1977efec56a6d040c02a993a4a3 100644
+index dbe56fb..f6f2449 100644
 --- a/src/modules/localeq/localeq.conf
 +++ b/src/modules/localeq/localeq.conf
 @@ -95,9 +95,9 @@ timezone:                   "America/New York"
@@ -4089,7 +4076,7 @@ index dbe56fbd03fd7b355c7fc8d5a161c25df0257e6c..f6f2449c5fe8b1977efec56a6d040c02
  # To match coordinates with timezone in Map.qml:
  # geoname:
 diff --git a/src/modules/mount/mount.conf b/src/modules/mount/mount.conf
-index da95395699cdccde8e52cfc94e1eef940a5d2282..1801e3c07b2662e866e94dcf2ed6bfad80e1af0b 100644
+index da95395..1801e3c 100644
 --- a/src/modules/mount/mount.conf
 +++ b/src/modules/mount/mount.conf
 @@ -50,15 +50,8 @@ extraMounts:
@@ -4118,7 +4105,7 @@ index da95395699cdccde8e52cfc94e1eef940a5d2282..1801e3c07b2662e866e94dcf2ed6bfad
        options: [ defaults, noatime ]
  
 diff --git a/src/modules/packages/packages.conf b/src/modules/packages/packages.conf
-index b9777f606642b28075a146151637bc7b26dd7020..3637a01c0dca05ad691ae188dd65cb07f9135f3c 100644
+index b9777f6..3637a01 100644
 --- a/src/modules/packages/packages.conf
 +++ b/src/modules/packages/packages.conf
 @@ -36,7 +36,7 @@
@@ -4158,7 +4145,7 @@ index b9777f606642b28075a146151637bc7b26dd7020..3637a01c0dca05ad691ae188dd65cb07
 +    - anaconda-install-env-deps
 +    - anaconda-live
 diff --git a/src/modules/partition/core/PartitionActions.cpp b/src/modules/partition/core/PartitionActions.cpp
-index ddfabaf85d7e666a16247b621e7cc513e5b62f90..f5116e6e4179b74a7de9c27abc0d784d64b7de29 100644
+index ddfabaf..f5116e6 100644
 --- a/src/modules/partition/core/PartitionActions.cpp
 +++ b/src/modules/partition/core/PartitionActions.cpp
 @@ -176,30 +176,15 @@ doAutopartition( PartitionCoreModule* core, Device* dev, Choices::AutoPartitionO
@@ -4202,7 +4189,7 @@ index ddfabaf85d7e666a16247b621e7cc513e5b62f90..f5116e6e4179b74a7de9c27abc0d784d
          if ( gs->contains( "swapPartitionName" ) )
          {
 diff --git a/src/modules/partition/core/PartitionLayout.cpp b/src/modules/partition/core/PartitionLayout.cpp
-index 11e49c5a8d20925cccaf01667dfffd606ef2e633..9755288403d337950c4a595364899e1cb5a4e319 100644
+index 69c9876..20ea8f5 100644
 --- a/src/modules/partition/core/PartitionLayout.cpp
 +++ b/src/modules/partition/core/PartitionLayout.cpp
 @@ -312,17 +312,35 @@ PartitionLayout::createPartitions( Device* dev,
@@ -4253,7 +4240,7 @@ index 11e49c5a8d20925cccaf01667dfffd606ef2e633..9755288403d337950c4a595364899e1c
  
          // For zfs, we need to make the passphrase available to later modules
 diff --git a/src/modules/partition/partition.conf b/src/modules/partition/partition.conf
-index 5121475..f993e89 100644
+index 5121475..34e4651 100644
 --- a/src/modules/partition/partition.conf
 +++ b/src/modules/partition/partition.conf
 @@ -32,10 +32,10 @@
@@ -4339,7 +4326,7 @@ index 5121475..f993e89 100644
 +      mountPoint: "/"
 +      size: 100%
 diff --git a/src/modules/plasmalnf/plasmalnf.conf b/src/modules/plasmalnf/plasmalnf.conf
-index 105f247efd406f591401f74ded98e7370ba1ab0f..b9105d145fa5c24a3890f0a43aabf92c77fc1fb7 100644
+index 105f247..b9105d1 100644
 --- a/src/modules/plasmalnf/plasmalnf.conf
 +++ b/src/modules/plasmalnf/plasmalnf.conf
 @@ -22,7 +22,7 @@ lnftool:	"/usr/bin/lookandfeeltool"
@@ -4382,7 +4369,7 @@ index 105f247efd406f591401f74ded98e7370ba1ab0f..b9105d145fa5c24a3890f0a43aabf92c
  # You can pre-select one of the themes; it is not applied
  # immediately, but its radio-button is switched on to indicate
 diff --git a/src/modules/shellprocess/shellprocess.conf b/src/modules/shellprocess/shellprocess.conf
-index 709d2a80f85393d832f9e9dc336398995fa5371f..69d9697dfb03f23d4a77829cbd337128b92f77da 100644
+index 709d2a8..6be99f4 100644
 --- a/src/modules/shellprocess/shellprocess.conf
 +++ b/src/modules/shellprocess/shellprocess.conf
 @@ -125,13 +125,13 @@ verbose: false
@@ -4426,7 +4413,7 @@ index 709d2a80f85393d832f9e9dc336398995fa5371f..69d9697dfb03f23d4a77829cbd337128
 +    - "echo 'yes' > /etc/nobara/newinstall"
 +    - "authselect enable-feature with-fingerprint"
 diff --git a/src/modules/unpackfs/unpackfs.conf b/src/modules/unpackfs/unpackfs.conf
-index aa562ea618510af8ac87cfa38b41015bf5904db8..ea31313a04cd5d85c084854f10dbde4de7066dd1 100644
+index aa562ea..0ae2487 100644
 --- a/src/modules/unpackfs/unpackfs.conf
 +++ b/src/modules/unpackfs/unpackfs.conf
 @@ -104,6 +104,6 @@
@@ -4434,22 +4421,12 @@ index aa562ea618510af8ac87cfa38b41015bf5904db8..ea31313a04cd5d85c084854f10dbde4d
  
  unpack:
 -    -   source: "/bootmnt/kdeos/x86_64/root-image.sqfs"
-+    -   source: "/run/rootfsbase"
-         sourcefs: "squashfs"
-         destination: ""
-diff --git a/src/modules/unpackfs/unpackfs.conf b/src/modules/unpackfs/unpackfs.conf
-index ea31313a..c6dc4eee 100644
---- a/src/modules/unpackfs/unpackfs.conf
-+++ b/src/modules/unpackfs/unpackfs.conf
-@@ -105,5 +105,5 @@
- 
- unpack:
-     -   source: "/run/rootfsbase"
 -        sourcefs: "squashfs"
++    -   source: "/run/rootfsbase"
 +        sourcefs: "file"
          destination: ""
 diff --git a/src/modules/users/users.conf b/src/modules/users/users.conf
-index f4ae2eed32498633946d5f60be7e77fa9d57250d..6db779cbd48174d7daa3d0a3b765c80fd7fde50a 100644
+index f4ae2ee..6db779c 100644
 --- a/src/modules/users/users.conf
 +++ b/src/modules/users/users.conf
 @@ -38,15 +38,9 @@ defaultGroups:
@@ -4510,159 +4487,8 @@ index f4ae2eed32498633946d5f60be7e77fa9d57250d..6db779cbd48174d7daa3d0a3b765c80f
    forbidden_names: [ localhost ]
  
  # Enable Active Directory enrollment support (opt-in)
-diff --git a/src/modules/usersq/usersq.conf b/src/modules/usersq/usersq.conf
-index f1dedcd8408b303c5497a32e4a9d48564d98aeee..489b5f753a3e0f77e8eadfd14b79ec9e9f6b0137 100644
---- a/src/modules/usersq/usersq.conf
-+++ b/src/modules/usersq/usersq.conf
-@@ -9,13 +9,7 @@
- # Adjust to your Distribution defaults.
- defaultGroups:
-     - users
--    - lp
--    - video
--    - network
--    - storage
-     - wheel
--    - audio
--    - lpadmin
- 
- autologinGroup:  autologin
- 
-@@ -31,9 +25,8 @@ doReusePassword: false
- 
- passwordRequirements:
-     minLength: 8  # Password at least this many characters
--    maxLength: 25  # Password at most this many characters
-     libpwquality:
--        - minlen=0
-+        - minlen=8
-         - minclass=0
- 
- allowWeakPasswords: true
-@@ -41,14 +34,15 @@ allowWeakPasswords: true
- allowWeakPasswordsDefault: true
- 
- user:
--  shell: /bin/bash
-+  shell: ""
-   forbidden_names: [ root ]
--#  home_permissions: "o700"
-+  home_permissions: "o700"
- 
- hostname:
-   location: EtcFile
-   writeHostsFile: true
--  #template: "derp-${cpu}"
-+  template: "nobara-pc"
-+  forbidden_names: [ localhost ]
- 
- presets:
-     fullName:
-diff --git a/src/modules/welcome/welcome.conf b/src/modules/welcome/welcome.conf
-index 6f0f3c1ee0bd5fe909bc22c97055d31997478647..2915118faf706b8d7cc9ef81a74a3a249ecddc5b 100644
---- a/src/modules/welcome/welcome.conf
-+++ b/src/modules/welcome/welcome.conf
-@@ -16,9 +16,9 @@
- # instead of the one from the branding file, or empty or not-set
- # which will hide the button.
- showSupportUrl:         false
--showKnownIssuesUrl:     true
-+showKnownIssuesUrl:     false
- showReleaseNotesUrl:    false
--showDonateUrl:  https://kaosx.us/about/donors/
-+showDonateUrl:          false
- 
- # Requirements checking. These are general, generic, things
- # that are checked. They may not match with the actual requirements
-@@ -34,7 +34,7 @@ requirements:
- 
-     # To check for internet connectivity, Calamares does a HTTP GET
-     # on this URL; on success (e.g. HTTP code 200) internet is OK.
--    internetCheckUrl:   http://google.com
-+    internetCheckUrl:   https://fedoraproject.org/static/hotspot.txt
- 
-     # List conditions to check. Each listed condition will be
-     # probed in some way, and yields true or false according to
-@@ -45,7 +45,6 @@ requirements:
-         - storage
-         - ram
-         - power
--        - internet
-         - root
-         - screen
-     # List conditions that **must** be satisfied (from the list
-@@ -79,9 +78,9 @@ requirements:
- #       data. Timezone, city, or other data will not be recognized.
- #
- geoip:
--    style:  "xml"
--    url:    "https://ipapi.co/xml"  # extended XML format
--    selector: "country"  # blank uses default, which is wrong
-+    style:    "json"
-+    url:      "https://geoip.fedoraproject.org/city"
-+    selector: "country_code"
- 
- # User interface
- #
-diff --git a/src/modules/welcomeq/welcomeq.conf b/src/modules/welcomeq/welcomeq.conf
-index 2d958634d671354debb3ef0e3f29784fec5f5c75..40d81a74548bf08e990eb09da12b16ec126c347d 100644
---- a/src/modules/welcomeq/welcomeq.conf
-+++ b/src/modules/welcomeq/welcomeq.conf
-@@ -14,19 +14,18 @@ qmlSearch: both
- 
- # Everything below here is documented in `welcome.conf`
- showSupportUrl:         false
--showKnownIssuesUrl:     true
--showReleaseNotesUrl:    true
--showDonateUrl:  https://kaosx.us/donate/
-+showKnownIssuesUrl:     false
-+showReleaseNotesUrl:    false
-+showDonateUrl:          false
- 
- requirements:
-     requiredStorage:    10.5
-     requiredRam:        1.0
--    internetCheckUrl:   http://google.com
-+    internetCheckUrl:   https://fedoraproject.org/static/hotspot.txt
-     check:
-         - storage
-         - ram
-         - power
--        - internet
-         - root
-         - screen
-     required:
-@@ -35,8 +34,8 @@ requirements:
-         - root
- 
- geoip:
--    style:  "xml"
--    url:    "https://ipapi.co/xml"  # extended XML format
--    selector: "country"  # blank uses default, which is wrong
-+    style:    "json"
-+    url:      "https://geoip.fedoraproject.org/city"
-+    selector: "country_code"
- 
- #languageIcon: languages
--- 
-2.47.1
-
-
-diff --git a/src/modules/usersq/usersq.qrc b/src/modules/usersq/usersq.qrc
-index c64d047..a38727b 100644
---- a/src/modules/usersq/usersq.qrc
-+++ b/src/modules/usersq/usersq.qrc
-@@ -4,6 +4,8 @@
-         <file>content/users.svg</file>
-         <file>content/users_g.svg</file>
-         <file>content/users_r.svg</file>
-+        <file>content/input-keyboard-virtual-on.svg</file>
-+        <file>content/input-keyboard-virtual-off.svg</file>
-         <file>UserInput.qml</file>
-         <file>usersq.qml</file>
-     </qresource>
 diff --git a/src/modules/usersq/UserInput.qml b/src/modules/usersq/UserInput.qml
-index 34d06f6..205a3b2 100644
+index 34d06f6..ae73a1c 100644
 --- a/src/modules/usersq/UserInput.qml
 +++ b/src/modules/usersq/UserInput.qml
 @@ -13,6 +13,7 @@ import io.calamares.ui 1.0
@@ -4687,17 +4513,8 @@ index 34d06f6..205a3b2 100644
 -    readonly property color unfilledFieldOutlineColor: "#F1F1F1"
 -    readonly property color positiveFieldOutlineColor: "#DCFFDC"
 -    readonly property color negativeFieldOutlineColor: "#BE5F68"
--    readonly property color headerTextColor: "#1F1F1F"
--    readonly property color commentsColor: "#6D6D6D"
--
--    width: parent.width
--    height: parent.height
--
--    Label {
--        id: header
--        z: 999
-+    readonly property color headerTextColor: "#1F1F1F"
-+    readonly property color commentsColor: "#6D6D6D"
+     readonly property color headerTextColor: "#1F1F1F"
+     readonly property color commentsColor: "#6D6D6D"
 +    readonly property color backgroundColor: "#EEEEEE"
 +    readonly property color buttonColor: "#9E9E9E"
 +    readonly property color buttonActiveColor: "#423A57"
@@ -4711,14 +4528,11 @@ index 34d06f6..205a3b2 100644
 +    color: backgroundColor // Set the entire background color here
 +
 +    Item {
-         width: parent.width
--        height: 60
--        horizontalAlignment: Qt.AlignHCenter
--        color: headerTextColor
--        background: Rectangle {
--            color: Kirigami.Theme.backgroundColor
++        width: parent.width
 +        height: parent.height
-+
+ 
+-    width: parent.width
+-    height: parent.height
 +        Label {
 +            id: header
 +            z: 999
@@ -4732,7 +4546,16 @@ index 34d06f6..205a3b2 100644
 +            background: Rectangle {
 +                color: backgroundColor
 +            }
-+
+ 
+-    Label {
+-        id: header
+-        z: 999
+-        width: parent.width
+-        height: 60
+-        horizontalAlignment: Qt.AlignHCenter
+-        color: headerTextColor
+-        background: Rectangle {
+-            color: Kirigami.Theme.backgroundColor
          }
 -        font.weight: Font.Medium
 -        font.pointSize: 12
@@ -5622,3 +5445,153 @@ index 34d06f6..205a3b2 100644
              }
          }
      }
+diff --git a/src/modules/usersq/usersq.conf b/src/modules/usersq/usersq.conf
+index f1dedcd..489b5f7 100644
+--- a/src/modules/usersq/usersq.conf
++++ b/src/modules/usersq/usersq.conf
+@@ -9,13 +9,7 @@
+ # Adjust to your Distribution defaults.
+ defaultGroups:
+     - users
+-    - lp
+-    - video
+-    - network
+-    - storage
+     - wheel
+-    - audio
+-    - lpadmin
+ 
+ autologinGroup:  autologin
+ 
+@@ -31,9 +25,8 @@ doReusePassword: false
+ 
+ passwordRequirements:
+     minLength: 8  # Password at least this many characters
+-    maxLength: 25  # Password at most this many characters
+     libpwquality:
+-        - minlen=0
++        - minlen=8
+         - minclass=0
+ 
+ allowWeakPasswords: true
+@@ -41,14 +34,15 @@ allowWeakPasswords: true
+ allowWeakPasswordsDefault: true
+ 
+ user:
+-  shell: /bin/bash
++  shell: ""
+   forbidden_names: [ root ]
+-#  home_permissions: "o700"
++  home_permissions: "o700"
+ 
+ hostname:
+   location: EtcFile
+   writeHostsFile: true
+-  #template: "derp-${cpu}"
++  template: "nobara-pc"
++  forbidden_names: [ localhost ]
+ 
+ presets:
+     fullName:
+diff --git a/src/modules/usersq/usersq.qrc b/src/modules/usersq/usersq.qrc
+index c64d047..a38727b 100644
+--- a/src/modules/usersq/usersq.qrc
++++ b/src/modules/usersq/usersq.qrc
+@@ -4,6 +4,8 @@
+         <file>content/users.svg</file>
+         <file>content/users_g.svg</file>
+         <file>content/users_r.svg</file>
++        <file>content/input-keyboard-virtual-on.svg</file>
++        <file>content/input-keyboard-virtual-off.svg</file>
+         <file>UserInput.qml</file>
+         <file>usersq.qml</file>
+     </qresource>
+diff --git a/src/modules/welcome/welcome.conf b/src/modules/welcome/welcome.conf
+index 6f0f3c1..2915118 100644
+--- a/src/modules/welcome/welcome.conf
++++ b/src/modules/welcome/welcome.conf
+@@ -16,9 +16,9 @@
+ # instead of the one from the branding file, or empty or not-set
+ # which will hide the button.
+ showSupportUrl:         false
+-showKnownIssuesUrl:     true
++showKnownIssuesUrl:     false
+ showReleaseNotesUrl:    false
+-showDonateUrl:  https://kaosx.us/about/donors/
++showDonateUrl:          false
+ 
+ # Requirements checking. These are general, generic, things
+ # that are checked. They may not match with the actual requirements
+@@ -34,7 +34,7 @@ requirements:
+ 
+     # To check for internet connectivity, Calamares does a HTTP GET
+     # on this URL; on success (e.g. HTTP code 200) internet is OK.
+-    internetCheckUrl:   http://google.com
++    internetCheckUrl:   https://fedoraproject.org/static/hotspot.txt
+ 
+     # List conditions to check. Each listed condition will be
+     # probed in some way, and yields true or false according to
+@@ -45,7 +45,6 @@ requirements:
+         - storage
+         - ram
+         - power
+-        - internet
+         - root
+         - screen
+     # List conditions that **must** be satisfied (from the list
+@@ -79,9 +78,9 @@ requirements:
+ #       data. Timezone, city, or other data will not be recognized.
+ #
+ geoip:
+-    style:  "xml"
+-    url:    "https://ipapi.co/xml"  # extended XML format
+-    selector: "country"  # blank uses default, which is wrong
++    style:    "json"
++    url:      "https://geoip.fedoraproject.org/city"
++    selector: "country_code"
+ 
+ # User interface
+ #
+diff --git a/src/modules/welcomeq/welcomeq.conf b/src/modules/welcomeq/welcomeq.conf
+index 2d95863..40d81a7 100644
+--- a/src/modules/welcomeq/welcomeq.conf
++++ b/src/modules/welcomeq/welcomeq.conf
+@@ -14,19 +14,18 @@ qmlSearch: both
+ 
+ # Everything below here is documented in `welcome.conf`
+ showSupportUrl:         false
+-showKnownIssuesUrl:     true
+-showReleaseNotesUrl:    true
+-showDonateUrl:  https://kaosx.us/donate/
++showKnownIssuesUrl:     false
++showReleaseNotesUrl:    false
++showDonateUrl:          false
+ 
+ requirements:
+     requiredStorage:    10.5
+     requiredRam:        1.0
+-    internetCheckUrl:   http://google.com
++    internetCheckUrl:   https://fedoraproject.org/static/hotspot.txt
+     check:
+         - storage
+         - ram
+         - power
+-        - internet
+         - root
+         - screen
+     required:
+@@ -35,8 +34,8 @@ requirements:
+         - root
+ 
+ geoip:
+-    style:  "xml"
+-    url:    "https://ipapi.co/xml"  # extended XML format
+-    selector: "country"  # blank uses default, which is wrong
++    style:    "json"
++    url:      "https://geoip.fedoraproject.org/city"
++    selector: "country_code"
+ 
+ #languageIcon: languages
+-- 
+2.51.0
+
