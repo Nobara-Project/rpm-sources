@@ -15,6 +15,7 @@ URL:            http://www.nvidia.com/object/unix.html
 BuildArch:      noarch
 
 Source0:        %{name}-%{version}.tar.xz
+Source17:       nvidia-boot-update
 Source18:       kernel.conf
 Source19:       nvidia-modeset.conf
 Source20:       nvidia.conf
@@ -62,6 +63,9 @@ install -p -m 644 -D %{SOURCE21} %{buildroot}%{_udevrulesdir}/60-nvidia.rules
 mkdir -p %{buildroot}%{_prefix}/lib/firmware/nvidia/%{version}/
 install -p -m 644 firmware/* %{buildroot}%{_prefix}/lib/firmware/nvidia/%{version}
 
+%post
+%{_bindir}/nvidia-boot-update post
+
 %preun
 if [ "$1" -eq "0" ]; then
   %{_bindir}/nvidia-boot-update preun
@@ -79,6 +83,30 @@ fi ||:
 %{_udevrulesdir}/60-nvidia.rules
 
 %changelog
+* Thu Aug 14 2025 Simone Caronni <negativo17@gmail.com> - 3:580.76.05-1
+- Update to 580.76.05.
+
+* Tue Aug 05 2025 Simone Caronni <negativo17@gmail.com> - 3:580.65.06-1
+- Update to 580.65.06.
+
+* Wed Jul 23 2025 Simone Caronni <negativo17@gmail.com> - 3:575.64.05-1
+- Update to 575.64.05.
+
+* Tue Jul 01 2025 Simone Caronni <negativo17@gmail.com> - 3:575.64.03-1
+- Update to 575.64.03.
+
+* Wed Jun 25 2025 Simone Caronni <negativo17@gmail.com> - 3:575.64-2
+- Also blacklist nova-core.
+
+* Wed Jun 18 2025 Simone Caronni <negativo17@gmail.com> - 3:575.64-1
+- Update to 575.64.
+
+* Thu May 29 2025 Simone Caronni <negativo17@gmail.com> - 3:575.57.08-1
+- Update to 575.57.08.
+
+* Tue May 20 2025 Simone Caronni <negativo17@gmail.com> - 3:575.51.02-1
+- Update to 575.51.02.
+
 * Tue May 20 2025 Simone Caronni <negativo17@gmail.com> - 3:570.153.02-1
 - Update to 570.153.02.
 
