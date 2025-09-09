@@ -7,7 +7,7 @@
 
 Name:     %{app_name}
 Version:  5.3.0
-Release:  4.git.%{shortcommit}%{?dist}
+Release:  5.git.%{shortcommit}%{?dist}
 Summary:  Yum Extender graphical package management tool
 
 Group:    Applications/System
@@ -18,6 +18,7 @@ Source1:  nobara.package.manager.svg
 Patch0:   0001-add-nobara-update-system-button.patch
 Patch1:   0001-revert-manual-dark-light-mode-changes-just-use-symbo.patch
 Patch2:   0001-rename-dk.yumex.Yumex-to-nobara.package.manager.patch
+Patch3:   dont_show_updater_notifications_in_live_environment.patch
 
 BuildArch: noarch
 BuildRequires: python3-devel
