@@ -38,7 +38,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.16
-%define _stablekver 5
+%define _stablekver 6
 %define _rcver rc7
 %if %{_stablekver} == 0
 %define _tarkver %{_basekver}
@@ -204,7 +204,7 @@ Obsoletes: kernel <= %{rpmverobsolete}
 Obsoletes: akmod-v4l2loopback
 
 %description
-The kernel-%{flaver} meta package
+The kernel-%{flavor} meta package
 
 %package core
 Summary: Kernel core package
@@ -1126,6 +1126,9 @@ fi
 %files
 
 %changelog
+* Tue Sep 09 2025 LionHeartP <LionHeartP@proton.me> - 6.16.6-200
+- Update to 6.16.6
+
 * Fri Sep 05 2025 LionHeartP <LionHeartP@proton.me> - 6.16.5-200
 - Update to 6.16.5
 - Rebase ayaneo-headset-fix.patch
