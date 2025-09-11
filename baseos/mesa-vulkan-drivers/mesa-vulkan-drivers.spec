@@ -1,14 +1,13 @@
 %global _default_patch_fuzz 2
 
-%global commit 611749a7f93dfba0802b49f2b14e455daec35781
+%global commit fc0418a69fd7c5d1b6c426314649e7449477c578
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 8.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 9.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
 %global with_vulkan_hw 1
-%global with_vdpau 1
 %global with_va 1
 %if !0%{?rhel}
 %global with_opencl 1
@@ -130,9 +129,6 @@ BuildRequires:  python3-pyyaml
 BuildRequires:  bison
 BuildRequires:  flex
 BuildRequires:  lm_sensors-devel
-%if 0%{?with_vdpau}
-BuildRequires:  pkgconfig(vdpau) >= 1.1
-%endif
 %if 0%{?with_va}
 BuildRequires:  pkgconfig(libva) >= 0.38.0
 %endif
@@ -221,7 +217,6 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
   -Dgallium-drivers=softpipe,llvmpipe,virgl \
 %endif
   -Dgallium-mediafoundation=disabled \
-  -Dgallium-vdpau=%{?with_vdpau:enabled}%{!?with_vdpau:disabled} \
   -Dgallium-va=%{?with_va:enabled}%{!?with_va:disabled} \
 %if 0%{?with_opencl}
   -Dgallium-rusticl=true \
@@ -381,14 +376,6 @@ rm -Rf %{buildroot}%{_libdir}/dri/v3d_dri.so
 rm -Rf %{buildroot}%{_libdir}/dri/vkms_dri.so
 rm -Rf %{buildroot}%{_libdir}/dri/zynqmp-dpsub_dri.so
 
-rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_nouveau.so.1*
-rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_r300.so.1*
-rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_r600.so.1*
-rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_radeonsi.so.1*
-rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_virtio_gpu.so.1
-rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_virtio_gpu.so.1.0
-rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_virtio_gpu.so.1.0.0
-rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_gallium.so.1.0.0
 rm -Rf %{buildroot}%{_libdir}/libRusticlOpenCL*
 rm -Rf %{buildroot}%{_sysconfdir}/OpenCL/vendors/rusticl.icd
 rm -Rf %{buildroot}%{_libdir}/gbm/dri_gbm.so
@@ -440,6 +427,10 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Thu Sep 11 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-9
+- Update to latest commit
+- Remove vdpau (https://gitlab.freedesktop.org/mesa/mesa/-/commit/4b54277d2e9420e37cdce98b3a09e6cecf87300d)
+
 * Wed Sep 03 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-8
 - Update to latest commit
 
