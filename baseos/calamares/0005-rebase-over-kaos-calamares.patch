@@ -1,4 +1,4 @@
-From f8c76a4f9f9a122c6ed2ab293c3115a8eedd1722 Mon Sep 17 00:00:00 2001
+From c3cc3fbab656b7065c361b8c8eecd7b383c167db Mon Sep 17 00:00:00 2001
 From: GloriousEggroll <gloriouseggroll@gmail.com>
 Date: Sun, 7 Sep 2025 15:07:11 -0400
 Subject: [PATCH] nobara-patching
@@ -109,15 +109,18 @@ Subject: [PATCH] nobara-patching
  .../partition/core/PartitionLayout.cpp        |  40 +-
  src/modules/partition/partition.conf          |  29 +-
  src/modules/plasmalnf/plasmalnf.conf          |  18 +-
- src/modules/shellprocess/shellprocess.conf    |  29 +-
+ src/modules/shellprocess/shellprocess.conf    |  48 +-
  src/modules/unpackfs/unpackfs.conf            |   4 +-
  src/modules/users/users.conf                  |  18 +-
  src/modules/usersq/UserInput.qml              | 867 +++++++++---------
  src/modules/usersq/usersq.conf                |  16 +-
  src/modules/usersq/usersq.qrc                 |   2 +
+ src/modules/welcome/Config.cpp                |  34 +-
+ src/modules/welcome/WelcomePage.cpp           |  59 +-
+ src/modules/welcome/WelcomePage.h             |   4 +
  src/modules/welcome/welcome.conf              |  13 +-
  src/modules/welcomeq/welcomeq.conf            |  15 +-
- 113 files changed, 1171 insertions(+), 1116 deletions(-)
+ 116 files changed, 1267 insertions(+), 1136 deletions(-)
  create mode 100644 src/branding/nobara_branding/.tx/config
  rename src/branding/{kaos_branding => nobara_branding}/Dia.qml (100%)
  rename src/branding/{kaos_branding => nobara_branding}/Slider.qml (100%)
@@ -4369,9 +4372,18 @@ index 105f247..b9105d1 100644
  # You can pre-select one of the themes; it is not applied
  # immediately, but its radio-button is switched on to indicate
 diff --git a/src/modules/shellprocess/shellprocess.conf b/src/modules/shellprocess/shellprocess.conf
-index 709d2a8..6be99f4 100644
+index 709d2a8..392192a 100644
 --- a/src/modules/shellprocess/shellprocess.conf
 +++ b/src/modules/shellprocess/shellprocess.conf
+@@ -95,7 +95,7 @@ dontChroot: false
+ # Tune this for the commands you're actually running, or
+ # use the list-of-items form of commands to tune the timeout
+ # for each command individually.
+-timeout: 10
++timeout: 36000
+ 
+ # This will copy the output from the command into the Calamares
+ # log file. No processing is done beyond log-each-line-separately,
 @@ -125,13 +125,13 @@ verbose: false
  # - there is nothing special about the invocation of true
  # - the slowloris command has a different timeout from the other commands
@@ -4393,7 +4405,7 @@ index 709d2a8..6be99f4 100644
  
  # You can change the description of the job (as it is displayed in the
  # progress bar during installation) by defining an *i18n* key, which
-@@ -144,3 +144,18 @@ script:
+@@ -144,3 +144,35 @@ script:
  #     name: "Shell process"
  #     name[nl]: "Schelpenpad"
  #     name[en_GB]: "Just a moment"
@@ -4412,6 +4424,23 @@ index 709d2a8..6be99f4 100644
 +    - "echo 'Exec=steam steam://unlockh264' >> /usr/share/applications/steam.desktop"
 +    - "echo 'yes' > /etc/nobara/newinstall"
 +    - "authselect enable-feature with-fingerprint"
++    - "mv /etc/resolv.conf /etc/resolv.conf.bak"
++    - "echo 'nameserver 127.0.0.53' > /etc/resolv.conf"
++    - "echo 'options edns0 trust-ad' >> /etc/resolv.conf"
++    - "echo 'search Home' >> /etc/resolv.conf"
++    - >
++      bash -ce '
++        if [ -n "${gs[nobara.update]}" ]; then
++          nobara-sync cli install-fixups
++          nobara-sync cli install-updates
++          rm /etc/nobara/newinstall
++        fi
++        if [ -n "${gs[nobara.codecs]}" ]; then
++          nobara-sync cli install-codecs
++        fi
++      '
++    - "rm /etc/resolv.conf"
++    - "mv /etc/resolv.conf.bak /etc/resolv.conf"
 diff --git a/src/modules/unpackfs/unpackfs.conf b/src/modules/unpackfs/unpackfs.conf
 index aa562ea..0ae2487 100644
 --- a/src/modules/unpackfs/unpackfs.conf
@@ -5506,6 +5535,188 @@ index c64d047..a38727b 100644
          <file>UserInput.qml</file>
          <file>usersq.qml</file>
      </qresource>
+diff --git a/src/modules/welcome/Config.cpp b/src/modules/welcome/Config.cpp
+index ad5e2d8..edd267a 100644
+--- a/src/modules/welcome/Config.cpp
++++ b/src/modules/welcome/Config.cpp
+@@ -34,6 +34,7 @@ Config::Config( QObject* parent )
+     initLanguages();
+ 
+     CALAMARES_RETRANSLATE_SLOT( &Config::retranslate );
++
+     // But also when the requirements model changes, update the messages
+     connect( requirementsModel(), &Calamares::RequirementsModel::progressMessageChanged, this, &Config::retranslate );
+ }
+@@ -55,36 +56,39 @@ Config::retranslate()
+         if ( !r->satisfiedMandatory() )
+         {
+             message = setup ? tr( "This computer does not satisfy the minimum "
+-                                  "requirements for setting up %1.<br/>"
+-                                  "Setup cannot continue." )
+-                            : tr( "This computer does not satisfy the minimum "
+-                                  "requirements for installing %1.<br/>"
+-                                  "Installation cannot continue." );
++            "requirements for setting up %1.<br/>"
++            "Setup cannot continue." )
++            : tr( "This computer does not satisfy the minimum "
++            "requirements for installing %1.<br/>"
++            "Installation cannot continue." );
+         }
+         else
+         {
+             message = setup ? tr( "This computer does not satisfy some of the "
+-                                  "recommended requirements for setting up %1.<br/>"
+-                                  "Setup can continue, but some features "
+-                                  "might be disabled." )
+-                            : tr( "This computer does not satisfy some of the "
+-                                  "recommended requirements for installing %1.<br/>"
+-                                  "Installation can continue, but some features "
+-                                  "might be disabled." );
++            "recommended requirements for setting up %1.<br/>"
++            "Setup can continue, but some features "
++            "might be disabled." )
++            : tr( "This computer does not satisfy some of the "
++            "recommended requirements for installing %1.<br/>"
++            "Installation can continue, but some features "
++            "might be disabled." );
+         }
+ 
+         m_warningMessage = message.arg( branding ? branding->shortVersionedName() : QString() );
+     }
+     else
+     {
+-        m_warningMessage = tr( "This program will ask you some questions and "
+-                               "set up %2 on your computer." )
+-                               .arg( branding ? branding->productName() : QString() );
++        QString message = tr( "This program will ask you some questions and "
++        "set up %1 on your computer." )
++        .arg( branding ? branding->productName() : QString() );
++
++        m_warningMessage = message;
+     }
+ 
+     emit warningMessageChanged( m_warningMessage );
+ }
+ 
++
+ Calamares::Locale::TranslationsModel*
+ Config::languagesModel() const
+ {
+diff --git a/src/modules/welcome/WelcomePage.cpp b/src/modules/welcome/WelcomePage.cpp
+index 30e3d6b..3c95910 100644
+--- a/src/modules/welcome/WelcomePage.cpp
++++ b/src/modules/welcome/WelcomePage.cpp
+@@ -13,6 +13,8 @@
+ 
+ #include "checker/CheckerContainer.h"
+ #include "ui_WelcomePage.h"
++#include "JobQueue.h"
++#include "GlobalStorage.h"
+ 
+ #include "Branding.h"
+ #include "CalamaresAbout.h"
+@@ -35,6 +37,12 @@
+ #include <QFocusEvent>
+ #include <QLabel>
+ #include <QMessageBox>
++#include <QProcess>
++
++static bool isOnlineNow()
++{
++    return QProcess::execute("ping", { "-c1", "-W1", "1.1.1.1" }) == 0;
++}
+ 
+ WelcomePage::WelcomePage( Config* config, QWidget* parent )
+     : QWidget( parent )
+@@ -47,12 +55,9 @@ WelcomePage::WelcomePage( Config* config, QWidget* parent )
+ 
+     const int defaultFontHeight = Calamares::defaultFontHeight();
+     ui->setupUi( this );
+-
+-    // insert system-check widget below welcome text
+     const int welcome_text_idx = ui->verticalLayout->indexOf( ui->mainText );
+-    ui->verticalLayout->insertWidget( welcome_text_idx + 1, m_checkingWidget );
+ 
+-    // insert optional logo banner image above welcome text
++    // insert optional logo banner image below welcome text
+     QString bannerPath = Branding::instance()->imagePath( Branding::ProductBanner );
+     if ( !bannerPath.isEmpty() )
+     {
+@@ -71,6 +76,52 @@ WelcomePage::WelcomePage( Config* config, QWidget* parent )
+         }
+     }
+ 
++    // insert system-check widget below welcome text
++    ui->verticalLayout->insertWidget( welcome_text_idx + 1, m_checkingWidget );
++
++    const bool online = isOnlineNow();
++
++    // Only show the extra text + checkboxes when online
++    if (online)
++    {
++        QLabel* netLabel = new QLabel(this);
++        netLabel->setText(tr("Internet connection found. Additional options available:"));
++        netLabel->setAlignment(Qt::AlignLeft);
++        netLabel->setWordWrap(false);
++
++        m_cbUpdate = new QCheckBox(this);
++        m_cbUpdate->setText(tr("Update installed packages to latest versions."));
++        m_cbUpdate->setChecked(true);
++
++        m_cbCodecs = new QCheckBox(this);
++        m_cbCodecs->setText(tr("Install media codec packages (strongly recommended)"));
++        m_cbCodecs->setChecked(true);
++
++        // place the boxes just ABOVE the language selector
++        int langIdx = ui->verticalLayout->indexOf(ui->languageWidget);
++        if (langIdx < 0) { langIdx = ui->verticalLayout->count(); }
++        ui->verticalLayout->insertWidget(langIdx, m_cbCodecs);
++        ui->verticalLayout->insertWidget(langIdx, m_cbUpdate);
++        ui->verticalLayout->insertWidget(langIdx, netLabel);
++
++        // Initialize GlobalStorage flags so shellprocess can see them
++        if (auto jq = Calamares::JobQueue::instance())
++            if (auto gs = jq->globalStorage())
++            {
++                gs->insert(QStringLiteral("nobara.update"), QStringLiteral("1"));
++                gs->insert(QStringLiteral("nobara.codecs"), QStringLiteral("1"));
++            }
++
++            // Keep GS in sync with user toggles
++            auto setFlag = [](const char* key, bool on){
++                if (auto jq = Calamares::JobQueue::instance())
++                    if (auto gs = jq->globalStorage())
++                        gs->insert(QString::fromLatin1(key), on ? QStringLiteral("1") : QString());
++            };
++            connect(m_cbUpdate, &QCheckBox::toggled, this, [setFlag](bool on){ setFlag("nobara.update", on); });
++            connect(m_cbCodecs, &QCheckBox::toggled, this, [setFlag](bool on){ setFlag("nobara.codecs", on); });
++    }
++
+     initLanguages();
+ 
+     CALAMARES_RETRANSLATE_SLOT( &WelcomePage::retranslate );
+diff --git a/src/modules/welcome/WelcomePage.h b/src/modules/welcome/WelcomePage.h
+index 163d13e..6d51bb2 100644
+--- a/src/modules/welcome/WelcomePage.h
++++ b/src/modules/welcome/WelcomePage.h
+@@ -15,6 +15,7 @@
+ 
+ #include <QStyledItemDelegate>
+ #include <QWidget>
++#include <QCheckBox>
+ 
+ namespace Ui
+ {
+@@ -66,6 +67,9 @@ private:
+     Calamares::Locale::TranslationsModel* m_languages;
+ 
+     Config* m_conf;
++
++    QCheckBox* m_cbUpdate = nullptr;
++    QCheckBox* m_cbCodecs = nullptr;
+ };
+ 
+ /** @brief Delegate to display language information in two columns.
 diff --git a/src/modules/welcome/welcome.conf b/src/modules/welcome/welcome.conf
 index 6f0f3c1..2915118 100644
 --- a/src/modules/welcome/welcome.conf

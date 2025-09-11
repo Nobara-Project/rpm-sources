@@ -1,6 +1,6 @@
 Name:           calamares
 Version:        3.3.14
-Release:        92%{?dist}
+Release:        96%{?dist}
 Summary:        Installer from a live CD/DVD/USB to disk
 
 License:        GPL-3.0-or-later
@@ -31,7 +31,7 @@ Source1009:       nobara-gdm-logo-calamares.png
 Source1010:       nobara-logo.png
 
 Patch1006:       0005-rebase-over-kaos-calamares.patch
-Patch1007:       calamares-3.3.3-kdesu.patch
+Patch1008:       calamares-3.3.3-kdesu.patch
 #Patch1007:       fixup_branding.patch
 
 # Fedora-specific changes
@@ -227,7 +227,6 @@ cd ../../
 
 # Apply fedora/nobara changes
 %patch 1006 -p1
-%patch 1007 -p1
 
 mv %{SOURCE1009} src/branding/nobara_branding/
 mv %{SOURCE1010} src/branding/nobara_branding/

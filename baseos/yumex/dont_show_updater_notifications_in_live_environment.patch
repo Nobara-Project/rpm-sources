@@ -1,5 +1,14 @@
+From f09ede0679010c162c785a064d0b33447b8768e6 Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Tue, 9 Sep 2025 15:02:10 -0600
+Subject: [PATCH] fixup
+
+---
+ yumex/yumex_updater | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
 diff --git a/yumex/yumex_updater b/yumex/yumex_updater
-index 3cdfa5e..333ca32 100755
+index 9c38d38..4950ab5 100755
 --- a/yumex/yumex_updater
 +++ b/yumex/yumex_updater
 @@ -5,6 +5,7 @@ import locale
@@ -12,7 +21,7 @@ index 3cdfa5e..333ca32 100755
  import dbus.mainloop.glib
 @@ -101,7 +102,11 @@ def setup_notification():
  CONFIG = Config.from_gsettings()
- INDICATOR = Indicator(custom_updater=CONFIG.custom_updater, refresh_func=refresh_updates, dark_icon=CONFIG.dark_icon)
+ INDICATOR = Indicator(custom_updater=CONFIG.custom_updater, refresh_func=refresh_updates)
  
 -if CONFIG.send_notification:
 +DISALLOWED_USERS = {"liveuser", "gnome-initial-setup"}
@@ -23,3 +32,6 @@ index 3cdfa5e..333ca32 100755
      NOTIFICATION: Notification = setup_notification()
  else:
      NOTIFICATION = None
+-- 
+2.51.0
+

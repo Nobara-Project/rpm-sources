@@ -1,6 +1,6 @@
 Name:          nobara-updater
 Version:       2.0.0
-Release:       25%{?dist}
+Release:       28%{?dist}
 License:       GPL-3.0-or-later
 Summary:       Nobara System Updater
 
@@ -37,6 +37,7 @@ Requires: glib2
 Requires: gtk3
 Requires: gtk4
 Requires: libadwaita
+Requires: adw-gtk3-theme
 Requires: rpm
 Requires: systemd
 Requires: util-linux
@@ -77,14 +78,15 @@ update-mime-database /usr/share/mime
 %{python3_sitelib}/nobara_updater/
 %{_bindir}/nobara-sync
 %{_bindir}/nobara-updater
-%{_bindir}/nobara-tweak-tool
-%{_bindir}/nobara-browser-select
+%{_bindir}/nobara-drive-mount-manager
 %{_bindir}/nobara-rpm-installer
+%{_bindir}/nobara-codec-wizard
 %{_datadir}/applications/nobara-updater.desktop
-%{_datadir}/applications/nobara-tweak-tool.desktop
+%{_datadir}/applications/nobara-drive-mount-manager.desktop
 %{_datadir}/applications/nobara-rpm-installer.desktop
+%{_datadir}/applications/nobara-codec-wizard.desktop
 %{_datadir}/icons/hicolor/64x64/apps/nobara-updater.svg
-%{_datadir}/nobara-gamescope/browser-select/*
+%{_datadir}/nobara-codec-wizard/
 
 %clean
 rm -rf %{buildroot}

@@ -1,5 +1,5 @@
 dontChroot: false
-timeout: 10
+timeout: 36000
 verbose: false
 script:
     - command: "/bin/kernel-install add $(ls /lib/modules) /lib/modules/$(ls /lib/modules)/vmlinuz"
@@ -15,6 +15,23 @@ script:
     - "echo 'Exec=steam steam://unlockh264' >> /usr/share/applications/steam.desktop"
     - "echo 'yes' > /etc/nobara/newinstall"
     - "authselect enable-feature with-fingerprint"
+    - "mv /etc/resolv.conf /etc/resolv.conf.bak"
+    - "echo 'nameserver 127.0.0.53' > /etc/resolv.conf"
+    - "echo 'options edns0 trust-ad' >> /etc/resolv.conf"
+    - "echo 'search Home' >> /etc/resolv.conf"
+    - >
+      bash -ce '
+        if [ -n "${gs[nobara.update]}" ]; then
+          nobara-sync cli install-fixups
+          nobara-sync cli install-updates
+          rm /etc/nobara/newinstall
+        fi
+        if [ -n "${gs[nobara.codecs]}" ]; then
+          nobara-sync cli install-codecs
+        fi
+      '
+    - "rm /etc/resolv.conf"
+    - "mv /etc/resolv.conf.bak /etc/resolv.conf"
     - command: "sed -i 's/Session=plasma/Session=gamescope-session-steam.desktop/g' /etc/sddm.conf"
       timeout: 3600
     - command: "sed -i '/Session=gamescope-session-steam.desktop/a\\Relogin=true' /etc/sddm.conf"

@@ -1,7 +1,7 @@
-%global tag 1.1.0
+%global tag 1.1.1
 
 # Manual commit is auto-inserted by workflow
-%global commit 54fb9bf21a99e1ac19958eec0b2557190166ff5e
+%global commit ae844b9e2ddd2664d27ce4b50c3351596f6816fb
 
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
@@ -82,8 +82,7 @@ update-desktop-database -q
 %{_bindir}/flatpost
 %{_datadir}/applications/com.flatpost.flatpostapp.desktop
 %{_datadir}/flatpost/collections_data.json
-%{_datadir}/icons/hicolor/1024x1024/apps/com.flatpost.flatpostapp.png
-%{_datadir}/icons/hicolor/64x64/apps/com.flatpost.flatpostapp.png
+%{_datadir}/icons/hicolor/64x64/apps/com.flatpost.flatpostapp.svg
 %{_datadir}/mime/packages/flatpost.xml
 %license %{_datadir}/licenses/flatpost/LICENSE
 
