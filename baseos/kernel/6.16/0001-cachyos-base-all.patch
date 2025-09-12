@@ -32792,4 +32792,94 @@ index 000000000000..0b7093935ddf
 +#endif
 -- 
 2.51.0
+From ed3d4ef956b23dcf0eac202d17d953f07587bcb1 Mon Sep 17 00:00:00 2001
+From: Piotr Gorski <lucjan.lucjanov@gmail.com>
+Date: Fri, 5 Sep 2025 17:15:25 +0200
+Subject: [PATCH] iosched-6.16: bump ADIOS to v3.1.5
 
+Signed-off-by: Piotr Gorski <lucjan.lucjanov@gmail.com>
+---
+ block/adios.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/block/adios.c b/block/adios.c
+index 201e5be610ed81..db84118356bb4d 100644
+--- a/block/adios.c
++++ b/block/adios.c
+@@ -25,7 +25,7 @@
+ #include "blk-mq.h"
+ #include "blk-mq-sched.h"
+ 
+-#define ADIOS_VERSION "3.1.4"
++#define ADIOS_VERSION "3.1.5"
+ 
+ /* Request Types:
+  *
+@@ -97,7 +97,8 @@ enum adios_compliance_flags {
+ };
+ 
+ // Flags to control compliance with block layer constraints
+-static u64 default_compliance_flags = 0x0;
++static u64 default_compliance_flags =
++	ADIOS_CF_FIXORDER;
+ 
+ // Dynamic thresholds for shrinkage
+ static u32 default_lm_shrink_at_kreqs  =  5000;
+From 86f6cc08eb30190986b88d37559f592e1e24781d Mon Sep 17 00:00:00 2001
+From: Piotr Gorski <lucjan.lucjanov@gmail.com>
+Date: Mon, 8 Sep 2025 07:14:43 +0200
+Subject: [PATCH] iosched-6.16: bump ADIOS to v3.1.6
+
+Signed-off-by: Piotr Gorski <lucjan.lucjanov@gmail.com>
+---
+ block/adios.c | 16 ++++++++++------
+ 1 file changed, 10 insertions(+), 6 deletions(-)
+
+diff --git a/block/adios.c b/block/adios.c
+index db84118356bb4d..318505265d76ab 100644
+--- a/block/adios.c
++++ b/block/adios.c
+@@ -25,7 +25,7 @@
+ #include "blk-mq.h"
+ #include "blk-mq-sched.h"
+ 
+-#define ADIOS_VERSION "3.1.5"
++#define ADIOS_VERSION "3.1.6"
+ 
+ /* Request Types:
+  *
+@@ -97,8 +97,7 @@ enum adios_compliance_flags {
+ };
+ 
+ // Flags to control compliance with block layer constraints
+-static u64 default_compliance_flags =
+-	ADIOS_CF_FIXORDER;
++static u64 default_compliance_flags = 0x0;
+ 
+ // Dynamic thresholds for shrinkage
+ static u32 default_lm_shrink_at_kreqs  =  5000;
+@@ -1325,7 +1324,7 @@ static bool release_barrier_requests(struct adios_data *ad) {
+ 		struct request *trq, *next;
+ 		LIST_HEAD(free_list);
+ 
+-		scoped_guard(spinlock_irqsave, &ad->lock)
++		/* ad->lock is already held */
+ 		list_for_each_entry_safe(trq, next, &local_list, queuelist) {
+ 			list_del_init(&trq->queuelist);
+ 			if (merge_or_insert_to_dl_tree(ad, trq, ad->queue, &free_list))
+@@ -1361,8 +1360,13 @@ static struct request *adios_dispatch_request(struct blk_mq_hw_ctx *hctx) {
+ 	if (eval_adios_state(ad, ADIOS_STATE_BP)) {
+ 		union adios_in_flight_rqs ifr;
+ 		ifr.scalar = atomic64_read(&ad->in_flight_rqs.atomic);
+-		if (!ifr.count && release_barrier_requests(ad))
+-			goto retry;
++		if (!ifr.count) {
++			bool barrier_released = false;
++			scoped_guard(spinlock_irqsave, &ad->lock)
++				barrier_released = release_barrier_requests(ad);
++			if (barrier_released)
++				goto retry;
++		}
+ 	}
+ 
+ 	return NULL;
