@@ -1,5 +1,5 @@
 Name:           gpu-screen-recorder
-Version:        5.6.7
+Version:        5.6.8
 Release:        1%{dist}
 Summary:        A shadowplay-like screen recorder for Linux. The fastest screen recorder for Linux.
 
@@ -64,6 +64,9 @@ setcap cap_sys_admin+ep %{_bindir}/gsr-kms-server
 
 
 %changelog
+* Sat Sep 13 2025 LionHeartP <LionHeartP@proton.me> - 5.6.8-1
+- Update to 5.6.8
+
 * Sun Sep 07 2025 LionHeartP <LionHeartP@proton.me> - 5.6.7-1
 - Update to 5.6.7
 
