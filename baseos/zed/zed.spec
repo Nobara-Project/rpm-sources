@@ -6,7 +6,7 @@
 
 
 Name:           zed
-Version:        0.182.11
+Version:        0.203.4
 Release:        0.1%{?dist}
 Summary:        a high-performance multiplayer code editor
 
@@ -85,7 +85,7 @@ desktop-file-install                                    \
 
 #install -Dm644 %app_id.desktop %{buildroot}%{_datadir}/applications/%app_id.desktop
 #install -Dm644 crates/zed/resources/app-icon.png %{buildroot}%{_datadir}/pixmaps/%app_id.png
-install -Dm644 assets/icons/logo_96.svg %{buildroot}%{_datadir}/pixmaps/%app_id.svg
+install -Dm644 assets/images/zed_logo.svg %{buildroot}%{_datadir}/pixmaps/%app_id.svg
 install -Dm644 %app_id.metainfo.xml %{buildroot}%{_metainfodir}/%app_id.metainfo.xml
 
 
