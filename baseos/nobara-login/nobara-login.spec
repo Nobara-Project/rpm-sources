@@ -1,7 +1,7 @@
 Summary: A set of scripts to run upon first user login
 Name: nobara-login
 Version: 1.2
-Release: 5%{?dist}
+Release: 6%{?dist}
 License: Public Domain
 Group: System Environment/Base
 Source0: hwcheck.sh
@@ -17,9 +17,6 @@ Source13: updatecheck.sh
 Source14: 90-corectrl.rules
 Source15: 00-handheld-power.conf
 Source16: wine_gaming.conf
-Source17: nobara-automount.desktop
-Source18: nobara-automount
-Source19: org.nobaraproject.automount.policy
 Source21: 99-ntsync.rules
 Source22: 70-wooting.rules
 Source24: 70-drunkdeer.rules
@@ -31,8 +28,6 @@ Source28: krunnerrc
 BuildArch: noarch
 BuildRequires: filesystem
 Requires: system-release
-Requires: fuse
-Requires: ntfs-3g
 Requires: nobara-login-sysctl
 Requires: nobara-welcome
 Requires: nobara-nvidia-wizard
@@ -66,7 +61,6 @@ install -d $RPM_BUILD_ROOT%{_sysconfdir}/xdg/autostart/
 install -d $RPM_BUILD_ROOT%{_sysconfdir}/modprobe.d/
 install -d $RPM_BUILD_ROOT%{_sysconfdir}/dnf/protected.d/
 install -d $RPM_BUILD_ROOT%{_prefix}/lib/sysctl.d/
-install -d $RPM_BUILD_ROOT%{_sysconfdir}/nobara/automount/
 install -d $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/
 install -d $RPM_BUILD_ROOT%{_sysconfdir}/polkit-1/rules.d/
 install -d $RPM_BUILD_ROOT%{_datadir}/polkit-1/actions/
@@ -85,9 +79,6 @@ install -m 0755 %{SOURCE13} $RPM_BUILD_ROOT%{_bindir}/updatecheck
 install -m 0755 %{SOURCE14} $RPM_BUILD_ROOT%{_sysconfdir}/polkit-1/rules.d/90-corectrl.rules
 install -m 0755 %{SOURCE15} $RPM_BUILD_ROOT%{_sysconfdir}/login.conf.d/00-handheld-power.conf
 install -m 0755 %{SOURCE16} $RPM_BUILD_ROOT%{_datadir}/pipewire/pipewire-pulse.conf.d/wine_gaming.conf
-install -m 0755 %{SOURCE17} $RPM_BUILD_ROOT%{_sysconfdir}/xdg/autostart/nobara-automount.desktop
-install -m 0755 %{SOURCE18} $RPM_BUILD_ROOT%{_libexecdir}/nobara-automount
-install -m 0755 %{SOURCE19} $RPM_BUILD_ROOT%{_datadir}/polkit-1/actions/org.nobaraproject.automount.policy
 install -m 0644 %{SOURCE21} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/99-ntsync.rules
 install -m 0644 %{SOURCE22} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/70-wooting.rules
 install -m 0644 %{SOURCE24} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/70-drunkdeer.rules
@@ -96,19 +87,12 @@ install -m 0755 %{SOURCE26} $RPM_BUILD_ROOT%{_datadir}/polkit-1/actions/org.noba
 install -m 0644 %{SOURCE27} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/75-powercap.rules
 install -m 0644 %{SOURCE28} $RPM_BUILD_ROOT%{_sysconfdir}/xdg/krunnerrc
 
-echo '# list of enabled automount partitions' > enabled.conf
-install -m 0755 enabled.conf $RPM_BUILD_ROOT%{_sysconfdir}/nobara/automount/enabled.conf
-%post sysctl
-sysctl -p
 
 %files
 %{_bindir}/nobara-firstrun
 %{_bindir}/hwcheck
 %{_bindir}/updatecheck
-%{_libexecdir}/nobara-automount
 %{_libexecdir}/nobara-resolve-pkexec
-%{_sysconfdir}/xdg/autostart/nobara-automount.desktop
-%{_sysconfdir}/xdg/autostart/nobara-firstrun.desktop
 %{_sysconfdir}/dnf/protected.d/nobara.conf
 %{_sysconfdir}/udev/rules.d/40-hpet-permissions.rules
 %{_sysconfdir}/udev/rules.d/60-ioschedulers.rules
@@ -117,12 +101,12 @@ sysctl -p
 %{_sysconfdir}/udev/rules.d/70-drunkdeer.rules
 %{_sysconfdir}/polkit-1/rules.d/90-corectrl.rules
 %{_sysconfdir}/login.conf.d/00-handheld-power.conf
-%config(noreplace) %{_sysconfdir}/nobara/automount/enabled.conf
-%{_datadir}/polkit-1/actions/org.nobaraproject.automount.policy
 %{_datadir}/polkit-1/actions/org.nobaraproject.resolvewizard.policy
 %{_datadir}/pipewire/pipewire-pulse.conf.d/wine_gaming.conf
 %{_sysconfdir}/udev/rules.d/75-powercap.rules
 %{_sysconfdir}/xdg/krunnerrc
+%{_sysconfdir}/xdg/autostart/nobara-firstrun.desktop
+
 
 %files sysctl
 %{_prefix}/lib/sysctl.d/20-starcitizen-max_map_count.conf
