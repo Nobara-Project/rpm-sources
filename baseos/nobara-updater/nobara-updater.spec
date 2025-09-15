@@ -1,6 +1,6 @@
 Name:          nobara-updater
 Version:       2.0.0
-Release:       29%{?dist}
+Release:       31%{?dist}
 License:       GPL-3.0-or-later
 Summary:       Nobara System Updater
 
@@ -78,11 +78,9 @@ update-mime-database /usr/share/mime
 %{python3_sitelib}/nobara_updater/
 %{_bindir}/nobara-sync
 %{_bindir}/nobara-updater
-%{_bindir}/nobara-drive-mount-manager
 %{_bindir}/nobara-rpm-installer
 %{_bindir}/nobara-codec-wizard
 %{_datadir}/applications/nobara-updater.desktop
-%{_datadir}/applications/nobara-drive-mount-manager.desktop
 %{_datadir}/applications/nobara-rpm-installer.desktop
 %{_datadir}/applications/nobara-codec-wizard.desktop
 %{_datadir}/icons/hicolor/64x64/apps/nobara-updater.svg
