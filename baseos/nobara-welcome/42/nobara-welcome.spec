@@ -1,6 +1,6 @@
 Name:          nobara-welcome
 Version:       5.0.2
-Release:       25%{?dist}
+Release:       26%{?dist}
 License:       GPLv2
 Group:         System Environment/Libraries
 Summary:       Nobara's Welcome App
@@ -38,6 +38,7 @@ Requires: 	xterm-resize
 Requires: 	colorized-logs
 Requires: 	util-linux
 Requires: 	nobara-driver-manager
+Requires: 	nobara-automount
 Requires: 	vte291
 Requires: 	rt
 Requires: 	libappindicator-gtk3
