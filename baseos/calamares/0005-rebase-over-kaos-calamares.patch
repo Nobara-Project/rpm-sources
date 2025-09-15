@@ -1,7 +1,7 @@
-From c3cc3fbab656b7065c361b8c8eecd7b383c167db Mon Sep 17 00:00:00 2001
-From: GloriousEggroll <gloriouseggroll@gmail.com>
-Date: Sun, 7 Sep 2025 15:07:11 -0400
-Subject: [PATCH] nobara-patching
+From 2bc48c45eba161ba4047be9f5e1fac4cf712a843 Mon Sep 17 00:00:00 2001
+From: Glorious Eggroll <gloriouseggroll@gmail.com>
+Date: Sat, 13 Sep 2025 11:46:48 -0600
+Subject: [PATCH] nobara patches
 
 ---
  lang/calamares_ast.ts                         |  14 +-
@@ -109,7 +109,7 @@ Subject: [PATCH] nobara-patching
  .../partition/core/PartitionLayout.cpp        |  40 +-
  src/modules/partition/partition.conf          |  29 +-
  src/modules/plasmalnf/plasmalnf.conf          |  18 +-
- src/modules/shellprocess/shellprocess.conf    |  48 +-
+ src/modules/shellprocess/shellprocess.conf    |  47 +-
  src/modules/unpackfs/unpackfs.conf            |   4 +-
  src/modules/users/users.conf                  |  18 +-
  src/modules/usersq/UserInput.qml              | 867 +++++++++---------
@@ -120,7 +120,7 @@ Subject: [PATCH] nobara-patching
  src/modules/welcome/WelcomePage.h             |   4 +
  src/modules/welcome/welcome.conf              |  13 +-
  src/modules/welcomeq/welcomeq.conf            |  15 +-
- 116 files changed, 1267 insertions(+), 1136 deletions(-)
+ 116 files changed, 1266 insertions(+), 1136 deletions(-)
  create mode 100644 src/branding/nobara_branding/.tx/config
  rename src/branding/{kaos_branding => nobara_branding}/Dia.qml (100%)
  rename src/branding/{kaos_branding => nobara_branding}/Slider.qml (100%)
@@ -4243,7 +4243,7 @@ index 69c9876..20ea8f5 100644
  
          // For zfs, we need to make the passphrase available to later modules
 diff --git a/src/modules/partition/partition.conf b/src/modules/partition/partition.conf
-index 5121475..34e4651 100644
+index 5121475..5f8f66b 100644
 --- a/src/modules/partition/partition.conf
 +++ b/src/modules/partition/partition.conf
 @@ -32,10 +32,10 @@
@@ -4323,7 +4323,7 @@ index 5121475..34e4651 100644
 +    - name: ""
 +      filesystem: "ext4"
 +      mountPoint: "/boot"
-+      size: 2G
++      size: 1G
 +    - name: ""
 +      filesystem: "unknown"
 +      mountPoint: "/"
@@ -4372,7 +4372,7 @@ index 105f247..b9105d1 100644
  # You can pre-select one of the themes; it is not applied
  # immediately, but its radio-button is switched on to indicate
 diff --git a/src/modules/shellprocess/shellprocess.conf b/src/modules/shellprocess/shellprocess.conf
-index 709d2a8..392192a 100644
+index 709d2a8..9ed3b03 100644
 --- a/src/modules/shellprocess/shellprocess.conf
 +++ b/src/modules/shellprocess/shellprocess.conf
 @@ -95,7 +95,7 @@ dontChroot: false
@@ -4405,7 +4405,7 @@ index 709d2a8..392192a 100644
  
  # You can change the description of the job (as it is displayed in the
  # progress bar during installation) by defining an *i18n* key, which
-@@ -144,3 +144,35 @@ script:
+@@ -144,3 +144,34 @@ script:
  #     name: "Shell process"
  #     name[nl]: "Schelpenpad"
  #     name[en_GB]: "Just a moment"
@@ -4431,8 +4431,7 @@ index 709d2a8..392192a 100644
 +    - >
 +      bash -ce '
 +        if [ -n "${gs[nobara.update]}" ]; then
-+          nobara-sync cli install-fixups
-+          nobara-sync cli install-updates
++          nobara-sync cli
 +          rm /etc/nobara/newinstall
 +        fi
 +        if [ -n "${gs[nobara.codecs]}" ]; then
