@@ -77,7 +77,7 @@ Name:           mesa
 Summary:        Mesa graphics libraries
 %global ver 25.2.2
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
-Release:        %autorelease
+Release:        %autorelease -b2
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
 URL:            http://www.mesa3d.org
 
@@ -330,6 +330,8 @@ Requires:       (ocl-icd%{?_isa} or OpenCL-ICD-Loader%{?_isa})
 Requires:       libclc%{?_isa}
 Requires:       %{name}-libgbm%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
 Requires:       opencl-filesystem
+Provides:       rocm-opencl
+Obsoletes:      rocm-opencl
 
 %description libOpenCL
 %{summary}.
@@ -433,6 +435,7 @@ rewrite_wrap_file rustc-hash
 
 %meson \
   -Dplatforms=x11,wayland \
+  -Dvideo-codecs=all_free \
 %if 0%{?with_hardware}
   -Dgallium-drivers=llvmpipe,virgl,nouveau%{?with_r300:,r300}%{?with_crocus:,crocus}%{?with_i915:,i915}%{?with_iris:,iris}%{?with_vmware:,svga}%{?with_radeonsi:,radeonsi}%{?with_r600:,r600}%{?with_asahi:,asahi}%{?with_freedreno:,freedreno}%{?with_etnaviv:,etnaviv}%{?with_tegra:,tegra}%{?with_vc4:,vc4}%{?with_v3d:,v3d}%{?with_lima:,lima}%{?with_panfrost:,panfrost}%{?with_vulkan_hw:,zink}%{?with_d3d12:,d3d12} \
 %else
@@ -470,6 +473,7 @@ rewrite_wrap_file rustc-hash
 %ifarch %{ix86}
   -Dglx-read-only-text=true \
 %endif
+  -Dxlib-lease=enabled \
   %{nil}
 %meson_build
 
