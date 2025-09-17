@@ -1,6 +1,6 @@
 Name:          nobara-welcome
 Version:       5.0.2
-Release:       26%{?dist}
+Release:       27%{?dist}
 License:       GPLv2
 Group:         System Environment/Libraries
 Summary:       Nobara's Welcome App
@@ -46,6 +46,8 @@ Requires: 	python-cairosvg
 Requires: 	python-pillow
 Requires: 	python3-dbus
 Requires: 	nobara-updater
+Requires: 	nobara-resolve-wizard
+Requires: 	nobara-resolve-runtime
 
 # Gnome Deps
 Suggests:	gnome-tweaks

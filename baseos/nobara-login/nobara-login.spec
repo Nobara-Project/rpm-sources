@@ -1,7 +1,7 @@
 Summary: A set of scripts to run upon first user login
 Name: nobara-login
 Version: 1.2
-Release: 6%{?dist}
+Release: 7%{?dist}
 License: Public Domain
 Group: System Environment/Base
 Source0: hwcheck.sh
@@ -20,8 +20,6 @@ Source16: wine_gaming.conf
 Source21: 99-ntsync.rules
 Source22: 70-wooting.rules
 Source24: 70-drunkdeer.rules
-Source25: nobara-resolve-pkexec
-Source26: org.nobaraproject.resolvewizard.policy
 Source27: 75-powercap.rules
 Source28: krunnerrc
 
@@ -82,8 +80,6 @@ install -m 0755 %{SOURCE16} $RPM_BUILD_ROOT%{_datadir}/pipewire/pipewire-pulse.c
 install -m 0644 %{SOURCE21} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/99-ntsync.rules
 install -m 0644 %{SOURCE22} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/70-wooting.rules
 install -m 0644 %{SOURCE24} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/70-drunkdeer.rules
-install -m 0755 %{SOURCE25} $RPM_BUILD_ROOT%{_libexecdir}/nobara-resolve-pkexec
-install -m 0755 %{SOURCE26} $RPM_BUILD_ROOT%{_datadir}/polkit-1/actions/org.nobaraproject.resolvewizard.policy
 install -m 0644 %{SOURCE27} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/75-powercap.rules
 install -m 0644 %{SOURCE28} $RPM_BUILD_ROOT%{_sysconfdir}/xdg/krunnerrc
 
@@ -92,7 +88,6 @@ install -m 0644 %{SOURCE28} $RPM_BUILD_ROOT%{_sysconfdir}/xdg/krunnerrc
 %{_bindir}/nobara-firstrun
 %{_bindir}/hwcheck
 %{_bindir}/updatecheck
-%{_libexecdir}/nobara-resolve-pkexec
 %{_sysconfdir}/dnf/protected.d/nobara.conf
 %{_sysconfdir}/udev/rules.d/40-hpet-permissions.rules
 %{_sysconfdir}/udev/rules.d/60-ioschedulers.rules
@@ -101,7 +96,6 @@ install -m 0644 %{SOURCE28} $RPM_BUILD_ROOT%{_sysconfdir}/xdg/krunnerrc
 %{_sysconfdir}/udev/rules.d/70-drunkdeer.rules
 %{_sysconfdir}/polkit-1/rules.d/90-corectrl.rules
 %{_sysconfdir}/login.conf.d/00-handheld-power.conf
-%{_datadir}/polkit-1/actions/org.nobaraproject.resolvewizard.policy
 %{_datadir}/pipewire/pipewire-pulse.conf.d/wine_gaming.conf
 %{_sysconfdir}/udev/rules.d/75-powercap.rules
 %{_sysconfdir}/xdg/krunnerrc
