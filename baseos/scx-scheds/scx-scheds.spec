@@ -1,13 +1,11 @@
 Name:           scx-scheds
-Version:        1.0.15
-Release:        2%{?dist}
+Version:        1.0.16
+Release:        1%{?dist}
 Summary:        Sched_ext Schedulers and Tools
 
 License:        GPL=2.0
 URL:            https://github.com/sched-ext/scx
 Source0:        %{URL}/archive/refs/tags/v%{version}.tar.gz
-
-Patch: 	https://github.com/sched-ext/scx/pull/2624.patch
 
 # https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
 ExcludeArch:    %{ix86}
@@ -70,6 +68,9 @@ The %{name}-devel package contains libraries header files for developing applica
 %{_includedir}/scx/
 
 %changelog
+* Sat Sep 06 2025 LionHeartP <LionHeartP@proton.me> - 1.0.16-1
+- Update to 1.0.16
+
 * Mon Aug 18 2025 LionHeartP <LionHeartP@proton.me> - 1.0.15-2
 - Add patch for forced scx setting
 
