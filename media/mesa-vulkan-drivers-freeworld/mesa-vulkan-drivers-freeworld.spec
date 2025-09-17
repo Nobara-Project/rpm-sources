@@ -1,10 +1,5 @@
 %global _default_patch_fuzz 2
 
-%global commit 611749a7f93dfba0802b49f2b14e455daec35781
-%global shortcommit %(c=%{commit}; echo ${c:0:7})
-%global build_timestamp %(date +"%Y%m%d")
-%global rel_build 9.git.%{build_timestamp}.%{shortcommit}%{?dist}
-
 %ifnarch s390x
 %global with_hardware 1
 %global with_vulkan_hw 1
@@ -65,9 +60,9 @@
 
 Name:           mesa-vulkan-drivers-freeworld
 Summary:        The mesa graphics vulkan driver stack.
-%global ver 25.2.2
+%global ver 25.2.3
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
-Release:        %autorelease -b2
+Release:        %autorelease
 License:        MIT
 URL:            http://www.mesa3d.org
 
@@ -338,7 +333,7 @@ rm -Rf %{buildroot}%{_libdir}/libEGL_mesa.so.0*
 rm -Rf %{buildroot}%{_includedir}/EGL/
 rm -Rf %{buildroot}%{_libdir}/libglapi.so.0
 rm -Rf %{buildroot}%{_libdir}/libglapi.so.0.*
-rm -Rf %{buildroot}%{_libdir}/libgallium-*-devel.so
+rm -Rf %{buildroot}%{_libdir}/libgallium-*.so
 rm -Rf %{buildroot}%{_libdir}/libgbm.so.1
 rm -Rf %{buildroot}%{_libdir}/libgbm.so.1.*
 rm -Rf %{buildroot}%{_libdir}/libgbm.so
@@ -485,66 +480,5 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
-* Wed Sep 03 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-8
-- Update to latest commit
-
-* Sun Aug 31 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-7
-- Update to latest commit
-
-* Sun Aug 24 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-6
-- Update to latest commit
-- Rebase min_image_count.patch
-
-* Wed Aug 20 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-5
-- Update to latest commit
-
-* Thu Aug 14 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-4
-- Update to latest commit
-
-* Fri Aug 08 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-3
-- Update to latest commit
-
-* Thu Jul 31 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-2
-- Update to latest commit
-
-* Sat Jul 26 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-1
-- Update to latest commit
-- Bump version to 25.3.0
-- Adapt rewrite_wrap_file macro to upstream changes
-- Enable anti-lag
-
-* Sun Jul 20 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-13
-- Update to latest commit
-
-* Wed Jul 16 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-12
-- Update to latest commit
-- Remove upstreamed #35269
-
-* Thu Jul 10 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-10
-- Update to latest commit
-
-* Sun Jul 06 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-9
-- Update to latest commit
-
-* Tue Jul 01 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-8
-- Update to latest commit
-- Remove no longer needed #34918
-
-* Wed Jun 25 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-7
-- Update to latest commit
-- Remove fsr4.patch due to upstream solution
-- Add #35269 MR patch
-
-* Thu Jun 19 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-6
-- Update to latest commit
-
-* Sun Jun 15 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-5
-- Update to latest commit
-
-* Sat Jun 7 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-4
-- Update to latest commit
-
-* Wed Jun 4 2025 LionHeartP <LionHeartP@proton.me> - 25.2.0-3
-- Update to latest commit
-- Stop building xa and nine due to upstream changes
-- Disable mediafoundation
+* Wed Sep 17 2025 LionHeartP <LionHeartP@proton.me> - 25.2.3-1
+- Update to 25.2.3-1
