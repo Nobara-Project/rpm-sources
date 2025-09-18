@@ -76,7 +76,7 @@ Name:           %{srcname}-freeworld
 Summary:        Mesa graphics libraries
 %global ver 25.2.3
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
-Release:        %autorelease
+Release:        %autorelease -b2
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
 URL:            http://www.mesa3d.org
 
@@ -214,7 +214,7 @@ Recommends:     %{srcname}-va-drivers%{?_isa}
 %endif
 Provides:       %{srcname}-libgallium%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
 Provides:       %{srcname}-libgallium-freeworld%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
-Conflicts:      %{srcname}-libgallium
+Obsoletes:      %{srcname}-libgallium
 
 %description  -n %{srcname}-libgallium-freeworld
 %{summary}.
