@@ -1,7 +1,7 @@
 Summary: A set of scripts to run upon first user login
 Name: nobara-login
 Version: 1.2
-Release: 7%{?dist}
+Release: 8%{?dist}
 License: Public Domain
 Group: System Environment/Base
 Source0: hwcheck.sh
@@ -22,6 +22,7 @@ Source22: 70-wooting.rules
 Source24: 70-drunkdeer.rules
 Source27: 75-powercap.rules
 Source28: krunnerrc
+Source29: 99-steelseries.rules
 
 BuildArch: noarch
 BuildRequires: filesystem
@@ -82,6 +83,7 @@ install -m 0644 %{SOURCE22} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/70-wootin
 install -m 0644 %{SOURCE24} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/70-drunkdeer.rules
 install -m 0644 %{SOURCE27} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/75-powercap.rules
 install -m 0644 %{SOURCE28} $RPM_BUILD_ROOT%{_sysconfdir}/xdg/krunnerrc
+install -m 0644 %{SOURCE29} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/99-steelseries.rules
 
 
 %files
@@ -99,6 +101,7 @@ install -m 0644 %{SOURCE28} $RPM_BUILD_ROOT%{_sysconfdir}/xdg/krunnerrc
 %{_datadir}/pipewire/pipewire-pulse.conf.d/wine_gaming.conf
 %{_sysconfdir}/udev/rules.d/75-powercap.rules
 %{_sysconfdir}/xdg/krunnerrc
+%{_sysconfdir}/udev/rules.d/99-steelseries.rules
 %{_sysconfdir}/xdg/autostart/nobara-firstrun.desktop
 
 
