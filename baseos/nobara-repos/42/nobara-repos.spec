@@ -3,7 +3,7 @@
 Summary:        Nobara package repositories
 Name:           nobara-repos
 Version:        42
-Release:        5%{?eln:.eln%{eln}}
+Release:        6%{?eln:.eln%{eln}}
 License:        MIT
 URL:            https://fedoraproject.org/
 
@@ -73,7 +73,7 @@ fi
 %files
 %dir /etc/yum.repos.d
 /etc/yum.repos.d/nobara.repo
-/etc/yum.repos.d/nobara-pikaos-additional.repo
+%config(noreplace) /etc/yum.repos.d/nobara-pikaos-additional.repo
 %config(noreplace) /etc/yum.repos.d/nv-nvp.repo
 %config(noreplace) /etc/yum.repos.d/nv-nvb.repo
 %config(noreplace) /etc/yum.repos.d/nv-nvnf.repo
