@@ -1,6 +1,6 @@
-From 2bc48c45eba161ba4047be9f5e1fac4cf712a843 Mon Sep 17 00:00:00 2001
-From: Glorious Eggroll <gloriouseggroll@gmail.com>
-Date: Sat, 13 Sep 2025 11:46:48 -0600
+From a5e24d4fc51e5b5df05fa3dd5cb3487bcc9b9e14 Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Sun, 21 Sep 2025 00:05:04 -0600
 Subject: [PATCH] nobara patches
 
 ---
@@ -109,18 +109,18 @@ Subject: [PATCH] nobara patches
  .../partition/core/PartitionLayout.cpp        |  40 +-
  src/modules/partition/partition.conf          |  29 +-
  src/modules/plasmalnf/plasmalnf.conf          |  18 +-
- src/modules/shellprocess/shellprocess.conf    |  47 +-
+ src/modules/shellprocess/shellprocess.conf    |  49 +-
  src/modules/unpackfs/unpackfs.conf            |   4 +-
  src/modules/users/users.conf                  |  18 +-
  src/modules/usersq/UserInput.qml              | 867 +++++++++---------
  src/modules/usersq/usersq.conf                |  16 +-
  src/modules/usersq/usersq.qrc                 |   2 +
  src/modules/welcome/Config.cpp                |  34 +-
- src/modules/welcome/WelcomePage.cpp           |  59 +-
- src/modules/welcome/WelcomePage.h             |   4 +
+ src/modules/welcome/WelcomePage.cpp           |  92 +-
+ src/modules/welcome/WelcomePage.h             |   5 +
  src/modules/welcome/welcome.conf              |  13 +-
  src/modules/welcomeq/welcomeq.conf            |  15 +-
- 116 files changed, 1266 insertions(+), 1136 deletions(-)
+ 116 files changed, 1302 insertions(+), 1136 deletions(-)
  create mode 100644 src/branding/nobara_branding/.tx/config
  rename src/branding/{kaos_branding => nobara_branding}/Dia.qml (100%)
  rename src/branding/{kaos_branding => nobara_branding}/Slider.qml (100%)
@@ -4243,7 +4243,7 @@ index 69c9876..20ea8f5 100644
  
          // For zfs, we need to make the passphrase available to later modules
 diff --git a/src/modules/partition/partition.conf b/src/modules/partition/partition.conf
-index 5121475..5f8f66b 100644
+index 5121475..34e4651 100644
 --- a/src/modules/partition/partition.conf
 +++ b/src/modules/partition/partition.conf
 @@ -32,10 +32,10 @@
@@ -4323,7 +4323,7 @@ index 5121475..5f8f66b 100644
 +    - name: ""
 +      filesystem: "ext4"
 +      mountPoint: "/boot"
-+      size: 1G
++      size: 2G
 +    - name: ""
 +      filesystem: "unknown"
 +      mountPoint: "/"
@@ -4372,7 +4372,7 @@ index 105f247..b9105d1 100644
  # You can pre-select one of the themes; it is not applied
  # immediately, but its radio-button is switched on to indicate
 diff --git a/src/modules/shellprocess/shellprocess.conf b/src/modules/shellprocess/shellprocess.conf
-index 709d2a8..9ed3b03 100644
+index 709d2a8..dc11408 100644
 --- a/src/modules/shellprocess/shellprocess.conf
 +++ b/src/modules/shellprocess/shellprocess.conf
 @@ -95,7 +95,7 @@ dontChroot: false
@@ -4405,7 +4405,7 @@ index 709d2a8..9ed3b03 100644
  
  # You can change the description of the job (as it is displayed in the
  # progress bar during installation) by defining an *i18n* key, which
-@@ -144,3 +144,34 @@ script:
+@@ -144,3 +144,36 @@ script:
  #     name: "Shell process"
  #     name[nl]: "Schelpenpad"
  #     name[en_GB]: "Just a moment"
@@ -4432,10 +4432,12 @@ index 709d2a8..9ed3b03 100644
 +      bash -ce '
 +        if [ -n "${gs[nobara.update]}" ]; then
 +          nobara-sync cli
-+          rm /etc/nobara/newinstall
 +        fi
 +        if [ -n "${gs[nobara.codecs]}" ]; then
-+          nobara-sync cli install-codecs
++          nobara-sync install-codecs
++        fi
++        if [ -n "${gs[nobara.codecsrepo]}" ]; then
++          dnf config-manager setopt nobara-pikaos-additional.enabled=1
 +        fi
 +      '
 +    - "rm /etc/resolv.conf"
@@ -5602,7 +5604,7 @@ index ad5e2d8..edd267a 100644
  Config::languagesModel() const
  {
 diff --git a/src/modules/welcome/WelcomePage.cpp b/src/modules/welcome/WelcomePage.cpp
-index 30e3d6b..3c95910 100644
+index 30e3d6b..a5f4737 100644
 --- a/src/modules/welcome/WelcomePage.cpp
 +++ b/src/modules/welcome/WelcomePage.cpp
 @@ -13,6 +13,8 @@
@@ -5641,7 +5643,7 @@ index 30e3d6b..3c95910 100644
      QString bannerPath = Branding::instance()->imagePath( Branding::ProductBanner );
      if ( !bannerPath.isEmpty() )
      {
-@@ -71,6 +76,52 @@ WelcomePage::WelcomePage( Config* config, QWidget* parent )
+@@ -71,6 +76,85 @@ WelcomePage::WelcomePage( Config* config, QWidget* parent )
          }
      }
  
@@ -5650,21 +5652,25 @@ index 30e3d6b..3c95910 100644
 +
 +    const bool online = isOnlineNow();
 +
++    m_cbUpdate = new QCheckBox(this);
++    m_cbUpdate->setText(tr("Update installed packages to latest versions."));
++    m_cbUpdate->setChecked(true);
++
++    m_cbCodecs = new QCheckBox(this);
++    m_cbCodecs->setText(tr("Install media codec packages (strongly recommended)."));
++    m_cbCodecs->setChecked(true);
++
++    m_cbCodecsRepo = new QCheckBox(this);
++    m_cbCodecsRepo->setText(tr("Install media codec packages on next update (strongly recommended)."));
++    m_cbCodecsRepo->setChecked(true);
++
 +    // Only show the extra text + checkboxes when online
 +    if (online)
 +    {
 +        QLabel* netLabel = new QLabel(this);
-+        netLabel->setText(tr("Internet connection found. Additional options available:"));
++        netLabel->setText(tr("Internet connection found. Options available:"));
 +        netLabel->setAlignment(Qt::AlignLeft);
 +        netLabel->setWordWrap(false);
-+
-+        m_cbUpdate = new QCheckBox(this);
-+        m_cbUpdate->setText(tr("Update installed packages to latest versions."));
-+        m_cbUpdate->setChecked(true);
-+
-+        m_cbCodecs = new QCheckBox(this);
-+        m_cbCodecs->setText(tr("Install media codec packages (strongly recommended)"));
-+        m_cbCodecs->setChecked(true);
 +
 +        // place the boxes just ABOVE the language selector
 +        int langIdx = ui->verticalLayout->indexOf(ui->languageWidget);
@@ -5679,6 +5685,7 @@ index 30e3d6b..3c95910 100644
 +            {
 +                gs->insert(QStringLiteral("nobara.update"), QStringLiteral("1"));
 +                gs->insert(QStringLiteral("nobara.codecs"), QStringLiteral("1"));
++                gs->insert(QStringLiteral("nobara.codecsrepo"), QStringLiteral("1"));
 +            }
 +
 +            // Keep GS in sync with user toggles
@@ -5689,13 +5696,41 @@ index 30e3d6b..3c95910 100644
 +            };
 +            connect(m_cbUpdate, &QCheckBox::toggled, this, [setFlag](bool on){ setFlag("nobara.update", on); });
 +            connect(m_cbCodecs, &QCheckBox::toggled, this, [setFlag](bool on){ setFlag("nobara.codecs", on); });
++    } else {
++        QLabel* netLabel = new QLabel(this);
++        netLabel->setText(tr("No Internet connection found. Options available:"));
++        netLabel->setAlignment(Qt::AlignLeft);
++        netLabel->setWordWrap(false);
++
++        // place the boxes just ABOVE the language selector
++        int langIdx = ui->verticalLayout->indexOf(ui->languageWidget);
++        if (langIdx < 0) { langIdx = ui->verticalLayout->count(); }
++        ui->verticalLayout->insertWidget(langIdx, m_cbCodecsRepo);
++        ui->verticalLayout->insertWidget(langIdx, netLabel);
++
++        // Initialize GlobalStorage flags so shellprocess can see them
++        if (auto jq = Calamares::JobQueue::instance())
++            if (auto gs = jq->globalStorage())
++            {
++                gs->insert(QStringLiteral("nobara.update"), QString());
++                gs->insert(QStringLiteral("nobara.codecs"), QString());
++                gs->insert(QStringLiteral("nobara.codecsrepo"), QStringLiteral("1"));
++            }
++
++            // Keep GS in sync with user toggles
++            auto setFlag = [](const char* key, bool on){
++                if (auto jq = Calamares::JobQueue::instance())
++                    if (auto gs = jq->globalStorage())
++                        gs->insert(QString::fromLatin1(key), on ? QStringLiteral("1") : QString());
++            };
++            connect(m_cbCodecsRepo, &QCheckBox::toggled, this, [setFlag](bool on){ setFlag("nobara.codecsrepo", on); });
 +    }
 +
      initLanguages();
  
      CALAMARES_RETRANSLATE_SLOT( &WelcomePage::retranslate );
 diff --git a/src/modules/welcome/WelcomePage.h b/src/modules/welcome/WelcomePage.h
-index 163d13e..6d51bb2 100644
+index 163d13e..7762677 100644
 --- a/src/modules/welcome/WelcomePage.h
 +++ b/src/modules/welcome/WelcomePage.h
 @@ -15,6 +15,7 @@
@@ -5706,18 +5741,19 @@ index 163d13e..6d51bb2 100644
  
  namespace Ui
  {
-@@ -66,6 +67,9 @@ private:
+@@ -66,6 +67,10 @@ private:
      Calamares::Locale::TranslationsModel* m_languages;
  
      Config* m_conf;
 +
 +    QCheckBox* m_cbUpdate = nullptr;
 +    QCheckBox* m_cbCodecs = nullptr;
++    QCheckBox* m_cbCodecsRepo = nullptr;
  };
  
  /** @brief Delegate to display language information in two columns.
 diff --git a/src/modules/welcome/welcome.conf b/src/modules/welcome/welcome.conf
-index 6f0f3c1..2915118 100644
+index 6f0f3c1..e0e111e 100644
 --- a/src/modules/welcome/welcome.conf
 +++ b/src/modules/welcome/welcome.conf
 @@ -16,9 +16,9 @@
@@ -5737,7 +5773,7 @@ index 6f0f3c1..2915118 100644
      # To check for internet connectivity, Calamares does a HTTP GET
      # on this URL; on success (e.g. HTTP code 200) internet is OK.
 -    internetCheckUrl:   http://google.com
-+    internetCheckUrl:   https://fedoraproject.org/static/hotspot.txt
++    internetCheckUrl:   https://nobaraproject.org/hotspot/
  
      # List conditions to check. Each listed condition will be
      # probed in some way, and yields true or false according to
@@ -5763,7 +5799,7 @@ index 6f0f3c1..2915118 100644
  # User interface
  #
 diff --git a/src/modules/welcomeq/welcomeq.conf b/src/modules/welcomeq/welcomeq.conf
-index 2d95863..40d81a7 100644
+index 2d95863..69a8e36 100644
 --- a/src/modules/welcomeq/welcomeq.conf
 +++ b/src/modules/welcomeq/welcomeq.conf
 @@ -14,19 +14,18 @@ qmlSearch: both
@@ -5781,7 +5817,7 @@ index 2d95863..40d81a7 100644
      requiredStorage:    10.5
      requiredRam:        1.0
 -    internetCheckUrl:   http://google.com
-+    internetCheckUrl:   https://fedoraproject.org/static/hotspot.txt
++    internetCheckUrl:   https://nobaraproject.org/hotspot/
      check:
          - storage
          - ram

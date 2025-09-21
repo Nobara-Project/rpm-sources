@@ -22,12 +22,13 @@ script:
     - >
       bash -ce '
         if [ -n "${gs[nobara.update]}" ]; then
-          nobara-sync cli install-fixups
-          nobara-sync cli install-updates
-          rm /etc/nobara/newinstall
+          nobara-sync cli
         fi
         if [ -n "${gs[nobara.codecs]}" ]; then
-          nobara-sync cli install-codecs
+          nobara-sync install-codecs
+        fi
+        if [ -n "${gs[nobara.codecsrepo]}" ]; then
+          dnf config-manager setopt nobara-pikaos-additional.enabled=1
         fi
       '
     - "rm /etc/resolv.conf"
