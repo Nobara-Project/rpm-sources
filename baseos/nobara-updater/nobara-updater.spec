@@ -1,6 +1,6 @@
 Name:          nobara-updater
 Version:       2.0.0
-Release:       31%{?dist}
+Release:       38%{?dist}
 License:       GPL-3.0-or-later
 Summary:       Nobara System Updater
 
