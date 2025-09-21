@@ -1,17 +1,10 @@
 # TODO: add make test to %%check section
 
-#global branch  oldabi-
-#global date    20230221
-#global commit  691d01989936d4b0681aa226aea8a19f06c04cea
-#global rel %(c=%{commit}; echo ${c:0:7})
-
 %if 0%{?fedora} >= 37 || 0%{?rhel} >= 9
 %bcond_without libavcodec_freeworld
 %else
 %bcond_with libavcodec_freeworld
 %endif
-
-%undefine _package_note_file
 
 %ifarch %{ix86} %{arm}
 # Fails due to asm issue
@@ -29,6 +22,7 @@
 %global _with_bs2b        1
 %global _with_codec2      1
 %global _with_chromaprint 1
+%global _with_gme         1
 %global _with_ilbc        1
 %global _with_openh264    1
 %if 0%{?fedora}
@@ -40,6 +34,7 @@
 %global _with_svtav1      1
 %global _with_tesseract   1
 %global _with_twolame     1
+%global _with_vvenc       1
 %global _with_wavpack     1
 %global _with_webp        1
 %global _with_zmq         1
@@ -103,7 +98,7 @@ ExclusiveArch: armv7hnl
 Summary:        Digital VCR and streaming server
 Name:           ffmpeg%{?flavor}
 Version:        7.1.1
-Release:        2%{?dist}
+Release:        11%{?dist}
 License:        %{ffmpeg_license}
 URL:            https://ffmpeg.org/
 %if 0%{?date}
@@ -115,9 +110,14 @@ Source2:        https://ffmpeg.org/ffmpeg-devel.asc
 %endif
 # We don't endorse adding this patch but fedora insists on breaking the ffmpeg ABI
 Patch0:         ffmpeg-chromium.patch
+Patch1:         https://git.ffmpeg.org/gitweb/ffmpeg.git/patch/7f9c7f9849a2155224711f0ff57ecdac6e4bfb57#/ffmpeg-CVE-2025-22921.patch
+Patch2:         0001-configure-rename-POSIX-ioctl-check.patch
 Conflicts:      %{name}-free
 Provides:       %{name}-bin = %{version}-%{release}
 Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
+
+BuildRequires:  gcc
+BuildRequires:  make
 %{?_with_cuda:BuildRequires: cuda-minimal-build-%{_cuda_version_rpm} cuda-drivers-devel}
 %{?_with_cuda:%{?!_with_cuda_nvcc:BuildRequires: clang}}
 %{?_with_libnpp:BuildRequires: pkgconfig(nppc-%{_cuda_version})}
@@ -164,6 +164,7 @@ BuildRequires:  libdrm-devel
 BuildRequires:  libgcrypt-devel
 %{!?_without_libklvanc:BuildRequires: libklvanc-devel}
 BuildRequires:  libGL-devel
+BuildRequires:  pkgconfig(lc3)
 BuildRequires:  libmodplug-devel
 BuildRequires:  libmysofa-devel
 %if 0%{?fedora} && 0%{?fedora} > 39
@@ -200,7 +201,7 @@ BuildRequires:  libxml2-devel
 %{!?_without_lv2:BuildRequires:  lilv-devel lv2-devel}
 %{!?_without_openal:BuildRequires: openal-soft-devel}
 %if 0%{!?_without_opencl:1}
-BuildRequires:  opencl-headers ocl-icd-devel
+BuildRequires:  opencl-headers OpenCL-ICD-Loader-devel
 %{?fedora:Recommends: opencl-icd}
 %endif
 %{?_with_opencv:BuildRequires: opencv-devel}
@@ -223,6 +224,7 @@ BuildRequires:  texinfo
 %{?_with_twolame:BuildRequires: twolame-devel}
 %{?_with_vmaf:BuildRequires: libvmaf-devel >= 1.5.2}
 %{?_with_vpl:BuildRequires: pkgconfig(vpl) >= 2.6}
+%{?_with_vvenc:BuildRequires: vvenc-devel}
 %{?_with_wavpack:BuildRequires: wavpack-devel}
 %{!?_without_vidstab:BuildRequires:  vid.stab-devel}
 %{!?_without_vulkan:BuildRequires: pkgconfig(shaderc) pkgconfig(vulkan) >= 1.3.277}
@@ -540,6 +542,39 @@ cp -pa %{buildroot}%{_libdir}/libavcodec.so.* \
 
 
 %changelog
+* Thu Sep 04 2025 Sérgio Basto <sergio@serjux.com> - 7.1.1-11
+- Enable chromaprint
+
+* Wed Sep 03 2025 Sérgio Basto <sergio@serjux.com> - 7.1.1-10
+- Rebuild for x264
+- Disable chromaprint to allow building with new x264
+
+* Tue Jul 29 2025 Nicolas Chauvet <kwizart@gmail.com> - 7.1.1-9
+- Switch to OpenCL-ICD-Loader-devel
+- Backport configure-rename-POSIX-ioctl-check
+- Add missing default BR
+
+* Tue Jul 29 2025 Nicolas Chauvet <kwizart@gmail.com> - 7.1.1-8
+- Rebuilt
+
+* Sun Jul 27 2025 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 7.1.1-7
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_43_Mass_Rebuild
+
+* Tue Apr 29 2025 Leigh Scott <leigh123linux@gmail.com> - 7.1.1-6
+- Enable vvenc support
+
+* Wed Apr 09 2025 Leigh Scott <leigh123linux@gmail.com> - 7.1.1-5
+- Enable Game Music Emu support (rfbz#7209)
+
+* Sun Mar 16 2025 Leigh Scott <leigh123linux@gmail.com> - 7.1.1-4
+- Rebuild for new noopenh264 version
+
+* Fri Mar 07 2025 Leigh Scott <leigh123linux@gmail.com> - 7.1.1-3
+- Add fix for CVE-2025-22921
+
+* Thu Mar 06 2025 Dominik Mierzejewski <dominik@greysector.net> - 7.1.1-2
+- Enable LC3 codec via liblc3
+
 * Mon Mar 03 2025 Leigh Scott <leigh123linux@gmail.com> - 7.1.1-1
 - Update to 7.1.1
 
