@@ -1,5 +1,5 @@
 Name:           steamdeck-dsp
-Version:        0.61
+Version:        0.69
 Release:        1%{?dist}
 Summary:        Steamdeck Audio Processing
 License:        GPLv2
