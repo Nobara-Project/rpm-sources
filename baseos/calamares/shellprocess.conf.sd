@@ -29,15 +29,18 @@ script:
         fi
         if [ -n "${gs[nobara.codecsrepo]}" ]; then
           dnf config-manager setopt nobara-pikaos-additional.enabled=1
+          sed -i "s/enabled=0/enabled=1/g" /etc/yum.repos.d/nobara-pikaos-additional.repo
         fi
       '
     - "rm /etc/resolv.conf"
     - "mv /etc/resolv.conf.bak /etc/resolv.conf"
-    - command: "sed -i 's/Session=plasma/Session=gamescope-session-steam.desktop/g' /etc/sddm.conf"
+    - command: "sed -i 's/^Session=.*/Session=gamescope-session-steam.desktop/g' /etc/sddm.conf"
       timeout: 3600
     - command: "sed -i '/Session=gamescope-session-steam.desktop/a\\Relogin=true' /etc/sddm.conf"
       timeout: 3600
     - command: "sed -i '/\\[Theme\\]/a\\Current=sugar-dark' /etc/sddm.conf"
+      timeout: 3600
+    - command: "sed '$!N; /^\\(.*\\)\\n\\1$/!P; D' /etc/sddm.conf > /etc/sddm.conf.new && mv /etc/sddm.conf.new /etc/sddm.conf"
       timeout: 3600
     - command: "sed -i \"s/GRUB_TIMEOUT='5'/GRUB_TIMEOUT='0'/g\" /etc/default/grub"
       timeout: 3600
@@ -47,11 +50,11 @@ script:
       timeout: 3600
     - command: "echo \"GRUB_HIDDEN_TIMEOUT_QUIET='true'\" >> /etc/default/grub"
       timeout: 3600
-    - command: "echo \"GRUB_CMDLINE_LINUX='console=tty1 rd.systemd.gpt_auto=no log_buf_len=4M amd_iommu=off amdgpu.lockup_timeout=5000,10000,10000,5000 amdgpu.gttsize=8128 amdgpu.sched_hw_submission=4 audit=0 fsck.mode=auto fsck.repair=preen loglevel=3 plymouth.ignore-serial-consoles fbcon=vc:4-6 fbcon=rotate:3'\" >> /etc/default/grub"
+    - command: "echo \"GRUB_CMDLINE_LINUX='console=tty1 rd.systemd.gpt_auto=no log_buf_len=4M amd_iommu=off amdgpu.lockup_timeout=5000,10000,10000,5000 amdgpu.gttsize=8128 amdgpu.sched_hw_submission=4 audit=0 fsck.mode=auto fsck.repair=preen loglevel=3 plymouth.ignore-serial-consoles fbcon=vc:4-6 fbcon=rotate:1'\" >> /etc/default/grub"
       timeout: 3600
     - command: "/usr/sbin/grub2-mkconfig -o /boot/grub2/grub.cfg"
       timeout: 3600
-    - command: "/usr/sbin/plymouth-set-default-theme steamos"
+    - command: "/usr/bin/plymouth-set-default-theme steamos"
       timeout: 3600
     - command: "/usr/bin/dracut --regenerate-all --force"
       timeout: 3600

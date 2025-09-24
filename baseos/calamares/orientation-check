@@ -1,0 +1,132 @@
+#!/bin/bash
+
+# Detect system ID and CPU vendor
+SYS_ID="$(cat /sys/devices/virtual/dmi/id/product_name | tr '[:lower:]' '[:upper:]')"
+CPU_VENDOR="$(lscpu | grep "Vendor ID" | cut -d : -f 2 | xargs)"
+
+# Optional: Log detected system
+echo "Detected System: $SYS_ID"
+echo "CPU Vendor: $CPU_VENDOR"
+
+# Function to copy appropriate Calamares config
+copy_conf() {
+  cp "/usr/share/calamares/modules/shellprocess.conf.$1" "/usr/share/calamares/modules/shellprocess.conf"
+}
+
+# OXP 60Hz Devices
+OXP_LIST="ONE XPLAYER:ONEXPLAYER 1 T08:ONEXPLAYER 1S A08:ONEXPLAYER 1S T08:ONEXPLAYER MINI A07:ONEXPLAYER MINI GA72:ONEXPLAYER MINI GT72:ONEXPLAYER MINI PRO:ONEXPLAYER GUNDAM GA72:ONEXPLAYER 2 ARP23:ONEXPLAYER 2 PRO ARP23H:ONEXPLAYER 2 PRO ARP23P:ONEXPLAYER 2 PRO ARP23P EVA-01"
+AOK_LIST="AOKZOE A1 AR07:AOKZOE A1 PRO"
+
+if [[ ":$OXP_LIST:" =~ ":$SYS_ID:" ]] || [[ ":$AOK_LIST:" =~ ":$SYS_ID:" ]]; then
+  copy_conf left
+fi
+
+# OXP 120Hz Devices
+OXP_120_LIST="ONEXPLAYER F1:ONEXPLAYER F1 EVA-01"
+if [[ ":$OXP_120_LIST:" =~ ":$SYS_ID:" ]]; then
+  copy_conf left
+fi
+
+# OXP X1 Devices
+OXP_X1_LIST="ONEXPLAYER X1 i"
+if [[ ":$OXP_X1_LIST:" =~ ":$SYS_ID:"  ]]; then
+  copy_conf left
+fi
+
+OXP_X1_LIST="ONEXPLAYER X1 A"
+if [[ ":$OXP_X1_LIST:" =~ ":$SYS_ID:"  ]]; then
+  copy_conf left
+fi
+
+# OXP X1 144Hz Devices
+OXP_X1_144_LIST="ONEXPLAYER X1 mini"
+if [[ ":$OXP_X1_144_LIST:" =~ ":$SYS_ID:"  ]]; then
+  copy_conf left
+fi
+
+# OXP G1 Devices
+if [[ ":$SYS_ID:" =~ :ONEXPLAYER\ G1\ (A|i): ]]; then
+  copy_conf left
+fi
+
+# AYANEO AIR, SLIDE, and FLIP Keyboard Devices
+AIR_LIST="AIR:AIR PRO:AIR PLUS:SLIDE:FLIP KB"
+if [[ ":$AIR_LIST:" =~ ":$SYS_ID:" ]]; then
+  copy_conf left
+fi
+
+# AYANEO FLIP Dual Screen
+if [[ ":FLIP DS:" =~ ":$SYS_ID:" ]]; then
+  copy_conf left
+fi
+
+# AYN Loki Devices
+AYN_LIST="Loki Max:Loki Zero:Loki MiniPro"
+if [[ ":$AYN_LIST:" =~ ":$SYS_ID:" ]]; then
+  copy_conf left
+fi
+
+# GPD Win devices
+GDP_LIST="G1619-01:G1621-02:MicroPC:WIN2"
+if [[ ":$GDP_LIST:" =~ ":$SYS_ID:" ]]; then
+  copy_conf right
+fi
+
+# GPD Win 3 specific quirk
+if [[ ":G1618-03:" =~ ":$SYS_ID:" ]]; then
+  copy_conf right
+fi
+
+# GPD Win 4
+if [[ ":G1618-04:" =~ ":$SYS_ID:" ]]; then
+  copy_conf landscape
+fi
+
+# GPD Win Max 2
+if [[ ":G1619-04:" =~ ":$SYS_ID:" ]]; then
+  copy_conf landscape
+fi
+
+# GPD Win Mini (2023 and 2024 models)
+if [[ ":G1617-01:" =~ ":$SYS_ID:" ]]; then
+  # 2023 model - vertical screen
+  if xrandr --prop 2>/dev/null | grep -q -e "1080x1920 "; then
+    copy_conf right
+  fi
+
+  # 2024 model - landscape screen with VRR
+  if xrandr --prop 2>/dev/null | grep -q -e "1920x1080 "; then
+    copy_conf landscape
+  fi
+fi
+
+# Steam Deck (LCD and OLED)
+if [[ ":JUPITER:GALILEO:" =~ ":$SYS_ID:" ]]; then
+  copy_conf sd
+fi
+
+# ROG Ally & ROG Ally X
+if [[ ":ROG ALLY RC71L:ROG ALLY X RC72LA:" =~ ":$SYS_ID:" ]]; then
+  copy_conf landscape
+fi
+
+# Lenovo Legion Go
+if [[ ":83E1:" =~ ":$SYS_ID:" ]]; then
+  copy_conf left
+fi
+
+# Minisforum V3
+if [[ ":V3:" =~ ":$SYS_ID:" ]]; then
+  copy_conf landscape
+fi
+
+# XG mobile for ASUS laptops that supports the proprietary connector
+xg_mobile_file_path="/sys/devices/virtual/firmware-attributes/asus-armoury/attributes/egpu_enable/current_value"
+if [ -f "$xg_mobile_file_path" ]; then
+  copy_conf landscape
+fi
+
+# Enable jupiter-fan-control on Steam Deck if dmesg shows Galileo or Jupiter
+if dmesg | grep -q -E "Galileo|Jupiter"; then
+  systemctl enable --now jupiter-fan-control
+fi

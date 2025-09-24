@@ -1,6 +1,6 @@
-From a5e24d4fc51e5b5df05fa3dd5cb3487bcc9b9e14 Mon Sep 17 00:00:00 2001
+From 22366cc70c7e28fcbba8707ae481a47d46012985 Mon Sep 17 00:00:00 2001
 From: GloriousEggroll <gloriouseggroll@gmail.com>
-Date: Sun, 21 Sep 2025 00:05:04 -0600
+Date: Tue, 23 Sep 2025 01:30:32 -0600
 Subject: [PATCH] nobara patches
 
 ---
@@ -109,18 +109,18 @@ Subject: [PATCH] nobara patches
  .../partition/core/PartitionLayout.cpp        |  40 +-
  src/modules/partition/partition.conf          |  29 +-
  src/modules/plasmalnf/plasmalnf.conf          |  18 +-
- src/modules/shellprocess/shellprocess.conf    |  49 +-
+ src/modules/shellprocess/shellprocess.conf    |  50 +-
  src/modules/unpackfs/unpackfs.conf            |   4 +-
  src/modules/users/users.conf                  |  18 +-
- src/modules/usersq/UserInput.qml              | 867 +++++++++---------
+ src/modules/usersq/UserInput.qml              | 882 +++++++++---------
  src/modules/usersq/usersq.conf                |  16 +-
  src/modules/usersq/usersq.qrc                 |   2 +
  src/modules/welcome/Config.cpp                |  34 +-
- src/modules/welcome/WelcomePage.cpp           |  92 +-
+ src/modules/welcome/WelcomePage.cpp           | 103 +-
  src/modules/welcome/WelcomePage.h             |   5 +
  src/modules/welcome/welcome.conf              |  13 +-
  src/modules/welcomeq/welcomeq.conf            |  15 +-
- 116 files changed, 1302 insertions(+), 1136 deletions(-)
+ 116 files changed, 1329 insertions(+), 1136 deletions(-)
  create mode 100644 src/branding/nobara_branding/.tx/config
  rename src/branding/{kaos_branding => nobara_branding}/Dia.qml (100%)
  rename src/branding/{kaos_branding => nobara_branding}/Slider.qml (100%)
@@ -4372,7 +4372,7 @@ index 105f247..b9105d1 100644
  # You can pre-select one of the themes; it is not applied
  # immediately, but its radio-button is switched on to indicate
 diff --git a/src/modules/shellprocess/shellprocess.conf b/src/modules/shellprocess/shellprocess.conf
-index 709d2a8..dc11408 100644
+index 709d2a8..37079b7 100644
 --- a/src/modules/shellprocess/shellprocess.conf
 +++ b/src/modules/shellprocess/shellprocess.conf
 @@ -95,7 +95,7 @@ dontChroot: false
@@ -4405,7 +4405,7 @@ index 709d2a8..dc11408 100644
  
  # You can change the description of the job (as it is displayed in the
  # progress bar during installation) by defining an *i18n* key, which
-@@ -144,3 +144,36 @@ script:
+@@ -144,3 +144,37 @@ script:
  #     name: "Shell process"
  #     name[nl]: "Schelpenpad"
  #     name[en_GB]: "Just a moment"
@@ -4438,6 +4438,7 @@ index 709d2a8..dc11408 100644
 +        fi
 +        if [ -n "${gs[nobara.codecsrepo]}" ]; then
 +          dnf config-manager setopt nobara-pikaos-additional.enabled=1
++          sed -i "s/enabled=0/enabled=1/g" /etc/yum.repos.d/nobara-pikaos-additional.repo
 +        fi
 +      '
 +    - "rm /etc/resolv.conf"
@@ -4518,7 +4519,7 @@ index f4ae2ee..6db779c 100644
  
  # Enable Active Directory enrollment support (opt-in)
 diff --git a/src/modules/usersq/UserInput.qml b/src/modules/usersq/UserInput.qml
-index 34d06f6..ae73a1c 100644
+index 34d06f6..1dc2725 100644
 --- a/src/modules/usersq/UserInput.qml
 +++ b/src/modules/usersq/UserInput.qml
 @@ -13,6 +13,7 @@ import io.calamares.ui 1.0
@@ -4529,7 +4530,7 @@ index 34d06f6..ae73a1c 100644
  import QtQuick.Controls as QQC2
  import QtQuick.Layouts
  
-@@ -22,497 +23,527 @@ import "content"
+@@ -22,497 +23,542 @@ import "content"
  
  import org.kde.kirigami as Kirigami
  
@@ -4545,6 +4546,13 @@ index 34d06f6..ae73a1c 100644
 -    readonly property color negativeFieldOutlineColor: "#BE5F68"
      readonly property color headerTextColor: "#1F1F1F"
      readonly property color commentsColor: "#6D6D6D"
+-
+-    width: parent.width
+-    height: parent.height
+-
+-    Label {
+-        id: header
+-        z: 999
 +    readonly property color backgroundColor: "#EEEEEE"
 +    readonly property color buttonColor: "#9E9E9E"
 +    readonly property color buttonActiveColor: "#423A57"
@@ -4558,17 +4566,25 @@ index 34d06f6..ae73a1c 100644
 +    color: backgroundColor // Set the entire background color here
 +
 +    Item {
-+        width: parent.width
+         width: parent.width
+-        height: 60
+-        horizontalAlignment: Qt.AlignHCenter
+-        color: headerTextColor
+-        background: Rectangle {
+-            color: Kirigami.Theme.backgroundColor
+-        }
+-        font.weight: Font.Medium
+-        font.pointSize: 12
+-        text: qsTr("Pick your user name and credentials to login and perform admin tasks")
+-    }
 +        height: parent.height
- 
--    width: parent.width
--    height: parent.height
++
 +        Label {
 +            id: header
 +            z: 999
 +            width: parent.width
 +            height: 60
-+            horizontalAlignment: Qt.AlignHCenter
++            horizontalAlignment: Qt.AlignLeft
 +            color: headerTextColor
 +            font.weight: Font.Medium
 +            font.pointSize: 12
@@ -4576,21 +4592,6 @@ index 34d06f6..ae73a1c 100644
 +            background: Rectangle {
 +                color: backgroundColor
 +            }
- 
--    Label {
--        id: header
--        z: 999
--        width: parent.width
--        height: 60
--        horizontalAlignment: Qt.AlignHCenter
--        color: headerTextColor
--        background: Rectangle {
--            color: Kirigami.Theme.backgroundColor
-         }
--        font.weight: Font.Medium
--        font.pointSize: 12
--        text: qsTr("Pick your user name and credentials to login and perform admin tasks")
--    }
  
 -    QQC2.Button {
 -        id: virtualKeyboardButton
@@ -4608,6 +4609,15 @@ index 34d06f6..ae73a1c 100644
 -        onClicked: {
 -            inputPanel.active = !inputPanel.active
 -            _userNameField.focus = true
+         }
+-    }
+ 
+-    Flickable {
+-        id: scroll
+-        width: parent.width
+-        height: parent.height
+-        topMargin: 80
+-        contentHeight: 800
 +        QQC2.Button {
 +            id: virtualKeyboardButton
 +            z: 999
@@ -4631,29 +4641,17 @@ index 34d06f6..ae73a1c 100644
 +            }
 +            onClicked: {
 +                inputPanel.active = !inputPanel.active
-+                _userNameField.focus = true
-+            }
-         }
--    }
- 
--    Flickable {
--        id: scroll
--        width: parent.width
--        height: parent.height
--        topMargin: 80
--        contentHeight: 800
  
 -        ScrollBar.vertical: ScrollBar {
 -            id: fscrollbar
 -            width: 5
 -            policy: ScrollBar.AlwaysOn
--        }
-+        Flickable {
-+            id: scroll
-+            width: parent.width
-+            height: parent.height
-+            topMargin: 80
-+            contentHeight: 800
++                // Only set focus if nothing else has it
++                if (!Qt.inputMethod.focusItem) {
++                    _userNameField.forceActiveFocus()
++                }
++            }
+         }
  
 -        function scrollToY(y) {
 -            scrollAnimation.to = y
@@ -4662,18 +4660,36 @@ index 34d06f6..ae73a1c 100644
 -        NumberAnimation on contentY {
 -            id: scrollAnimation
 -            duration: 350
--        }
-+            ScrollBar.vertical: ScrollBar {
-+                id: fscrollbar
-+                width: 5
-+                policy: ScrollBar.AlwaysOn
-+            }
++        Label {
++            id: vkHint
++            z: 1000
++            text: qsTr("Toggle to enable/disable virtual keyboard:")
++            font.pointSize: 8
++            color: commentsColor
++            anchors.right: virtualKeyboardButton.left
++            anchors.rightMargin: 8
++            anchors.verticalCenter: virtualKeyboardButton.verticalCenter
++            elide: Text.ElideRight
+         }
  
 -        ColumnLayout {
 -            id: _formLayout
 -            width: parent.width / 1.2
 -            spacing: Kirigami.Units.smallSpacing
 -            anchors.horizontalCenter: parent.horizontalCenter
++        Flickable {
++            id: scroll
++            width: parent.width
++            height: parent.height
++            topMargin: 80
++            contentHeight: 800
++
++            ScrollBar.vertical: ScrollBar {
++                id: fscrollbar
++                width: 5
++                policy: ScrollBar.AlwaysOn
++            }
++
 +            function scrollToY(y) {
 +                scrollAnimation.to = y
 +                scrollAnimation.start()
@@ -4694,14 +4710,14 @@ index 34d06f6..ae73a1c 100644
 -                Label {
 -                    text: qsTr("What is your name?")
 -                }
--
--                RowLayout {
--                    width: parent.width
--                    spacing: 10
 +                Column {
 +                    Layout.fillWidth: true
 +                    spacing: Kirigami.Units.smallSpacing
  
+-                RowLayout {
+-                    width: parent.width
+-                    spacing: 10
+-
 -                    Image {
 -                        source: _userNameField.text.length ? "content/users_g.svg" : "content/users.svg"
 -                        fillMode: Image.PreserveAspectFit
@@ -4734,7 +4750,7 @@ index 34d06f6..ae73a1c 100644
 +                            text: config.fullName
 +                            onTextChanged: config.setFullName(text)
 +                            color: selectTextFieldColor
-+
++                            focus: true
 +                            background: Rectangle {
 +                                z: parent.z - 1
 +                                anchors.fill: parent
@@ -4983,7 +4999,7 @@ index 34d06f6..ae73a1c 100644
 +                    text: qsTr("Only letters, numbers, underscore and hyphen are allowed, minimal of two characters.")
                  }
 -            }
--
+ 
 -            Kirigami.InlineMessage {
 -                id: hostMessage
 -                Layout.fillWidth: true
@@ -4994,7 +5010,7 @@ index 34d06f6..ae73a1c 100644
 -                type: Kirigami.MessageType.Error
 -                text: qsTr("Only letters, numbers, underscore and hyphen are allowed, minimal of two characters.")
 -            }
- 
+-
 -            Kirigami.InlineMessage {
 -                id: forbiddenHost
 -                Layout.fillWidth: true
@@ -5170,7 +5186,7 @@ index 34d06f6..ae73a1c 100644
 -                type: Kirigami.MessageType.Error
 -                text: config.userPasswordMessage
 -            }
- 
+-
 -            Kirigami.InlineMessage {
 -                id: validityMessage
 -                Layout.fillWidth: true
@@ -5187,7 +5203,7 @@ index 34d06f6..ae73a1c 100644
 -                    : Kirigami.MessageType.Positive
 -                text: config.userPasswordMessage
 -            }
--
+ 
 -            CheckBox {
 -                id: root
 -                visible: config.writeRootPassword
@@ -5313,9 +5329,9 @@ index 34d06f6..ae73a1c 100644
 -                        Layout.fillWidth: true
 -                        placeholderText: qsTr("Root Password")
 -                        text: config.rootPassword
- 
--                        onTextChanged: config.setRootPassword(text)
 -
+-                        onTextChanged: config.setRootPassword(text)
+ 
 -                        echoMode: TextInput.Password
 -                        passwordMaskDelay: 300
 -                        inputMethodHints: Qt.ImhNoAutoUppercase
@@ -5604,7 +5620,7 @@ index ad5e2d8..edd267a 100644
  Config::languagesModel() const
  {
 diff --git a/src/modules/welcome/WelcomePage.cpp b/src/modules/welcome/WelcomePage.cpp
-index 30e3d6b..a5f4737 100644
+index 30e3d6b..7db6d79 100644
 --- a/src/modules/welcome/WelcomePage.cpp
 +++ b/src/modules/welcome/WelcomePage.cpp
 @@ -13,6 +13,8 @@
@@ -5616,11 +5632,12 @@ index 30e3d6b..a5f4737 100644
  
  #include "Branding.h"
  #include "CalamaresAbout.h"
-@@ -35,6 +37,12 @@
+@@ -35,6 +37,13 @@
  #include <QFocusEvent>
  #include <QLabel>
  #include <QMessageBox>
 +#include <QProcess>
++#include <QCheckBox>
 +
 +static bool isOnlineNow()
 +{
@@ -5629,7 +5646,7 @@ index 30e3d6b..a5f4737 100644
  
  WelcomePage::WelcomePage( Config* config, QWidget* parent )
      : QWidget( parent )
-@@ -47,12 +55,9 @@ WelcomePage::WelcomePage( Config* config, QWidget* parent )
+@@ -47,12 +56,9 @@ WelcomePage::WelcomePage( Config* config, QWidget* parent )
  
      const int defaultFontHeight = Calamares::defaultFontHeight();
      ui->setupUi( this );
@@ -5643,7 +5660,7 @@ index 30e3d6b..a5f4737 100644
      QString bannerPath = Branding::instance()->imagePath( Branding::ProductBanner );
      if ( !bannerPath.isEmpty() )
      {
-@@ -71,6 +76,85 @@ WelcomePage::WelcomePage( Config* config, QWidget* parent )
+@@ -71,6 +77,95 @@ WelcomePage::WelcomePage( Config* config, QWidget* parent )
          }
      }
  
@@ -5652,78 +5669,88 @@ index 30e3d6b..a5f4737 100644
 +
 +    const bool online = isOnlineNow();
 +
++    // Create checkboxes
 +    m_cbUpdate = new QCheckBox(this);
 +    m_cbUpdate->setText(tr("Update installed packages to latest versions."));
-+    m_cbUpdate->setChecked(true);
++    m_cbUpdate->setChecked(false); // hidden
 +
 +    m_cbCodecs = new QCheckBox(this);
 +    m_cbCodecs->setText(tr("Install media codec packages (strongly recommended)."));
-+    m_cbCodecs->setChecked(true);
++    m_cbCodecs->setChecked(false); // hidden
 +
 +    m_cbCodecsRepo = new QCheckBox(this);
 +    m_cbCodecsRepo->setText(tr("Install media codec packages on next update (strongly recommended)."));
-+    m_cbCodecsRepo->setChecked(true);
++    m_cbCodecsRepo->setChecked(true); // hidden
 +
-+    // Only show the extra text + checkboxes when online
++    // Helper to set GS flags (declare it BEFORE using it anywhere)
++    auto setFlag = [](const char* key, bool on){
++        if (auto jq = Calamares::JobQueue::instance())
++            if (auto gs = jq->globalStorage())
++                gs->insert(QString::fromLatin1(key), on ? QStringLiteral("1") : QString() );
++    };
++
++    // Only show the extra text + checkboxes when appropriate
 +    if (online)
 +    {
++        // Defaults when online
++        m_cbUpdate->setChecked(true);
++        m_cbCodecs->setChecked(true);
++        m_cbCodecsRepo->setChecked(false); // hidden
++
 +        QLabel* netLabel = new QLabel(this);
 +        netLabel->setText(tr("Internet connection found. Options available:"));
 +        netLabel->setAlignment(Qt::AlignLeft);
 +        netLabel->setWordWrap(false);
 +
-+        // place the boxes just ABOVE the language selector
++        // place just ABOVE the language selector
 +        int langIdx = ui->verticalLayout->indexOf(ui->languageWidget);
 +        if (langIdx < 0) { langIdx = ui->verticalLayout->count(); }
 +        ui->verticalLayout->insertWidget(langIdx, m_cbCodecs);
 +        ui->verticalLayout->insertWidget(langIdx, m_cbUpdate);
 +        ui->verticalLayout->insertWidget(langIdx, netLabel);
 +
-+        // Initialize GlobalStorage flags so shellprocess can see them
-+        if (auto jq = Calamares::JobQueue::instance())
-+            if (auto gs = jq->globalStorage())
-+            {
-+                gs->insert(QStringLiteral("nobara.update"), QStringLiteral("1"));
-+                gs->insert(QStringLiteral("nobara.codecs"), QStringLiteral("1"));
-+                gs->insert(QStringLiteral("nobara.codecsrepo"), QStringLiteral("1"));
-+            }
++        // hide repo checkbox when online
++        m_cbCodecsRepo->setVisible(false);
 +
-+            // Keep GS in sync with user toggles
-+            auto setFlag = [](const char* key, bool on){
-+                if (auto jq = Calamares::JobQueue::instance())
-+                    if (auto gs = jq->globalStorage())
-+                        gs->insert(QString::fromLatin1(key), on ? QStringLiteral("1") : QString());
-+            };
-+            connect(m_cbUpdate, &QCheckBox::toggled, this, [setFlag](bool on){ setFlag("nobara.update", on); });
-+            connect(m_cbCodecs, &QCheckBox::toggled, this, [setFlag](bool on){ setFlag("nobara.codecs", on); });
-+    } else {
++        // Initialize ALL GS flags
++        setFlag("nobara.update",     m_cbUpdate->isChecked());     // "1"
++        setFlag("nobara.codecs",     m_cbCodecs->isChecked());     // "1"
++        setFlag("nobara.codecsrepo", m_cbCodecsRepo->isChecked()); // "" (unchecked)
++
++        // Keep GS in sync with user toggles
++        connect(m_cbUpdate, &QCheckBox::toggled, this,
++                [setFlag](bool on){ setFlag("nobara.update", on); });
++        connect(m_cbCodecs, &QCheckBox::toggled, this,
++                [setFlag](bool on){ setFlag("nobara.codecs", on); });
++    }
++    else
++    {
++        // Defaults when offline
++        m_cbUpdate->setChecked(false);  // hidden
++        m_cbCodecs->setChecked(false);  // hidden
++        m_cbCodecsRepo->setChecked(true);
++
 +        QLabel* netLabel = new QLabel(this);
 +        netLabel->setText(tr("No Internet connection found. Options available:"));
 +        netLabel->setAlignment(Qt::AlignLeft);
 +        netLabel->setWordWrap(false);
 +
-+        // place the boxes just ABOVE the language selector
 +        int langIdx = ui->verticalLayout->indexOf(ui->languageWidget);
 +        if (langIdx < 0) { langIdx = ui->verticalLayout->count(); }
 +        ui->verticalLayout->insertWidget(langIdx, m_cbCodecsRepo);
 +        ui->verticalLayout->insertWidget(langIdx, netLabel);
 +
-+        // Initialize GlobalStorage flags so shellprocess can see them
-+        if (auto jq = Calamares::JobQueue::instance())
-+            if (auto gs = jq->globalStorage())
-+            {
-+                gs->insert(QStringLiteral("nobara.update"), QString());
-+                gs->insert(QStringLiteral("nobara.codecs"), QString());
-+                gs->insert(QStringLiteral("nobara.codecsrepo"), QStringLiteral("1"));
-+            }
++        // hide online-only checkboxes when offline
++        m_cbUpdate->setVisible(false);
++        m_cbCodecs->setVisible(false);
 +
-+            // Keep GS in sync with user toggles
-+            auto setFlag = [](const char* key, bool on){
-+                if (auto jq = Calamares::JobQueue::instance())
-+                    if (auto gs = jq->globalStorage())
-+                        gs->insert(QString::fromLatin1(key), on ? QStringLiteral("1") : QString());
-+            };
-+            connect(m_cbCodecsRepo, &QCheckBox::toggled, this, [setFlag](bool on){ setFlag("nobara.codecsrepo", on); });
++        // Initialize ALL GS flags
++        setFlag("nobara.update",     m_cbUpdate->isChecked());     // "1"
++        setFlag("nobara.codecs",     m_cbCodecs->isChecked());     // "1"
++        setFlag("nobara.codecsrepo", m_cbCodecsRepo->isChecked()); // "" (unchecked)
++
++        connect(m_cbCodecsRepo, &QCheckBox::toggled, this,
++                [setFlag](bool on){ setFlag("nobara.codecsrepo", on); });
 +    }
 +
      initLanguages();

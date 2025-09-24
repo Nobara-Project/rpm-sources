@@ -1,6 +1,6 @@
 Name:           calamares
 Version:        3.3.14
-Release:        104%{?dist}
+Release:        111%{?dist}
 Summary:        Installer from a live CD/DVD/USB to disk
 
 License:        GPL-3.0-or-later
@@ -17,6 +17,7 @@ Source11:        shellprocess.conf.right
 Source12:        shellprocess.conf.sd
 Source13:        shellprocess.conf.htpc
 Source14:        shellprocess.conf.htpc.nv
+Source15:        orientation-check
 
 # Backports from upstream
 Source1001:       packages.tar.gz
@@ -278,6 +279,7 @@ cp %{SOURCE11} %{buildroot}%{_datadir}/calamares/modules/
 cp %{SOURCE12} %{buildroot}%{_datadir}/calamares/modules/
 cp %{SOURCE13} %{buildroot}%{_datadir}/calamares/modules/
 cp %{SOURCE14} %{buildroot}%{_datadir}/calamares/modules/
+cp %{SOURCE15} %{buildroot}%{_datadir}/calamares/
 
 
 %check
@@ -367,6 +369,7 @@ EOF
 %files
 %{_bindir}/calamares
 %dir %{_datadir}/calamares/
+%{_datadir}/calamares/orientation-check
 %{_datadir}/calamares/settings.conf
 %dir %{_datadir}/calamares/branding/
 %{_datadir}/calamares/branding/nobara_branding/
