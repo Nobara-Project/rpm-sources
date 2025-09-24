@@ -6,7 +6,7 @@
 Summary: Contains libraries from Fedora 37 packages needed for Davinci Resolve to run
 Name: nobara-resolve-runtime
 Version: 1.1
-Release: 1%{?dist}
+Release: 2%{?dist}
 License: Public Domain
 URL:            https://github.com/nobara-project/nobara-core-packages
 Source0:        %{URL}/releases/download/1.0/nobara-resolve-runtime.tar.gz
