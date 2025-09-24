@@ -1,16 +1,16 @@
 %global libliftoff_minver 0.5.0
 
 # latest git
-%define commit 875a4e07c718fa4196283d620a8b4dac7b3a8c7f
+%define commit cf288b95fa376a15f30fe8d1a9f750cad54742df
 
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global _default_patch_fuzz 2
 %global build_timestamp %(date +"%Y%m%d")
 
-%global rel_build 3.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           gamescope
-Version:        3.16.14
+Version:        3.16.17
 Release:        %{rel_build}
 Summary:        Micro-compositor for video games on Wayland
 
