@@ -25,14 +25,14 @@
 %_zig_release_mode safe
 
 # seperated build options
-%_zig_general_options --verbose --release=%{_zig_release_mode} --summary all
+%_zig_general_options --verbose --release=%{_zig_release_mode} --build-id=sha1 --summary all
 %_zig_project_options -Dtarget=%{_zig_target} -Dcpu=%{_zig_cpu}
 %_zig_system_integration --system "%{_zig_package_dir}"
 %_zig_advanced_options --cache-dir "%{_zig_cache_dir}" --global-cache-dir "%{_zig_cache_dir}"
 
 %_zig_build_options %{?_zig_general_options} %{?_zig_project_options} %{?_zig_system_integration} %{?_zig_advanced_options} %{?zig_build_options}
 %_zig_install_options --prefix "%{_prefix}" --prefix-lib-dir "%{_libdir}" --prefix-exe-dir "%{_bindir}" --prefix-include-dir "%{_includedir}" %{?zig_install_options}
-%_zig_fetch_options --global-cache-dir %{_zig_cache_dir} %{zig_fetch_options}
+%_zig_fetch_options --global-cache-dir %{_zig_cache_dir} %{?zig_fetch_options}
 %_zig_test_options %{?zig_test_options}
 
 

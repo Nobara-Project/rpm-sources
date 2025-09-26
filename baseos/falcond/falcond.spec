@@ -2,7 +2,7 @@
 %global debug_package %{nil}
 
 Name:           falcond
-Version:        1.1.7
+Version:        1.1.9
 Release:        %autorelease
 Summary:        Advanced Linux Gaming Performance Daemon
 
@@ -53,6 +53,9 @@ zig build \
 %{_unitdir}/falcond.service
 
 %changelog
+* Fri Sep 26 2025 LionHeartP <LionHeartP@proton.me> - 1.1.9-1
+- Update to 1.1.9
+
 * Mon Jun 23 2025 LionHeartP <LionHeartP@proton.me> - 1.1.7-1
 - Update to 1.1.7
 - Change CPU arch to x86_64_v2
