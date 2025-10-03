@@ -54,7 +54,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 200
+%define customver 201
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -1120,6 +1120,9 @@ fi
 %files
 
 %changelog
+* Tue Sep 30 2025 LionHeartP <LionHeartP@proton.me> - 6.17.0-201
+- Revert BORE to 6.5.2
+
 * Tue Sep 30 2025 LionHeartP <LionHeartP@proton.me> - 6.17.0-200
 - Update to 6.17.0
 - Remove asus-linux and ayaneo-headset-fix patches (upstreamed)
