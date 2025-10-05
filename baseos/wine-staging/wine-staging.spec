@@ -333,6 +333,7 @@ install -p -m 0644 tools/wine/wine.pl.UTF-8.man "%{buildroot}/usr/share/man/pl.U
 %dir %{_datadir}/wine
 %{_datadir}/wine/wine.inf
 %{_datadir}/wine/nls/*.nls
+%{_datadir}/wine/winmd/*.winmd
 %{_datadir}/applications/*.desktop
 %dir %{_datadir}/wine/fonts
 %{_datadir}/wine/fonts/*
