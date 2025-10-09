@@ -1,14 +1,14 @@
 Summary:        GStreamer 1.0 streaming media framework "bad" plug-ins
 Name:           gstreamer1-plugins-bad-freeworld
 Epoch:          1
-Version:        1.26.1
+Version:        1.26.6
 Release:        1%{?dist}
 License:        LGPLv2+
 URL:            https://gstreamer.freedesktop.org/
 Source0:        %{url}/src/gst-plugins-bad/gst-plugins-bad-%{version}.tar.xz
 Patch0:         build_what_we_need_only.patch
 
-BuildRequires:  gcc-objc++
+BuildRequires:  gcc-c++
 BuildRequires:  meson
 BuildRequires:  gstreamer1-devel >= %{version}
 BuildRequires:  gstreamer1-plugins-base-devel >= %{version}
@@ -16,8 +16,6 @@ BuildRequires:  gstreamer1-plugins-bad-free-devel >= %{version}
 BuildRequires:  check
 BuildRequires:  libXt-devel
 BuildRequires:  orc-devel
-BuildRequires:  faad2-devel
-BuildRequires:  mjpegtools-devel >= 2.0.0
 BuildRequires:  librtmp-devel
 BuildRequires:  openssl-devel
 
@@ -75,14 +73,8 @@ rm -rf %{buildroot}%{_libdir}/pkgconfig
 # Take the whole dir for proper dir ownership (shared with other plugin pkgs)
 %{_datadir}/gstreamer-1.0
 
-# Plugins without external dependencies
-%{_libdir}/gstreamer-1.0/libgstdvdspu.so
-
 # Plugins with external dependencies
 %{_libdir}/gstreamer-1.0/libgstde265.so
-%{_libdir}/gstreamer-1.0/libgstfaad.so
-%{_libdir}/gstreamer-1.0/libgstmpeg2enc.so
-%{_libdir}/gstreamer-1.0/libgstmplex.so
 %{_libdir}/gstreamer-1.0/libgstrtmp.so
 %ifarch x86_64
 %{_libdir}/gstreamer-1.0/libgstsvthevcenc.so
@@ -91,6 +83,28 @@ rm -rf %{buildroot}%{_libdir}/pkgconfig
 
 
 %changelog
+* Fri Sep 19 2025 Dominik Mierzejewski <dominik@greysector.net> - 1:1.26.6-1
+- Update to 1.26.6
+
+* Thu Aug 14 2025 Dominik Mierzejewski <dominik@greysector.net> - 1:1.26.5-1
+- Update to 1.26.5
+- Drop mjpegtools plugins, they were moved to Fedora
+
+* Sun Jul 27 2025 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 1:1.26.3-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_43_Mass_Rebuild
+
+* Fri Jun 27 2025 Dominik Mierzejewski <dominik@greysector.net> - 1:1.26.3-1
+- Update to 1.26.3
+
+* Wed Jun 18 2025 Leigh Scott <leigh123linux@gmail.com> - 1:1.26.2-2
+- Faad support moved to fedora
+
+* Mon Jun 02 2025 Dominik Mierzejewski <dominik@greysector.net> - 1:1.26.2-1
+- update to 1.26.2
+
+* Fri May 23 2025 Nicolas Chauvet <kwizart@gmail.com> - 1:1.26.1-2
+- Switch to gcc-c++
+
 * Tue Apr 29 2025 Dominik Mierzejewski <dominik@greysector.net> - 1:1.26.1-1
 - update to 1.26.1
 
@@ -468,4 +482,3 @@ rm -rf %{buildroot}%{_libdir}/pkgconfig
 
 * Sun Sep  9 2012 Hans de Goede <j.w.r.degoede@gmail.com> - 0.11.93-1
 - First version of gstreamer1-plugins-ugly for rpmfusion
-
