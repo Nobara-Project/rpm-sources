@@ -3,12 +3,7 @@
 # Signing key from https://ziglang.org/download/
 %global         public_key RWSGOq2NVecA2UPNdBUZykf1CCb147pkmdtYxgb3Ti+JO/wCYvhbAb/U
 
-# note here at which Fedora or EL release we need to use compat LLVM packages
-%if 0%{?fedora} >= 42 || 0%{?rhel} >= 9
-%define         llvm_compat 19
-%endif
-
-%global         llvm_version 19.0.0
+%global         llvm_version 20.1.8
 
 %bcond bootstrap 1
 %bcond docs      %{without bootstrap}
@@ -43,7 +38,7 @@
 }
 
 Name:           zig
-Version:        0.14.0
+Version:        0.15.1
 Release:        1%{?dist}
 Summary:        Programming language for maintaining robust, optimal, and reusable software
 
@@ -56,19 +51,6 @@ Source2:        macros.%{name}
 # this is unlikely to be upstreamed in its current state because upstream
 # wants to work around the shortcomings of NixOS
 Patch:          0001-remove-native-lib-directories-from-rpath.patch
-# Adds a build option for setting the build-id
-# some projects are not programmed to handle a build-id's
-# by having it as a flag we can make sure no developer runs into
-# any trouble because of packaging demands
-# https://github.com/ziglang/zig/pull/22516
-Patch:          0002-std.Build-add-build-id-option.patch
-# Zig has a feature that allows the developer to specify max memory usage
-# during compilation, this allows the compiler to split up tasks efficiently-
-# Annoyingly if any singular step goes above this it will fail after completion
-# Upstream suggested simply bumping this limit to 9GB
-# https://github.com/ziglang/zig/pull/23638
-# copr doesn't have that much memory to allocate so disable this patch for now
-# Patch:          0003-increase-upper-bounds-of-main-zig-executable-to-9G.patch
 
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
@@ -84,7 +66,7 @@ BuildRequires:  help2man
 BuildRequires:  minisign
 
 %if %{without bootstrap}
-BuildRequires:  %{name} = %{version}
+BuildRequires:  (zig >= 0.15 with zig < 0.16)
 %endif
 
 %if %{with test}
@@ -192,10 +174,7 @@ help2man --no-discard-stderr --no-info "./zig-out/bin/zig" --version-option=vers
 
 %if %{with docs}
 # Use the newly made stage 3 compiler to generate docs 
-./zig-out/bin/zig build docs \
-    --verbose \
-    --global-cache-dir "%{zig_cache_dir}" \
-    -Dversion-string="%{version}"
+./zig-out/bin/zig build docs %{zig_build_options}
 %endif
 
 %install
@@ -241,6 +220,21 @@ install -D -pv -m 0644 %{SOURCE2} %{buildroot}%{_rpmmacrodir}/macros.%{name}
 %endif
 
 %changelog
+* Fri Sep 26 2025 LionHeartP <LionHeartP@proton.me> - 0.15.1-1
+- Update to 0.15.1
+
+* Mon Jun 09 2025 Jan200101 <sentrycraft123@gmail.com> - 0.14.1-1
+- Update to 0.14.1
+
+* Tue May 27 2025 Jan200101 <sentrycraft123@gmail.com> - 0.14.0-4
+- add patch to add library directories
+
+* Fri May 09 2025 Jan200101 <sentrycraft123@gmail.com> - 0.14.0-3
+- add gcc to runtime dependencies
+
+* Thu Apr 24 2025 Jan200101 <sentrycraft123@gmail.com> - 0.14.0-2
+- fix and re-enable documentation
+
 * Thu Mar 06 2025 Jan200101 <sentrycraft123@gmail.com> - 0.14.0-1
 - Update to 0.14.0
 
