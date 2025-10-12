@@ -8,7 +8,7 @@
 %endif
 
 Name:           gnome-shell
-Version:        48.4
+Version:        48.5
 Release:        %autorelease
 Summary:        Window management and application launching for GNOME
 
@@ -85,7 +85,6 @@ Conflicts: %{name} < 48~rc-3
 Recommends:     gnome-bluetooth%{?_isa} >= %{gnome_bluetooth_version}
 %endif
 Requires:       %{name}-common = %{version}-%{release}
-Requires:       gnome-desktop3%{?_isa} >= %{gnome_desktop_version}
 Requires:       gcr%{?_isa}
 Requires:       gobject-introspection%{?_isa} >= %{gobject_introspection_version}
 Requires:       gjs%{?_isa} >= %{gjs_version}
@@ -270,6 +269,9 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/org.gnome.Shell.Porta
 %{_datadir}/glib-2.0/schemas/*.xml
 
 %changelog
+* Sun Oct 12 2025 LionHeartP <LionHeartP@proton.me> - 48.5-1
+- Update to 48.5
+
 * Tue Aug 12 2025 LionHeartP <LionHeartP@proton.me> - 48.4-1
 - Update to 48.4
 

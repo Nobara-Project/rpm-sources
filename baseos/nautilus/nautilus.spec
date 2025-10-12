@@ -6,7 +6,7 @@
 %global libadwaita_version 1.6~beta
 
 Name:           nautilus
-Version:        48.3
+Version:        48.4.1
 
 %global tarball_version %%(echo %{version} | tr '~' '.')
 %global major_version %%(cut -d "." -f 1 <<<%{tarball_version})
@@ -150,6 +150,9 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 %doc %{_datadir}/doc/nautilus/
 
 %changelog
+* Sun Oct 12 2025 LionHeartP <LionHeartP@proton.me> - 48.4.1-1
+- Update to 48.4.1
+
 * Mon May 26 2025 nmontero <nmontero@redhat.com> - 48.2-1
 - Update to 48.2
 
