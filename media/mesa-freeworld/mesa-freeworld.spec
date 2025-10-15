@@ -217,6 +217,7 @@ Obsoletes:      %{srcname}-libgallium
 Summary:        Mesa-based VA-API drivers
 Requires:       %{srcname}-filesystem%{?_isa} = %{?epoch:%{epoch}:}%{version}
 Requires:       %{srcname}-libgallium-freeworld%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
+Obsoletes:      %{srcname}-vdpau-drivers-freeworld < %{?epoch:%{epoch}:}%{version}-%{release}
 
 Conflicts:      %{srcname}-va-drivers%{?_isa}
 
