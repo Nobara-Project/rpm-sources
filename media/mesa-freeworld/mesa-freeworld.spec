@@ -353,7 +353,6 @@ rewrite_wrap_file rustc-hash
 # install Appdata files
 mkdir -p %{buildroot}%{_metainfodir}
 install -pm 0644 %{SOURCE2} %{buildroot}%{_metainfodir}
-install -pm 0644 %{SOURCE3} %{buildroot}%{_metainfodir}
 
 # likewise glvnd
 rm -vf %{buildroot}%{_libdir}/libGLX_mesa.so
