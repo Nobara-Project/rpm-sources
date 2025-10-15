@@ -8,7 +8,6 @@ algorithms and decoding only VC1 algorithm.
 %global with_radeonsi 1
 %global with_vmware 1
 %global with_vulkan_hw 0
-%global with_vdpau 1
 %global with_va 1
 %if !0%{?rhel}
 %global with_r300 1
@@ -74,7 +73,7 @@ algorithms and decoding only VC1 algorithm.
 
 Name:           %{srcname}-freeworld
 Summary:        Mesa graphics libraries
-%global ver 25.2.4
+%global ver 25.2.5
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
@@ -86,7 +85,6 @@ Source0:        https://archive.mesa3d.org/%{srcname}-%{ver}.tar.xz
 # Fedora opts to ignore the optional part of clause 2 and treat that code as 2 clause BSD.
 Source1:        Mesa-MLAA-License-Clarification-Email.txt
 Source2:        org.mesa3d.vaapi.freeworld.metainfo.xml
-Source3:        org.mesa3d.vdpau.freeworld.metainfo.xml
 
 # In CentOS/RHEL, Rust crates required to build NVK are vendored.
 # The minimum target versions are obtained from the .wrap files
@@ -104,8 +102,6 @@ Source12:       https://crates.io/api/v1/crates/quote/%{rust_quote_ver}/download
 Source13:       https://crates.io/api/v1/crates/syn/%{rust_syn_ver}/download#/syn-%{rust_syn_ver}.tar.gz
 Source14:       https://crates.io/api/v1/crates/unicode-ident/%{rust_unicode_ident_ver}/download#/unicode-ident-%{rust_unicode_ident_ver}.tar.gz
 Source15:       https://crates.io/api/v1/crates/rustc-hash/%{rustc_hash_ver}/download#/rustc-hash-%{rustc_hash_ver}.tar.gz
-
-Patch10:        gnome-shell-glthread-disable.patch
 
 BuildRequires:  meson >= 1.3.0
 BuildRequires:  gcc
@@ -151,9 +147,6 @@ BuildRequires:  bison
 BuildRequires:  flex
 %if 0%{?with_lmsensors}
 BuildRequires:  lm_sensors-devel
-%endif
-%if 0%{?with_vdpau}
-BuildRequires:  pkgconfig(vdpau) >= 1.1
 %endif
 %if 0%{?with_va}
 BuildRequires:  pkgconfig(libva) >= 0.38.0
@@ -231,17 +224,6 @@ Conflicts:      %{srcname}-va-drivers%{?_isa}
 %{_description}
 %endif
 
-%if 0%{?with_vdpau}
-%package        -n %{srcname}-vdpau-drivers-freeworld
-Summary:        Mesa-based VDPAU drivers
-Requires:       %{srcname}-filesystem%{?_isa} = %{?epoch:%{epoch}:}%{version}
-Requires:       %{srcname}-libgallium-freeworld%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
-
-Conflicts:      %{srcname}-vdpau-drivers%{?_isa}
-
-%description 	-n %{srcname}-vdpau-drivers-freeworld
-%{_description}
-%endif
 %prep
 %autosetup -n %{srcname}-%{ver} -p1
 cp %{SOURCE1} docs/
@@ -320,7 +302,7 @@ rewrite_wrap_file rustc-hash
 %else
   -Dgallium-drivers=llvmpipe,virgl \
 %endif
-  -Dgallium-vdpau=%{?with_vdpau:enabled}%{!?with_vdpau:disabled} \
+  -Dgallium-vdpau=disabled \
   -Dgallium-va=%{?with_va:enabled}%{!?with_va:disabled} \
   -Dgallium-mediafoundation=disabled \
   -Dteflon=false \
@@ -373,8 +355,6 @@ mkdir -p %{buildroot}%{_metainfodir}
 install -pm 0644 %{SOURCE2} %{buildroot}%{_metainfodir}
 install -pm 0644 %{SOURCE3} %{buildroot}%{_metainfodir}
 
-# libvdpau opens the versioned name, don't bother including the unversioned
-rm -vf %{buildroot}%{_libdir}/vdpau/*.so
 # likewise glvnd
 rm -vf %{buildroot}%{_libdir}/libGLX_mesa.so
 rm -vf %{buildroot}%{_libdir}/libEGL_mesa.so
@@ -398,7 +378,7 @@ for i in libGL.so ; do
 done
 popd
 
-# strip unneeded files from va-api and vdpau
+# strip unneeded files from va-api
 rm -rf %{buildroot}%{_datadir}/{drirc.d,glvnd,vulkan}
 rm -rf %{buildroot}%{_libdir}{,/dri}/{d3d,EGL,gallium-pipe,libGLX,pkgconfig}
 rm -rf %{buildroot}%{_includedir}/{d3dadapter,EGL,GL,KHR}
@@ -441,27 +421,15 @@ rm -fr %{buildroot}%{_libdir}/libteflon*
 %license docs/license.rst
 %endif
 
-%if 0%{?with_vdpau}
-%files -n %{srcname}-vdpau-drivers-freeworld
-%{_libdir}/vdpau/libvdpau_nouveau.so.1*
-%if 0%{?with_r600}
-%{_libdir}/vdpau/libvdpau_r600.so.1*
-%endif
-%if 0%{?with_radeonsi}
-%{_libdir}/vdpau/libvdpau_radeonsi.so.1*
-%endif
-%if 0%{?with_d3d12}
-%{_libdir}/vdpau/libvdpau_d3d12.so.1*
-%endif
-%{_libdir}/vdpau/libvdpau_virtio_gpu.so.1*
-%{_metainfodir}/org.mesa3d.vdpau.freeworld.metainfo.xml
-%license docs/license.rst
-%endif
-
 %files -n %{srcname}-libgallium-freeworld
 %{_libdir}/libgallium-*.so
 
 %changelog
+* Wed Oct 15 2025 LionHeartP <LionHeartP@proton.me> - 25.2.5-1
+- Update to 25.2.5
+- Drop vdpau (upstream Fedora change)
+- Drop gnome-shell glthread patch (upstream Fedora change)
+
 * Wed Oct 01 2025 LionHeartP <LionHeartP@proton.me> - 25.2.4-1
 - Update to 25.2.4
 
