@@ -1,6 +1,6 @@
 %global _default_patch_fuzz 2
-%global commit dba215d6ef580b1895bb5ea94bcf800e1965b8be
-%global commitdate 20250819
+%global commit 3e53480d835eeb31049ef8a3b397f3180a1db9dc
+%global commitdate 20251006
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 %if 0%{?fedora}
@@ -9,7 +9,7 @@
 %endif
 
 Name:     xone
-Version:  0.4.3
+Version:  0.4.8
 Release:  1%{?dist}
 Summary:  Linux kernel driver for Xbox One and Xbox Series X|S accessories
 License:  GPLv2
@@ -87,6 +87,9 @@ install -D -m 0644 %{SOURCE1} %{buildroot}%{_modulesloaddir}/%{name}.conf
 %{_modulesloaddir}/%{name}.conf
 
 %changelog
+* Thu Oct 16 2025 LionHeartP <LionHeartP@proton.me> - 0.4.8-1
+- Update to 0.4.8
+
 * Sat Aug 23 2025 LionHeartP <LionHeartP@proton.me> - 0.4.3-1
 - Update to 0.4.3
 - Rebase 0001-convert-to-dongle-only-build.patch
