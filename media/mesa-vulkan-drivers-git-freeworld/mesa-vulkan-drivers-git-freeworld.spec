@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit fff9f0a0e6802b8e12820a97ac479bbf658246ba
+%global commit 12a4d6858055a536f0efd95d7760c8f496c187bf
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 13.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 14.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -74,8 +74,6 @@ Source0:        https://gitlab.freedesktop.org/mesa/mesa/-/archive/%{commit}/mes
 # Source1 contains email correspondence clarifying the license terms.
 # Fedora opts to ignore the optional part of clause 2 and treat that code as 2 clause BSD.
 Source1:        Mesa-MLAA-License-Clarification-Email.txt
-
-Patch10:        gnome-shell-glthread-disable.patch
 
 # https://gitlab.com/evlaV/mesa/
 Patch30:        valve.patch
@@ -428,6 +426,10 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Wed Oct 15 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-14
+- Update to latest commit
+- Drop gnome-shell glthread patch (upstream Fedora change)
+
 * Wed Oct 08 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-13
 - Update to latest commit
 

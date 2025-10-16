@@ -3,7 +3,6 @@
 %ifnarch s390x
 %global with_hardware 1
 %global with_vulkan_hw 1
-%global with_vdpau 1
 %global with_va 1
 %if !0%{?rhel}
 %global with_opencl 1
@@ -60,7 +59,7 @@
 
 Name:           mesa-vulkan-drivers-freeworld
 Summary:        The mesa graphics vulkan driver stack.
-%global ver 25.2.4
+%global ver 25.2.5
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %autorelease
 License:        MIT
@@ -71,8 +70,6 @@ Source0:        https://archive.mesa3d.org/mesa-%{ver}.tar.xz
 # Source1 contains email correspondence clarifying the license terms.
 # Fedora opts to ignore the optional part of clause 2 and treat that code as 2 clause BSD.
 Source1:        Mesa-MLAA-License-Clarification-Email.txt
-
-Patch10:        gnome-shell-glthread-disable.patch
 
 %global rust_paste_ver 1.0.15
 %global rust_proc_macro2_ver 1.0.101
@@ -140,9 +137,6 @@ BuildRequires:  python3-pyyaml
 BuildRequires:  bison
 BuildRequires:  flex
 BuildRequires:  lm_sensors-devel
-%if 0%{?with_vdpau}
-BuildRequires:  pkgconfig(vdpau) >= 1.1
-%endif
 %if 0%{?with_va}
 BuildRequires:  pkgconfig(libva) >= 0.38.0
 %endif
@@ -268,7 +262,7 @@ rewrite_wrap_file rustc-hash
   -Dgallium-drivers=softpipe,llvmpipe,virgl \
 %endif
   -Dgallium-mediafoundation=disabled \
-  -Dgallium-vdpau=%{?with_vdpau:enabled}%{!?with_vdpau:disabled} \
+  -Dgallium-vdpau=disabled \
   -Dgallium-va=%{?with_va:enabled}%{!?with_va:disabled} \
 %if 0%{?with_opencl}
   -Dgallium-rusticl=true \
@@ -302,8 +296,6 @@ rewrite_wrap_file rustc-hash
 %install
 %meson_install
 
-# libvdpau opens the versioned name, don't bother including the unversioned
-rm -vf %{buildroot}%{_libdir}/vdpau/*.so
 # likewise glvnd
 rm -vf %{buildroot}%{_libdir}/libGLX_mesa.so
 rm -vf %{buildroot}%{_libdir}/libEGL_mesa.so
@@ -428,14 +420,6 @@ rm -Rf %{buildroot}%{_libdir}/dri/v3d_dri.so
 rm -Rf %{buildroot}%{_libdir}/dri/vkms_dri.so
 rm -Rf %{buildroot}%{_libdir}/dri/zynqmp-dpsub_dri.so
 rm -Rf %{buildroot}%{_libdir}/libgallium-25.2.2.so
-rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_nouveau.so.1*
-rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_r300.so.1*
-rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_r600.so.1*
-rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_radeonsi.so.1*
-rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_virtio_gpu.so.1
-rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_virtio_gpu.so.1.0
-rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_virtio_gpu.so.1.0.0
-rm -Rf %{buildroot}%{_libdir}/vdpau/libvdpau_gallium.so.1.0.0
 rm -Rf %{buildroot}%{_libdir}/libRusticlOpenCL*
 rm -Rf %{buildroot}%{_sysconfdir}/OpenCL/vendors/rusticl.icd
 rm -Rf %{buildroot}%{_libdir}/gbm/dri_gbm.so
@@ -480,6 +464,11 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Wed Oct 15 2025 LionHeartP <LionHeartP@proton.me> - 25.2.5-1
+- Update to 25.2.5
+- Drop vdpau (upstream Fedora change)
+- Drop gnome-shell glthread patch (upstream Fedora change)
+
 * Wed Oct 01 2025 LionHeartP <LionHeartP@proton.me> - 25.2.4-1
 - Update to 25.2.4
 
