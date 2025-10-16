@@ -11137,22 +11137,6 @@ diff --git a/drivers/usb/usbip/vhci_hcd.c b/drivers/usb/usbip/vhci_hcd.c
 index e70fba9f55d6..7297d790b664 100644
 --- a/drivers/usb/usbip/vhci_hcd.c
 +++ b/drivers/usb/usbip/vhci_hcd.c
-@@ -765,6 +765,7 @@ static int vhci_urb_enqueue(struct usb_hcd *hcd, struct urb *urb, gfp_t mem_flag
- 				 ctrlreq->wValue, vdev->rhport);
- 
- 			vdev->udev = usb_get_dev(urb->dev);
-+			dev_pm_syscore_device(&vdev->udev->dev, true);
- 			usb_put_dev(old);
- 
- 			spin_lock(&vdev->ud.lock);
-@@ -785,6 +786,7 @@ static int vhci_urb_enqueue(struct usb_hcd *hcd, struct urb *urb, gfp_t mem_flag
- 					"Not yet?:Get_Descriptor to device 0 (get max pipe size)\n");
- 
- 			vdev->udev = usb_get_dev(urb->dev);
-+			dev_pm_syscore_device(&vdev->udev->dev, true);
- 			usb_put_dev(old);
- 			goto out;
- 
 @@ -1419,11 +1421,6 @@ static void vhci_hcd_remove(struct platform_device *pdev)
  static int vhci_hcd_suspend(struct platform_device *pdev, pm_message_t state)
  {
