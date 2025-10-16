@@ -1,7 +1,7 @@
 Summary: A set of scripts to install and update Davinci Resolve with better compatibility.
 Name: nobara-resolve-wizard
-Version: 1.1
-Release: 2%{?dist}
+Version: 1.2
+Release: 1%{?dist}
 License: Public Domain
 Group: System Environment/Base
 Source0: nobara-resolve-wizard.tar.gz
