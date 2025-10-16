@@ -1,12 +1,14 @@
 Name:           xone-firmware
 Version:        0.3
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Proprietary firmware for the Xbox One Wireless Dongle
 
 License:        Proprietary
-Source0:        http://download.windowsupdate.com/c/msdownload/update/driver/drvs/2017/07/1cd6a87c-623f-4407-a52d-c31be49e925c_e19f60808bdcbfbd3c3df6be3e71ffc52e43261e.cab
+Source0:        https://catalog.s.download.windowsupdate.com/c/msdownload/update/driver/drvs/2017/07/1cd6a87c-623f-4407-a52d-c31be49e925c_e19f60808bdcbfbd3c3df6be3e71ffc52e43261e.cab
+Source1:        https://catalog.s.download.windowsupdate.com/d/msdownload/update/driver/drvs/2015/12/20810869_8ce2975a7fbaa06bcfb0d8762a6275a1cf7c1dd3.cab
 
 BuildRequires:  cabextract
+BuildRequires:  coreutils
 
 Conflicts:      xow-firmware <= 0.5
 Obsoletes:      xow-firmware <= 0.5
@@ -16,11 +18,16 @@ Proprietary firmware for the Xbox One Wireless Dongle
 
 %build
 cabextract %{SOURCE0} -F FW_ACC_00U.bin
+mv FW_ACC_00U.bin xow_dongle.bin
+
+cabextract %{SOURCE1} -F FW_ACC_00U.bin
+mv FW_ACC_00U.bin xow_dongle_045e_02e6.bin
 
 %install
-install -p -Dm664 FW_ACC_00U.bin %{buildroot}%{_prefix}/lib/firmware/xow_dongle.bin
-
+install -D -pv -m 0644 -t %{buildroot}%{_prefix}/lib/firmware/ \
+    xow_dongle.bin \
+    xow_dongle_045e_02e6.bin
 
 %files
-
 %{_prefix}/lib/firmware/xow_dongle.bin
+%{_prefix}/lib/firmware/xow_dongle_045e_02e6.bin

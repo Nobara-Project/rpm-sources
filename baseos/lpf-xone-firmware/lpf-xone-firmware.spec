@@ -7,7 +7,7 @@ Name:       lpf-xone-firmware
 Summary:    Linux driver for the Xbox One wireless dongle.
 Version:    0.3
 
-Release:    2%{?dist}
+Release:    3%{?dist}
 License:    GPLv2
 URL:        https://github.com/medusalix/xone/
 BuildArch:  noarch
@@ -51,6 +51,9 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop
 %attr(775,pkg-build,pkg-build) /var/lib/lpf/packages/%{target_pkg}
 
 %changelog
+* Sat Apr 19 2025 Jan200101 <sentrycraft123@gmail.com> - 0.3-3
+- rebuild with additional firmware
+
 * Tue Nov 14 2023 Jan Drögehoff <sentrycraft123@gmail.com> - 0.3-2
 - Rebuild for Fedora 39
 
