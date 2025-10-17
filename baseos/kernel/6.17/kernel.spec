@@ -54,7 +54,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 200
+%define customver 201
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -1120,6 +1120,9 @@ fi
 %files
 
 %changelog
+* Wed Oct 15 2025 LionHeartP <LionHeartP@proton.me> - 6.17.3-201
+- Update Cachy patches for vmd regression fix
+
 * Wed Oct 15 2025 LionHeartP <LionHeartP@proton.me> - 6.17.3-200
 - Update to 6.17.3
 
