@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit 12a4d6858055a536f0efd95d7760c8f496c187bf
+%global commit 14fcf145e3d95975b9d93d8c91b20331709b9d22
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 14.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 15.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -424,6 +424,9 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Thu Oct 23 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-15
+- Update to latest commit
+
 * Wed Oct 15 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-14
 - Update to latest commit
 - Drop Drop gnome-shell glthread patch (upstream Fedora change)
