@@ -38,7 +38,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.17
-%define _stablekver 4
+%define _stablekver 5
 %define _rcver rc7
 %if %{_stablekver} == 0
 %define _tarkver %{_basekver}
@@ -54,7 +54,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 201
+%define customver 200
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -1120,6 +1120,9 @@ fi
 %files
 
 %changelog
+* Sat Oct 25 2025 LionHeartP <LionHeartP@proton.me> - 6.17.5-200
+- Update to 6.17.5
+
 * Mon Oct 20 2025 LionHeartP <LionHeartP@proton.me> - 6.17.4-201
 - Update cachy patch
 
