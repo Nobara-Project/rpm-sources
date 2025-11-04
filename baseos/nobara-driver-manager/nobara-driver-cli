@@ -1,0 +1,255 @@
+#!/bin/sh
+
+if [ -z "$1" ]; then
+    echo "Usage: $0 <vendor> <driver branch>"
+    echo "Available options: nvidia"
+    echo "For nvidia, available sub-options: production, new-feature, beta, uninstall"
+    exit 1
+fi
+
+MAIN_ARG="$1"
+SUB_ARG="$2"
+
+case "$MAIN_ARG" in
+    nvidia)
+        case "$SUB_ARG" in
+            production)
+                echo "Installing NVIDIA Production Branch..."
+
+                if [ "$(id -u)" -ne 0 ]; then
+                    echo "The following operations require root privileges."
+                    sudo sh -c '
+                        echo "Configuring dnf repository options..."
+                        dnf config-manager setopt nobara-nvidia-beta.enabled=0
+                        dnf config-manager setopt nobara-nvidia-new-feature.enabled=0
+                        dnf config-manager setopt nobara-nvidia-production.enabled=1
+
+                        echo "Removing existing NVIDIA packages..."
+                        dnf remove -y nvidia*
+                        dnf remove -y kmod-nvidia*
+                        dnf remove -y akmod-nvidia
+                        dnf remove -y dkms-nvidia
+
+                        echo "Cleaning up DKMS..."
+                        rm -rf /var/lib/dkms/nvidia*
+
+                        echo "Installing NVIDIA driver packages..."
+                        dnf install -y akmod-nvidia nvidia-driver libnvidia-ml libnvidia-ml.i686 libnvidia-fbc nvidia-driver-cuda nvidia-driver-cuda-libs nvidia-driver-cuda-libs.i686 nvidia-driver-libs nvidia-driver-libs.i686 nvidia-kmod-common nvidia-libXNVCtrl nvidia-modprobe nvidia-persistenced nvidia-settings nvidia-xconfig nvidia-vaapi-driver nvidia-gpu-firmware libnvidia-cfg --refresh
+
+                        echo "Modifying /etc/nvidia/kernel.conf..."
+                        sed -i -e "s/kernel$/kernel-open/g" /etc/nvidia/kernel.conf
+
+                        echo "Creating /etc/modprobe.d/nvidia-modeset.conf..."
+                        echo "options nvidia-drm modeset=1 fbdev=1" > /etc/modprobe.d/nvidia-modeset.conf
+                        chmod 644 /etc/modprobe.d/nvidia-modeset.conf
+
+                        echo "Enabling and running akmods service..."
+                        systemctl enable --now akmods
+
+                        echo "Building kernel modules..."
+                        akmods
+
+                        echo "Regenerating initramfs..."
+                        dracut -f --regenerate-all
+
+                        echo "NVIDIA Production Branch installation complete. A reboot is highly recommended."
+                    '
+                else
+                    echo "Executing as root..."
+                    dnf config-manager setopt nobara-nvidia-beta.enabled=0
+                    dnf config-manager setopt nobara-nvidia-new-feature.enabled=0
+                    dnf config-manager setopt nobara-nvidia-production.enabled=1
+                    dnf remove -y nvidia*
+                    dnf remove -y kmod-nvidia*
+                    dnf remove -y akmod-nvidia
+                    dnf remove -y dkms-nvidia
+                    rm -rf /var/lib/dkms/nvidia*
+                    dnf install -y akmod-nvidia nvidia-driver libnvidia-ml libnvidia-ml.i686 libnvidia-fbc nvidia-driver-cuda nvidia-driver-cuda-libs nvidia-driver-cuda-libs.i686 nvidia-driver-libs nvidia-driver-libs.i686 nvidia-kmod-common nvidia-libXNVCtrl nvidia-modprobe nvidia-persistenced nvidia-settings nvidia-xconfig nvidia-vaapi-driver nvidia-gpu-firmware libnvidia-cfg --refresh
+                    sed -i -e 's/kernel$/kernel-open/g' /etc/nvidia/kernel.conf
+                    echo "options nvidia-drm modeset=1 fbdev=1" | tee /etc/modprobe.d/nvidia-modeset.conf
+                    chmod 644 /etc/modprobe.d/nvidia-modeset.conf
+                    systemctl enable --now akmods
+                    akmods
+                    dracut -f --regenerate-all
+                    echo "NVIDIA Production Branch installation complete. A reboot is highly recommended."
+                fi
+                ;;
+
+            beta)
+                echo "Installing NVIDIA Beta Branch..."
+
+                if [ "$(id -u)" -ne 0 ]; then
+                    echo "The following operations require root privileges."
+                    sudo sh -c '
+                        echo "Configuring dnf repository options..."
+                        dnf config-manager setopt nobara-nvidia-beta.enabled=1
+                        dnf config-manager setopt nobara-nvidia-new-feature.enabled=0
+                        dnf config-manager setopt nobara-nvidia-production.enabled=0
+
+                        echo "Removing existing NVIDIA packages..."
+                        dnf remove -y nvidia*
+                        dnf remove -y kmod-nvidia*
+                        dnf remove -y akmod-nvidia
+                        dnf remove -y dkms-nvidia
+
+                        echo "Cleaning up DKMS..."
+                        rm -rf /var/lib/dkms/nvidia*
+
+                        echo "Installing NVIDIA driver packages..."
+                        dnf install -y akmod-nvidia nvidia-driver libnvidia-ml libnvidia-ml.i686 libnvidia-fbc nvidia-driver-cuda nvidia-driver-cuda-libs nvidia-driver-cuda-libs.i686 nvidia-driver-libs nvidia-driver-libs.i686 nvidia-kmod-common nvidia-libXNVCtrl nvidia-modprobe nvidia-persistenced nvidia-settings nvidia-xconfig nvidia-vaapi-driver nvidia-gpu-firmware libnvidia-cfg --refresh
+
+                        echo "Modifying /etc/nvidia/kernel.conf..."
+                        sed -i -e "s/kernel$/kernel-open/g" /etc/nvidia/kernel.conf
+
+                        echo "Creating /etc/modprobe.d/nvidia-modeset.conf..."
+                        echo "options nvidia-drm modeset=1 fbdev=1" > /etc/modprobe.d/nvidia-modeset.conf
+                        chmod 644 /etc/modprobe.d/nvidia-modeset.conf
+
+                        echo "Enabling and running akmods service..."
+                        systemctl enable --now akmods
+
+                        echo "Building kernel modules..."
+                        akmods
+
+                        echo "Regenerating initramfs..."
+                        dracut -f --regenerate-all
+
+                        echo "NVIDIA Beta Branch installation complete. A reboot is highly recommended."
+                    '
+                else
+                    echo "Executing as root..."
+                    dnf config-manager setopt nobara-nvidia-beta.enabled=1
+                    dnf config-manager setopt nobara-nvidia-new-feature.enabled=0
+                    dnf config-manager setopt nobara-nvidia-production.enabled=0
+                    dnf remove -y nvidia*
+                    dnf remove -y kmod-nvidia*
+                    dnf remove -y akmod-nvidia
+                    dnf remove -y dkms-nvidia
+                    rm -rf /var/lib/dkms/nvidia*
+                    dnf install -y akmod-nvidia nvidia-driver libnvidia-ml libnvidia-ml.i686 libnvidia-fbc nvidia-driver-cuda nvidia-driver-cuda-libs nvidia-driver-cuda-libs.i686 nvidia-driver-libs nvidia-driver-libs.i686 nvidia-kmod-common nvidia-libXNVCtrl nvidia-modprobe nvidia-persistenced nvidia-settings nvidia-xconfig nvidia-vaapi-driver nvidia-gpu-firmware libnvidia-cfg --refresh
+                    sed -i -e 's/kernel$/kernel-open/g' /etc/nvidia/kernel.conf
+                    echo "options nvidia-drm modeset=1 fbdev=1" | tee /etc/modprobe.d/nvidia-modeset.conf
+                    chmod 644 /etc/modprobe.d/nvidia-modeset.conf
+                    systemctl enable --now akmods
+                    akmods
+                    dracut -f --regenerate-all
+                    echo "NVIDIA Beta Branch installation complete. A reboot is highly recommended."
+                fi
+                ;;
+                
+            new-feature)
+                echo "Installing NVIDIA New Feature Branch..."
+
+                if [ "$(id -u)" -ne 0 ]; then
+                    echo "The following operations require root privileges."
+                    sudo sh -c '
+                        echo "Configuring dnf repository options..."
+                        dnf config-manager setopt nobara-nvidia-beta.enabled=0
+                        dnf config-manager setopt nobara-nvidia-new-feature.enabled=1
+                        dnf config-manager setopt nobara-nvidia-production.enabled=0
+
+                        echo "Removing existing NVIDIA packages..."
+                        dnf remove -y nvidia*
+                        dnf remove -y kmod-nvidia*
+                        dnf remove -y akmod-nvidia
+                        dnf remove -y dkms-nvidia
+
+                        echo "Cleaning up DKMS..."
+                        rm -rf /var/lib/dkms/nvidia*
+
+                        echo "Installing NVIDIA driver packages..."
+                        dnf install -y akmod-nvidia nvidia-driver libnvidia-ml libnvidia-ml.i686 libnvidia-fbc nvidia-driver-cuda nvidia-driver-cuda-libs nvidia-driver-cuda-libs.i686 nvidia-driver-libs nvidia-driver-libs.i686 nvidia-kmod-common nvidia-libXNVCtrl nvidia-modprobe nvidia-persistenced nvidia-settings nvidia-xconfig nvidia-vaapi-driver nvidia-gpu-firmware libnvidia-cfg --refresh
+
+                        echo "Modifying /etc/nvidia/kernel.conf..."
+                        sed -i -e "s/kernel$/kernel-open/g" /etc/nvidia/kernel.conf
+
+                        echo "Creating /etc/modprobe.d/nvidia-modeset.conf..."
+                        echo "options nvidia-drm modeset=1 fbdev=1" > /etc/modprobe.d/nvidia-modeset.conf
+                        chmod 644 /etc/modprobe.d/nvidia-modeset.conf
+
+                        echo "Enabling and running akmods service..."
+                        systemctl enable --now akmods
+
+                        echo "Building kernel modules..."
+                        akmods
+
+                        echo "Regenerating initramfs..."
+                        dracut -f --regenerate-all
+
+                        echo "NVIDIA New Feature Branch installation complete. A reboot is highly recommended."
+                    '
+                else
+                    echo "Executing as root..."
+                    dnf config-manager setopt nobara-nvidia-beta.enabled=0
+                    dnf config-manager setopt nobara-nvidia-new-feature.enabled=1
+                    dnf config-manager setopt nobara-nvidia-production.enabled=0
+                    dnf remove -y nvidia*
+                    dnf remove -y kmod-nvidia*
+                    dnf remove -y akmod-nvidia
+                    dnf remove -y dkms-nvidia
+                    rm -rf /var/lib/dkms/nvidia*
+                    dnf install -y akmod-nvidia nvidia-driver libnvidia-ml libnvidia-ml.i686 libnvidia-fbc nvidia-driver-cuda nvidia-driver-cuda-libs nvidia-driver-cuda-libs.i686 nvidia-driver-libs nvidia-driver-libs.i686 nvidia-kmod-common nvidia-libXNVCtrl nvidia-modprobe nvidia-persistenced nvidia-settings nvidia-xconfig nvidia-vaapi-driver nvidia-gpu-firmware libnvidia-cfg --refresh
+                    sed -i -e 's/kernel$/kernel-open/g' /etc/nvidia/kernel.conf
+                    echo "options nvidia-drm modeset=1 fbdev=1" | tee /etc/modprobe.d/nvidia-modeset.conf
+                    chmod 644 /etc/modprobe.d/nvidia-modeset.conf
+                    systemctl enable --now akmods
+                    akmods
+                    dracut -f --regenerate-all
+                    echo "NVIDIA New Feature Branch installation complete. A reboot is highly recommended."
+                fi
+                ;;
+                
+            uninstall)
+                echo "Uninstalling NVIDIA Driver..."
+
+                if [ "$(id -u)" -ne 0 ]; then
+                    echo "The following operations require root privileges."
+                    sudo sh -c '
+                        echo "Configuring dnf repository options..."
+                        dnf config-manager setopt nobara-nvidia-beta.enabled=0
+                        dnf config-manager setopt nobara-nvidia-new-feature.enabled=0
+                        dnf config-manager setopt nobara-nvidia-production.enabled=1
+
+                        echo "Removing existing NVIDIA packages..."
+                        dnf remove -y *nvidia*
+                        dnf remove -y kmod-nvidia*
+                        dnf remove -y akmod-nvidia
+                        dnf remove -y dkms-nvidia
+                        dnf install -y nvidia-gpu-firmware
+
+                        echo "Cleaning up DKMS..."
+                        rm -rf /var/lib/dkms/nvidia*
+
+                        echo "Regenerating initramfs..."
+                        dracut -f --regenerate-all
+
+                        echo "NVIDIA Driver uninstallation complete."
+                    '
+                else
+                    echo "Executing as root..."
+                    dnf config-manager setopt nobara-nvidia-beta.enabled=0
+                    dnf config-manager setopt nobara-nvidia-new-feature.enabled=0
+                    dnf config-manager setopt nobara-nvidia-production.enabled=1
+                    dnf remove -y *nvidia*
+                    dnf remove -y kmod-nvidia*
+                    dnf remove -y akmod-nvidia
+                    dnf remove -y dkms-nvidia
+                    dnf install -y nvidia-gpu-firmware
+                    rm -rf /var/lib/dkms/nvidia*
+                    dracut -f --regenerate-all
+                    echo "NVIDIA Driver uninstallation complete."
+                fi
+                ;;
+            *)
+                echo "Error: Unknown nvidia sub-option: $SUB_ARG"
+                echo "Available sub-options for 'nvidia': production, new-feature, beta, uninstall"
+                exit 1
+                ;;
+        esac
+        ;;
+    *)
+        echo "Error: Unknown main option: $MAIN_ARG"
+        echo "Available options: nvidia"
+        exit 1
+        ;;
+esac
