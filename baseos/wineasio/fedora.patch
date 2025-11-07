@@ -1,0 +1,17 @@
+diff --git a/wineasio-register b/wineasio-register
+index a8e32e8..7c586e4 100755
+--- a/wineasio-register
++++ b/wineasio-register	
+@@ -59,10 +59,8 @@ if [ ! -d "${WINEPREFIX}/drive_c/windows/syswow64" ]; then
+     exit 0
+ fi
+ 
+-if command -v wine64 >/dev/null 2>&1; then
+-    WINE64="wine64"
+-elif [ -e /usr/lib/wine/wine64 ]; then
+-    WINE64="/usr/lib/wine/wine64"
++if command -v wine >/dev/null 2>&1; then
++    WINE64="wine"
+ else
+     status64="is not applicable (no wine64 was found)"
+     >&2 echo "[$me] 64-bit dll.so $status64"
