@@ -1,0 +1,796 @@
+From 40561efed554bca471e4d2a6d8629e1925980d34 Mon Sep 17 00:00:00 2001
+From: Konstantin Seurer <konstantin.seurer@gmail.com>
+Date: Tue, 4 Nov 2025 21:06:04 +0100
+Subject: [PATCH 1/6] nir: Add f2f16_ru/rd opcodes
+
+Those are variants of f2f16 that always round up/down. Constant folding
+requires nextafter that supports half floats (util_nextafter).
+---
+ src/compiler/nir/nir_opcodes.py | 22 +++++++++++++++++++++-
+ src/util/u_math.c               | 28 ++++++++++++++++++++++++++++
+ src/util/u_math.h               |  2 ++
+ 3 files changed, 51 insertions(+), 1 deletion(-)
+
+diff --git a/src/compiler/nir/nir_opcodes.py b/src/compiler/nir/nir_opcodes.py
+index 6c9aa7e51174c..0498ff08d2f5d 100644
+--- a/src/compiler/nir/nir_opcodes.py
++++ b/src/compiler/nir/nir_opcodes.py
+@@ -257,7 +257,7 @@ for src_t in [tint, tuint, tfloat, tbool]:
+    for dst_t in dst_types:
+       for dst_bit_size in type_sizes(dst_t):
+           if dst_bit_size == 16 and dst_t == tfloat and src_t == tfloat:
+-              rnd_modes = ['_rtne', '_rtz', '']
++              rnd_modes = ['_rtne', '_rtz', '_ru', '_rd', '']
+               for rnd_mode in rnd_modes:
+                   if rnd_mode == '_rtne':
+                       conv_expr = """
+@@ -279,6 +279,26 @@ for src_t in [tint, tuint, tfloat, tbool]:
+                          dst = src0;
+                       }
+                       """
++                  elif rnd_mode == '_ru':
++                      conv_expr = """
++                      if (bit_size > 16) {
++                         dst = _mesa_half_to_float(_mesa_float_to_half(src0));
++                         if (dst < src0)
++                            dst = _mesa_half_to_float(util_nextafter(_mesa_float_to_half(src0), 16, true));
++                      } else {
++                         dst = src0;
++                      }
++                      """
++                  elif rnd_mode == '_rd':
++                      conv_expr = """
++                      if (bit_size > 16) {
++                         dst = _mesa_half_to_float(_mesa_float_to_half(src0));
++                         if (dst > src0)
++                            dst = _mesa_half_to_float(util_nextafter(_mesa_float_to_half(src0), 16, false));
++                      } else {
++                         dst = src0;
++                      }
++                      """
+                   else:
+                       conv_expr = """
+                       if (bit_size > 32) {
+diff --git a/src/util/u_math.c b/src/util/u_math.c
+index d6e37f7134773..a829f51254e6d 100644
+--- a/src/util/u_math.c
++++ b/src/util/u_math.c
+@@ -28,6 +28,7 @@
+ 
+ 
+ #include "util/detect.h"
++#include "util/half_float.h"
+ #include "util/u_math.h"
+ #include "util/u_cpu_detect.h"
+ 
+@@ -309,3 +310,30 @@ util_invert_mat4x4(float *out, const float *m)
+ 
+    return true;
+ }
++
++uint64_t
++util_nextafter(uint64_t x, unsigned bit_size, bool up)
++{
++   uint64_t sign_mask = 1ull << (bit_size - 1);
++   uint64_t min_abs = 1;
++
++   double f = uid(x);
++   if (bit_size == 32)
++      f = uif(x);
++   else if (bit_size == 16)
++      f = _mesa_half_to_float(x);
++   else
++      assert(bit_size == 64);
++
++   if (isnan(f) || (f == INFINITY && up) || (f == -INFINITY && !up))
++      return x;
++
++   /* beware of: +/-0.0 - 1 == NaN */
++   uint64_t xn = f == 0 ? (sign_mask | min_abs) : x - 1;
++
++   /* beware of -0.0 + 1 == -0x1p-149 */
++   uint64_t xp = f == 0 ? min_abs : x + 1;
++
++   /* nextafter can be implemented by just +/- 1 on the int value */
++   return (up ^ (f < 0)) ? xp : xn;
++}
+diff --git a/src/util/u_math.h b/src/util/u_math.h
+index 721c5b99c1deb..1261228760971 100644
+--- a/src/util/u_math.h
++++ b/src/util/u_math.h
+@@ -866,6 +866,8 @@ util_is_sint16(int x)
+    return x >= INT16_MIN && x <= INT16_MAX;
+ }
+ 
++uint64_t util_nextafter(uint64_t x, unsigned bit_size, bool up);
++
+ #ifdef __cplusplus
+ }
+ #endif
+-- 
+GitLab
+
+
+From 7254c5476df3fb2cfa5586c467b60b7dbf3701f1 Mon Sep 17 00:00:00 2001
+From: Konstantin Seurer <konstantin.seurer@gmail.com>
+Date: Thu, 6 Nov 2025 08:08:25 +0100
+Subject: [PATCH 2/6] spirv: Add internal f2f16 opcodes
+
+The OpFConvert+FPRoundingModeRTP/FPRoundingModeRTN cannot be used
+because GL_EXT_spirv_intrinsics does not allow decorations. Instead,
+we need opcodes that encode the rounding mode so that they can be used
+in glsl code.
+---
+ src/compiler/spirv/spirv_internal_exts.h | 13 +++++++++++++
+ src/compiler/spirv/spirv_to_nir.c        |  4 +++-
+ src/compiler/spirv/vtn_alu.c             |  9 ++++++++-
+ src/compiler/spirv/vtn_gather_types_c.py |  6 +++++-
+ src/compiler/spirv/vtn_private.h         |  1 +
+ 5 files changed, 30 insertions(+), 3 deletions(-)
+ create mode 100644 src/compiler/spirv/spirv_internal_exts.h
+
+diff --git a/src/compiler/spirv/spirv_internal_exts.h b/src/compiler/spirv/spirv_internal_exts.h
+new file mode 100644
+index 0000000000000..abced6f81fdc7
+--- /dev/null
++++ b/src/compiler/spirv/spirv_internal_exts.h
+@@ -0,0 +1,13 @@
++/*
++ * Copyright © 2025 Valve Corporation
++ *
++ * SPDX-License-Identifier: MIT
++ */
++
++#ifndef SPIRV_INTERNAL_EXTS_H
++#define SPIRV_INTERNAL_EXTS_H
++
++#define SpvOpFConvertRUMesa 0xfffe
++#define SpvOpFConvertRDMesa 0xfffd
++
++#endif
+diff --git a/src/compiler/spirv/spirv_to_nir.c b/src/compiler/spirv/spirv_to_nir.c
+index 4470b7f28140e..14eaed9e35ffa 100644
+--- a/src/compiler/spirv/spirv_to_nir.c
++++ b/src/compiler/spirv/spirv_to_nir.c
+@@ -6493,7 +6493,7 @@ vtn_handle_body_instruction(struct vtn_builder *b, SpvOp opcode,
+       }
+    }
+ 
+-   switch (opcode) {
++   switch ((uint32_t)opcode) {
+    case SpvOpLabel:
+       break;
+ 
+@@ -6753,6 +6753,8 @@ vtn_handle_body_instruction(struct vtn_builder *b, SpvOp opcode,
+    case SpvOpUSubSatINTEL:
+    case SpvOpIMul32x16INTEL:
+    case SpvOpUMul32x16INTEL:
++   case SpvOpFConvertRUMesa:
++   case SpvOpFConvertRDMesa:
+       vtn_handle_alu(b, opcode, w, count);
+       break;
+ 
+diff --git a/src/compiler/spirv/vtn_alu.c b/src/compiler/spirv/vtn_alu.c
+index 28d87a020e74a..c92a3cfaa93ed 100644
+--- a/src/compiler/spirv/vtn_alu.c
++++ b/src/compiler/spirv/vtn_alu.c
+@@ -761,7 +761,7 @@ vtn_handle_alu(struct vtn_builder *b, SpvOp opcode,
+       src[i] = vtn_src[i]->def;
+    }
+ 
+-   switch (opcode) {
++   switch ((uint32_t)opcode) {
+    case SpvOpAny:
+       dest->def = nir_bany(&b->nb, src[0]);
+       break;
+@@ -981,6 +981,13 @@ vtn_handle_alu(struct vtn_builder *b, SpvOp opcode,
+                                      vtn_src[0]->type, src[0]);
+       break;
+ 
++   case SpvOpFConvertRUMesa:
++      dest->def = nir_f2f16_ru(&b->nb, src[0]);
++      break;
++   case SpvOpFConvertRDMesa:
++      dest->def = nir_f2f16_rd(&b->nb, src[0]);
++      break;
++
+    case SpvOpBitFieldInsert:
+    case SpvOpBitFieldSExtract:
+    case SpvOpBitFieldUExtract:
+diff --git a/src/compiler/spirv/vtn_gather_types_c.py b/src/compiler/spirv/vtn_gather_types_c.py
+index b726e1dce87ad..a5ebd4cfa01ae 100644
+--- a/src/compiler/spirv/vtn_gather_types_c.py
++++ b/src/compiler/spirv/vtn_gather_types_c.py
+@@ -80,7 +80,7 @@ struct type_args {
+ static struct type_args
+ result_type_args_for_opcode(SpvOp opcode)
+ {
+-   switch (opcode) {
++   switch ((uint32_t)opcode) {
+ % for opcode in opcodes:
+    case Spv${opcode[0]}: return (struct type_args){ ${opcode[1]}, ${opcode[2]} };
+ % endfor
+@@ -115,6 +115,10 @@ if __name__ == "__main__":
+ 
+     opcodes = list(find_result_types(spirv_info))
+ 
++    # internal opcodes
++    opcodes.append(('OpFConvertRUMesa', 1, 0))
++    opcodes.append(('OpFConvertRDMesa', 1, 0))
++
+     try:
+         with open(args.out, 'w', encoding='utf-8') as f:
+             f.write(TEMPLATE.render(opcodes=opcodes))
+diff --git a/src/compiler/spirv/vtn_private.h b/src/compiler/spirv/vtn_private.h
+index 5d601f95c8604..9f6009ed8ea81 100644
+--- a/src/compiler/spirv/vtn_private.h
++++ b/src/compiler/spirv/vtn_private.h
+@@ -33,6 +33,7 @@
+ #include "spirv.h"
+ #include "spirv_info.h"
+ #include "vtn_generator_ids.h"
++#include "spirv_internal_exts.h"
+ 
+ extern uint32_t mesa_spirv_debug;
+ 
+-- 
+GitLab
+
+
+From 8786f4f06e1a1de145c77ab01afcd47e8e281a3a Mon Sep 17 00:00:00 2001
+From: Konstantin Seurer <konstantin.seurer@gmail.com>
+Date: Tue, 14 Oct 2025 20:48:03 +0200
+Subject: [PATCH 3/6] aco: Add support to f2f16 with rtpi/rtni
+
+Those rounding modes are needed when computing 16-bit bounding boxes
+since the bounding box must not get smaller.
+---
+ src/amd/compiler/aco_insert_fp_mode.cpp                    | 7 +++++++
+ src/amd/compiler/aco_ir.cpp                                | 2 ++
+ src/amd/compiler/aco_opcodes.py                            | 2 ++
+ src/amd/compiler/instruction_selection/aco_isel_setup.cpp  | 4 +++-
+ .../compiler/instruction_selection/aco_select_nir_alu.cpp  | 7 +++++++
+ 5 files changed, 21 insertions(+), 1 deletion(-)
+
+diff --git a/src/amd/compiler/aco_insert_fp_mode.cpp b/src/amd/compiler/aco_insert_fp_mode.cpp
+index 1f11656429424..e74f2334b2907 100644
+--- a/src/amd/compiler/aco_insert_fp_mode.cpp
++++ b/src/amd/compiler/aco_insert_fp_mode.cpp
+@@ -279,6 +279,13 @@ emit_set_mode_block(fp_mode_ctx* ctx, Block* block)
+             instr->opcode = aco_opcode::v_cvt_f16_f32;
+          else
+             instr->opcode = aco_opcode::s_cvt_f16_f32;
++      } else if (instr->opcode ==  aco_opcode::p_v_cvt_f16_f32_rtpi ||
++                 instr->opcode ==  aco_opcode::p_v_cvt_f16_f32_rtni) {
++         set_mode |= fp_state.require(mode_round16_64, instr->opcode ==  aco_opcode::p_v_cvt_f16_f32_rtpi ? fp_round_pi : fp_round_ni);
++         set_mode |= fp_state.require(mode_fp16_ovfl, default_state.fields[mode_fp16_ovfl]);
++         set_mode |= fp_state.require(mode_denorm16_64, default_state.fields[mode_denorm16_64]);
++         set_mode |= fp_state.require(mode_denorm32, default_state.fields[mode_denorm32]);
++         instr->opcode = aco_opcode::v_cvt_f16_f32;
+       } else if (instr->opcode == aco_opcode::p_v_cvt_pk_fp8_f32_ovfl) {
+          set_mode |= fp_state.require(mode_fp16_ovfl, 1);
+          instr->opcode = aco_opcode::v_cvt_pk_fp8_f32;
+diff --git a/src/amd/compiler/aco_ir.cpp b/src/amd/compiler/aco_ir.cpp
+index 3d33b952f37ac..e7f0d0506047a 100644
+--- a/src/amd/compiler/aco_ir.cpp
++++ b/src/amd/compiler/aco_ir.cpp
+@@ -718,6 +718,8 @@ instr_is_16bit(amd_gfx_level gfx_level, aco_opcode op)
+    /* VOP1 */
+    case aco_opcode::v_cvt_f16_f32:
+    case aco_opcode::p_v_cvt_f16_f32_rtne:
++   case aco_opcode::p_v_cvt_f16_f32_rtpi:
++   case aco_opcode::p_v_cvt_f16_f32_rtni:
+    case aco_opcode::v_cvt_f16_u16:
+    case aco_opcode::v_cvt_f16_i16:
+    case aco_opcode::v_rcp_f16:
+diff --git a/src/amd/compiler/aco_opcodes.py b/src/amd/compiler/aco_opcodes.py
+index ddb86e641c24d..640e6def97c16 100644
+--- a/src/amd/compiler/aco_opcodes.py
++++ b/src/amd/compiler/aco_opcodes.py
+@@ -1027,6 +1027,8 @@ VOP1 = {
+    ("v_cvt_i32_f32",              dst(U32), src(F32), op(0x08)),
+    ("v_cvt_f16_f32",              dst(F16), src(F32), op(0x0a)),
+    ("p_v_cvt_f16_f32_rtne",       dst(F16), src(F32), op(-1)),
++   ("p_v_cvt_f16_f32_rtpi",       dst(F16), src(F32), op(-1)),
++   ("p_v_cvt_f16_f32_rtni",       dst(F16), src(F32), op(-1)),
+    ("v_cvt_f32_f16",              dst(F32), src(F16), op(0x0b)),
+    ("v_cvt_rpi_i32_f32",          dst(U32), src(F32), op(0x0c)), #v_cvt_nearest_i32_f32 in GFX11
+    ("v_cvt_flr_i32_f32",          dst(U32), src(F32), op(0x0d)),#v_cvt_floor_i32_f32 in GFX11
+diff --git a/src/amd/compiler/instruction_selection/aco_isel_setup.cpp b/src/amd/compiler/instruction_selection/aco_isel_setup.cpp
+index e9e0b4d44a3eb..576df1e71c16d 100644
+--- a/src/amd/compiler/instruction_selection/aco_isel_setup.cpp
++++ b/src/amd/compiler/instruction_selection/aco_isel_setup.cpp
+@@ -454,7 +454,9 @@ init_context(isel_context* ctx, nir_shader* shader)
+                   case nir_op_sdot_2x16_iadd_sat:
+                   case nir_op_bfdot2_bfadd:
+                   case nir_op_byte_perm_amd:
+-                  case nir_op_alignbyte_amd: type = RegType::vgpr; break;
++                  case nir_op_alignbyte_amd:
++                  case nir_op_f2f16_ru:
++                  case nir_op_f2f16_rd: type = RegType::vgpr; break;
+                   case nir_op_fmul:
+                   case nir_op_ffma:
+                   case nir_op_fadd:
+diff --git a/src/amd/compiler/instruction_selection/aco_select_nir_alu.cpp b/src/amd/compiler/instruction_selection/aco_select_nir_alu.cpp
+index be45fe24e844b..9796246aff1ba 100644
+--- a/src/amd/compiler/instruction_selection/aco_select_nir_alu.cpp
++++ b/src/amd/compiler/instruction_selection/aco_select_nir_alu.cpp
+@@ -2615,6 +2615,13 @@ visit_alu_instr(isel_context* ctx, nir_alu_instr* instr)
+       }
+       break;
+    }
++   case nir_op_f2f16_ru:
++   case nir_op_f2f16_rd:
++      ctx->program->needs_fp_mode_insertion = true;
++      bld.vop1(instr->op == nir_op_f2f16_ru ? aco_opcode::p_v_cvt_f16_f32_rtpi
++                                            : aco_opcode::p_v_cvt_f16_f32_rtni,
++               Definition(dst), Operand(get_alu_src(ctx, instr->src[0])));
++      break;
+    case nir_op_f2f32: {
+       if (dst.regClass() == s1) {
+          assert(instr->src[0].src.ssa->bit_size == 16);
+-- 
+GitLab
+
+
+From 595b4146263a08835ee83e6482e3ca3f23e58be3 Mon Sep 17 00:00:00 2001
+From: Konstantin Seurer <konstantin.seurer@gmail.com>
+Date: Tue, 14 Oct 2025 20:52:50 +0200
+Subject: [PATCH 4/6] radv/rra: Count box16 nodes properly
+
+Otherwise rra won't allocate memory when loading the capture.
+---
+ src/amd/vulkan/radv_rra.c         |  3 ++-
+ src/amd/vulkan/radv_rra.h         |  2 ++
+ src/amd/vulkan/radv_rra_gfx10_3.c | 14 ++++++++------
+ 3 files changed, 12 insertions(+), 7 deletions(-)
+
+diff --git a/src/amd/vulkan/radv_rra.c b/src/amd/vulkan/radv_rra.c
+index 408037736845e..04ca81690320d 100644
+--- a/src/amd/vulkan/radv_rra.c
++++ b/src/amd/vulkan/radv_rra.c
+@@ -199,7 +199,8 @@ rra_fill_accel_struct_header_common(const struct radv_physical_device *pdev, str
+       /* TODO: calculate active primitives */
+       .active_primitive_count = primitive_count,
+       .geometry_description_count = header->geometry_count,
+-      .interior_fp32_node_count = bvh_info->internal_nodes_size / sizeof(struct radv_bvh_box32_node),
++      .interior_fp32_node_count = bvh_info->box32_count,
++      .interior_fp16_node_count = bvh_info->box16_count,
+       .leaf_node_count = primitive_count,
+       .rt_driver_interface_version = 8 << 16,
+       .rt_ip_version = pdev->info.rt_ip_version,
+diff --git a/src/amd/vulkan/radv_rra.h b/src/amd/vulkan/radv_rra.h
+index c2c86f15d9f45..b8a6911a9331c 100644
+--- a/src/amd/vulkan/radv_rra.h
++++ b/src/amd/vulkan/radv_rra.h
+@@ -288,6 +288,8 @@ struct rra_bvh_info {
+    uint32_t leaf_nodes_size;
+    uint32_t internal_nodes_size;
+    uint32_t instance_sideband_data_size;
++   uint32_t box32_count;
++   uint32_t box16_count;
+    struct rra_geometry_info *geometry_infos;
+ };
+ 
+diff --git a/src/amd/vulkan/radv_rra_gfx10_3.c b/src/amd/vulkan/radv_rra_gfx10_3.c
+index 8ff1f01aa9ded..7fb4efd0ed5cf 100644
+--- a/src/amd/vulkan/radv_rra_gfx10_3.c
++++ b/src/amd/vulkan/radv_rra_gfx10_3.c
+@@ -177,9 +177,11 @@ rra_gather_bvh_info_gfx10_3(const uint8_t *bvh, uint32_t node_id, struct rra_bvh
+    switch (node_type) {
+    case radv_bvh_node_box16:
+       dst->internal_nodes_size += sizeof(struct rra_box16_node);
++      dst->box16_count++;
+       break;
+    case radv_bvh_node_box32:
+       dst->internal_nodes_size += sizeof(struct rra_box32_node);
++      dst->box32_count++;
+       break;
+    case radv_bvh_node_instance:
+       dst->leaf_nodes_size += sizeof(struct rra_instance_node);
+@@ -283,15 +285,15 @@ rra_transcode_box16_node(struct rra_transcoding_context *ctx, const struct radv_
+       vk_aabb bounds = {
+          .min =
+             {
+-               _mesa_half_to_float(src->coords[i][0][0]),
+-               _mesa_half_to_float(src->coords[i][0][1]),
+-               _mesa_half_to_float(src->coords[i][0][2]),
++               _mesa_half_to_float(src->coords[i].min_x),
++               _mesa_half_to_float(src->coords[i].min_y),
++               _mesa_half_to_float(src->coords[i].min_z),
+             },
+          .max =
+             {
+-               _mesa_half_to_float(src->coords[i][1][0]),
+-               _mesa_half_to_float(src->coords[i][1][1]),
+-               _mesa_half_to_float(src->coords[i][1][2]),
++               _mesa_half_to_float(src->coords[i].max_x),
++               _mesa_half_to_float(src->coords[i].max_y),
++               _mesa_half_to_float(src->coords[i].max_z),
+             },
+       };
+ 
+-- 
+GitLab
+
+
+From 6f9b8124304a665ef921db63792b0e13395d56ae Mon Sep 17 00:00:00 2001
+From: Konstantin Seurer <konstantin.seurer@gmail.com>
+Date: Tue, 14 Oct 2025 20:53:45 +0200
+Subject: [PATCH 5/6] radv/bvh: Add radv_aabb16 and use it for box16 nodes
+
+---
+ src/amd/vulkan/bvh/bvh.h | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/src/amd/vulkan/bvh/bvh.h b/src/amd/vulkan/bvh/bvh.h
+index f6e867df6bb64..b86cefbe1baad 100644
+--- a/src/amd/vulkan/bvh/bvh.h
++++ b/src/amd/vulkan/bvh/bvh.h
+@@ -34,6 +34,7 @@
+ #else
+ #include <vulkan/vulkan.h>
+ typedef uint16_t float16_t;
++typedef struct radv_aabb16 radv_aabb16;
+ #endif
+ 
+ struct radv_accel_struct_serialization_header {
+@@ -112,9 +113,18 @@ struct radv_bvh_instance_node {
+    mat3x4 otw_matrix;
+ };
+ 
++struct radv_aabb16 {
++   float16_t min_x;
++   float16_t min_y;
++   float16_t min_z;
++   float16_t max_x;
++   float16_t max_y;
++   float16_t max_z;
++};
++
+ struct radv_bvh_box16_node {
+    uint32_t children[4];
+-   float16_t coords[4][2][3];
++   radv_aabb16 coords[4];
+ };
+ 
+ struct radv_bvh_box32_node {
+-- 
+GitLab
+
+
+From 2e3f1a8c07fd2aeccc370534ab18d52be96c6073 Mon Sep 17 00:00:00 2001
+From: Konstantin Seurer <konstantin.seurer@gmail.com>
+Date: Wed, 15 Oct 2025 12:30:36 +0200
+Subject: [PATCH 6/6] radv/bvh: Use box16 nodes when bvh8 is not used
+
+Using box16 nodes trades bvh quality for memory bandwidth which seems to
+be roughly equal in performance.
+---
+ src/amd/vulkan/bvh/build_helpers.h           |   4 +
+ src/amd/vulkan/bvh/build_interface.h         |   1 +
+ src/amd/vulkan/bvh/encode.comp               | 126 +++++++++++++------
+ src/amd/vulkan/bvh/meson.build               |   2 +-
+ src/amd/vulkan/radv_acceleration_structure.c |   9 +-
+ src/vulkan/runtime/bvh/meson.build           |   5 +-
+ 6 files changed, 108 insertions(+), 39 deletions(-)
+
+diff --git a/src/amd/vulkan/bvh/build_helpers.h b/src/amd/vulkan/bvh/build_helpers.h
+index a63a534d34916..bdce281a3f2bb 100644
+--- a/src/amd/vulkan/bvh/build_helpers.h
++++ b/src/amd/vulkan/bvh/build_helpers.h
+@@ -9,6 +9,7 @@
+ 
+ #include "bvh.h"
+ #include "vk_build_helpers.h"
++#include "spirv_internal_exts.h"
+ 
+ TYPE(radv_accel_struct_serialization_header, 8);
+ TYPE(radv_accel_struct_header, 8);
+@@ -110,4 +111,7 @@ radv_encode_blas_pointer_flags(uint32_t flags, uint32_t geometry_type)
+    return ptr_flags;
+ }
+ 
++spirv_instruction(id = SpvOpFConvertRUMesa) float16_t radv_f32_to_f16_pos_inf(float f);
++spirv_instruction(id = SpvOpFConvertRDMesa) float16_t radv_f32_to_f16_neg_inf(float f);
++
+ #endif /* BUILD_HELPERS_H */
+diff --git a/src/amd/vulkan/bvh/build_interface.h b/src/amd/vulkan/bvh/build_interface.h
+index 15a7a2aaf5ec1..d3b726d296bed 100644
+--- a/src/amd/vulkan/bvh/build_interface.h
++++ b/src/amd/vulkan/bvh/build_interface.h
+@@ -26,6 +26,7 @@
+ #define RADV_BUILD_FLAG_PAIR_COMPRESS_TRIANGLES        (1u << (VK_BUILD_FLAG_COUNT + 5))
+ #define RADV_BUILD_FLAG_BATCH_COMPRESS_TRIANGLES       (1u << (VK_BUILD_FLAG_COUNT + 6))
+ #define RADV_BUILD_FLAG_BATCH_COMPRESS_TRIANGLES_RETRY (1u << (VK_BUILD_FLAG_COUNT + 7))
++#define RADV_BUILD_FLAG_USE_BOX16                      (1u << (VK_BUILD_FLAG_COUNT + 8))
+ 
+ #define RADV_COPY_MODE_COPY        0
+ #define RADV_COPY_MODE_SERIALIZE   1
+diff --git a/src/amd/vulkan/bvh/encode.comp b/src/amd/vulkan/bvh/encode.comp
+index 53c6f853d2c8f..5f6b04110d84c 100644
+--- a/src/amd/vulkan/bvh/encode.comp
++++ b/src/amd/vulkan/bvh/encode.comp
+@@ -22,6 +22,32 @@ void set_parent(uint32_t child, uint32_t parent)
+    DEREF(REF(uint32_t)(addr)) = parent;
+ }
+ 
++radv_aabb16
++radv_aabb_f32_to_f16(vk_aabb aabb)
++{
++   radv_aabb16 aabb16;
++   aabb16.min_x = radv_f32_to_f16_neg_inf(aabb.min.x);
++   aabb16.min_y = radv_f32_to_f16_neg_inf(aabb.min.y);
++   aabb16.min_z = radv_f32_to_f16_neg_inf(aabb.min.z);
++   aabb16.max_x = radv_f32_to_f16_pos_inf(aabb.max.x);
++   aabb16.max_y = radv_f32_to_f16_pos_inf(aabb.max.y);
++   aabb16.max_z = radv_f32_to_f16_pos_inf(aabb.max.z);
++   return aabb16;
++}
++
++vk_aabb
++radv_aabb_f16_to_f32(radv_aabb16 aabb16)
++{
++   vk_aabb aabb;
++   aabb.min.x = float(aabb16.min_x);
++   aabb.min.y = float(aabb16.min_y);
++   aabb.min.z = float(aabb16.min_z);
++   aabb.max.x = float(aabb16.max_x);
++   aabb.max.y = float(aabb16.max_y);
++   aabb.max.z = float(aabb16.max_z);
++   return aabb;
++}
++
+ void
+ main()
+ {
+@@ -89,18 +115,15 @@ main()
+       memoryBarrier(gl_ScopeDevice, gl_StorageSemanticsBuffer,
+                     gl_SemanticsAcquireRelease | gl_SemanticsMakeAvailable | gl_SemanticsMakeVisible);
+ 
+-      uint32_t bvh_offset = is_root_node ? id_to_offset(RADV_BVH_ROOT_NODE) : DEREF(src_node).bvh_offset;
+-      if (bvh_offset == VK_UNKNOWN_BVH_OFFSET)
++      uint32_t node_id = is_root_node ? RADV_BVH_ROOT_NODE : DEREF(src_node).bvh_offset;
++      if (node_id == VK_UNKNOWN_BVH_OFFSET)
+          continue;
+ 
+-      if (bvh_offset == VK_NULL_BVH_OFFSET)
++      if (node_id == VK_NULL_BVH_OFFSET)
+          break;
+ 
+       uint32_t flags = 0;
+ 
+-      REF(radv_bvh_box32_node) dst_node = REF(radv_bvh_box32_node)(OFFSET(args.output_bvh, bvh_offset));
+-      uint32_t node_id = pack_node_id(bvh_offset, radv_bvh_node_box32);
+-
+       uint32_t found_child_count = 0;
+       uint32_t children[4] = {RADV_BVH_INVALID_NODE, RADV_BVH_INVALID_NODE,
+                               RADV_BVH_INVALID_NODE, RADV_BVH_INVALID_NODE};
+@@ -158,20 +181,33 @@ main()
+             break;
+       }
+ 
++      REF(radv_bvh_box16_node) dst_node_f16 = REF(radv_bvh_box16_node)(OFFSET(args.output_bvh, id_to_offset(node_id)));
++      REF(radv_bvh_box32_node) dst_node_f32 = REF(radv_bvh_box32_node)(OFFSET(args.output_bvh, id_to_offset(node_id)));
++      bool is_box16 = VK_BUILD_FLAG(RADV_BUILD_FLAG_USE_BOX16) && id_to_type(node_id) == radv_bvh_node_box16;
++
+       for (uint32_t i = 0; i < found_child_count; ++i) {
+          uint32_t type = ir_id_to_type(children[i]);
+          uint32_t offset = ir_id_to_offset(children[i]);
+-         uint32_t dst_offset;
++         uint32_t child_node_id;
++
++         vk_aabb child_aabb = DEREF(REF(vk_ir_node)OFFSET(args.intermediate_bvh, offset)).aabb;
+ 
+          if (type == vk_ir_node_internal) {
+-            dst_offset = atomicAdd(DEREF(args.header).dst_node_offset, SIZEOF(radv_bvh_box32_node));
++            radv_aabb16 child_aabb16 = radv_aabb_f32_to_f16(child_aabb);
++            float surface_area_f16 = aabb_surface_area(radv_aabb_f16_to_f32(child_aabb16));
++            float surface_area_f32 = aabb_surface_area(child_aabb);
++            bool child_use_f16 = VK_BUILD_FLAG(RADV_BUILD_FLAG_USE_BOX16) && surface_area_f16 < surface_area_f32 * 1.5;
+ 
+-            REF(vk_ir_box_node) child_node = REF(vk_ir_box_node)OFFSET(args.intermediate_bvh, offset);
+-            DEREF(child_node).bvh_offset = dst_offset;
++            uint32_t dst_offset = atomicAdd(DEREF(args.header).dst_node_offset,
++                                            child_use_f16 ? SIZEOF(radv_bvh_box16_node) : SIZEOF(radv_bvh_box32_node));
++            child_node_id = pack_node_id(dst_offset, child_use_f16 ? radv_bvh_node_box16 : radv_bvh_node_box32);
++
++            REF(vk_ir_box_node) child_node = REF(vk_ir_box_node) OFFSET(args.intermediate_bvh, offset);
++            DEREF(child_node).bvh_offset = child_node_id;
+             flags |= (DEREF(child_node).flags & 0x3) << i * 8;
+          } else {
+             uint32_t child_index = offset / ir_leaf_node_size;
+-            dst_offset = dst_leaf_offset + child_index * output_leaf_node_size;
++            uint32_t dst_offset = dst_leaf_offset + child_index * output_leaf_node_size;
+ 
+             if (type == vk_ir_node_instance) {
+                vk_ir_instance_node src_node =
+@@ -182,47 +218,65 @@ main()
+                uint32_t child_flags = fetch_child_flags(args.intermediate_bvh, children[i]);
+                flags |= (child_flags & 0x3) << i * 8;
+             }
+-         }
+ 
+-         vk_aabb child_aabb =
+-            DEREF(REF(vk_ir_node)OFFSET(args.intermediate_bvh, offset)).aabb;
++            child_node_id = pack_node_id(dst_offset, ir_type_to_bvh_type(type));
++         }
+ 
+-         /* On gfx11, infinities in AABB coords can cause garbage child nodes to be
+-          * returned by box intersection tests with non-default box sorting modes.
+-          * Subtract 1 from the integer representation of inf/-inf to turn it into
+-          * the maximum/minimum representable floating-point value as a workaround.
+-          */
+-         if (VK_BUILD_FLAG(RADV_BUILD_FLAG_NO_INFS)) {
+-            for (uint32_t i = 0; i < 3; ++i) {
+-               if (isinf(child_aabb.min[i]))
+-                  child_aabb.min[i] = uintBitsToFloat(floatBitsToUint(child_aabb.min[i]) - 1);
+-               if (isinf(child_aabb.max[i]))
+-                  child_aabb.max[i] = uintBitsToFloat(floatBitsToUint(child_aabb.max[i]) - 1);
++         if (is_box16) {
++            DEREF(dst_node_f16).coords[i] = radv_aabb_f32_to_f16(child_aabb);
++         } else {
++            /* On gfx11, infinities in AABB coords can cause garbage child nodes to be
++             * returned by box intersection tests with non-default box sorting modes.
++             * Subtract 1 from the integer representation of inf/-inf to turn it into
++             * the maximum/minimum representable floating-point value as a workaround.
++             */
++            if (VK_BUILD_FLAG(RADV_BUILD_FLAG_NO_INFS)) {
++               for (uint32_t i = 0; i < 3; ++i) {
++                  if (isinf(child_aabb.min[i]))
++                     child_aabb.min[i] = uintBitsToFloat(floatBitsToUint(child_aabb.min[i]) - 1);
++                  if (isinf(child_aabb.max[i]))
++                     child_aabb.max[i] = uintBitsToFloat(floatBitsToUint(child_aabb.max[i]) - 1);
++               }
+             }
+-         }
+ 
+-         DEREF(dst_node).coords[i] = child_aabb;
++            DEREF(dst_node_f32).coords[i] = child_aabb;
++         }
+ 
+-         uint32_t child_id = pack_node_id(dst_offset, ir_type_to_bvh_type(type));
+-         children[i] = child_id;
+-         set_parent(child_id, node_id);
++         children[i] = child_node_id;
++         set_parent(child_node_id, node_id);
+       }
+ 
+-      for (uint i = found_child_count; i < 4; ++i) {
++      if (is_box16) {
++         radv_aabb16 null_aabb;
++         null_aabb.min_x = 0.0hf;
++         null_aabb.min_y = 0.0hf;
++         null_aabb.min_z = 0.0hf;
++         null_aabb.max_x = 0.0hf;
++         null_aabb.max_y = 0.0hf;
++         null_aabb.max_z = 0.0hf;
++         for (uint i = found_child_count; i < 4; ++i)
++            DEREF(dst_node_f16).coords[i] = null_aabb;
++      } else {
++         for (uint i = found_child_count; i < 4; ++i) {
+             for (uint comp = 0; comp < 3; ++comp) {
+-               DEREF(dst_node).coords[i].min[comp] = NAN;
+-               DEREF(dst_node).coords[i].max[comp] = NAN;
++               DEREF(dst_node_f32).coords[i].min[comp] = NAN;
++               DEREF(dst_node_f32).coords[i].max[comp] = NAN;
+             }
++         }
+       }
+ 
+       /* Make changes to the children's BVH offset value available to the other invocations. */
+       memoryBarrier(gl_ScopeDevice, gl_StorageSemanticsBuffer,
+                     gl_SemanticsAcquireRelease | gl_SemanticsMakeAvailable | gl_SemanticsMakeVisible);
+ 
+-      DEREF(dst_node).children = children;
++      if (is_box16) {
++         DEREF(dst_node_f16).children = children;
++      } else {
++         DEREF(dst_node_f32).children = children;
+ 
+-      if (VK_BUILD_FLAG(VK_BUILD_FLAG_PROPAGATE_CULL_FLAGS))
+-         DEREF(dst_node).flags = flags;
++         if (VK_BUILD_FLAG(VK_BUILD_FLAG_PROPAGATE_CULL_FLAGS))
++            DEREF(dst_node_f32).flags = flags;
++      }
+ 
+       break;
+    }
+diff --git a/src/amd/vulkan/bvh/meson.build b/src/amd/vulkan/bvh/meson.build
+index 3320ef6742864..c0328db82c70d 100644
+--- a/src/amd/vulkan/bvh/meson.build
++++ b/src/amd/vulkan/bvh/meson.build
+@@ -56,7 +56,7 @@ bvh_includes = files(
+ bvh_spv = []
+ foreach s : bvh_shaders
+   command = [
+-    prog_glslang, '-V', '-I' + bvh_include_dir, '-I' + vk_bvh_include_dir, '--target-env', 'spirv1.5',
++    prog_glslang, '-V', '-I' + bvh_include_dir, '-I' + vk_bvh_include_dir, '-I' + spirv_include_dir, '--target-env', 'spirv1.5',
+     '-x', '-o', '@OUTPUT@', '@INPUT@', glslang_depfile, glslang_quiet,
+   ]
+   command += vk_glsl_shader_preamble
+diff --git a/src/amd/vulkan/radv_acceleration_structure.c b/src/amd/vulkan/radv_acceleration_structure.c
+index 447ee44336531..6c609565bcf34 100644
+--- a/src/amd/vulkan/radv_acceleration_structure.c
++++ b/src/amd/vulkan/radv_acceleration_structure.c
+@@ -75,6 +75,7 @@ enum radv_encode_key_bits {
+    RADV_ENCODE_KEY_WRITE_LEAF_NODE_OFFSETS = (1 << 0),
+    RADV_ENCODE_KEY_PAIR_COMPRESS_GFX12 = (1 << 1),
+    RADV_ENCODE_KEY_BATCH_COMPRESS_GFX12 = (1 << 2),
++   RADV_ENCODE_KEY_USE_BOX16 = (1 << 3),
+ };
+ 
+ static void
+@@ -287,6 +288,8 @@ radv_get_build_config(VkDevice _device, struct vk_acceleration_structure_build_s
+    VK_FROM_HANDLE(radv_device, device, _device);
+    struct radv_physical_device *pdev = radv_device_physical(device);
+ 
++   VkGeometryTypeKHR geometry_type = vk_get_as_geometry_type(state->build_info);
++
+    uint32_t encode_key = 0;
+    if (radv_use_bvh8(pdev)) {
+       /*
+@@ -302,11 +305,13 @@ radv_get_build_config(VkDevice _device, struct vk_acceleration_structure_build_s
+           state->build_info->type != VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR)
+          encode_key |= RADV_ENCODE_KEY_WRITE_LEAF_NODE_OFFSETS;
+ 
+-      VkGeometryTypeKHR geometry_type = vk_get_as_geometry_type(state->build_info);
+       if (!(state->build_info->flags & (VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR |
+                                         VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_DATA_ACCESS_KHR)) &&
+           geometry_type == VK_GEOMETRY_TYPE_TRIANGLES_KHR)
+          encode_key |= RADV_ENCODE_KEY_BATCH_COMPRESS_GFX12;
++   } else if (!radv_emulate_rt(pdev)) {
++      if (!(state->build_info->flags & VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR))
++         encode_key |= RADV_ENCODE_KEY_USE_BOX16;
+    }
+ 
+    state->config.encode_key[0] = encode_key;
+@@ -388,6 +393,8 @@ radv_build_flags(VkCommandBuffer commandBuffer, uint32_t key)
+       flags |= RADV_BUILD_FLAG_PAIR_COMPRESS_TRIANGLES;
+    if (key & RADV_ENCODE_KEY_BATCH_COMPRESS_GFX12)
+       flags |= RADV_BUILD_FLAG_BATCH_COMPRESS_TRIANGLES;
++   if (key & RADV_ENCODE_KEY_USE_BOX16)
++      flags |= RADV_BUILD_FLAG_USE_BOX16;
+ 
+    return flags;
+ }
+diff --git a/src/vulkan/runtime/bvh/meson.build b/src/vulkan/runtime/bvh/meson.build
+index 02b2afb416394..add1590b70f72 100644
+--- a/src/vulkan/runtime/bvh/meson.build
++++ b/src/vulkan/runtime/bvh/meson.build
+@@ -42,6 +42,7 @@ bvh_shaders = [
+   ],
+ ]
+ 
++spirv_include_dir = dir_source_root + '/src/compiler/spirv'
+ vk_bvh_include_dir = dir_source_root + '/src/vulkan/runtime/bvh'
+ 
+ vk_bvh_includes = files(
+@@ -50,6 +51,7 @@ vk_bvh_includes = files(
+   'vk_build_interface.h',
+   'vk_bvh.h',
+   'vk_debug.h',
++  spirv_include_dir + '/spirv_internal_exts.h',
+ )
+ 
+ vk_glsl_shader_extensions = [
+@@ -69,6 +71,7 @@ vk_glsl_shader_extensions = [
+   'GL_KHR_shader_subgroup_ballot',
+   'GL_KHR_shader_subgroup_clustered',
+   'GL_EXT_shader_atomic_int64',
++  'GL_EXT_spirv_intrinsics',
+ ]
+ 
+ vk_glsl_shader_preamble = []
+@@ -79,7 +82,7 @@ endforeach
+ bvh_spv = []
+ foreach s : bvh_shaders
+   command = [
+-    prog_glslang, '-V', '-I' + vk_bvh_include_dir, '--target-env', 'spirv1.5', '-x', '-o', '@OUTPUT@', '@INPUT@'
++    prog_glslang, '-V', '-I' + vk_bvh_include_dir, '-I' + spirv_include_dir, '--target-env', 'spirv1.5', '-x', '-o', '@OUTPUT@', '@INPUT@'
+   ] + (with_mesa_debug ? ['-g'] : [])
+   command += glslang_quiet
+   command += vk_glsl_shader_preamble
+-- 
+GitLab
+
