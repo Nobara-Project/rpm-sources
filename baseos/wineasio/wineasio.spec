@@ -1,20 +1,10 @@
-## START: Set by rpmautospec
-## (rpmautospec version 0.8.1)
-## RPMAUTOSPEC: autorelease
-%define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
-    release_number = 1;
-    base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
-    print(release_number + base_release_number - 1);
-}%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
-## END: Set by rpmautospec
-
 %global debug_package    %{nil}
 %global _lto_cflags      %{nil}
 %global staging_dir	 /opt/wine-staging/lib64
 
 Name:           wineasio
 Version:        1.3.0
-Release:        %autorelease -b4
+Release:        %autorelease -b5
 Summary:        ASIO to Pipewire's JACK driver for WINE
 License:        LGPLv2.1 and GPL-2.0
 URL:            https://github.com/wineasio/wineasio
@@ -31,8 +21,6 @@ Requires:       pipewire-jack-audio-connection-kit
 Requires:       wine-staging
 Requires:       python3-pyqt6
 Requires: 	realtime-setup
-
-Conflicts:      wineasio
 
 %description
 WineASIO provides an ASIO to JACK driver for WINE. ASIO is the most common
@@ -82,6 +70,9 @@ popd
 /sbin/ldconfig
 
 %changelog
+* Sat Nov 08 2025 LionHeartP <LionHeartP@proton.me> - 1.3.0-5
+- remove Conflicts with itself (oops)
+
 * Fri Nov 07 2025 LionHeartP <LionHeartP@proton.me> - 1.3.0-4
 - adjust for wine-staging
 - add realtime-setup dep
