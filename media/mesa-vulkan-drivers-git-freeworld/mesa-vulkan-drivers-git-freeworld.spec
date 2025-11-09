@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit 12a4d6858055a536f0efd95d7760c8f496c187bf
+%global commit c346f2b6732fd70df1b60f5e1742ec0e61ddf985
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 14.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 18.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -76,10 +76,14 @@ Source0:        https://gitlab.freedesktop.org/mesa/mesa/-/archive/%{commit}/mes
 Source1:        Mesa-MLAA-License-Clarification-Email.txt
 
 # https://gitlab.com/evlaV/mesa/
-Patch30:        valve.patch
+Patch10:        valve.patch
 
 # Path of Exile
-Patch32:        min_image_count.patch
+Patch20:        min_image_count.patch
+
+# RT Improvements
+Patch30:	https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/29580.patch
+Patch31:	https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/37883.patch
 
 BuildRequires:  meson >= 1.3.0
 BuildRequires:  cbindgen
@@ -426,6 +430,19 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Fri Nov 07 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-18
+- Update to latest commit
+- Add #29580 and #37883 MRs for RT improvements
+
+* Wed Nov 05 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-17
+- Update to latest commit
+
+* Wed Oct 29 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-16
+- Update to latest commit
+
+* Thu Oct 23 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-15
+- Update to latest commit
+
 * Wed Oct 15 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-14
 - Update to latest commit
 - Drop gnome-shell glthread patch (upstream Fedora change)

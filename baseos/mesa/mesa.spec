@@ -74,7 +74,7 @@
 
 Name:           mesa
 Summary:        Mesa graphics libraries
-%global ver 25.2.5
+%global ver 25.2.6
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
@@ -731,6 +731,9 @@ popd
 %endif
 
 %changelog
+* Wed Oct 29 2025 LionHeartP <LionHeartP@proton.me> - 25.2.6-1
+- Update to 25.2.6
+
 * Wed Oct 15 2025 LionHeartP <LionHeartP@proton.me> - 25.2.5-1
 - Update to 25.2.5
 - Drop vdpau (upstream Fedora change)
