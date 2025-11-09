@@ -8,6 +8,7 @@ Summary:       Nobara Driver Manager - Device and Driver control adw gui
 
 URL:            https://github.com/Nobara-Project/nobara-device-manager
 Source0:        %{URL}/archive/refs/tags/%{version}.tar.gz
+Source1: 	nobara-driver-cli
 
 # https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
 ExcludeArch:    %{ix86}
@@ -30,9 +31,13 @@ Obsoletes:	nobara-nvidia-wizard
 
 %prep
 %autosetup -p1 -n nobara-device-manager-%{version}
+cp %{SOURCE1} .
 
 %build
+
+%install
 DESTDIR=%{buildroot} make install
+install -Dpm 0755 nobara-driver-cli %{buildroot}%{_bindir}/nobara-driver-cli
 
 %description
 Nobara Driver Manager - Device and Driver control adw gui
