@@ -1,10 +1,10 @@
 Name:           goverlay
-Version:        1.3
-Release:        3.%autorelease
+Version:        1.5.2
+Release:        %autorelease
 Epoch:          2
 Summary:        Project that aims to create a Graphical UI to help manage Linux overlays
 ExclusiveArch:  %{fpc_arches}
-%global commit 11c1d96d52b0541e8a8e90f5ce1bd1745452285a
+%global commit f14cbefcb5b64c14eb28135f56e3769dc1d57406
 
 License:        GPLv3+
 URL:            https://github.com/benjamimgois/goverlay
@@ -72,6 +72,9 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/*.desktop
 
 
 %changelog
+* Fri Oct 31 2025 LionHeartP <LionHeartP@proton.me> - 1.5.2-1
+- Update to 1.5.2
+
 * Mon Nov 14 2022 Artem Polishchuk <ego.cordatus@gmail.com> 0.9-2
 - build: Add mesa-libGLU dep (#2142356)
 
