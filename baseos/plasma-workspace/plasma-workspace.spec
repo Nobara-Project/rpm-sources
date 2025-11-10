@@ -4,8 +4,8 @@
 
 Name:    plasma-workspace
 Summary: Plasma workspace, applications and applets
-Version: 6.4.4
-Release: 3%{?dist}
+Version: 6.5.2
+Release: 1%{?dist}
 
 # Automatically converted from old format: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only) AND MIT - review is highly recommended.
 License: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only) AND MIT
@@ -127,6 +127,7 @@ BuildRequires:  cmake(KF6Screen)
 BuildRequires:  cmake(KF6Holidays)
 BuildRequires:  cmake(KF6Prison)
 BuildRequires:  cmake(KF6UserFeedback)
+BuildRequires:  cmake(KNightTime)
 BuildRequires:  cmake(Plasma5Support)
 
 BuildRequires:  wayland-devel >= 1.3.0
@@ -449,7 +450,7 @@ cat *.lang | sort | uniq -u > %{name}.lang
 
 
 %check
-desktop-file-validate %{buildroot}%{_kf6_datadir}/applications/org.kde.{plasmashell,kcolorschemeeditor,kfontview,plasmawindowed,klipper}.desktop
+desktop-file-validate %{buildroot}%{_kf6_datadir}/applications/org.kde.{plasmashell,kcolorschemeeditor,kfontview,plasmawindowed,klipper,plasma-interactiveconsole}.desktop
 
 %post
 if [ -s /usr/sbin/setsebool ] ; then
@@ -492,7 +493,6 @@ fi
 %{_kf6_datadir}/plasma/avatars/
 %{_kf6_datadir}/plasma/plasmoids/
 %{_kf6_datadir}/plasma/wallpapers/
-%{_kf6_datadir}/plasma/weather/noaa_station_list.xml
 %dir %{_kf6_datadir}/plasma/look-and-feel/
 %{_kf6_datadir}/plasma/look-and-feel/org.kde.breeze.desktop/
 %{_kf6_datadir}/plasma/look-and-feel/org.kde.breezedark.desktop/
@@ -513,7 +513,7 @@ fi
 %{_datadir}/kfontinst/icons/hicolor/*/actions/*font*.png
 %{_datadir}/konqsidebartng/virtual_folders/services/fonts.desktop
 %{_datadir}/krunner/dbusplugins/plasma-runner-baloosearch.desktop
-%{_datadir}/kxmlgui5/kfontview/kfontviewpart.rc
+%{_datadir}/kxmlgui5/kfontviewpart/kfontviewpart.rc
 %{_datadir}/kxmlgui5/kfontview/kfontviewui.rc
 %{_kf6_datadir}/knotifications6/*.notifyrc
 %{_kf6_datadir}/config.kcfg/*
@@ -542,7 +542,10 @@ fi
 %dir %{_userunitdir}/plasma-workspace@.target.d/
 %{_libdir}/kconf_update_bin/plasma6.3-update-clipboard-database-2-to-3
 %{_datadir}/kconf_update/plasma6.3-update-clipboard-database-2-to-3.upd
+%{_libdir}/kconf_update_bin/plasmashell-6.5-remove-stop-activity-shortcut
+%{_datadir}/kconf_update/plasmashell-6.5-remove-stop-activity-shortcut.upd
 %{_kf6_datadir}/timezonefiles/timezones.json
+%{_kf6_datadir}/applications/org.kde.plasma-interactiveconsole.desktop
 # PAM
 %config(noreplace) %{_sysconfdir}/pam.d/kde
 %config(noreplace) %{_sysconfdir}/pam.d/kde-fingerprint
@@ -560,9 +563,7 @@ fi
 %files libs
 %{_sysconfdir}/xdg/taskmanagerrulesrc
 %{_libdir}/libbatterycontrol.so.*
-%{_libdir}/libcolorcorrect.so.*
 %{_libdir}/libtaskmanager.so.*
-%{_libdir}/libweather_ion.so.*
 %{_libdir}/libklipper.so.*
 %{_libdir}/libkrdb.so
 %{_libdir}/libnotificationmanager.*
@@ -577,6 +578,8 @@ fi
 %{_kf6_qtplugindir}/phonon_platform/kde.so
 %{_kf6_plugindir}/kio/*.so
 %{_kf6_plugindir}/kded/*.so
+%{_libdir}/libklookandfeel.so.6
+%{_libdir}/libklookandfeel.so.%{version}
 %{_kf6_plugindir}/krunner/*
 %{_qt6_plugindir}/plasma/kcms/systemsettings/kcm_*.so
 %{_kf6_qtplugindir}/kf6/parts/kfontviewpart.so
@@ -612,26 +615,24 @@ fi
 
 %files devel
 %{_libdir}/libbatterycontrol.so
-%{_libdir}/libcolorcorrect.so
 %{_libdir}/libklipper.so
-%{_libdir}/libweather_ion.so
 %{_libdir}/libtaskmanager.so
 %{_libdir}/libkworkspace6.so
-%{_includedir}/colorcorrect/
 %{_includedir}/kworkspace6/
 %{_includedir}/taskmanager/
 %{_includedir}/notificationmanager/
 %{_libdir}/cmake/KRunnerAppDBusInterface/
 %{_libdir}/cmake/KSMServerDBusInterface/
-%{_libdir}/cmake/LibColorCorrect
+%{_libdir}/cmake/LibKLookAndFeel/
 %{_libdir}/cmake/LibKWorkspace/
 %{_libdir}/cmake/LibTaskManager/
 %{_libdir}/cmake/LibNotificationManager/
 %{_datadir}/dbus-1/interfaces/*.xml
 %{_includedir}/krdb/krdb.h
 %{_includedir}/krdb/krdb_export.h
-%{_includedir}/plasma5support/weather/ion.h
-%{_includedir}/plasma5support/weather/ion_export.h
+%{_includedir}/klookandfeel/
+%{_libdir}/cmake/Krdb/*.cmake
+%{_libdir}/libklookandfeel.so
 
 %files -n sddm-wayland-plasma
 %{_prefix}/lib/sddm/sddm.conf.d/plasma-wayland.conf
@@ -644,6 +645,54 @@ fi
 
 
 %changelog
+* Tue Nov 04 2025 Steve Cossette <farchord@gmail.com> - 6.5.2-1
+- 6.5.2
+
+* Tue Oct 28 2025 Steve Cossette <farchord@gmail.com> - 6.5.1-1
+- 6.5.1
+
+* Fri Oct 17 2025 Steve Cossette <farchord@gmail.com> - 6.5.0-1
+- 6.5.0
+
+* Sat Oct 04 2025 Steve Cossette <farchord@gmail.com> - 6.4.91-2
+- Another rebuild for PackageKit-Qt Update
+
+* Thu Oct 02 2025 Steve Cossette <farchord@gmail.com> - 6.4.91-1
+- 6.4.91
+
+* Tue Sep 30 2025 Jan Grulich <jgrulich@redhat.com> - 6.4.5-4
+- Rebuild (qt6)
+
+* Fri Sep 26 2025 Neal Gompa <ngompa@fedoraproject.org> - 6.4.5-3
+- Drop spice-vdagent snippet for F43+ / EL11+ (RHBZ#2399742)
+
+* Thu Sep 25 2025 Steve Cossette <farchord@gmail.com> - 6.4.90-1
+- 6.4.90
+
+* Wed Sep 24 2025 Steve Cossette <farchord@gmail.com> - 6.4.5-2
+- Fix for Qt 6.9.2-related crash
+
+* Tue Sep 16 2025 farchord@gmail.com - 6.4.5-1
+- 6.4.5
+
+* Tue Aug 26 2025 Steve Cossette <farchord@gmail.com> - 6.4.4-3
+- Adding plasma-keyboard as a runtime dependancy
+
+* Thu Aug 07 2025 František Zatloukal <fzatlouk@redhat.com> - 6.4.4-2
+- Rebuilt for icu 77.1
+
+* Wed Aug 06 2025 Steve Cossette <farchord@gmail.com> - 6.4.4-1
+- 6.4.4
+
+* Wed Aug 06 2025 František Zatloukal <fzatlouk@redhat.com> - 6.4.3-3
+- Rebuilt for icu 77.1
+
+* Fri Jul 25 2025 Fedora Release Engineering <releng@fedoraproject.org> - 6.4.3-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_43_Mass_Rebuild
+
+* Tue Jul 15 2025 Steve Cossette <farchord@gmail.com> - 6.4.3-1
+- 6.4.3
+
 * Thu Jul 03 2025 Steve Cossette <farchord@gmail.com> - 6.4.2-1
 - 6.4.2
 

@@ -1,5 +1,5 @@
 Name:    plasma-workspace-wallpapers
-Version: 6.4.4
+Version: 6.5.2
 Release: 1%{?dist}
 Summary: Additional wallpapers for Plasma workspace
 # Automatically converted from old format: LGPLv3 - review is highly recommended.
@@ -63,6 +63,8 @@ Obsoletes:      plasma-workspace-wallpapers < 5.2.0-2
 %{_datadir}/wallpapers/Kokkini/
 %{_datadir}/wallpapers/MilkyWay/
 %{_datadir}/wallpapers/Mountain/
+%{_datadir}/wallpapers/Nexus/
+%{_datadir}/wallpapers/Nuvole/
 %{_datadir}/wallpapers/OneStandsOut/
 %{_datadir}/wallpapers/Opal/
 %{_datadir}/wallpapers/PastelHills/
@@ -73,10 +75,72 @@ Obsoletes:      plasma-workspace-wallpapers < 5.2.0-2
 %{_datadir}/wallpapers/Shell/
 %{_datadir}/wallpapers/summer_1am/
 %{_datadir}/wallpapers/Volna/
-%{_datadir}/wallpapers/Nexus/
-%{_datadir}/wallpapers/Nuvole/
+%{_datadir}/wallpapers/Coast/
 
 %changelog
+* Tue Nov 04 2025 Steve Cossette <farchord@gmail.com> - 6.5.2-1
+- 6.5.2
+
+* Tue Oct 28 2025 Steve Cossette <farchord@gmail.com> - 6.5.1-1
+- 6.5.1
+
+* Fri Oct 17 2025 Steve Cossette <farchord@gmail.com> - 6.5.0-1
+- 6.5.0
+
+* Thu Oct 02 2025 Steve Cossette <farchord@gmail.com> - 6.4.91-1
+- 6.4.91
+
+* Thu Sep 25 2025 Steve Cossette <farchord@gmail.com> - 6.4.90-1
+- 6.4.90
+
+* Tue Sep 16 2025 farchord@gmail.com - 6.4.5-1
+- 6.4.5
+
+* Sat Aug 16 2025 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.4.4-2
+- Drop i686 support (leaf package)
+
+* Wed Aug 06 2025 Steve Cossette <farchord@gmail.com> - 6.4.4-1
+- 6.4.4
+
+* Fri Jul 25 2025 Fedora Release Engineering <releng@fedoraproject.org> - 6.4.3-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_43_Mass_Rebuild
+
+* Tue Jul 15 2025 Steve Cossette <farchord@gmail.com> - 6.4.3-1
+- 6.4.3
+
+* Thu Jul 03 2025 Steve Cossette <farchord@gmail.com> - 6.4.2-1
+- 6.4.2
+
+* Tue Jun 24 2025 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.4.1-1
+- 6.4.1
+
+* Mon Jun 16 2025 Steve Cossette <farchord@gmail.com> - 6.4.0-1
+- 6.4.0
+
+* Sat May 31 2025 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.3.91-2
+- Add signature file
+
+* Fri May 30 2025 Steve Cossette <farchord@gmail.com> - 6.3.91-1
+- 6.3.91
+
+* Thu May 15 2025 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.3.90-1
+- 6.3.90
+
+* Tue May 06 2025 Steve Cossette <farchord@gmail.com> - 6.3.5-1
+- 6.3.5
+
+* Wed Apr 02 2025 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.3.4-1
+- 6.3.4
+
+* Tue Mar 11 2025 Steve Cossette <farchord@gmail.com> - 6.3.3-1
+- 6.3.3
+
+* Tue Feb 25 2025 Steve Cossette <farchord@gmail.com> - 6.3.2-1
+- 6.3.2
+
+* Tue Feb 18 2025 Steve Cossette <farchord@gmail.com> - 6.3.1-1
+- 6.3.1
+
 * Thu Feb 06 2025 Marc Deop i Argemí <marcdeop@fedoraproject.org> - 6.3.0-1
 - 6.3.0
 

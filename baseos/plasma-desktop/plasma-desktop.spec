@@ -5,7 +5,7 @@
 
 Name:    plasma-desktop
 Summary: Plasma Desktop shell
-Version: 6.4.4
+Version: 6.5.2
 Release: 1%{?dist}
 
 License: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only)
@@ -42,6 +42,7 @@ BuildRequires:  qt6-qtbase-private-devel
 BuildRequires:  qt6-qtsvg-devel
 BuildRequires:  qt6-qtdeclarative-devel
 BuildRequires:  qt6-qtwayland-devel
+BuildRequires:  cmake(Qt6ShaderTools)
 BuildRequires:  cmake(Qt6Core5Compat)
 BuildRequires:  cmake(Phonon4Qt6)
 BuildRequires:  wayland-protocols-devel
@@ -130,6 +131,8 @@ BuildRequires:  pkgconfig(xorg-libinput)
 
 # kcm_users
 Requires:       accountsservice
+# kcm_clock
+Requires:       qt6-qtlocation%{?_isa}
 
 # Desktop
 Requires:       plasma-workspace
@@ -322,6 +325,9 @@ desktop-file-validate %{buildroot}/%{_datadir}/applications/kaccess.desktop
 %{_kf6_datadir}/locale/sr@ijekavianlatin/LC_SCRIPTS/kfontinst/kfontinst.js
 %{_kf6_datadir}/locale/sr@latin/LC_SCRIPTS/kfontinst/kfontinst.js
 %{_userunitdir}/plasma-kaccess.service
+%{_libdir}/libkglobalaccelmodel.so.6
+%{_libdir}/libkglobalaccelmodel.so.%{version}
+%{_kf6_qtplugindir}/plasma/applets/org.kde.*.so
 
 
 %files -n sddm-breeze
@@ -336,6 +342,42 @@ desktop-file-validate %{buildroot}/%{_datadir}/applications/kaccess.desktop
 
 
 %changelog
+* Tue Nov 04 2025 Steve Cossette <farchord@gmail.com> - 6.5.2-1
+- 6.5.2
+
+* Tue Oct 28 2025 Steve Cossette <farchord@gmail.com> - 6.5.1-1
+- 6.5.1
+
+* Fri Oct 17 2025 Steve Cossette <farchord@gmail.com> - 6.5.0-1
+- 6.5.0
+
+* Sat Oct 04 2025 Steve Cossette <farchord@gmail.com> - 6.4.91-2
+- Another rebuild for PackageKit-Qt Update
+
+* Thu Oct 02 2025 Steve Cossette <farchord@gmail.com> - 6.4.91-1
+- 6.4.91
+
+* Tue Sep 30 2025 Jan Grulich <jgrulich@redhat.com> - 6.4.5-2
+- Rebuild (qt6)
+
+* Thu Sep 25 2025 Steve Cossette <farchord@gmail.com> - 6.4.90-1
+- 6.4.90
+
+* Tue Sep 16 2025 farchord@gmail.com - 6.4.5-1
+- 6.4.5
+
+* Wed Aug 06 2025 Steve Cossette <farchord@gmail.com> - 6.4.4-1
+- 6.4.4
+
+* Fri Jul 25 2025 Fedora Release Engineering <releng@fedoraproject.org> - 6.4.3-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_43_Mass_Rebuild
+
+* Tue Jul 15 2025 Steve Cossette <farchord@gmail.com> - 6.4.3-1
+- 6.4.3
+
+* Sat Jul 05 2025 Timothée Ravier <tim@siosm.fr> - 6.4.2-2
+- Require qt6-qtlocation for kcm_clock
+
 * Thu Jul 03 2025 Steve Cossette <farchord@gmail.com> - 6.4.2-1
 - 6.4.2
 
