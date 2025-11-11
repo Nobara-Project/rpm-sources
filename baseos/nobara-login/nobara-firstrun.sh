@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/bash
 
 DISPLAY_CHECK=$(echo "$DISPLAY")
 WHO=$(whoami)
@@ -47,9 +47,8 @@ if [[ -n "$DISPLAY_CHECK" ]] && [[ "$WHO" != "liveuser" ]] && [[ "$WHO" != "gnom
     parse_rpm_info "$rpm_output"
 
     # Check if the version is 6.1.3
-    if [[ "$version" != "6.1.3" ]]; then
-        echo "Version is not 6.1.3"
-        exit 1
+    if [[ "$version" > "6.1.3" ]]; then
+        exit 0
     fi
 
     # Convert the installation date to epoch
@@ -75,4 +74,3 @@ if [[ -n "$DISPLAY_CHECK" ]] && [[ "$WHO" != "liveuser" ]] && [[ "$WHO" != "gnom
     done
 fi
 
-/usr/bin/nobara-device-quirks
