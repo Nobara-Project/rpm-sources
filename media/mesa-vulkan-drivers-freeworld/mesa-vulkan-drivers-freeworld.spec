@@ -59,7 +59,7 @@
 
 Name:           mesa-vulkan-drivers-freeworld
 Summary:        The mesa graphics vulkan driver stack.
-%global ver 25.2.6
+%global ver 25.2.7
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %autorelease
 License:        MIT
@@ -464,6 +464,9 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Wed Nov 12 2025 LionHeartP <LionHeartP@proton.me> - 25.2.7-1
+- Update to 25.2.7
+
 * Wed Oct 29 2025 LionHeartP <LionHeartP@proton.me> - 25.2.6-1
 - Update to 25.2.6
 

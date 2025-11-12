@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit c346f2b6732fd70df1b60f5e1742ec0e61ddf985
+%global commit 7ac1f7777d21587e401727cf3218978aed30ec96
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 18.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 19.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -428,6 +428,9 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Wed Nov 12 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-19
+- Update to latest commit
+
 * Fri Nov 07 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-18
 - Update to latest commit
 - Add #29580 and #37883 MRs for RT improvements

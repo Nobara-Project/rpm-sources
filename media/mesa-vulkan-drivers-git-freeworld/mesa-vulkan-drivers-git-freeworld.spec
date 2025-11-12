@@ -1,6 +1,6 @@
 %global _default_patch_fuzz 2
 
-%global commit 0216f09e45280e040bef410bb5d49f67bccd4bcd
+%global commit 7ac1f7777d21587e401727cf3218978aed30ec96
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build 19.git.%{build_timestamp}.%{shortcommit}%{?dist}
@@ -430,6 +430,9 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Wed Nov 12 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-19
+- Update to latest commit
+
 * Fri Nov 07 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-18
 - Update to latest commit
 - Add #29580 and #37883 MRs for RT improvements
