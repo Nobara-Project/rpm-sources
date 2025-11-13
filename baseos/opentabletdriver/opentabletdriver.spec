@@ -1,5 +1,5 @@
 Name: opentabletdriver
-Version: 0.6.5.1
+Version: 0.6.6.2
 Release: 1%{?dist}
 Summary: A cross-platform open-source tablet driver
 
