@@ -2,7 +2,7 @@
 %undefine _package_note_file
 
 Name: starship
-Version: 1.22.1
+Version: 1.24.0
 Release: 1%{?dist}
 Summary: â˜„ðŸŒŒï¸� The minimal, blazing-fast, and infinitely customizable prompt for any shell!
 
@@ -57,6 +57,9 @@ cp %{SOURCE2} %{buildroot}/etc/profile.d/
 %config(noreplace) /etc/profile.d/nobara_profile_starship.sh
 
 %changelog
+* Sat Nov 15 2025 LionHeartP <LionHeartP@proton.me> - 1.24.0-1
+- chore: Update to latest release
+
 * Thu Apr 24 2025 LionHeartP <LionHeartP@proton.me> - 1.22.1-1
 - chore: Update to latest release
 

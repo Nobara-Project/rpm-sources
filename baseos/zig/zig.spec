@@ -3,7 +3,12 @@
 # Signing key from https://ziglang.org/download/
 %global         public_key RWSGOq2NVecA2UPNdBUZykf1CCb147pkmdtYxgb3Ti+JO/wCYvhbAb/U
 
-%global         llvm_version 20.1.8
+# note here at which Fedora or EL release we need to use compat LLVM packages
+%if 0%{?fedora} >= 43 || 0%{?rhel} >= 9
+%define         llvm_compat 20
+%endif
+
+%global         llvm_version 21.1.4
 
 %bcond bootstrap 1
 %bcond docs      %{without bootstrap}
@@ -38,7 +43,7 @@
 }
 
 Name:           zig
-Version:        0.15.1
+Version:        0.15.2
 Release:        1%{?dist}
 Summary:        Programming language for maintaining robust, optimal, and reusable software
 
@@ -51,6 +56,11 @@ Source2:        macros.%{name}
 # this is unlikely to be upstreamed in its current state because upstream
 # wants to work around the shortcomings of NixOS
 Patch:          0001-remove-native-lib-directories-from-rpath.patch
+# Adds a build option for setting the build-id
+# some projects are not programmed to handle a build-id's
+# by having it as a flag we can make sure no developer runs into
+# any trouble because of packaging demands
+# https://github.com/ziglang/zig/pull/22516
 
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
@@ -66,7 +76,7 @@ BuildRequires:  help2man
 BuildRequires:  minisign
 
 %if %{without bootstrap}
-BuildRequires:  (zig >= 0.15 with zig < 0.16)
+BuildRequires:  (zig >= 0.14 with zig < 0.15)
 %endif
 
 %if %{with test}
@@ -220,8 +230,8 @@ install -D -pv -m 0644 %{SOURCE2} %{buildroot}%{_rpmmacrodir}/macros.%{name}
 %endif
 
 %changelog
-* Fri Sep 26 2025 LionHeartP <LionHeartP@proton.me> - 0.15.1-1
-- Update to 0.15.1
+* Fri Jul 25 2025 Fedora Release Engineering <releng@fedoraproject.org> - 0.14.1-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_43_Mass_Rebuild
 
 * Mon Jun 09 2025 Jan200101 <sentrycraft123@gmail.com> - 0.14.1-1
 - Update to 0.14.1
