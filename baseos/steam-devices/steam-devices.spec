@@ -1,4 +1,4 @@
-%global commit e2971e45063f6b327ccedbf18e168bda6749155c
+%global commit 4d7e6c1d8c54ec10fdb29daca679307ac5194825
 %if 0%{?rhel} && 0%{?rhel} < 10
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %else
@@ -9,7 +9,7 @@
 
 Name:           steam-devices
 Version:        1.0.0.101^git%{commitdate}.%{shortcommit}
-Release:        3%{?dist}
+Release:        4%{?dist}
 License:        MIT
 Summary:        Device support for Steam-related hardware
 Url:            https://github.com/ValveSoftware/steam-devices/
