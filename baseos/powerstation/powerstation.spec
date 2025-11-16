@@ -3,7 +3,7 @@
 %define debug_package %{nil}
 
 Name:           powerstation
-Version:        0.6.1
+Version:        0.7.0
 Release:        1%{?dist}
 Summary:        Daemon for controlling TDP and performance over DBus
 

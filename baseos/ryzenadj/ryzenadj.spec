@@ -1,8 +1,8 @@
-%global commit c9b07e009a51c2fb9a6fc40ea74fbee27994b4a5
-%global shortcommit c9b07e0
+%global commit 67aa960e71bf4cdd140b47d42c0c62c4cded68d1
+%global shortcommit 67aa960
 
 Name:           ryzenadj
-Version:        0.16.0
+Version:        0.17.0
 Release:        1.%{shortcommit}%{?dist}
 Summary:        Power management settings for Ryzen APU
 
@@ -50,6 +50,3 @@ install -Dm 744 %{_builddir}/RyzenAdj-%{commit}/lib/ryzenadj.h %{buildroot}/%{_i
 
 
 %changelog
-* Fri Jun 03 2022 Sukhmeet Singh 0.10.0.1
-- Initial Build
-
