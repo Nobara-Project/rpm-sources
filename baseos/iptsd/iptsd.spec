@@ -2,13 +2,13 @@
 %global toolchain clang
 
 Name: iptsd
-Version: 3
+Version: 3.0.1
 Release: 1%{?dist}
 Summary: Userspace daemon for Intel Precise Touch & Stylus
 License: GPLv2+
 
 URL: https://github.com/linux-surface/iptsd
-Source: %{URL}/archive/refs/tags/v3.tar.gz
+Source: %{URL}/archive/refs/tags/v%{version}.tar.gz
 
 BuildRequires: meson
 
