@@ -494,7 +494,9 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 %if 0%{?with_vulkan_hw}
 %{_libdir}/libvulkan_radeon.so
+%ifarch aarch64 x86_64
 %{_datadir}/drirc.d/00-radv-defaults.conf
+%endif
 %{_datadir}/vulkan/icd.d/radeon_icd.*.json
 %if 0%{?with_nvk}
 %{_libdir}/libvulkan_nouveau.so
