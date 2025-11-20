@@ -1,54 +1,67 @@
 %global _default_patch_fuzz 2
 
-%global commit 0216f09e45280e040bef410bb5d49f67bccd4bcd
+%global commit 9a9342e4aa400ba1841f48035a93730fabd91cc7
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 19.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
+%global with_kmsro 1
+%global with_nvk 1
+%global with_radeonsi 1
+%global with_spirv_tools 1
+%global with_vmware 1
 %global with_vulkan_hw 1
 %global with_va 1
 %if !0%{?rhel}
+%global with_r300 1
+%global with_r600 1
 %global with_opencl 1
 %endif
-%global base_vulkan ,amd
+%global base_vulkan %{?with_vulkan_hw:,amd}%{!?with_vulkan_hw:%{nil}}
 %endif
 
-%if 0%{?with_vulkan_hw}
-%global with_nvk 1
+%ifnarch %{ix86}
+%if !0%{?rhel}
+%global with_teflon 1
+%endif
 %endif
 
-%ifarch %{ix86} x86_64
+%ifarch %{ix86} aarch64 x86_64
 %global with_crocus 1
 %global with_i915   1
 %global with_iris   1
-%global platform_vulkan ,intel,intel_hasvk
+%global intel_platform_vulkan %{?with_vulkan_hw:,intel,intel_hasvk}%{!?with_vulkan_hw:%{nil}}
+%endif
+%ifarch aarch64 x86_64
+%if !0%{?with_vulkan_hw}
+%global with_intel_vk_rt 1
+%endif
 %endif
 
-%ifarch aarch64
+%ifarch aarch64 x86_64 %{ix86}
 %if !0%{?rhel}
+%global with_asahi     1
+%global with_d3d12     1
 %global with_etnaviv   1
 %global with_lima      1
+%global with_tegra     1
 %global with_vc4       1
 %global with_v3d       1
 %endif
-%global with_crocus 1
-%global with_i915   1
 %global with_freedreno 1
-%global with_kmsro     1
 %global with_panfrost  1
-%global with_tegra     1
-%global platform_vulkan ,broadcom,freedreno,panfrost,intel,intel_hasvk
+%if 0%{?with_asahi}
+%global asahi_platform_vulkan %{?with_vulkan_hw:,asahi}%{!?with_vulkan_hw:%{nil}}
+%endif
+%global extra_platform_vulkan %{?with_vulkan_hw:,broadcom,freedreno,panfrost,imagination}%{!?with_vulkan_hw:%{nil}}
 %endif
 
-%ifnarch s390x
 %if !0%{?rhel}
-%global with_r300 1
-%global with_r600 1
-%endif
-%global with_radeonsi 1
-%global with_vmware 1
+%global with_libunwind 1
+%global with_lmsensors 1
+%global with_virtio    1
 %endif
 
 %ifarch %{valgrind_arches}
@@ -57,13 +70,15 @@
 %bcond_with valgrind
 %endif
 
-%global with_vulkan_overlay 1
+%global vulkan_drivers swrast%{?base_vulkan}%{?intel_platform_vulkan}%{?asahi_platform_vulkan}%{?extra_platform_vulkan}%{?with_nvk:,nouveau}%{?with_virtio:,virtio}%{?with_d3d12:,microsoft-experimental}
 
-%global vulkan_drivers swrast%{?base_vulkan}%{?platform_vulkan}%{?with_nvk:,nouveau}
+%if 0%{?with_nvk} && 0%{?rhel}
+%global vendor_nvk_crates 1
+%endif
 
 Name:           mesa-vulkan-drivers-git-freeworld
 Summary:        The mesa graphics vulkan driver stack.
-%global ver 25.3.0
+%global ver 25.4.0
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %{rel_build}
 License:        MIT
@@ -75,36 +90,47 @@ Source0:        https://gitlab.freedesktop.org/mesa/mesa/-/archive/%{commit}/mes
 # Fedora opts to ignore the optional part of clause 2 and treat that code as 2 clause BSD.
 Source1:        Mesa-MLAA-License-Clarification-Email.txt
 
+# In CentOS/RHEL, Rust crates required to build NVK are vendored.
+# The minimum target versions are obtained from the .wrap files
+# https://gitlab.freedesktop.org/mesa/mesa/-/tree/main/subprojects
+# but we generally want the latest compatible versions
+%global rust_paste_ver 1.0.15
+%global rust_proc_macro2_ver 1.0.101
+%global rust_quote_ver 1.0.40
+%global rust_syn_ver 2.0.106
+%global rust_unicode_ident_ver 1.0.18
+%global rustc_hash_ver 2.1.1
+Source10:       https://crates.io/api/v1/crates/paste/%{rust_paste_ver}/download#/paste-%{rust_paste_ver}.tar.gz
+Source11:       https://crates.io/api/v1/crates/proc-macro2/%{rust_proc_macro2_ver}/download#/proc-macro2-%{rust_proc_macro2_ver}.tar.gz
+Source12:       https://crates.io/api/v1/crates/quote/%{rust_quote_ver}/download#/quote-%{rust_quote_ver}.tar.gz
+Source13:       https://crates.io/api/v1/crates/syn/%{rust_syn_ver}/download#/syn-%{rust_syn_ver}.tar.gz
+Source14:       https://crates.io/api/v1/crates/unicode-ident/%{rust_unicode_ident_ver}/download#/unicode-ident-%{rust_unicode_ident_ver}.tar.gz
+Source15:       https://crates.io/api/v1/crates/rustc-hash/%{rustc_hash_ver}/download#/rustc-hash-%{rustc_hash_ver}.tar.gz
+
 # https://gitlab.com/evlaV/mesa/
 Patch10:        valve.patch
 
-# Path of Exile
-Patch20:        min_image_count.patch
-
-# RT Improvements
-Patch30:	https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/29580.patch
-Patch31:	https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/37883.patch
-
 BuildRequires:  meson >= 1.3.0
-BuildRequires:  cbindgen
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
 BuildRequires:  gettext
 %if 0%{?with_hardware}
 BuildRequires:  kernel-headers
+BuildRequires:  systemd-devel
 %endif
 # We only check for the minimum version of pkgconfig(libdrm) needed so that the
 # SRPMs for each arch still have the same build dependencies. See:
 # https://bugzilla.redhat.com/show_bug.cgi?id=1859515
 BuildRequires:  pkgconfig(libdrm) >= 2.4.122
+%if 0%{?with_libunwind}
 BuildRequires:  pkgconfig(libunwind)
+%endif
 BuildRequires:  pkgconfig(expat)
 BuildRequires:  pkgconfig(zlib) >= 1.2.3
 BuildRequires:  pkgconfig(libzstd)
 BuildRequires:  pkgconfig(libdisplay-info)
-BuildRequires:  pkgconfig(libselinux)
 BuildRequires:  pkgconfig(wayland-scanner)
-BuildRequires:  pkgconfig(wayland-protocols) >= 1.8
+BuildRequires:  pkgconfig(wayland-protocols) >= 1.34
 BuildRequires:  pkgconfig(wayland-client) >= 1.11
 BuildRequires:  pkgconfig(wayland-server) >= 1.11
 BuildRequires:  pkgconfig(wayland-egl-backend) >= 3
@@ -126,83 +152,131 @@ BuildRequires:  pkgconfig(glproto) >= 1.4.14
 BuildRequires:  pkgconfig(xcb-xfixes)
 BuildRequires:  pkgconfig(xcb-randr)
 BuildRequires:  pkgconfig(xrandr) >= 1.3
-BuildRequires:  python3-pycparser
-BuildRequires:  python3-pyyaml
 BuildRequires:  bison
 BuildRequires:  flex
+%if 0%{?with_lmsensors}
 BuildRequires:  lm_sensors-devel
+%endif
 %if 0%{?with_va}
 BuildRequires:  pkgconfig(libva) >= 0.38.0
 %endif
 BuildRequires:  pkgconfig(libelf)
 BuildRequires:  pkgconfig(libglvnd) >= 1.3.2
 BuildRequires:  llvm-devel >= 7.0.0
-%if 0%{?with_opencl} || 0%{?with_nvk}
+%if 0%{?with_teflon}
+BuildRequires:  flatbuffers-devel
+BuildRequires:  flatbuffers-compiler
+BuildRequires:  xtensor-devel
+%endif
+%if 0%{?with_opencl} || 0%{?with_nvk} || 0%{?with_asahi} || 0%{?with_panfrost}
 BuildRequires:  clang-devel
-BuildRequires:  bindgen
-BuildRequires:  rust-packaging
 BuildRequires:  pkgconfig(libclc)
 BuildRequires:  pkgconfig(SPIRV-Tools)
 BuildRequires:  pkgconfig(LLVMSPIRVLib)
 %endif
+%if 0%{?with_opencl} || 0%{?with_nvk}
+BuildRequires:  bindgen
+%if 0%{?rhel}
+BuildRequires:  rust-toolset
+%else
+BuildRequires:  cargo-rpm-macros
+%endif
+%endif
 %if 0%{?with_nvk}
-BuildRequires:  (crate(paste) >= 1.0.14 with crate(paste) < 2)
-BuildRequires:  (crate(proc-macro2) >= 1.0.56 with crate(proc-macro2) < 2)
-BuildRequires:  (crate(quote) >= 1.0.25 with crate(quote) < 2)
-BuildRequires:  (crate(syn/clone-impls) >= 2.0.15 with crate(syn/clone-impls) < 3)
-BuildRequires:  (crate(unicode-ident) >= 1.0.6 with crate(unicode-ident) < 2)
-BuildRequires:  (crate(rustc-hash) >= 2.1.1 with crate(rustc-hash) < 3)
-BuildRequires:  rustfmt
+BuildRequires:  cbindgen
 %endif
 %if %{with valgrind}
 BuildRequires:  pkgconfig(valgrind)
 %endif
 BuildRequires:  python3-devel
 BuildRequires:  python3-mako
+BuildRequires:  python3-pycparser
+BuildRequires:  python3-pyyaml
 BuildRequires:  vulkan-headers
 BuildRequires:  glslang
 %if 0%{?with_vulkan_hw}
 BuildRequires:  pkgconfig(vulkan)
 %endif
+%if 0%{?with_d3d12}
+BuildRequires:  pkgconfig(DirectX-Headers) >= 1.614.1
+%endif
 Requires:       vulkan%{_isa}
-Obsoletes: mesa-vulkan-drivers-vulkan-devel
-Obsoletes: mesa-vulkan-devel
+Obsoletes: 	mesa-vulkan-drivers-vulkan-devel
+Obsoletes: 	mesa-vulkan-devel
 Obsoletes:      mesa-omx-drivers < %{?epoch:%{epoch}:}%{version}-%{release}
 Provides:       mesa-vulkan-drivers
 Provides:       mesa-vulkan-drivers%{?_isa}
 Provides:       mesa-vulkan-drivers-git
 Obsoletes:      mesa-vulkan-drivers-git
+
 %description
 %{summary}.
-
 
 %prep
 %autosetup -n mesa-%{commit} -p1
 cp %{SOURCE1} docs/
+
+# Extract Rust crates meson cache directory
+%if 0%{?vendor_nvk_crates}
+mkdir subprojects/packagecache/
+tar -xvf %{SOURCE10} -C subprojects/packagecache/
+tar -xvf %{SOURCE11} -C subprojects/packagecache/
+tar -xvf %{SOURCE12} -C subprojects/packagecache/
+tar -xvf %{SOURCE13} -C subprojects/packagecache/
+tar -xvf %{SOURCE14} -C subprojects/packagecache/
+tar -xvf %{SOURCE15} -C subprojects/packagecache/
+for d in subprojects/packagecache/*-*; do
+    echo '{"files":{}}' > $d/.cargo-checksum.json
+done
+%endif
+
+%if 0%{?with_nvk}
+cat > Cargo.toml <<_EOF
+[package]
+name = "mesa"
+version = "%{ver}"
+edition = "2021"
+
+[lib]
+path = "src/nouveau/nil/lib.rs"
+
+# only direct dependencies need to be listed here
+[dependencies]
+paste = "$(grep ^directory subprojects/paste*.wrap | sed 's|.*-||')"
+syn = { version = "$(grep ^directory subprojects/syn*.wrap | sed 's|.*-||')", features = ["clone-impls"] }
+rustc-hash = "$(grep ^directory subprojects/rustc-hash*.wrap | sed 's|.*-||')"
+_EOF
+%if 0%{?vendor_nvk_crates}
+%cargo_prep -v subprojects/packagecache
+%else
+%cargo_prep
+
+%generate_buildrequires
+%cargo_generate_buildrequires
+%endif
+%endif
 
 %build
 # ensure standard Rust compiler flags are set
 export RUSTFLAGS="%build_rustflags"
 
 %if 0%{?with_nvk}
+# So... Meson can't actually find them without tweaks
+%if !0%{?vendor_nvk_crates}
 export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
-%define inst_crate_nameversion() %(basename %{cargo_registry}/%{1}-*)
-%define rewrite_wrap_file() \
-    ACTUAL_WRAP_FILE=$(find subprojects/ -maxdepth 1 -name "%{1}-*.wrap" | head -n 1); \
-    if [ -n "${ACTUAL_WRAP_FILE}" ] && [ -f "${ACTUAL_WRAP_FILE}" ]; then \
-        echo "Rewriting ${ACTUAL_WRAP_FILE}"; \
-        ORIGINAL_CRATE_NAMEVERSION="%{inst_crate_nameversion %{1}}"; \
-        sed -i -e "s|^directory =.*|directory = ${ORIGINAL_CRATE_NAMEVERSION}|" "${ACTUAL_WRAP_FILE}"; \
-    else \
-        echo "Warning: No .wrap file found for %{1} in subprojects/. Skipping rewrite."; \
-    fi
-%rewrite_wrap_file paste
-%rewrite_wrap_file proc-macro2
-%rewrite_wrap_file quote
-%rewrite_wrap_file rustc-hash
-%rewrite_wrap_file syn
-%rewrite_wrap_file unicode-ident
 %endif
+rewrite_wrap_file() {
+  sed -e "/source.*/d" -e "s/^directory = ${1}-.*/directory = $(basename ${MESON_PACKAGE_CACHE_DIR:-subprojects/packagecache}/${1}-*)/" -i subprojects/${1}*.wrap
+}
+
+rewrite_wrap_file proc-macro2
+rewrite_wrap_file quote
+rewrite_wrap_file syn
+rewrite_wrap_file unicode-ident
+rewrite_wrap_file paste
+rewrite_wrap_file rustc-hash
+%endif
+
 # We've gotten a report that enabling LTO for mesa breaks some games. See
 # https://bugzilla.redhat.com/show_bug.cgi?id=1862771 for details.
 # Disable LTO for now
@@ -217,9 +291,9 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
   -Dplatforms=x11,wayland \
   -Dvideo-codecs=all \
 %if 0%{?with_hardware}
-  -Dgallium-drivers=softpipe,llvmpipe,virgl,nouveau%{?with_r300:,r300}%{?with_crocus:,crocus}%{?with_i915:,i915}%{?with_iris:,iris}%{?with_vmware:,svga}%{?with_radeonsi:,radeonsi}%{?with_r600:,r600}%{?with_freedreno:,freedreno}%{?with_etnaviv:,etnaviv}%{?with_tegra:,tegra}%{?with_vc4:,vc4}%{?with_v3d:,v3d}%{?with_lima:,lima}%{?with_panfrost:,panfrost}%{?with_vulkan_hw:,zink} \
+  -Dgallium-drivers=llvmpipe,virgl,nouveau%{?with_r300:,r300}%{?with_crocus:,crocus}%{?with_i915:,i915}%{?with_iris:,iris}%{?with_vmware:,svga}%{?with_radeonsi:,radeonsi}%{?with_r600:,r600}%{?with_freedreno:,freedreno}%{?with_etnaviv:,etnaviv}%{?with_tegra:,tegra}%{?with_vc4:,vc4}%{?with_v3d:,v3d}%{?with_lima:,lima}%{?with_panfrost:,panfrost}%{?with_vulkan_hw:,zink} \
 %else
-  -Dgallium-drivers=softpipe,llvmpipe,virgl \
+  -Dgallium-drivers=llvmpipe,virgl \
 %endif
   -Dgallium-mediafoundation=disabled \
   -Dgallium-va=%{?with_va:enabled}%{!?with_va:disabled} \
@@ -247,10 +321,19 @@ export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
 %ifarch %{ix86}
   -Dglx-read-only-text=true \
 %endif
+  -Dspirv-tools=%{?with_spirv_tools:enabled}%{!?with_spirv_tools:disabled} \
   -Dlmsensors=enabled \
   -Dxlib-lease=enabled \
   %{nil}
 %meson_build
+
+%if 0%{?with_nvk}
+%cargo_license_summary
+%{cargo_license} > LICENSE.dependencies
+%if 0%{?vendor_nvk_crates}
+%cargo_vendor_manifest
+%endif
+%endif
 
 %install
 %meson_install
@@ -274,6 +357,8 @@ done
 popd
 
 # cleanup unused
+rm -Rf %{buildroot}%{_bindir}/spirv2dxil
+rm -Rf %{buildroot}%{_libdir}/libspirv_to_dxil.*
 rm -Rf %{buildroot}%{_libdir}/libGLX_mesa.so.0*
 rm -Rf %{buildroot}%{_libdir}/libGLX_system.so.0*
 rm -Rf %{buildroot}%{_includedir}/GL/
@@ -378,7 +463,6 @@ rm -Rf %{buildroot}%{_libdir}/dri/udl_dri.so
 rm -Rf %{buildroot}%{_libdir}/dri/v3d_dri.so
 rm -Rf %{buildroot}%{_libdir}/dri/vkms_dri.so
 rm -Rf %{buildroot}%{_libdir}/dri/zynqmp-dpsub_dri.so
-
 rm -Rf %{buildroot}%{_libdir}/libRusticlOpenCL*
 rm -Rf %{buildroot}%{_sysconfdir}/OpenCL/vendors/rusticl.icd
 rm -Rf %{buildroot}%{_libdir}/gbm/dri_gbm.so
@@ -392,12 +476,22 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %files
+%if 0%{?with_nvk}
+%license LICENSE.dependencies
+%if 0%{?vendor_nvk_crates}
+%license cargo-vendor.txt
+%endif
+%endif
 %{_libdir}/libvulkan_lvp.so
 %{_datadir}/vulkan/icd.d/lvp_icd.*.json
 %{_libdir}/libVkLayer_MESA_anti_lag.so
 %{_libdir}/libVkLayer_MESA_device_select.so
 %{_datadir}/vulkan/implicit_layer.d/VkLayer_MESA_anti_lag.json
 %{_datadir}/vulkan/implicit_layer.d/VkLayer_MESA_device_select.json
+%if 0%{?with_virtio}
+%{_libdir}/libvulkan_virtio.so
+%{_datadir}/vulkan/icd.d/virtio_icd.*.json
+%endif
 %if 0%{?with_vulkan_hw}
 %{_libdir}/libvulkan_radeon.so
 %ifarch aarch64 x86_64
@@ -408,19 +502,29 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %{_libdir}/libvulkan_nouveau.so
 %{_datadir}/vulkan/icd.d/nouveau_icd.*.json
 %endif
+%if 0%{?with_d3d12}
+%{_libdir}/libvulkan_dzn.so
+%{_datadir}/vulkan/icd.d/dzn_icd.*.json
+%endif
 %ifarch %{ix86} aarch64 x86_64
 %{_libdir}/libvulkan_intel.so
 %{_datadir}/vulkan/icd.d/intel_icd.*.json
 %{_libdir}/libvulkan_intel_hasvk.so
 %{_datadir}/vulkan/icd.d/intel_hasvk_icd.*.json
 %endif
-%ifarch aarch64
+%ifarch aarch64 x86_64 %{ix86}
+%if 0%{?with_asahi}
+%{_libdir}/libvulkan_asahi.so
+%{_datadir}/vulkan/icd.d/asahi_icd.*.json
+%endif
 %{_libdir}/libvulkan_broadcom.so
 %{_datadir}/vulkan/icd.d/broadcom_icd.*.json
 %{_libdir}/libvulkan_freedreno.so
 %{_datadir}/vulkan/icd.d/freedreno_icd.*.json
 %{_libdir}/libvulkan_panfrost.so
 %{_datadir}/vulkan/icd.d/panfrost_icd.*.json
+%{_libdir}/libvulkan_powervr_mesa.so
+%{_datadir}/vulkan/icd.d/powervr_mesa_icd.*.json
 %endif
 %if 0%{?with_vulkan_overlay}
 %{_bindir}/mesa-overlay-control.py
@@ -430,6 +534,15 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Wed Nov 19 2025 LionHeartP <LionHeartP@proton.me> - 25.4.0-1
+- Update to latest commit
+- Bump version
+- Drop min_image_count.patch
+- Switch to Fedora packaging for rust crates
+
+* Wed Nov 12 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-19
+- Update to latest commit
+
 * Fri Nov 07 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-18
 - Update to latest commit
 - Add #29580 and #37883 MRs for RT improvements

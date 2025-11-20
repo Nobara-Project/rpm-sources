@@ -2,7 +2,10 @@
 
 %ifnarch s390x
 %global with_hardware 1
+%global with_kmsro 1
+%global with_nvk 1
 %global with_radeonsi 1
+%global with_spirv_tools 1
 %global with_vmware 1
 %global with_vulkan_hw 1
 %global with_va 1
@@ -10,9 +13,6 @@
 %global with_r300 1
 %global with_r600 1
 %global with_opencl 1
-%endif
-%if !0%{?rhel} || 0%{?rhel} >= 10
-%global with_nvk %{with_vulkan_hw}
 %endif
 %global base_vulkan %{?with_vulkan_hw:,amd}%{!?with_vulkan_hw:%{nil}}
 %endif
@@ -46,12 +46,11 @@
 %global with_v3d       1
 %endif
 %global with_freedreno 1
-%global with_kmsro     1
 %global with_panfrost  1
 %if 0%{?with_asahi}
 %global asahi_platform_vulkan %{?with_vulkan_hw:,asahi}%{!?with_vulkan_hw:%{nil}}
 %endif
-%global extra_platform_vulkan %{?with_vulkan_hw:,broadcom,freedreno,panfrost,imagination-experimental}%{!?with_vulkan_hw:%{nil}}
+%global extra_platform_vulkan %{?with_vulkan_hw:,broadcom,freedreno,panfrost,imagination}%{!?with_vulkan_hw:%{nil}}
 %endif
 
 %if !0%{?rhel}
@@ -74,7 +73,7 @@
 
 Name:           mesa
 Summary:        Mesa graphics libraries
-%global ver 25.2.6
+%global ver 25.3.0
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
@@ -85,6 +84,7 @@ Source0:        https://archive.mesa3d.org/mesa-%{ver}.tar.xz
 # Source1 contains email correspondence clarifying the license terms.
 # Fedora opts to ignore the optional part of clause 2 and treat that code as 2 clause BSD.
 Source1:        Mesa-MLAA-License-Clarification-Email.txt
+
 # In CentOS/RHEL, Rust crates required to build NVK are vendored.
 # The minimum target versions are obtained from the .wrap files
 # https://gitlab.freedesktop.org/mesa/mesa/-/tree/main/subprojects
@@ -104,9 +104,6 @@ Source15:       https://crates.io/api/v1/crates/rustc-hash/%{rustc_hash_ver}/dow
 
 # https://gitlab.com/evlaV/mesa/
 Patch30:         valve.patch
-
-# Path of Exile
-Patch32:        min_image_count.patch
 
 BuildRequires:  meson >= 1.3.0
 BuildRequires:  gcc
@@ -318,8 +315,6 @@ Requires:       (ocl-icd%{?_isa} or OpenCL-ICD-Loader%{?_isa})
 Requires:       libclc%{?_isa}
 Requires:       %{name}-libgbm%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
 Requires:       opencl-filesystem
-Provides:       rocm-opencl
-Obsoletes:      rocm-opencl
 
 %description libOpenCL
 %{summary}.
@@ -344,7 +339,7 @@ Summary:        Mesa TensorFlow Lite delegate
 %package dxil-devel
 Summary:        Mesa SPIR-V to DXIL binary
 Requires:       %{name}-filesystem%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
-                    
+
 %description dxil-devel
 Development tools for translating SPIR-V shader code to DXIL for Direct3D 12
 %endif
@@ -381,7 +376,7 @@ done
 cat > Cargo.toml <<_EOF
 [package]
 name = "mesa"
-version = "%{version}"
+version = "%{ver}"
 edition = "2021"
 
 [lib]
@@ -389,9 +384,9 @@ path = "src/nouveau/nil/lib.rs"
 
 # only direct dependencies need to be listed here
 [dependencies]
-paste = "$(grep ^directory subprojects/paste.wrap | sed 's|.*-||')"
-syn = { version = "$(grep ^directory subprojects/syn.wrap | sed 's|.*-||')", features = ["clone-impls"] }
-rustc-hash = "$(grep ^directory subprojects/rustc-hash.wrap | sed 's|.*-||')"
+paste = "$(grep ^directory subprojects/paste*.wrap | sed 's|.*-||')"
+syn = { version = "$(grep ^directory subprojects/syn*.wrap | sed 's|.*-||')", features = ["clone-impls"] }
+rustc-hash = "$(grep ^directory subprojects/rustc-hash*.wrap | sed 's|.*-||')"
 _EOF
 %if 0%{?vendor_nvk_crates}
 %cargo_prep -v subprojects/packagecache
@@ -414,7 +409,7 @@ export RUSTFLAGS="%build_rustflags"
 export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
 %endif
 rewrite_wrap_file() {
-   sed -e "/source.*/d" -e "s/${1}-.*/$(basename ${MESON_PACKAGE_CACHE_DIR:-subprojects/packagecache}/${1}-*)/" -i subprojects/${1}.wrap
+  sed -e "/source.*/d" -e "s/^directory = ${1}-.*/directory = $(basename ${MESON_PACKAGE_CACHE_DIR:-subprojects/packagecache}/${1}-*)/" -i subprojects/${1}*.wrap
 }
 
 rewrite_wrap_file proc-macro2
@@ -438,7 +433,6 @@ rewrite_wrap_file rustc-hash
 %else
   -Dgallium-drivers=llvmpipe,virgl \
 %endif
-  -Dgallium-vdpau=disabled \
   -Dgallium-va=%{?with_va:enabled}%{!?with_va:disabled} \
   -Dgallium-mediafoundation=disabled \
   -Dteflon=%{?with_teflon:true}%{!?with_teflon:false} \
@@ -470,6 +464,7 @@ rewrite_wrap_file rustc-hash
 %ifarch %{ix86}
   -Dglx-read-only-text=true \
 %endif
+  -Dspirv-tools=%{?with_spirv_tools:enabled}%{!?with_spirv_tools:disabled} \
   -Dxlib-lease=enabled \
   %{nil}
 %meson_build
@@ -673,7 +668,7 @@ popd
 %files libgallium
 %{_libdir}/libgallium-*.so
 
-%if 0%{?with_d3d12}            
+%if 0%{?with_d3d12}
 %files dxil-devel
 %{_bindir}/spirv2dxil
 %{_libdir}/libspirv_to_dxil.a
@@ -724,13 +719,19 @@ popd
 %{_datadir}/vulkan/icd.d/freedreno_icd.*.json
 %{_libdir}/libvulkan_panfrost.so
 %{_datadir}/vulkan/icd.d/panfrost_icd.*.json
-%{_libdir}/libpowervr_rogue.so
 %{_libdir}/libvulkan_powervr_mesa.so
 %{_datadir}/vulkan/icd.d/powervr_mesa_icd.*.json
 %endif
 %endif
 
 %changelog
+* Mon Nov 17 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-1
+- Update to 25.3.0
+- Drop min_image_count.patch
+
+* Wed Nov 12 2025 LionHeartP <LionHeartP@proton.me> - 25.2.7-1
+- Update to 25.2.7
+
 * Wed Oct 29 2025 LionHeartP <LionHeartP@proton.me> - 25.2.6-1
 - Update to 25.2.6
 

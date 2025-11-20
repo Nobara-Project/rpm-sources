@@ -2,8 +2,11 @@
 
 %ifnarch s390x
 %global with_hardware 1
+%global with_kmsro 1
+%global with_nvk 1
 %global with_vulkan_hw 1
 %global with_va 1
+%global with_spirv_tools 1
 %if !0%{?rhel}
 %global with_opencl 1
 %endif
@@ -59,7 +62,7 @@
 
 Name:           mesa-vulkan-drivers-freeworld
 Summary:        The mesa graphics vulkan driver stack.
-%global ver 25.2.6
+%global ver 25.3.0
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %autorelease
 License:        MIT
@@ -87,9 +90,6 @@ Source15:       https://crates.io/api/v1/crates/rustc-hash/%{rustc_hash_ver}/dow
 
 # https://gitlab.com/evlaV/mesa/
 Patch30:        valve.patch
-
-# Path of Exile
-Patch32:        min_image_count.patch
 
 BuildRequires:  meson >= 1.3.0
 BuildRequires:  cbindgen
@@ -200,7 +200,7 @@ done
 cat > Cargo.toml <<_EOF
 [package]
 name = "mesa"
-version = "%{version}"
+version = "%{ver}"
 edition = "2021"
 
 [lib]
@@ -208,9 +208,9 @@ path = "src/nouveau/nil/lib.rs"
 
 # only direct dependencies need to be listed here
 [dependencies]
-paste = "$(grep ^directory subprojects/paste.wrap | sed 's|.*-||')"
-syn = { version = "$(grep ^directory subprojects/syn.wrap | sed 's|.*-||')", features = ["clone-impls"] }
-rustc-hash = "$(grep ^directory subprojects/rustc-hash.wrap | sed 's|.*-||')"
+paste = "$(grep ^directory subprojects/paste*.wrap | sed 's|.*-||')"
+syn = { version = "$(grep ^directory subprojects/syn*.wrap | sed 's|.*-||')", features = ["clone-impls"] }
+rustc-hash = "$(grep ^directory subprojects/rustc-hash*.wrap | sed 's|.*-||')"
 _EOF
 %if 0%{?vendor_nvk_crates}
 %cargo_prep -v subprojects/packagecache
@@ -232,7 +232,7 @@ export RUSTFLAGS="%build_rustflags"
 export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
 %endif
 rewrite_wrap_file() {
-   sed -e "/source.*/d" -e "s/${1}-.*/$(basename ${MESON_PACKAGE_CACHE_DIR:-subprojects/packagecache}/${1}-*)/" -i subprojects/${1}.wrap
+   sed -e "/source.*/d" -e "s/^directory = ${1}-.*/directory = $(basename ${MESON_PACKAGE_CACHE_DIR:-subprojects/packagecache}/${1}-*)/" -i subprojects/${1}*.wrap
 }
 
 rewrite_wrap_file proc-macro2
@@ -262,7 +262,6 @@ rewrite_wrap_file rustc-hash
   -Dgallium-drivers=softpipe,llvmpipe,virgl \
 %endif
   -Dgallium-mediafoundation=disabled \
-  -Dgallium-vdpau=disabled \
   -Dgallium-va=%{?with_va:enabled}%{!?with_va:disabled} \
 %if 0%{?with_opencl}
   -Dgallium-rusticl=true \
@@ -288,6 +287,7 @@ rewrite_wrap_file rustc-hash
 %ifarch %{ix86}
   -Dglx-read-only-text=true \
 %endif
+  -Dspirv-tools=%{?with_spirv_tools:enabled}%{!?with_spirv_tools:disabled} \
   -Dlmsensors=enabled \
   -Dxlib-lease=enabled \
   %{nil}
@@ -464,6 +464,13 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Mon Nov 17 2025 LionHeartP <LionHeartP@proton.me> - 25.3.0-1
+- Update to 25.3.0
+- Drop min_image_count.patch
+
+* Wed Nov 12 2025 LionHeartP <LionHeartP@proton.me> - 25.2.7-1
+- Update to 25.2.7
+
 * Wed Oct 29 2025 LionHeartP <LionHeartP@proton.me> - 25.2.6-1
 - Update to 25.2.6
 
