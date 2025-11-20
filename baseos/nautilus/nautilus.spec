@@ -2,11 +2,11 @@
 
 %global glib2_version 2.79.0
 %global gnome_autoar_version 0.4.4
-%global gtk4_version 4.15.2
+%global gtk4_version 4.17.5
 %global libadwaita_version 1.6~beta
 
 Name:           nautilus
-Version:        48.4.1
+Version:        49.1
 
 %global tarball_version %%(echo %{version} | tr '~' '.')
 %global major_version %%(cut -d "." -f 1 <<<%{tarball_version})
@@ -20,8 +20,10 @@ URL:            https://apps.gnome.org/Nautilus/
 Source0:        https://download.gnome.org/sources/%{name}/%{major_version}/%{name}-%{tarball_version}.tar.xz
 # https://pagure.io/fedora-workstation/issue/442
 Patch0:         default-terminal.patch
-Patch1:         nautilus-restore-typeahead.patch
-Patch2:         0001-patch-re-add-breadcrumb-address-bar-toggle.patch
+
+# Nobara additions
+#Patch1:         nautilus-restore-typeahead.patch
+#Patch2:         0001-patch-re-add-breadcrumb-address-bar-toggle.patch
 
 BuildRequires:  desktop-file-utils
 BuildRequires:  gcc
@@ -57,6 +59,9 @@ Requires:       gnome-autoar%{_isa} >= %{gnome_autoar_version}
 Requires:       gsettings-desktop-schemas%{_isa}
 Requires:       gtk4%{_isa} >= %{gtk4_version}
 Requires:       gvfs%{_isa}
+%if ! 0%{?flatpak}
+Recommends:     gvfs-fuse%{_isa}
+%endif
 Requires:       libadwaita%{_isa} >= %{libadwaita_version}
 # the main binary links against libnautilus-extension.so
 # don't depend on soname, rather on exact version
@@ -85,6 +90,10 @@ Summary:        Support for developing nautilus extensions
 License:        LGPL-2.1-or-later
 Requires:       %{name}%{_isa} = %{version}-%{release}
 Requires:       %{name}-extensions%{_isa} = %{version}-%{release}
+# Because web fonts from upstream are not bundled in the gi-docgen package,
+# packages containing documentation generated with gi-docgen should depend on
+# this metapackage to ensure the proper system fonts are present.
+Recommends:     gi-docgen-fonts
 
 %description devel
 This package provides libraries and header files needed
@@ -138,7 +147,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 %files extensions
 %license libnautilus-extension/LICENSE
 %{_libdir}/libnautilus-extension.so.4*
-%{_libdir}/girepository-1.0/Nautilus-4.0.typelib
+%{_libdir}/girepository-1.0/Nautilus-4.1.typelib
 %dir %{_libdir}/nautilus
 %dir %{_libdir}/nautilus/extensions-4
 
@@ -146,12 +155,36 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 %{_includedir}/nautilus
 %{_libdir}/pkgconfig/libnautilus-extension-4.pc
 %{_libdir}/libnautilus-extension.so
-%{_datadir}/gir-1.0/Nautilus-4.0.gir
+%{_datadir}/gir-1.0/Nautilus-4.1.gir
 %doc %{_datadir}/doc/nautilus/
 
 %changelog
-* Sun Oct 12 2025 LionHeartP <LionHeartP@proton.me> - 48.4.1-1
-- Update to 48.4.1
+* Thu Nov 06 2025 Benjamin A. Beasley <code@musicinmybrain.net> - 49.1-5
+- Ensure correct fonts are installed for HTML docs
+
+* Thu Nov 06 2025 Debarshi Ray <rishi@fedoraproject.org> - 49.1-3
+- Add weak runtime dependency on gvfs-fuse for non-Flatpak builds
+
+* Mon Oct 13 2025 Petr Schindler <pschindl@redhat.com> - 49.1-1
+- Update to 49.1
+
+* Tue Sep 16 2025 Michael Catanzaro <mcatanzaro@redhat.com> - 49.0-1
+- Update to 49.0
+
+* Tue Sep 02 2025 Felipe Borges <felipeborges@gnome.org> - 49~rc-1
+- Update to 49.rc
+
+* Wed Aug 06 2025 František Zatloukal <fzatlouk@redhat.com> - 49~beta-2
+- Rebuilt for icu 77.1
+
+* Tue Aug 05 2025 Marek Kasik <mkasik@redhat.com> - 49~beta-1
+- Update to 49.beta
+
+* Thu Jul 24 2025 Fedora Release Engineering <releng@fedoraproject.org> - 49~alpha-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_43_Mass_Rebuild
+
+* Mon Jun 30 2025 Milan Crha <mcrha@redhat.com> - 49~alpha-1
+- Update to 49.alpha
 
 * Mon May 26 2025 nmontero <nmontero@redhat.com> - 48.2-1
 - Update to 48.2
@@ -159,20 +192,20 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 * Mon Apr 14 2025 nmontero <nmontero@redhat.com> - 48.1-1
 - Update to 48.1
 
-* Thu Mar 20 2025 nmontero <nmontero@redhat.com> - 48.0-1
+* Mon Mar 17 2025 nmontero <nmontero@redhat.com> - 48.0-1
 - Update to 48.0
 
-* Mon Mar 10 2025 Fabio Valentini <decathorpe@gmail.com> - 48~rc-1
+* Thu Mar 06 2025 Fabio Valentini <decathorpe@gmail.com> - 48~rc-1
 - Update to 48.rc
 
-* Wed Mar 05 2025 nmontero <nmontero@redhat.com> - 47.2-1
-- Update to 47.2
-
-* Fri Feb 28 2025 Adam Williamson <awilliam@redhat.com> - 47.1-4
+* Fri Feb 07 2025 Adam Williamson <awilliam@redhat.com> - 47.2-3
 - Update dependencies for tracker -> tinysparql rename
 
-* Thu Feb 27 2025 nmontero <nmontero@redhat.com> - 47.1-3
+* Thu Feb 06 2025 nmontero <nmontero@redhat.com> - 47.2-2
 - Rebuild for the renaming of tracker to tinysparql
+
+* Wed Feb 05 2025 nmontero <nmontero@redhat.com> - 47.2-1
+- Update to 47.2
 
 * Fri Jan 17 2025 Fedora Release Engineering <releng@fedoraproject.org> - 47.1-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_42_Mass_Rebuild
@@ -535,7 +568,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_28_Mass_Rebuild
 
 * Sat Feb 03 2018 Igor Gnatenko <ignatenkobrain@fedoraproject.org> - 3.26.2-2
-- Switch to %%ldconfig_scriptlets
+- Switch to %ldconfig_scriptlets
 
 * Tue Nov 21 2017 Kalev Lember <klember@redhat.com> - 3.26.2-1
 - Update to 3.26.2
@@ -1077,7 +1110,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 - Also obsolete eel2-devel (#583722)
 
 * Tue Apr 13 2010 Seth Vidal <skvidal at fedoraproject.org> - 2.30.0-2
-- fix obsoletes/provides for eel2 to not include pkg name in ver/rel
+- fix obsoletes/provides for eel2 to not include pkg name in ver/rel 
 
 * Mon Mar 29 2010 Tomas Bzatek <tbzatek@redhat.com> - 2.30.0-1
 - Update to 2.30.0
@@ -1247,7 +1280,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 - Update to 2.25.2
 - Clean up Requires
 - Obsolete eel2
-- Drop hard dependency on gvfs backends.
+- Drop hard dependency on gvfs backends. 
   These are pulled in by comps, anyway
 
 * Fri Dec  5 2008 Matthias Clasen <mclasen@redhat.com> - 2.25.1-5
@@ -1271,7 +1304,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 
 * Fri Nov 21 2008 Matthias Clasen  <mclasen@redhat.com> - 2.24.1-5
 - Better URL
-- Tweak %%description
+- Tweak %description
 
 * Thu Nov 13 2008 Matthias Clasen  <mclasen@redhat.com> - 2.24.1-4
 - Rebuild
@@ -1348,7 +1381,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 - Update to 2.23.3
 
 * Fri May 30 2008 Tomas Bzatek <tbzatek@redhat.com> - 2.23.2-3
-- Add DnD support to drop files onto archive files with help
+- Add DnD support to drop files onto archive files with help 
   of file-roller (gnomebz #377157)
 - Add fix preventing crash on bad GFileInfos (gnomebz #519743)
 
@@ -1465,7 +1498,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 - Backport fixes for async thumbnail loading from svn
 
 * Fri Sep 28 2007 Ray Strode <rstrode@redhat.com> - 2.20.0-2
-- drop redhat-artwork dep. Alex says we don't need it anymore
+- drop redhat-artwork dep. Alex says we don't need it anymore 
 
 * Tue Sep 18 2007 Matthias Clasen <mclasen@redhat.com> - 2.20.0-1
 - Update to 2.20.0
@@ -1563,7 +1596,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 * Tue Nov  7 2006 Alexander Larsson <alexl@redhat.com> - 2.16.2-2.fc7
 - Update to 2.16.2
 
-* Sat Oct 21 2006 Matthias Clasen <mclasen@redhat.com> - 2.16.1-1
+* Sat Oct 21 2006 Matthias Clasen <mclasen@redhat.com> - 2.16.1-1 
 - Update to 2.16.1
 
 * Wed Oct 18 2006 Matthias Clasen <mclasen@redhat.com> - 2.16.0-6
@@ -1581,7 +1614,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 - Fix crash when opening custom icon dialog (#205352)
 
 * Tue Sep  5 2006 Matthias Clasen <mclasen@redhat.com> - 2.16.0-2
-- Add a %%preun script (#205260)
+- Add a %preun script (#205260)
 
 * Mon Sep  4 2006 Alexander Larsson <alexl@redhat.com> - 2.16.0-1
 - Update to 2.16.0
@@ -1609,7 +1642,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 - Spec file cleanups
 
 * Wed Jul 12 2006 Matthias Clasen <mclasen@redhat.com> - 2.15.4-2
-- Don't require nautilus-cd-burner, to avoid a
+- Don't require nautilus-cd-burner, to avoid a 
   BuildRequires-Requires loop
 
 * Wed Jul 12 2006 Matthias Clasen <mclasen@redhat.com> - 2.15.4-1
@@ -1695,7 +1728,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 * Wed Sep  7 2005 Matthias Clasen <mclasen@redhat.com> 2.12.0-1
 - Update to 2.12.0
 
-* Tue Aug 16 2005 Matthias Clasen <mclasen@redhat.com>
+* Tue Aug 16 2005 Matthias Clasen <mclasen@redhat.com> 
 - New upstream release
 
 * Wed Aug  3 2005 Matthias Clasen <mclasen@redhat.com> 2.11.90-1
@@ -1956,7 +1989,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 * Tue Jan 14 2003 Havoc Pennington <hp@redhat.com>
 - perl-munge the icon names in a couple desktop files
   to find redhat-network-server.png and redhat-file-manager.png.
-  Upstream icon names here were weird and seem broken.
+  Upstream icon names here were weird and seem broken. 
 
 * Thu Jan  9 2003 Alexander Larsson <alexl@redhat.com>
 - 2.1.6
@@ -1972,7 +2005,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 
 * Tue Dec  3 2002 Havoc Pennington <hp@redhat.com>
 - add explicit startup-notification dependency because build system is
-  dumb
+  dumb 
 - 2.1.3
 
 * Wed Nov 13 2002 Havoc Pennington <hp@redhat.com>
@@ -1999,7 +2032,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 * Sat Aug 31 2002 Havoc Pennington <hp@redhat.com>
 - require newer redhat-artwork, -menus, eel2, gnome-vfs2 to avoid
   bogus bug reports
-- add hack for HTML mime type handling in a web browser, not
+- add hack for HTML mime type handling in a web browser, not 
   nautilus
 
 * Thu Aug 29 2002 Alexander Larsson <alexl@redhat.com>
@@ -2007,7 +2040,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 - Added patch that fixes #72410
 
 * Wed Aug 28 2002 Owen Taylor <otaylor@redhat.com>
-- Add a simple patch so that redhat-config-packages can disable
+- Add a simple patch so that redhat-config-packages can disable 
   the new window behavior for mounted CDs behavior.
 
 * Wed Aug 28 2002 Alexander Larsson <alexl@redhat.com> 2.0.5-4
@@ -2056,7 +2089,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 
 * Thu Jun 27 2002 Owen Taylor <otaylor@redhat.com>
 - Relibtoolize to fix relink problems for solib components
-- Add LANG=en_US to %%makeinstall as well
+- Add LANG=en_US to %makeinstall as well
 - Back out previous change, force locale to en_US to prevent UTF-8 problems
 - Add workaround for intltool-merge bug on ia64
 
@@ -2140,7 +2173,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 - copy in 1.0.5 help component to avoid large risky patch
 - remove .la files
 - drop mozilla from ia64 again
-- remove oaf file from nautilus-mozilla that was also in the base
+- remove oaf file from nautilus-mozilla that was also in the base 
   package
 
 * Mon Jan 28 2002 Bill Nottingham <notting@redhat.com>
@@ -2179,7 +2212,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
   fixes mentioned. This build should contain them.
 
 * Wed Aug 22 2001 Havoc Pennington <hp@redhat.com>
-- fix bug causing 32000 stats or so in large directories,
+- fix bug causing 32000 stats or so in large directories, 
   should speed things up somewhat
 - fix #52104 via gruesome kdesktop-detection hack and setting
   window type hint on our desktop window
@@ -2229,7 +2262,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 
 * Thu Aug 02 2001 Havoc Pennington <hp@redhat.com>
 - Sync our CVS version; fixes some MUSTFIX
-  (the one about drawing background on startup,
+  (the one about drawing background on startup, 
    properly translate desktop files, etc.)
 
 * Wed Aug  1 2001 Alexander Larsson <alexl@redhat.com> 1.0.4-24
@@ -2263,13 +2296,13 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
   read)
 
 * Tue Jul 24 2001 Havoc Pennington <hp@redhat.com>
-- sync new tarball from our CVS branch,
+- sync new tarball from our CVS branch, 
   fixes some drag-and-drop, changes URI scheme names,
   etc.
 
 * Tue Jul 24 2001 Owen Taylor <otaylor@redhat.com>
 - Add BuildRequires (#49539, 49537)
-- Fix %%post, %%postun (#49720)
+- Fix %post, %postun (#49720)
 - Background efficiency improvements and hacks
 
 * Fri Jul 13 2001 Alexander Larsson <alexl@redhat.com>
@@ -2287,7 +2320,7 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 - add newline to ends of .desktop files that were missing them
 
 * Tue Jul 10 2001 Havoc Pennington <hp@redhat.com>
-- update to my latest 'cvs diff -u' (adds default
+- update to my latest 'cvs diff -u' (adds default 
   Start Here link, displays .directory name in sidebar)
 - include /etc/X11/* links (starthere, sysconfig, serverconfig)
 
@@ -2342,15 +2375,15 @@ desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 * Tue Apr 17 2001 Gregory Leblanc <gleblanc@grego1.cu-portland.edu>
 - Added BuildRequires lines
 - Changed Source to point to ftp.gnome.org instead of just the tarball name
-- Moved %%description sections closer to their %%package sections
-- Moved %%changelog to the end, where so that it's not in the way
+- Moved %description sections closer to their %package sections
+- Moved %changelog to the end, where so that it's not in the way
 - Changed configure and make install options to allow moving of
   libraries, includes, binaries more easily
-- Removed hard-coded paths (don't define %%prefix or %%docdir)
-- replace %%{prefix}/bin with %%{_bindir}
-- replace %%{prefix}/share with %%{_datadir}
-- replace %%{prefix}/lib with %%{_libdir}
-- replace %%{prefix}/include with %%{_includedir}
+- Removed hard-coded paths (don't define %prefix or %docdir)
+- replace %{prefix}/bin with %{_bindir}
+- replace %{prefix}/share with %{_datadir}
+- replace %{prefix}/lib with %{_libdir}
+- replace %{prefix}/include with %{_includedir}
 
 * Tue Oct 10 2000 Robin Slomkowski <rslomkow@eazel.com>
 - removed obsoletes from sub packages and added mozilla and trilobite
@@ -2358,5 +2391,3 @@ subpackages
 
 * Wed Apr 26 2000 Ramiro Estrugo <ramiro@eazel.com>
 - created this thing
-
-## END: Generated by rpmautospec

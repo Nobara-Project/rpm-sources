@@ -1,6 +1,6 @@
 Name:           galileo-mura
 Version:        0.9
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Utilities for setting and reading mura correction on Galileo
 License:        MIT
 URL:            https://github.com/ublue-os/bazzite

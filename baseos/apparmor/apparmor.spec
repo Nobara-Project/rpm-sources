@@ -1,26 +1,24 @@
 %{?python_enable_dependency_generator}
 
 %bcond_with tests
+
 %global _custom_sbin /usr/sbin
+%global commit d6ea0dc35c04b6dcf175bc1a870267d6dad13ec9
 
 Name:           apparmor
-Version:        4.1.0
-Release:        2%{?dist}
+Version:        4.1.2
+Release:        1%{?dist}
 Summary:        AppArmor userspace components
 
 %define baseversion %(echo %{version} | cut -d. -f-2)
 
 License:        GPL-2.0
-URL:            https://launchpad.net/apparmor
-Source0:        %{url}/%{baseversion}/%{version}/+download/%{name}-%{version}.tar.gz
+URL:            https://gitlab.com/%{name}
+Source0:        %{url}/%{name}/-/archive/v%{version}/%{name}-%{version}.tar.gz
 Source10:       %{name}.preset
 Patch01:	0001-fix-avahi-daemon-authselect-denial-in-fedora.patch
 Patch02:	0001-fix-denial-on-dnsmask-for-nsswitch.patch
 Patch03:	0001-fix-apparmor-waydroid-denials.patch
-
-# https://gitlab.com/apparmor/apparmor/-/commit/243162ca2938b391724f547596787c7f77d1fc5f
-# Breaks login on Fedora until pwunconv and pwconv are run to regenerate /etc/shadow.
-Patch05:    0001-revert-243162ca2938b391724f547596787c7f77d1fc5f.patch
 
 BuildRequires:  gcc
 BuildRequires:  automake
@@ -158,7 +156,7 @@ changehat abilities exposed through libapparmor.
 
 
 %prep
-%autosetup -p1
+%autosetup -n %{name}-v%{version}-%{commit} -p1
 
 
 %build

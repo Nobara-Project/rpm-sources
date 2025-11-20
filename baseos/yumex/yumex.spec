@@ -2,12 +2,12 @@
 %global app_build release
 %global dnf_backend DNF5
 %global app_name yumex
-%global gitcommit 09f15091a2f0f3a8c189bbd4dc59016a80e2debf
-%global shortcommit 09f1509
+%global gitcommit 4946515e509b12592317ad2668bd824a6f81f054
+%global shortcommit 4946515
 
 Name:     %{app_name}
-Version:  5.3.0
-Release:  5.git.%{shortcommit}%{?dist}
+Version:  5.4.0
+Release:  1.git.%{shortcommit}%{?dist}
 Summary:  Yum Extender graphical package management tool
 
 Group:    Applications/System

@@ -1,5 +1,5 @@
 %global tarball_version %%(echo %{version} | tr '~' '.')
-%global major_version %%(cut -d "." -f 1 <<<%{tarball_version})
+%define major_version %(c=%{version}; echo $c | cut -d. -f1 | cut -d~ -f1)
 
 %if 0%{?rhel}
 %global portal_helper 0
@@ -8,7 +8,7 @@
 %endif
 
 Name:           gnome-shell
-Version:        48.5
+Version:        49.1
 Release:        %autorelease
 Summary:        Window management and application launching for GNOME
 
@@ -23,6 +23,15 @@ Patch: gnome-shell-favourite-apps-firefox.patch
 # downstream patch to stop trying on configuration errors.
 Patch: 0001-gdm-Work-around-failing-fingerprint-auth.patch
 
+# https://gitlab.gnome.org/GNOME/gnome-shell/-/merge_requests/3939
+# https://gitlab.gnome.org/GNOME/gnome-shell/-/issues/8738#note_2589102
+# https://discussion.fedoraproject.org/t/169999
+# Reverts some xkb changes that turned out to cause way more problems
+# than they solved
+# Rediffed on 49.1 - we include only the first revert, as the second
+# commit was post-49.1 so there's nothing to revert
+Patch: 3939-rediffed.patch
+
 %define eds_version 3.45.1
 %define gnome_desktop_version 44.0-7
 %define glib2_version 2.79.2
@@ -30,16 +39,14 @@ Patch: 0001-gdm-Work-around-failing-fingerprint-auth.patch
 %define gjs_version 1.73.1
 %define gtk4_version 4.0.0
 %define adwaita_version 1.5.0
-%define mutter_version 48~rc
+%define mutter_version 49~beta
 %define polkit_version 0.100
-%define gsettings_desktop_schemas_version 48~rc
+%define gsettings_desktop_schemas_version 48.0
 %define ibus_version 1.5.2
 %define gnome_bluetooth_version 1:42.3
 %define gstreamer_version 1.4.5
 %define pipewire_version 0.3.49
 %define gnome_settings_daemon_version 3.37.1
-
-%define major_version %(c=%{version}; echo $c | cut -d. -f1 | cut -d~ -f1)
 
 BuildRequires:  pkgconfig(bash-completion)
 BuildRequires:  gcc
@@ -80,7 +87,7 @@ BuildRequires:  gnome-bluetooth-libs-devel >= %{gnome_bluetooth_version}
 # Bootstrap requirements
 BuildRequires: gtk-doc
 # Handle upgrade path
-Conflicts: %{name} < 48~rc-3
+Conflicts: %{name} < 48~rc-5
 %ifnarch s390 s390x
 Recommends:     gnome-bluetooth%{?_isa} >= %{gnome_bluetooth_version}
 %endif
@@ -176,7 +183,7 @@ easy to use experience.
 
 %package common
 Summary: Common files used by %{name}
-Conflicts: %{name} < 48~rc-3
+Conflicts: %{name} < 48~rc-5
 BuildArch: noarch
 
 %description common
@@ -206,7 +213,6 @@ mkdir -p %{buildroot}%{_datadir}/gnome-shell/search-providers
 %find_lang %{name}
 
 %check
-desktop-file-validate %{buildroot}%{_datadir}/applications/org.gnome.Shell.desktop
 desktop-file-validate %{buildroot}%{_datadir}/applications/org.gnome.Shell.Extensions.desktop
 
 %if %{portal_helper}
@@ -222,7 +228,6 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/org.gnome.Shell.Porta
 %{_bindir}/gnome-shell-test-tool
 %{_datadir}/glib-2.0/schemas/00_org.gnome.shell.gschema.override
 %{_datadir}/applications/org.gnome.Shell.Extensions.desktop
-%{_datadir}/applications/org.gnome.Shell.desktop
 %{_datadir}/bash-completion/completions/gnome-extensions
 %{_datadir}/gnome-control-center/keybindings/50-gnome-shell-launchers.xml
 %{_datadir}/gnome-control-center/keybindings/50-gnome-shell-screenshots.xml
@@ -234,6 +239,7 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/org.gnome.Shell.Porta
 %{_datadir}/dbus-1/services/org.gnome.Shell.HotplugSniffer.service
 %{_datadir}/dbus-1/services/org.gnome.Shell.Notifications.service
 %{_datadir}/dbus-1/services/org.gnome.Shell.Screencast.service
+%{_datadir}/dbus-1/interfaces/org.gnome.Shell.Brightness.xml
 %{_datadir}/dbus-1/interfaces/org.gnome.Shell.Extensions.xml
 %{_datadir}/dbus-1/interfaces/org.gnome.Shell.Introspect.xml
 %{_datadir}/dbus-1/interfaces/org.gnome.Shell.PadOsd.xml
@@ -249,7 +255,6 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/org.gnome.Shell.Porta
 %{_userunitdir}/org.gnome.Shell-disable-extensions.service
 %{_userunitdir}/org.gnome.Shell.target
 %{_userunitdir}/org.gnome.Shell@wayland.service
-%{_userunitdir}/org.gnome.Shell@x11.service
 %{_libdir}/gnome-shell/
 %{_libexecdir}/gnome-shell-calendar-server
 %{_libexecdir}/gnome-shell-perf-helper
@@ -269,19 +274,55 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/org.gnome.Shell.Porta
 %{_datadir}/glib-2.0/schemas/*.xml
 
 %changelog
-* Sun Oct 12 2025 LionHeartP <LionHeartP@proton.me> - 48.5-1
-- Update to 48.5
+* Wed Oct 29 2025 Adam Williamson <awilliam@redhat.com> - 49.1-2
+- Backport MR #3939 (rediffed) to fix freezes on layout change
 
-* Tue Aug 12 2025 LionHeartP <LionHeartP@proton.me> - 48.4-1
-- Update to 48.4
+* Thu Oct 16 2025 Petr Schindler <pschindl@redhat.com> - 49.1-1
+- Update to 49.1
+
+* Tue Oct 14 2025 Adam Williamson <awilliam@redhat.com> - 49.0-2
+- Backport MR #3887 to fix touchscreen crash (#2399599)
+
+* Tue Sep 16 2025 Michael Catanzaro <mcatanzaro@redhat.com> - 49.0-1
+- Update to 49.0
+
+* Fri Sep 05 2025 Michael Catanzaro <mcatanzaro@redhat.com> - 49~rc-1
+- Update to 49.rc
+
+* Sun Aug 31 2025 Florian Müllner <fmuellner@redhat.com> - 49~beta.1-2
+- Remove unused gnome-desktop-3 require
+
+* Tue Aug 12 2025 nmontero <nmontero@redhat.com> - 49~beta.1-1
+- Update to 49~beta.1
+
+* Sun Aug 03 2025 Florian Müllner <fmuellner@redhat.com> - 49~beta-1
+- Update to 49.beta
+
+* Wed Jul 23 2025 Fedora Release Engineering <releng@fedoraproject.org> - 49~alpha.1-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_43_Mass_Rebuild
+
+* Fri Jul 11 2025 Milan Crha <mcrha@redhat.com> - 49~alpha.1-1
+- Update to 49.alpha.1
+
+* Thu Jun 19 2025 Carlos Garnacho <cgarnach@redhat.com> - 49~alpha.0-1
+- Update to 49~alpha.0
+
+* Fri May 30 2025 Neal Gompa <ngompa@fedoraproject.org> - 48.2-3
+- Disable X11 for Fedora 43+ and RHEL
+
+* Fri May 30 2025 Michel Lind <salimma@fedoraproject.org> - 48.2-2
+- Disable X11 when building for EL10+
 
 * Mon May 26 2025 nmontero <nmontero@redhat.com> - 48.2-1
 - Update to 48.2
 
+* Wed Apr 23 2025 Adam Williamson <awilliam@redhat.com> - 48.1-2
+- Backport MR #3611 to put Papers in the Utilities subfolder
+
 * Mon Apr 14 2025 nmontero <nmontero@redhat.com> - 48.1-1
 - Update to 48.1
 
-* Mon Apr 07 2025 nmontero <nmontero@redhat.com> - 48.0-1
+* Mon Mar 17 2025 nmontero <nmontero@redhat.com> - 48.0-1
 - Update to 48.0
 
 * Fri Mar 14 2025 Sam Day <me@samcday.com> - 48~rc-3
@@ -293,12 +334,15 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/org.gnome.Shell.Porta
 * Fri Mar 07 2025 nmontero <nmontero@redhat.com> - 48~rc-1
 - Update to 48~rc
 
+* Thu Feb 27 2025 nmontero <nmontero@redhat.com> - 48~beta-3
+- Rebuild       for a side tag
+
 * Sat Feb 15 2025 Michel Lind <salimma@fedoraproject.org> - 48~beta-2
 - Provide gnome-shell(api) that extension packages can use to check
   compatibility
 - Resolves: RHBZ#2345922
 
-* Fri Feb 14 2025 nmontero <nmontero@redhat.com> - 48~beta-1
+* Wed Feb 12 2025 nmontero <nmontero@redhat.com> - 48~beta-1
 - Update to 48.beta
 
 * Mon Jan 27 2025 Adam Williamson <awilliam@redhat.com> - 48~alpha-3
@@ -1967,6 +2011,3 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/org.gnome.Shell.Porta
 
 * Mon Aug 10 2009 Owen Taylor <otaylor@redhat.com> - 2.27.0-1
 - Initial version
-
-
-## END: Generated by rpmautospec

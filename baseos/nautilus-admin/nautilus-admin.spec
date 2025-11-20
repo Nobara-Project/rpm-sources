@@ -2,7 +2,7 @@
 
 Name:           nautilus-admin
 Version:        1.2.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Extension for Nautilus to do administrative operations
 
 License:        GPL-3.0
@@ -13,7 +13,6 @@ BuildRequires:  cmake
 BuildRequires:  gettext
 Requires:       python3
 Requires:       nautilus-python
-Requires:       gedit
 Requires:       nautilus
 BuildArch:      noarch
 
@@ -49,8 +48,12 @@ You can use `nautilus -q` command.
 
 
 %changelog
+* Tue Nov 18 2025 LionHeartP <LionHeartP@proton.me> - 1.2.0-2
+- Remove gedit dependency as it's now handled by Text Editor
+
 * Sun Jan 10 2021 Tomasz Gąsior
 - Change upstream from abandoned repository to fork,
   making this package working with current Python.
+  
 * Mon Nov 18 2019 Tomasz Gąsior
 - Initial

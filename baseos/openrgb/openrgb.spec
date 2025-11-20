@@ -1,5 +1,5 @@
 %global forgeurl https://gitlab.com/CalcProgrammer1/%{upstream_package_name}
-%global commit 692ca00011e6eca52fad05b0c140dd280955c4af
+%global commit 0b25cae5e5c0bb38e2f4c025a4e1806280dd14b0
 #%%global tag release_%%{version}
 # Workaround for incorrect package suffix name with forge macros
 # (.20231017gitrelease.0.9 for example)
@@ -13,7 +13,7 @@ ExcludeArch: %{ix86}
 Name:           openrgb
 Version:        0.9
 %forgemeta
-Release:        %autorelease -b18
+Release:        %autorelease -b19
 Summary:        Open source RGB lighting control
 
 # Entire source code is GPL-2.0-only except some bundled libs:
@@ -126,6 +126,7 @@ fi
 %{_datadir}/applications/*.desktop
 %{_metainfodir}/*.metainfo.xml
 %{_unitdir}/%{name}.service
+%{_tmpfilesdir}/%{name}.conf
 
 %files udev-rules
 %license LICENSE
@@ -133,6 +134,9 @@ fi
 
 
 %changelog
+* Sun Nov 16 2025 LionHeartP <LionHeartP@proton.me> - 0.9-19
+- Update to latest commit
+
 * Fri Oct 31 2025 LionHeartP <LionHeartP@proton.me> - 0.9-18
 - Update to latest commit
 

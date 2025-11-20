@@ -1,6 +1,6 @@
 Name:           fastfetch
-Version:        2.47.0
-Release:        2%{?dist}
+Version:        2.55.1
+Release:        1%{?dist}
 Summary:        Fast neofetch-like system information tool
 
 License:        MIT
@@ -98,6 +98,9 @@ ln -s %{_bindir}/%{name} %{buildroot}%{_bindir}/neofetch
 
 
 %changelog
+* Mon Jul 14 2025 LionHeartP <LionHeartP@proton.me> - 2.55.1-1
+- update to 2.55.1
+
 * Mon Jul 14 2025 LionHeartP <LionHeartP@proton.me> - 2.47.0-2
 - restore neofetch symlink
 
