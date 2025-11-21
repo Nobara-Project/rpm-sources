@@ -1,5 +1,5 @@
 Name:           obs-studio-plugin-backgroundremoval
-Version:        1.1.13
+Version:        1.3.4
 Release:        2%{?dist}
 Summary:        A plugin for OBS Studio that allows you to replace the background in portrait images and video, as well as enhance low-light scenes.
 
@@ -10,7 +10,6 @@ Source0:        %{URL}/archive/refs/tags/%{version}.tar.gz
 ExcludeArch:    %{ix86}
 
 # ROCM support
-Patch0:         545.patch
 BuildRequires:  cmake
 BuildRequires:  gcc-c++
 
@@ -44,7 +43,7 @@ Supplements:    obs-studio%{?_isa}
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -DENABLE_FRONTEND_API=ON \
   -DENABLE_QT=OFF \
-  -DENABLE_ROCM=OFF \
+  -DENABLE_ROCM=ON \
   -DUSE_SYSTEM_ONNXRUNTIME=ON \
   -DDISABLE_ONNXRUNTIME_GPU=ON \
   -DUSE_SYSTEM_OPENCV=ON

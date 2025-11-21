@@ -1,5 +1,5 @@
 Name: python-tokenizers
-Version: 0.21.1
+Version: 0.22.1
 Release: 1%{?dist}
 Summary: Provides an implementation of today's most used tokenizers, with a focus on performance and versatility.
 

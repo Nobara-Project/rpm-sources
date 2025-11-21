@@ -1,14 +1,15 @@
-# Global variables for github repository
-%global commit0 9c4e5c28d8950e2cef837d8a0abd36c2fd9b5c2d
-%global gittag0 master
-%global shortcommit0 %(c=%{commit0}; echo ${c:0:7})
+# Status: active
+# Tag: Effect
+# Type: Plugin, LADSPA, LV2, VST, VST3
+# Category: Effect
 
-Name:    noise-suppression-for-voice
+Name: noise-suppression-for-voice
 Version: 1.10
-Release: 1%{?dist}
+Release: 4%{?dist}
 Summary: Real-time Noise Suppression LADSPA / LV2 Plugin
-License: GPLv2+
-URL:     https://github.com/werman/%{name}
+License: GPL-2.0-or-later
+URL: https://github.com/werman/noise-suppression-for-voice
+ExclusiveArch: x86_64 aarch64
 
 Vendor:       Audinux
 Distribution: Audinux
@@ -20,31 +21,38 @@ BuildRequires: cmake
 BuildRequires: alsa-lib-devel
 BuildRequires: lv2-devel
 BuildRequires: ladspa-devel
-BuildRequires: webkit2gtk3-devel
 BuildRequires: gtk3-devel
 BuildRequires: libcurl-devel
 BuildRequires: freetype-devel
 BuildRequires: libubsan
+BuildRequires: libatomic
 
 %description
-A real-time noise suppression LV2 / LADSPA plugin for voice
+A real-time noise suppression LV2 /VST3 / VST / LADSPA plugin for voice
 based on Xiph's RNNoise - https://github.com/xiph/rnnoise.
 More info about the base library - https://people.xiph.org/~jm/demo/rnnoise/.
 
+%package -n license-%{name}
+Summary: License and documentation for %{name}
+
 %package -n ladspa-%{name}
 Summary: Real-time Noise Suppression LADSPA Plugin
+Requires: license-%{name}
 
 %package -n lv2-%{name}
 Summary: Real-time Noise Suppression LV2 Plugin
+Requires: license-%{name}
 
 %package -n vst3-%{name}
 Summary: Real-time Noise Suppression VST3 Plugin
+Requires: license-%{name}
 
 %package -n vst-%{name}
 Summary: Real-time Noise Suppression VST Plugin
+Requires: license-%{name}
 
-%package -n %{name}-doc
-Summary: Real-time Noise Suppression LADSPA / LV2 Plugin documentation
+%description -n license-%{name}
+License and documentation for %{name}.
 
 %description -n ladspa-%{name}
 A real-time noise suppression LADSPA plugin for voice based on Xiph's RNNoise - https://github.com/xiph/rnnoise.
@@ -62,9 +70,6 @@ More info about the base library - https://people.xiph.org/~jm/demo/rnnoise/.
 A real-time noise suppression VST plugin for voice based on Xiph's RNNoise - https://github.com/xiph/rnnoise.
 More info about the base library - https://people.xiph.org/~jm/demo/rnnoise/.
 
-%description -n %{name}-doc
-Documentation related to the real-time noise suppression plugin for voice based on Xiph's RNNoise.
-
 %prep
 %autosetup -p1 -n %{name}-%{version}
 
@@ -81,7 +86,7 @@ Documentation related to the real-time noise suppression plugin for voice based 
 # Rename vst directory
 mv %{buildroot}/%{_libdir}/lxvst/ %{buildroot}/%{_libdir}/vst/
 
-%files -n %{name}-doc
+%files -n license-%{name}
 %doc README.md
 %license LICENSE
 
@@ -98,8 +103,11 @@ mv %{buildroot}/%{_libdir}/lxvst/ %{buildroot}/%{_libdir}/vst/
 %{_libdir}/vst/*
 
 %changelog
-* Fri Apr 25 2025 LionHeartP <LionHeartP@proton.me> - 1.10-1
-- update to 1.10
+* Fri Aug 22 2025 Yann Collette <ycollette.nospam@free.fr> - 1.10-4
+- update to 1.10-4 - remove unused dep
+
+* Sun May 19 2024 Yann Collette <ycollette.nospam@free.fr> - 1.10-3
+- update to 1.10-3
 
 * Mon Mar 06 2023 Yann Collette <ycollette.nospam@free.fr> - 1.03-3
 - update to 1.03

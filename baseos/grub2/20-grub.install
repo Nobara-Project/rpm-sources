@@ -174,7 +174,7 @@ case "$COMMAND" in
                 fi
             fi
             if [ -n "$NEWDEFAULT" ]; then
-                grub2-editenv - set "saved_entry=${NEWDEFAULT}"
+                grub2-editenv - set "tmp_saved_entry=${NEWDEFAULT}"
             fi
 
             # this probably isn't the best place to do this, but it will do for now.
@@ -193,7 +193,11 @@ case "$COMMAND" in
         exit 77
         ;;
     remove)
-
+        # If the boot entry type is type2, we are not removing the BLS entry
+        if [[ "x${KERNEL_INSTALL_BOOT_ENTRY_TYPE}" = "xtype2" ]]; then
+            [ "${KERNEL_INSTALL_VERBOSE}" -gt 0 ] && echo "The boot entry type is type2. Skip removing BLS entry."
+            exit 0
+        fi
         if [[ "x${GRUB_ENABLE_BLSCFG}" = "xtrue" ]] || [[ ! -f /sbin/new-kernel-pkg ]]; then
             BLS_TARGET="${BLS_DIR}/${MACHINE_ID}-${KERNEL_VERSION}.conf"
             BLS_DEBUG="$(echo ${BLS_TARGET} | sed -e "s/${KERNEL_VERSION}/${KERNEL_VERSION}~debug/")"

@@ -1,6 +1,6 @@
 Name: nobara-browser-policy
 Version: 2.0.0
-Release: 3%{?dist}
+Release: 4%{?dist}
 Summary: Web browser that lets you take control of your personal data
 License: MPLv2.0
 Group: Applications/Internet

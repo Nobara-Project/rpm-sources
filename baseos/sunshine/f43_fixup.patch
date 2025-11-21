@@ -1,0 +1,161 @@
+From 74cac69dc1edc42b1f3ea3e27fb75577a554c159 Mon Sep 17 00:00:00 2001
+From: ReenigneArcher <42013603+ReenigneArcher@users.noreply.github.com>
+Date: Fri, 24 Oct 2025 20:23:02 -0400
+Subject: [PATCH 2/3] Add noexcept to rsqrt and rsqrtf declarations
+
+Updated the CUDA math_functions.h patch files for both aarch64 and x86_64 to declare rsqrt and rsqrtf functions with noexcept (true). This improves exception safety and clarifies that these device functions do not throw exceptions.
+---
+ .../patches/aarch64/01-math_functions.patch    | 18 ++++++++++++++++++
+ .../patches/x86_64/01-math_functions.patch     | 18 ++++++++++++++++++
+ 2 files changed, 36 insertions(+)
+
+diff --git a/packaging/linux/patches/aarch64/01-math_functions.patch b/packaging/linux/patches/aarch64/01-math_functions.patch
+index 322fef1c90d..ffdcf6412eb 100644
+--- a/packaging/linux/patches/aarch64/01-math_functions.patch
++++ b/packaging/linux/patches/aarch64/01-math_functions.patch
+@@ -1,6 +1,24 @@
+ diff '--color=auto' -ur a/cuda/targets/sbsa-linux/include/crt/math_functions.h b/cuda/targets/sbsa-linux/include/crt/math_functions.h
+ --- a/cuda/targets/sbsa-linux/include/crt/math_functions.h	2024-08-23 00:25:39.000000000 +0200
+ +++ b/cuda/targets/sbsa-linux/include/crt/math_functions.h	2025-02-17 01:19:44.270292640 +0100
++@@ -594,7 +594,7 @@
++  *
++  * \note_accuracy_double
++  */
++-extern __DEVICE_FUNCTIONS_DECL__ __device_builtin__ double                 rsqrt(double x);
+++extern __DEVICE_FUNCTIONS_DECL__ __device_builtin__ double                 rsqrt(double x) noexcept (true);
++
++ /**
++  * \ingroup CUDA_MATH_SINGLE
++@@ -618,7 +618,7 @@
++  *
++  * \note_accuracy_single
++  */
++-extern __DEVICE_FUNCTIONS_DECL__ __device_builtin__ float                  rsqrtf(float x);
+++extern __DEVICE_FUNCTIONS_DECL__ __device_builtin__ float                  rsqrtf(float x) noexcept (true);
++
++ #if defined(__QNX__) && !defined(_LIBCPP_VERSION)
++ namespace std {
+ @@ -2553,7 +2553,7 @@
+   *
+   * \note_accuracy_double
+diff --git a/packaging/linux/patches/x86_64/01-math_functions.patch b/packaging/linux/patches/x86_64/01-math_functions.patch
+index 5e522eb141a..2a22a6781c7 100644
+--- a/packaging/linux/patches/x86_64/01-math_functions.patch
++++ b/packaging/linux/patches/x86_64/01-math_functions.patch
+@@ -1,6 +1,24 @@
+ diff '--color=auto' -ur a/cuda/targets/x86_64-linux/include/crt/math_functions.h b/cuda/targets/x86_64-linux/include/crt/math_functions.h
+ --- a/cuda/targets/x86_64-linux/include/crt/math_functions.h	2024-08-23 00:25:39.000000000 +0200
+ +++ b/cuda/targets/x86_64-linux/include/crt/math_functions.h	2025-02-17 01:19:44.270292640 +0100
++@@ -594,7 +594,7 @@
++  *
++  * \note_accuracy_double
++  */
++-extern __DEVICE_FUNCTIONS_DECL__ __device_builtin__ double                 rsqrt(double x);
+++extern __DEVICE_FUNCTIONS_DECL__ __device_builtin__ double                 rsqrt(double x) noexcept (true);
++
++ /**
++  * \ingroup CUDA_MATH_SINGLE
++@@ -618,7 +618,7 @@
++  *
++  * \note_accuracy_single
++  */
++-extern __DEVICE_FUNCTIONS_DECL__ __device_builtin__ float                  rsqrtf(float x);
+++extern __DEVICE_FUNCTIONS_DECL__ __device_builtin__ float                  rsqrtf(float x) noexcept (true);
++
++ #if defined(__QNX__) && !defined(_LIBCPP_VERSION)
++ namespace std {
+ @@ -2553,7 +2553,7 @@
+   *
+   * \note_accuracy_double
+
+From 157bddce9f32aa71526417533a7a1a552a39689c Mon Sep 17 00:00:00 2001
+From: ReenigneArcher <42013603+ReenigneArcher@users.noreply.github.com>
+Date: Fri, 24 Oct 2025 22:06:21 -0400
+Subject: [PATCH 3/3] Add noexcept to math function declarations in patches
+
+Updated aarch64 and x86_64 math_functions.patch files to declare rsqrt, sinpi, cospi, rsqrtf, sinpif, and cospif functions as noexcept (true) for improved exception safety and clarity.
+---
+ .../patches/aarch64/01-math_functions.patch   | 32 +++++++++++++++++++
+ .../patches/x86_64/01-math_functions.patch    | 32 +++++++++++++++++++
+ 2 files changed, 64 insertions(+)
+
+diff --git a/packaging/linux/patches/aarch64/01-math_functions.patch b/packaging/linux/patches/aarch64/01-math_functions.patch
+index ffdcf6412eb..f123aefd89d 100644
+--- a/packaging/linux/patches/aarch64/01-math_functions.patch
++++ b/packaging/linux/patches/aarch64/01-math_functions.patch
+@@ -55,3 +55,35 @@ diff '--color=auto' -ur a/cuda/targets/sbsa-linux/include/crt/math_functions.h b
+  /**
+   * \ingroup CUDA_MATH_DOUBLE
+   * \brief  Calculate the sine and cosine of the first input argument
++@@ -5982,13 +5982,13 @@
++ #pragma warning (disable : 4211)
++
++ #endif /* _WIN32 */
++
++-__func__(double rsqrt(double a));
+++__func__(double rsqrt(double a) noexcept (true));
++
++ __func__(double rcbrt(double a));
++
++-__func__(double sinpi(double a));
+++__func__(double sinpi(double a) noexcept (true));
++
++-__func__(double cospi(double a));
+++__func__(double cospi(double a) noexcept (true));
++
++ __func__(void sincospi(double a, double *sptr, double *cptr));
++@@ -6004,10 +6004,10 @@
++ __func__(double erfcx(double a));
++
++-__func__(float rsqrtf(float a));
+++__func__(float rsqrtf(float a) noexcept (true));
++
++ __func__(float rcbrtf(float a));
++
++-__func__(float sinpif(float a));
+++__func__(float sinpif(float a) noexcept (true));
++
++-__func__(float cospif(float a));
+++__func__(float cospif(float a) noexcept (true));
++
++ __func__(void sincospif(float a, float *sptr, float *cptr));
+diff --git a/packaging/linux/patches/x86_64/01-math_functions.patch b/packaging/linux/patches/x86_64/01-math_functions.patch
+index 2a22a6781c7..fb8160696d8 100644
+--- a/packaging/linux/patches/x86_64/01-math_functions.patch
++++ b/packaging/linux/patches/x86_64/01-math_functions.patch
+@@ -55,3 +55,35 @@ diff '--color=auto' -ur a/cuda/targets/x86_64-linux/include/crt/math_functions.h
+  /**
+   * \ingroup CUDA_MATH_DOUBLE
+   * \brief  Calculate the sine and cosine of the first input argument
++@@ -5982,13 +5982,13 @@
++ #pragma warning (disable : 4211)
++
++ #endif /* _WIN32 */
++
++-__func__(double rsqrt(double a));
+++__func__(double rsqrt(double a) noexcept (true));
++
++ __func__(double rcbrt(double a));
++
++-__func__(double sinpi(double a));
+++__func__(double sinpi(double a) noexcept (true));
++
++-__func__(double cospi(double a));
+++__func__(double cospi(double a) noexcept (true));
++
++ __func__(void sincospi(double a, double *sptr, double *cptr));
++@@ -6004,10 +6004,10 @@
++ __func__(double erfcx(double a));
++
++-__func__(float rsqrtf(float a));
+++__func__(float rsqrtf(float a) noexcept (true));
++
++ __func__(float rcbrtf(float a));
++
++-__func__(float sinpif(float a));
+++__func__(float sinpif(float a) noexcept (true));
++
++-__func__(float cospif(float a));
+++__func__(float cospif(float a) noexcept (true));
++
++ __func__(void sincospif(float a, float *sptr, float *cptr));

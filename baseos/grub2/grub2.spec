@@ -17,7 +17,7 @@
 Name:		grub2
 Epoch:		1
 Version:	2.12
-Release:	32%{?dist}
+Release:	40%{?dist}
 Summary:	Bootloader with support for Linux, Multiboot and more
 License:	GPL-3.0-or-later
 URL:		http://www.gnu.org/software/grub/
@@ -35,6 +35,8 @@ Source9:	strtoull_test.c
 Source10:	20-grub.install
 Source11:	grub.patches
 Source12:	sbat.csv.in
+Source13:	gen_grub_cfgstub
+Source14:	55-set-boot-entry.install
 
 %include %{SOURCE1}
 
@@ -308,6 +310,7 @@ ln -s %{_sbindir}/update-grub ${RPM_BUILD_ROOT}/%{_sbindir}/update-grub2
 # Install kernel-install scripts
 install -d -m 0755 %{buildroot}%{_prefix}/lib/kernel/install.d/
 install -D -m 0755 -t %{buildroot}%{_prefix}/lib/kernel/install.d/ %{SOURCE10}
+install -D -m 0755 -t %{buildroot}%{_prefix}/lib/kernel/install.d/ %{SOURCE14}
 install -D -m 0755 -t %{buildroot}%{_prefix}/lib/kernel/install.d/ %{SOURCE3}
 install -d -m 0755 %{buildroot}%{_sysconfdir}/kernel/install.d/
 # Install systemd user service to set the boot_success flag
@@ -419,29 +422,19 @@ if test -f ${EFI_HOME}/grub.cfg; then
 fi
 
 # create a stub grub2 config in EFI
-BOOT_UUID=$(grub2-probe --target=fs_uuid ${GRUB_HOME})
-GRUB_DIR=$(grub2-mkrelpath ${GRUB_HOME})
-
-cat << EOF > ${EFI_HOME}/grub.cfg.stb
-search --no-floppy --root-dev-only --fs-uuid --set=dev ${BOOT_UUID}
-set prefix=(\$dev)${GRUB_DIR}
-export \$prefix
-configfile \$prefix/grub.cfg
-EOF
+gen_grub_cfgstub $GRUB_HOME $EFI_HOME || :
 
 if test -f ${EFI_HOME}/grubenv; then
     cp -a ${EFI_HOME}/grubenv ${EFI_HOME}/grubenv.rpmsave
     mv --force ${EFI_HOME}/grubenv ${GRUB_HOME}/grubenv
 fi
 
-# ensure we exit 0
-mv ${EFI_HOME}/grub.cfg.stb ${EFI_HOME}/grub.cfg || :
-
 %files common -f grub.lang
 %dir %{_libdir}/grub/
 %dir %{_datarootdir}/grub/
 %attr(0700,root,root) %dir %{_sysconfdir}/grub.d
 %{_prefix}/lib/kernel/install.d/20-grub.install
+%{_prefix}/lib/kernel/install.d/55-set-boot-entry.install
 %{_prefix}/lib/kernel/install.d/99-grub-mkconfig.install
 %dir %{_datarootdir}/grub
 %exclude %{_datarootdir}/grub/*
@@ -615,26 +608,53 @@ mv ${EFI_HOME}/grub.cfg.stb ${EFI_HOME}/grub.cfg || :
 %endif
 
 %changelog
-* Thu Jun 5 2025 Nicolas Frayer <nfrayer@redhat.com> - 2.12-32
+* Wed Aug 6 2025 Jan Stancek <jstancek@redhat.com> - 2.12-40
+- 55-set-boot-entry.install: fix initrd check
+- Resolves: #2386118
+
+* Tue Jul 15 2025 FeRD (Frank Dana) <ferdnyc@gmail.com> - 2.12-39
+- kernel-install: Suppress warnings about missing /etc/default/grub
+  file when attempting to grep its contents
+
+* Tue Jul 29 2025 Leo Sandoval <lsandova@redhat.com> 2.12-38
+- Set correctly the memory attributes for the kernel PE sections
+
+* Tue Jul 8 2025 Nicolas Frayer <nfrayer@redhat.com> - 2.12-37
+- spec: fix grub stub cfg creation script
+
+* Thu Jun 12 2025 Nicolas Frayer <nfrayer@redhat.com> - 2.12-36
+- spec: moved grub stub cfg creation into a script
+
+* Thu Jun 5 2025 Nicolas Frayer <nfrayer@redhat.com> - 2.12-35
 - osdep/linux/getroot: Detect DDF container similar to IMSM
 
-* Wed May 28 2025 Nicolas Frayer <nfrayer@redhat.com> - 2.12-31
+* Wed May 28 2025 Nicolas Frayer <nfrayer@redhat.com> - 2.12-34
 - Some fixes addressing memory freeing and dereferencing
 - Resolves: #2368939
 - Resolves: #2368945
 
-* Tue May 27 2025 Leo Sandoval <lsandova@redhat.com> 2.12-30
+* Fri May 16 2025 Nicolas Frayer <nfrayer@redhat.com> - 2.12-33
+- sbat: bump grub sbat
+
+* Tue May 06 2025 Leo Sandoval <lsandova@redhat.com> - 2.12-32
+- Fix several cryptodisk vulnerabilities
+- Resolves: CVE-2025-4382
+
+* Tue May 6 2025 Leo Sandoval <lsandova@redhat.com> 2.12-31
 - Handle special kernel parameter characters properly
 - Resolves: #2362821
 
-* Fri May 16 2025 Nicolas Frayer <nfrayer@redhat.com> - 2.12-29
-- sbat: bump grub sbat
+* Fri Apr 18 2025 Nicolas Frayer <nfrayer@redhat.com> - 2.12-30
+- ppc/mkimage: SBAT support on powerpc
 
-* Thu Mar 27 2025 Nicolas Frayer <nfrayer@redhat.com> 2.12-28
-- powerpc: increase MIN RMA size for CAS negotiation
-
-* Tue Mar 25 2025 Nicolas Frayer <nfrayer@redhat.com> 2.12-27
+* Tue Mar 25 2025 Nicolas Frayer <nfrayer@redhat.com> 2.12-29
 - ieee1275/ofnet: Fix grub_malloc() removed after added safe
+
+* Tue Mar 25 2025 Nicolas Frayer <nfrayer@redhat.com> 2.12-28
+- Fix the fallback mechanism when menu entries fail to boot
+
+* Wed Mar 19 2025 Nicolas Frayer <nfrayer@redhat.com> 2.12-27
+- powerpc: increase MIN RMA size for CAS negotiation
 
 * Mon Mar 10 2025 Leo Sandoval <lsandova@redhat.com> 2.12-26
 - Remove 'fs/ntfs: Implement attribute verification' patch
@@ -644,13 +664,27 @@ mv ${EFI_HOME}/grub.cfg.stb ${EFI_HOME}/grub.cfg || :
 - fs/ext2: Rework out-of-bounds read for inline and external extents
 - Resolves: #2346804
 
-* Tue Feb 18 2025 Leo Sandoval <lsandova@redhat.com> - 2.12-24
+* Tue Feb 18 2025 Leo Sandoval <lsandova@redhat.com> - 2.02-24
 - Add Several CVE fixes
 - Resolves: CVE-2024-45781 CVE-2024-45783 CVE-2024-45778
 - Resolves: CVE-2024-45775 CVE-2024-45780 CVE-2024-45774
 - Resolves: CVE-2025-0690 CVE-2025-1118 CVE-2024-45782
 - Resolves: CVE-2025-0624 CVE-2024-45779 CVE-2024-45776
 - Resolves: CVE-2025-0622 CVE-2025-0677
+- Related: #RHEL-79703
+- Related: #RHEL-79708
+- Related: #RHEL-79340
+- Related: #RHEL-73786
+- Related: #RHEL-79701
+- Related: #RHEL-73784
+- Related: #RHEL-79856
+- Related: #RHEL-79874
+- Related: #RHEL-79706
+- Related: #RHEL-79836
+- Related: #RHEL-79699
+- Related: #RHEL-75736
+- Related: #RHEL-79712
+- Related: #RHEL-79848
 
 * Tue Feb 11 2025 Nicolas Frayer <nfrayer@redhat.com> 2.12-23
 - Revert commit for bootloader update proposal for now as not all components are ready

@@ -6,17 +6,19 @@
 
 # Establish the name and source
 
+%global commit 9e679516e0c88ade8273466ce27f2c030e3ede91
 Name:       obs-studio-plugin-aitum-multistream
 Version:    1.0.7
-Release:    2%{?dist}
+Release:    1%{?dist}
 Summary:    Multistream plugin for OBS
 License:    GPL=2.0
 URL:        https://github.com/Aitum/obs-aitum-multistream
-Source0:    %{URL}/archive/refs/tags/%{version}.tar.gz
-
-ExcludeArch:%{ix86}
+#Source0:    %{URL}/archive/refs/tags/%{version}.tar.gz
+Source0:    %{URL}/archive/refs/heads/main.tar.gz
 
 Patch0:     0001-cmake-fixup.patch
+ExcludeArch:%{ix86}
+
 
 BuildRequires:  cmake
 BuildRequires:  obs-studio-devel
@@ -26,6 +28,8 @@ BuildRequires:  qt6-qtbase-devel
 BuildRequires:  qt6-qtbase-private-devel
 BuildRequires:  qt6-qtsvg-devel
 BuildRequires:  qt6-qtwayland-devel
+BuildRequires: cmake(Qt6GuiPrivate)
+BuildRequires: libxkbcommon-devel
 BuildRequires:  libcurl-devel
 Requires:       obs-studio
 Requires:       qt6-qtbase
@@ -40,7 +44,8 @@ A multistreaming plugin for OBS Studio by Aitum
 
 # Here autosetup is a useful macro
 %prep
-%autosetup -p1 -n obs-aitum-multistream-%{version}
+#%%autosetup -p1 -n obs-aitum-multistream-%{version}
+%autosetup -p1 -n obs-aitum-multistream-main
 
 # Build phase calls cmake to build our file
 %build

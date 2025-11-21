@@ -4,41 +4,16 @@ Date: Thu, 21 Nov 2024 02:58:43 -0500
 Subject: [PATCH] click breadcrumb-to-address-bar-button
 
 ---
- src/nautilus-toolbar.c               |   6 ++
  src/nautilus-window-slot.c           | 102 +++++++++++++++++++++++----
  src/nautilus-window-slot.h           |   2 +
  src/resources/ui/nautilus-toolbar.ui |  22 ++++++
  4 files changed, 117 insertions(+), 15 deletions(-)
 
-diff --git a/src/nautilus-toolbar.c b/src/nautilus-toolbar.c
-index 3ff4425..21bcaa1 100644
---- a/src/nautilus-toolbar.c
-+++ b/src/nautilus-toolbar.c
-@@ -33,6 +33,7 @@
- #include "nautilus-pathbar.h"
- #include "nautilus-view-controls.h"
- #include "nautilus-ui-utilities.h"
-+#include "nautilus-window-slot.h"
- 
- struct _NautilusToolbar
- {
-@@ -97,6 +98,11 @@ toolbar_update_appearance (NautilusToolbar *self)
-     {
-         gtk_stack_set_visible_child_name (GTK_STACK (self->toolbar_switcher), "search");
-     }
-+    else if (self->window_slot != NULL &&
-+        nautilus_window_slot_get_editing (self->window_slot))
-+    {
-+        gtk_stack_set_visible_child_name (GTK_STACK (self->toolbar_switcher), "location");
-+    }
-     else if (show_location_entry)
-     {
-         gtk_stack_set_visible_child_name (GTK_STACK (self->toolbar_switcher), "location");
 diff --git a/src/nautilus-window-slot.c b/src/nautilus-window-slot.c
-index ef88083..add0b7f 100644
+index 05838b1..ac6d89f 100644
 --- a/src/nautilus-window-slot.c
 +++ b/src/nautilus-window-slot.c
-@@ -62,6 +62,7 @@ enum
+@@ -64,6 +64,7 @@ enum
      PROP_SEARCH_VISIBLE,
      PROP_SEARCH_GLOBAL,
      PROP_SELECTION,
@@ -46,15 +21,15 @@ index ef88083..add0b7f 100644
      PROP_LOCATION,
      PROP_TOOLTIP,
      PROP_ALLOW_STOP,
-@@ -160,6 +161,7 @@ struct _NautilusWindowSlot
-     GBinding *selection_binding;
+@@ -162,6 +163,7 @@ struct _NautilusWindowSlot
      GBinding *extensions_background_menu_binding;
      GBinding *templates_menu_binding;
+     NautilusFileList *selection;
 +    gboolean editing;
-     GList *selection;
  };
  
-@@ -668,6 +670,36 @@ nautilus_window_slot_handle_activate_files (NautilusWindowSlot *self,
+ G_DEFINE_TYPE (NautilusWindowSlot, nautilus_window_slot, ADW_TYPE_BIN);
+@@ -636,6 +638,36 @@ nautilus_window_slot_handle_activate_files (NautilusWindowSlot *self,
      return TRUE;
  }
  
@@ -91,7 +66,7 @@ index ef88083..add0b7f 100644
  gboolean
  nautilus_window_slot_handle_event (NautilusWindowSlot    *self,
                                     GtkEventControllerKey *controller,
-@@ -675,20 +707,24 @@ nautilus_window_slot_handle_event (NautilusWindowSlot    *self,
+@@ -643,20 +675,24 @@ nautilus_window_slot_handle_event (NautilusWindowSlot    *self,
                                     GdkModifierType        state)
  {
      gboolean retval;
@@ -121,7 +96,7 @@ index ef88083..add0b7f 100644
          {
              return GDK_EVENT_PROPAGATE;
          }
-@@ -700,17 +736,19 @@ nautilus_window_slot_handle_event (NautilusWindowSlot    *self,
+@@ -668,17 +704,19 @@ nautilus_window_slot_handle_event (NautilusWindowSlot    *self,
      }
  
      /* If the action is not enabled, don't try to handle search */
@@ -151,7 +126,7 @@ index ef88083..add0b7f 100644
      }
  
      return retval;
-@@ -733,6 +771,14 @@ nautilus_window_slot_add_extra_location_widget (NautilusWindowSlot *self,
+@@ -701,6 +739,14 @@ nautilus_window_slot_add_extra_location_widget (NautilusWindowSlot *self,
      gtk_box_append (GTK_BOX (self->extra_location_widgets), widget);
  }
  
@@ -166,7 +141,7 @@ index ef88083..add0b7f 100644
  static void
  nautilus_window_slot_set_selection (NautilusWindowSlot *self,
                                      GList              *selection)
-@@ -791,6 +837,12 @@ nautilus_window_slot_set_property (GObject      *object,
+@@ -759,6 +805,12 @@ nautilus_window_slot_set_property (GObject      *object,
          }
          break;
  
@@ -179,7 +154,7 @@ index ef88083..add0b7f 100644
          case PROP_EXTENSIONS_BACKGROUND_MENU:
          {
              real_set_extensions_background_menu (self, g_value_get_object (value));
-@@ -924,6 +976,12 @@ nautilus_window_slot_get_property (GObject    *object,
+@@ -892,6 +944,12 @@ nautilus_window_slot_get_property (GObject    *object,
          }
          break;
  
@@ -192,7 +167,7 @@ index ef88083..add0b7f 100644
          case PROP_TOOLTIP:
          {
              g_value_set_static_string (value, nautilus_window_slot_get_tooltip (self));
-@@ -956,6 +1014,12 @@ nautilus_window_slot_get_property (GObject    *object,
+@@ -924,6 +982,12 @@ nautilus_window_slot_get_property (GObject    *object,
      }
  }
  
@@ -205,7 +180,7 @@ index ef88083..add0b7f 100644
  GList *
  nautilus_window_slot_get_selection (NautilusWindowSlot *self)
  {
-@@ -1344,6 +1408,7 @@ const GActionEntry slot_entries[] =
+@@ -1323,6 +1387,7 @@ const GActionEntry slot_entries[] =
      { .name = "search-visible", .state = "false", .change_state = action_search_visible },
      { .name = "search-global", .state = "false", .change_state = action_search_global },
      { .name = "focus-search", .activate = action_focus_search },
@@ -213,7 +188,7 @@ index ef88083..add0b7f 100644
      { .name = "reload", .activate = action_reload },
      { .name = "stop", .activate = action_stop },
      { .name = "bookmark-current-directory", .activate = action_bookmark_current_directory },
-@@ -3085,6 +3150,13 @@ nautilus_window_slot_class_init (NautilusWindowSlotClass *klass)
+@@ -2969,6 +3034,13 @@ nautilus_window_slot_class_init (NautilusWindowSlotClass *klass)
                                FALSE,
                                G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
  
@@ -228,10 +203,10 @@ index ef88083..add0b7f 100644
          g_param_spec_pointer ("selection", NULL, NULL,
                                G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS);
 diff --git a/src/nautilus-window-slot.h b/src/nautilus-window-slot.h
-index 868a396..1633617 100644
+index e77a064..bb99667 100644
 --- a/src/nautilus-window-slot.h
 +++ b/src/nautilus-window-slot.h
-@@ -102,6 +102,8 @@ gboolean nautilus_window_slot_get_search_visible           (NautilusWindowSlot *
+@@ -101,6 +101,8 @@ gboolean nautilus_window_slot_get_search_visible           (NautilusWindowSlot *
  
  gboolean nautilus_window_slot_get_search_global            (NautilusWindowSlot *self);
  

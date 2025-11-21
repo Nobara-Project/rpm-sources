@@ -1,12 +1,10 @@
 %global ROCM_MAJOR_VERSION 6
-%global ROCM_MINOR_VERSION 3
-%global ROCM_PATCH_VERSION 1
+%global ROCM_MINOR_VERSION 4
+%global ROCM_PATCH_VERSION 4
 
-Requires:      libc.so.6()(64bit)
-Requires:      libc.so.6(GLIBC_2.2.5)(64bit)
-Requires:      libgcc_s.so.1()(64bit)
-Requires:      libm.so.6()(64bit)
-Requires:      libstdc++.so.6()(64bit)
+Requires:      libgcc
+Requires:      glibc
+Requires:      libstdc++
 
 Requires:      rocm-comgr
 Requires:      rocm-runtime
@@ -20,6 +18,7 @@ Requires:      rocblas
 Requires:      rocsparse
 Requires:      rocminfo
 Requires:      rocrand
+
 Requires:      hipblas
 Requires:      hipfft
 Requires:      hipsolver

@@ -323,7 +323,7 @@ This subpackage provides support for rebuilding your own grub.efi.	\
 %{expand:%%{?!buildsubdir:%%define buildsubdir grub-%%{1}-%{tarversion}}}\
 %{expand:%%package %%{1}-tools}						\
 Summary:	Support tools for GRUB.					\
-Requires:	gettext-runtime os-prober which file system-logos	\
+Requires:	gettext-runtime os-prober file system-logos	\
 Requires:	grub2-common = %{evr}					\
 Requires:	grub2-tools-minimal = %{evr}				\
 Requires:	os-prober >= 1.58-11					\
@@ -727,6 +727,8 @@ install -m 700 %{3} $RPM_BUILD_ROOT%{efi_esp_dir}/%{3}		\
 %ifarch %{arm}							\
 install -D -m 700 %{2} $RPM_BUILD_ROOT%{efi_esp_boot}/BOOTARM.EFI \
 %endif								\
+install -D -m 700 %{SOURCE13}					\\\
+    ${RPM_BUILD_ROOT}/usr/bin/gen_grub_cfgstub		\
 install -D -m 700 unicode.pf2					\\\
 	${RPM_BUILD_ROOT}/boot/grub2/fonts/unicode.pf2		\
 ${RPM_BUILD_ROOT}/%{_bindir}/grub2-editenv			\\\
@@ -876,6 +878,7 @@ ln -s ../boot/grub2/grub.cfg					\\\
 %attr(0700,root,root) %verify(not mtime) %{efi_esp_boot}/BOOTARM.EFI \
 %endif								\
 %attr(0700,root,root)/boot/grub2/fonts			\
+%attr(0700,root,root)/usr/bin/gen_grub_cfgstub			\
 %dir %attr(0700,root,root)/boot/loader/entries			\
 %ghost %config(noreplace) %attr(0600,root,root)/boot/grub2/grub.cfg	\
 %ghost %config(noreplace) %verify(not mtime) %attr(0700,root,root)%{efi_esp_dir}/grub.cfg	\

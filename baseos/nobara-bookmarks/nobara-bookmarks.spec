@@ -8,7 +8,7 @@
 ## END: Set by rpmautospec
 
 Name:           nobara-bookmarks
-Version:        42
+Version:        43
 Release:        %autorelease
 Summary:        Nobara bookmarks
 License:        GFDL

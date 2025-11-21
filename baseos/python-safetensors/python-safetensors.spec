@@ -1,5 +1,5 @@
 Name: python-safetensors
-Version: 0.5.3
+Version: 0.7.0
 Release: 1%{?dist}
 Summary: ML Safer for All
 

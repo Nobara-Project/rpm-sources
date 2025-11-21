@@ -17,7 +17,7 @@
 
 
 Name:           papirus-folders
-Version:        1.13.1
+Version:        1.14.0
 Release:        0
 Summary:        Change folders color of Papirus icon theme
 License:        MIT

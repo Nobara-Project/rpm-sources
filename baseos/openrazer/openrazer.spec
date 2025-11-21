@@ -1,14 +1,14 @@
 # This spec file should work on Fedora, openSUSE and Mageia
 
 %define dkms_name openrazer-driver
-%define dkms_version 3.10.3
+%define dkms_version 3.11.0
 
 %global _default_patch_fuzz 2
 
-%define gitcommit aa2a123a1d18e72ad1dc1f669e6a211fd39f2cfe
+%define gitcommit 0a4507df265530c2722aaa2bc7f97f68c1ad2b9a
 
 Name: 		openrazer-meta
-Version: 	3.10.3
+Version: 	3.11.0
 Release: 	%autorelease
 Summary: 	Open source driver and user-space daemon for managing Razer devices
 

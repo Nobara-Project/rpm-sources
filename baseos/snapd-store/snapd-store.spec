@@ -1,6 +1,6 @@
 Name:           snapd-store
-Version:        2.68.3
-Release:        4%{?dist}
+Version:        2.72
+Release:        1%{?dist}
 Summary:        Installs the Snap Store via Snapd
 License:        GPL
 URL:            https://www.snapcraft.io/snap-store

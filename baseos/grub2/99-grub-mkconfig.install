@@ -5,7 +5,7 @@ if ! [[ $KERNEL_INSTALL_MACHINE_ID ]]; then
 fi
 
 # Run grub2-mkconfig if ENABLE_BLSCFG is false
-if grep -q '^GRUB_ENABLE_BLSCFG="*false"*\s*$' /etc/default/grub; then
+if grep -sq '^GRUB_ENABLE_BLSCFG="*false"*\s*$' /etc/default/grub; then
     RUN_MKCONFIG=true
     DISABLE_BLS=true
 fi
@@ -28,7 +28,7 @@ if [[ $ARCH = "ppc64le" ]] && [ -d /sys/firmware/opal ]; then
 fi
 
 if [[ $DISABLE_BLS = "true" ]]; then
-    if grep -q '^GRUB_ENABLE_BLSCFG="*true"*\s*$' /etc/default/grub; then
+    if grep -sq '^GRUB_ENABLE_BLSCFG="*true"*\s*$' /etc/default/grub; then
 	sed -i 's/^GRUB_ENABLE_BLSCFG=.*/GRUB_ENABLE_BLSCFG=false/' /etc/default/grub
     fi
 fi

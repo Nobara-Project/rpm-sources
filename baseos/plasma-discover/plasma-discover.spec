@@ -6,7 +6,7 @@
 
 Name:    plasma-discover
 Summary: KDE and Plasma resources management GUI
-Version: 6.4.4
+Version: 6.5.3
 Release: 1%{?dist}
 
 License: BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-3.0-only AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only)
@@ -102,11 +102,6 @@ Recommends: %{name}-flatpak = %{version}-%{release}
 Recommends: fedora-appstream-metadata
 %endif
 
-# Require fedora-third-party on Fedora
-%if 0%{?fedora}
-Requires: fedora-third-party
-%endif
-
 # handle upgrade path
 Provides: plasma-discover-offline-updates
 Obsoletes: plasma-discover-offline-updates
@@ -116,19 +111,14 @@ Provides: plasma-discover-snap
 Obsoletes: plasma-discover-snap
 
 Provides: fedora-appstream-metadata
-Provides: fedora-flathub-remote
-Provides: fedora-third-party
 
 Obsoletes: fedora-appstream-metadata
-Obsoletes: fedora-flathub-remote
-Obsoletes: fedora-third-party
 
 %description
 KDE and Plasma resources management GUI.
 
 %package libs
 Summary: Runtime libraries for %{name}
-Requires: qt5-qtquickcontrols2%{?_isa}
 %description libs
 %{summary}.
 
@@ -152,10 +142,6 @@ Requires: flatpak >= %{flatpak_version}
 Requires: flatpak-libs%{?_isa} >= %{flatpak_version}
 Requires: (flatpak-kcm if plasma-systemsettings)
 Supplements: (%{name} and flatpak)
-%if 0%{?fedora}
-# Pull in the flathub remote package
-Recommends: fedora-flathub-remote
-%endif
 %description flatpak
 %{summary}.
 
@@ -190,11 +176,9 @@ Supplements: (%{name} and plasma-workspace%{?_isa})
 
 
 %build
-%if 0%{?fedora}
 %cmake_kf6 \
+%if 0%{?fedora}
   -DBUILD_RpmOstreeBackend:BOOL=ON
-%else
-%cmake_kf6
 %endif
 
 %cmake_build
@@ -252,11 +236,11 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/org.kde.discover.desk
 %{_kf6_qtplugindir}/plasma/kcms/systemsettings/kcm_updates.so
 
 %files flatpak
-%{_datadir}/applications/org.kde.discover-flatpak.desktop
 %{_kf6_metainfodir}/org.kde.discover.flatpak.appdata.xml
 %{_kf6_qtplugindir}/discover-notifier/FlatpakNotifier.so
 %{_kf6_qtplugindir}/discover/flatpak-backend.so
 %{_datadir}/libdiscover/categories/flatpak-backend-categories.xml
+%{_datadir}/applications/org.kde.discover.flatpak.desktop
 
 %if 0%{?fedora}
 %files rpm-ostree

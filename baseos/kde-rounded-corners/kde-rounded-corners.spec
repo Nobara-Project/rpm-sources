@@ -1,53 +1,55 @@
-%global gitcommit e776177bf7359d5e163864d6afdc22fb534256c1
-
+Summary:        KDE KWin effect to round the corners of windows
 Name:           kde-rounded-corners
-Version:        0.7.1
-Release:        3%{?dist}
-Summary:        Rounds the corners of your windows in KDE Plasma
-
-License:        GPL-3.0-only
+License:        GPL-3.0
 URL:            https://github.com/matinlotfali/KDE-Rounded-Corners
-Source0:        %{URL}/archive/%{gitcommit}.tar.gz
+Source0:        %{URL}/archive/refs/heads/master.tar.gz
 Patch0:         0001-use-some-sane-default-shadows-and-outlines.patch
+Version: 0.8.5.9
+Release: 6.5.3%{?dist}
 
+%if %{defined suse_version}
+BuildRequires:  qt6-core-private-devel
+BuildRequires:  qt6-quick-devel
+%global kwin_pkg_name    kwin6
+%global cmake_kf6        mkdir -p build; cd build; cmake .. -DCMAKE_INSTALL_PREFIX=%{_prefix} -DCMAKE_INSTALL_LIBDIR=%{_libdir}
+%global cmake_build      make %{?_smp_mflags}
+%global cmake_install    cd build; make install DESTDIR=%{buildroot}
+%global _kf6_qtplugindir %{_libdir}/qt6/plugins
+%global _kf6_datadir     %{_datadir}
+
+%else
+BuildRequires:  qt6-qtbase-devel
+BuildRequires:  qt6-qtbase-private-devel
+BuildRequires:  kf6-rpm-macros
+%global kwin_pkg_name kwin
+
+%endif
 
 BuildRequires:  cmake
-BuildRequires:  extra-cmake-modules
 BuildRequires:  gcc-c++
-BuildRequires:  kf6-rpm-macros
+BuildRequires:  extra-cmake-modules
+BuildRequires:  kf6-kconfigwidgets-devel
+BuildRequires:  kf6-kcmutils-devel
+BuildRequires:  kf6-ki18n-devel
+BuildRequires:  kf6-kwindowsystem-devel
+BuildRequires:  libepoxy-devel
+BuildRequires:  libxcb-devel
+BuildRequires:  libdrm-devel
 BuildRequires:  wayland-devel
+BuildRequires:  %{kwin_pkg_name}-devel
 
-BuildRequires:  cmake(KF6Config)
-BuildRequires:  cmake(KF6ConfigWidgets)
-BuildRequires:  cmake(KF6CoreAddons)
-BuildRequires:  cmake(KF6GlobalAccel)
-BuildRequires:  cmake(KF6KCMUtils)
-BuildRequires:  cmake(KF6WindowSystem)
-BuildRequires:  cmake(KF6I18n)
-
-BuildRequires:  cmake(Qt6Core)
-BuildRequires:  cmake(Qt6DBus)
-BuildRequires:  cmake(Qt6Gui)
-BuildRequires:  cmake(Qt6Network)
-BuildRequires:  cmake(Qt6OpenGL)
-BuildRequires:  cmake(Qt6Widgets)
-BuildRequires:  cmake(Qt6Xml)
-BuildRequires:  qt6-qtbase-private-devel
-
-BuildRequires:  cmake(KWin)
-BuildRequires:  cmake(KWinDBusInterface)
-BuildRequires:  pkgconfig(epoxy)
-BuildRequires:  pkgconfig(xcb)
 Obsoletes:  plasma-rounded-corners
 
 %description
-%{summary}.
+KDE Rounded Corners is a desktop effect for KWin that smoothly rounds
+the corners of all windows and optionally adds an outline, with
+minimal impact on performance.
 
 %prep
-%autosetup -n KDE-Rounded-Corners-%{gitcommit} -p1
+%autosetup -n KDE-Rounded-Corners-master -p1
 
 %build
-%cmake_kf6 -DQT_MAJOR_VERSION=6
+%cmake_kf6
 %cmake_build
 
 %install
@@ -56,24 +58,16 @@ Obsoletes:  plasma-rounded-corners
 %files
 %license LICENSE
 %doc README.md
-%{_libdir}/qt6/plugins/kwin/effects/configs/kwin_shapecorners_config.so
-%{_libdir}/qt6/plugins/kwin/effects/plugins/kwin4_effect_shapecorners.so
-%{_datadir}/kwin/shaders/shapecorners.frag
-%{_datadir}/kwin/shaders/shapecorners_core.frag
-%{_datadir}/locale/*/LC_MESSAGES/kcmcorners.mo*
+%{_kf6_qtplugindir}/kwin/effects/configs/kwin_shapecorners_config.so
+%{_kf6_qtplugindir}/kwin/effects/plugins/kwin4_effect_shapecorners.so
+%{_kf6_datadir}/kwin/shaders/shapecorners.frag
+%{_kf6_datadir}/kwin/shaders/shapecorners_core.frag
+%{_kf6_datadir}/locale/*/LC_MESSAGES/kcmcorners.mo*
 
 %changelog
-* Sun Apr 27 2025 LionHeartP <LionHeartP@proton.me> - 0.7.1-3
-- update to latest commit for Nobara 42
-
-* Thu May 23 2024 Pavel Solovev <daron439@gmail.com> - 0.6.5-2
-- rebuilt
-
-* Tue Apr 16 2024 Pavel Solovev <daron439@gmail.com> - 0.6.1-7
-- rebuilt
-
-* Wed Mar 27 2024 Pavel Solovev <daron439@gmail.com> - 0.6.1-6
-- rebuilt
-
-* Fri Jan 12 2024 Pavel Solovev <daron439@gmail.com>
-- Initial build
+%if %{defined suse_version}
+* Thu Apr 24 2025 Matin Lotfaliei <matinlotfali@gmail.com> - 0.7.1-1
+- Initial RPM packaging of KDE-Rounded-Corners
+%else
+%autochangelog
+%endif

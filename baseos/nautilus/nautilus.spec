@@ -22,8 +22,8 @@ Source0:        https://download.gnome.org/sources/%{name}/%{major_version}/%{na
 Patch0:         default-terminal.patch
 
 # Nobara additions
-#Patch1:         nautilus-restore-typeahead.patch
-#Patch2:         0001-patch-re-add-breadcrumb-address-bar-toggle.patch
+Patch1:         nautilus-restore-typeahead.patch
+Patch2:         0001-patch-re-add-breadcrumb-address-bar-toggle.patch
 
 BuildRequires:  desktop-file-utils
 BuildRequires:  gcc

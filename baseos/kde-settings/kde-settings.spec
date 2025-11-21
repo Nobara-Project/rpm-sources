@@ -6,8 +6,8 @@
 
 Summary: Config files for KDE
 Name:    kde-settings
-Version: 42.0
-Release: 3%{?dist}
+Version: 43.1
+Release: 2%{?dist}
 
 License: MIT
 URL:     https://pagure.io/fedora-kde/kde-settings
@@ -18,9 +18,6 @@ Patch0:  set-dark-global.patch
 BuildArch: noarch
 
 BuildRequires: kde-filesystem
-# xdg-user-dirs hackery
-BuildRequires: desktop-file-utils
-BuildRequires: xdg-user-dirs
 # ssh-agent.service
 BuildRequires: systemd-rpm-macros
 Source10: ssh-agent.sh
@@ -36,13 +33,9 @@ Conflicts: kf5-kdelibs4support < 5.7.0-3
 
 Obsoletes: kde-settings-ksplash < 24-2
 Obsoletes: kde-settings-minimal < 24-3
-Provides:	f39-backgrounds-kde = 39.1.1
-Obsoletes:	f39-backgrounds-kde <= 39.1.1
 
 Requires: kde-filesystem
-# /etc/pam.d/ ownership
-Requires: pam
-Requires: xdg-user-dirs
+Requires: xdg-user-dirs >= 0.18-9
 ## add breeze deps here? probably, need more too -- rex
 Requires: breeze-icon-theme
 # Baseline mimeapps associations, e.g. LibreOffice
@@ -80,7 +73,7 @@ Requires: breeze-cursor-theme
 %package pulseaudio
 Summary: Enable pulseaudio support in KDE
 # nothing here to license
-License: Public Domain
+License: LicenseRef-Not-Copyrightable
 Requires: %{name} = %{version}-%{release}
 %if 0%{?rhel} && 0%{?rhel} < 9
 Requires: pulseaudio
@@ -140,16 +133,10 @@ fi
 
 cp -p %{SOURCE1} .
 
-%if 0%{?flatpak} == 0
-# xdg-user-dirs HACK
-cp -a %{_sysconfdir}/xdg/autostart/xdg-user-dirs.desktop \
-      xdg-user-dirs-kde.desktop
-mkdir -p %{buildroot}%{_sysconfdir}/xdg/autostart
-desktop-file-install \
-  xdg-user-dirs-kde.desktop \
-  --dir=%{buildroot}%{_sysconfdir}/xdg/autostart \
-  --remove-key=X-GNOME-Autostart-Phase \
-  --add-only-show-in=KDE
+# default wallpaper symlink
+%if 0%{?version_maj:1}
+mkdir -p %{buildroot}%{_datadir}/wallpapers
+ln -s F%{version_maj} %{buildroot}%{_datadir}/wallpapers/Fedora
 %endif
 
 %if 0%{?rhel} && 0%{?rhel} < 9
@@ -166,7 +153,8 @@ rm -rv %{buildroot}%{_libexecdir}/initial-setup
 %endif
 
 ## unpackaged files
-rm -Rf %{buildroot}%{_datadir}/plasma/look-and-feel/
+rm -Rf %{buildroot}%{_datadir}/plasma/look-and-feel/org.fedoraproject.fedora.desktop
+rm -Rf %{buildroot}%{_datadir}/wallpapers/Fedora
 
 %check
 %if 0%{?version_maj:1} && 1%{?flatpak} == 0
@@ -193,6 +181,7 @@ test -f %{_datadir}/wallpapers/F%{version_maj} || ls -l %{_datadir}/wallpapers
 %endif
 %config(noreplace) %{_sysconfdir}/xdg/kcm-about-distrorc
 %config(noreplace) %{_sysconfdir}/xdg/kdebugrc
+%dir %{_sysconfdir}/pam.d
 %config(noreplace) %{_sysconfdir}/pam.d/kcheckpass
 %config(noreplace) %{_sysconfdir}/pam.d/kscreensaver
 # drop noreplace, so we can be sure to get the new kiosk bits
@@ -204,9 +193,6 @@ test -f %{_datadir}/wallpapers/F%{version_maj} || ls -l %{_datadir}/wallpapers
 
 %files plasma
 %{_datadir}/plasma/shells/org.kde.plasma.desktop/contents/updates/00-start-here-2.js
-%if 0%{?flatpak} == 0
-%{_sysconfdir}/xdg/autostart/xdg-user-dirs-kde.desktop
-%endif
 %{_sysconfdir}/xdg/plasma-workspace/env/env.sh
 %{_sysconfdir}/xdg/plasma-workspace/env/gtk2_rc_files.sh
 %{_sysconfdir}/xdg/plasma-workspace/env/gtk3_scrolling.sh
@@ -231,6 +217,36 @@ test -f %{_datadir}/wallpapers/F%{version_maj} || ls -l %{_datadir}/wallpapers
 
 
 %changelog
+* Mon Sep 29 2025 Alessandro Astone <ales.astone@gmail.com> - 43.1-1
+- Add default list of favorites for the application launcher
+
+* Mon Sep 01 2025 Neal Gompa <ngompa@fedoraproject.org> - 43.0-1
+- Bump for F43 backgrounds
+- ShellCheck fixes for gpg-agent startup script
+- Fixes for prelink handling logic in profile.d shell scripts
+
+* Thu Jul 24 2025 Fedora Release Engineering <releng@fedoraproject.org> - 42.0-5
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_43_Mass_Rebuild
+
+* Tue May 13 2025 Than Ngo <than@redhat.com> - 42.0-4
+- Fix rhbz#2291074 - Directory is missing in RPM database
+
+* Thu Feb 20 2025 Neal Gompa <ngompa@fedoraproject.org> - 42.0-3
+- Bump minimum xdg-user-dirs package version to require systemd unit
+
+* Wed Feb 19 2025 Neal Gompa <ngompa@fedoraproject.org> - 42.0-2
+- Drop xdg-user-dirs hack as it's no longer needed
+
+* Fri Feb 14 2025 Neal Gompa <ngompa@fedoraproject.org> - 42.0-1
+- Bump for F42 backgrounds
+- Cleanup and sync profile.d shell scripts
+
+* Fri Jan 17 2025 Fedora Release Engineering <releng@fedoraproject.org> - 41.2-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_42_Mass_Rebuild
+
+* Fri Jan 03 2025 Yaakov Selkowitz <yselkowi@redhat.com> - 41.2-2
+- Avoid pam dependency
+
 * Wed Sep 25 2024 Neal Gompa <ngompa@fedoraproject.org> - 41.2-1
 - Drop AT-SPI Xwayland property script as it's now handled by KWin
 

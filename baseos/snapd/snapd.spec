@@ -1,6 +1,6 @@
 Name:           snapd
-Version:        2.68.3
-Release:        2%{?dist}
+Version:        2.72
+Release:        1%{?dist}
 Summary:        Meta package that installs snapd and the snap store.
 License:        GPL
 URL:            https://www.snapcraft.io/snap-store
