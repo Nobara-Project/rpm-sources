@@ -1,5 +1,5 @@
 Name:           lact
-Version:        0.8.2
+Version:        0.8.3
 Release:        1
 Summary:        GPU control utility
 License:        MIT
@@ -37,6 +37,9 @@ make install PREFIX=/usr DESTDIR=%{buildroot}
 /usr/share/metainfo/io.github.ilya_zlobintsev.LACT.metainfo.xml
 
 %changelog
+* Fri Nov 21 2025 LionHeartP <LionHeartP@proton.me> - 0.8.3-1
+- Update to 0.8.3
+
 * Sat Oct 18 2025 LionHeartP <LionHeartP@proton.me> - 0.8.2-1
 - Update to 0.8.2
 
