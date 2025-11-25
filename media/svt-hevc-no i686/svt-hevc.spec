@@ -1,6 +1,6 @@
 Name:           svt-hevc
 Version:        1.5.1
-Release:        8%{?dist}
+Release:        9%{?dist}
 Summary:        Scalable Video Technology for HEVC Encoder
 
 License:        BSD-2-Clause-Patent

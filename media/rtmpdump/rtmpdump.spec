@@ -4,7 +4,7 @@
 
 Name:           rtmpdump
 Version:        2.6
-Release:        1.%{gitdate}.git%{shortcommit}%{?dist}
+Release:        2.%{gitdate}.git%{shortcommit}%{?dist}
 Summary:        Toolkit for RTMP streams
 
 # The tools are GPLv2+. The library is LGPLv2+, see below.

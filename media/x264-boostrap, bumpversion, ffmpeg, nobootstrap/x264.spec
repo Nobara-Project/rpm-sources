@@ -1,13 +1,13 @@
-# globals for x264-0.164-20231001git31e19f92.tar.bz2
-%global api 164
-%global gitdate 20231001
-%global gitversion 31e19f92
+# globals for x264-0.165-20250608gitb35605ac.tar.bz2
+%global api 165
+%global gitdate 20250608
+%global gitversion b35605ac
 
 %global snapshot %{gitdate}git%{gitversion}
 %global gver .%{gitdate}git%{gitversion}
 %global branch stable
 
-#%global _with_bootstrap 0
+#global _with_bootstrap 1
 
 %{?_with_bootstrap:
 %global _without_gpac 1
@@ -36,8 +36,8 @@
 
 Summary: H264/AVC video streams encoder
 Name: x264
-Version: 1.%{api}
-Release: 17%{?gver}%{?_with_bootstrap:_bootstrap}%{?dist}
+Version: 0.%{api}
+Release: 5%{?gver}%{?_with_bootstrap:_bootstrap}%{?dist}
 License: GPLv2+
 URL: https://www.videolan.org/developers/x264.html
 Source0: %{name}-0.%{api}-%{snapshot}.tar.bz2
@@ -48,8 +48,6 @@ Source2: version.h
 Patch0: x264-nover.patch
 # add 10b suffix to high bit depth build
 Patch1: x264-10b.patch
-# fix assignment from incompatible pointer type errors
-Patch2: x264-altivec-incompatible-pointer-type.patch
 Patch11: x264-opencl.patch
 
 BuildRequires: gcc
@@ -66,7 +64,7 @@ BuildRequires: nasm
 BuildRequires: pkgconfig(bash-completion)
 # we need to enforce the exact EVR for an ISA - not only the same ABI
 Requires: %{name}-libs%{?_isa} = %{version}-%{release}
-Requires: ffmpeg-libs%{?_isa}
+%{!?_with_bootstrap:Requires: ffmpeg-libs%{?_isa}}
 
 %description
 x264 is a free library for encoding H264/AVC video streams, written from
@@ -115,7 +113,6 @@ pushd %{name}-0.%{api}-%{snapshot}
 cp %{SOURCE2} .
 %patch -P0 -p1 -b .nover
 %patch -P1 -p1 -b .10b
-%patch -P2 -p1 -b .ptr
 %patch -P11 -p1 -b .opencl
 popd
 
@@ -164,9 +161,6 @@ install -dm755 %{buildroot}%{_pkgdocdir}
 install -pm644 generic/{AUTHORS,COPYING} %{buildroot}%{_pkgdocdir}/
 
 
-%ldconfig_scriptlets libs
-
-
 %files
 %{_bindir}/x264
 %dir %{_datadir}/bash-completion
@@ -189,6 +183,16 @@ install -pm644 generic/{AUTHORS,COPYING} %{buildroot}%{_pkgdocdir}/
 %{_libdir}/pkgconfig/%{name}.pc
 
 %changelog
+* Sun Sep 07 2025 Sérgio Basto <sergio@serjux.com> - 0.165-2.20250608gitb35605ac
+- Bump version after unbootstrap
+
+* Wed Sep 03 2025 Sérgio Basto <sergio@serjux.com> - 0.165-1.20250608gitb35605ac_bootstrap
+- x264-0.165-20250608gitb35605ac soname bump
+- Remove ldconfig_scriptlets, deprecated since Fedora 28
+
+* Sun Jul 27 2025 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 0.164-17.20231001git31e19f92
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_43_Mass_Rebuild
+
 * Wed Jan 29 2025 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 0.164-16.20231001git31e19f92
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_42_Mass_Rebuild
 
@@ -518,14 +522,14 @@ install -pm644 generic/{AUTHORS,COPYING} %{buildroot}%{_pkgdocdir}/
 - Un-boostrap
 
 * Wed Mar 05 2014 Sérgio Basto <sergio@serjux.com> - 0.140-2.20140122gitde0bc36
-- bootstrap x264 to avoid: 
+- bootstrap x264 to avoid:
   /usr/bin/ld: warning: libx264.so.138, needed by
   /usr/lib/gcc/x86_64-redhat-linux/4.8.2/../../../../lib64/libavcodec.so, may conflict with
   libx264.so.140
 
 * Wed Jan 22 2014 Sérgio Basto <sergio@serjux.com> - 0.140-1.20140122gitde0bc36
 - Update to 0.140 git de0bc36 (stable branch)
-- drop visualize options, ./configure doesn't have --enable-visualize or --disable-visualize, 
+- drop visualize options, ./configure doesn't have --enable-visualize or --disable-visualize,
 anymore
 
 * Tue Nov 05 2013 Sérgio Basto <sergio@serjux.com> - 0.138-2.20131030-c628e3b
@@ -576,7 +580,7 @@ anymore
 - Note: no source update.
 - Just add git tag to package name, for faster check upstream.
 - Add git tag in x264-snapshot.sh .
-- Convert all defines in global. 
+- Convert all defines in global.
 
 * Sun Sep 09 2012 Sérgio Basto <sergio@serjux.com> - 0.125-4.20120909
 - unbootstrap on F18.
@@ -621,7 +625,7 @@ anymore
 - Change release number, upstream have release numbers at least on stable branch and as ffmpeg
   reported.
 - Update to 20120303
-- Update x264-nover.patch, as suggest by Joseph D. Wagner <joe@josephdwagner.info> 
+- Update x264-nover.patch, as suggest by Joseph D. Wagner <joe@josephdwagner.info>
 - Dropped obsolete Buildroot and Clean.
 - add BuildRequires: zlib-devel to enable gpac.
 

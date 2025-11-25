@@ -2,7 +2,7 @@
 
 Name:		vlc-plugins-freeworld
 Version:	3.0.21
-Release:	5%{?dist}
+Release:	8%{?dist}
 Summary:	H.264, and HEVC codec plugins for VLC media player
 License:	GPL-2.0-or-later AND LGPL-2.1-or-later
 URL:		https://www.videolan.org
@@ -223,6 +223,12 @@ find %{buildroot}%{_libdir} -name '*.la' -delete
 
 
 %changelog
+* Thu Sep 04 2025 Sérgio Basto <sergio@serjux.com> - 3.0.21-7
+- Rebuild for x264
+
+* Sun Jul 27 2025 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 3.0.21-6
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_43_Mass_Rebuild
+
 * Thu Jun 26 2025 Dominik Mierzejewski <dominik@greysector.net> - 3.0.21-5
 - faad2 plugin was moved to Fedora
 - update license tag as there's no BSD licensed code in binary RPMs

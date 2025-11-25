@@ -1,13 +1,13 @@
 # To get the gmp-api commit to use, run:
 # rm -rf gmp-api;make gmp-bootstrap;cd gmp-api;git rev-parse HEAD
-%global commit1 e7d30b921df736a1121a0c8e0cf3ab1ce5b8a4b7
+%global commit1 1f5a2f07a565a9465c14d3a8b12f3202f83c775e
 %global shortcommit1 %(c=%{commit1}; echo ${c:0:7})
 
 # Filter out soname provides for the mozilla plugin
 %global __provides_exclude_from ^%{_libdir}/mozilla/plugins/
 
 Name:           openh264
-Version:        2.4.1
+Version:        2.6.0
 Release:        2%{?dist}
 Summary:        H.264 codec library
 
@@ -15,6 +15,8 @@ License:        BSD-2-Clause
 URL:            https://www.openh264.org/
 Source0:        https://github.com/cisco/openh264/archive/v%{version}/openh264-%{version}.tar.gz
 Source1:        https://github.com/mozilla/gmp-api/archive/%{commit1}/gmp-api-%{shortcommit1}.tar.gz
+
+Patch0:         0001-Update-shared-lib-version-for-meson-3860.patch
 
 BuildRequires:  gcc-c++
 BuildRequires:  make
@@ -26,6 +28,7 @@ Obsoletes:      noopenh264 < 1:0
 %description
 OpenH264 is a codec library which supports H.264 encoding and decoding. It is
 suitable for use in real time applications such as WebRTC.
+
 
 
 %package        devel
@@ -51,6 +54,7 @@ browsers.
 
 %prep
 %setup -q
+%patch -P 0 -p1
 
 # Extract gmp-api archive
 tar -xf %{S:1}
@@ -111,7 +115,7 @@ rm $RPM_BUILD_ROOT%{_libdir}/*.a
 %files
 %license LICENSE
 %doc README.md
-%{_libdir}/libopenh264.so.7
+%{_libdir}/libopenh264.so.8
 %{_libdir}/libopenh264.so.%{version}
 
 %files devel
@@ -132,6 +136,16 @@ rm $RPM_BUILD_ROOT%{_libdir}/*.a
 
 
 %changelog
+* Mon Mar 04 2025 Wim Taymans <wtaymans@redhat.com> - 2.6.0-2
+- Remove patch to revert the Makefile major version increase.
+
+* Wed Feb 26 2025 Wim Taymans <wtaymans@redhat.com> - 2.6.0-1
+- Update to 2.6.0
+- Add patch to revert the Makefile major version increase.
+
+* Sat Nov 09 2024 Kalev Lember <klember@redhat.com> - 2.5.0-1
+- Update to 2.5.0
+
 * Fri Feb 09 2024 Kalev Lember <klember@redhat.com> - 2.4.1-2
 - Drop the gstreamer plugin as it's part of Fedora proper now
 

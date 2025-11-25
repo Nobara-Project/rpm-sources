@@ -1,5 +1,5 @@
 Name:           libheif-freeworld
-Version:        1.19.8
+Version:        1.20.2
 Release:        2%{?dist}
 Summary:        HEVC support for HEIF and AVIF file format decoder and encoder
 
@@ -14,6 +14,7 @@ BuildRequires:  pkgconfig(libavcodec)
 BuildRequires:  pkgconfig(libde265)
 BuildRequires:  pkgconfig(x265)
 BuildRequires:  pkgconfig(aom)
+BuildRequires:  pkgconfig(zlib)
 Requires:       libheif%{_isa} = %{version}
 Supplements:    libheif%{_isa}
 Provides:       libheif-hevc = %{version}-%{release}
@@ -66,6 +67,23 @@ popd
 %{_libdir}/libheif/libheif-x265.so
 
 %changelog
+* Tue Oct 07 2025 Leigh Scott <leigh123linux@gmail.com> - 1.20.2-2
+- Rebuild for svt-av1 soname bump
+
+* Wed Sep 10 2025 Dominik Mierzejewski <dominik@greysector.net> - 1.20.2-1
+- update to 1.20.2
+
+* Sun Jul 27 2025 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 1.20.1-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_43_Mass_Rebuild
+
+* Sun Jul 06 2025 Dominik Mierzejewski <dominik@greysector.net> - 1.20.1-1
+- update to 1.20.1
+- fix skipped test when HEVC encoder is built as plugin
+- add explicit build dependency on zlib to run more tests
+
+* Tue Apr 29 2025 Dominik Mierzejewski <dominik@greysector.net> - 1.19.8-1
+- update to 1.19.8
+
 * Tue Mar 18 2025 Dominik Mierzejewski <dominik@greysector.net> - 1.19.7-1
 - update to 1.19.7 (resolves rhbz#2349315)
 
@@ -261,4 +279,3 @@ popd
 
 * Thu Nov 29 2018 Leigh Scott <leigh123linux@googlemail.com> - 1.3.2-1
 - First build
-

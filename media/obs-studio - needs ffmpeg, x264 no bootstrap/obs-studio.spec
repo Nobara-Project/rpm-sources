@@ -33,25 +33,25 @@
 %global libvlc_soversion 5
 
 
-%global obswebsocket_version 5.6.2
-%global obsbrowser_commit bdabf8300ecefeb566b81f4a7ff75f8a8e21f62b
+%global obswebsocket_version 5.6.3
+%global obsbrowser_commit a776dd6a1a0ded4a8a723f2f572f3f8a9707f5a8
 
 # Upstream does not declare this yet. Arbitrarily pick 137.0 since it works
 # and it works around a CEF versioning teething issue:
 # https://github.com/chromiumembedded/cef/issues/3959
 %global cef_api_version 13700
 
-%define version_string 31.1.2
+%define version_string 32.0.2
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build %{build_timestamp}.%{shortcommit}%{?dist}
 %global _default_patch_fuzz 2
 # obs version and commit
-%global commit 7778070cbd8e4689d91d90068091ced467c5fdef
+%global commit c025f210d36ada93c6b9ef2affd0f671b34c9775
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 Name:           obs-studio
 Version:        %{version_string}
-Release:        1.%{rel_build}
+Release:        4.%{rel_build}
 Summary:        Open Broadcaster Software Studio
 
 # OBS itself is GPL-2.0-or-later, while various plugin dependencies are of various other licenses
@@ -74,9 +74,15 @@ Patch0103:      0103-UI-Add-support-for-OpenH264-as-the-worst-case-fallba.patch
 # Downstream Fedora patches
 ## Use fdk-aac by default
 Patch1001:      obs-studio-UI-use-fdk-aac-by-default.patch
+
 ## Fix error: passing argument 4 of ‘query_dmabuf_modifiers’ from
 ##            incompatible pointer type [-Wincompatible-pointer-types]
 Patch1003:      obs-studio-fix-incompatible-pointer-type.patch
+Patch1004:      obs-studio-fix-build-against-qt-6-10.patch
+
+# https://github.com/obsproject/obs-studio/issues/12792
+# https://github.com/obsproject/obs-studio/pull/12756
+Patch1005:      12756.patch
 
 BuildRequires:  gcc
 BuildRequires:  cmake >= 3.22
@@ -133,6 +139,7 @@ BuildRequires:  systemd-devel
 BuildRequires:  uthash-devel
 BuildRequires:  wayland-devel
 BuildRequires:  websocketpp-devel
+BuildRequires:  simde-devel
 %if %{with x264}
 BuildRequires:  x264-devel
 %endif
@@ -373,7 +380,7 @@ cp deps/libcaption/LICENSE.txt .fedora-rpm/licenses/deps/libcaption-LICENSE.txt
 cp plugins/obs-qsv11/QSV11-License-Clarification-Email.txt .fedora-rpm/licenses/plugins/QSV11-License-Clarification-Email.txt
 cp deps/blake2/LICENSE.blake2 .fedora-rpm/licenses/deps/
 cp libobs/graphics/libnsgif/LICENSE.libnsgif .fedora-rpm/licenses/deps/
-cp libobs/util/simde/LICENSE.simde .fedora-rpm/licenses/deps/
+#cp libobs/util/simde/LICENSE.simde .fedora-rpm/licenses/deps/
 cp plugins/decklink/LICENSE.decklink-sdk .fedora-rpm/licenses/deps
 cp plugins/obs-qsv11/obs-qsv11-LICENSE.txt .fedora-rpm/licenses/plugins/
 

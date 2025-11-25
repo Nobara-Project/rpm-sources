@@ -27,6 +27,7 @@
 %global _with_openh264    1
 %if 0%{?fedora}
 %global _with_placebo     1
+%global _with_lc3              1
 %endif
 %global _with_rav1e       1
 %global _with_smb         1
@@ -97,8 +98,8 @@ ExclusiveArch: armv7hnl
 
 Summary:        Digital VCR and streaming server
 Name:           ffmpeg%{?flavor}
-Version:        7.1.1
-Release:        11%{?dist}
+Version:        7.1.2
+Release:        9%{?dist}
 License:        %{ffmpeg_license}
 URL:            https://ffmpeg.org/
 %if 0%{?date}
@@ -164,7 +165,7 @@ BuildRequires:  libdrm-devel
 BuildRequires:  libgcrypt-devel
 %{!?_without_libklvanc:BuildRequires: libklvanc-devel}
 BuildRequires:  libGL-devel
-BuildRequires:  pkgconfig(lc3)
+%{?_with_lc3:BuildRequires:  pkgconfig(lc3)}
 BuildRequires:  libmodplug-devel
 BuildRequires:  libmysofa-devel
 %if 0%{?fedora} && 0%{?fedora} > 39
@@ -201,8 +202,11 @@ BuildRequires:  libxml2-devel
 %{!?_without_lv2:BuildRequires:  lilv-devel lv2-devel}
 %{!?_without_openal:BuildRequires: openal-soft-devel}
 %if 0%{!?_without_opencl:1}
+%if 0%{?fedora}
 BuildRequires:  opencl-headers OpenCL-ICD-Loader-devel
-%{?fedora:Recommends: opencl-icd}
+%else
+BuildRequires:  opencl-headers pkgconfig(OpenCL)
+%endif
 %endif
 %{?_with_opencv:BuildRequires: opencv-devel}
 BuildRequires:  openjpeg2-devel
@@ -224,7 +228,7 @@ BuildRequires:  texinfo
 %{?_with_twolame:BuildRequires: twolame-devel}
 %{?_with_vmaf:BuildRequires: libvmaf-devel >= 1.5.2}
 %{?_with_vpl:BuildRequires: pkgconfig(vpl) >= 2.6}
-%{?_with_vvenc:BuildRequires: vvenc-devel}
+%{?_with_vvenc:BuildRequires: pkgconfig(libvvenc)}
 %{?_with_wavpack:BuildRequires: wavpack-devel}
 %{!?_without_vidstab:BuildRequires:  vid.stab-devel}
 %{!?_without_vulkan:BuildRequires: pkgconfig(shaderc) pkgconfig(vulkan) >= 1.3.277}
@@ -350,6 +354,7 @@ Freeworld libavcodec to complement the distro counterparts
     --enable-libgsm \\\
     --enable-libharfbuzz \\\
     %{?_with_ilbc:--enable-libilbc} \\\
+    %{?_with_lc3:--enable-liblc3} \\\
     %{!?_without_lensfun:--enable-liblensfun} \\\
     %{?_with_libnpp:--enable-libnpp --enable-nonfree} \\\
     --enable-libmp3lame \\\
@@ -390,6 +395,7 @@ Freeworld libavcodec to complement the distro counterparts
     %{?_with_vmaf:--enable-libvmaf --enable-version3} \\\
     %{?_with_vapoursynth:--enable-vapoursynth} \\\
     %{!?_without_vpx:--enable-libvpx} \\\
+    %{?_with_vvenc:--enable-libvvenc} \\\
     %{!?_without_vulkan:--enable-vulkan --enable-libshaderc} \\\
     %{?_with_webp:--enable-libwebp} \\\
     %{!?_without_x264:--enable-libx264} \\\
@@ -542,6 +548,27 @@ cp -pa %{buildroot}%{_libdir}/libavcodec.so.* \
 
 
 %changelog
+* Sat Oct 04 2025 Robert-André Mauchin <zebob.m@gmail.com> - 7.1.2-7
+- Rebuild for svt-av1 soname bump
+
+* Fri Oct 03 2025 Robert-André Mauchin <zebob.m@gmail.com> - 7.1.2-6
+- Rebuild for svt-av1 soname bump
+
+* Fri Oct 03 2025 Robert-André Mauchin <zebob.m@gmail.com> - 7.1.2-5
+- Rebuild for svt-av1 soname bump
+
+* Fri Oct 03 2025 Robert-André Mauchin <zebob.m@gmail.com> - 7.1.2-4
+- Rebuild for svt-av1 soname bump
+
+* Mon Sep 29 2025 Robert-André Mauchin <zebob.m@gmail.com> - 7.1.2-3
+- Rebuild for svt-av1 soname bump
+
+* Wed Sep 17 2025 Nicolas Chauvet <kwizart@gmail.com> - 7.1.2-2
+- rebuilt
+
+* Tue Sep 16 2025 Leigh Scott <leigh123linux@gmail.com> - 7.1.2-1
+- Update to 7.1.2
+
 * Thu Sep 04 2025 Sérgio Basto <sergio@serjux.com> - 7.1.1-11
 - Enable chromaprint
 

@@ -3,14 +3,14 @@
 %global         codecdir %{_libdir}/codecs
 %global         pre 20250127svn
 %global         svn 1
-%global         svnbuild 2025-05-01
+%global         svnbuild 2025-01-27
 
 Name:           mplayer
 Version:        1.5.1
 %if 0%{?svn}
-Release:        0.17%{?pre:.%{pre}}%{?dist}
+Release:        0.19%{?pre:.%{pre}}%{?dist}
 %else
-Release:        17%{?dist}
+Release:        19%{?dist}
 %endif
 Summary:        Movie player playing most video formats and DVDs
 
@@ -40,7 +40,10 @@ BuildRequires:  a52dec-devel
 BuildRequires:  aalib-devel
 BuildRequires:  alsa-lib-devel
 BuildRequires:  bzip2-devel
+BuildRequires:  gdk-pixbuf2-devel
+%if ! 0%{?rhel} >= 10
 BuildRequires:  enca-devel
+%endif
 BuildRequires:  ffmpeg-devel
 BuildRequires:  fontconfig-devel
 BuildRequires:  freetype-devel >= 2.0.9
@@ -48,12 +51,14 @@ BuildRequires:  fribidi-devel
 BuildRequires:  gcc-c++
 BuildRequires:  giflib-devel
 BuildRequires:  gsm-devel
-BuildRequires:  jack-audio-connection-kit-devel
+#BuildRequires:  jack-audio-connection-kit-devel
 BuildRequires:  ladspa-devel
 BuildRequires:  lame-devel
 BuildRequires:  libGL-devel
 BuildRequires:  libXinerama-devel
+%if ! 0%{?rhel} >= 10
 BuildRequires:  libXScrnSaver-devel
+%endif
 BuildRequires:  libXv-devel
 BuildRequires:  libXxf86vm-devel
 BuildRequires:  libass-devel >= 0.9.10
@@ -139,7 +144,7 @@ Summary:        MPlayer movie encoder
 Requires:       mplayer-common = %{version}-%{release}
 
 %description -n mencoder
-This package contains the MPlayer movie encoder. 
+This package contains the MPlayer movie encoder.
 
 %package        doc
 Summary:        MPlayer documentation in various languages
@@ -229,7 +234,7 @@ export CXX=g++
 %make_build V=1
 
 %if 0%{?svn}
-# build HTML documentation from XML files 
+# build HTML documentation from XML files
 %make_build V=1 html-chunked
 %endif
 
@@ -316,6 +321,12 @@ sed -i '1s:#!/usr/bin/env python:#!/usr/bin/env python2:' %{buildroot}%{_bindir}
 %{_datadir}/mplayer/*.fp
 
 %changelog
+* Thu Sep 04 2025 Sérgio Basto <sergio@serjux.com> - 1.5.1-0.19.20250127svn
+- Rebuild for x264
+
+* Sun Jul 27 2025 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 1.5.1-0.18.20250127svn
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_43_Mass_Rebuild
+
 * Mon Jan 27 2025 Leigh Scott <leigh123linux@gmail.com> - 1.5.1-0.17.20250127svn
 - Update snapshot
 
@@ -659,7 +670,7 @@ sed -i '1s:#!/usr/bin/env python:#!/usr/bin/env python2:' %{buildroot}%{_bindir}
 * Sat Oct 20 2012 Julian Sikorski <belegdol@fedoraproject.org> - 1.1-3.20121008svn
 - 20121008 snapshot
 - Internal tremor copy is no more
-- Dropped the included gmplayer subtitles patch 
+- Dropped the included gmplayer subtitles patch
 
 * Wed Sep 05 2012 Nicolas Chauvet <kwizart@gmail.com>
 - Rebuilt for x264 ABI 125
@@ -1001,8 +1012,8 @@ sed -i '1s:#!/usr/bin/env python:#!/usr/bin/env python2:' %{buildroot}%{_bindir}
 * Sat Mar 10 2007 Dominik Mierzejewski <rpm at greysector.net> - 1.0-0.70.rc1
 - fix buffer overflow in DMO_VideoDecoder.c
 
-* Wed Jan 03 2007 Dominik Mierzejewski <rpm at greysector.net> - 1.0-0.69.rc1                                          
-- fix buffer overflow in asmrp.c 
+* Wed Jan 03 2007 Dominik Mierzejewski <rpm at greysector.net> - 1.0-0.69.rc1
+- fix buffer overflow in asmrp.c
 
 * Thu Dec 28 2006 Dominik Mierzejewski <rpm at greysector.net> - 1.0-0.68.rc1
 - don't depend on urw-fonts, use generic Sans font instead
@@ -1166,7 +1177,7 @@ sed -i '1s:#!/usr/bin/env python:#!/usr/bin/env python2:' %{buildroot}%{_bindir}
 
 * Tue May 03 2005 Thorsten Leemhuis <fedora[AT]leemhuis[DOT]info> - 0:1.0-0.lvn.0.20.pre7
 - fix build issues on x86_64:
- - move target= to a ix86 section -- on x86_64 it passes the option x86-64 
+ - move target= to a ix86 section -- on x86_64 it passes the option x86-64
    and not x86_64
  - use explicit --with-xmmslibdir
  - {_libdir}/libdha.so.* and {_libdir}/mplayer are missing on x86_64

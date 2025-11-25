@@ -5,7 +5,7 @@ Version: 1.13.1
 %forgemeta
 
 Name:           vvenc
-Release:        %autorelease
+Release:        %autorelease -b2
 Summary:        The Fraunhofer Versatile Video Encoder
 
 License:        BSD-3-Clause-Clear

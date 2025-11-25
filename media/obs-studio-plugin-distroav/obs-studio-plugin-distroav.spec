@@ -1,6 +1,6 @@
 Name:           obs-studio-plugin-distroav
 Version:        6.1.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Network Audio/Video in OBS-Studio using NDI technology
 
 License:        GPLv2+
