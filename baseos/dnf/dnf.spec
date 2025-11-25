@@ -1,8 +1,5 @@
-# Always build out-of-source
-%define __cmake_in_source_build 1
-
 # default dependencies
-%global hawkey_version 0.74.0
+%global hawkey_version 0.75.0
 %global libcomps_version 0.1.8
 %global libmodulemd_version 2.9.3
 %global rpm_version 4.14.0
@@ -13,15 +10,6 @@
 %global conflicts_dnfdaemon_version 0.3.19
 
 %bcond dnf5_obsoletes_dnf %[0%{?fedora} > 40 || 0%{?rhel} > 10]
-
-# override dependencies for rhel 7
-%if 0%{?rhel} == 7
-    %global rpm_version 4.11.3-32
-%endif
-
-%if 0%{?rhel} == 7 && 0%{?centos}
-    %global rpm_version 4.11.3-25.el7.centos.1
-%endif
 
 # override dependencies for fedora 26
 %if 0%{?fedora} == 26
@@ -46,9 +34,6 @@
         %global yum_subpackage_name %{name}-yum
     %endif
 %endif
-%if 0%{?rhel} && 0%{?rhel} <= 7
-    %global yum_subpackage_name nextgen-yum4
-%endif
 
 # paths
 %global confdir %{_sysconfdir}/%{name}
@@ -65,18 +50,22 @@
 It supports RPMs, modules and comps groups & environments.
 
 Name:           dnf
-Version:        4.23.0
+Version:        4.24.0
 Release:        1%{?dist}
 Summary:        %{pkg_summary}
 # For a breakdown of the licensing, see PACKAGE-LICENSING
 License:        GPL-2.0-or-later AND GPL-1.0-only
 URL:            https://github.com/rpm-software-management/dnf
-Source0:        %{url}/archive/%{version}/%{name}-%{version}.tar.gz
+Source0:        %{url}/releases/download/%{version}/%{name}-%{version}.tar.gz
+Source1:        %{url}/releases/download/%{version}/%{name}-%{version}.tar.gz.asc
+# Key exported from Petr Pisar's keyring
+Source2:        gpgkey-E3F42FCE156830A80358E6E94FD1AEC3365AF7BF.gpg
 Patch0:		0001-increase-parallel-downloads.patch
 Patch1:		0001-disable-zchunk-for-Nobara-snapshots.patch
 BuildArch:      noarch
 BuildRequires:  cmake >= 3.5.0
 BuildRequires:  gettext
+BuildRequires:  gnupg2
 # Documentation
 BuildRequires:  systemd
 %if 0%{?fedora} > 40 || 0%{?rhel} > 10
@@ -87,10 +76,7 @@ BuildRequires:  bash-completion
 Requires:       coreutils
 BuildRequires:  %{_bindir}/sphinx-build-3
 Requires:       python3-%{name} = %{version}-%{release}
-%if 0%{?rhel} && 0%{?rhel} <= 7
-Requires:       python-dbus
-Requires:       %{_bindir}/sqlite3
-%elif 0%{?fedora}
+%if 0%{?fedora}
 Recommends:     (%{_bindir}/sqlite3 if (bash-completion and python3-dnf-plugins-core))
 %else
 Recommends:     (python3-dbus if NetworkManager)
@@ -151,11 +137,7 @@ Requires:       python3-libcomps >= %{libcomps_version}
 Requires:       python3-libdnf
 BuildRequires:  python3-rpm >= %{rpm_version}
 Requires:       python3-rpm >= %{rpm_version}
-%if 0%{?rhel} && 0%{?rhel} <= 7
-Requires:       rpm-plugin-systemd-inhibit
-%else
 Recommends:     (rpm-plugin-systemd-inhibit if systemd)
-%endif
 Provides:       dnf4 = %{version}-%{release}
 Provides:       dnf-command(alias)
 Provides:       dnf-command(autoremove)
@@ -206,23 +188,16 @@ Additional dependencies needed to perform transactions on booted bootc (bootable
 
 
 %prep
+%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
 %autosetup -p1
 
-mkdir build-py3
-
 %build
-
-pushd build-py3
-%cmake .. -DPYTHON_DESIRED:FILEPATH=%{__python3} -DDNF_VERSION=%{version}
-%make_build
-make doc-man
-popd
+%cmake -DPYTHON_DESIRED:FILEPATH=%{__python3} -DDNF_VERSION=%{version}
+%cmake_build
+%cmake_build -t doc-man
 
 %install
-
-pushd build-py3
-%make_install
-popd
+%cmake_install
 
 %find_lang %{name}
 mkdir -p %{buildroot}%{confdir}/vars
@@ -296,10 +271,13 @@ rm %{buildroot}%{_unitdir}/%{name}-makecache.timer
 %endif
 
 %check
-
-pushd build-py3
+%if 0%{?rhel} && 0%{?rhel} < 10
+pushd %{__cmake_builddir}
 ctest -VV
 popd
+%else
+%ctest -VV
+%endif
 
 
 %if %{without dnf5_obsoletes_dnf}
@@ -317,7 +295,10 @@ popd
 %systemd_post dnf-automatic.timer dnf-automatic-notifyonly.timer dnf-automatic-download.timer dnf-automatic-install.timer
 
 %preun automatic
-%systemd_preun dnf-automatic.timer dnf-automatic-notifyonly.timer dnf-automatic-download.timer dnf-automatic-install.timer
+if [ ! -e %{_unitdir}/dnf5-automatic.timer ]; then
+    %systemd_preun dnf-automatic.timer
+fi
+%systemd_preun dnf-automatic-notifyonly.timer dnf-automatic-download.timer dnf-automatic-install.timer
 
 %postun automatic
 %systemd_postun_with_restart dnf-automatic.timer dnf-automatic-notifyonly.timer dnf-automatic-download.timer dnf-automatic-install.timer
@@ -327,11 +308,7 @@ popd
 %if %{without dnf5_obsoletes_dnf}
 %files -f %{name}.lang
 %{_bindir}/%{name}
-%if 0%{?rhel} && 0%{?rhel} <= 7
-%{_sysconfdir}/bash_completion.d/%{name}
-%else
 %{_datadir}/bash-completion/completions/%{name}
-%endif
 %{_mandir}/man8/%{name}.8*
 %{_mandir}/man8/yum2dnf.8*
 %{_mandir}/man7/dnf.modularity.7*
@@ -349,6 +326,7 @@ popd
 %dir %{pluginconfpath}
 %if %{without dnf5_obsoletes_dnf}
 %dir %{confdir}/protected.d
+%dir %{confdir}/usr-drift-protected-paths.d
 %dir %{confdir}/vars
 %endif
 %dir %{confdir}/aliases.d
@@ -438,6 +416,25 @@ popd
 # bootc subpackage does not include any files
 
 %changelog
+* Tue Oct 21 2025 Petr Pisar <ppisar@redhat.com> - 4.24.0-1
+- 4.24.0 bump
+
+* Fri Sep 19 2025 Python Maint <python-maint@redhat.com> - 4.23.0-6
+- Rebuilt for Python 3.14.0rc3 bytecode
+
+* Fri Aug 15 2025 Python Maint <python-maint@redhat.com> - 4.23.0-5
+- Rebuilt for Python 3.14.0rc2 bytecode
+
+* Wed Jul 23 2025 Fedora Release Engineering <releng@fedoraproject.org> - 4.23.0-4
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_43_Mass_Rebuild
+
+* Tue Jun 03 2025 Python Maint <python-maint@redhat.com> - 4.23.0-3
+- Rebuilt for Python 3.14
+
+* Fri May 30 2025 Cristian Le <git@lecris.dev> - 4.23.0-2
+- Allow to build with ninja
+- Remove python2 build remenants
+
 * Fri Mar 07 2025 Evan Goode <egoode@redhat.com> - 4.23.0-1
 - Update to 4.23.0
 
@@ -459,7 +456,7 @@ popd
 - doc: Naming of source and debug repos
 - spec: Move /var/cache/dnf from dnf to python3-dnf
 - spec: Remove preview yum_compat_level
-- spec: Simplify %files dnf section for both yum_compat_levels
+- spec: Simplify %%files dnf section for both yum_compat_levels
 - spec: Fix ownership of /etc/yum tree
 - Allow --installroot on read-only bootc system
 - spec: If DNF5 obsoletes DNF, do not build dnf and yum packages
@@ -498,7 +495,7 @@ popd
 - Update to 4.21.0
 - Add detection for ostree-based systems and warn users about losing changes
 - Fix: No traceback when Python interpreter is running with -P
-- Allow `%py3_shebang_fix` macro to add `-P` argument to shebang lines
+- Allow `%%py3_shebang_fix` macro to add `-P` argument to shebang lines
 - man: Improve upgrade-minimal command docs (RHEL-6417)
 - Limit queries to nevra forms when provided by command
 - [doc] Remove provide of spec definition for repoquery command
@@ -575,7 +572,7 @@ popd
 - Include dist-info for python3-dnf (RhBug:2239323)
 - Revert "Block signals during RPM transaction processing" (RhBug:2133398)
 - Do not print details of verifying (RhBug:1908253)
-- Add Recommends %{_bindir}/sqlite3 for bash-completion for Fedora
+- Add Recommends %%{_bindir}/sqlite3 for bash-completion for Fedora
 - conf: Split $releasever to $releasever_major and $releasever_minor (RhBug:1789346)
 - Allow DNF to be removed by DNF 5 (RhBug:2221907)
 - Update translations
@@ -717,7 +714,7 @@ popd
 - Allow destdir option with modulesync command
 - Add documentation for query api flags (RhBug:2035577)
 - Fix swap command to work with local rpm files correctly (RhBug:2036434)
-- Don't recommend %{_bindir}/sqlite3 for bash-completion (RhBug:1947925)
+- Don't recommend %%{_bindir}/sqlite3 for bash-completion (RhBug:1947925)
 - Recommend rpm-plugin-systemd-inhibit only if systemd (RhBug:1947924)
 - Fix regression in verifying signatures using rpmkeys
 - Use rpm.TransactionSet.dbCookie() to determining if rpmdb has changed (RhBug:2043476)
@@ -909,7 +906,7 @@ popd
 - Update to 4.2.21
 - Fix completion helper if solv files not in roon cache (RhBug:1714376)
 - Add bash completion for 'dnf module' (RhBug:1565614)
-- Check command no longer reports  missing %pre and %post deps (RhBug:1543449)
+- Check command no longer reports  missing %%pre and %%post deps (RhBug:1543449)
 - Check if arguments can be encoded in 'utf-8'
 - [doc] Remove incorrect information about includepkgs (RhBug:1813460)
 - Fix crash with "dnf -d 6 repolist" (RhBug:1812682)
@@ -1009,8 +1006,8 @@ popd
 * Tue Oct 01 2019 Ales Matej <amatej@redhat.com> - 4.2.11-1
 - Improve modularity documentation (RhBug:1730162,1730162,1730807,1734081)
 - Fix detection whether system is running on battery (used by metadata caching timer) (RhBug:1498680)
-- New repoquery queryformat: %{reason}
-- Print rpm errors during test transaction (RhBug:1730348) 
+- New repoquery queryformat: %%{reason}
+- Print rpm errors during test transaction (RhBug:1730348)
 - Fix: --setopt and repo with dots
 - Fix incorrectly marked profile and stream after failed rpm transaction check (RhBug:1719679)
 - Show transaction errors inside dnf shell (RhBug:1743644)
@@ -2445,7 +2442,7 @@ popd
 - cosmetic: doc: removed duplicated word (Jan Silhan)
 - doc: described unavailable package corner case with skip_if_unavailable option (RhBug:1119030) (Jan Silhan)
 - log: replaced size with maxsize directive (RhBug:1177394) (Jan Silhan)
-- spec: fixed %ghost log file names (Jan Silhan)
+- spec: fixed %%ghost log file names (Jan Silhan)
 
 * Mon Dec 8 2014 Jan Silhan <jsilhan@redhat.com> - 0.6.3-2
 - logging: reverted naming from a6dde81
@@ -2987,7 +2984,7 @@ popd
 - api: expose RepoDict.get_matching() and RepoDict.all() (RhBug:1071323) (Ales Kozumplik)
 - api: add Repo.set_progress_bar() to the API. (Ales Kozumplik)
 - tests: test_cli_progress uses StringIO to check the output. (Ales Kozumplik)
-- downloads: fix counting past 100% on mirror failures (RhBug:1070598) (Ales Kozumplik)
+- downloads: fix counting past 100%% on mirror failures (RhBug:1070598) (Ales Kozumplik)
 - repo: log callback calls to librepo. (Ales Kozumplik)
 - Add repository-packages remove-or-reinstall command. (Radek Holy)
 - Support negative filtering by new repository name in Base.reinstall. (Radek Holy)

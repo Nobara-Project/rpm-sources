@@ -10,8 +10,10 @@
 
 %global rel_build 1.%{build_timestamp}.%{shortcommit}%{?dist}
 
+%if 0%{?fedora} <= 42
 # F41 doesn't ship urllib3 >= 2.0 needed
 %global urllib3 2.3.0
+%endif
 
 Name:           umu-launcher
 Version:        %{tag}
@@ -21,9 +23,13 @@ Summary:        A tool for launching non-steam games with proton
 License:        GPLv3
 URL:            https://github.com/Open-Wine-Components/umu-launcher
 Source0:        %{url}/archive/refs/tags/%{tag}.tar.gz#/%{name}-%{tag}.tar.gz
+
+%if 0%{?fedora} <= 42
 Source1:        https://github.com/urllib3/urllib3/releases/download/%{urllib3}/urllib3-%{urllib3}.tar.gz
+%endif
 
 BuildArch:  x86_64
+BuildRequires:  rpm-build
 BuildRequires:  meson >= 0.54.0
 BuildRequires:  ninja-build
 BuildRequires:  cmake
@@ -37,40 +43,41 @@ BuildRequires:  python3-installer
 BuildRequires:  python3-hatchling
 BuildRequires:  python
 BuildRequires:  python3
-BuildRequires:  python3-pip
-BuildRequires:  libzstd-devel
+BuildRequires:  cargo
 BuildRequires:  python3-hatch-vcs
 BuildRequires:  python3-wheel
-BuildRequires:  python3-xlib
+BuildRequires:  libzstd-devel
 BuildRequires:  python3-pyzstd
-BuildRequires:  cargo
+BuildRequires:  python3-xlib
+BuildRequires:  wget
 
-# Can't use these yet, F41 doesn't ship urllib3 >= 2.0 needed
-#BuildRequires:  python3-urllib3
+%if 0%{?fedora} > 42
+BuildRequires:  python3-urllib3
+%endif
 
 Requires:	python
 Requires:	python3
 Requires:	python3-xlib
-Requires:	python3-filelock
 Requires:	python3-pyzstd
 
-# Can't use these yet, F41 doesn't ship urllib3 >= 2.0 needed
-#Requires:  python3-urllib3
+%if 0%{?fedora} > 42
+Requires:  python3-urllib3
+%endif
 
 Recommends:	python3-cbor2
 Recommends:	python3-xxhash
 Recommends:	libzstd
 
-# We need this for now to allow umu's builtin urllib3 version to be used.
-# Can be removed when python3-urllib3 version is bumped >= 2.0
+%if 0%{?fedora} <= 42
 AutoReqProv: no
-
+%endif
 
 %description
 %{name} A tool for launching non-steam games with proton
 
 %prep
 %autosetup -p 1
+%if 0%{?fedora} <= 42
 if ! find subprojects/urllib3/ -mindepth 1 -maxdepth 1 | read; then
     # Directory is empty, perform action
     mv %{SOURCE1} .
@@ -78,11 +85,16 @@ if ! find subprojects/urllib3/ -mindepth 1 -maxdepth 1 | read; then
     rm *.tar.gz
     mv urllib3-%{urllib3}/* subprojects/urllib3/
 fi
+%endif
 
 %build
-# Update this when fedora ships urllib3 >= 2.0
-#./configure.sh --prefix=/usr --use-system-pyzstd --use-system-urllib
+
+%if 0%{?fedora} <= 42
 ./configure.sh --prefix=/usr --use-system-pyzstd
+%else
+./configure.sh --prefix=/usr --use-system-pyzstd --use-system-urllib
+%endif
+
 make
 
 %install

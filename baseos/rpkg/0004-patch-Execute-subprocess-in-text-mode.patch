@@ -1,0 +1,30 @@
+From f828c71a8aa080d8c95aea21396f5b799f610af4 Mon Sep 17 00:00:00 2001
+From: "FeRD (Frank Dana)" <ferdnyc@gmail.com>
+Date: Thu, 12 Jun 2025 05:49:15 -0400
+Subject: [PATCH 10/13] `patch`: Execute subprocess in text mode
+
+This prevents `fedpkg patch suffix` aborting with the error message
+"Could not execute patch: write() argument must be str, not bytes".
+
+Merges: https://pagure.io/rpkg/pull-request/744
+
+Signed-off-by: FeRD (Frank Dana) <ferdnyc@gmail.com>
+---
+ pyrpkg/__init__.py | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/pyrpkg/__init__.py b/pyrpkg/__init__.py
+index ad5ee31..a0fbb6d 100644
+--- a/pyrpkg/__init__.py
++++ b/pyrpkg/__init__.py
+@@ -2178,6 +2178,7 @@ class Commands(object):
+             self.log.debug('Running %s', ' '.join(cmd))
+             (output, errors) = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                                 stderr=subprocess.PIPE,
++                                                universal_newlines=True,
+                                                 cwd=self.path).communicate()
+         except Exception as e:
+             raise rpkgError('Error running gendiff: %s' % e)
+-- 
+2.51.0
+

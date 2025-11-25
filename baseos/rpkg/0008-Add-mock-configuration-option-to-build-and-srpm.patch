@@ -1,0 +1,95 @@
+From 041be8edebc59eb5606f80987d8e74fe1bf2099f Mon Sep 17 00:00:00 2001
+From: Anton Bobrov <abobrov@redhat.com>
+Date: Wed, 13 Aug 2025 10:04:33 +0200
+Subject: [PATCH] Add mock configuration option to build and srpm commands for
+ use along with the srpm mock option, same as in mockbuild command.
+
+Add arguments separator for mock rpm shell in
+load_nameverrel_mock to ensure the rpm args go to
+rpm and not mock.
+
+Signed-off-by: Anton Bobrov <abobrov@redhat.com>
+---
+ pyrpkg/__init__.py |  2 +-
+ pyrpkg/cli.py      | 17 +++++++++++++----
+ 2 files changed, 14 insertions(+), 5 deletions(-)
+
+diff --git a/pyrpkg/__init__.py b/pyrpkg/__init__.py
+index 41a84c2..a4e8b23 100644
+--- a/pyrpkg/__init__.py
++++ b/pyrpkg/__init__.py
+@@ -842,7 +842,7 @@ class Commands(object):
+                         "--specfile", "%s" % os.path.join(tmp_root, self.spec)])
+         # escape whole 'rpm' command because it will be executed under mock command
+         rpm_cmd = [shlex.quote(item) for item in rpm_cmd]
+-        main_cmd = cmd + ['--shell'] + rpm_cmd \
++        main_cmd = cmd + ['--shell'] + ['--'] + rpm_cmd \
+             + ['> ' + os.path.join(tmp_root, 'output')]
+ 
+         copyout_cmd = cmd + ['--copyout', os.path.join(tmp_root, 'output'), tmp_resultdir]
+diff --git a/pyrpkg/cli.py b/pyrpkg/cli.py
+index 9fbb166..decef3f 100644
+--- a/pyrpkg/cli.py
++++ b/pyrpkg/cli.py
+@@ -569,6 +569,9 @@ class cliClient(object):
+             '--srpm-mock', action='store_true',
+             help='Build from an srpm. Source rpm will be generated in \'mock\''
+                  ' instead of \'rpmbuild\'.')
++        build_parser.add_argument(
++            '--root', '--mock-config', '-r', metavar='CONFIG',
++            dest='root', help='Override mock configuration (like mock -r)')
+         build_parser.set_defaults(command=self.build)
+ 
+     def register_chainbuild(self):
+@@ -1522,6 +1525,9 @@ class cliClient(object):
+             '--srpm-mock', action='store_true',
+             help='Build from an srpm. Source rpm will be generated in \'mock\''
+                  ' instead of \'rpmbuild\'.')
++        scratch_build_parser.add_argument(
++            '--root', '--mock-config', '-r', metavar='CONFIG',
++            dest='root', help='Override mock configuration (like mock -r)')
+         scratch_build_parser.set_defaults(command=self.scratch_build)
+ 
+     def register_sources(self):
+@@ -1585,6 +1591,9 @@ class cliClient(object):
+         srpm_parser.add_argument(
+             '--offline', dest='koji_offline', help='Don\'t connect to the Koji '
+             'and try to work offline', action='store_true')
++        srpm_parser.add_argument(
++            '--root', '--mock-config', '-r', metavar='CONFIG',
++            dest='root', help='Override mock configuration (like mock -r)')
+         srpm_parser.set_defaults(command=self.srpm)
+ 
+     def register_copr_build(self):
+@@ -1967,12 +1976,12 @@ class cliClient(object):
+         if hasattr(self.args, 'srpm_mock') and self.args.srpm_mock:
+             # Set the release and version of a package with mock. Mockbuild needs them.
+             self.cmd.load_nameverrel_mock(mockargs=tuple(),
+-                                          root=None,
++                                          root=self.args.root,
+                                           force_local_mock_config=None)
+             # generate srpm with mock instead of rpmbuild
+             self.log.debug('Generating an srpm with mock')
+             self.cmd.mockbuild(mockargs=tuple(),
+-                               root=None,
++                               root=self.args.root,
+                                hashtype=self.args.hash,
+                                shell=None,
+                                force_local_mock_config=None,
+@@ -3011,11 +3020,11 @@ class cliClient(object):
+ 
+             # Set the release and version of a package with mock. Mockbuild needs them.
+             self.cmd.load_nameverrel_mock(mockargs=tuple(),
+-                                          root=None,
++                                          root=self.args.root,
+                                           force_local_mock_config=None)
+             # generate srpm with mock instead of rpmbuild
+             self.cmd.mockbuild(mockargs=tuple(),
+-                               root=None,
++                               root=self.args.root,
+                                hashtype=self.args.hash,
+                                shell=None,
+                                force_local_mock_config=None,
+-- 
+2.51.0
+

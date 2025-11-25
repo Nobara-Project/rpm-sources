@@ -3,7 +3,7 @@
 Summary:        Nobara package repositories
 Name:           nobara-repos
 Version:        42
-Release:        6%{?eln:.eln%{eln}}
+Release:        7%{?eln:.eln%{eln}}
 License:        MIT
 URL:            https://fedoraproject.org/
 
@@ -27,10 +27,9 @@ Source6:       nobara-pikaos-additional.repo
 Source7:       brave-browser.repo
 
 Source8:       RPM-GPG-KEY-nobara-pubkey
-Source9:       RPM-GPG-KEY-nobara-baseos-pubkey-39
-Source10:       RPM-GPG-KEY-nobara-baseos-pubkey-40
-Source11:       RPM-GPG-KEY-nobara-baseos-pubkey-41
-Source12:       RPM-GPG-KEY-nobara-baseos-pubkey-42
+Source10:       RPM-GPG-KEY-nobara-baseos-pubkey-41
+Source11:       RPM-GPG-KEY-nobara-baseos-pubkey-42
+Source12:       RPM-GPG-KEY-nobara-baseos-pubkey-43
 Source13:       brave-core.asc
 Source14:       RPM-GPG-KEY-nobara-rolling-pubkey
 

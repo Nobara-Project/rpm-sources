@@ -1,0 +1,39 @@
+From 3e766e09ab5403f01c92bb57f0bf4b7ed5cb8b10 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Ond=C5=99ej=20Nosek?= <onosek@redhat.com>
+Date: Tue, 8 Jul 2025 16:49:57 +0200
+Subject: [PATCH 08/13] `pre-push-check`: bogus error - file wasn't listed
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+During the check before a push operation, a file was falsely marked
+as not listed in the specfile and the check failed.
+The marked patch was named "./0001-some-fix.patch" which is rarely
+seen in the specfile. As a fix, file names are normalized and thus
+'./' prefix is removed.
+
+Fixes: #747
+JIRA: RHELCMP-14651
+
+Signed-off-by: Ondřej Nosek <onosek@redhat.com>
+---
+ pyrpkg/__init__.py | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/pyrpkg/__init__.py b/pyrpkg/__init__.py
+index bf8c3e2..8b2ec89 100644
+--- a/pyrpkg/__init__.py
++++ b/pyrpkg/__init__.py
+@@ -4617,7 +4617,8 @@ class Commands(object):
+                 elif res.scheme and res.netloc:
+                     source_files.append(os.path.basename(res.path))
+                 else:
+-                    source_files.append(file_location)
++                    # file path could rarely be in format './0001-my-fix.patch' - normalize it
++                    source_files.append(os.path.normpath(file_location))
+ 
+         if not len(source_files):
+             self.log.warning('No source files found in the specfile \'{0}\'. '
+-- 
+2.51.0
+

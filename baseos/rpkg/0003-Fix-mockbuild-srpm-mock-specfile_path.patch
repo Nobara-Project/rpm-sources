@@ -1,0 +1,27 @@
+From 266ce739a075c6cee1a0221fd8faf0fc823daf37 Mon Sep 17 00:00:00 2001
+From: Tony Wang <wngtk@outlook.com>
+Date: Wed, 2 Jul 2025 21:51:01 +0800
+Subject: [PATCH 09/13] Fix mockbuild --srpm-mock specfile_path
+
+Signed-off-by: Tony Wang <wngtk@outlook.com>
+---
+ pyrpkg/__init__.py | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/pyrpkg/__init__.py b/pyrpkg/__init__.py
+index 8b2ec89..ad5ee31 100644
+--- a/pyrpkg/__init__.py
++++ b/pyrpkg/__init__.py
+@@ -3207,7 +3207,8 @@ class Commands(object):
+         if shell:
+             cmd.append('--shell')
+         elif srpm_mock:
+-            cmd += ['--buildsrpm', '--sources', self.layout.sourcedir, '--spec', self.spec]
++            specfile_path = os.path.join(self.layout.specdir, self.spec)
++            cmd += ['--buildsrpm', '--sources', self.layout.sourcedir, '--spec', specfile_path]
+         else:
+             cmd += ['--rebuild', self.srpmname]
+ 
+-- 
+2.51.0
+

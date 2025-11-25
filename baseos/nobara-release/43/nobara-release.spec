@@ -12,7 +12,11 @@
 
 %if %{is_rawhide}
 %define bug_version rawhide
-%define releasever rawhide
+%if 0%{?eln}
+  %define releasever eln
+%else
+  %define releasever rawhide
+%endif
 %define doc_version rawhide
 %else
 %define bug_version %{dist_version}
@@ -31,7 +35,7 @@ Version:        43
 # The numbering is 0.<r> before a given Fedora Linux release is released,
 # with r starting at 1, and then just <r>, with r starting again at 1.
 # Use '%%autorelease -p' before final, and then drop the '-p'.
-Release:        %autorelease %[0%{?is_development} ? "-p" : ""]
+Release:        %autorelease -b3
 License:        MIT
 URL:            https://www.nobaraproject.org/
 
@@ -44,7 +48,6 @@ Source12:       90-default-user.preset
 Source13:       99-default-disable.preset
 Source14:       80-server.preset
 Source15:       80-workstation.preset
-Source16:       org.gnome.shell.gschema.override
 Source17:       org.projectatomic.rpmostree1.rules
 Source18:       80-iot.preset
 Source19:       distro-template.swidtag
@@ -58,14 +61,7 @@ Source26:       80-kde-desktop.preset
 Source27:       81-desktop.preset
 Source28:       longer-default-shutdown-timeout.conf
 Source29:       org.gnome.settings-daemon.plugins.power.gschema.override
-Source30:       fedora-sway.conf
 Source31:       20-fedora-defaults.conf
-Source32:       75-eln.preset
-Source33:       plasma-mobile.conf
-Source34:       80-kde-mobile.preset
-Source35:       fedora-miraclewm.conf
-Source36:       fedora-cosmic.conf
-Source37:       81-atomic-desktop.preset
 
 BuildArch:      noarch
 
@@ -145,12 +141,12 @@ itself as a particular Edition or Spin.
 
 
 %if %{with kde_desktop}
-%package kde-desktop
+%package kde
 Summary:        Base package for Fedora KDE Plasma Desktop-specific default configurations
 
 RemovePathPostfixes: .kde-desktop
-Obsoletes:      nobara-release-kde < 43-0.9
-Provides:       nobara-release-kde = %{version}-%{release}
+Provides:       nobara-release = %{version}-%{release}
+Provides:       nobara-release-kde
 Provides:       nobara-release-variant = %{version}-%{release}
 Provides:       fedora-release = %{version}-%{release}
 Provides:       fedora-release-variant = %{version}-%{release}
@@ -165,27 +161,27 @@ Requires:       nobara-release-common = %{version}-%{release}
 # fedora-release-common Requires: fedora-release-identity, so at least one
 # package must provide it. This Recommends: pulls in
 # fedora-release-identity-kde if nothing else is already doing so.
-Recommends:     nobara-release-identity-kde-desktop
+Recommends:     nobara-release-identity-kde
 
 
-%description kde-desktop
+%description kde
 Provides a base package for Nobara KDE Plasma-specific configuration files to
 depend on as well as KDE Plasma system defaults.
 
 
-%package identity-kde-desktop
-Summary:        Package providing the identity for Nobara KDE Plasma Desktop Edition
+%package identity-kde
+Summary:        Package providing the identity for Nobara KDE Plasma Spin
 
 RemovePathPostfixes: .kde-desktop
-Obsoletes:      %{name}-identity-kde < 43-0.9
-Provides:       %{name}-identity-kde = %{version}-%{release}
+Provides:       nobara-release-identity = %{version}-%{release}
+Provides:       nobara-release-identity-kde
 Obsoletes:       fedora-release-identity
 Obsoletes:       fedora-release-identity-kde
 Conflicts:      fedora-release-identity
 Requires(meta): nobara-release-kde = %{version}-%{release}
 
 
-%description identity-kde-desktop
+%description identity-kde
 Provides the necessary files for a Nobara installation that is identifying
 itself as Nobara KDE Plasma Spin.
 %endif
@@ -337,9 +333,6 @@ ln -s nobara-release %{buildroot}%{_sysconfdir}/system-release
 %global dist_debuginfod_url https://github.com/nobara-project/rpm-baseos
 # -------------------------------------------------------------------------
 
-# Set the RELEASE_TYPE appropriately
-%define release_type %[0%{?is_development} ? "development" : "stable"]
-
 cat << EOF >> os-release
 NAME="Nobara Linux"
 VERSION="%{dist_version} (%{release_name}%{?prerelease})"
@@ -411,7 +404,6 @@ sed -i -e "s|(%{release_name}%{?prerelease})|(Server Edition%{?prerelease})|g" %
 sed -e "s#\$version#%{bug_version}#g" -e 's/$edition/Server/;s/<!--.*-->//;/^$/d' %{SOURCE20} > %{buildroot}%{_swidtagdir}/org.fedoraproject.Fedora-edition.swidtag.server
 sed -i -e "/^DEFAULT_HOSTNAME=/d" %{buildroot}%{_prefix}/lib/os-release.server
 install -Dm0644 %{SOURCE14} -t %{buildroot}%{_prefix}/lib/systemd/system-preset/
-install -Dm0644 %{SOURCE29} -t %{buildroot}%{_datadir}/glib-2.0/schemas/
 install -Dm0644 %{SOURCE28} -t %{buildroot}%{_prefix}/lib/systemd/system.conf.d/
 install -Dm0644 %{SOURCE28} -t %{buildroot}%{_prefix}/lib/systemd/user.conf.d/
 %endif
@@ -433,8 +425,6 @@ install -Dm0644 %{SOURCE21} -t %{buildroot}%{_sysconfdir}/dnf/protected.d/
 # Silverblue and Workstation
 install -Dm0644 %{SOURCE15} -t %{buildroot}%{_prefix}/lib/systemd/system-preset/
 install -Dm0644 %{SOURCE27} -t %{buildroot}%{_prefix}/lib/systemd/system-preset/
-# Override the list of enabled gnome-shell extensions for Workstation
-install -Dm0644 %{SOURCE16} -t %{buildroot}%{_datadir}/glib-2.0/schemas/
 %endif
 
 %if %{with kde_desktop} || %{with kinoite}
@@ -522,8 +512,8 @@ install -Dm0644 %{SOURCE31} -t %{buildroot}%{_prefix}/share/dnf5/libdnf.conf.d/
 %endif
 
 %if %{with kde_desktop}
-%files kde-desktop
-%files identity-kde-desktop
+%files kde
+%files identity-kde
 %{_prefix}/lib/os-release.kde-desktop
 %{_prefix}/lib/systemd/system-preset/80-kde-desktop.preset
 %{_prefix}/lib/systemd/system-preset/81-desktop.preset
@@ -539,7 +529,6 @@ install -Dm0644 %{SOURCE31} -t %{buildroot}%{_prefix}/share/dnf5/libdnf.conf.d/
 %{_prefix}/lib/systemd/system.conf.d/longer-default-shutdown-timeout.conf
 %{_prefix}/lib/systemd/user.conf.d/longer-default-shutdown-timeout.conf
 %attr(0644,root,root) %{_swidtagdir}/org.fedoraproject.Fedora-edition.swidtag.server
-%{_datadir}/glib-2.0/schemas/org.gnome.settings-daemon.plugins.power.gschema.override
 %endif
 
 %if %{with workstation}
@@ -549,7 +538,6 @@ install -Dm0644 %{SOURCE31} -t %{buildroot}%{_prefix}/share/dnf5/libdnf.conf.d/
 %attr(0644,root,root) %{_swidtagdir}/org.fedoraproject.Fedora-edition.swidtag.workstation
 %{_sysconfdir}/dnf/protected.d/fedora-workstation.conf
 # Keep this in sync with silverblue above
-%{_datadir}/glib-2.0/schemas/org.gnome.shell.gschema.override
 %{_prefix}/lib/systemd/system-preset/80-workstation.preset
 %{_prefix}/lib/systemd/system-preset/81-desktop.preset
 %endif
