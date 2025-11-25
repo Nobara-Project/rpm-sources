@@ -3,8 +3,8 @@
 %global israwhide 0
 
 Name:           rpmfusion-%{_repo}-release
-Version:        42
-Release:        2
+Version:        43
+Release:        1
 Summary:        RPM Fusion (%{_repo}) Repository Configuration
 
 License:        BSD

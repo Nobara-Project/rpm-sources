@@ -4,8 +4,8 @@
 %global appstream_id com.valvesoftware.Steam
 
 Name:           steam
-Version:        1.0.0.83
-Release:        4%{?dist}
+Version:        1.0.0.85
+Release:        1%{?dist}
 Summary:        Installer for the Steam software distribution service
 # Redistribution and repackaging for Linux is allowed, see license file. udev rules are MIT.
 License:        Steam License Agreement and MIT
@@ -15,7 +15,9 @@ ExclusiveArch:  i686
 Source0:        https://repo.steampowered.com/%{name}/archive/beta/%{name}_%{version}.tar.gz
 Source1:        %{name}.sh
 Source2:        %{name}.csh
-Source5:        README.Fedora
+Source3:        README.Fedora
+# Load ntsync at boot. Might be reverted depending on https://fedoraproject.org/wiki/Changes/NTSYNC
+Source4:        ntsync.conf
 
 # Ghost touches in Big Picture mode:
 # https://github.com/ValveSoftware/steam-for-linux/issues/3384
@@ -98,7 +100,7 @@ Requires:       (pipewire-alsa%{?_isa} if pipewire)
 # Patched for Wayland
 # https://github.com/ValveSoftware/steam-for-linux/issues/8853
 # https://github.com/negativo17/steam/issues/9
-%if 0%{?fedora} >= 40
+%if 0%{?fedora}
 Requires:       SDL2%{?_isa}
 %endif
 
@@ -131,7 +133,7 @@ This package contains the installer for the Steam software distribution service.
 %prep
 %autosetup -p1 -n %{name}-launcher
 
-cp %{SOURCE5} .
+cp %{SOURCE3} .
 
 %build
 # Nothing to build
@@ -156,6 +158,11 @@ install -m 644 -p %{SOURCE7} %{buildroot}%{_prefix}/lib/systemd/user.conf.d/
 # https://github.com/ValveSoftware/steam-for-linux/issues/8179
 sed -i 's|PrefersNonDefaultGPU=true|PrefersNonDefaultGPU=false|g' %{buildroot}%{_datadir}/applications/%{name}.desktop
 
+%if 0%{?fedora}
+mkdir -p %{buildroot}%{_modulesloaddir}
+install -m 644 -p %{SOURCE4} %{buildroot}%{_modulesloaddir}/
+%endif
+
 %check
 desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop
 appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/%{appstream_id}.metainfo.xml
@@ -176,8 +183,20 @@ appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/%{appstream_id
 %{_prefix}/lib/systemd/system.conf.d/01-steam.conf
 %dir %{_prefix}/lib/systemd/user.conf.d/
 %{_prefix}/lib/systemd/user.conf.d/01-steam.conf
+%if 0%{?fedora}
+%{_modulesloaddir}/ntsync.conf
+%endif
 
 %changelog
+* Fri Oct 17 2025 Simone Caronni <negativo17@gmail.com> - 1.0.0.85-1
+- Update to 1.0.0.85.
+
+* Sat Sep 06 2025 Simone Caronni <negativo17@gmail.com> - 1.0.0.83-3
+- Load ntsync module.
+
+* Mon Jul 28 2025 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 1.0.0.83-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_43_Mass_Rebuild
+
 * Sun May 11 2025 Simone Caronni <negativo17@gmail.com> - 1.0.0.83-1
 - Update to 1.0.0.83.
 
@@ -226,75 +245,3 @@ appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/%{appstream_id
 
 * Sun Feb 04 2024 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 1.0.0.78-3
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
-
-* Thu Aug 03 2023 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 1.0.0.78-2
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_39_Mass_Rebuild
-
-* Fri May 12 2023 Simone Caronni <negativo17@gmail.com> - 1.0.0.78-1
-- Update to 1.0.0.78.
-
-* Tue Mar 07 2023 Simone Caronni <negativo17@gmail.com> - 1.0.0.76-1
-- Update to 1.0.0.76.
-- Separate SPEC file per distribution.
-- Trim changelog.
-
-* Mon Aug 08 2022 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 1.0.0.75-2
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_37_Mass_Rebuild and ffmpeg
-  5.1
-
-* Fri Jul 22 2022 Simone Caronni <negativo17@gmail.com> - 1.0.0.75-1
-- Update to 1.0.0.75.
-
-* Fri Feb 04 2022 Simone Caronni <negativo17@gmail.com> - 1.0.0.74-2
-- Add gnome-shell-extension-appindicator if running on Gnome (#6194).
-- Require libICE to avoid spamming the console. It's installed by default on a
-  Gnome installation but not explicitly required (#6195).
-
-* Fri Dec 10 2021 Simone Caronni <negativo17@gmail.com> - 1.0.0.74-1
-- Update to 1.0.0.74.
-
-* Sat Nov 20 2021 Simone Caronni <negativo17@gmail.com> - 1.0.0.73-1
-- Update to 1.0.0.73.
-
-* Sat Oct 09 2021 Simone Caronni <negativo17@gmail.com> - 1.0.0.72-1
-- Update to 1.0.0.72.
-
-* Fri Aug 27 2021 Simone Caronni <negativo17@gmail.com> - 1.0.0.71-4
-- Remove old noruntime provide/obsolete.
-- Remove VA-API driver dependencies for RHEL/CentOS 7 and update relevant
-  information.
-- Remove not really relevant information about controllers from the readme.
-- Update steam-devices.
-
-* Wed Aug 25 2021 Nicolas Chauvet <kwizart@gmail.com> - 1.0.0.71-3
-- Keep the stream-devices sub-package arched
-
-* Sun Aug 15 2021 Simone Caronni <negativo17@gmail.com> - 1.0.0.71-2
-- Steam UDEV subpackage should be noarch.
-
-* Sun Aug 15 2021 Simone Caronni <negativo17@gmail.com> - 1.0.0.71-1
-- Update to 1.0.0.71.
-- Update README.Fedora with supported controllers.
-- Use bundled AppData.
-
-* Wed Aug 04 2021 RPM Fusion Release Engineering <leigh123linux@gmail.com> - 1.0.0.70-5
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_35_Mass_Rebuild
-
-* Wed Jun 30 2021 Simone Caronni <negativo17@gmail.com> - 1.0.0.70-4
-- Separate udev rules in separate subpackage to be used also by Valve's Flatpak
-  Steam client.
-- Use upstream's udev rules as those are newer than what is bundled in the
-  installer tarball.
-
-* Tue May 04 2021 Leigh Scott <leigh123linux@gmail.com> - 1.0.0.70-3
-- Fix appdata screenshots (rfbz#5984)
-
-* Mon Apr 12 2021 Simone Caronni <negativo17@gmail.com> - 1.0.0.70-2
-- Remove new desktop entry specification for Fedora 32 and RHEL/CentOS 7/8.
-
-* Mon Apr 12 2021 Simone Caronni <negativo17@gmail.com> - 1.0.0.70-1
-- Update to 1.0.0.70.
-- Switch to tarball provided steam-devices udev rules.
-
-* Thu Feb 04 2021 RPM Fusion Release Engineering <leigh123linux@gmail.com> - 1.0.0.68-7
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_34_Mass_Rebuild
