@@ -14,9 +14,9 @@
 %endif
 %endif
 
-Name: Sunshine
+Name: sunshine
 Version: %{build_version}
-Release: 2%{?dist}
+Release: 3%{?dist}
 Summary: Self-hosted game stream host for Moonlight.
 License: GPLv3-only
 URL: https://github.com/LizardByte/Sunshine
@@ -156,6 +156,9 @@ Requires: libnuma1
 Requires: libopenssl3
 Requires: libpulse0
 %endif
+
+Provides: sunshine
+Provides: Sunshine
 
 %description
 Self-hosted game stream host for Moonlight.
