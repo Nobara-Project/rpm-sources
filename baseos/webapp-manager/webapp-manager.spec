@@ -3,7 +3,7 @@
 Name:     webapp-manager
 Summary: Web Application Manager
 Version:  master.mint22
-Release:  2%{?dist}
+Release:  3%{?dist}
 Group: admin
 License: GPLv3
 Source0: https://github.com/linuxmint/%{name}/archive/refs/tags/%{version}.tar.gz
@@ -29,13 +29,14 @@ Requires: python3-gobject
 Requires: python3-setproctitle
 Requires: python3-tldextract
 Requires: xapps
+Requires: xapp-symbolic-icons
 
 
 %description
 Launch websites as if they were apps.
 
 %prep
-%setup -q
+%autosetup
 
 %build
 make %{?_smp_mflags}
@@ -43,13 +44,15 @@ make %{?_smp_mflags}
 %install
 mkdir -p %{buildroot}
 cp -a usr %{buildroot}
+# remove duplicate .desktop file
+rm -rf %{buildroot}/%{_datadir}/applications/kde4
 
 %files
+%doc README.md
+%license LICENSE
 %{_bindir}/%{name}
 /usr/lib/%{name}
-%{_datadir}/applications/kde4/%{name}.desktop
 %{_datadir}/applications/%{name}.desktop
-#%{_datadir}/doc/%{name}
 %{_datadir}/glib-2.0/schemas/org.x.%{name}.gschema.xml
 %{_datadir}/icons/hicolor/scalable/apps/%{name}.svg
 %{_datadir}/locale/*/LC_MESSAGES/%{name}.mo
