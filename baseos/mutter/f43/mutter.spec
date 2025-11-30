@@ -28,15 +28,15 @@ URL:           http://www.gnome.org
 Source0:       http://download.gnome.org/sources/%{name}/%{major_version}/%{name}-%{tarball_version}.tar.xz
 
 # https://pagure.io/fedora-workstation/issue/357
+# We enable VRR and fractional scaling here, no need for extra patch
 Source1:       org.gnome.mutter.fedora.gschema.override
 
 # https://bugzilla.redhat.com/show_bug.cgi?id=1936991
 # https://gitlab.gnome.org/GNOME/mutter/-/merge_requests/4786
-Patch0:         mutter-42.alpha-disable-tegra.patch
+Patch:         mutter-42.alpha-disable-tegra.patch
 
 # Nobara additions
-Patch10:	       mutter_increase_check_alive_timeout.patch
-Patch11:        enable-vrr-and-fractional-scaling.patch
+Patch:	mutter_increase_check_alive_timeout.patch
 
 BuildRequires: cvt
 BuildRequires: desktop-file-utils
