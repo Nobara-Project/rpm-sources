@@ -1,4 +1,4 @@
-From ff73f820b1398e5d60b8984b0003db46ad70b8ec Mon Sep 17 00:00:00 2001
+From 33fc4214bcb2f813cf762fda99ef7f1f1755749b Mon Sep 17 00:00:00 2001
 From: Benjamin Berg <bberg@redhat.com>
 Date: Wed, 28 Apr 2021 16:50:03 +0200
 Subject: [PATCH] gdm: Work around failing fingerprint auth
@@ -13,10 +13,10 @@ failure instead.
  1 file changed, 18 insertions(+)
 
 diff --git a/js/gdm/util.js b/js/gdm/util.js
-index 97df6d687e..371953cb25 100644
+index c45579a22b2b..387a468b64b6 100644
 --- a/js/gdm/util.js
 +++ b/js/gdm/util.js
-@@ -109,6 +109,7 @@ export class ShellUserVerifier extends Signals.EventEmitter {
+@@ -110,6 +110,7 @@ export class ShellUserVerifier extends Signals.EventEmitter {
          this._defaultService = null;
          this._preemptingService = null;
          this._fingerprintReaderType = FingerprintReaderType.NONE;
@@ -24,7 +24,7 @@ index 97df6d687e..371953cb25 100644
  
          this._messageQueue = [];
          this._messageQueueTimeoutId = 0;
-@@ -669,6 +670,10 @@ export class ShellUserVerifier extends Signals.EventEmitter {
+@@ -670,6 +671,10 @@ export class ShellUserVerifier extends Signals.EventEmitter {
          this._hold.acquire();
          try {
              this._activeServices.add(serviceName);
@@ -35,7 +35,7 @@ index 97df6d687e..371953cb25 100644
              if (this._userName) {
                  await this._userVerifier.call_begin_verification_for_user(
                      serviceName, this._userName, this._cancellable);
-@@ -763,6 +768,7 @@ export class ShellUserVerifier extends Signals.EventEmitter {
+@@ -764,6 +769,7 @@ export class ShellUserVerifier extends Signals.EventEmitter {
                  const cancellable = this._cancellable;
                  this._fingerprintFailedId = GLib.timeout_add(GLib.PRIORITY_DEFAULT,
                      FINGERPRINT_ERROR_TIMEOUT_WAIT, () => {
@@ -43,7 +43,7 @@ index 97df6d687e..371953cb25 100644
                          this._fingerprintFailedId = 0;
                          if (!cancellable.is_cancelled())
                              this._verificationFailed(serviceName, false);
-@@ -829,6 +835,18 @@ export class ShellUserVerifier extends Signals.EventEmitter {
+@@ -837,6 +843,18 @@ export class ShellUserVerifier extends Signals.EventEmitter {
          if (serviceName === FINGERPRINT_SERVICE_NAME) {
              if (this._fingerprintFailedId)
                  GLib.source_remove(this._fingerprintFailedId);
@@ -63,5 +63,5 @@ index 97df6d687e..371953cb25 100644
  
          // For Not Listed / enterprise logins, immediately reset
 -- 
-2.43.2
+2.51.1
 

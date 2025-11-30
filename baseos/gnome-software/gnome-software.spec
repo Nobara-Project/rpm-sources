@@ -29,7 +29,7 @@
 %global __provides_exclude_from ^%{_libdir}/%{name}/plugins-%{gs_plugin_version}/.*\\.so.*$
 
 Name:      gnome-software
-Version:   49.1
+Version:   49.2
 Release:   1%{?dist}
 Summary:   A software center for GNOME
 
@@ -42,6 +42,9 @@ Source0:   https://download.gnome.org/sources/gnome-software/49/%{name}-%{tarbal
 # it the ./update-patch.sh script
 Patch:     0001-dnf5-plugin.patch
 %endif
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=2416542
+Patch:     0002-rhbug2416542-crash-under-gs_flatpak_refine_wildcard.patch
 
 # ostree and flatpak not on i686 for Fedora and RHEL 10
 # https://github.com/containers/composefs/pull/229#issuecomment-1838735764
