@@ -178,18 +178,6 @@ index 73197b31926a..704bfdac5203 100644
  WMI method Get_WMI()
  --------------------
  
-diff --git a/Documentation/wmi/driver-development-guide.rst b/Documentation/wmi/driver-development-guide.rst
-index 99ef21fc1c1e..5680303ae314 100644
---- a/Documentation/wmi/driver-development-guide.rst
-+++ b/Documentation/wmi/driver-development-guide.rst
-@@ -54,6 +54,7 @@ to matching WMI devices using a struct wmi_device_id table:
- ::
- 
-   static const struct wmi_device_id foo_id_table[] = {
-+         /* Only use uppercase letters! */
-          { "936DA01F-9ABD-4D9D-80C7-02AF85C822A8", NULL },
-          { }
-   };
 diff --git a/MAINTAINERS b/MAINTAINERS
 index 97d958c945e4..d2f696b9f6fc 100644
 --- a/MAINTAINERS
@@ -8667,13 +8655,13 @@ diff --git a/drivers/platform/x86/Kconfig b/drivers/platform/x86/Kconfig
 index fc45a7c8c201..f1ce44fa1b31 100644
 --- a/drivers/platform/x86/Kconfig
 +++ b/drivers/platform/x86/Kconfig
-@@ -555,8 +555,12 @@ config MSI_WMI
+@@ -555,9 +555,12 @@ config MSI_WMI
  
  config MSI_WMI_PLATFORM
  	tristate "MSI WMI Platform features"
 +	depends on ACPI_BATTERY
  	depends on ACPI_WMI
-+	depends on DMI
+ 	depends on DMI
  	depends on HWMON
 +	select ACPI_PLATFORM_PROFILE
 +	select FW_ATTR_CLASS
@@ -8808,11 +8796,9 @@ index dc5e9878cb68..b40e15ac71cf 100644
   */
  
  #define pr_format(fmt) KBUILD_MODNAME ": " fmt
-@@ -14,27 +15,40 @@
- #include <linux/debugfs.h>
- #include <linux/device.h>
+@@ -17,26 +17,38 @@
  #include <linux/device/driver.h>
-+#include <linux/dmi.h>
+ #include <linux/dmi.h>
  #include <linux/errno.h>
 +#include <linux/fixp-arith.h>
 +#include <linux/platform_profile.h>
@@ -8837,8 +8823,7 @@ index dc5e9878cb68..b40e15ac71cf 100644
 +
  #define DRIVER_NAME	"msi-wmi-platform"
  
--#define MSI_PLATFORM_GUID	"ABBC0F6E-8EA1-11d1-00A0-C90629100000"
-+#define MSI_PLATFORM_GUID	"ABBC0F6E-8EA1-11D1-00A0-C90629100000"
+ #define MSI_PLATFORM_GUID	"ABBC0F6E-8EA1-11D1-00A0-C90629100000"
  
  #define MSI_WMI_PLATFORM_INTERFACE_VERSION	2
  
@@ -10196,56 +10181,14 @@ index dc5e9878cb68..b40e15ac71cf 100644
  static const struct wmi_device_id msi_wmi_platform_id_table[] = {
  	{ MSI_PLATFORM_GUID, NULL },
  	{ }
-@@ -446,9 +1514,48 @@ static struct wmi_driver msi_wmi_platform_driver = {
+@@ -1502,6 +1514,7 @@ static struct wmi_driver msi_wmi_platform_driver = {
  	},
  	.id_table = msi_wmi_platform_id_table,
  	.probe = msi_wmi_platform_probe,
 +	.remove = msi_wmi_platform_remove,
  	.no_singleton = true,
  };
--module_wmi_driver(msi_wmi_platform_driver);
-+
-+/*
-+ * MSI reused the WMI GUID from the WMI-ACPI sample code provided by Microsoft,
-+ * so other manufacturers might use it as well for their WMI-ACPI implementations.
-+ */
-+static const struct dmi_system_id msi_wmi_platform_whitelist[] __initconst = {
-+	{
-+		.matches = {
-+			DMI_MATCH(DMI_SYS_VENDOR, "MICRO-STAR INT"),
-+		},
-+	},
-+	{
-+		.matches = {
-+			DMI_MATCH(DMI_SYS_VENDOR, "Micro-Star International"),
-+		},
-+	},
-+	{ }
-+};
-+
-+static int __init msi_wmi_platform_module_init(void)
-+{
-+	if (!dmi_check_system(msi_wmi_platform_whitelist)) {
-+		if (!force)
-+			return -ENODEV;
-+
-+		pr_warn("Ignoring DMI whitelist\n");
-+	}
-+
-+	return wmi_driver_register(&msi_wmi_platform_driver);
-+}
-+
-+static void __exit msi_wmi_platform_module_exit(void)
-+{
-+	wmi_driver_unregister(&msi_wmi_platform_driver);
-+}
-+
-+module_init(msi_wmi_platform_module_init);
-+module_exit(msi_wmi_platform_module_exit);
-+
  
- MODULE_AUTHOR("Armin Wolf <W_Armin@gmx.de>");
- MODULE_DESCRIPTION("MSI WMI platform features");
 diff --git a/drivers/platform/x86/zotac-zone-platform.c b/drivers/platform/x86/zotac-zone-platform.c
 new file mode 100644
 index 000000000000..d097f7b9c5a0

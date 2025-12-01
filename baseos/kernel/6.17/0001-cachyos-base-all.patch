@@ -4152,6 +4152,20 @@ index 000000000000..5106e8a41e25
 +MODULE_DESCRIPTION("ASUS BIOS Configuration Driver");
 +MODULE_LICENSE("GPL");
 +MODULE_ALIAS("wmi:" ASUS_NB_WMI_EVENT_GUID);
+diff --git a/drivers/platform/x86/asus-armoury.c b/drivers/platform/x86/asus-armoury.c
+index 5106e8a41e25e1..9c1a9ad42bc461 100644
+--- a/drivers/platform/x86/asus-armoury.c
++++ b/drivers/platform/x86/asus-armoury.c
+@@ -869,7 +869,8 @@ static bool has_valid_limit(const char *name, const struct power_limits *limits)
+ 
+ static int asus_fw_attr_add(void)
+ {
+-	const struct rog_tunables *const ac_rog_tunables = asus_armoury.rog_tunables[ASUS_ROG_TUNABLE_DC];
++	const struct rog_tunables *const ac_rog_tunables =
++		asus_armoury.rog_tunables[ASUS_ROG_TUNABLE_AC];
+ 	const struct power_limits *limits;
+ 	bool should_create;
+ 	const char *name;
 diff --git a/drivers/platform/x86/asus-armoury.h b/drivers/platform/x86/asus-armoury.h
 new file mode 100644
 index 000000000000..40fcd7c04b73
@@ -20055,16 +20069,16 @@ index a32fae510ed2..662465733ddb 100644
  static void quirk_no_pps_backlight_power_hook(struct intel_display *display)
  {
  	intel_set_quirk(display, QUIRK_NO_PPS_BACKLIGHT_POWER_HOOK);
-@@ -231,6 +243,9 @@ static struct intel_quirk intel_quirks[] = {
+@@ -249,6 +249,9 @@ static struct intel_quirk intel_quirks[] = {
  	{ 0x3184, 0x1019, 0xa94d, quirk_increase_ddi_disabled_time },
  	/* HP Notebook - 14-r206nv */
  	{ 0x0f31, 0x103c, 0x220f, quirk_invert_brightness },
-+
++	
 +	/* Apple MacBookPro15,1 */
 +	{ 0x3e9b, 0x106b, 0x0176, quirk_ddi_a_force_4_lanes },
- };
  
- static const struct intel_dpcd_quirk intel_dpcd_quirks[] = {
+ 	/* Dell XPS 13 7390 2-in-1 */
+ 	{ 0x8a12, 0x1028, 0x08b0, quirk_edp_limit_rate_hbr2 },
 diff --git a/drivers/gpu/drm/i915/display/intel_quirks.h b/drivers/gpu/drm/i915/display/intel_quirks.h
 index cafdebda7535..a5296f82776e 100644
 --- a/drivers/gpu/drm/i915/display/intel_quirks.h
@@ -20074,9 +20088,9 @@ index cafdebda7535..a5296f82776e 100644
  	QUIRK_NO_PPS_BACKLIGHT_POWER_HOOK,
  	QUIRK_FW_SYNC_LEN,
 +	QUIRK_DDI_A_FORCE_4_LANES,
+ 	QUIRK_EDP_LIMIT_RATE_HBR2,
  };
  
- void intel_init_quirks(struct intel_display *display);
 diff --git a/drivers/gpu/vga/vga_switcheroo.c b/drivers/gpu/vga/vga_switcheroo.c
 index 68e45a26e85f..7580172daade 100644
 --- a/drivers/gpu/vga/vga_switcheroo.c
