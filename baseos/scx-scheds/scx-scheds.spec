@@ -1,7 +1,7 @@
 %define _disable_source_fetch 0
 
 Name:           scx-scheds
-Version:        1.0.18
+Version:        1.0.19
 Release:        1%{?dist}
 Summary:        Sched_ext Schedulers and Tools
 
@@ -81,6 +81,9 @@ find target/release \
 %{_bindir}/*
 
 %changelog
+* Wed Dec 03 2025 LionHeartP <LionHeartP@proton.me> - 1.0.19-1
+- Update to 1.0.19
+
 * Wed Nov 12 2025 LionHeartP <LionHeartP@proton.me> - 1.0.18-1
 - Update to 1.0.18
 - Swap to cargo build
