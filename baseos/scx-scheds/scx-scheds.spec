@@ -34,7 +34,7 @@ Requires:  libseccomp
 Requires:  protobuf
 Requires:  zlib
 Requires:  jq
-Requires:  scx-tools = %{version}
+Requires:  scx-tools
 Conflicts: scx-scheds-git
 Conflicts: scx_layered
 Conflicts: scx_rustland
@@ -83,6 +83,7 @@ find target/release \
 %changelog
 * Wed Dec 03 2025 LionHeartP <LionHeartP@proton.me> - 1.0.19-1
 - Update to 1.0.19
+- Remove explicit version requirement with scx-tools
 
 * Wed Nov 12 2025 LionHeartP <LionHeartP@proton.me> - 1.0.18-1
 - Update to 1.0.18
