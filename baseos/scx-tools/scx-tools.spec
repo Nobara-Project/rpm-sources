@@ -1,7 +1,7 @@
 %define _disable_source_fetch 0
 
 Name:           scx-tools
-Version:        1.0.18
+Version:        1.0.19
 Release:        %autorelease
 Summary:        Sched_ext Tools
 
@@ -58,6 +58,7 @@ find target/release \
 %{_unitdir}/scx_loader.service
 
 # DBus service and configuration
+%{_datadir}/dbus-1/interfaces/org.scx.Loader.xml
 %{_datadir}/dbus-1/system-services/org.scx.Loader.service
 %{_datadir}/dbus-1/system.d/org.scx.Loader.conf
 
@@ -68,5 +69,8 @@ find target/release \
 %{_datadir}/scx_loader/config.toml
 
 %changelog
+* Wed Dec 03 2025 LionHeartP <LionHeartP@proton.me> - 1.0.19-1
+- Update to 1.0.19
+
 * Wed Nov 12 2025 LionHeartP <LionHeartP@proton.me> - 1.0.18-1
 - Initial package ported from copr-linux-cachyos
