@@ -38,7 +38,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.17
-%define _stablekver 10
+%define _stablekver 11
 %define _rcver rc7
 %if %{_stablekver} == 0
 %define _tarkver %{_basekver}
@@ -1120,6 +1120,9 @@ fi
 %files
 
 %changelog
+* Sun Dec 07 2025 LionHeartP <LionHeartP@proton.me> - 6.17.11-200
+- Update to 6.17.11
+
 * Mon Dec 01 2025 LionHeartP <LionHeartP@proton.me> - 6.17.10-200
 - Update to 6.17.10
 
