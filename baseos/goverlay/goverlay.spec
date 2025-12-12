@@ -1,10 +1,10 @@
 Name:           goverlay
-Version:        1.6.1
+Version:        1.6.2
 Release:        %autorelease
 Epoch:          2
 Summary:        Project that aims to create a Graphical UI to help manage Linux overlays
 ExclusiveArch:  %{fpc_arches}
-%global commit dfc887d8b603718e02a9c4a034abc3ec504a448b
+%global commit a7701c9d71d83dd58fc128be2bd3618bfa64de28
 
 License:        GPLv3+
 URL:            https://github.com/benjamimgois/goverlay
@@ -72,6 +72,9 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/*.desktop
 
 
 %changelog
+* Thu Dec 11 2025 LionHeartP <LionHeartP@proton.me> - 1.6.2-1
+- Update to 1.6.2
+
 * Tue Nov 18 2025 LionHeartP <LionHeartP@proton.me> - 1.6.1-1
 - Update to 1.6.1
 
