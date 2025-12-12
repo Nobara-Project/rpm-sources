@@ -38,7 +38,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.17
-%define _stablekver 8
+%define _stablekver 11
 %define _rcver rc7
 %if %{_stablekver} == 0
 %define _tarkver %{_basekver}
@@ -60,7 +60,7 @@ Version: %{_basekver}.%{_stablekver}
 Release:%{customver}.nobara%{?dist}
 
 # Define rawhide fedora version
-%define _rawhidever 43
+%define _rawhidever 44
 
 %define rpmver %{version}-%{release}
 %define rpmverobsolete 6.12.9-200.fsync%{?dist}
@@ -1120,6 +1120,15 @@ fi
 %files
 
 %changelog
+* Sun Dec 07 2025 LionHeartP <LionHeartP@proton.me> - 6.17.11-200
+- Update to 6.17.11
+
+* Mon Dec 01 2025 LionHeartP <LionHeartP@proton.me> - 6.17.10-200
+- Update to 6.17.10
+
+* Mon Nov 24 2025 LionHeartP <LionHeartP@proton.me> - 6.17.9-200
+- Update to 6.17.9
+
 * Fri Nov 14 2025 LionHeartP <LionHeartP@proton.me> - 6.17.8-200
 - Update to 6.17.8
 
