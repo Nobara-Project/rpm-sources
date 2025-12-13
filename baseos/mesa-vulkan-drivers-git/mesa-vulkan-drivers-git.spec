@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit 6dff50c8bc7430bf04c0dc5d8dc648f6ed73e4f3
+%global commit 9e62e225984cfbb9502c7fe5c9fa9066f8eca618
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 4.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 6.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -329,9 +329,11 @@ rewrite_wrap_file rustc-hash
 
 %if 0%{?with_nvk}
 %cargo_license_summary
-%{cargo_license} > LICENSE.dependencies
+%{cargo_license} > LICENSE.dependencies.%{_arch}
 %if 0%{?vendor_nvk_crates}
 %cargo_vendor_manifest
+install -Dpm0644 cargo-vendor.txt \
+  %{buildroot}%{_licensedir}/%{name}/cargo-vendor.%{_arch}.txt
 %endif
 %endif
 
@@ -477,9 +479,9 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 
 %files
 %if 0%{?with_nvk}
-%license LICENSE.dependencies
+%license LICENSE.dependencies.%{_arch}
 %if 0%{?vendor_nvk_crates}
-%license cargo-vendor.txt
+%license cargo-vendor.%{_arch}.txt
 %endif
 %endif
 %{_libdir}/libvulkan_lvp.so

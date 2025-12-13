@@ -64,7 +64,7 @@ Name:           mesa-vulkan-drivers-freeworld
 Summary:        The mesa graphics vulkan driver stack.
 %global ver 25.3.1
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
-Release:        %autorelease
+Release:        %autorelease -b2
 License:        MIT
 URL:            http://www.mesa3d.org
 
@@ -432,7 +432,23 @@ rm -Rf %{buildroot}%{_libdir}/pkgconfig/gbm.pc
 rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
+%if 0%{?with_nvk}
+%cargo_license_summary
+%{cargo_license} > LICENSE.dependencies.%{_arch}
+%if 0%{?vendor_nvk_crates}
+%cargo_vendor_manifest
+install -Dpm0644 cargo-vendor.txt \
+  %{buildroot}%{_licensedir}/%{name}/cargo-vendor.%{_arch}.txt
+%endif
+%endif
+
 %files
+%if 0%{?with_nvk}
+%license LICENSE.dependencies.%{_arch}
+%if 0%{?vendor_nvk_crates}
+%license cargo-vendor.%{_arch}.txt
+%endif
+%endif
 %{_libdir}/libvulkan_lvp.so
 %{_datadir}/vulkan/icd.d/lvp_icd.*.json
 %{_libdir}/libVkLayer_MESA_anti_lag.so

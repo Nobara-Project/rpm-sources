@@ -77,7 +77,7 @@ Name:           %{srcname}-freeworld
 Summary:        Mesa graphics libraries
 %global ver 25.3.1
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
-Release:        %autorelease
+Release:        %autorelease -b2
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
 URL:            http://www.mesa3d.org
 
@@ -342,14 +342,6 @@ rewrite_wrap_file rustc-hash
   -Dspirv-tools=%{?with_spirv_tools:enabled}%{!?with_spirv_tools:disabled} \
   %{nil}
 %meson_build
-
-%if 0%{?with_nvk}
-%cargo_license_summary
-%{cargo_license} > LICENSE.dependencies
-%if 0%{?vendor_nvk_crates}
-%cargo_vendor_manifest
-%endif
-%endif
 
 %install
 %meson_install
