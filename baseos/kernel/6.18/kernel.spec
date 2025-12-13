@@ -1024,7 +1024,7 @@ fi
 %{_includedir}/perf/perf_dlfilter.h
 
 %files -n python3-perf
-%{python3_sitearch}/perf*
+%{python3_sitearch}/*
 
 %files -n libperf
 %{_libdir}/libperf.so.0
@@ -1095,10 +1095,6 @@ fi
 %{_includedir}/cpufreq.h
 %{_includedir}/cpuidle.h
 %{_includedir}/powercap.h
-# libcpupower Python bindings
-%{python3_sitearch}/_raw_pylibcpupower.so
-%{python3_sitearch}/raw_pylibcpupower.py
-%{python3_sitearch}/__pycache__/raw_pylibcpupower*
 
 %files -n rtla
 %{_bindir}/rtla
