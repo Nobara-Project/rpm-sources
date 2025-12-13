@@ -1123,7 +1123,7 @@ fi
 %files
 
 %changelog
-* Sun Dec 07 2025 LionHeartP <LionHeartP@proton.me> - 6.17.12-200
+* Fri Dec 12 2025 LionHeartP <LionHeartP@proton.me> - 6.17.12-200
 - Update to 6.17.12
 - Add 0001-amdgpu-Add-CH7218-PCON-to-the-VRR-whitelist.patch
 
