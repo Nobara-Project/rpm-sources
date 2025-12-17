@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit 9e62e225984cfbb9502c7fe5c9fa9066f8eca618
+%global commit f8feed17e1a19e1493ee08a0ae50ffdd3c0bf9bd
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 6.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 7.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -111,6 +111,8 @@ Source15:       https://crates.io/api/v1/crates/rustc-hash/%{rustc_hash_ver}/dow
 
 # https://gitlab.com/evlaV/mesa/
 Patch10:        valve.patch
+
+Patch20:	https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/38987.patch
 
 BuildRequires:  meson >= 1.3.0
 BuildRequires:  gcc
@@ -536,6 +538,10 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Wed Dec 17 2025 LionHeartP <LionHeartP@proton.me> - 25.4.0-7
+- Update to latest commit
+- Include #38987 for SteamVR
+
 * Thu Dec 11 2025 LionHeartP <LionHeartP@proton.me> - 25.4.0-4
 - Update to latest commit
 
