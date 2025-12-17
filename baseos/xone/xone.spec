@@ -1,6 +1,6 @@
 %global _default_patch_fuzz 2
-%global commit 90d965254e534151202e79f768bf7a68ea9f9d4f
-%global commitdate 20251111
+%global commit e927febbedbf8d6f040ff081b0c6703738e7e8d2
+%global commitdate 20251208
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 %if 0%{?fedora}
@@ -9,7 +9,7 @@
 %endif
 
 Name:     xone
-Version:  0.4.11
+Version:  0.5.0
 Release:  1%{?dist}
 Summary:  Linux kernel driver for Xbox One and Xbox Series X|S accessories
 License:  GPLv2
@@ -87,6 +87,9 @@ install -D -m 0644 %{SOURCE1} %{buildroot}%{_modulesloaddir}/%{name}.conf
 %{_modulesloaddir}/%{name}.conf
 
 %changelog
+* Wed Dec 17 2025 LionHeartP <LionHeartP@proton.me> - 0.5.0-1
+- Update to 0.5.0
+
 * Sat Nov 15 2025 LionHeartP <LionHeartP@proton.me> - 0.4.11-1
 - Update to 0.4.11
 
