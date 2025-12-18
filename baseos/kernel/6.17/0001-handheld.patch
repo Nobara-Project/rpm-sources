@@ -894,10 +894,10 @@ diff --git a/drivers/hid/hid-input.c b/drivers/hid/hid-input.c
 index 2c743e35c1d3..fa3cf836b94c 100644
 --- a/drivers/hid/hid-input.c
 +++ b/drivers/hid/hid-input.c
-@@ -390,6 +390,8 @@ static const struct hid_device_id hid_battery_quirks[] = {
- 	 * set HID_BATTERY_QUIRK_IGNORE for all Elan I2C-HID devices.
+@@ -391,6 +391,8 @@ static const struct hid_device_id hid_battery_quirks[] = {
  	 */
  	{ HID_I2C_DEVICE(USB_VENDOR_ID_ELAN, HID_ANY_ID), HID_BATTERY_QUIRK_IGNORE },
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_ELAN, HID_ANY_ID), HID_BATTERY_QUIRK_IGNORE },
 +	{ HID_I2C_DEVICE(USB_VENDOR_ID_NOVATEK, I2C_DEVICE_ID_ONEXPLAYER_X1),
 +	  HID_BATTERY_QUIRK_IGNORE },
  	{}
@@ -8697,89 +8697,6 @@ index 4279f5443f30..027444c7409d 100644
 +
  # OneXPlayer
  obj-$(CONFIG_OXP_EC)			+= oxpec.o
-diff --git a/drivers/platform/x86/amd/pmc/pmc-quirks.c b/drivers/platform/x86/amd/pmc/pmc-quirks.c
-index d63aaad7ef59..404e62ad293a 100644
---- a/drivers/platform/x86/amd/pmc/pmc-quirks.c
-+++ b/drivers/platform/x86/amd/pmc/pmc-quirks.c
-@@ -122,6 +122,14 @@ static const struct dmi_system_id fwbug_list[] = {
- 			DMI_MATCH(DMI_PRODUCT_NAME, "21A1"),
- 		}
- 	},
-+	{
-+		.ident = "ROG Xbox Ally RC73YA",
-+		.driver_data = &quirk_spurious_8042,
-+		.matches = {
-+			DMI_MATCH(DMI_BOARD_VENDOR, "ASUSTeK COMPUTER INC."),
-+			DMI_MATCH(DMI_BOARD_NAME, "RC73YA"),
-+		}
-+	},
- 	/* https://bugzilla.kernel.org/show_bug.cgi?id=218024 */
- 	{
- 		.ident = "V14 G4 AMN",
-@@ -204,6 +212,23 @@ static const struct dmi_system_id fwbug_list[] = {
- 			DMI_MATCH(DMI_PRODUCT_NAME, "82ND"),
- 		}
- 	},
-+	/* https://gitlab.freedesktop.org/drm/amd/-/issues/4618 */
-+	{
-+		.ident = "Lenovo Legion Go 2",
-+		.driver_data = &quirk_s2idle_bug,
-+		.matches = {
-+			DMI_MATCH(DMI_BOARD_VENDOR, "LENOVO"),
-+			DMI_MATCH(DMI_PRODUCT_NAME, "83N0"),
-+		}
-+	},
-+	{
-+		.ident = "Lenovo Legion Go 2",
-+		.driver_data = &quirk_s2idle_bug,
-+		.matches = {
-+			DMI_MATCH(DMI_BOARD_VENDOR, "LENOVO"),
-+			DMI_MATCH(DMI_PRODUCT_NAME, "83N1"),
-+		}
-+	},
- 	/* https://gitlab.freedesktop.org/drm/amd/-/issues/2684 */
- 	{
- 		.ident = "HP Laptop 15s-eq2xxx",
-diff --git a/drivers/platform/x86/amd/pmc/pmc.c b/drivers/platform/x86/amd/pmc/pmc.c
-index bd318fd02ccf..cae3fcafd4d7 100644
---- a/drivers/platform/x86/amd/pmc/pmc.c
-+++ b/drivers/platform/x86/amd/pmc/pmc.c
-@@ -106,6 +106,7 @@ static void amd_pmc_get_ip_info(struct amd_pmc_dev *dev)
- 	switch (dev->cpu_id) {
- 	case AMD_CPU_ID_PCO:
- 	case AMD_CPU_ID_RN:
-+	case AMD_CPU_ID_VG:
- 	case AMD_CPU_ID_YC:
- 	case AMD_CPU_ID_CB:
- 		dev->num_ips = 12;
-@@ -517,6 +518,7 @@ static int amd_pmc_get_os_hint(struct amd_pmc_dev *dev)
- 	case AMD_CPU_ID_PCO:
- 		return MSG_OS_HINT_PCO;
- 	case AMD_CPU_ID_RN:
-+	case AMD_CPU_ID_VG:
- 	case AMD_CPU_ID_YC:
- 	case AMD_CPU_ID_CB:
- 	case AMD_CPU_ID_PS:
-@@ -717,6 +719,7 @@ static const struct pci_device_id pmc_pci_ids[] = {
- 	{ PCI_DEVICE(PCI_VENDOR_ID_AMD, AMD_CPU_ID_RV) },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_AMD, AMD_CPU_ID_SP) },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_AMD, AMD_CPU_ID_SHP) },
-+	{ PCI_DEVICE(PCI_VENDOR_ID_AMD, AMD_CPU_ID_VG) },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_1AH_M20H_ROOT) },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_1AH_M60H_ROOT) },
- 	{ }
-diff --git a/drivers/platform/x86/amd/pmc/pmc.h b/drivers/platform/x86/amd/pmc/pmc.h
-index 62f3e51020fd..fe3f53eb5955 100644
---- a/drivers/platform/x86/amd/pmc/pmc.h
-+++ b/drivers/platform/x86/amd/pmc/pmc.h
-@@ -156,6 +156,7 @@ void amd_mp2_stb_deinit(struct amd_pmc_dev *dev);
- #define AMD_CPU_ID_RN			0x1630
- #define AMD_CPU_ID_PCO			AMD_CPU_ID_RV
- #define AMD_CPU_ID_CZN			AMD_CPU_ID_RN
-+#define AMD_CPU_ID_VG			0x1645
- #define AMD_CPU_ID_YC			0x14B5
- #define AMD_CPU_ID_CB			0x14D8
- #define AMD_CPU_ID_PS			0x14E8
 diff --git a/drivers/platform/x86/msi-wmi-platform.c b/drivers/platform/x86/msi-wmi-platform.c
 index dc5e9878cb68..b40e15ac71cf 100644
 --- a/drivers/platform/x86/msi-wmi-platform.c
