@@ -75,9 +75,9 @@ algorithms and decoding only VC1 algorithm.
 
 Name:           %{srcname}-freeworld
 Summary:        Mesa graphics libraries
-%global ver 25.3.1
+%global ver 25.3.2
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
-Release:        %autorelease -b2
+Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
 URL:            http://www.mesa3d.org
 
@@ -420,6 +420,9 @@ rm -fr %{buildroot}%{_libdir}/libteflon*
 %{_libdir}/libgallium-*.so
 
 %changelog
+* Thu Dec 18 2025 LionHeartP <LionHeartP@proton.me> - 25.3.2-1
+- Update to 25.3.2
+
 * Thu Dec 04 2025 LionHeartP <LionHeartP@proton.me> - 25.3.1-1
 - Update to 25.3.1
 

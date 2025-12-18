@@ -62,9 +62,9 @@
 
 Name:           mesa-vulkan-drivers-freeworld
 Summary:        The mesa graphics vulkan driver stack.
-%global ver 25.3.1
+%global ver 25.3.2
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
-Release:        %autorelease -b2
+Release:        %autorelease
 License:        MIT
 URL:            http://www.mesa3d.org
 
@@ -87,6 +87,8 @@ Source13:       https://crates.io/api/v1/crates/syn/%{rust_syn_ver}/download#/sy
 Source14:       https://crates.io/api/v1/crates/unicode-ident/%{rust_unicode_ident_ver}/download#/unicode-ident-%{rust_unicode_ident_ver}.tar.gz
 Source15:       https://crates.io/api/v1/crates/rustc-hash/%{rustc_hash_ver}/download#/rustc-hash-%{rustc_hash_ver}.tar.gz
 
+# SteamVR Fix
+Patch20:	https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/38987.patch
 
 # https://gitlab.com/evlaV/mesa/
 Patch30:        valve.patch
@@ -482,6 +484,10 @@ install -Dpm0644 cargo-vendor.txt \
 %endif
 
 %changelog
+* Thu Dec 18 2025 LionHeartP <LionHeartP@proton.me> - 25.3.2-1
+- Update to 25.3.2
+- Include #38987 for SteamVR
+
 * Thu Dec 04 2025 LionHeartP <LionHeartP@proton.me> - 25.3.1-1
 - Update to 25.3.1
 - Enable AMD anti-lag
