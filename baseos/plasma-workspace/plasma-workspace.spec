@@ -438,7 +438,6 @@ mkdir -p %{buildroot}%{_userunitdir}/plasma-core.target.d/
 mkdir -p %{buildroot}%{_userunitdir}/plasma-workspace@.target.d/
 
 install -m644 -p -D %{SOURCE40} %{buildroot}%{_userunitdir}/plasma-core.target.d/ssh-agent.conf
-install -m644 -p -D %{SOURCE41} %{buildroot}%{_userunitdir}/plasma-core.target.d/spice-vdagent.conf
 
 %find_lang all --with-html --all-name
 
@@ -534,7 +533,6 @@ fi
 %{_userunitdir}/plasma-core.target
 %dir %{_userunitdir}/plasma-core.target.d/
 %{_userunitdir}/plasma-core.target.d/ssh-agent.conf
-%{_userunitdir}/plasma-core.target.d/spice-vdagent.conf
 %{_userunitdir}/plasma-workspace.target
 %{_userunitdir}/plasma-workspace-wayland.target
 %{_userunitdir}/plasma-workspace-x11.target
