@@ -5,8 +5,8 @@
 
 Name:    plasma-desktop
 Summary: Plasma Desktop shell
-Version: 6.5.3
-Release: 1%{?dist}
+Version: 6.5.4
+Release: 2%{?dist}
 
 License: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only)
 URL:     https://invent.kde.org/plasma/%{name}
@@ -169,6 +169,9 @@ Requires:       signon-plugin-oauth2%{?_isa}
 
 # for kimpanel-ibus-panel and kimpanel-ibus-panel-launcher
 Recommends: ibus
+
+# for drawing tablet support
+Recommends: udev-hid-bpf-stable
 
 # Virtual provides for plasma-workspace
 Provides:       plasmashell(desktop) = %{version}-%{release}
@@ -342,6 +345,18 @@ desktop-file-validate %{buildroot}/%{_datadir}/applications/kaccess.desktop
 
 
 %changelog
+* Tue Dec 16 2025 Neal Gompa <ngompa@fedoraproject.org> - 6.5.4-2
+- Add weak dependency on udev-hid-bpf-stable for tablet support
+
+* Tue Dec 09 2025 Steve Cossette <farchord@gmail.com> - 6.5.4-1
+- 6.5.4
+
+* Thu Nov 27 2025 Steve Cossette <farchord@gmail.com> - 6.5.3-2
+- Rebuild for possible issues with the Qt 6.10.1 update
+
+* Tue Nov 18 2025 Steve Cossette <farchord@gmail.com> - 6.5.3-1
+- 6.5.3
+
 * Tue Nov 04 2025 Steve Cossette <farchord@gmail.com> - 6.5.2-1
 - 6.5.2
 
