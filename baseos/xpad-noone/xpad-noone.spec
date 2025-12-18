@@ -7,11 +7,16 @@
 
 Name:     xpad-noone
 Version:  1
-Release:  3%{?dist}
+Release:  4%{?dist}
 Summary:  xpad drivers without support for Xbox Controllers
 License:  GPLv2
 URL:      https://github.com/medusalix/xpad-noone
 Source0:  %{url}/archive/%{short_commit}/%{name}-%{short_commit}.tar.gz
+
+# Sync with upstream devices
+Patch0:  https://github.com/medusalix/xpad-noone/pull/8.patch
+# Fix for kernel 6.18
+Patch1:  https://github.com/medusalix/xpad-noone/pull/9.patch
 
 BuildRequires:  gcc
 BuildRequires:  make
@@ -47,10 +52,11 @@ kmod package for %{name}
 # print kmodtool output for debugging purposes:
 kmodtool --target %{_target_cpu} --kmodname %{name} %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null
 
-%autosetup -c %{name}-%{short_commit} -N
+%autosetup -n %{name}-%{short_commit} -N
+%autopatch -p1
 
 for kernel_version  in %{?kernel_versions} ; do
-  cp -a %{name}-%{short_commit} _kmod_build_${kernel_version%%___*}
+  cp -a . _kmod_build_${kernel_version%%___*}
 done
 
 %build
@@ -67,10 +73,15 @@ done
 %{?akmod_install}
 
 %files
-%doc %{name}-%{short_commit}/README.md 
-%license %{name}-%{short_commit}/LICENSE
+%doc README.md 
+%license LICENSE
 
 %changelog
+* Wed Dec 17 2025 LionHeartP <LionHeartP@proton.me> - 1-4
+- Patch for kernels 6.18+
+- Patch to add new devices
+- Change spec prep process to accomodate for patching the files
+
 * Tue Jul 23 2024 Jan200101 <sentrycraft123@gmail.com> - 1-3
 - Initial build
 
