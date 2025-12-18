@@ -112,6 +112,7 @@ Source15:       https://crates.io/api/v1/crates/rustc-hash/%{rustc_hash_ver}/dow
 # https://gitlab.com/evlaV/mesa/
 Patch10:        valve.patch
 
+# SteamVR fix
 Patch20:	https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/38987.patch
 
 BuildRequires:  meson >= 1.3.0
