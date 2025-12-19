@@ -2,7 +2,7 @@
 %global dkms_name nvidia
 
 Name:           dkms-%{dkms_name}
-Version:        590.44.01
+Version:        590.48.01
 Release:        1%{?dist}
 Summary:        NVIDIA display driver kernel module
 Epoch:          3

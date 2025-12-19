@@ -1,5 +1,5 @@
 Name:           nvidia-settings
-Version:        590.44.01
+Version:        590.48.01
 Release:        1%{?dist}
 Summary:        Configure the NVIDIA graphics driver
 Epoch:          3
