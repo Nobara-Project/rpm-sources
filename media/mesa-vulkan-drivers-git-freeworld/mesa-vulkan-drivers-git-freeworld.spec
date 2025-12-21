@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit f8feed17e1a19e1493ee08a0ae50ffdd3c0bf9bd
+%global commit 9670c15d46be0029cc821d2589d13174c1743f6f
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 7.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 8.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -538,6 +538,10 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Sun Dec 21 2025 LionHeartP <LionHeartP@proton.me> - 25.4.0-8
+- Update to latest commit
+- Update #38987 with fix for Monado
+
 * Wed Dec 17 2025 LionHeartP <LionHeartP@proton.me> - 25.4.0-7
 - Update to latest commit
 - Include #38987 for SteamVR
