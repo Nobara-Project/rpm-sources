@@ -64,7 +64,7 @@ Name:           mesa-vulkan-drivers-freeworld
 Summary:        The mesa graphics vulkan driver stack.
 %global ver 25.3.2
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
-Release:        %autorelease
+Release:        %autorelease -b2
 License:        MIT
 URL:            http://www.mesa3d.org
 
