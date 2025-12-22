@@ -1,5 +1,5 @@
-%{!?_daemon_version:%global _daemon_version 6.1.1-17}
-%{!?_version:%global _version 1.14.11}
+%{!?_daemon_version:%global _daemon_version 6.2.0-30}
+%{!?_version:%global _version 1.14.12}
 %{!?_release:%global _release 1}
 
 # Disable RPATH since DisplayLinkManager contains this.
@@ -57,12 +57,14 @@ Requires:   dkms
 Requires:   ((%{kernel_pkg_name} >= 4.15 and %{kernel_pkg_name}-devel >= 4.15) or (kernel-16k >= 6.4 and kernel-16k-devel >= 6.4))
 Requires:   make
 Requires:   libusbx
-Requires:   xorg-x11-server-Xorg >= 1.16
+Requires: xorg-x11-server-Xwayland >= 23
+Recommends: xorg-x11-server-Xorg >= 1.16
 Conflicts:  mutter < 3.32
 Conflicts:  xorg-x11-server-Xorg = 1.20.1
 Conflicts:  libevdi%{libevdi_abi}
 
-Provides:   bundled(libevdi) = %{version}
+Provides:   bundled(libevdi1) = %{version}
+Provides:   bundled(dkms-evdi) = %{version}
 
 %description
 This adds support for HDMI/VGA adapters built upon the DisplayLink DL-7xxx,
@@ -245,6 +247,9 @@ fi
 %systemd_postun_with_restart displaylink-driver.service
 
 %changelog
+* Wed Nov 26 2025 Crashdummy <crashdummy1337@proton.me> 1.14.11-2
+- Update displaylink driver to 6.2.0-30
+
 * Tue Sep 02 2025 Crashdummy <crashdummy1337@proton.me> 1.14.11-1
 - Bump evdi to 1.14.11 with preliminary support for kernel 6.17
 
