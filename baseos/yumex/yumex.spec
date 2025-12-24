@@ -7,7 +7,7 @@
 
 Name:     %{app_name}
 Version:  5.4.0
-Release:  1.git.%{shortcommit}%{?dist}
+Release:  2.git.%{shortcommit}%{?dist}
 Summary:  Yum Extender graphical package management tool
 
 Group:    Applications/System
@@ -37,7 +37,7 @@ BuildRequires: git
 Requires: python3-gobject
 Requires: libadwaita >= 1.6
 Requires: gtk4
-Requires: nobara-welcome
+Requires: nobara-updater
 Requires: flatpost
 Requires: python3-dbus
 Requires: flatpak-libs > 1.15.0

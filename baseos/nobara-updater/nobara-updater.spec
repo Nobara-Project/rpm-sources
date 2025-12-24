@@ -1,6 +1,6 @@
 Name:          nobara-updater
 Version:       2.0.1
-Release:       4%{?dist}
+Release:       5%{?dist}
 License:       GPL-3.0-or-later
 Summary:       Nobara System Updater
 
@@ -46,10 +46,6 @@ Requires: xprop
 
 Provides: nobara-sync
 Obsoletes: nobara-sync
-
-Requires:	nobara-welcome > 5.0.1
-Requires:	nobara-driver-manager > 1.0
-Requires:	yumex > 5.0.2
 
 %description
 Nobara System Updater.

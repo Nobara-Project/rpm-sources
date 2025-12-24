@@ -1,6 +1,6 @@
 Name:          nobara-welcome
 Version:       5.0.2
-Release:       29%{?dist}
+Release:       30%{?dist}
 License:       GPLv2
 Group:         System Environment/Libraries
 Summary:       Nobara's Welcome App
@@ -27,9 +27,6 @@ Requires: 	glib2
 
 # App Deps
 Requires:	python3-gobject
-Requires:	nobara-login
-Provides:	nobara-login-config
-Obsoletes:	nobara-login-config
 Requires:	nobara-controller-config
 Requires:	webapp-manager
 Requires:	papirus-icon-theme

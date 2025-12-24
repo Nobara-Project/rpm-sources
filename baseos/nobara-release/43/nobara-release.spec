@@ -1,10 +1,6 @@
 %define release_name Forty Three
 %define is_rawhide 0
 
-# Define this to 1 for Branched releases prior to RC
-# or 0 for RC and stable releases
-%define is_development 0
-
 %define eol_date 2026-12-02
 
 %define dist_version 43
@@ -12,11 +8,7 @@
 
 %if %{is_rawhide}
 %define bug_version rawhide
-%if 0%{?eln}
-  %define releasever eln
-%else
-  %define releasever rawhide
-%endif
+%define releasever rawhide
 %define doc_version rawhide
 %else
 %define bug_version %{dist_version}
@@ -35,7 +27,7 @@ Version:        43
 # The numbering is 0.<r> before a given Fedora Linux release is released,
 # with r starting at 1, and then just <r>, with r starting again at 1.
 # Use '%%autorelease -p' before final, and then drop the '-p'.
-Release:        %autorelease -b3
+Release:        %autorelease -b5
 License:        MIT
 URL:            https://www.nobaraproject.org/
 
@@ -75,7 +67,6 @@ Provides:	fedora-release = %{version}-%{release}
 Provides:       system-release(%{version})
 Provides:       base-module(platform:f%{version})
 Requires:       nobara-release-common = %{version}-%{release}
-Requires:	nobara-login
 
 # fedora-release-common Requires: fedora-release-identity, so at least one
 # package must provide it. This Recommends: pulls in
@@ -315,12 +306,6 @@ ln -s nobara-release %{buildroot}%{_sysconfdir}/system-release
 %global dist_vendor Nobara
 %global dist_name   Nobara Linux
 
-# The namespace for purl
-# https://github.com/package-url/purl-spec
-# for example as in: pkg:rpm/fedora/python-setuptools@69.2.0-10.fc41?arch=src"
-# Note that we use "fedora" even for Fedora ELN
-%global dist_purl_namespace nobara
-
 # URL of the homepage of the distribution
 # Example: gstreamer1-plugins-base.spec
 %global dist_home_url https://nobaraproject.org/
@@ -449,7 +434,6 @@ cat >> %{buildroot}%{_rpmconfigdir}/macros.d/macros.dist << EOF
 %%dist                %%{!?distprefix0:%%{?distprefix}}%%{expand:%%{lua:for i=0,9999 do print("%%{?distprefix" .. i .."}") end}}%%{distcore}%%{?with_bootstrap:%%{__bootstrap}}
 %%dist_vendor         %{dist_vendor}
 %%dist_name           %{dist_name}
-%%dist_purl_namespace %{dist_purl_namespace}
 %%dist_home_url       %{dist_home_url}
 %%dist_bug_report_url %{dist_bug_report_url}
 %%dist_debuginfod_url %{dist_debuginfod_url}
@@ -510,6 +494,8 @@ install -Dm0644 %{SOURCE31} -t %{buildroot}%{_prefix}/share/dnf5/libdnf.conf.d/
 %files identity-basic
 %{_prefix}/lib/os-release.basic
 %endif
+
+
 
 %if %{with kde_desktop}
 %files kde
