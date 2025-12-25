@@ -3,7 +3,7 @@
 
 Name:           dkms-%{dkms_name}
 Version:        590.44.01
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        NVIDIA display driver kernel module
 Epoch:          3
 License:        NVIDIA License
@@ -13,14 +13,14 @@ ExclusiveArch:  x86_64 aarch64
 
 Source0:        https://github.com/NVIDIA/open-gpu-kernel-modules/archive/%{version}/open-gpu-kernel-modules-%{version}.tar.gz
 Source1:        %{name}.conf
+Patch0:         0001-Enable-atomic-kernel-modesetting-by-default.patch
 
 # The run file contains precompiled C++ code for the open modules:
 #   kernel-open/nvidia/nv-kernel.o_binary
 #   kernel-open/nvidia-modeset/nv-modeset-kernel.o_binary
 # The full open tarball requires also a c++ compiler to build those bits:
+BuildRequires:       gcc-c++
 Requires:       gcc-c++
-
-Patch0:         0001-Enable-atomic-kernel-modesetting-by-default.patch
 
 BuildRequires:  sed
 

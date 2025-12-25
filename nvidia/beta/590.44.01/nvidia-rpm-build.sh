@@ -38,8 +38,8 @@ sed -i "s|VERSION:-.*|VERSION:-$NVVER}|g" nvidia-generate-tarballs.sh
 # Move tarballs to appropriate subfolders:
 mv nvidia-driver* driver/
 mv nvidia-kmod-common* kmod-common/
-cp nvidia-kmod* dkms/
-mv nvidia-kmod* kmod/
+cp open-gpu-kernel-modules* dkms/
+mv open-gpu-kernel-modules* kmod/
 mv nvidia-modprobe* modprobe/
 mv nvidia-persistenced* persistenced/
 mv nvidia-settings* settings/
