@@ -1,12 +1,13 @@
 %global appname MangoHud
 %global forgeurl https://github.com/flightlessmango/MangoHud
-%global commit 1115898d531ed42c73751413e96cc158519b985c
+%global commit f00a5f23a03185acfc887eb523a03bc501681fef
 %global _lto_cflags %{nil}
 %forgemeta
-%global imgui_ver 1.89.9
+%global imgui_ver 1.91.6
 %global imgui_wrap_ver 2
-%global vulkan_headers_ver 1.2.158
-%global vulkan_headers_wrap_ver 1
+%global vulkan_headers_ver 1.3.283
+%global vulkan_headers_wrap_ver 2
+%global vulkan_headers_rev 1
 %global implot_ver 0.16
 %global implot_wrap_ver 2
 
@@ -14,7 +15,7 @@
 
 Name:           mangohud
 Version:        0.8.2
-Release:        %autorelease -b4
+Release:        %autorelease -b5
 Summary:        Vulkan and OpenGL overlay for monitoring FPS, temperatures, CPU/GPU load
 
 License:        MIT
@@ -25,7 +26,7 @@ Source1:        https://github.com/ocornut/imgui/archive/v%{imgui_ver}/imgui-%{i
 Source2: https://wrapdb.mesonbuild.com/v%{imgui_wrap_ver}/imgui_%{imgui_ver}-1/get_patch#/imgui-%{imgui_ver}-%{imgui_wrap_ver}-wrap.zip
 # Vulkan-Headers
 Source3:        https://github.com/KhronosGroup/Vulkan-Headers/archive/v%{vulkan_headers_ver}/Vulkan-Headers-%{vulkan_headers_ver}.tar.gz
-Source4:        https://wrapdb.mesonbuild.com/v%{vulkan_headers_wrap_ver}/projects/vulkan-headers/%{vulkan_headers_ver}/%{vulkan_headers_wrap_ver}/get_zip#/vulkan-headers-%{vulkan_headers_ver}-%{vulkan_headers_wrap_ver}-wrap.zip
+Source4:	https://wrapdb.mesonbuild.com/v%{vulkan_headers_wrap_ver}/vulkan-headers_%{vulkan_headers_ver}-%{vulkan_headers_rev}/get_patch#/vulkan-headers-%{vulkan_headers_ver}-%{vulkan_headers_rev}-patch.zip
 # implot
 Source5:        https://github.com/epezent/implot/archive/v%{implot_ver}/implot-%{implot_ver}.tar.gz
 Source6:        https://wrapdb.mesonbuild.com/v%{implot_wrap_ver}/implot_%{implot_ver}-1/get_patch#/implot-%{implot_ver}-%{implot_wrap_ver}-wrap.zip
@@ -126,6 +127,10 @@ mv implot-%{implot_ver} subprojects/
 sed -i "s@#!/usr/bin/env python@#!/usr/bin/python3@" \
     %{buildroot}%{_bindir}/mangoplot
 
+# Remove bundled static libraries that we don't want to package
+rm -f %{buildroot}%{_libdir}/libimgui.a
+rm -f %{buildroot}%{_libdir}/libimplot.a
+
 # Install Fedora docs
 install -D -p -m 0644 %{SOURCE20} %{buildroot}%{_docdir}/%{name}/README.Fedora.md
 
@@ -152,6 +157,9 @@ install -D -p -m 0644 %{SOURCE20} %{buildroot}%{_docdir}/%{name}/README.Fedora.m
 
 
 %changelog
+* Sun Dec 21 2025 LionHeartP <LionHeartP@proton.me> - 0.8.2-5
+- build: Update to latest commit
+
 * Fri Dec 05 2025 LionHeartP <LionHeartP@proton.me> - 0.8.2-4
 - build: Update to latest commit
 
