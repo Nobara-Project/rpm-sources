@@ -36,7 +36,7 @@ Steam Deck power button daemon
 
 %install
 %make_install DESTDIR=%{buildroot}
-sed -i 's/Requisite=gamescope-session.service//g' %{_userunitdir}/%{name}.service
+sed -i 's/Requisite=gamescope-session.service//g' %{buildroot}/%{_userunitdir}/%{name}.service
 rm -r %{buildroot}/%{_userunitdir}/gamescope-session.service.wants
 
 %post
