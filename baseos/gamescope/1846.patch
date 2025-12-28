@@ -10,17 +10,15 @@ this allows downstream builds to specify custom GLM and stb header paths.
  2 files changed, 19 insertions(+), 4 deletions(-)
 
 diff --git a/meson.build b/meson.build
-index 9050f0081..6a1896a21 100644
+index 802e4a0..2c3d426 100644
 --- a/meson.build
 +++ b/meson.build
-@@ -50,10 +50,23 @@ dep_x11 = dependency('x11')
+@@ -50,8 +50,23 @@ dep_x11 = dependency('x11')
  dep_wayland = dependency('wayland-client')
  vulkan_dep = dependency('vulkan')
  
--glm_proj = subproject('glm')
--glm_dep = glm_proj.get_variable('glm_dep')
--stb_proj = subproject('stb')
--stb_dep = stb_proj.get_variable('stb_dep')
+-glm_dep = dependency('glm')
+-stb_dep = dependency('stb')
 +glm_include_dir = get_option('glm_include_dir')
 +if glm_include_dir != ''
 +  glm_inc = include_directories(glm_include_dir)
