@@ -1,6 +1,6 @@
 Name:           steamos-powerbuttond
 Version:        3.5
-Release:        %autorelease
+Release:        %autorelease -b2
 Summary:        Steam Deck power button daemon
 
 License:        BSD
@@ -36,6 +36,7 @@ Steam Deck power button daemon
 
 %install
 %make_install DESTDIR=%{buildroot}
+sed -i 's/Requisite=gamescope-session.service//g' %{_userunitdir}/%{name}.service
 rm -r %{buildroot}/%{_userunitdir}/gamescope-session.service.wants
 
 %post
