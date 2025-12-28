@@ -27,7 +27,7 @@ Version:        43
 # The numbering is 0.<r> before a given Fedora Linux release is released,
 # with r starting at 1, and then just <r>, with r starting again at 1.
 # Use '%%autorelease -p' before final, and then drop the '-p'.
-Release:        %autorelease -b5
+Release:        %autorelease -b6
 License:        MIT
 URL:            https://www.nobaraproject.org/
 
@@ -179,7 +179,7 @@ itself as Nobara KDE Plasma Spin.
 
 %if %{with workstation}
 %package workstation
-Summary:        Base package for Nobara Workstation-specific default configurations
+Summary:        Base package for Nobara GNOME-specific default configurations
 
 RemovePathPostfixes: .workstation
 Provides:       nobara-release = %{version}-%{release}
@@ -209,12 +209,12 @@ Recommends:     nobara-release-identity-workstation
 
 
 %description workstation
-Provides a base package for Nobara Workstation-specific configuration files to
+Provides a base package for Nobara GNOME-specific configuration files to
 depend on.
 
 
 %package identity-workstation
-Summary:        Package providing the identity for Nobara Workstation Edition
+Summary:        Package providing the identity for Nobara GNOME Edition
 
 RemovePathPostfixes: .workstation
 Provides:       nobara-release-identity = %{version}-%{release}
@@ -226,7 +226,7 @@ Conflicts:      fedora-release-identity
 
 %description identity-workstation
 Provides the necessary files for a Nobara installation that is identifying
-itself as Nobara Workstation Edition.
+itself as Nobara GNOME Edition.
 %endif
 
 %if %{with server}
@@ -395,19 +395,19 @@ install -Dm0644 %{SOURCE28} -t %{buildroot}%{_prefix}/lib/systemd/user.conf.d/
 
 
 %if %{with workstation}
-# Workstation
+# GNOME
 cp -p os-release \
       %{buildroot}%{_prefix}/lib/os-release.workstation
-echo "VARIANT=\"Workstation Edition\"" >> %{buildroot}%{_prefix}/lib/os-release.workstation
+echo "VARIANT=\"GNOME Edition\"" >> %{buildroot}%{_prefix}/lib/os-release.workstation
 echo "VARIANT_ID=workstation" >> %{buildroot}%{_prefix}/lib/os-release.workstation
-sed -i -e "s|(%{release_name}%{?prerelease})|(Workstation Edition%{?prerelease})|g" %{buildroot}%{_prefix}/lib/os-release.workstation
-sed -e "s#\$version#%{bug_version}#g" -e 's/$edition/Workstation/;s/<!--.*-->//;/^$/d' %{SOURCE20} > %{buildroot}%{_swidtagdir}/org.fedoraproject.Fedora-edition.swidtag.workstation
-# Add Fedora Workstation dnf protected packages list
+sed -i -e "s|(%{release_name}%{?prerelease})|(GNOME Edition%{?prerelease})|g" %{buildroot}%{_prefix}/lib/os-release.workstation
+sed -e "s#\$version#%{bug_version}#g" -e 's/$edition/GNOME/;s/<!--.*-->//;/^$/d' %{SOURCE20} > %{buildroot}%{_swidtagdir}/org.fedoraproject.Fedora-edition.swidtag.workstation
+# Add Fedora GNOME dnf protected packages list
 install -Dm0644 %{SOURCE21} -t %{buildroot}%{_sysconfdir}/dnf/protected.d/
 %endif
 
 %if %{with silverblue} || %{with workstation}
-# Silverblue and Workstation
+# Silverblue and GNOME
 install -Dm0644 %{SOURCE15} -t %{buildroot}%{_prefix}/lib/systemd/system-preset/
 install -Dm0644 %{SOURCE27} -t %{buildroot}%{_prefix}/lib/systemd/system-preset/
 %endif
