@@ -1,6 +1,6 @@
 Name:           gamescope-session-plus
 Version:        0.3.216
-Release:        3.git.d8ab829%{?dist}
+Release:        4.git.d8ab829%{?dist}
 Summary:        Gamescope session plus based on Valve's gamescope
 
 License:        MIT
@@ -15,7 +15,7 @@ Requires:       pulseaudio-utils
 Requires:       steam
 Requires:       gamescope-session-steam
 Requires:       gamescope-session-common
-Requires:       steam-powerbuttond
+Requires:       steamos-powerbuttond
 
 BuildRequires:  systemd-rpm-macros
 

@@ -2,7 +2,7 @@
 ## (rpmautospec version 0.8.2)
 ## RPMAUTOSPEC: autorelease, autochangelog
 %define autorelease(e:s:pb:n) %{?-p:0.}%{lua:
-    release_number = 28;
+    release_number = 31;
     base_release_number = tonumber(rpm.expand("%{?-b*}%{!?-b:1}"));
     print(release_number + base_release_number - 1);
 }%{?-e:.%{-e*}}%{?-s:.%{-s*}}%{!?-n:%{?dist}}
@@ -41,14 +41,10 @@ Source0033: setup.sysusers.conf
 Source0034: uidgidlint
 Source0035: serviceslint
 
-Source0036: nobara_profile_discord.sh
-Source0037: nobara_profile_gnome_newfile.sh
 Source0038: nobara_profile_ibus.sh
 Source0039: nobara_profile_nvidia.sh
 Source0040: nobara_profile_obs.sh
-Source0042: nobara_profile_force_nobara_rpm_installer_default.sh
 Source0043: application-x-src+rpm.xml
-Source0044: nobara_profile_extest_wayland_input.sh
 
 BuildArch: noarch
 BuildRequires: bash
@@ -68,7 +64,7 @@ setup files, such as passwd, group, and profile.
 mkdir -p etc/profile.d
 mkdir -p usr/share/mime/packages/
 cp %{lua: for i=1,15 do print(sources[i]..' ') end} etc/
-cp %SOURCE21 %SOURCE22 %SOURCE36 %SOURCE37 %SOURCE38 %SOURCE39 %SOURCE40 %SOURCE42 %SOURCE44 etc/profile.d/
+cp %SOURCE21 %SOURCE22 %SOURCE38 %SOURCE39 %SOURCE40 etc/profile.d/
 cp %SOURCE43 usr/share/mime/packages/
 touch etc/{exports,motd,subgid,subuid,environment,fstab}
 
@@ -201,13 +197,9 @@ end
 %{_tmpfilesdir}/%{name}.conf
 %{_sysusersdir}/setup.conf
 /etc/dnf/protected.d/%{name}.conf
-%config(noreplace) /etc/profile.d/nobara_profile_discord.sh
-%config(noreplace) /etc/profile.d/nobara_profile_gnome_newfile.sh
 %config(noreplace) /etc/profile.d/nobara_profile_ibus.sh
 %config(noreplace) /etc/profile.d/nobara_profile_nvidia.sh
 %config(noreplace) /etc/profile.d/nobara_profile_obs.sh
-%config(noreplace) /etc/profile.d/nobara_profile_force_nobara_rpm_installer_default.sh
-%config(noreplace) /etc/profile.d/nobara_profile_extest_wayland_input.sh
 %{_datadir}/mime/packages/application-x-src+rpm.xml
 %dir /usr/share/dnf5
 %dir /usr/share/dnf5/libdnf.conf.d

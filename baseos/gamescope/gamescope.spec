@@ -1,7 +1,7 @@
 %global libliftoff_minver 0.5.0
 
 # latest git
-%define commit cf288b95fa376a15f30fe8d1a9f750cad54742df
+%define commit c3cc9b8414d4afa8c53217112a71f17a95b939f8
 
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global _default_patch_fuzz 2
@@ -10,7 +10,7 @@
 %global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           gamescope
-Version:        3.16.17
+Version:        3.16.19
 Release:        %{rel_build}
 Summary:        Micro-compositor for video games on Wayland
 
@@ -20,20 +20,11 @@ URL:            https://github.com/ValveSoftware/gamescope
 # Create stb.pc to satisfy dependency('stb')
 Source0:        stb.pc
 
-# From Fedora
-Patch0:         0001-cstdint.patch
-
 # https://github.com/ChimeraOS/gamescope
-Patch1:         chimeraos.patch
+Patch1:         gamescope-ba.patch
 
 # https://github.com/ValveSoftware/gamescope/pull/1846
 Patch2:		1846.patch
-
-# https://github.com/ValveSoftware/gamescope/pull/1867
-# WaylandBackend: Use sRGB cm description for sRGB
-Patch3: 	1867-2.patch
-
-Patch4:         Add-pixman-udev-deps.patch
 
 BuildRequires:  meson >= 0.54.0
 BuildRequires:  ninja-build
@@ -123,7 +114,7 @@ Summary:	libs for %{name}
 %summary
 
 %prep
-git clone https://github.com/ValveSoftware/gamescope
+git clone %{URL}
 cd gamescope
 git checkout %{commit}
 git submodule update --init --recursive
