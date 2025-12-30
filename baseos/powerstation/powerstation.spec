@@ -4,7 +4,7 @@
 
 Name:           powerstation
 Version:        0.7.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Daemon for controlling TDP and performance over DBus
 
 License:        GPL-3.0-or-later
@@ -47,6 +47,8 @@ install -Dm644 rootfs/usr/share/dbus-1/system.d/org.shadowblip.PowerStation.conf
 # Systemd service
 install -Dm644 rootfs/usr/lib/systemd/system/powerstation.service \
   %{buildroot}/usr/lib/systemd/system/powerstation.service
+
+sed -i 's/After=graphical-session.target//g' %{buildroot}/usr/lib/systemd/system/powerstation.service
 
 %files
 %license LICENSE
