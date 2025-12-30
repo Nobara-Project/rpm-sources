@@ -28,6 +28,7 @@ Source30: nobara_login_discord.sh
 Source31: nobara_login_extest_wayland_input.sh
 Source32: nobara_login_force_nobara_rpm_installer_default.sh
 Source33: nobara_login_gnome_newfile.sh
+Source34: 99-thunderbolt.rules
 
 BuildArch: noarch
 BuildRequires: filesystem
