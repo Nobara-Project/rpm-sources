@@ -1,10 +1,10 @@
-%global commit c394f8fb2c168932055c2577247c42390198d7c9
-%global commitdate 20251015
+%global commit a7e4a4dea36187ad3550c797d647bcc50faced42
+%global commitdate 20251124
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 Name:           v4l2loopback
 Summary:        Utils for V4L2 loopback devices
-Version:        0.15.2
+Version:        0.15.3
 Release:        1%{?dist}
 License:        GPLv2+
 
@@ -61,6 +61,9 @@ install -D -m 0644 %{SOURCE2} %{buildroot}%{_modulesloaddir}/v4l2loopback.conf
 
 
 %changelog
+* Sat Dec 27 2025 LionHeartP <LionHeartP@proton.me> - 0.15.3-1
+- Update to 0.15.3
+
 * Sat Nov 15 2025 LionHeartP <LionHeartP@proton.me> - 0.15.2-1
 - Update to 0.15.2
 
