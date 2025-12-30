@@ -1,7 +1,7 @@
 Summary: A set of scripts to run upon first user login
 Name: nobara-login
 Version: 1.2
-Release: 14%{?dist}
+Release: 15%{?dist}
 License: Public Domain
 Group: System Environment/Base
 Source0: hwcheck.sh
@@ -82,6 +82,7 @@ install -m 0755 %{SOURCE14} $RPM_BUILD_ROOT%{_sysconfdir}/polkit-1/rules.d/90-co
 install -m 0755 %{SOURCE15} $RPM_BUILD_ROOT%{_sysconfdir}/login.conf.d/00-handheld-power.conf
 install -m 0755 %{SOURCE16} $RPM_BUILD_ROOT%{_datadir}/pipewire/pipewire-pulse.conf.d/wine_gaming.conf
 install -m 0644 %{SOURCE21} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/99-ntsync.rules
+install -m 0644 %{SOURCE34} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/99-thunderbolt.rules
 install -m 0644 %{SOURCE22} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/70-wooting.rules
 install -m 0644 %{SOURCE23} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/70-asus.rules
 install -m 0644 %{SOURCE24} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/70-drunkdeer.rules
@@ -106,6 +107,7 @@ install -m 0755 %{SOURCE33} $RPM_BUILD_ROOT%{_bindir}/nobara_login_gnome_newfile
 %{_sysconfdir}/udev/rules.d/40-hpet-permissions.rules
 %{_sysconfdir}/udev/rules.d/60-ioschedulers.rules
 %{_sysconfdir}/udev/rules.d/99-ntsync.rules
+%{_sysconfdir}/udev/rules.d/99-thunderbolt.rules
 %{_sysconfdir}/udev/rules.d/70-wooting.rules
 %{_sysconfdir}/udev/rules.d/70-drunkdeer.rules
 %{_sysconfdir}/udev/rules.d/70-asus.rules
