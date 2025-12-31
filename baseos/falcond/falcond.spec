@@ -2,12 +2,12 @@
 %global debug_package %{nil}
 
 Name:           falcond
-Version:        1.1.9
+Version:        1.2.0
 Release:        %autorelease
 Summary:        Advanced Linux Gaming Performance Daemon
 
 License:        MIT
-URL:            https://git.pika-os.com/general-packages/falcond
+URL:            https://git.pika-os.com/general-packages/%{name}
 Source0:        %{url}/archive/v%{version}.tar.gz
 
 ExclusiveArch:	x86_64
@@ -15,8 +15,8 @@ ExclusiveArch:	x86_64
 BuildRequires:  zig >= 0.14.0
 BuildRequires:  systemd-rpm-macros
 
-Recommends:	falcond-profiles
-Requires:	falcond-profiles
+Recommends:	%{name}-profiles
+Requires:	%{name}-profiles
 Requires:	scx-scheds
 
 %description
@@ -24,35 +24,38 @@ falcond is a powerful system daemon designed to automatically optimize your Linu
 
 %prep
 
-%autosetup -n falcond
+%autosetup -n %{name}
 
 %build
 
 %install
 cd %{name}
 mkdir -p %{buildroot}%{_unitdir}/
-install -Dm644 debian/falcond.service %{buildroot}%{_unitdir}
+install -Dm644 debian/%{name}.service %{buildroot}%{_unitdir}
 DESTDIR="%{buildroot}" \
 zig build \
     -Doptimize=ReleaseFast \
     -Dcpu=x86_64_v2
     
 %post
-%systemd_post falcond.service
+%systemd_post %{name}.service
 
 %preun
-%systemd_preun falcond.service
+%systemd_preun %{name}.service
 
 %postun
-%systemd_postun_with_restart falcond.service
+%systemd_postun_with_restart %{name}.service
     
 %files
 %doc README.md
 %license LICENSE
-%{_bindir}/falcond
-%{_unitdir}/falcond.service
+%{_bindir}/%{name}
+%{_unitdir}/%{name}.service
 
 %changelog
+* Wed Dec 31 2025 LionHeartP <LionHeartP@proton.me> - 1.2.0-1
+- Update to 1.2.0
+
 * Fri Sep 26 2025 LionHeartP <LionHeartP@proton.me> - 1.1.9-1
 - Update to 1.1.9
 

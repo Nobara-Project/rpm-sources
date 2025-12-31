@@ -1,11 +1,11 @@
 %global debug_package %{nil}
 Name:           falcond-profiles
 Version:        1.0
-Release:        %autorelease -b7
+Release:        %autorelease -b8
 Summary:        Advanced Linux Gaming Performance Daemon
 
 License:        MIT
-URL:            https://github.com/PikaOS-Linux/falcond-profiles/
+URL:            https://github.com/PikaOS-Linux/%{name}/
 Source0:        %{url}/archive/refs/heads/main.tar.gz
 
 ExclusiveArch:	x86_64
@@ -20,7 +20,7 @@ falcond is a powerful system daemon designed to automatically optimize your Linu
 
 %prep
 
-%autosetup -n falcond-profiles-main
+%autosetup -n %{name}-main
 
 %build
 
