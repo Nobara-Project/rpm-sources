@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit 9670c15d46be0029cc821d2589d13174c1743f6f
+%global commit 0b86e1f752059c45b236a4091a721d99039f7478
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 8.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 9.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -111,9 +111,6 @@ Source15:       https://crates.io/api/v1/crates/rustc-hash/%{rustc_hash_ver}/dow
 
 # https://gitlab.com/evlaV/mesa/
 Patch10:        valve.patch
-
-# SteamVR fix
-Patch20:	https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/38987.patch
 
 BuildRequires:  meson >= 1.3.0
 BuildRequires:  gcc
@@ -539,6 +536,9 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Thu Jan 01 2026 LionHeartP <LionHeartP@proton.me> - 25.4.0-9
+- Update to latest commit
+
 * Sun Dec 21 2025 LionHeartP <LionHeartP@proton.me> - 25.4.0-8
 - Update to latest commit
 - Update #38987 with fix for Monado
