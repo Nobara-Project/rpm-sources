@@ -2,7 +2,7 @@
 %global debug_package %{nil}
 
 Name:           falcond
-Version:        1.2.0
+Version:        1.2.1
 Release:        %autorelease
 Summary:        Advanced Linux Gaming Performance Daemon
 
@@ -53,8 +53,8 @@ zig build \
 %{_unitdir}/%{name}.service
 
 %changelog
-* Wed Dec 31 2025 LionHeartP <LionHeartP@proton.me> - 1.2.0-1
-- Update to 1.2.0
+* Thu Jan 01 2026 LionHeartP <LionHeartP@proton.me> - 1.2.1-1
+- Update to 1.2.1
 
 * Fri Sep 26 2025 LionHeartP <LionHeartP@proton.me> - 1.1.9-1
 - Update to 1.1.9
