@@ -3,7 +3,7 @@
 
 Name:           falcond
 Version:        1.2.1
-Release:        %autorelease
+Release:        %autorelease -b2
 Summary:        Advanced Linux Gaming Performance Daemon
 
 License:        MIT
@@ -16,7 +16,9 @@ BuildRequires:  zig >= 0.14.0
 BuildRequires:  systemd-rpm-macros
 
 Recommends:	%{name}-profiles
+Recommends:	%{name}-gui
 Requires:	%{name}-profiles
+Requires:	%{name}-gui
 Requires:	scx-scheds
 
 %description
