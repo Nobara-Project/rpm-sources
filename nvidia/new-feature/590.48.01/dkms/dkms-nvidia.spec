@@ -3,7 +3,7 @@
 
 Name:           dkms-%{dkms_name}
 Version:        590.48.01
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        NVIDIA display driver kernel module
 Epoch:          3
 License:        NVIDIA License
@@ -20,7 +20,6 @@ Patch0:         0001-Enable-atomic-kernel-modesetting-by-default.patch
 #   kernel-open/nvidia-modeset/nv-modeset-kernel.o_binary
 # The full open tarball requires also a c++ compiler to build those bits:
 BuildRequires:       gcc-c++
-Requires:       gcc-c++
 
 BuildRequires:  sed
 
