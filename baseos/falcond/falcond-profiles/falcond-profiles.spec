@@ -1,11 +1,11 @@
 %global debug_package %{nil}
 Name:           falcond-profiles
 Version:        1.0
-Release:        %autorelease -b7
+Release:        %autorelease -b9
 Summary:        Advanced Linux Gaming Performance Daemon
 
 License:        MIT
-URL:            https://github.com/PikaOS-Linux/falcond-profiles/
+URL:            https://github.com/PikaOS-Linux/%{name}/
 Source0:        %{url}/archive/refs/heads/main.tar.gz
 
 ExclusiveArch:	x86_64
@@ -20,7 +20,7 @@ falcond is a powerful system daemon designed to automatically optimize your Linu
 
 %prep
 
-%autosetup -n falcond-profiles-main
+%autosetup -n %{name}-main
 
 %build
 
@@ -29,6 +29,7 @@ mkdir -p %{buildroot}%{_datadir}/falcond/
 mkdir -p %{buildroot}%{_datadir}/falcond/profiles/
 mkdir -p %{buildroot}%{_datadir}/falcond/profiles/handheld/
 mkdir -p %{buildroot}%{_datadir}/falcond/profiles/htpc/
+mkdir -p %{buildroot}%{_datadir}/falcond/profiles/user/
 cp -a usr/share/falcond/system.conf %{buildroot}%{_datadir}/falcond/
 cp -a usr/share/falcond/profiles/* %{buildroot}%{_datadir}/falcond/profiles/
 cp -a usr/share/falcond/profiles/handheld/* %{buildroot}%{_datadir}/falcond/profiles/handheld/
@@ -41,6 +42,7 @@ cp -a usr/share/falcond/profiles/htpc/* %{buildroot}%{_datadir}/falcond/profiles
 %{_datadir}/falcond/profiles/*.conf
 %{_datadir}/falcond/profiles/handheld/*.conf
 %{_datadir}/falcond/profiles/htpc/*.conf
+%attr(0777, root, root) %dir %{_datadir}/falcond/profiles/user/
 
 %changelog
 %autochangelog
