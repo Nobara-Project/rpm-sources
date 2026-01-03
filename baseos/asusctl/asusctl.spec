@@ -1,54 +1,14 @@
-#
-# spec file for package asus-nb-ctrl
-#
-# Copyright (c) 2020-2025 Luke Jones <luke@ljones.dev>
-#
-# All modifications and additions to the file contributed by third parties
-# remain the property of their copyright owners, unless otherwise agreed
-# upon. The license for this file, and modifications and additions to the
-# file, is the same license as for the pristine package itself (unless the
-# license for the pristine package is not an Open Source License, in which
-# case the license is the MIT License). An "Open Source License" is a
-# license that conforms to the Open Source Definition (Version 1.9)
-# published by the Open Source Initiative.
-
-# This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at https://mozilla.org/MPL/2.0/.
-
-%if %{defined fedora}
 %global debug_package %{nil}
-%endif
 
-%define version 6.1.18
-%define specrelease %{?dist}
-%define pkg_release 1%{specrelease}
-
-# Use hardening ldflags.
-%global rustflags -Clink-arg=-Wl,-z,relro,-z,now
-Name:    asusctl
-Version: %{version}
-Release: %{pkg_release}
-Summary: Control fan speeds, LEDs, graphics modes, and charge levels for ASUS notebooks
-License: MPLv2
-Requires: power-profiles-daemon
-
-Group:   System Environment/Kernel
-
-URL:     https://gitlab.com/asus-linux/asusctl
-Source:  https://gitlab.com/asus-linux/asusctl/-/archive/%{version}/%{name}-%{version}.tar.gz
-
-ExcludeArch:    %{ix86}
-
-%if %{defined fedora}
-BuildRequires:  rust-packaging
-BuildRequires:  systemd-rpm-macros
-%else
-BuildRequires:  cargo-packaging
-%endif
-BuildRequires:  git
-BuildRequires:  clang-devel
-BuildRequires:  cargo
+Name:           asusctl
+Version:        6.2.0
+Release:        %autorelease
+Summary:        A control daemon, CLI tools, and a collection of crates for interacting with ASUS ROG laptops
+URL:            https://gitlab.com/asus-linux/asusctl
+Source:		%url/-/archive/%version/asusctl-%version.tar.gz
+License:        MPL-2.0
+BuildRequires:  anda-srpm-macros cargo-rpm-macros systemd-rpm-macros mold rust-udev-devel clang-devel
+BuildRequires:  desktop-file-utils
 BuildRequires:  cmake
 BuildRequires:  rust
 BuildRequires:  rust-std-static
@@ -58,52 +18,30 @@ BuildRequires:  pkgconfig(libseat)
 BuildRequires:  pkgconfig(libudev)
 BuildRequires:  pkgconfig(xkbcommon)
 BuildRequires:  pkgconfig(libzstd)
-BuildRequires:  desktop-file-utils
+BuildRequires:  pkgconfig(fontconfig)
+ExclusiveArch:  x86_64
+
+Packager:       Metcya <metcya@gmail.com>
 
 %description
-asus-nb-ctrl is a utility for Linux to control many aspects of various
-ASUS laptops but can also be used with non-Asus laptops with reduced features.
-
-It provides an interface for rootless control of some system functions such as
-fan speeds, keyboard LEDs, battery charge level, and graphics modes.
-asus-nb-ctrl enables third-party apps to use the above with dbus methods.
+%summary.
 
 %package rog-gui
-Summary: An experimental GUI for %{name}
+Summary:    An experimental gui for %name
+Requires:   %name
 
 %description rog-gui
 A one-stop-shop GUI tool for asusd/asusctl. It aims to provide most controls,
 a notification service, and ability to run in the background.
 
 %prep
-%autosetup
-%if %{defined fedora}
-%cargo_prep
-sed -i 's|offline = true|offline = false|' .cargo/config.toml
-sed -i 's|source.crates-io|source.ignore_this|' .cargo/config.toml
-%else
-mkdir -p .cargo
-cat > .cargo/config.toml << 'EOF'
-[term]
-verbose = true
-[net]
-offline = false
-EOF
-%endif
+%autosetup -n asusctl-%version
+%cargo_prep_online
 
 %build
-export RUSTFLAGS="%{rustflags}"
-%if %{defined fedora}
-# Use an explicit cargo invocation for Fedora to avoid the macro adding `--locked`.
-# `--locked` breaks Fedora builds because the lockfile may not be appropriate for the distro buildroot.
-/usr/bin/cargo build --release
-%else
-/usr/bin/cargo auditable build --release
-%endif
+%cargo_build
 
 %install
-export RUSTFLAGS="%{rustflags}"
-mkdir -p "%{buildroot}/%{_bindir}" "%{buildroot}%{_docdir}"
 %make_install
 
 install -D -m 0644 README.md %{buildroot}/%{_docdir}/%{name}/README.md
@@ -113,15 +51,16 @@ install -D -m 0644 rog-anime/data/diagonal-template.png %{buildroot}/%{_docdir}/
 desktop-file-validate %{buildroot}/%{_datadir}/applications/rog-control-center.desktop
 
 %files
-%{_datadir}/%{name}/LICENSE
+%license LICENSE
+%{_datadir}/asusctl/LICENSE
 %{_bindir}/asusd
 %{_bindir}/asusd-user
 %{_bindir}/asusctl
 %{_unitdir}/asusd.service
 %{_userunitdir}/asusd-user.service
 %{_udevrulesdir}/99-asusd.rules
-#%%dir %%{_sysconfdir}/asusd/
-%{_datadir}/asusd/
+%dnl %{_sysconfdir}/asusd/
+%{_datadir}/asusd/aura_support.ron
 %{_datadir}/dbus-1/system.d/asusd.conf
 %{_datadir}/icons/hicolor/512x512/apps/asus_notif_yellow.png
 %{_datadir}/icons/hicolor/512x512/apps/asus_notif_green.png
@@ -136,6 +75,19 @@ desktop-file-validate %{buildroot}/%{_datadir}/applications/rog-control-center.d
 %{_datadir}/icons/hicolor/scalable/status/gpu-vfio.svg
 %{_datadir}/icons/hicolor/scalable/status/notification-reboot.svg
 %{_docdir}/%{name}/
+%{_datadir}/asusd/
+
+%post
+%systemd_post asusd.service
+%systemd_user_post asusd-user.service
+
+%preun
+%systemd_preun asusd.service
+%systemd_user_preun asusd-user.service
+
+%postun
+%systemd_postun_with_restart asusd.service
+%systemd_user_postun_with_restart asusd-user.service
 
 %files rog-gui
 %{_bindir}/rog-control-center
@@ -144,3 +96,14 @@ desktop-file-validate %{buildroot}/%{_datadir}/applications/rog-control-center.d
 %{_datadir}/rog-gui
 
 %changelog
+* Tue Dec 9 2025 Metcya <metcya@gmail.com> - 6.2.0
+- Add metainfo
+
+* Mon Dec 1 2025 Metcya <metcya@gmail.com>
+- Add systemd scriptlets
+
+* Tue Nov 18 2025 Metcya <metcya@gmail.com>
+- Remove unnecessary patch
+
+* Sun Oct 26 2025 Metcya <metcya@gmail.com>
+- Package asusctl
