@@ -1,14 +1,14 @@
 %global debug_package %{nil}
 Name:           falcond-profiles
 Version:        1.0
-Release:        %autorelease -b9
+Release:        %autorelease -b10
 Summary:        Advanced Linux Gaming Performance Daemon
 
 License:        MIT
 URL:            https://github.com/PikaOS-Linux/%{name}/
 Source0:        %{url}/archive/refs/heads/main.tar.gz
 
-ExclusiveArch:	x86_64
+BuildArch:      noarch
 
 BuildRequires:  tar
 
@@ -25,24 +25,22 @@ falcond is a powerful system daemon designed to automatically optimize your Linu
 %build
 
 %install
-mkdir -p %{buildroot}%{_datadir}/falcond/
-mkdir -p %{buildroot}%{_datadir}/falcond/profiles/
-mkdir -p %{buildroot}%{_datadir}/falcond/profiles/handheld/
-mkdir -p %{buildroot}%{_datadir}/falcond/profiles/htpc/
-mkdir -p %{buildroot}%{_datadir}/falcond/profiles/user/
-cp -a usr/share/falcond/system.conf %{buildroot}%{_datadir}/falcond/
-cp -a usr/share/falcond/profiles/* %{buildroot}%{_datadir}/falcond/profiles/
-cp -a usr/share/falcond/profiles/handheld/* %{buildroot}%{_datadir}/falcond/profiles/handheld/
-cp -a usr/share/falcond/profiles/htpc/* %{buildroot}%{_datadir}/falcond/profiles/htpc/
-    
+install -Dm644 usr/share/falcond/system.conf -t %{buildroot}%{_datadir}/falcond/
+install -Dm644 usr/share/falcond/profiles/*.conf -t %{buildroot}%{_datadir}/falcond/profiles/
+install -Dm644 usr/share/falcond/profiles/handheld/* -t %{buildroot}%{_datadir}/falcond/profiles/handheld/
+install -Dm644 usr/share/falcond/profiles/htpc/* -t %{buildroot}%{_datadir}/falcond/profiles/htpc/
+
+install -dm2755 %{buildroot}%{_datadir}/falcond/profiles/user
+
 %files
 %doc README.md
 %license LICENSE
-%{_datadir}/falcond/system.conf
-%{_datadir}/falcond/profiles/*.conf
-%{_datadir}/falcond/profiles/handheld/*.conf
-%{_datadir}/falcond/profiles/htpc/*.conf
-%attr(0777, root, root) %dir %{_datadir}/falcond/profiles/user/
+%dir %{_datadir}/falcond
+%config %{_datadir}/falcond/system.conf
+%config %{_datadir}/falcond/profiles/*.conf
+%config %{_datadir}/falcond/profiles/handheld/*.conf
+%config %{_datadir}/falcond/profiles/htpc/*.conf
+%attr(2755, root, falcond) %dir %{_datadir}/falcond/profiles/user
 
 %changelog
 %autochangelog

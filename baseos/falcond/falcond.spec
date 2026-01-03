@@ -2,8 +2,8 @@
 %global debug_package %{nil}
 
 Name:           falcond
-Version:        1.2.1
-Release:        %autorelease -b2
+Version:        1.2.2
+Release:        %autorelease
 Summary:        Advanced Linux Gaming Performance Daemon
 
 License:        MIT
@@ -20,6 +20,8 @@ Recommends:	%{name}-gui
 Requires:	%{name}-profiles
 Requires:	%{name}-gui
 Requires:	scx-scheds
+
+Provides:       group(falcond)
 
 %description
 falcond is a powerful system daemon designed to automatically optimize your Linux gaming experience. It intelligently manages system resources and performance settings on a per-game basis, eliminating the need to manually configure settings for each game.
@@ -39,6 +41,13 @@ zig build \
     -Doptimize=ReleaseFast \
     -Dcpu=x86_64_v2
     
+%pre
+# Create falcond group if it doesn't exist
+getent group 'falcond' >/dev/null || groupadd -f -r 'falcond' || :
+
+# Root must be a member of the group
+usermod -aG 'falcond' root || :
+    
 %post
 %systemd_post %{name}.service
 
@@ -55,6 +64,10 @@ zig build \
 %{_unitdir}/%{name}.service
 
 %changelog
+* Sat Jan 03 2026 LionHeartP <LionHeartP@proton.me> - 1.2.2-1
+- Update to 1.2.2
+- Implement falcond group for profile editing
+
 * Thu Jan 01 2026 LionHeartP <LionHeartP@proton.me> - 1.2.1-1
 - Update to 1.2.1
 
