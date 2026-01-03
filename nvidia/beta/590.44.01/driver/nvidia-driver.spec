@@ -10,7 +10,7 @@
 
 Name:           nvidia-driver
 Version:        590.44.01
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        NVIDIA's proprietary display driver for NVIDIA graphic cards
 Epoch:          3
 License:        NVIDIA License
@@ -41,6 +41,7 @@ BuildRequires:  python3
 %endif
 BuildRequires:  systemd-rpm-macros
 %endif
+Requires:       gcc-c++
 
 Requires:       nvidia-driver-libs%{?_isa} = %{?epoch:%{epoch}:}%{version}
 Requires:       nvidia-kmod-common = %{?epoch:%{epoch}:}%{version}

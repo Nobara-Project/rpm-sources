@@ -8,7 +8,7 @@
 
 Name:           nvidia-kmod
 Version:        590.44.01
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        NVIDIA display driver kernel module
 Epoch:          3
 License:        NVIDIA License
@@ -23,7 +23,6 @@ Patch0:         0001-Enable-atomic-kernel-modesetting-by-default.patch
 #   kernel-open/nvidia-modeset/nv-modeset-kernel.o_binary
 # The full open tarball requires also a c++ compiler to build those bits:
 BuildRequires:       gcc-c++
-Requires:       gcc-c++
 
 # Get the needed BuildRequires (in parts depending on what we build for):
 BuildRequires:  kmodtool
