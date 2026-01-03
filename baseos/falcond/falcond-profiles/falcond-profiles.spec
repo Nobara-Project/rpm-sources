@@ -30,7 +30,7 @@ install -Dm644 usr/share/falcond/profiles/*.conf -t %{buildroot}%{_datadir}/falc
 install -Dm644 usr/share/falcond/profiles/handheld/* -t %{buildroot}%{_datadir}/falcond/profiles/handheld/
 install -Dm644 usr/share/falcond/profiles/htpc/* -t %{buildroot}%{_datadir}/falcond/profiles/htpc/
 
-install -dm2755 %{buildroot}%{_datadir}/falcond/profiles/user
+install -dm2775 %{buildroot}%{_datadir}/falcond/profiles/user
 
 %files
 %doc README.md
@@ -40,7 +40,7 @@ install -dm2755 %{buildroot}%{_datadir}/falcond/profiles/user
 %config %{_datadir}/falcond/profiles/*.conf
 %config %{_datadir}/falcond/profiles/handheld/*.conf
 %config %{_datadir}/falcond/profiles/htpc/*.conf
-%attr(2755, root, falcond) %dir %{_datadir}/falcond/profiles/user
+%attr(2775, root, falcond) %dir %{_datadir}/falcond/profiles/user
 
 %changelog
 %autochangelog
