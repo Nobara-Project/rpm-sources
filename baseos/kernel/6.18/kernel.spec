@@ -54,7 +54,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 200
+%define customver 201
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -1119,6 +1119,9 @@ fi
 %files
 
 %changelog
+* Sun Jan 04 2026 LionHeartP <LionHeartP@proton.me> - 6.18.3-201
+- Update CachyOS patches
+
 * Fri Jan 02 2026 LionHeartP <LionHeartP@proton.me> - 6.18.3-200
 - Update to 6.18.3
 
