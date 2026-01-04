@@ -3,14 +3,14 @@ pbcli is a command line client which allows to upload and download pastes from p
 
 Name:           pbcli
 Version:        2.8.0
-Release:        1%?dist
+Release:        2%?dist
 Summary:        A PrivateBin commandline upload and download utility
 SourceLicense:  Unlicense OR MIT
 License:        ((Apache-2.0 OR MIT) AND BSD-3-Clause) AND (0BSD OR MIT OR Apache-2.0) AND (Apache-2.0 AND ISC) AND (Apache-2.0 OR BSL-1.0) AND (Apache-2.0 OR ISC OR MIT) AND (Apache-2.0 OR MIT) AND (Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT) AND Apache-2.0 AND (BSD-2-Clause OR Apache-2.0 OR MIT) AND BSD-3-Clause AND ISC AND (MIT OR Apache-2.0 OR Zlib) AND (MIT OR Apache-2.0) AND (MIT OR Zlib OR Apache-2.0) AND MIT AND MPL-2.0 AND (Unlicense OR MIT) AND (Zlib OR Apache-2.0 OR MIT)
 URL:            https://github.com/Mydayyy/%{name}
 Source0:        %{url}/archive/refs/tags/v%{version}.tar.gz
 Source1:	config
-
+Patch0:     0001-add-url-shortener-support.patch
 ExclusiveArch:	x86_64
 
 BuildRequires:  cargo-rpm-macros >= 24
@@ -27,7 +27,7 @@ Packager:       Gilver E. <rockgrub@disroot.org>
 %description 	%_description
 
 %package	nobara
-Summary:	paste.gloriouseggroll.tv config file
+Summary:	paste.nobaraproject.org config file
 Requires:	%{name}
 
 %description	nobara
@@ -41,7 +41,7 @@ Requires:       %{name}
 This package contains the development files for %{name}.
 
 %prep
-%autosetup -n pbcli-%version
+%autosetup -n pbcli-%version -p1
 set -eu
 %{__mkdir} -p .cargo
 cat > .cargo/config << EOF
@@ -101,6 +101,7 @@ install -Dm644 target/rpm/lib%{name}.a %{buildroot}%{_libdir}/lib%{name}.a
 mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/
 install -m 0644 %{SOURCE1} $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/config
 ln -sf %_bindir/pbcli %{buildroot}%{_bindir}/eggpaste
+ln -sf %_bindir/pbcli %{buildroot}%{_bindir}/npaste
 
 %files
 %doc README.md
@@ -116,6 +117,7 @@ ln -sf %_bindir/pbcli %{buildroot}%{_bindir}/eggpaste
 %files nobara
 %{_sysconfdir}/%{name}/config
 %_bindir/eggpaste
+%_bindir/npaste
 
 %changelog
 * Sat Mar 15 2025 Gilver E. <rockgrub@disroot.org>
