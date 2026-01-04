@@ -2,11 +2,13 @@
 
 Name:           inputplumber
 Version:        0.69.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        InputPlumber is an open source input routing and control daemon for Linux. It can be used to combine any number of input devices (like gamepads, mice, and keyboards) and translate their input to a variety of virtual device formats.
 
 License:        GPLv3+
 URL:            https://github.com/ShadowBlip/InputPlumber
+
+ExcludeArch:    %{ix86}
 
 BuildRequires:  libevdev-devel libiio-devel git make cargo libudev-devel llvm-devel clang-devel
 Requires:       libevdev libiio
@@ -30,6 +32,7 @@ make build
 %install
 mkdir -p %{buildroot}/usr/bin
 mkdir -p %{buildroot}/usr/share/dbus-1/system.d
+mkdir -p %{buildroot}/usr/share/dbus-1/system-services
 mkdir -p %{buildroot}/usr/lib/systemd/system
 mkdir -p %{buildroot}/usr/lib/udev/hwdb.d
 mkdir -p %{buildroot}/usr/lib/udev/rules.d
@@ -37,9 +40,12 @@ mkdir -p %{buildroot}/usr/share/inputplumber/capability_maps
 mkdir -p %{buildroot}/usr/share/inputplumber/devices
 mkdir -p %{buildroot}/usr/share/inputplumber/profiles
 mkdir -p %{buildroot}/usr/share/inputplumber/schema
+mkdir -p %{buildroot}/usr/share/polkit-1/actions
+mkdir -p %{buildroot}/usr/share/polkit-1/rules.d
 
 install -D -m 755 %{_builddir}/InputPlumber/target/%{_arch}-unknown-linux-gnu/release/inputplumber %{buildroot}/usr/bin/inputplumber
 install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/share/dbus-1/system.d/org.shadowblip.InputPlumber.conf %{buildroot}/usr/share/dbus-1/system.d/org.shadowblip.InputPlumber.conf
+install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/share/dbus-1/system-services/* %{buildroot}/usr/share/dbus-1/system-services/
 install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/lib/systemd/system/* %{buildroot}/usr/lib/systemd/system/
 install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/lib/udev/hwdb.d/59-inputplumber.hwdb %{buildroot}/usr/lib/udev/hwdb.d/59-inputplumber.hwdb
 install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/lib/udev/hwdb.d/60-inputplumber-autostart.hwdb %{buildroot}/usr/lib/udev/hwdb.d/60-inputplumber-autostart.hwdb
@@ -48,6 +54,8 @@ install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/share/inputplumber/capabi
 install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/share/inputplumber/devices/* %{buildroot}/usr/share/inputplumber/devices/
 install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/share/inputplumber/profiles/* %{buildroot}/usr/share/inputplumber/profiles/
 install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/share/inputplumber/schema/* %{buildroot}/usr/share/inputplumber/schema/
+install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/share/polkit-1/actions/* %{buildroot}/usr/share/polkit-1/actions/
+install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/share/polkit-1/rules.d/* %{buildroot}/usr/share/polkit-1/rules.d/
 
 # Re-assign devices with gyro as ds-edge devices instead of xb elite
 sed -i 's/- xbox-elite/- deck/g' %{buildroot}/usr/share/inputplumber/devices/50-steam_deck.yaml
@@ -78,6 +86,7 @@ systemctl disable inputplumber.service
 %files
 /usr/bin/inputplumber
 /usr/share/dbus-1/system.d/org.shadowblip.InputPlumber.conf
+/usr/share/dbus-1/system-services/
 /usr/lib/systemd/system/inputplumber.service
 /usr/lib/systemd/system/inputplumber-suspend.service
 /usr/lib/udev/hwdb.d/*.hwdb
@@ -86,5 +95,7 @@ systemctl disable inputplumber.service
 /usr/share/inputplumber/devices/*.yaml
 /usr/share/inputplumber/profiles/*.yaml
 /usr/share/inputplumber/schema/*.json
+/usr/share/polkit-1/actions/*
+/usr/share/polkit-1/rules.d/*
 
 %changelog
