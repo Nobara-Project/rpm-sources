@@ -38,7 +38,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.18
-%define _stablekver 3
+%define _stablekver 4
 %define _rcver rc7
 %if %{_stablekver} == 0
 %define _tarkver %{_basekver}
@@ -54,7 +54,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 201
+%define customver 200
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -1119,6 +1119,10 @@ fi
 %files
 
 %changelog
+* Fri Jan 09 2026 LionHeartP <LionHeartP@proton.me> - 6.18.4-200
+- Update to 6.18.4
+- Update linux-surface.patch and config 
+
 * Sun Jan 04 2026 LionHeartP <LionHeartP@proton.me> - 6.18.3-201
 - Update CachyOS patches
 
