@@ -1,12 +1,11 @@
 Name:           steamos-powerbuttond
-Version:        3.5
-Release:        %autorelease -b2
+Version:        4.0
+Release:        %autorelease -b1
 Summary:        Steam Deck power button daemon
 
 License:        BSD
 URL:            https://gitlab.steamos.cloud/holo/powerbuttond
 Source:		%{URL}/-/archive/v%{version}/powerbuttond-v%{version}.tar.gz
-
 BuildRequires:  systemd-rpm-macros
 BuildRequires:	systemd-devel
 BuildRequires:  libevdev-devel
@@ -29,7 +28,7 @@ Steam Deck power button daemon
 %define debug_package %{nil}
 
 %prep
-%autosetup -n powerbuttond-v%{version}
+%autosetup -n powerbuttond-v%{version} -p 1
 
 %build
 %make_build
