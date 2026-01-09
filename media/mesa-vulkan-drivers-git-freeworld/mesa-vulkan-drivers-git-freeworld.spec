@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit 0b86e1f752059c45b236a4091a721d99039f7478
+%global commit d160b7726ace88a63a3c589dab4b105b3d1fa534
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 9.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 10.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -536,6 +536,9 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Fri Jan 09 2026 LionHeartP <LionHeartP@proton.me> - 25.4.0-10
+- Update to latest commit
+
 * Thu Jan 01 2026 LionHeartP <LionHeartP@proton.me> - 25.4.0-9
 - Update to latest commit
 
