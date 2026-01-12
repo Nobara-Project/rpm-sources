@@ -38,7 +38,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.18
-%define _stablekver 4
+%define _stablekver 5
 %define _rcver rc7
 %if %{_stablekver} == 0
 %define _tarkver %{_basekver}
@@ -1119,6 +1119,9 @@ fi
 %files
 
 %changelog
+* Mon Jan 12 2026 LionHeartP <LionHeartP@proton.me> - 6.18.5-200
+- Update to 6.18.5
+
 * Fri Jan 09 2026 LionHeartP <LionHeartP@proton.me> - 6.18.4-200
 - Update to 6.18.4
 - Update linux-surface.patch and config 
