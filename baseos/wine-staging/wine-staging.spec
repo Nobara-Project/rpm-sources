@@ -9,9 +9,9 @@
 # check buildresult after a while
 
 %define _lto_cflags %{nil}
-%define realver     10.20
-%define stagingver  10.20
-%define packagever  10.20
+%define realver     11.0
+%define stagingver  11.0
+%define packagever  11.0
 
 %global flavor %nil
 %global build_type_safety_c 0
@@ -43,8 +43,8 @@ URL:        https://www.winehq.org/
 %define mark64  ()(64bit)
 
 
-Source0:	https://dl.winehq.org/wine/source/10.x/wine-%{realver}.tar.xz
-Source1:	https://dl.winehq.org/wine/source/10.x/wine-%{realver}.tar.xz.sign
+Source0:	https://dl.winehq.org/wine/source/11.0/wine-%{realver}.tar.xz
+Source1:	https://dl.winehq.org/wine/source/11.0/wine-%{realver}.tar.xz.sign
 
 Source100:	https://github.com/wine-staging/wine-staging/archive/v%{realver}.tar.gz#/wine-staging-%{stagingver}.tar.xz
 
