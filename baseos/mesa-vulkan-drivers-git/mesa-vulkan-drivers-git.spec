@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit d160b7726ace88a63a3c589dab4b105b3d1fa534
+%global commit 28cda1732a4c52e06292c2fc8d5de573e666e950
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 10.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 11.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -36,7 +36,7 @@
 %global intel_platform_vulkan %{?with_vulkan_hw:,intel,intel_hasvk}%{!?with_vulkan_hw:%{nil}}
 %endif
 %ifarch aarch64 x86_64
-%if !0%{?with_vulkan_hw}
+%if 0%{?with_vulkan_hw}
 %global with_intel_vk_rt 1
 %endif
 %endif
@@ -111,6 +111,10 @@ Source15:       https://crates.io/api/v1/crates/rustc-hash/%{rustc_hash_ver}/dow
 
 # https://gitlab.com/evlaV/mesa/
 Patch10:        valve.patch
+
+# RT Improvements
+Patch20:	https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/39314.patch
+Patch21:	https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/39116.patch
 
 BuildRequires:  meson >= 1.3.0
 BuildRequires:  gcc
@@ -536,6 +540,11 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Sat Jan 17 2026 LionHeartP <LionHeartP@proton.me> - 25.4.0-11
+- Update to latest commit
+- Pull #39314 + #39116 for RT improvements
+- Enable Intel RT driver
+
 * Fri Jan 09 2026 LionHeartP <LionHeartP@proton.me> - 25.4.0-10
 - Update to latest commit
 
