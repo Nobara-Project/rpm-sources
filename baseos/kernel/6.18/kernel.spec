@@ -38,7 +38,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.18
-%define _stablekver 5
+%define _stablekver 6
 %define _rcver rc7
 %if %{_stablekver} == 0
 %define _tarkver %{_basekver}
@@ -114,6 +114,8 @@ Patch8: amdgpu-HAINAN-variant-fixup.patch
 Patch9: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
 # Add xpadneo as patch instead of using dkms module
 Patch10: 0001-Add-xpadneo-bluetooth-hid-driver-module.patch
+# Add patch for Elgato USB Speed fixup
+Patch11: elgato-quirk.patch
 
 # aarch64 patches
 Patch20: 0001-ampere-arm64-Add-a-fixup-handler-for-alignment-fault.patch
@@ -424,6 +426,7 @@ patch -p1 -i %{PATCH7}
 patch -p1 -i %{PATCH8}
 patch -p1 -i %{PATCH9}
 patch -p1 -i %{PATCH10}
+patch -p1 -i %{PATCH11}
 
 # Apply aarch64 patches
 patch -p1 -i %{PATCH20}
@@ -1119,6 +1122,10 @@ fi
 %files
 
 %changelog
+* Sun Jan 18 2026 LionHeartP <LionHeartP@proton.me> - 6.18.6-200
+- Update to 6.18.6
+- Add patch for Elgato USB speed
+
 * Mon Jan 12 2026 LionHeartP <LionHeartP@proton.me> - 6.18.5-200
 - Update to 6.18.5
 
