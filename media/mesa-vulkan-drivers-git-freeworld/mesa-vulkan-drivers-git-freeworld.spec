@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit 28cda1732a4c52e06292c2fc8d5de573e666e950
+%global commit f35f50af72dcdf9f6e4b0769e0dc4b50b9d1b578
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 11.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -78,7 +78,7 @@
 
 Name:           mesa-vulkan-drivers-git-freeworld
 Summary:        The mesa graphics vulkan driver stack.
-%global ver 25.4.0
+%global ver 26.0.0
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %{rel_build}
 License:        MIT
@@ -109,10 +109,6 @@ Source15:       https://crates.io/api/v1/crates/rustc-hash/%{rustc_hash_ver}/dow
 
 # https://gitlab.com/evlaV/mesa/
 Patch10:        valve.patch
-
-# RT Improvements
-Patch20:	https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/39314.patch
-Patch21: 	https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/39116.patch
 
 BuildRequires:  meson >= 1.3.0
 BuildRequires:  gcc
@@ -540,6 +536,11 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Thu Jan 22 2026 LionHeartP <LionHeartP@proton.me> - 26.0.0-1
+- Version bump
+- Update to latest commit
+- Remove #39314 + #39116 (upstreamed
+
 * Sat Jan 17 2026 LionHeartP <LionHeartP@proton.me> - 25.4.0-11
 - Update to latest commit
 - Pull #39314 + #39116 for RT improvements
