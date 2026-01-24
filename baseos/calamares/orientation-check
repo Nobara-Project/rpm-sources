@@ -17,6 +17,41 @@ copy_conf() {
 OXP_LIST="ONE XPLAYER:ONEXPLAYER 1 T08:ONEXPLAYER 1S A08:ONEXPLAYER 1S T08:ONEXPLAYER MINI A07:ONEXPLAYER MINI GA72:ONEXPLAYER MINI GT72:ONEXPLAYER MINI PRO:ONEXPLAYER GUNDAM GA72:ONEXPLAYER 2 ARP23:ONEXPLAYER 2 PRO ARP23H:ONEXPLAYER 2 PRO ARP23P:ONEXPLAYER 2 PRO ARP23P EVA-01"
 AOK_LIST="AOKZOE A1 AR07:AOKZOE A1 PRO"
 
+# --- iGPU-only handheld/laptop heuristic: (<= 1 GPU) + (battery present) ---
+has_battery() {
+  # Most reliable on Linux installers: BAT0/BAT1 etc.
+  for b in /sys/class/power_supply/BAT*; do
+    [ -e "$b" ] || continue
+    # If the power_supply entry exists and is a Battery, we treat it as present.
+    if [ -r "$b/type" ] && grep -qi '^Battery$' "$b/type"; then
+      return 0
+    fi
+    # Some systems don't have /type, so just the BAT* entry existing is a strong signal.
+    return 0
+  done
+  return 1
+}
+
+gpu_count=0
+if command -v lspci >/dev/null 2>&1; then
+  gpu_count="$(lspci -nn | grep -Ei 'VGA compatible controller|3D controller|Display controller' | wc -l)"
+elif [ -d /sys/class/drm ]; then
+  gpu_count="$(find /sys/class/drm -maxdepth 1 -type l -name 'card[0-9]*' 2>/dev/null | wc -l)"
+fi
+
+echo "Detected GPU count: $gpu_count"
+if has_battery; then
+  echo "Battery detected: yes"
+else
+  echo "Battery detected: no"
+fi
+
+if [ "$gpu_count" -le 1 ] && has_battery; then
+  echo "Single (or zero) GPU + battery present; assuming handheld/laptop iGPU-only -> forcing: landscape"
+  copy_conf landscape
+fi
+# --- end heuristic ---
+
 if [[ ":$OXP_LIST:" =~ ":$SYS_ID:" ]] || [[ ":$AOK_LIST:" =~ ":$SYS_ID:" ]]; then
   copy_conf left
 fi
@@ -112,7 +147,7 @@ fi
 
 # Lenovo Legion Go
 if [[ ":83E1:" =~ ":$SYS_ID:" ]]; then
-  copy_conf left
+  copy_conf right
 fi
 
 # Minisforum V3
@@ -124,9 +159,4 @@ fi
 xg_mobile_file_path="/sys/devices/virtual/firmware-attributes/asus-armoury/attributes/egpu_enable/current_value"
 if [ -f "$xg_mobile_file_path" ]; then
   copy_conf landscape
-fi
-
-# Enable jupiter-fan-control on Steam Deck if dmesg shows Galileo or Jupiter
-if dmesg | grep -q -E "Galileo|Jupiter"; then
-  systemctl enable --now jupiter-fan-control
 fi

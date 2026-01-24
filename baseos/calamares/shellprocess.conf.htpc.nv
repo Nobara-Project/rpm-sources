@@ -38,6 +38,26 @@ script:
       timeout: 3600
     - command: "sed -i '/Session=gamescope-session-steam.desktop/a\\Relogin=true' /etc/sddm.conf"
       timeout: 3600
+    - command: "sed -i '/Relogin=true/a\\User=nobara-user' /etc/sddm.conf"
+      timeout: 3600
+    - command: "useradd -m -d /home/nobara-user -G wheel,users -s /bin/bash nobara-user"
+      timeout: 3600
+    - command: "echo \"nobara-user\" | tee /etc/nopasswdusers"
+      timeout: 3600
+    - command: "authselect create-profile passwordless-user -b local --symlink-meta --symlink-pam"
+      timeout: 3600
+    - command: "sed -i '/^auth/ i auth        [success=done default=ignore] pam_succeed_if.so user = nobara-user' /etc/authselect/custom/passwordless-user/system-auth /etc/authselect/custom/passwordless-user/password-auth"
+      timeout: 3600
+    - command: "authselect select custom/passwordless-user --force"
+      timeout: 3600
+    - command: "authselect apply-changes"
+      timeout: 3600
+    - command: "mkdir -p /etc/systemd/system/getty@tty1.service.d"
+      timeout: 3600
+    - command: "echo '[Service]' > /etc/systemd/system/getty@tty1.service.d/override.conf"
+      timeout: 3600
+    - command: "echo 'ExecStart=-/sbin/agetty --autologin nobara-user --noclear %I $$TERM' >> /etc/systemd/system/getty@tty1.service.d/override.conf"
+      timeout: 3600
     - command: "sed -i '/\\[Theme\\]/a\\Current=sugar-dark' /etc/sddm.conf"
       timeout: 3600
     - command: "sed '$!N; /^\\(.*\\)\\n\\1$/!P; D' /etc/sddm.conf > /etc/sddm.conf.new && mv /etc/sddm.conf.new /etc/sddm.conf"
