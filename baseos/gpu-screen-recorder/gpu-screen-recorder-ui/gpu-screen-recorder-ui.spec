@@ -1,5 +1,5 @@
 Name:           gpu-screen-recorder-ui
-Version:        1.10.2
+Version:        1.10.4
 Release:        1%{dist}
 Summary:        A shadowplay-like screen recorder for Linux. The fastest screen recorder for Linux.
 License:        GPL-3.0-or-later
@@ -22,6 +22,7 @@ BuildRequires:  pkgconfig(libpulse-simple)
 BuildRequires:  pkgconfig(wayland-scanner)
 BuildRequires:  pkgconfig(wayland-client)
 BuildRequires:  pkgconfig(libdrm)
+BuildRequires:  pkgconfig(dbus-1)
 BuildRequires:  kernel-headers
 Requires:       gpu-screen-recorder
 Requires:       gpu-screen-recorder-notification
@@ -62,6 +63,10 @@ setcap cap_setuid+ep %{_bindir}/gsr-global-hotkeys
 %{_exec_prefix}/lib/systemd/user/%{name}.service
 
 %changelog
+* Sat Jan 24 2026 LionHeartP <LionHeartP@proton.me> - 1.10.4-1
+- Update to 1.10.4
+- Add new dbus dependency
+
 * Wed Jan 21 2026 LionHeartP <LionHeartP@proton.me> - 1.10.2-1
 - Update to 1.10.2
 
