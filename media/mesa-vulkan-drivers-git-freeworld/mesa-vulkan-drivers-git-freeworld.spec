@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit 0b86e1f752059c45b236a4091a721d99039f7478
+%global commit dc352f3d7c0e9cfe47d0528c059955ab90f1a563
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 9.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 2.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -35,7 +35,7 @@
 %global intel_platform_vulkan %{?with_vulkan_hw:,intel,intel_hasvk}%{!?with_vulkan_hw:%{nil}}
 %endif
 %ifarch aarch64 x86_64
-%if !0%{?with_vulkan_hw}
+%if 0%{?with_vulkan_hw}
 %global with_intel_vk_rt 1
 %endif
 %endif
@@ -78,7 +78,7 @@
 
 Name:           mesa-vulkan-drivers-git-freeworld
 Summary:        The mesa graphics vulkan driver stack.
-%global ver 25.4.0
+%global ver 26.0.0
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %{rel_build}
 License:        MIT
@@ -309,9 +309,7 @@ rewrite_wrap_file rustc-hash
   -Dglx=dri \
   -Degl=enabled \
   -Dglvnd=enabled \
-%ifnarch aarch64 x86_64
-  -Dintel-rt=disabled \
-%endif
+  -Dintel-rt=%{?with_intel_vk_rt:enabled}%{!?with_intel_vk_rt:disabled} \
   -Dmicrosoft-clc=disabled \
   -Dllvm=enabled \
   -Dshared-llvm=enabled \
@@ -536,6 +534,22 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Sat Jan 24 2026 LionHeartP <LionHeartP@proton.me> - 26.0.0-2
+- Update to latest commit
+
+* Thu Jan 22 2026 LionHeartP <LionHeartP@proton.me> - 26.0.0-1
+- Version bump
+- Update to latest commit
+- Remove #39314 + #39116 (upstreamed
+
+* Sat Jan 17 2026 LionHeartP <LionHeartP@proton.me> - 25.4.0-11
+- Update to latest commit
+- Pull #39314 + #39116 for RT improvements
+- Enable Intel RT driver
+
+* Fri Jan 09 2026 LionHeartP <LionHeartP@proton.me> - 25.4.0-10
+- Update to latest commit
+
 * Thu Jan 01 2026 LionHeartP <LionHeartP@proton.me> - 25.4.0-9
 - Update to latest commit
 

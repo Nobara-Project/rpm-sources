@@ -18,11 +18,16 @@
 %global vendor_nvk_crates 1
 %endif
 
-%ifarch %{ix86} x86_64
+%ifarch %{ix86} aarch64 x86_64
 %global with_crocus 1
 %global with_i915   1
 %global with_iris   1
-%global platform_vulkan ,intel,intel_hasvk
+%global intel_platform_vulkan %{?with_vulkan_hw:,intel,intel_hasvk}%{!?with_vulkan_hw:%{nil}}
+%endif
+%ifarch aarch64 x86_64
+%if 0%{?with_vulkan_hw}
+%global with_intel_vk_rt 1
+%endif
 %endif
 
 %ifarch aarch64
@@ -58,11 +63,11 @@
 
 %global with_vulkan_overlay 1
 
-%global vulkan_drivers swrast%{?base_vulkan}%{?platform_vulkan}%{?with_nvk:,nouveau}
+%global vulkan_drivers swrast%{?base_vulkan}%{?intel_platform_vulkan}%{?asahi_platform_vulkan}%{?extra_platform_vulkan}%{?with_nvk:,nouveau}%{?with_virtio:,virtio}%{?with_d3d12:,microsoft-experimental}
 
 Name:           mesa-vulkan-drivers-freeworld
 Summary:        The mesa graphics vulkan driver stack.
-%global ver 25.3.3
+%global ver 25.3.4
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %autorelease
 License:        MIT
@@ -274,9 +279,7 @@ rewrite_wrap_file rustc-hash
   -Dglx=dri \
   -Degl=enabled \
   -Dglvnd=enabled \
-%ifnarch aarch64 x86_64
-  -Dintel-rt=disabled \
-%endif
+  -Dintel-rt=%{?with_intel_vk_rt:enabled}%{!?with_intel_vk_rt:disabled} \
   -Dmicrosoft-clc=disabled \
   -Dllvm=enabled \
   -Dshared-llvm=enabled \
@@ -481,6 +484,10 @@ install -Dpm0644 cargo-vendor.txt \
 %endif
 
 %changelog
+* Sat Jan 24 2026 LionHeartP <LionHeartP@proton.me> - 25.3.4-1
+- Update to 25.3.4
+- Enable Intel RT
+
 * Thu Jan 01 2026 LionHeartP <LionHeartP@proton.me> - 25.3.3-1
 - Update to 25.3.3
 

@@ -30,7 +30,7 @@
 %global intel_platform_vulkan %{?with_vulkan_hw:,intel,intel_hasvk}%{!?with_vulkan_hw:%{nil}}
 %endif
 %ifarch aarch64 x86_64
-%if !0%{?with_vulkan_hw}
+%if 0%{?with_vulkan_hw}
 %global with_intel_vk_rt 1
 %endif
 %endif
@@ -73,7 +73,7 @@
 
 Name:           mesa
 Summary:        Mesa graphics libraries
-%global ver 25.3.3
+%global ver 25.3.4
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
@@ -729,6 +729,10 @@ popd
 %endif
 
 %changelog
+* Sat Jan 24 2026 LionHeartP <LionHeartP@proton.me> - 25.3.4-1
+- Update to 25.3.4
+- Enable Intel RT
+
 * Thu Jan 01 2026 LionHeartP <LionHeartP@proton.me> - 25.3.3-1
 - Update to 25.3.3
 
