@@ -1,5 +1,5 @@
 Name:           falcond-gui
-Version:        1.0.0
+Version:        1.0.1
 Release:        %autorelease
 Summary:        A GTK4/LibAdwaita application to control and monitor the Falcond gaming optimization daemon.
 
@@ -55,5 +55,8 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop
 %{_datadir}/icons/hicolor/512x512/apps/falcond.png
 
 %changelog
+* Mon Jan 12 2026 LionHeartP <LionHeartP@proton.me> - 1.0.1-1
+- Update to 1.0.1
+
 * Thu Jan 01 2026 LionHeartP <LionHeartP@proton.me> - 1.0.0-1
 - Initial package for falcond-gui
