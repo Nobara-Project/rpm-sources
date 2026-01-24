@@ -6,6 +6,8 @@ License:        MIT
 URL:            https://github.com/Umio-Yasuno/amdgpu_top
 Source0:        %{url}/archive/refs/tags/v%{version}.tar.gz
 
+ExclusiveArch:	x86_64
+
 BuildRequires:	anda-srpm-macros
 BuildRequires:  cargo-rpm-macros
 BuildRequires:  desktop-file-utils
