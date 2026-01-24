@@ -1,11 +1,12 @@
 Name:           gpu-screen-recorder-ui
-Version:        1.9.1
+Version:        1.10.2
 Release:        1%{dist}
 Summary:        A shadowplay-like screen recorder for Linux. The fastest screen recorder for Linux.
 License:        GPL-3.0-or-later
 Source:         https://dec05eba.com/snapshot/%{name}.git.%{version}.tar.gz
 URL:            https://git.dec05eba.com/%{name}/about
 
+BuildRequires:  desktop-file-utils
 BuildRequires:  gcc
 BuildRequires:  (gcc-g++ or gcc-c++)
 BuildRequires:  meson
@@ -55,10 +56,22 @@ setcap cap_setuid+ep %{_bindir}/gsr-global-hotkeys
 %license LICENSE
 %doc README.md
 %{_bindir}/gsr*
+%{_datadir}/applications/gpu-screen-recorder.desktop
+%{_datadir}/icons/hicolor/*/apps/gpu-screen-recorder.png
 %{_datadir}/gsr-ui
 %{_exec_prefix}/lib/systemd/user/%{name}.service
 
 %changelog
+* Wed Jan 21 2026 LionHeartP <LionHeartP@proton.me> - 1.10.2-1
+- Update to 1.10.2
+
+* Tue Jan 20 2026 LionHeartP <LionHeartP@proton.me> - 1.10.1-1
+- Update to 1.10.1
+
+* Fri Jan 09 2026 LionHeartP <LionHeartP@proton.me> - 1.9.3-1
+- Update to 1.9.3
+- Add new dependency and files
+
 * Sat Dec 27 2025 LionHeartP <LionHeartP@proton.me> - 1.9.1-1
 - Update to 1.9.1
 
