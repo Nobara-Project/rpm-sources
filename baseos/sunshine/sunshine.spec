@@ -16,12 +16,13 @@
 
 Name: sunshine
 Version: %{build_version}
-Release: 3%{?dist}
+Release: 4%{?dist}
 Summary: Self-hosted game stream host for Moonlight.
 License: GPLv3-only
 URL: https://github.com/LizardByte/Sunshine
 Source0: tarball.tar.gz
 Patch0:  f43_fixup.patch
+Patch1:  sunshine_gamescope_service_fixup.patch
 
 # Common BuildRequires
 BuildRequires: cmake >= 3.25.0
@@ -174,6 +175,7 @@ ls -a %{_builddir}/Sunshine
 # patches
 cd %{_builddir}/Sunshine
 patch -Np1 < %{PATCH0}
+patch -Np1 < %{PATCH1}
 
 %build
 # exit on error
