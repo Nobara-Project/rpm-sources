@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit f35f50af72dcdf9f6e4b0769e0dc4b50b9d1b578
+%global commit dc352f3d7c0e9cfe47d0528c059955ab90f1a563
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 2.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -309,9 +309,7 @@ rewrite_wrap_file rustc-hash
   -Dglx=dri \
   -Degl=enabled \
   -Dglvnd=enabled \
-%ifnarch aarch64 x86_64
-  -Dintel-rt=disabled \
-%endif
+  -Dintel-rt=%{?with_intel_vk_rt:enabled}%{!?with_intel_vk_rt:disabled} \
   -Dmicrosoft-clc=disabled \
   -Dllvm=enabled \
   -Dshared-llvm=enabled \
@@ -536,6 +534,9 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Sat Jan 24 2026 LionHeartP <LionHeartP@proton.me> - 26.0.0-2
+- Update to latest commit
+
 * Thu Jan 22 2026 LionHeartP <LionHeartP@proton.me> - 26.0.0-1
 - Version bump
 - Update to latest commit
