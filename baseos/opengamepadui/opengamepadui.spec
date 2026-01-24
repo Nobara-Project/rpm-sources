@@ -1,9 +1,9 @@
 # Use Custom godot for now. 4.5 is broken and opengamepadui still uses 4.4
-%global godot_version 4.4
+%global godot_version 4.5
 
 Name:           opengamepadui
-Version:        0.42.3
-Release:        5%{?dist}
+Version:        0.44.1
+Release:        8%{?dist}
 Summary:        A free and open source game launcher and overlay written using the Godot Game Engine 4 designed with a gamepad native experience in mind
 
 License:        GPL-3.0-only
@@ -15,8 +15,6 @@ URL:            https://github.com/ShadowBlip/OpenGamepadUI
 Source0:        Godot_v%{godot_version}-stable_linux.x86_64.zip
 
 Patch0:         fedora.patch
-Patch1:         496.patch
-
 ExcludeArch:    %{ix86}
 
 Requires:       gamescope
@@ -43,7 +41,6 @@ git clone %{URL}
 cd OpenGamepadUI
 git checkout v%{version}
 patch -Np1 < %{PATCH0}
-patch -Np1 < %{PATCH1}
 
 %build
 cd OpenGamepadUI
