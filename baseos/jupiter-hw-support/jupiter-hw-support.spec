@@ -1,6 +1,6 @@
 Name:           jupiter-hw-support
 Version:        0.0.git.1256.484fa801
-Release:        40%{?dist}
+Release:        41%{?dist}
 Summary:        Steam Deck Hardware Support Package
 License:        MIT
 URL:            https://github.com/nobara-project/steamdeck-edition-packages
@@ -74,8 +74,7 @@ mkdir -p %{buildroot}%{_libexecdir}/
 mkdir -p %{buildroot}%{_sysconfdir}/
 mkdir -p %{buildroot}%{_prefix}/lib/hwsupport/
 mkdir -p %{buildroot}%{_prefix}/lib/jupiter-dock-updater/
-mkdir -p %{buildroot}%{_sysconfdir}/skel/.config/autostart/
-mkdir -p %{buildroot}%{_sysconfdir}/skel/Desktop/
+mkdir -p %{buildroot}%{_sysconfdir}/xdg/autostart/
 install -m 644 %{_builddir}/96-jupiter-hw-support.preset %{buildroot}%{_presetdir}/
 cp -rv usr/share/* %{buildroot}%{_datadir}
 cp -rv usr/lib/systemd/system/* %{buildroot}%{_unitdir}/
@@ -85,7 +84,7 @@ cp -rv usr/lib/udev %{buildroot}%{_prefix}/lib/udev
 cp -rv usr/bin/* %{buildroot}%{_bindir}
 cp -rv usr/lib/systemd/system/* %{buildroot}%{_unitdir}
 cp -rv etc/* %{buildroot}%{_sysconfdir}
-chmod +x %{buildroot}%{_sysconfdir}/skel/.config/autostart/steam.desktop
+chmod +x %{buildroot}%{_sysconfdir}/xdg/autostart/steam.desktop
 sed -i 's@steamos-cursor.png@usr/share/steamos/steamos-cursor.png@g' usr/share/steamos/steamos-cursor-config
 xcursorgen usr/share/steamos/steamos-cursor-config %{buildroot}%{_datadir}/icons/steam/cursors/default
 
@@ -142,7 +141,7 @@ fi
 
 %files -n gamescope-htpc-common
 %{_datadir}/plymouth
-%{_sysconfdir}/skel/.config/autostart/steam.desktop
+%{_sysconfdir}/xdg/autostart/steam.desktop
 %{_prefix}/lib/udev/rules.d/99-sdcard-rescan.rules
 
 %files -n gamescope-handheld-common
