@@ -1,13 +1,13 @@
 %global _name   inputplumber
 
 Name:           inputplumber
-Version:        0.69.1
-Release:        2%{?dist}
+Version:        0.71.0
+Release:        4%{?dist}
 Summary:        InputPlumber is an open source input routing and control daemon for Linux. It can be used to combine any number of input devices (like gamepads, mice, and keyboards) and translate their input to a variety of virtual device formats.
 
 License:        GPLv3+
 URL:            https://github.com/ShadowBlip/InputPlumber
-
+Patch0:         icon_workaround.patch
 ExcludeArch:    %{ix86}
 
 BuildRequires:  libevdev-devel libiio-devel git make cargo libudev-devel llvm-devel clang-devel
@@ -27,6 +27,7 @@ git clone --branch v%{version} --depth 1 %{url}
 
 %build
 cd %{_builddir}/InputPlumber
+patch -Np1 < %{PATCH0}
 make build
 
 %install
@@ -57,15 +58,15 @@ install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/share/inputplumber/schema
 install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/share/polkit-1/actions/* %{buildroot}/usr/share/polkit-1/actions/
 install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/share/polkit-1/rules.d/* %{buildroot}/usr/share/polkit-1/rules.d/
 
-# Re-assign devices with gyro as ds-edge devices instead of xb elite
-sed -i 's/- xbox-elite/- deck/g' %{buildroot}/usr/share/inputplumber/devices/50-steam_deck.yaml
-sed -i 's/- xbox-elite/- deck/g' %{buildroot}/usr/share/inputplumber/devices/50-rog_ally.yaml
-sed -i 's/- xbox-elite/- deck/g' %{buildroot}/usr/share/inputplumber/devices/50-rog_ally_x.yaml
-sed -i 's/- xbox-elite/- deck/g' %{buildroot}/usr/share/inputplumber/devices/50-legion_go.yaml
-sed -i 's/- xbox-elite/- deck/g' %{buildroot}/usr/share/inputplumber/devices/50-legion_go_s.yaml
-sed -i 's/- xbox-elite/- deck/g' %{buildroot}/usr/share/inputplumber/devices/50-msi_claw7_a2vm.yaml
-sed -i 's/- xbox-elite/- deck/g' %{buildroot}/usr/share/inputplumber/devices/50-msi_claw8_a2vm.yaml
-sed -i 's/- xbox-elite/- deck/g' %{buildroot}/usr/share/inputplumber/devices/50-msi_claw_a1m.yaml
+# Re-assign devices with gyro as deck-uhid devices instead of xb elite
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-steam_deck.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-rog_ally.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-rog_ally_x.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-legion_go.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-legion_go_s.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-msi_claw7_a2vm.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-msi_claw8_a2vm.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-msi_claw_a1m.yaml
 
 # Fixup for elite v2 not being detected
 sed -i 's/02e3,0b00/02e3,0b00,0b22,0b05/g' %{buildroot}/usr/share/inputplumber/devices/60-xbox_one_elite_gamepad.yaml
