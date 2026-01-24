@@ -1,0 +1,53 @@
+From 0c8c52bd0d2a69fe233539a35047b9faa0fbf0a5 Mon Sep 17 00:00:00 2001
+From: Hoshino Lina <lina@lina.yt>
+Date: Tue, 23 Dec 2025 23:24:19 +0900
+Subject: [PATCH] frontend: Fix QSystemTrayIcon and QMenu delete order
+
+QSystemTrayIcon holds a non-owning pointer to the QMenu, so it needs to
+be deleted first.
+
+Fixes: #12948
+---
+ frontend/widgets/OBSBasic.cpp         | 1 +
+ frontend/widgets/OBSBasic.hpp         | 2 +-
+ frontend/widgets/OBSBasic_SysTray.cpp | 2 +-
+ 3 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/frontend/widgets/OBSBasic.cpp b/frontend/widgets/OBSBasic.cpp
+index eae813d2d63ab0..69aff5b176d294 100644
+--- a/frontend/widgets/OBSBasic.cpp
++++ b/frontend/widgets/OBSBasic.cpp
+@@ -1415,6 +1415,7 @@ void OBSBasic::applicationShutdown() noexcept
+ 	delete deinterlaceMenu;
+ 	delete perSceneTransitionMenu;
+ 	delete shortcutFilter;
++	delete trayIcon;
+ 	delete trayMenu;
+ 	delete programOptions;
+ 	delete program;
+diff --git a/frontend/widgets/OBSBasic.hpp b/frontend/widgets/OBSBasic.hpp
+index 913f9c93d7ec3a..34490732dcfbe9 100644
+--- a/frontend/widgets/OBSBasic.hpp
++++ b/frontend/widgets/OBSBasic.hpp
+@@ -1466,7 +1466,7 @@ private slots:
+ 	 * -------------------------------------
+ 	 */
+ private:
+-	QScopedPointer<QSystemTrayIcon> trayIcon;
++	QPointer<QSystemTrayIcon> trayIcon;
+ 	QPointer<QAction> sysTrayStream;
+ 	QPointer<QAction> sysTrayRecord;
+ 	QPointer<QAction> sysTrayReplayBuffer;
+diff --git a/frontend/widgets/OBSBasic_SysTray.cpp b/frontend/widgets/OBSBasic_SysTray.cpp
+index 383fe6330122f2..e1d81501fad0e0 100644
+--- a/frontend/widgets/OBSBasic_SysTray.cpp
++++ b/frontend/widgets/OBSBasic_SysTray.cpp
+@@ -29,7 +29,7 @@ void OBSBasic::SystemTrayInit()
+ #else
+ 	QIcon trayIconFile = QIcon(":/res/images/obs.png");
+ #endif
+-	trayIcon.reset(new QSystemTrayIcon(QIcon::fromTheme("obs-tray", trayIconFile), this));
++	trayIcon = new QSystemTrayIcon(QIcon::fromTheme("obs-tray", trayIconFile), this);
+ 	trayIcon->setToolTip("OBS Studio");
+ 
+ 	showHide = new QAction(QTStr("Basic.SystemTray.Show"), trayIcon.data());

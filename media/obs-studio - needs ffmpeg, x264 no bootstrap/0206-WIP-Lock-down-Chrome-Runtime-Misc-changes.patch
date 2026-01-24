@@ -1,0 +1,39 @@
+From 2eade172af52b841b691c7260751e61841986a55 Mon Sep 17 00:00:00 2001
+From: Matt Gajownik <matt@obsproject.com>
+Date: Sun, 6 Jul 2025 18:11:51 +0900
+Subject: [PATCH 6/6] WIP Lock down Chrome Runtime: Misc changes
+
+---
+ obs-browser-plugin.cpp         | 2 +-
+ panel/browser-panel-client.cpp | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/obs-browser-plugin.cpp b/obs-browser-plugin.cpp
+index 38220268d53b..b8af67883dd9 100644
+--- a/obs-browser-plugin.cpp
++++ b/obs-browser-plugin.cpp
+@@ -287,7 +287,7 @@ static void BrowserInit(void)
+ 	os_mkdir(conf_path);
+ 
+ 	CefSettings settings;
+-	settings.log_severity = LOGSEVERITY_FATAL;
++	settings.log_severity = LOGSEVERITY_WARNING;
+ 	BPtr<char> log_path = obs_module_config_path("debug.log");
+ 	BPtr<char> log_path_abs = os_get_abs_path_ptr(log_path);
+ 	CefString(&settings.log_file) = log_path_abs;
+diff --git a/panel/browser-panel-client.cpp b/panel/browser-panel-client.cpp
+index 67277feaf8e5..112993141c24 100644
+--- a/panel/browser-panel-client.cpp
++++ b/panel/browser-panel-client.cpp
+@@ -104,7 +104,7 @@ bool QCefBrowserClient::OnChromeCommand(CefRefPtr<CefBrowser>, int, cef_window_o
+ /* CefDisplayHandler */
+ void QCefBrowserClient::OnTitleChange(CefRefPtr<CefBrowser> browser, const CefString &title)
+ {
+-	if (widget && widget->cefBrowser->IsSame(browser)) {
++	if (widget && widget->cefBrowser && widget->cefBrowser->IsSame(browser)) {
+ 		std::string str_title = title;
+ 		QString qt_title = QString::fromUtf8(str_title.c_str());
+ 		QMetaObject::invokeMethod(widget, "titleChanged", Q_ARG(QString, qt_title));
+-- 
+2.51.0
+

@@ -1,0 +1,223 @@
+From 8d553531beb449f8a2ee05ae0164d1b27ea8e554 Mon Sep 17 00:00:00 2001
+From: Matt Gajownik <matt@obsproject.com>
+Date: Sun, 6 Jul 2025 18:07:20 +0900
+Subject: [PATCH 3/6] WIP Lock down Chrome Runtime: Lock down URLs and commands
+
+Various Chrome scheme URLs are also blocked to avoid users potentially
+crashing CEF, and therefore crashing OBS.
+
+Chrome's default error display is now used by CEF, so on top of the
+existing override in browser docks, a similar override has been added
+to browser sources which just redirects to about:blank.
+
+TODO: Version gate
+TODO: Move shared URL blocklist to a util? Might be unneeded in new CEF
+---
+ browser-client.cpp             | 19 ++++++++++++-------
+ browser-client.hpp             |  4 ++++
+ cef-headers.hpp                | 17 +++++++++++++++++
+ panel/browser-panel-client.cpp | 33 +++++++++++++++++++++++++++++++++
+ panel/browser-panel-client.hpp | 23 +++++++++++++++++++++++
+ 5 files changed, 89 insertions(+), 7 deletions(-)
+
+diff --git a/browser-client.cpp b/browser-client.cpp
+index bf7baada99a0..80ea06d670e7 100644
+--- a/browser-client.cpp
++++ b/browser-client.cpp
+@@ -78,14 +78,10 @@ CefRefPtr<CefRequestHandler> BrowserClient::GetRequestHandler()
+ 
+ CefRefPtr<CefResourceRequestHandler> BrowserClient::GetResourceRequestHandler(CefRefPtr<CefBrowser>,
+ 									      CefRefPtr<CefFrame>,
+-									      CefRefPtr<CefRequest> request, bool, bool,
++									      CefRefPtr<CefRequest>, bool, bool,
+ 									      const CefString &, bool &)
+ {
+-	if (request->GetHeaderByName("origin") == "null") {
+-		return this;
+-	}
+-
+-	return nullptr;
++	return this;
+ }
+ 
+ void BrowserClient::OnRenderProcessTerminated(CefRefPtr<CefBrowser>, TerminationStatus
+@@ -114,9 +110,12 @@ void BrowserClient::OnRenderProcessTerminated(CefRefPtr<CefBrowser>, Termination
+ }
+ 
+ CefResourceRequestHandler::ReturnValue BrowserClient::OnBeforeResourceLoad(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame>,
+-									   CefRefPtr<CefRequest>,
++									   CefRefPtr<CefRequest> request,
+ 									   CefRefPtr<CefCallback>)
+ {
++	if (BlockChromeUrl(request->GetURL()))
++		return RV_CANCEL;
++
+ 	return RV_CONTINUE;
+ }
+ 
+@@ -626,6 +625,12 @@ void BrowserClient::OnLoadEnd(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame> frame,
+ 	}
+ }
+ 
++void BrowserClient::OnLoadError(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame> frame, CefLoadHandler::ErrorCode,
++				const CefString &, const CefString &)
++{
++	frame->LoadURL("about:blank");
++}
++
+ bool BrowserClient::OnConsoleMessage(CefRefPtr<CefBrowser>, cef_log_severity_t level, const CefString &message,
+ 				     const CefString &source, int line)
+ {
+diff --git a/browser-client.hpp b/browser-client.hpp
+index cba0be2dd851..069c3ff42ff7 100644
+--- a/browser-client.hpp
++++ b/browser-client.hpp
+@@ -146,5 +146,9 @@ public:
+ 	/* CefLoadHandler */
+ 	virtual void OnLoadEnd(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, int httpStatusCode) override;
+ 
++	virtual void OnLoadError(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame,
++				 CefLoadHandler::ErrorCode errorCode, const CefString &errorText,
++				 const CefString &failedUrl) override;
++
+ 	IMPLEMENT_REFCOUNTING(BrowserClient);
+ };
+diff --git a/cef-headers.hpp b/cef-headers.hpp
+index 2b14f490cb0d..6a56cc1992ce 100644
+--- a/cef-headers.hpp
++++ b/cef-headers.hpp
+@@ -60,3 +60,20 @@
+ #else
+ #pragma GCC diagnostic pop
+ #endif
++
++static bool BlockChromeUrl(std::string url)
++{
++	CefURLParts parts;
++	bool parsed = CefParseURL(url, parts);
++
++	if (parsed && CefString(&parts.scheme).compare("chrome") == 0) {
++		std::string blocked[3] = {"extensions", "password-manager",
++					  "settings"};
++		std::string host = CefString(&parts.host);
++		if (std::find(std::begin(blocked), std::end(blocked), host) !=
++		    std::end(blocked)) {
++			return true;
++		}
++	}
++	return false;
++}
+diff --git a/panel/browser-panel-client.cpp b/panel/browser-panel-client.cpp
+index 868f01b62dce..67277feaf8e5 100644
+--- a/panel/browser-panel-client.cpp
++++ b/panel/browser-panel-client.cpp
+@@ -38,6 +38,13 @@ CefRefPtr<CefDisplayHandler> QCefBrowserClient::GetDisplayHandler()
+ 	return this;
+ }
+ 
++#if CHROME_VERSION_BUILD >= 6533
++CefRefPtr<CefCommandHandler> QCefBrowserClient::GetCommandHandler()
++{
++	return this;
++}
++#endif
++
+ CefRefPtr<CefRequestHandler> QCefBrowserClient::GetRequestHandler()
+ {
+ 	return this;
+@@ -68,6 +75,32 @@ CefRefPtr<CefJSDialogHandler> QCefBrowserClient::GetJSDialogHandler()
+ 	return this;
+ }
+ 
++CefRefPtr<CefResourceRequestHandler> QCefBrowserClient::GetResourceRequestHandler(CefRefPtr<CefBrowser>,
++										  CefRefPtr<CefFrame>,
++										  CefRefPtr<CefRequest>, bool, bool,
++										  const CefString &, bool &)
++{
++	return this;
++}
++
++/* CefResourceRequestHandler */
++CefResourceRequestHandler::ReturnValue QCefBrowserClient::OnBeforeResourceLoad(CefRefPtr<CefBrowser>,
++									       CefRefPtr<CefFrame>,
++									       CefRefPtr<CefRequest> request,
++									       CefRefPtr<CefCallback>)
++{
++	if (BlockChromeUrl(request->GetURL()))
++		return RV_CANCEL;
++
++	return RV_CONTINUE;
++}
++
++/* CefCommandHandler */
++bool QCefBrowserClient::OnChromeCommand(CefRefPtr<CefBrowser>, int, cef_window_open_disposition_t)
++{
++	return true;
++}
++
+ /* CefDisplayHandler */
+ void QCefBrowserClient::OnTitleChange(CefRefPtr<CefBrowser> browser, const CefString &title)
+ {
+diff --git a/panel/browser-panel-client.hpp b/panel/browser-panel-client.hpp
+index 417021fa99d7..b0210c017182 100644
+--- a/panel/browser-panel-client.hpp
++++ b/panel/browser-panel-client.hpp
+@@ -7,11 +7,15 @@
+ 
+ class QCefBrowserClient : public CefClient,
+ 			  public CefDisplayHandler,
++#if CHROME_VERSION_BUILD >= 6533
++			  public CefCommandHandler,
++#endif
+ 			  public CefRequestHandler,
+ 			  public CefLifeSpanHandler,
+ 			  public CefContextMenuHandler,
+ 			  public CefLoadHandler,
+ 			  public CefKeyboardHandler,
++			  public CefResourceRequestHandler,
+ 			  public CefFocusHandler,
+ 			  public CefJSDialogHandler {
+ 
+@@ -26,6 +30,9 @@ public:
+ 	/* CefClient */
+ 	virtual CefRefPtr<CefLoadHandler> GetLoadHandler() override;
+ 	virtual CefRefPtr<CefDisplayHandler> GetDisplayHandler() override;
++#if CHROME_VERSION_BUILD >= 6533
++	virtual CefRefPtr<CefCommandHandler> GetCommandHandler() override;
++#endif
+ 	virtual CefRefPtr<CefRequestHandler> GetRequestHandler() override;
+ 	virtual CefRefPtr<CefLifeSpanHandler> GetLifeSpanHandler() override;
+ 	virtual CefRefPtr<CefKeyboardHandler> GetKeyboardHandler() override;
+@@ -33,6 +40,10 @@ public:
+ 	virtual CefRefPtr<CefContextMenuHandler> GetContextMenuHandler() override;
+ 	virtual CefRefPtr<CefJSDialogHandler> GetJSDialogHandler() override;
+ 
++	/* CefCommandHandler */
++	virtual bool OnChromeCommand(CefRefPtr<CefBrowser> browser, int command_id,
++				     cef_window_open_disposition_t disposition) override;
++
+ 	/* CefDisplayHandler */
+ 	virtual void OnTitleChange(CefRefPtr<CefBrowser> browser, const CefString &title) override;
+ 
+@@ -65,6 +76,18 @@ public:
+ 	/* CefFocusHandler */
+ 	virtual bool OnSetFocus(CefRefPtr<CefBrowser> browser, CefFocusHandler::FocusSource source) override;
+ 
++	/* CefRequestHandler */
++	virtual CefRefPtr<CefResourceRequestHandler>
++	GetResourceRequestHandler(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame,
++				  CefRefPtr<CefRequest> request, bool is_navigation, bool is_download,
++				  const CefString &request_initiator, bool &disable_default_handling) override;
++
++	/* CefResourceRequestHandler */
++	virtual CefResourceRequestHandler::ReturnValue OnBeforeResourceLoad(CefRefPtr<CefBrowser> browser,
++									    CefRefPtr<CefFrame> frame,
++									    CefRefPtr<CefRequest> request,
++									    CefRefPtr<CefCallback> callback) override;
++
+ 	/* CefContextMenuHandler */
+ 	virtual void OnBeforeContextMenu(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame,
+ 					 CefRefPtr<CefContextMenuParams> params,
+-- 
+2.51.0
+

@@ -1,0 +1,95 @@
+From 14d44ee3cc4bcbfe28e09b4c26bd17655cedfb5a Mon Sep 17 00:00:00 2001
+From: Matt Gajownik <matt@obsproject.com>
+Date: Sun, 6 Jul 2025 18:11:04 +0900
+Subject: [PATCH 5/6] WIP Chrome Runtime: Data migration
+
+A data migration function is WIP. It moves some directories into a new
+'Default' profile subdirectory, and performs the necessary renaming of
+certain files to ensure the new Profile loads.
+
+TODO: Finish and test all cookie migration code (new/old users)
+---
+ obs-browser-plugin.cpp | 65 ++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 65 insertions(+)
+
+diff --git a/obs-browser-plugin.cpp b/obs-browser-plugin.cpp
+index 98f1e7a6fdc3..38220268d53b 100644
+--- a/obs-browser-plugin.cpp
++++ b/obs-browser-plugin.cpp
+@@ -719,8 +719,73 @@ static void check_hwaccel_support(void)
+ #endif
+ #endif
+ 
++static void MigrateToChromeRuntime()
++{
++	BPtr<char> defaultProfile = obs_module_config_path("Default");
++	// User has already previously launched with Chrome Runtime
++	if (os_file_exists(defaultProfile.Get())) {
++		blog(LOG_WARNING, "[obs-browser]: Chrome Runtime Default profile detected. No migration necessary.");
++		return;
++	}
++
++	BPtr<char> localPrefs = obs_module_config_path("LocalPrefs.json");
++	// User has never launched old OBS Browser before
++	if (!os_file_exists(localPrefs.Get())) {
++		blog(LOG_WARNING, "[obs-browser]: Alloy Runtime preferences not found. No migration necessary.");
++		return;
++	}
++
++	os_mkdir(defaultProfile.Get());
++
++	std::string dirs[3] = {"Local Storage/leveldb", "Session Storage", "Network"};
++
++	std::error_code ec;
++	for (std::string dir : dirs) {
++		BPtr<char> path = obs_module_config_path(dir.c_str());
++		// os_mkdirs(path.Get());
++		BPtr<char> path_abs = os_get_abs_path_ptr(path);
++
++		std::string newDir("Default/" + dir);
++		BPtr<char> new_path = obs_module_config_path(newDir.c_str());
++		BPtr<char> new_path_abs = os_get_abs_path_ptr(new_path);
++
++		std::filesystem::copy(std::string(path_abs.Get()), std::string(new_path_abs.Get()),
++				      std::filesystem::copy_options::recursive, ec);
++	}
++
++	BPtr<char> newLocalPrefs = obs_module_config_path("Local State");
++	os_copyfile(localPrefs.Get(), newLocalPrefs.Get());
++
++
++	BPtr<char> serviceProfiles = obs_module_config_path("obs_profile_cookies");
++	if (os_file_exists(serviceProfiles.Get())) {
++		os_dir_t *dir = os_opendir(serviceProfiles.Get());
++		struct os_dirent *ent;
++		// User has service integration cookies that also must be copied
++		// TODO Check if we need to do any similar manipulation to above
++		while ((ent = os_readdir(dir)) != NULL) {
++			string name = ent->d_name;
++			if (!ent->directory || name[0] == '.')
++				continue;
++			std::string oldDir("obs_profile_cookies/" + name);
++			std::string newDir("obs_profile_cookies_" + name);
++			BPtr<char> path = obs_module_config_path(oldDir.c_str());
++			BPtr<char> path_abs = os_get_abs_path_ptr(path);
++			BPtr<char> new_path = obs_module_config_path(newDir.c_str());
++			BPtr<char> new_path_abs = os_get_abs_path_ptr(new_path);
++			os_mkdirs(new_path.Get());
++			std::filesystem::copy(std::string(path_abs.Get()), std::string(new_path_abs.Get()),
++				      	std::filesystem::copy_options::recursive, ec);
++		}
++		os_closedir(dir);
++	}
++
++	blog(LOG_WARNING, "[obs-browser]: Migration of browser cookies and session completed.");
++}
++
+ bool obs_module_load(void)
+ {
++	MigrateToChromeRuntime();
+ #ifdef ENABLE_BROWSER_QT_LOOP
+ 	qRegisterMetaType<MessageTask>("MessageTask");
+ #endif
+-- 
+2.51.0
+

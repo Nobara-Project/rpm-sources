@@ -1,0 +1,60 @@
+From 68d8ea90ce16d8ba2f82f096945378a46606f14b Mon Sep 17 00:00:00 2001
+From: Asahi Lina <lina@asahilina.net>
+Date: Fri, 15 Aug 2025 14:01:04 +0900
+Subject: [PATCH 5/5] libobs-opengl: Reject external-only modifiers
+
+These modifiers cannot be used with the standard texture sampling
+codepaths, so we need to reject them to avoid invalid GL operations.
+
+Closes obsproject/obs-studio#12498
+---
+ libobs-opengl/gl-egl-common.c | 21 ++++++++++++++++++++-
+ 1 file changed, 20 insertions(+), 1 deletion(-)
+
+diff --git a/libobs-opengl/gl-egl-common.c b/libobs-opengl/gl-egl-common.c
+index b3ff73fcc80b..021efc1bc7ae 100644
+--- a/libobs-opengl/gl-egl-common.c
++++ b/libobs-opengl/gl-egl-common.c
+@@ -360,19 +360,38 @@ static inline bool query_dmabuf_modifiers(EGLDisplay egl_display, EGLint drm_for
+ 
+ 	if (max_modifiers != 0) {
+ 		EGLuint64KHR *modifier_list = bzalloc(max_modifiers * sizeof(EGLuint64KHR));
+-		EGLBoolean *external_only = NULL;
+ 		if (!modifier_list) {
+ 			blog(LOG_ERROR, "Unable to allocate memory");
+ 			return false;
+ 		}
+ 
++		EGLBoolean *external_only = bzalloc(max_modifiers * sizeof(EGLBoolean));
++		if (!external_only) {
++			blog(LOG_ERROR, "Unable to allocate memory");
++			bfree(modifier_list);
++			return false;
++		}
++
+ 		if (!glad_eglQueryDmaBufModifiersEXT(egl_display, drm_format, max_modifiers, modifier_list,
+ 						     external_only, &max_modifiers)) {
+ 			blog(LOG_ERROR, "Cannot query a list of modifiers: %s", gl_egl_error_to_string(eglGetError()));
++			bfree(external_only);
+ 			bfree(modifier_list);
+ 			return false;
+ 		}
+ 
++		// Filter out external_only modifiers, since they require special handling.
++		for (int i = 0, j = 0; j < max_modifiers; i++) {
++			if (external_only[i]) {
++				max_modifiers--;
++				memmove(&modifier_list[j], &modifier_list[j + 1],
++					sizeof(EGLuint64KHR) * (max_modifiers - j));
++			} else {
++				j++;
++			}
++		}
++
++		bfree(external_only);
+ 		*modifiers = modifier_list;
+ 	}
+ 
+-- 
+2.51.0
+

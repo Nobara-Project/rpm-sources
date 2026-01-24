@@ -1,0 +1,316 @@
+From aadcdebb9b152d03c5a521cee9b9d1913e1e4ecd Mon Sep 17 00:00:00 2001
+From: Matt Gajownik <matt@obsproject.com>
+Date: Sun, 6 Jul 2025 18:02:47 +0900
+Subject: [PATCH 1/6] WIP Lock down Chrome Runtime: dummy Browser Client
+
+This commit adds a dummy Browser Client to introduce limitations into
+the Chrome UI windows that can be opened in uncontrolled edge cases.
+
+Essentially, by default, these Chrome UI windows are unmanaged. By
+returning something other than null in GetDefaultClient() we can lock
+it down in various ways.
+
+OnBeforePopup, OnOpenURLFromTab can probably be
+removed as they don't get called. There's no direct way to stop the
+Chrome UI window from being opened, so instead close it immediately.
+
+TODO: Version gate BrowserDummyClient
+---
+ CMakeLists.txt           |  2 +
+ browser-app.cpp          | 42 +++++++++++++++++++++
+ browser-app.hpp          |  7 ++++
+ browser-dummy-client.cpp | 79 ++++++++++++++++++++++++++++++++++++++++
+ browser-dummy-client.hpp | 47 ++++++++++++++++++++++++
+ cmake/os-linux.cmake     |  3 +-
+ cmake/os-macos.cmake     |  3 +-
+ cmake/os-windows.cmake   |  4 +-
+ 8 files changed, 183 insertions(+), 4 deletions(-)
+ create mode 100644 browser-dummy-client.cpp
+ create mode 100644 browser-dummy-client.hpp
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index a6c9952f73c9..597320c3d743 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -25,6 +25,8 @@ target_sources(
+           browser-app.hpp
+           browser-client.cpp
+           browser-client.hpp
++          browser-dummy-client.cpp
++          browser-dummy-client.hpp
+           browser-scheme.cpp
+           browser-scheme.hpp
+           browser-version.h
+diff --git a/browser-app.cpp b/browser-app.cpp
+index 5d2c4dc7602a..9714824fea90 100644
+--- a/browser-app.cpp
++++ b/browser-app.cpp
+@@ -48,11 +48,53 @@ CefRefPtr<CefBrowserProcessHandler> BrowserApp::GetBrowserProcessHandler()
+ 	return this;
+ }
+ 
++CefRefPtr<CefClient> BrowserApp::GetDefaultClient()
++{
++	return GetDummy();
++}
++
+ void BrowserApp::OnRegisterCustomSchemes(CefRawPtr<CefSchemeRegistrar> registrar)
+ {
+ 	registrar->AddCustomScheme("http", CEF_SCHEME_OPTION_STANDARD | CEF_SCHEME_OPTION_CORS_ENABLED);
+ }
+ 
++void BrowserApp::OnContextInitialized()
++{
++	dummy = new BrowserDummyClient();
++
++	CefRefPtr<CefRequestContext> rc = CefRequestContext::GetGlobalContext();
++	CefString err;
++	CefRefPtr<CefValue> off = CefValue::Create();
++	off->SetBool(false);
++	std::string opts[20] = {"autofill.credit_card_enabled",
++				"autofill.enabled",
++				"autofill.iban_enabled",
++				"autofill.payment_card_benefits",
++				"autofill.payment_cvc_storage",
++				"autofill.profile_enabled",
++				"autologin.enabled",
++				"browser_labs_enabled",
++				"credentials_enable_autosignin",
++				"credentials_enable_service",
++				"payments.can_make_payment_enabled",
++				"printing.enabled",
++				"search.suggest_enabled",
++				"shopping_list_enabled",
++				"side_panel.google_search_side_panel_enabled",
++				"side_search.enabled",
++				"signin.allowed",
++				"signin.allowed_on_next_startup",
++				"translate",
++				"url_keyed_anonymized_data_collection.enabled"};
++
++	for (std::string opt : opts) {
++		rc->SetPreference(opt, off.get(), err);
++	}
++	off->SetBool(true);
++	rc->SetPreference("extensions.block_external_extensions", off.get(), err);
++	rc->SetPreference("extensions.disabled", off.get(), err);
++}
++
+ void BrowserApp::OnBeforeChildProcessLaunch(CefRefPtr<CefCommandLine> command_line)
+ {
+ #ifdef _WIN32
+diff --git a/browser-app.hpp b/browser-app.hpp
+index b25d9accdec8..68e505cc4324 100644
+--- a/browser-app.hpp
++++ b/browser-app.hpp
+@@ -22,6 +22,7 @@
+ #include <unordered_map>
+ #include <functional>
+ #include "cef-headers.hpp"
++#include "browser-dummy-client.hpp"
+ 
+ typedef std::function<void(CefRefPtr<CefBrowser>)> BrowserFunc;
+ 
+@@ -85,6 +86,8 @@ public:
+ 
+ 	virtual CefRefPtr<CefRenderProcessHandler> GetRenderProcessHandler() override;
+ 	virtual CefRefPtr<CefBrowserProcessHandler> GetBrowserProcessHandler() override;
++	virtual CefRefPtr<CefClient> GetDefaultClient() override;
++	virtual void OnContextInitialized() override;
+ 	virtual void OnBeforeChildProcessLaunch(CefRefPtr<CefCommandLine> command_line) override;
+ 	virtual void OnRegisterCustomSchemes(CefRawPtr<CefSchemeRegistrar> registrar) override;
+ 	virtual void OnBeforeCommandLineProcessing(const CefString &process_type,
+@@ -106,5 +109,9 @@ public:
+ 	QTimer frameTimer;
+ #endif
+ 
++	CefRefPtr<BrowserDummyClient> dummy = nullptr;
++
++	BrowserDummyClient *GetDummy() { return dummy.get(); };
++
+ 	IMPLEMENT_REFCOUNTING(BrowserApp);
+ };
+diff --git a/browser-dummy-client.cpp b/browser-dummy-client.cpp
+new file mode 100644
+index 000000000000..923fbed0fb6d
+--- /dev/null
++++ b/browser-dummy-client.cpp
+@@ -0,0 +1,79 @@
++
++#include "browser-dummy-client.hpp"
++
++CefRefPtr<CefCommandHandler> BrowserDummyClient::GetCommandHandler()
++{
++	return this;
++}
++
++CefRefPtr<CefRequestHandler> BrowserDummyClient::GetRequestHandler()
++{
++	return this;
++}
++
++CefRefPtr<CefLifeSpanHandler> BrowserDummyClient::GetLifeSpanHandler()
++{
++	return this;
++}
++
++bool BrowserDummyClient::OnChromeCommand(CefRefPtr<CefBrowser>, int,
++					 cef_window_open_disposition_t)
++{
++	return true;
++}
++
++bool BrowserDummyClient::IsChromeAppMenuItemVisible(CefRefPtr<CefBrowser>, int)
++{
++	return false;
++}
++
++bool BrowserDummyClient::IsChromeToolbarButtonVisible(
++	cef_chrome_toolbar_button_type_t)
++{
++	return false;
++}
++
++bool BrowserDummyClient::IsChromePageActionIconVisible(
++	cef_chrome_page_action_icon_type_t)
++{
++	return false;
++}
++
++bool BrowserDummyClient::IsChromeAppMenuItemEnabled(CefRefPtr<CefBrowser>, int)
++{
++	return false;
++}
++
++bool BrowserDummyClient::OnBeforePopup(
++	CefRefPtr<CefBrowser>, CefRefPtr<CefFrame>,
++#if CHROME_VERSION_BUILD >= 6834
++	int,
++#endif
++	const CefString &,
++	const CefString &, cef_window_open_disposition_t, bool,
++	const CefPopupFeatures &, CefWindowInfo &, CefRefPtr<CefClient> &,
++	CefBrowserSettings &, CefRefPtr<CefDictionaryValue> &, bool *)
++{
++	return true;
++}
++
++void BrowserDummyClient::OnAfterCreated(CefRefPtr<CefBrowser> browser)
++{
++	if (browser && browser->GetHost()) {
++		//browser->GetHost()->CloseBrowser(false);
++	}
++}
++
++bool BrowserDummyClient::OnOpenURLFromTab(
++	CefRefPtr<CefBrowser>, CefRefPtr<CefFrame>, const CefString &,
++	CefRequestHandler::WindowOpenDisposition, bool)
++{
++	return true;
++}
++
++bool BrowserDummyClient::OnBeforeBrowse(CefRefPtr<CefBrowser>,
++					CefRefPtr<CefFrame>,
++					CefRefPtr<CefRequest>, bool, bool)
++{
++	return true;
++}
+diff --git a/browser-dummy-client.hpp b/browser-dummy-client.hpp
+new file mode 100644
+index 000000000000..80c9280d60e5
+--- /dev/null
++++ b/browser-dummy-client.hpp
+@@ -0,0 +1,47 @@
++#pragma once
++
++#include "cef-headers.hpp"
++
++class BrowserDummyClient : public CefClient,
++			   public CefCommandHandler,
++			   public CefRequestHandler,
++			   public CefLifeSpanHandler {
++public:
++	virtual CefRefPtr<CefCommandHandler> GetCommandHandler() override;
++	virtual CefRefPtr<CefRequestHandler> GetRequestHandler() override;
++	virtual CefRefPtr<CefLifeSpanHandler> GetLifeSpanHandler() override;
++
++	/* CefCommandHandler */
++	virtual bool OnChromeCommand(CefRefPtr<CefBrowser> browser, int command_id,
++				     cef_window_open_disposition_t disposition) override;
++	virtual bool IsChromeAppMenuItemVisible(CefRefPtr<CefBrowser> browser, int command_id) override;
++	virtual bool IsChromeToolbarButtonVisible(cef_chrome_toolbar_button_type_t button_type) override;
++
++	virtual bool IsChromePageActionIconVisible(cef_chrome_page_action_icon_type_t icon_type) override;
++
++	virtual bool IsChromeAppMenuItemEnabled(CefRefPtr<CefBrowser> browser, int command_id) override;
++
++	/* CefLifeSpanHandler */
++	virtual bool OnBeforePopup(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame,
++#if CHROME_VERSION_BUILD >= 6834
++				   int,
++#endif
++				   const CefString &target_url, const CefString &target_frame_name,
++				   cef_window_open_disposition_t target_disposition, bool user_gesture,
++				   const CefPopupFeatures &popupFeatures, CefWindowInfo &windowInfo,
++				   CefRefPtr<CefClient> &client, CefBrowserSettings &settings,
++				   CefRefPtr<CefDictionaryValue> &extra_info, bool *no_javascript_access) override;
++
++	virtual void OnAfterCreated(CefRefPtr<CefBrowser> browser) override;
++
++	/* CefRequestHandler */
++	virtual bool OnOpenURLFromTab(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame,
++				      const CefString &target_url,
++				      CefRequestHandler::WindowOpenDisposition target_disposition,
++				      bool user_gesture) override;
++
++	virtual bool OnBeforeBrowse(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame,
++				    CefRefPtr<CefRequest> request, bool user_gesture, bool is_redirect) override;
++
++	IMPLEMENT_REFCOUNTING(BrowserDummyClient);
++};
+diff --git a/cmake/os-linux.cmake b/cmake/os-linux.cmake
+index 98108066c26b..eb4e0068bfb5 100644
+--- a/cmake/os-linux.cmake
++++ b/cmake/os-linux.cmake
+@@ -14,7 +14,8 @@ add_executable(OBS::browser-helper ALIAS browser-helper)
+ 
+ target_sources(
+   browser-helper PRIVATE # cmake-format: sortable
+-                         browser-app.cpp browser-app.hpp cef-headers.hpp obs-browser-page/obs-browser-page-main.cpp)
++                         browser-app.cpp browser-app.hpp browser-dummy-client.hpp browser-dummy-client.cpp
++			 cef-headers.hpp obs-browser-page/obs-browser-page-main.cpp)
+ 
+ target_include_directories(browser-helper PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/deps"
+                                                   "${CMAKE_CURRENT_SOURCE_DIR}/obs-browser-page")
+diff --git a/cmake/os-macos.cmake b/cmake/os-macos.cmake
+index 56c2e3025971..e96019a25781 100644
+--- a/cmake/os-macos.cmake
++++ b/cmake/os-macos.cmake
+@@ -31,7 +31,8 @@ foreach(helper IN LISTS helper_suffixes)
+ 
+   target_sources(
+     ${target_name} PRIVATE # cmake-format: sortable
+-                           browser-app.cpp browser-app.hpp cef-headers.hpp obs-browser-page/obs-browser-page-main.cpp)
++                           browser-app.cpp browser-app.hpp browser-dummy-client.hpp browser-dummy-client.cpp
++			   cef-headers.hpp obs-browser-page/obs-browser-page-main.cpp)
+ 
+   target_compile_definitions(${target_name} PRIVATE ENABLE_BROWSER_SHARED_TEXTURE)
+ 
+diff --git a/cmake/os-windows.cmake b/cmake/os-windows.cmake
+index db3c18760258..7f8615e02920 100644
+--- a/cmake/os-windows.cmake
++++ b/cmake/os-windows.cmake
+@@ -10,8 +10,8 @@ add_executable(OBS::browser-helper ALIAS obs-browser-helper)
+ target_sources(
+   obs-browser-helper
+   PRIVATE # cmake-format: sortable
+-          browser-app.cpp browser-app.hpp cef-headers.hpp obs-browser-page.manifest
+-          obs-browser-page/obs-browser-page-main.cpp)
++          browser-app.cpp browser-app.hpp browser-dummy-client.hpp browser-dummy-client.cpp
++	  cef-headers.hpp obs-browser-page.manifest obs-browser-page/obs-browser-page-main.cpp)
+ 
+ target_include_directories(obs-browser-helper PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/deps"
+                                                       "${CMAKE_CURRENT_SOURCE_DIR}/obs-browser-page")
+-- 
+2.51.0
+

@@ -1,0 +1,84 @@
+From 7c2f186bf61e85fac9a0275ba4490a5cdf6ebf74 Mon Sep 17 00:00:00 2001
+From: Matt Gajownik <matt@obsproject.com>
+Date: Sun, 6 Jul 2025 18:09:32 +0900
+Subject: [PATCH 4/6] WIP Enable Chrome Runtime
+
+The cookie directories for each service integration must be moved into
+the root config directory, as subdirectories in their current form
+(obs_profile_cookies/<cookie_id>) are not supported. This is
+intentional, and according to Marshall this was never a supported setup.
+cache_path *must* be a direct child of the root_cache_path. Invalid
+cache_path_ is silently treated as Incognito Mode and cookies are not
+stored.
+
+TODO: Disable ability to set browser as default
+TODO: Disable ability to switch profiles (as it currently crashes)
+---
+ obs-browser-plugin.cpp  |  4 ++++
+ panel/browser-panel.cpp | 20 ++++++++++++++++++--
+ 2 files changed, 22 insertions(+), 2 deletions(-)
+
+diff --git a/obs-browser-plugin.cpp b/obs-browser-plugin.cpp
+index 4d9233e37bbc..98f1e7a6fdc3 100644
+--- a/obs-browser-plugin.cpp
++++ b/obs-browser-plugin.cpp
+@@ -293,6 +293,9 @@ static void BrowserInit(void)
+ 	CefString(&settings.log_file) = log_path_abs;
+ 	settings.windowless_rendering_enabled = true;
+ 	settings.no_sandbox = true;
++#if CHROME_VERSION_BUILD >= 6533 && CHROME_VERSION_BUILD < 7103
++	settings.chrome_runtime = true;
++#endif
+ 
+ 	uint32_t obs_ver = obs_get_version();
+ 	uint32_t obs_maj = obs_ver >> 24;
+@@ -341,6 +344,7 @@ static void BrowserInit(void)
+ 	settings.persist_user_preferences = 1;
+ #endif
+ 	CefString(&settings.cache_path) = conf_path_abs;
++	CefString(&settings.root_cache_path) = conf_path_abs;
+ #if !defined(__APPLE__) || defined(ENABLE_BROWSER_LEGACY)
+ 	char *abs_path = os_get_abs_path_ptr(path.c_str());
+ 	CefString(&settings.browser_subprocess_path) = abs_path;
+diff --git a/panel/browser-panel.cpp b/panel/browser-panel.cpp
+index b3fbe289d0d9..5144bab4f378 100644
+--- a/panel/browser-panel.cpp
++++ b/panel/browser-panel.cpp
+@@ -552,8 +552,16 @@ QCefWidget *QCefInternal::create_widget(QWidget *parent, const std::string &url,
+ 
+ QCefCookieManager *QCefInternal::create_cookie_manager(const std::string &storage_path, bool persist_session_cookies)
+ {
++	auto storage_path_ = storage_path;
++#if CHROME_VERSION_BUILD > 6533
++	std::string legacy = "obs_profile_cookies/";
++	size_t pos = storage_path_.find(legacy);
++	if (pos != std::string::npos) {
++		storage_path_.replace(pos, legacy.length(), "obs_profile_cookies_");
++	}
++#endif
+ 	try {
+-		return new QCefCookieManagerInternal(storage_path, persist_session_cookies);
++		return new QCefCookieManagerInternal(storage_path_, persist_session_cookies);
+ 	} catch (const char *error) {
+ 		blog(LOG_ERROR, "Failed to create cookie manager: %s", error);
+ 		return nullptr;
+@@ -562,7 +570,15 @@ QCefCookieManager *QCefInternal::create_cookie_manager(const std::string &storag
+ 
+ BPtr<char> QCefInternal::get_cookie_path(const std::string &storage_path)
+ {
+-	BPtr<char> rpath = obs_module_config_path(storage_path.c_str());
++	auto storage_path_ = storage_path;
++#if CHROME_VERSION_BUILD > 6533
++	std::string legacy = "obs_profile_cookies/";
++	size_t pos = storage_path_.find(legacy);
++	if (pos != std::string::npos) {
++		storage_path_.replace(pos, legacy.length(), "obs_profile_cookies_");
++	}
++#endif
++	BPtr<char> rpath = obs_module_config_path(storage_path_.c_str());
+ 	return os_get_abs_path_ptr(rpath.Get());
+ }
+ 
+-- 
+2.51.0
+

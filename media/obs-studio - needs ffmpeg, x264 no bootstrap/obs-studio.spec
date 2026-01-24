@@ -1,4 +1,4 @@
-%ifarch %{power64} s390x
+%ifarch %{power64} s390x riscv64
 # LuaJIT is not available for POWER and IBM Z
 %bcond lua_scripting 0
 %else
@@ -41,17 +41,17 @@
 # https://github.com/chromiumembedded/cef/issues/3959
 %global cef_api_version 13700
 
-%define version_string 32.0.2
+%define version_string 32.0.4
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build %{build_timestamp}.%{shortcommit}%{?dist}
 %global _default_patch_fuzz 2
 # obs version and commit
-%global commit c025f210d36ada93c6b9ef2affd0f671b34c9775
+%global commit dcdbd2e9048ae66237fdab32dbba72b745b1b9c5
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 Name:           obs-studio
 Version:        %{version_string}
-Release:        4.%{rel_build}
+Release:        1.%{rel_build}
 Summary:        Open Broadcaster Software Studio
 
 # OBS itself is GPL-2.0-or-later, while various plugin dependencies are of various other licenses
@@ -70,19 +70,27 @@ Patch0101:      0101-frontend-Consider-settings-changed-if-an-output-sett.patch
 Patch0102:      0102-frontend-Allow-invalid-recording-encoder-if-quality-.patch
 ## From: https://github.com/obsproject/obs-studio/pull/8529
 Patch0103:      0103-UI-Add-support-for-OpenH264-as-the-worst-case-fallba.patch
+## From: https://github.com/obsproject/obs-studio/pull/12507
+Patch0105:      0105-libobs-opengl-Reject-external-only-modifiers.patch
+## From: https://github.com/obsproject/obs-studio/pull/12951
+Patch0106:      0106-fix-shutdown-crash.patch
+
+# WIP code to improve new CEF support (based on upstream dev tree)
+## From: https://github.com/asahilina/obs-browser/tree/lockdown
+Patch0201:      0201-WIP-Lock-down-Chrome-Runtime-dummy-Browser-Client.patch
+Patch0202:      0202-WIP-Lock-down-Chrome-Runtime-Disable-various-setting.patch
+Patch0203:      0203-WIP-Lock-down-Chrome-Runtime-Lock-down-URLs-and-comm.patch
+Patch0204:      0204-WIP-Enable-Chrome-Runtime.patch
+Patch0205:      0205-WIP-Chrome-Runtime-Data-migration.patch
+Patch0206:      0206-WIP-Lock-down-Chrome-Runtime-Misc-changes.patch
 
 # Downstream Fedora patches
 ## Use fdk-aac by default
 Patch1001:      obs-studio-UI-use-fdk-aac-by-default.patch
-
 ## Fix error: passing argument 4 of ‘query_dmabuf_modifiers’ from
 ##            incompatible pointer type [-Wincompatible-pointer-types]
 Patch1003:      obs-studio-fix-incompatible-pointer-type.patch
 Patch1004:      obs-studio-fix-build-against-qt-6-10.patch
-
-# https://github.com/obsproject/obs-studio/issues/12792
-# https://github.com/obsproject/obs-studio/pull/12756
-Patch1005:      12756.patch
 
 BuildRequires:  gcc
 BuildRequires:  cmake >= 3.22
@@ -133,13 +141,13 @@ BuildRequires:  qt6-qtbase-private-devel
 BuildRequires:  qt6-qtsvg-devel
 BuildRequires:  qt6-qtwayland-devel
 BuildRequires:  rnnoise-devel
+BuildRequires:  simde-devel
 BuildRequires:  speexdsp-devel
 BuildRequires:  swig
 BuildRequires:  systemd-devel
 BuildRequires:  uthash-devel
 BuildRequires:  wayland-devel
 BuildRequires:  websocketpp-devel
-BuildRequires:  simde-devel
 %if %{with x264}
 BuildRequires:  x264-devel
 %endif
@@ -155,17 +163,8 @@ Recommends:     openh264%{?_isa}
 Recommends:	mesa-va-drivers
 Recommends:	mesa-vdpau-drivers
 
-Recommends:	obs-studio-plugin-media-playlist-source
-Recommends:	obs-studio-plugin-vlc-video
-Recommends:	obs-studio-plugin-backgroundremoval
-Recommends:	obs-studio-plugin-pipewire-audio-capture
 Recommends:	obs-studio-plugin-vkcapture
 Recommends:	obs-studio-plugin-vkcapture(x86-32)
-Recommends:	obs-studio-plugin-vertical-canvas
-Recommends:	obs-studio-plugin-aitum-multistream
-Recommends:	obs-studio-plugin-source-record
-Recommends:	obs-studio-plugin-distroav
-Recommends:     obs-studio-plugins-x264 >= %{version}-%{release}
 
 # Ensure QtWayland is installed when libwayland-client is installed
 Requires:      (qt6-qtwayland%{?_isa} if libwayland-client%{?_isa})
@@ -173,10 +172,6 @@ Requires:      (qt6-qtwayland%{?_isa} if libwayland-client%{?_isa})
 Requires:      hicolor-icon-theme
 
 # These are modified sources that can't be easily unbundled
-## License: MIT and CC0-1.0
-## Newer version in Fedora with the same licensing
-## Request filed upstream for fixing it: https://github.com/simd-everywhere/simde/issues/999
-Provides:      bundled(simde) = 0.7.1
 ## License: BSL-1.0
 Provides:      bundled(decklink-sdk)
 ## License: CC0-1.0 or OpenSSL or Apache-2.0
@@ -271,6 +266,7 @@ Library files for Open Broadcaster Software
 %package devel
 Summary: Open Broadcaster Software Studio header files
 Requires: %{name}-libs%{?_isa} = %{version}-%{release}
+Requires: simde-devel
 
 %description devel
 Header files for Open Broadcaster Software
@@ -340,7 +336,11 @@ as an overlay in a video stream or recording.
 # Prepare plugins/obs-websocket
 tar -xf %{SOURCE1} -C plugins/obs-websocket --strip-components=1
 tar -xf %{SOURCE2} -C plugins/obs-browser --strip-components=1
-%autopatch -p1
+%autopatch -p1 -M 199
+cd plugins/obs-browser
+%autopatch -p1 -m 200 -M 999
+cd ../..
+%autopatch -p1 -m 1000
 
 # This is provided by cef-devel systemwide
 rm cmake/finders/FindCEF.cmake
@@ -380,7 +380,6 @@ cp deps/libcaption/LICENSE.txt .fedora-rpm/licenses/deps/libcaption-LICENSE.txt
 cp plugins/obs-qsv11/QSV11-License-Clarification-Email.txt .fedora-rpm/licenses/plugins/QSV11-License-Clarification-Email.txt
 cp deps/blake2/LICENSE.blake2 .fedora-rpm/licenses/deps/
 cp libobs/graphics/libnsgif/LICENSE.libnsgif .fedora-rpm/licenses/deps/
-#cp libobs/util/simde/LICENSE.simde .fedora-rpm/licenses/deps/
 cp plugins/decklink/LICENSE.decklink-sdk .fedora-rpm/licenses/deps
 cp plugins/obs-qsv11/obs-qsv11-LICENSE.txt .fedora-rpm/licenses/plugins/
 
@@ -429,6 +428,31 @@ appstream-util validate-relax --nonet %{buildroot}%{_datadir}/metainfo/*.metainf
 
 
 %changelog
+* Thu Jan 01 2026 Hoshino Lina <lina@lina.yt> - 32.0.4-2
+- Fix crash when shutting down
+
+* Fri Dec 19 2025 Hoshino Lina <lina@lina.yt> - 32.0.4-1
+- Update to 32.0.4
+
+* Sun Nov 30 2025 Asahi Lina <lina@lina.yt> - 32.0.2-2
+- Add missing simde-devel dep to devel package
+
+* Sat Nov 22 2025 Asahi Lina <lina@lina.yt> - 32.0.2-1
+- Update to 32.0.2
+- Add prerelease obs-browser patches for CEF lockdown
+
+* Wed Oct 15 2025 Dominik Mierzejewski <dominik@greysector.net> - 31.1.1-4
+- Fixed build with FFmpeg 8
+
+* Tue Sep 30 2025 Jan Grulich <jgrulich@redhat.com> - 31.1.1-3
+- Rebuild (qt6)
+
+* Thu Jul 24 2025 Fedora Release Engineering <releng@fedoraproject.org> - 31.1.1-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_43_Mass_Rebuild
+
+* Sat Jul 12 2025 Neal Gompa <ngompa@fedoraproject.org> - 31.1.1-1
+- Update to 31.1.1
+
 * Tue Jul 08 2025 Neal Gompa <ngompa@fedoraproject.org> - 31.1.0-1
 - Update to 31.1.0 final
 - Update obs-websocket to 5.6.2

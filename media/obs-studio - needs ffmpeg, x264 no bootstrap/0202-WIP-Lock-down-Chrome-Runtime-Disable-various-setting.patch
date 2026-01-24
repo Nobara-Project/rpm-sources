@@ -1,0 +1,51 @@
+From 550b835f91a9e385a50bcaf79097952a66adc80f Mon Sep 17 00:00:00 2001
+From: Matt Gajownik <matt@obsproject.com>
+Date: Sun, 6 Jul 2025 18:05:07 +0900
+Subject: [PATCH 2/6] WIP Lock down Chrome Runtime: Disable various settings
+
+Various Chrome Settings are disabled in custom docks & browser sources
+via SetPreferences. For more, check `chrome/common/pref_names.h`.
+---
+ browser-app.cpp | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/browser-app.cpp b/browser-app.cpp
+index 9714824fea90..2ebb2483a25e 100644
+--- a/browser-app.cpp
++++ b/browser-app.cpp
+@@ -124,16 +124,32 @@ void BrowserApp::OnBeforeCommandLineProcessing(const CefString &, CefRefPtr<CefC
+ 		disableFeatures += ",EnableWindowsGamingInputDataFetcher";
+ #endif
+ 		disableFeatures += ",WebBluetooth";
++		disableFeatures += ",MediaRouter";
++		disableFeatures += ",CalculateNativeWinOcclusion";
++		disableFeatures += ",LiveCaption";
+ 		command_line->AppendSwitchWithValue("disable-features", disableFeatures);
+ 	} else {
+ 		command_line->AppendSwitchWithValue("disable-features", "WebBluetooth,"
+ #ifdef _WIN32
+ 									"EnableWindowsGamingInputDataFetcher,"
+ #endif
++									"MediaRouter,"
++									"CalculateNativeWinOcclusion,"
++									"LiveCaption,"
+ 									"HardwareMediaKeyHandling");
+ 	}
+ 
++	if (command_line->HasSwitch("disable-blink-features")) {
++		std::string disableBlinkFeatures = command_line->GetSwitchValue("disable-blink-features");
++		disableBlinkFeatures += ",DocumentPictureInPictureAPI";
++		command_line->AppendSwitchWithValue("disable-blink-features", disableBlinkFeatures);
++	} else {
++		command_line->AppendSwitchWithValue("disable-blink-features", "DocumentPictureInPictureAPI");
++	}
++
+ 	command_line->AppendSwitchWithValue("autoplay-policy", "no-user-gesture-required");
++	command_line->AppendSwitch("disable-extensions");
++	command_line->AppendSwitch("hide-crash-restore-bubble");
+ #ifdef __APPLE__
+ 	command_line->AppendSwitch("use-mock-keychain");
+ #elif !defined(_WIN32)
+-- 
+2.51.0
+

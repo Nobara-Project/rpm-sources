@@ -1,7 +1,7 @@
-From 3d474df58055e447343897e4ca8fe86133f0931b Mon Sep 17 00:00:00 2001
+From 4d44de4c6da5f49b473fa54d4b7876b97dae6ad9 Mon Sep 17 00:00:00 2001
 From: Neal Gompa <neal@gompa.dev>
 Date: Tue, 28 Mar 2023 05:08:49 -0400
-Subject: [PATCH 3/4] UI: Add support for OpenH264 as the worst-case fallback
+Subject: [PATCH 3/5] UI: Add support for OpenH264 as the worst-case fallback
 
 OpenH264 exists as the codec of last resort, so it is implemented
 such that it is only used as the software codec if x264 is not
@@ -20,10 +20,10 @@ available.
  10 files changed, 105 insertions(+), 40 deletions(-)
 
 diff --git a/frontend/data/locale/en-US.ini b/frontend/data/locale/en-US.ini
-index da7c09be7a7c..4ed196c9cb92 100644
+index 908af15890c5..73ce7b3762dc 100644
 --- a/frontend/data/locale/en-US.ini
 +++ b/frontend/data/locale/en-US.ini
-@@ -1053,6 +1053,7 @@ Basic.Settings.Output.Simple.Warn.Lossless="Warning: Lossless quality generates
+@@ -1065,6 +1065,7 @@ Basic.Settings.Output.Simple.Warn.Lossless="Warning: Lossless quality generates
  Basic.Settings.Output.Simple.Warn.Lossless.Msg="Are you sure you want to use lossless quality?"
  Basic.Settings.Output.Simple.Warn.Lossless.Title="Lossless quality warning!"
  Basic.Settings.Output.Simple.Encoder.Software="Software (x264)"
@@ -32,10 +32,10 @@ index da7c09be7a7c..4ed196c9cb92 100644
  Basic.Settings.Output.Simple.Encoder.Hardware.QSV.AV1="Hardware (QSV, AV1)"
  Basic.Settings.Output.Simple.Encoder.Hardware.AMD.H264="Hardware (AMD, H.264)"
 diff --git a/frontend/settings/OBSBasicSettings.cpp b/frontend/settings/OBSBasicSettings.cpp
-index de322bc1ee8f..fcbe4fd03071 100644
+index fdda9282f511..575912a439b5 100644
 --- a/frontend/settings/OBSBasicSettings.cpp
 +++ b/frontend/settings/OBSBasicSettings.cpp
-@@ -3365,6 +3365,11 @@ void OBSBasicSettings::SaveOutputSettings()
+@@ -3385,6 +3385,11 @@ void OBSBasicSettings::SaveOutputSettings()
           do. This only exists to make sure that the x264 preset doesn't
           get overwritten with empty data. */
  		presetType = "ApplePreset";
@@ -47,7 +47,7 @@ index de322bc1ee8f..fcbe4fd03071 100644
  	else
  		presetType = "Preset";
  
-@@ -4739,8 +4744,11 @@ void OBSBasicSettings::FillSimpleRecordingValues()
+@@ -4759,8 +4764,11 @@ void OBSBasicSettings::FillSimpleRecordingValues()
  	ADD_QUALITY("HQ");
  	ADD_QUALITY("Lossless");
  
@@ -61,7 +61,7 @@ index de322bc1ee8f..fcbe4fd03071 100644
  	if (EncoderAvailable("obs_qsv11"))
  		ui->simpleOutRecEncoder->addItem(ENCODER_STR("Hardware.QSV.H264"), QString(SIMPLE_ENCODER_QSV));
  	if (EncoderAvailable("obs_qsv11_av1"))
-@@ -4889,6 +4897,9 @@ void OBSBasicSettings::SimpleStreamingEncoderChanged()
+@@ -4909,6 +4917,9 @@ void OBSBasicSettings::SimpleStreamingEncoderChanged()
  
  		defaultPreset = "balanced";
  		preset = curAMDAV1Preset;
@@ -109,7 +109,7 @@ index ce74a1cb1bab..74bc9cbcccb2 100644
  	if (service_supports_encoder(vcodecs, "obs_qsv11"))
  		ui->simpleOutStrEncoder->addItem(ENCODER_STR("Hardware.QSV.H264"), QString(SIMPLE_ENCODER_QSV));
 diff --git a/frontend/utility/SimpleOutput.cpp b/frontend/utility/SimpleOutput.cpp
-index b62846309c47..95d1115ac6c1 100644
+index d594b9987f4b..54ba20f89a8d 100644
 --- a/frontend/utility/SimpleOutput.cpp
 +++ b/frontend/utility/SimpleOutput.cpp
 @@ -80,7 +80,9 @@ void SimpleOutput::LoadStreamingPreset_Lossy(const char *encoderId)
@@ -133,10 +133,10 @@ index b62846309c47..95d1115ac6c1 100644
  
  void SimpleOutput::LoadRecordingPreset()
 diff --git a/frontend/widgets/OBSBasic.cpp b/frontend/widgets/OBSBasic.cpp
-index e56b7e277913..48586f001c93 100644
+index b0698b29b547..b18e0612a98c 100644
 --- a/frontend/widgets/OBSBasic.cpp
 +++ b/frontend/widgets/OBSBasic.cpp
-@@ -519,6 +519,8 @@ static const double scaled_vals[] = {1.0, 1.25, (1.0 / 0.75), 1.5, (1.0 / 0.6),
+@@ -576,6 +576,8 @@ static const double scaled_vals[] = {1.0, 1.25, (1.0 / 0.75), 1.5, (1.0 / 0.6),
  #define DEFAULT_CONTAINER "hybrid_mp4"
  #endif
  
@@ -145,7 +145,7 @@ index e56b7e277913..48586f001c93 100644
  bool OBSBasic::InitBasicConfigDefaults()
  {
  	QList<QScreen *> screens = QGuiApplication::screens();
-@@ -680,7 +682,9 @@ bool OBSBasic::InitBasicConfigDefaults()
+@@ -737,7 +739,9 @@ bool OBSBasic::InitBasicConfigDefaults()
  	config_set_default_bool(activeConfiguration, "AdvOut", "UseRescale", false);
  	config_set_default_uint(activeConfiguration, "AdvOut", "TrackIndex", 1);
  	config_set_default_uint(activeConfiguration, "AdvOut", "VodTrackIndex", 2);
@@ -156,7 +156,7 @@ index e56b7e277913..48586f001c93 100644
  
  	config_set_default_string(activeConfiguration, "AdvOut", "RecType", "Standard");
  
-@@ -796,10 +800,13 @@ void OBSBasic::InitBasicConfigDefaults2()
+@@ -853,10 +857,13 @@ void OBSBasic::InitBasicConfigDefaults2()
  	bool oldEncDefaults = config_get_bool(App()->GetUserConfig(), "General", "Pre23Defaults");
  	bool useNV = EncoderAvailable("ffmpeg_nvenc") && !oldEncDefaults;
  
@@ -173,10 +173,10 @@ index e56b7e277913..48586f001c93 100644
  	const char *aac_default = "ffmpeg_aac";
  	if (EncoderAvailable("CoreAudio_AAC"))
 diff --git a/frontend/widgets/OBSBasic.hpp b/frontend/widgets/OBSBasic.hpp
-index 48e9960fa2b0..fece7580b9db 100644
+index ca213433e0be..75b9207f3a2c 100644
 --- a/frontend/widgets/OBSBasic.hpp
 +++ b/frontend/widgets/OBSBasic.hpp
-@@ -75,6 +75,7 @@ struct Rect;
+@@ -76,6 +76,7 @@ enum class LogFileType;
  
  #define SIMPLE_ENCODER_X264 "x264"
  #define SIMPLE_ENCODER_X264_LOWCPU "x264_lowcpu"
@@ -184,7 +184,7 @@ index 48e9960fa2b0..fece7580b9db 100644
  #define SIMPLE_ENCODER_QSV "qsv"
  #define SIMPLE_ENCODER_QSV_AV1 "qsv_av1"
  #define SIMPLE_ENCODER_NVENC "nvenc"
-@@ -885,7 +886,7 @@ private:
+@@ -894,7 +895,7 @@ private:
  	void UpdateProfileEncoders();
  	std::vector<std::string> GetRestartRequirements(const ConfigFile &config) const;
  	void ResetProfileData();
@@ -499,5 +499,5 @@ index c6547ba1b149..3de259a5e15a 100644
  
  	auto newLabel = [this](const char *str) -> QLabel * {
 -- 
-2.49.0
+2.51.0
 
