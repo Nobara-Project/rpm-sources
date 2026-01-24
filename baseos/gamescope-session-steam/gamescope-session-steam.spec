@@ -1,6 +1,6 @@
 Name:           gamescope-session-steam
 Version:        0.2.git.201.5538cd66
-Release:        66%{?dist}
+Release:        71%{?dist}
 Summary:        Steam Deck Mode session
 
 License:        MIT
@@ -43,18 +43,6 @@ cp -rf gamescope-session-steam/usr/libexec/* %{buildroot}%{_libexecdir}/
 cp -rf gamescope-session-steam/etc/* %{buildroot}%{_sysconfdir}/
 mv gamescope-session-steam/LICENSE .
 wget https://large-package-sources.nobaraproject.org/bootstrap_steam.tar.gz -O %{buildroot}%{_datadir}/gamescope-session-plus/bootstraplinux_ubuntu12_32.tar.xz
-
-# Do post-installation
-%post
-# steam bootstrap needed for gamescope-session first-run
-mkdir -p %{_sysconfdir}/skel/.local/share/Steam
-tar -xf %{_datadir}/gamescope-session-plus/bootstraplinux_ubuntu12_32.tar.xz -C %{_sysconfdir}/skel/.local/share/
-
-# Do before uninstallation
-%preun
-
-# Do after uninstallation
-%postun
 
 # This lists all the files that are included in the rpm package and that
 # are going to be installed into target system where the rpm is installed.
