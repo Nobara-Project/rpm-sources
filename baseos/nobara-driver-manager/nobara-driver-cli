@@ -34,7 +34,7 @@ case "$MAIN_ARG" in
                         rm -rf /var/lib/dkms/nvidia*
 
                         echo "Installing NVIDIA driver packages..."
-                        dnf install -y akmod-nvidia nvidia-driver libnvidia-ml libnvidia-ml.i686 libnvidia-fbc nvidia-driver-cuda nvidia-driver-cuda-libs nvidia-driver-cuda-libs.i686 nvidia-driver-libs nvidia-driver-libs.i686 nvidia-kmod-common nvidia-libXNVCtrl nvidia-modprobe nvidia-persistenced nvidia-settings nvidia-xconfig nvidia-vaapi-driver nvidia-gpu-firmware libnvidia-cfg --refresh
+                        dnf install -y dkms-nvidia nvidia-driver libnvidia-ml libnvidia-ml.i686 libnvidia-fbc nvidia-driver-cuda nvidia-driver-cuda-libs nvidia-driver-cuda-libs.i686 nvidia-driver-libs nvidia-driver-libs.i686 nvidia-kmod-common nvidia-libXNVCtrl nvidia-modprobe nvidia-persistenced nvidia-settings nvidia-xconfig nvidia-vaapi-driver nvidia-gpu-firmware libnvidia-cfg --refresh
 
                         echo "Modifying /etc/nvidia/kernel.conf..."
                         sed -i -e "s/kernel$/kernel-open/g" /etc/nvidia/kernel.conf
@@ -42,12 +42,12 @@ case "$MAIN_ARG" in
                         echo "Creating /etc/modprobe.d/nvidia-modeset.conf..."
                         echo "options nvidia-drm modeset=1 fbdev=1" > /etc/modprobe.d/nvidia-modeset.conf
                         chmod 644 /etc/modprobe.d/nvidia-modeset.conf
-
-                        echo "Enabling and running akmods service..."
-                        systemctl enable --now akmods
-
+                        
+                        echo "Enabling and running dkms service..."
+                        systemctl enable --now dkms
+                        
                         echo "Building kernel modules..."
-                        akmods
+                        dkms autoinstall
 
                         echo "Regenerating initramfs..."
                         dracut -f --regenerate-all
@@ -64,12 +64,11 @@ case "$MAIN_ARG" in
                     dnf remove -y akmod-nvidia
                     dnf remove -y dkms-nvidia
                     rm -rf /var/lib/dkms/nvidia*
-                    dnf install -y akmod-nvidia nvidia-driver libnvidia-ml libnvidia-ml.i686 libnvidia-fbc nvidia-driver-cuda nvidia-driver-cuda-libs nvidia-driver-cuda-libs.i686 nvidia-driver-libs nvidia-driver-libs.i686 nvidia-kmod-common nvidia-libXNVCtrl nvidia-modprobe nvidia-persistenced nvidia-settings nvidia-xconfig nvidia-vaapi-driver nvidia-gpu-firmware libnvidia-cfg --refresh
+                    dnf install -y dkms-nvidia nvidia-driver libnvidia-ml libnvidia-ml.i686 libnvidia-fbc nvidia-driver-cuda nvidia-driver-cuda-libs nvidia-driver-cuda-libs.i686 nvidia-driver-libs nvidia-driver-libs.i686 nvidia-kmod-common nvidia-libXNVCtrl nvidia-modprobe nvidia-persistenced nvidia-settings nvidia-xconfig nvidia-vaapi-driver nvidia-gpu-firmware libnvidia-cfg --refresh
                     sed -i -e 's/kernel$/kernel-open/g' /etc/nvidia/kernel.conf
                     echo "options nvidia-drm modeset=1 fbdev=1" | tee /etc/modprobe.d/nvidia-modeset.conf
                     chmod 644 /etc/modprobe.d/nvidia-modeset.conf
-                    systemctl enable --now akmods
-                    akmods
+                    dkms autoinstall
                     dracut -f --regenerate-all
                     echo "NVIDIA Production Branch installation complete. A reboot is highly recommended."
                 fi
@@ -96,7 +95,7 @@ case "$MAIN_ARG" in
                         rm -rf /var/lib/dkms/nvidia*
 
                         echo "Installing NVIDIA driver packages..."
-                        dnf install -y akmod-nvidia nvidia-driver libnvidia-ml libnvidia-ml.i686 libnvidia-fbc nvidia-driver-cuda nvidia-driver-cuda-libs nvidia-driver-cuda-libs.i686 nvidia-driver-libs nvidia-driver-libs.i686 nvidia-kmod-common nvidia-libXNVCtrl nvidia-modprobe nvidia-persistenced nvidia-settings nvidia-xconfig nvidia-vaapi-driver nvidia-gpu-firmware libnvidia-cfg --refresh
+                        dnf install -y dkms-nvidia nvidia-driver libnvidia-ml libnvidia-ml.i686 libnvidia-fbc nvidia-driver-cuda nvidia-driver-cuda-libs nvidia-driver-cuda-libs.i686 nvidia-driver-libs nvidia-driver-libs.i686 nvidia-kmod-common nvidia-libXNVCtrl nvidia-modprobe nvidia-persistenced nvidia-settings nvidia-xconfig nvidia-vaapi-driver nvidia-gpu-firmware libnvidia-cfg --refresh
 
                         echo "Modifying /etc/nvidia/kernel.conf..."
                         sed -i -e "s/kernel$/kernel-open/g" /etc/nvidia/kernel.conf
@@ -104,12 +103,12 @@ case "$MAIN_ARG" in
                         echo "Creating /etc/modprobe.d/nvidia-modeset.conf..."
                         echo "options nvidia-drm modeset=1 fbdev=1" > /etc/modprobe.d/nvidia-modeset.conf
                         chmod 644 /etc/modprobe.d/nvidia-modeset.conf
-
-                        echo "Enabling and running akmods service..."
-                        systemctl enable --now akmods
+                        
+                        echo "Enabling and running dkms service..."
+                        systemctl enable --now dkms
 
                         echo "Building kernel modules..."
-                        akmods
+                        dkms autoinstall
 
                         echo "Regenerating initramfs..."
                         dracut -f --regenerate-all
@@ -126,12 +125,12 @@ case "$MAIN_ARG" in
                     dnf remove -y akmod-nvidia
                     dnf remove -y dkms-nvidia
                     rm -rf /var/lib/dkms/nvidia*
-                    dnf install -y akmod-nvidia nvidia-driver libnvidia-ml libnvidia-ml.i686 libnvidia-fbc nvidia-driver-cuda nvidia-driver-cuda-libs nvidia-driver-cuda-libs.i686 nvidia-driver-libs nvidia-driver-libs.i686 nvidia-kmod-common nvidia-libXNVCtrl nvidia-modprobe nvidia-persistenced nvidia-settings nvidia-xconfig nvidia-vaapi-driver nvidia-gpu-firmware libnvidia-cfg --refresh
+                    dnf install -y dkms-nvidia nvidia-driver libnvidia-ml libnvidia-ml.i686 libnvidia-fbc nvidia-driver-cuda nvidia-driver-cuda-libs nvidia-driver-cuda-libs.i686 nvidia-driver-libs nvidia-driver-libs.i686 nvidia-kmod-common nvidia-libXNVCtrl nvidia-modprobe nvidia-persistenced nvidia-settings nvidia-xconfig nvidia-vaapi-driver nvidia-gpu-firmware libnvidia-cfg --refresh
                     sed -i -e 's/kernel$/kernel-open/g' /etc/nvidia/kernel.conf
                     echo "options nvidia-drm modeset=1 fbdev=1" | tee /etc/modprobe.d/nvidia-modeset.conf
                     chmod 644 /etc/modprobe.d/nvidia-modeset.conf
-                    systemctl enable --now akmods
-                    akmods
+                    systemctl enable --now dkms
+                    dkms autoinstall
                     dracut -f --regenerate-all
                     echo "NVIDIA Beta Branch installation complete. A reboot is highly recommended."
                 fi
@@ -158,7 +157,7 @@ case "$MAIN_ARG" in
                         rm -rf /var/lib/dkms/nvidia*
 
                         echo "Installing NVIDIA driver packages..."
-                        dnf install -y akmod-nvidia nvidia-driver libnvidia-ml libnvidia-ml.i686 libnvidia-fbc nvidia-driver-cuda nvidia-driver-cuda-libs nvidia-driver-cuda-libs.i686 nvidia-driver-libs nvidia-driver-libs.i686 nvidia-kmod-common nvidia-libXNVCtrl nvidia-modprobe nvidia-persistenced nvidia-settings nvidia-xconfig nvidia-vaapi-driver nvidia-gpu-firmware libnvidia-cfg --refresh
+                        dnf install -y dkms-nvidia nvidia-driver libnvidia-ml libnvidia-ml.i686 libnvidia-fbc nvidia-driver-cuda nvidia-driver-cuda-libs nvidia-driver-cuda-libs.i686 nvidia-driver-libs nvidia-driver-libs.i686 nvidia-kmod-common nvidia-libXNVCtrl nvidia-modprobe nvidia-persistenced nvidia-settings nvidia-xconfig nvidia-vaapi-driver nvidia-gpu-firmware libnvidia-cfg --refresh
 
                         echo "Modifying /etc/nvidia/kernel.conf..."
                         sed -i -e "s/kernel$/kernel-open/g" /etc/nvidia/kernel.conf
@@ -167,11 +166,11 @@ case "$MAIN_ARG" in
                         echo "options nvidia-drm modeset=1 fbdev=1" > /etc/modprobe.d/nvidia-modeset.conf
                         chmod 644 /etc/modprobe.d/nvidia-modeset.conf
 
-                        echo "Enabling and running akmods service..."
-                        systemctl enable --now akmods
+                        echo "Enabling and running dkms service..."
+                        systemctl enable --now dkms
 
                         echo "Building kernel modules..."
-                        akmods
+                        dkms autoinstall
 
                         echo "Regenerating initramfs..."
                         dracut -f --regenerate-all
@@ -188,12 +187,12 @@ case "$MAIN_ARG" in
                     dnf remove -y akmod-nvidia
                     dnf remove -y dkms-nvidia
                     rm -rf /var/lib/dkms/nvidia*
-                    dnf install -y akmod-nvidia nvidia-driver libnvidia-ml libnvidia-ml.i686 libnvidia-fbc nvidia-driver-cuda nvidia-driver-cuda-libs nvidia-driver-cuda-libs.i686 nvidia-driver-libs nvidia-driver-libs.i686 nvidia-kmod-common nvidia-libXNVCtrl nvidia-modprobe nvidia-persistenced nvidia-settings nvidia-xconfig nvidia-vaapi-driver nvidia-gpu-firmware libnvidia-cfg --refresh
+                    dnf install -y dkms-nvidia nvidia-driver libnvidia-ml libnvidia-ml.i686 libnvidia-fbc nvidia-driver-cuda nvidia-driver-cuda-libs nvidia-driver-cuda-libs.i686 nvidia-driver-libs nvidia-driver-libs.i686 nvidia-kmod-common nvidia-libXNVCtrl nvidia-modprobe nvidia-persistenced nvidia-settings nvidia-xconfig nvidia-vaapi-driver nvidia-gpu-firmware libnvidia-cfg --refresh
                     sed -i -e 's/kernel$/kernel-open/g' /etc/nvidia/kernel.conf
                     echo "options nvidia-drm modeset=1 fbdev=1" | tee /etc/modprobe.d/nvidia-modeset.conf
                     chmod 644 /etc/modprobe.d/nvidia-modeset.conf
-                    systemctl enable --now akmods
-                    akmods
+                    systemctl enable --now dkms
+                    dkms autoinstall
                     dracut -f --regenerate-all
                     echo "NVIDIA New Feature Branch installation complete. A reboot is highly recommended."
                 fi
