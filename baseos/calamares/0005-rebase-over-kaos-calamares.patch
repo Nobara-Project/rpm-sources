@@ -4405,7 +4405,7 @@ index 709d2a8..37079b7 100644
  
  # You can change the description of the job (as it is displayed in the
  # progress bar during installation) by defining an *i18n* key, which
-@@ -144,3 +144,37 @@ script:
+@@ -144,3 +144,38 @@ script:
  #     name: "Shell process"
  #     name[nl]: "Schelpenpad"
  #     name[en_GB]: "Just a moment"
@@ -4443,6 +4443,8 @@ index 709d2a8..37079b7 100644
 +      '
 +    - "rm /etc/resolv.conf"
 +    - "mv /etc/resolv.conf.bak /etc/resolv.conf"
++    - command: "rm -Rf /home/liveuser"
++      timeout: 3600
 diff --git a/src/modules/unpackfs/unpackfs.conf b/src/modules/unpackfs/unpackfs.conf
 index aa562ea..0ae2487 100644
 --- a/src/modules/unpackfs/unpackfs.conf

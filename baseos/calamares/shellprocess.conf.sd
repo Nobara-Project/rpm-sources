@@ -80,3 +80,13 @@ script:
       timeout: 3600
     - command: "rm -Rf /etc/xdg/autostart/orientation-check.desktop /usr/bin/orientation-check"
       timeout: 3600
+    - command: "mv /usr/lib/udev/rules.d/99-steamos-automount.rules.bak /usr/lib/udev/rules.d/99-steamos-automount.rules"
+      timeout: 3600
+    - command: "mv /usr/lib/systemd/system-preset/96-jupiter-hw-support.preset.bak /usr/lib/systemd/system-preset/96-jupiter-hw-support.preset"
+      timeout: 3600
+    - command: "mv /usr/lib/systemd/system/multi-user.target.wants/jupiter-biosupdate.service.bak /usr/lib/systemd/system/multi-user.target.wants/jupiter-biosupdate.service"
+      timeout: 3600
+    - command: "mv /usr/lib/systemd/system/multi-user.target.wants/jupiter-controller-update.service.bak /usr/lib/systemd/system/multi-user.target.wants/jupiter-controller-update.service"
+      timeout: 3600
+    - command: "rm -Rf /home/liveuser"
+      timeout: 3600
