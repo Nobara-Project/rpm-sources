@@ -52,10 +52,17 @@ cp -fr * %{buildroot}%{_usrsrc}/%{dkms_name}-%{version}/
 rm -f %{buildroot}%{_usrsrc}/%{dkms_name}-%{version}/*/dkms.conf
 
 %post
+
 dkms add -m %{dkms_name} -v %{version} -q --rpm_safe_upgrade || :
-# Rebuild and make available for the currently running kernel:
-dkms build -m %{dkms_name} -v %{version} -q --force
-dkms install -m %{dkms_name} -v %{version} -q --force
+
+# Only build for kernels that actually have headers present in the target root
+for ksrc in /usr/src/kernels/*; do
+    kver="${ksrc##*/}"
+    [ -d "/lib/modules/$kver" ] || continue
+
+    dkms build   -m %{dkms_name} -v %{version} -k "$kver" -q --force --kernelsourcedir "$ksrc" || :
+    dkms install -m %{dkms_name} -v %{version} -k "$kver" -q --force --kernelsourcedir "$ksrc" || :
+done
 
 %preun
 # Remove all versions from DKMS registry:
