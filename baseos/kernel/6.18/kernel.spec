@@ -38,7 +38,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.18
-%define _stablekver 7
+%define _stablekver 8
 %define _rcver rc7
 %if %{_stablekver} == 0
 %define _tarkver %{_basekver}
@@ -1119,6 +1119,9 @@ fi
 %files
 
 %changelog
+* Fri Jan 30 2026 LionHeartP <LionHeartP@proton.me> - 6.18.8-200
+- Update to 6.18.8
+
 * Sat Jan 24 2026 LionHeartP <LionHeartP@proton.me> - 6.18.7-200
 - Update to 6.18.7
 - Remove elgato patch (upstreamed)
