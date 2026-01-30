@@ -114,6 +114,7 @@ Patch8: amdgpu-HAINAN-variant-fixup.patch
 Patch9: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
 # Add xpadneo as patch instead of using dkms module
 Patch10: 0001-Add-xpadneo-bluetooth-hid-driver-module.patch
+Patch11: MA350.patch
 
 # aarch64 patches
 Patch20: 0001-ampere-arm64-Add-a-fixup-handler-for-alignment-fault.patch
@@ -424,6 +425,7 @@ patch -p1 -i %{PATCH7}
 patch -p1 -i %{PATCH8}
 patch -p1 -i %{PATCH9}
 patch -p1 -i %{PATCH10}
+patch -p1 -i %{PATCH11}
 
 # Apply aarch64 patches
 patch -p1 -i %{PATCH20}
@@ -1121,6 +1123,7 @@ fi
 %changelog
 * Fri Jan 30 2026 LionHeartP <LionHeartP@proton.me> - 6.18.8-200
 - Update to 6.18.8
+- Add patch for Mercusys MA530 Adapter
 
 * Sat Jan 24 2026 LionHeartP <LionHeartP@proton.me> - 6.18.7-200
 - Update to 6.18.7
