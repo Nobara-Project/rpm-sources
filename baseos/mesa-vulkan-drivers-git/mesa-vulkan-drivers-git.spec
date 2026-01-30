@@ -1,6 +1,6 @@
 %global _default_patch_fuzz 2
 
-%global commit dc03f94e070900365cc1ad91437db178d4d40573
+%global commit 529c83a134a4ee64ea6615a62d0377b4c2445e5d
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
