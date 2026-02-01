@@ -1,6 +1,6 @@
 %global _default_patch_fuzz 2
 
-%global commit 529c83a134a4ee64ea6615a62d0377b4c2445e5d
+%global commit 0e9d29f51850e96b8dc1fc0b299017f5958a9a9f
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
@@ -534,7 +534,7 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
-* Fri Jan 30 2026 LionHeartP <LionHeartP@proton.me> - 26.1.0-1
+* Sun Feb 01 2026 LionHeartP <LionHeartP@proton.me> - 26.1.0-1
 - Version bump
 - Update to latest commit
 
