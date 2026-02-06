@@ -1,5 +1,5 @@
 Name:       wireplumber
-Version:    0.5.12
+Version:    0.5.13
 Release:    1%{?dist}
 Summary:    A modular session/policy manager for PipeWire
 
@@ -113,6 +113,7 @@ fi
 %dir %{_sysconfdir}/wireplumber/policy.lua.d
 %{_datadir}/wireplumber/
 %{_datadir}/zsh/site-functions/_wpctl
+%{_datadir}/bash-completion/completions/wpctl
 %{_userunitdir}/wireplumber.service
 %{_userunitdir}/wireplumber@.service
 
@@ -133,6 +134,9 @@ fi
 %{_datadir}/doc/wireplumber/
 
 %changelog
+* Mon Jan 19 2026 Wim Taymans <wtaymans@redhat.com> - 0.5.13-1
+- wireplumber 0.5.13
+
 * Fri Oct 10 2025 Wim Taymans <wtaymans@redhat.com> - 0.5.12-1
 - wireplumber 0.5.12
 
