@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit dc352f3d7c0e9cfe47d0528c059955ab90f1a563
+%global commit 0e9d29f51850e96b8dc1fc0b299017f5958a9a9f
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 2.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -80,7 +80,7 @@
 
 Name:           mesa-vulkan-drivers-git
 Summary:        The mesa graphics vulkan driver stack.
-%global ver 26.0.0
+%global ver 26.1.0
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %{rel_build}
 License:        MIT
@@ -534,6 +534,10 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Sun Feb 01 2026 LionHeartP <LionHeartP@proton.me> - 26.1.0-1
+- Version bump
+- Update to latest commit
+
 * Sat Jan 24 2026 LionHeartP <LionHeartP@proton.me> - 26.0.0-2
 - Update to latest commit
 
