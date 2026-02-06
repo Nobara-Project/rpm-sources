@@ -1,5 +1,5 @@
 Name:           amdgpu_top
-Version:        0.11.0
+Version:        0.11.2
 Release:        1%{?dist}
 Summary:        Tool that displays AMD GPU utilization
 License:        MIT
@@ -52,5 +52,8 @@ appstream-util validate-relax --nonet %{buildroot}%{_datadir}/metainfo/*.metainf
 %{_datadir}/metainfo/io.github.umio_yasuno.amdgpu_top.metainfo.xml
 
 %changelog
+* Thu Feb 05 2026 LionHeartP <LionHeartP@proton.me> - 0.11.2-1
+- Update to 0.11.2
+
 * Sat Jan 24 2026 LionHeartP <LionHeartP@proton.me> - 0.11.0-1
 - Initial package
