@@ -24,6 +24,11 @@
 %define asmarch x86
 %endif
 
+%ifarch aarch64
+%define karch arm64
+%define asmarch arm64
+%endif
+
 # define git branch to make testing easier without merging to master branch
 %define _git_branch master
 
@@ -54,7 +59,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 200
+%define customver 202
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -116,10 +121,14 @@ Patch9: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
 Patch10: 0001-Add-xpadneo-bluetooth-hid-driver-module.patch
 Patch11: MA350.patch
 
+# Capture device quirks
+Patch12: capture-device-nv12-fixup.patch
+
 # aarch64 patches
 Patch20: 0001-ampere-arm64-Add-a-fixup-handler-for-alignment-fault.patch
 Patch21: 0002-ampere-arm64-Work-around-Ampere-Altra-erratum-82288-.patch
 Patch22: xe-nonx86.patch
+Patch23: clang_cc_bugfix_amd_aarch64.patch
 
 %define __spec_install_post /usr/lib/rpm/brp-compress || :
 %define debug_package %{nil}
@@ -426,11 +435,13 @@ patch -p1 -i %{PATCH8}
 patch -p1 -i %{PATCH9}
 patch -p1 -i %{PATCH10}
 patch -p1 -i %{PATCH11}
+patch -p1 -i %{PATCH12}
 
 # Apply aarch64 patches
 patch -p1 -i %{PATCH20}
 patch -p1 -i %{PATCH21}
 patch -p1 -i %{PATCH22}
+patch -p1 -i %{PATCH23}
 
 # Fetch the config and move it to the proper directory
 cp %{SOURCE1} .config
@@ -537,12 +548,12 @@ gcc ./scripts/sign-file.c -o ./scripts/sign-file -lssl -lcrypto
 # perf
 # make sure check-headers.sh is executable
 chmod +x tools/perf/check-headers.sh
-%{perf_make} DESTDIR=$RPM_BUILD_ROOT all
+%{perf_make} DESTDIR=%{buildroot} all
 
 # libperf
 %global libperf_make \
   %{__make} %{?make_opts} EXTRA_CFLAGS="${RPM_OPT_FLAGS}" LDFLAGS="%{__global_ldflags}" %{?cross_opts} -C tools/lib/perf V=1
-%{libperf_make} DESTDIR=$RPM_BUILD_ROOT
+%{libperf_make} DESTDIR=%{buildroot}
 
 %define make %{__make} %{?cross_opts} %{?make_opts} HOSTCFLAGS="%{?build_hostcflags}" HOSTLDFLAGS="%{?build_hostldflags}"
 
@@ -599,14 +610,31 @@ popd
 
 %install
 
-ImageName=$(make image_name | tail -n 1)
+%ifarch aarch64
+# Build + install DTBs into /boot/dtb-%{kverstr}
+mkdir -p %{buildroot}/boot/dtb-%{kverstr}
+make %{?_smp_mflags} %{?llvm_build_env_vars} ARCH=arm64 dtbs
+make %{?_smp_mflags} %{?llvm_build_env_vars} ARCH=arm64 dtbs_install \
+     INSTALL_DTBS_PATH=%{buildroot}/boot/dtb-%{kverstr}
+
+# Also ship DTBs under /lib/modules/%{kverstr}/dtb (same contents, no extra nesting)
+mkdir -p %{buildroot}/lib/modules/%{kverstr}/dtb
+cp -a %{buildroot}/boot/dtb-%{kverstr}/. %{buildroot}/lib/modules/%{kverstr}/dtb/
+%endif
+
+ImageName=$(make KERNELRELEASE=%{kverstr} image_name | tail -n 1)
 
 mkdir -p %{buildroot}/boot
 
 cp -v $ImageName %{buildroot}/boot/vmlinuz-%{kverstr}
 chmod 755 %{buildroot}/boot/vmlinuz-%{kverstr}
 
-ZSTD_CLEVEL=19 make %{?_smp_mflags} %{?llvm_build_env_vars} INSTALL_MOD_PATH=%{buildroot} INSTALL_MOD_STRIP=1 modules_install mod-fw=
+ZSTD_CLEVEL=19 make %{?_smp_mflags} %{?llvm_build_env_vars} \
+    KERNELRELEASE=%{kverstr} \
+    INSTALL_MOD_PATH=%{buildroot} \
+    INSTALL_MOD_STRIP=1 \
+    modules_install mod-fw=
+
 make %{?_smp_mflags} %{?llvm_build_env_vars} INSTALL_HDR_PATH=%{buildroot}/usr headers_install
 
 # prepare -devel files
@@ -835,7 +863,7 @@ cp -v  %{buildroot}/boot/vmlinuz-%{kverstr} %{buildroot}/lib/modules/%{kverstr}/
 dd if=/dev/zero of=%{buildroot}/boot/initramfs-%{kverstr}.img bs=1M count=48
 
 # perf tool binary and supporting scripts/binaries
-%{perf_make} DESTDIR=$RPM_BUILD_ROOT lib=%{_lib} install-bin
+%{perf_make} DESTDIR=%{buildroot} lib=%{_lib} install-bin
 # remove the 'trace' symlink.
 rm -f %{buildroot}%{_bindir}/trace
 
@@ -848,11 +876,11 @@ rm -rf %{buildroot}/usr/lib/perf/examples
 rm -rf %{buildroot}/usr/lib/perf/include
 
 # python-perf extension
-%{perf_make} DESTDIR=$RPM_BUILD_ROOT install-python_ext
+%{perf_make} DESTDIR=%{buildroot} install-python_ext
 
 # perf man pages (note: implicit rpm magic compresses them later)
 mkdir -p %{buildroot}/%{_mandir}/man1
-%{perf_make} DESTDIR=$RPM_BUILD_ROOT install-man
+%{perf_make} DESTDIR=%{buildroot} install-man
 
 # remove any tracevent files, eg. its plugins still gets built and installed,
 # even if we build against system's libtracevent during perf build (by setting
@@ -866,7 +894,7 @@ rm -rf %{buildroot}%{_libdir}/traceevent
 rm -rf %{buildroot}%{_libdir}/libperf.a
 
 # kernel-tools
-%{make} -C tools/power/cpupower DESTDIR=$RPM_BUILD_ROOT libdir=%{_libdir} mandir=%{_mandir} CPUFREQ_BENCH=false install
+%{make} -C tools/power/cpupower DESTDIR=%{buildroot} libdir=%{_libdir} mandir=%{_mandir} CPUFREQ_BENCH=false install
 %find_lang cpupower
 cp cpupower.lang ../../
 %ifarch x86_64
@@ -988,6 +1016,14 @@ fi
 /lib/modules/%{kverstr}/vmlinuz
 /lib/modules/%{kverstr}/System.map
 /lib/modules/%{kverstr}/symvers.gz
+%ifarch aarch64
+%dir /boot/dtb-%{kverstr}
+%dir /lib/modules/%{kverstr}/dtb
+/boot/dtb-%{kverstr}/*
+/boot/dtb-%{kverstr}/*/*
+/lib/modules/%{kverstr}/dtb/*
+/lib/modules/%{kverstr}/dtb/*/*
+%endif
 
 %files modules
 /lib/modules/%{kverstr}/
@@ -1138,7 +1174,7 @@ fi
 
 * Fri Jan 09 2026 LionHeartP <LionHeartP@proton.me> - 6.18.4-200
 - Update to 6.18.4
-- Update linux-surface.patch and config 
+- Update linux-surface.patch and config
 
 * Sun Jan 04 2026 LionHeartP <LionHeartP@proton.me> - 6.18.3-201
 - Update CachyOS patches
