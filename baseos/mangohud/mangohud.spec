@@ -1,6 +1,6 @@
 %global appname MangoHud
 %global forgeurl https://github.com/flightlessmango/MangoHud
-%global commit bb74155adde5e3638159b301d5e84663a3a35b4a
+%global commit 01b724d3e43f668babcbd70b550944bea4bdd524
 %global _lto_cflags %{nil}
 %forgemeta
 %global imgui_ver 1.91.6
@@ -16,7 +16,7 @@
 
 Name:           mangohud
 Version:        0.8.3
-Release:        %autorelease
+Release:        %autorelease -b2
 Summary:        Vulkan and OpenGL overlay for monitoring FPS, temperatures, CPU/GPU load
 
 License:        MIT
@@ -161,6 +161,9 @@ install -D -p -m 0644 %{SOURCE20} %{buildroot}%{_docdir}/%{name}/README.Fedora.m
 
 
 %changelog
+* Sun Feb 01 2026 LionHeartP <LionHeartP@proton.me> - 0.8.3-2
+- build: Update to latest commit
+
 * Fri Jan 02 2026 LionHeartP <LionHeartP@proton.me> - 0.8.3-1
 - build: Update to latest commit
 - bump version number
