@@ -51,7 +51,7 @@ a notification service, and ability to run in the background.
 install -D -m 0644 README.md %{buildroot}/%{_docdir}/%{name}/README.md
 install -D -m 0644 rog-anime/README.md %{buildroot}/%{_docdir}/%{name}/README-anime.md
 install -D -m 0644 rog-anime/data/diagonal-template.png %{buildroot}/%{_docdir}/%{name}/diagonal-template.png
-%terra_appstream -o %{S:1}
+install -Dm644 %{appid}.metainfo.xml %{buildroot}%{_metainfodir}/%{appid}.metainfo.xml
 
 %{cargo_license_online} > LICENSE.dependencies
 
