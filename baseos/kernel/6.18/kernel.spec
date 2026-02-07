@@ -43,7 +43,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.18
-%define _stablekver 8
+%define _stablekver 9
 %define _rcver rc7
 %if %{_stablekver} == 0
 %define _tarkver %{_basekver}
@@ -59,7 +59,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 202
+%define customver 200
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -1157,6 +1157,9 @@ fi
 %files
 
 %changelog
+* Sat Feb 07 2026 LionHeartP <LionHeartP@proton.me> - 6.18.9-200
+- Update to 6.18.9
+
 * Fri Jan 30 2026 LionHeartP <LionHeartP@proton.me> - 6.18.8-200
 - Update to 6.18.8
 - Add patch for Mercusys MA530 Adapter
