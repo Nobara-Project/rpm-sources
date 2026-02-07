@@ -1,0 +1,42 @@
+diff -up HandBrake-1.8.0/gtk/meson.build.orig HandBrake-1.8.0/gtk/meson.build
+--- HandBrake-1.8.0/gtk/meson.build.orig	2024-05-19 16:06:45.000000000 +0200
++++ HandBrake-1.8.0/gtk/meson.build	2024-06-08 23:22:38.059852545 +0200
+@@ -57,10 +57,6 @@ if get_option('libdovi').enabled()
+   ghb_deps += dependency('dovi')
+ endif
+ 
+-if get_option('fdk-aac').enabled()
+-  ghb_deps += dependency('fdk-aac')
+-endif
+-
+ if get_option('qsv').enabled()
+   ghb_deps += dependency('vpl')
+ endif
+diff -up HandBrake-1.8.0/gtk/meson_options.txt.orig HandBrake-1.8.0/gtk/meson_options.txt
+--- HandBrake-1.8.0/gtk/meson_options.txt.orig	2024-05-19 16:06:45.000000000 +0200
++++ HandBrake-1.8.0/gtk/meson_options.txt	2024-06-08 23:23:01.608085564 +0200
+@@ -1,8 +1,3 @@
+-option('fdk-aac',
+-       type: 'feature',
+-       value: 'disabled',
+-       description: 'Enable FDK AAC encoder')
+-
+ option('flatpak',
+        type: 'boolean',
+        value: false,
+diff -up HandBrake-1.8.0/gtk/module.defs.orig HandBrake-1.8.0/gtk/module.defs
+--- HandBrake-1.8.0/gtk/module.defs.orig	2024-05-19 16:06:45.000000000 +0200
++++ HandBrake-1.8.0/gtk/module.defs	2024-06-08 23:23:25.867325618 +0200
+@@ -48,12 +48,6 @@ else
+     GTK.CONFIGURE.extra += -Db_lto=false
+ endif
+ 
+-ifeq (1,$(FEATURE.fdk_aac))
+-    GTK.CONFIGURE.extra += -Dfdk-aac=enabled
+-else
+-    GTK.CONFIGURE.extra += -Dfdk-aac=disabled
+-endif
+-
+ ifeq (1,$(FEATURE.x265))
+     GTK.CONFIGURE.extra += -Dx265=enabled
+ else

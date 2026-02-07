@@ -1,0 +1,17 @@
+diff -up HandBrake-1.7.3/make/configure.py.orig HandBrake-1.7.3/make/configure.py
+--- HandBrake-1.7.3/make/configure.py.orig	2024-02-10 23:22:33.000000000 +0100
++++ HandBrake-1.7.3/make/configure.py	2024-05-15 22:56:32.656118746 +0200
+@@ -1685,11 +1685,11 @@ try:
+ 
+         autoconf   = ToolProbe( 'AUTOCONF.exe',   'autoconf',   'autoconf', abort=True, minversion=([2,71,0] if build_tuple.match('*-*-darwin*') else [2,69,0]) )
+         automake   = ToolProbe( 'AUTOMAKE.exe',   'automake',   'automake', abort=True, minversion=[1,13,0] )
+-        libtool    = ToolProbe( 'LIBTOOL.exe',    'libtool',    'libtool', abort=True )
++        libtool    = ToolProbe( 'LIBTOOL.exe',    'libtool',    'libtool', abort=False )
+         lipo       = ToolProbe( 'LIPO.exe',       'lipo',       'lipo', abort=False )
+         pkgconfig  = ToolProbe( 'PKGCONFIG.exe',  'pkgconfig',  'pkg-config', abort=True, minversion=[0,27,0] )
+         meson      = ToolProbe( 'MESON.exe',      'meson',      'meson', abort=True, minversion=[0,51,0] )
+-        nasm       = ToolProbe( 'NASM.exe',       'asm',        'nasm', abort=True, minversion=[2,13,0] )
++        nasm       = ToolProbe( 'NASM.exe',       'asm',        'nasm', abort=False, minversion=[2,13,0] )
+         ninja      = ToolProbe( 'NINJA.exe',      'ninja',      'ninja-build', 'ninja', abort=True )
+         cargo      = ToolProbe( 'CARGO.exe',      'cargo',        'cargo', abort=False )
+         cargoc     = ToolProbe( 'CARGO-C.exe',    'cargo-cbuild', 'cargo-cbuild', abort=False )
