@@ -67,11 +67,15 @@
 
 Name:           mesa-vulkan-drivers-freeworld
 Summary:        The mesa graphics vulkan driver stack.
-%global ver 25.3.4
-Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
+Version:        25.3.5
 Release:        %autorelease
 License:        MIT
 URL:            http://www.mesa3d.org
+
+# The "Version" field for release candidates has the format: A.B.C~rcX
+# However, the tarball has the format: A.B.C-rcX.
+# The "ver" variable contains the version in the second format.
+%global ver %{gsub %version ~ -}
 
 Source0:        https://archive.mesa3d.org/mesa-%{ver}.tar.xz
 # src/gallium/auxiliary/postprocess/pp_mlaa* have an ... interestingly worded license.
@@ -308,14 +312,6 @@ rm -vf %{buildroot}%{_libdir}/libGLES*
 # determine the vendor
 ln -s %{_libdir}/libGLX_mesa.so.0 %{buildroot}%{_libdir}/libGLX_system.so.0
 
-# this keeps breaking, check it early.  note that the exit from eu-ftr is odd.
-pushd %{buildroot}%{_libdir}
-for i in libGL*.so ; do
-    sleep 1
-    eu-findtextrel $i && exit 1
-done
-popd
-
 # cleanup unused
 rm -Rf %{buildroot}%{_libdir}/libGLX_mesa.so.0*
 rm -Rf %{buildroot}%{_libdir}/libGLX_system.so.0*
@@ -484,6 +480,10 @@ install -Dpm0644 cargo-vendor.txt \
 %endif
 
 %changelog
+* Sat Feb 07 2026 LionHeartP <LionHeartP@proton.me> - 25.3.5-1
+- Update to 25.3.5
+- Sync Fedora changes
+
 * Sat Jan 24 2026 LionHeartP <LionHeartP@proton.me> - 25.3.4-1
 - Update to 25.3.4
 - Enable Intel RT

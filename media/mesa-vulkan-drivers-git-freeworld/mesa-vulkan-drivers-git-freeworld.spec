@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit 0e9d29f51850e96b8dc1fc0b299017f5958a9a9f
+%global commit 9aa93039d913762fa82661ef28b9ca12e4b47c5a
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 2.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -348,14 +348,6 @@ rm -vf %{buildroot}%{_libdir}/libGLES*
 # determine the vendor
 ln -s %{_libdir}/libGLX_mesa.so.0 %{buildroot}%{_libdir}/libGLX_system.so.0
 
-# this keeps breaking, check it early.  note that the exit from eu-ftr is odd.
-pushd %{buildroot}%{_libdir}
-for i in libGL*.so ; do
-    sleep 1
-    eu-findtextrel $i && exit 1
-done
-popd
-
 # cleanup unused
 rm -Rf %{buildroot}%{_bindir}/spirv2dxil
 rm -Rf %{buildroot}%{_libdir}/libspirv_to_dxil.*
@@ -534,6 +526,9 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Sat Feb 07 2026 LionHeartP <LionHeartP@proton.me> - 26.1.0-2
+- Update to latest commit
+
 * Sun Feb 01 2026 LionHeartP <LionHeartP@proton.me> - 26.1.0-1
 - Version bump
 - Update to latest commit
