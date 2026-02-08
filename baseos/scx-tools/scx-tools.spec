@@ -1,7 +1,7 @@
 %define _disable_source_fetch 0
 
 Name:           scx-tools
-Version:        1.0.19
+Version:        1.0.20
 Release:        %autorelease
 Summary:        Sched_ext Tools
 
@@ -69,6 +69,9 @@ find target/release \
 %{_datadir}/scx_loader/config.toml
 
 %changelog
+* Sat Feb 07 2026 LionHeartP <LionHeartP@proton.me> - 1.0.20-1
+- Update to 1.0.20
+
 * Wed Dec 03 2025 LionHeartP <LionHeartP@proton.me> - 1.0.19-1
 - Update to 1.0.19
 
