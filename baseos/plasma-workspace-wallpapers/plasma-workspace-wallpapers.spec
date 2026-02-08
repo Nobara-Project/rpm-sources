@@ -1,5 +1,5 @@
 Name:    plasma-workspace-wallpapers
-Version: 6.5.4
+Version: 6.5.5
 Release: 1%{?dist}
 Summary: Additional wallpapers for Plasma workspace
 # Automatically converted from old format: LGPLv3 - review is highly recommended.
