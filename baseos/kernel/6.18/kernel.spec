@@ -59,7 +59,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 200
+%define customver 201
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -438,10 +438,12 @@ patch -p1 -i %{PATCH11}
 patch -p1 -i %{PATCH12}
 
 # Apply aarch64 patches
+%ifarch aarch64
 patch -p1 -i %{PATCH20}
 patch -p1 -i %{PATCH21}
 patch -p1 -i %{PATCH22}
 patch -p1 -i %{PATCH23}
+%endif
 
 # Fetch the config and move it to the proper directory
 cp %{SOURCE1} .config
@@ -1157,6 +1159,9 @@ fi
 %files
 
 %changelog
+* Sat Feb 07 2026 LionHeartP <LionHeartP@proton.me> - 6.18.9-201
+- Only apply aarch86 patches if building for aarch86
+
 * Sat Feb 07 2026 LionHeartP <LionHeartP@proton.me> - 6.18.9-200
 - Update to 6.18.9
 
