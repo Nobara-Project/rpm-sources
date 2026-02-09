@@ -4,7 +4,7 @@
 
 Name:           rpmfusion-%{_repo}-release
 Version:        43
-Release:        2
+Release:        3
 Summary:        RPM Fusion (%{_repo}) Repository Configuration
 
 License:        BSD
