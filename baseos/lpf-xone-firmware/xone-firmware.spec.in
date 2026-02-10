@@ -20,26 +20,26 @@ Proprietary firmware for the Xbox One Wireless Dongle
 
 %build
 cabextract %{SOURCE0} -F FW_ACC_00U.bin
-mv FW_ACC_00U.bin xow_dongle_02e6.bin
+mv FW_ACC_00U.bin xone_dongle_02e6.bin
 
 cabextract %{SOURCE1} -F FW_ACC_00U.bin
-mv FW_ACC_00U.bin xow_dongle_02fe.bin
+mv FW_ACC_00U.bin xone_dongle_02fe.bin
 
 cabextract %{SOURCE2} -F FW_ACC_CL.bin
-mv FW_ACC_CL.bin xow_dongle_02f9.bin
+mv FW_ACC_CL.bin xone_dongle_02f9.bin
 
 cabextract %{SOURCE3} -F FW_ACC_BR.bin
-mv FW_ACC_BR.bin xow_dongle_091e.bin
+mv FW_ACC_BR.bin xone_dongle_091e.bin
 
 %install
 install -D -pv -m 0644 -t %{buildroot}%{_prefix}/lib/firmware/ \
-    xow_dongle_02e6.bin \
-    xow_dongle_02fe.bin \
-    xow_dongle_02f9.bin \
-    xow_dongle_091e.bin
+    xone_dongle_02e6.bin \
+    xone_dongle_02fe.bin \
+    xone_dongle_02f9.bin \
+    xone_dongle_091e.bin
 
 %files
-%{_prefix}/lib/firmware/xow_dongle_02e6.bin
-%{_prefix}/lib/firmware/xow_dongle_02fe.bin
-%{_prefix}/lib/firmware/xow_dongle_02f9.bin
-%{_prefix}/lib/firmware/xow_dongle_091e.bin
+%{_prefix}/lib/firmware/xone_dongle_02e6.bin
+%{_prefix}/lib/firmware/xone_dongle_02fe.bin
+%{_prefix}/lib/firmware/xone_dongle_02f9.bin
+%{_prefix}/lib/firmware/xone_dongle_091e.bin
