@@ -1,92 +1,68 @@
 %global _default_patch_fuzz 2
-%global commit e927febbedbf8d6f040ff081b0c6703738e7e8d2
-%global commitdate 20251208
-%global shortcommit %(c=%{commit}; echo ${c:0:7})
-
-%if 0%{?fedora}
-%global buildforkernels akmod
 %global debug_package %{nil}
-%endif
+%global dkms_source_dir %{_usrsrc}/%{name}-%{version}
 
 Name:     xone
-Version:  0.5.0
+Version:  0.5.5
 Release:  1%{?dist}
 Summary:  Linux kernel driver for Xbox One and Xbox Series X|S accessories
 License:  GPLv2
 URL:      https://github.com/dlundqvist/xone
-Source0:  %{url}/archive/%{commit}/%{name}-%{shortcommit}.tar.gz
+Source0:  %{url}/archive/refs/tags/v%{version}.tar.gz
 Source1:  modules-load-d-%{name}.conf
 #Patch0:   0001-revert-powera-changes.patch
 Patch1:   0001-convert-to-dongle-only-build.patch
 
-BuildRequires:  gcc
-BuildRequires:  make
-BuildRequires:  kmodtool
 BuildRequires:  systemd-rpm-macros
 BuildRequires:  sed
 
+BuildArch:      noarch
+
+Requires:       dkms
 Requires:       bash
 Requires:       lpf-xone-firmware
-
-Provides:       %{name}-kmod-common = %{version}-%{release}
-Requires:       %{name}-kmod >= %{version}
+Requires:       gcc, make, kernel-devel
 
 Conflicts:      xow <= 0.5
 Obsoletes:      xow <= 0.5
-
-# kmodtool does its magic here
-%{expand:%(kmodtool --target %{_target_cpu} --kmodname %{name} %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null) }
+Provides:       %{name}-kmod-common = %{version}-%{release}
+Obsoletes:      akmod-xone < %{version}-%{release}
 
 %description
 xone is a Linux kernel driver for Xbox One and Xbox Series X|S dongle.
 
-%package kmod
-Summary:  Kernel module (kmod) for %{name}
-Requires: kernel-devel
-
-%description kmod
-kmod package for %{name}
-
 %prep
-# error out if there was something wrong with kmodtool
-%{?kmodtool_check}
-
-# print kmodtool output for debugging purposes:
-kmodtool --target %{_target_cpu} --kmodname %{name} %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null
-
-%autosetup -c %{name}-%{commit} -N
-
-pushd %{name}-%{commit}
-%autopatch -m0 -p1
-popd
-
-for kernel_version  in %{?kernel_versions} ; do
-  cp -a %{name}-%{commit} _kmod_build_${kernel_version%%___*}
-done
+%autosetup -p1
+sed -i 's/#VERSION#/%{version}/' dkms.conf
 
 %build
-for kernel_version  in %{?kernel_versions} ; do
-  make V=1 %{?_smp_mflags} -C ${kernel_version##*___} M=${PWD}/_kmod_build_${kernel_version%%___*} VERSION=v%{version} modules
-done
 
 %install
-for kernel_version in %{?kernel_versions}; do
-    mkdir -p %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/
-    install -D -m 755 _kmod_build_${kernel_version%%___*}/*.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/
-    chmod a+x %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/*.ko
-done
-%{?akmod_install}
-
-install -D -m 0644 %{name}-%{commit}/install/modprobe.conf %{buildroot}%{_modprobedir}/60-%{name}.conf
+mkdir -p %{buildroot}%{dkms_source_dir}
+cp -fr . %{buildroot}%{dkms_source_dir}
+install -D -m 0644 install/modprobe.conf %{buildroot}%{_modprobedir}/60-%{name}.conf
 install -D -m 0644 %{SOURCE1} %{buildroot}%{_modulesloaddir}/%{name}.conf
 
+%post
+dkms add -m %{name} -v %{version} --rpm_safe_upgrade || :
+dkms build -m %{name} -v %{version} || :
+dkms install -m %{name} -v %{version} || :
+
+%preun
+dkms remove -m %{name} -v %{version} --all --rpm_safe_upgrade || :
+
 %files
-%doc %{name}-%{commit}/README.md
-%license %{name}-%{commit}/LICENSE
+%license LICENSE
+%doc README.md
+%{_usrsrc}/%{name}-%{version}
 %{_modprobedir}/60-%{name}.conf
 %{_modulesloaddir}/%{name}.conf
 
 %changelog
+* Tue Feb 10 2026 LionHeartP <LionHeartP@proton.me> - 0.5.5-1
+- Update to 0.5.5
+- Convert to dkms
+
 * Wed Dec 17 2025 LionHeartP <LionHeartP@proton.me> - 0.5.0-1
 - Update to 0.5.0
 
