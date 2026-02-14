@@ -9,14 +9,14 @@
 %global git_name %(echo %{org_name} | sed 's/-//g')
 %global reverse_dns com.heroicgameslauncher.hgl
 %global shortname heroic
-%global legendary_version 0.20.37
-%global gogdl_version 1.1.2
+%global legendary_version 0.20.39
+%global gogdl_version 1.2.0
 %global nile_version 1.1.2
 %global comet_version 0.2.0
 
 Name:          %{shortname}-games-launcher
 Version:       2.19.1
-Release:       1%?dist
+Release:       2%?dist
 Summary:       A games launcher for GOG, Amazon, and Epic Games
 License:       GPL-3.0-only AND MIT AND BSD-3-Clause
 URL:           https://heroicgameslauncher.com
@@ -31,6 +31,8 @@ BuildRequires: nodejs
 BuildRequires: nodejs-npm
 BuildRequires: pnpm
 BuildRequires: python3
+BuildRequires: python3-devel
+BuildRequires: python3-pip
 Requires:      alsa-lib
 Requires:      gtk3
 Requires:      hicolor-icon-theme
@@ -46,6 +48,8 @@ Provides:      bundled(legendary) = %{legendary_version}
 Provides:      bundled(nile) = %{nile_version}
 Packager:      Gilver E. <rockgrub@disroot.org>
 
+ExcludeArch:    %{ix86}
+
 %description
 Heroic is a Free and Open Source Epic, GOG, and Amazon Prime Games launcher for Linux, Windows, and macOS.
 
@@ -57,6 +61,13 @@ pnpm install
 pnpm run download-helper-binaries
 pnpm dist:linux
 wait
+# Manually build the legendary binary so it builds against Fedora's python
+git clone --depth 1 --branch %{legendary_version} --single-branch https://github.com/%{org_name}/legendary.git legendary-source
+pushd legendary-source
+ pip install .
+ pip install pyinstaller
+ %{python3} -m PyInstaller --onefile legendary/cli.py --name legendary
+popd
 
 %install
 mkdir -p %{buildroot}%{_datadir}/%{shortname}
@@ -70,6 +81,8 @@ mv dist/linux-arm64-unpacked/* %{buildroot}%{_datadir}/%{shortname}
 rm -rf dist/linux-unpacked/resources/app.asar.unpacked/build/bin/arm64
 mv dist/linux-unpacked/* %{buildroot}%{_datadir}/%{shortname}
 %endif
+# Install our custom legendary bin
+install -Dm755 legendary-source/dist/legendary %{buildroot}%{_datadir}/%{shortname}/resources/app.asar.unpacked/build/bin/x64/linux/legendary
 mkdir -p %{buildroot}%{_bindir}
 # Make names executable
 ln -sr %{_datadir}/%{shortname}/%{shortname} %{buildroot}%{_bindir}/%{name}
