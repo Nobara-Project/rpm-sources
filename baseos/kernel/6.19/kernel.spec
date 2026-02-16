@@ -1161,6 +1161,9 @@ fi
 %files
 
 %changelog
+* Mon Feb 16 2026 LionHeartP <LionHeartP@proton.me> - 6.19.2-200
+- Update to 6.19.2
+
 * Mon Feb 16 2026 LionHeartP <LionHeartP@proton.me> - 6.19.1-200
 - Update to 6.19.1
 - Remove broken aarch86 patch
