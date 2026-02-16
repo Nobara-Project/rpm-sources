@@ -7,7 +7,7 @@
 %global gver .%{gitdate}git%{gitversion}
 %global branch stable
 
-#global _with_bootstrap 1
+%global _with_bootstrap 1
 
 %{?_with_bootstrap:
 %global _without_gpac 1
@@ -37,7 +37,7 @@
 Summary: H264/AVC video streams encoder
 Name: x264
 Version: 0.%{api}
-Release: 5%{?gver}%{?_with_bootstrap:_bootstrap}%{?dist}
+Release: 6%{?gver}%{?_with_bootstrap:_bootstrap}%{?dist}
 License: GPLv2+
 URL: https://www.videolan.org/developers/x264.html
 Source0: %{name}-0.%{api}-%{snapshot}.tar.bz2

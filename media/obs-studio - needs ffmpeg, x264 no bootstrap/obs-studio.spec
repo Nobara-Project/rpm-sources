@@ -51,7 +51,7 @@
 
 Name:           obs-studio
 Version:        %{version_string}
-Release:        1.%{rel_build}
+Release:        4.%{rel_build}
 Summary:        Open Broadcaster Software Studio
 
 # OBS itself is GPL-2.0-or-later, while various plugin dependencies are of various other licenses
@@ -256,6 +256,7 @@ Library files for Open Broadcaster Software
 %exclude %{_libdir}/obs-plugins/obs-browser*
 %endif
 %exclude %{_libdir}/obs-plugins/vlc-video.so
+%exclude %{_libdir}/obs-plugins/obs-x264.so
 %{_libdir}/obs-scripting/
 # unversioned so files packaged for third-party plugins (cf. rfbz#5999)
 %{_libdir}/*.so
