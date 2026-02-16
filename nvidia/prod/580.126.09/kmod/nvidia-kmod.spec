@@ -5,7 +5,7 @@
 
 Name:           nvidia-kmod
 Version:        580.126.09
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        NVIDIA display driver kernel module
 Epoch:          3
 License:        NVIDIA License
@@ -16,6 +16,7 @@ Source0:        %{name}-%{version}-x86_64.tar.xz
 Source1:        %{name}-%{version}-aarch64.tar.xz
 
 Patch0:         0001-Enable-atomic-kernel-modesetting-by-default.patch
+Patch1:         6.19-580.patch
 
 # Get the needed BuildRequires (in parts depending on what we build for):
 BuildRequires:  kmodtool

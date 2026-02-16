@@ -1,0 +1,47 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ferreo <ferreo@pika-os.com>
+Date: Mon, 9 Feb 2026 00:00:00 +0000
+Subject: [PATCH] Fix compile for 6.19
+
+Contains:
+- Handle 3-arg zone_device_page_init(page, pgmap, order) for 6.19+
+
+The conftest for NV_ZONE_DEVICE_PAGE_INIT_HAS_ORDER_ARG tests the 2-arg
+form (page, order), but kernel 6.19 landed with a 3-arg form
+(page, pgmap, order) via commit 12b2285bf3d1 ("mm/zone_device: support
+large zone device private folios"). Add a version-gated branch to the
+ZONE_DEVICE_PAGE_INIT macro to handle this.
+
+Link: https://github.com/torvalds/linux/commit/12b2285bf3d14372238d36215b73af02ac3bdfc1
+---
+ kernel-open/nvidia-uvm/uvm_hmm.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/kernel-open/nvidia-uvm/uvm_hmm.c b/kernel-open/nvidia-uvm/uvm_hmm.c
+index 9b676f971385..a1b2c3d4e5f6 100644
+--- a/kernel-open/nvidia-uvm/uvm_hmm.c
++++ b/kernel-open/nvidia-uvm/uvm_hmm.c
+@@ -75,6 +75,8 @@
+ #include "uvm_tools.h"
+
+ //
++#include <linux/version.h>
++
+ // Pass 0 as the order, when actual large order support is added this
+ // function will need to be revisited
+ //
+@@ -81,7 +83,9 @@
+ // Pass 0 as the order, when actual large order support is added this
+ // function will need to be revisited
+ //
+-#if defined(NV_ZONE_DEVICE_PAGE_INIT_HAS_ORDER_ARG)
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 19, 0)
++#define ZONE_DEVICE_PAGE_INIT(page)   zone_device_page_init(page, page_pgmap(page), 0)
++#elif defined(NV_ZONE_DEVICE_PAGE_INIT_HAS_ORDER_ARG)
+ #define ZONE_DEVICE_PAGE_INIT(page)   zone_device_page_init(page, 0)
+ #else
+ #define ZONE_DEVICE_PAGE_INIT(page)   zone_device_page_init(page)
+--
+2.48.1
+
+
