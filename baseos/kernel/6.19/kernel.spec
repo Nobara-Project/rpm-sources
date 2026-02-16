@@ -438,6 +438,7 @@ patch -p1 -i %{PATCH9}
 patch -p1 -i %{PATCH10}
 patch -p1 -i %{PATCH11}
 patch -p1 -i %{PATCH12}
+patch -p1 -i %{PATCH13}
 
 # Apply aarch64 patches
 %ifarch aarch64
