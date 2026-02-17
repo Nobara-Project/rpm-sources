@@ -8,7 +8,7 @@
 
 Name:           nvidia-kmod
 Version:        590.44.01
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        NVIDIA display driver kernel module
 Epoch:          3
 License:        NVIDIA License
@@ -17,6 +17,7 @@ ExclusiveArch:  x86_64 aarch64
 
 Source0:        https://github.com/NVIDIA/open-gpu-kernel-modules/archive/%{version}/open-gpu-kernel-modules-%{version}.tar.gz
 Patch0:         0001-Enable-atomic-kernel-modesetting-by-default.patch
+Patch1:         6.19-590.patch
 
 # The run file contains precompiled C++ code for the open modules:
 #   kernel-open/nvidia/nv-kernel.o_binary

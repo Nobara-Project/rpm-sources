@@ -128,9 +128,10 @@ Patch12: capture-device-nv12-fixup.patch
 Patch13: https://raw.githubusercontent.com/CachyOS/kernel-patches/refs/heads/master/%{_basekver}/misc/poc-selector.patch
 
 # aarch64 patches
-Patch20: 0001-ampere-arm64-Add-a-fixup-handler-for-alignment-fault.patch
-Patch21: 0002-ampere-arm64-Work-around-Ampere-Altra-erratum-82288-.patch
-Patch22: xe-nonx86.patch
+Patch21: 0001-arm64-mm-Handle-alignment-faults.patch
+Patch22: 0002-ampere-arm64-Work-around-Ampere-Altra-erratum-82288-.patch
+#Patch23: 0002-arm64-mm-Force-Device-mappings-for-PCIe-MMIO.patch
+Patch23: xe-nonx86.patch
 
 %define __spec_install_post /usr/lib/rpm/brp-compress || :
 %define debug_package %{nil}
@@ -442,9 +443,9 @@ patch -p1 -i %{PATCH13}
 
 # Apply aarch64 patches
 %ifarch aarch64
-patch -p1 -i %{PATCH20}
 patch -p1 -i %{PATCH21}
 patch -p1 -i %{PATCH22}
+patch -p1 -i %{PATCH23}
 %endif
 
 # Fetch the config and move it to the proper directory

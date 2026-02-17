@@ -3,7 +3,7 @@
 
 Name:           dkms-%{dkms_name}
 Version:        580.126.09
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        NVIDIA display driver kernel module
 Epoch:          3
 License:        NVIDIA License
@@ -16,6 +16,7 @@ Source1:        %{dkms_name}-kmod-%{version}-aarch64.tar.xz
 Source2:        %{name}.conf
 
 Patch0:         0001-Enable-atomic-kernel-modesetting-by-default.patch
+Patch1:         6.19-580.patch
 
 BuildRequires:  sed
 
