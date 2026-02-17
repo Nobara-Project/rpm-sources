@@ -28,7 +28,7 @@ Source0:        %{url}/archive/refs/tags/%{tag}.tar.gz#/%{name}-%{tag}.tar.gz
 Source1:        https://github.com/urllib3/urllib3/releases/download/%{urllib3}/urllib3-%{urllib3}.tar.gz
 %endif
 
-BuildArch:  x86_64
+BuildArch: %{_arch}
 BuildRequires:  rpm-build
 BuildRequires:  meson >= 0.54.0
 BuildRequires:  ninja-build
@@ -106,3 +106,4 @@ make DESTDIR=%{buildroot} PYTHONDIR=%{python3_sitelib} install
 %{python3_sitelib}/umu*
 
 %changelog
+
