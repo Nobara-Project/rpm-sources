@@ -6,7 +6,7 @@
 
 Name:           nvidia-kmod-common
 Version:        590.44.01
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        Common file for NVIDIA's proprietary driver kernel modules
 Epoch:          3
 License:        NVIDIA License
@@ -19,6 +19,7 @@ Source17:       nvidia-boot-update
 Source19:       nvidia-modeset.conf
 Source20:       nvidia.conf
 Source21:       60-nvidia.rules
+Source24:       99-nouveau.conf
 
 # UDev rule location (_udevrulesdir) and systemd macros:
 BuildRequires:  systemd-rpm-macros
@@ -45,6 +46,9 @@ install -p -m 0644 -D %{SOURCE19} %{buildroot}%{_sysconfdir}/modprobe.d/nvidia-m
 # Load nvidia-uvm, enable complete power management:
 install -p -m 0644 -D %{SOURCE20} %{buildroot}%{_modprobedir}/nvidia.conf
 
+# Avoid nouveau modules getting in the initrd:
+install -p -m 0644 -D %{SOURCE24} %{buildroot}%{_dracut_conf_d}/99-nouveau.conf
+
 # UDev rules
 # https://github.com/NVIDIA/nvidia-modprobe/blob/master/modprobe-utils/nvidia-modprobe-utils.h#L33-L46
 # https://github.com/negativo17/nvidia-kmod-common/issues/11
@@ -68,6 +72,7 @@ fi ||:
 
 %files
 %{_bindir}/nvidia-bug-report.sh
+%{_dracut_conf_d}/99-nouveau.conf
 %{_modprobedir}/nvidia.conf
 %dir %{_prefix}/lib/firmware
 %dir %{_prefix}/lib/firmware/nvidia
