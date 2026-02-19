@@ -1,6 +1,25 @@
-diff -rupN a/arch/x86/boot/header.S b/arch/x86/boot/header.S
---- a/arch/x86/boot/header.S	2026-01-25 23:11:24.000000000 +0100
-+++ b/arch/x86/boot/header.S	2026-01-26 14:18:11.849104628 +0100
+From 11f4a85c1156171c22e03216d13384bec651541e Mon Sep 17 00:00:00 2001
+From: Maximilian Luz <luzmaximilian@gmail.com>
+Date: Sun, 9 Jun 2024 19:48:58 +0200
+Subject: [PATCH] Revert "efi/x86: Set the PE/COFF header's NX compat flag
+ unconditionally"
+
+This reverts commit 891f8890a4a3663da7056542757022870b499bc1.
+
+Revert because of compatibility issues of MS Surface devices and GRUB
+with NX. In short, these devices get stuck on boot with NX advertised.
+So to not advertise it, add the respective option back in.
+
+Signed-off-by: Maximilian Luz <luzmaximilian@gmail.com>
+Patchset: secureboot
+---
+ arch/x86/boot/header.S | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/x86/boot/header.S b/arch/x86/boot/header.S
+index 9bea5a1e2c52..25848f886ad6 100644
+--- a/arch/x86/boot/header.S
++++ b/arch/x86/boot/header.S
 @@ -111,7 +111,11 @@ extra_header_fields:
  	.long	salign				# SizeOfHeaders
  	.long	0				# CheckSum
@@ -13,10 +32,31 @@ diff -rupN a/arch/x86/boot/header.S b/arch/x86/boot/header.S
  #ifdef CONFIG_X86_32
  	.long	0				# SizeOfStackReserve
  	.long	0				# SizeOfStackCommit
-diff -rupN a/Documentation/admin-guide/kernel-parameters.txt b/Documentation/admin-guide/kernel-parameters.txt
---- a/Documentation/admin-guide/kernel-parameters.txt	2026-01-25 23:11:24.000000000 +0100
-+++ b/Documentation/admin-guide/kernel-parameters.txt	2026-01-26 14:18:11.914050937 +0100
-@@ -3495,6 +3495,11 @@ Kernel parameters
+-- 
+2.53.0
+
+From 1e091139669d3d03f3abf3106ed2fabda98082bb Mon Sep 17 00:00:00 2001
+From: "J. Eduardo" <j.eduardo@gmail.com>
+Date: Sun, 25 Aug 2024 14:17:45 +0200
+Subject: [PATCH] PM: hibernate: Add a lockdown_hibernate parameter
+
+This allows the user to tell the kernel that they know better (namely,
+they secured their swap properly), and that it can enable hibernation.
+
+Signed-off-by: Kelvie Wong <kelvie@kelvie.ca>
+Link: https://github.com/linux-surface/kernel/pull/158
+Link: https://gist.github.com/brknkfr/95d1925ccdbb7a2d18947c168dfabbee
+Patchset: secureboot
+---
+ Documentation/admin-guide/kernel-parameters.txt |  5 +++++
+ kernel/power/hibernate.c                        | 10 +++++++++-
+ 2 files changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/admin-guide/kernel-parameters.txt b/Documentation/admin-guide/kernel-parameters.txt
+index aa0031108bc1..ca92d0e45220 100644
+--- a/Documentation/admin-guide/kernel-parameters.txt
++++ b/Documentation/admin-guide/kernel-parameters.txt
+@@ -3500,6 +3500,11 @@ Kernel parameters
  			to extract confidential information from the kernel
  			are also disabled.
  
@@ -28,9 +68,10 @@ diff -rupN a/Documentation/admin-guide/kernel-parameters.txt b/Documentation/adm
  	locktorture.acq_writer_lim= [KNL]
  			Set the time limit in jiffies for a lock
  			acquisition.  Acquisitions exceeding this limit
-diff -rupN a/kernel/power/hibernate.c b/kernel/power/hibernate.c
---- a/kernel/power/hibernate.c	2026-01-25 23:11:24.000000000 +0100
-+++ b/kernel/power/hibernate.c	2026-01-26 14:18:11.915167609 +0100
+diff --git a/kernel/power/hibernate.c b/kernel/power/hibernate.c
+index af8d07bafe02..9e151554d5a0 100644
+--- a/kernel/power/hibernate.c
++++ b/kernel/power/hibernate.c
 @@ -38,6 +38,7 @@
  #include "power.h"
  
@@ -48,7 +89,7 @@ diff -rupN a/kernel/power/hibernate.c b/kernel/power/hibernate.c
  		!secretmem_active() && !cxl_mem_active();
  }
  
-@@ -1493,6 +1494,12 @@ static int __init nohibernate_setup(char
+@@ -1493,6 +1494,12 @@ static int __init nohibernate_setup(char *str)
  	return 1;
  }
  
@@ -66,9 +107,193 @@ diff -rupN a/kernel/power/hibernate.c b/kernel/power/hibernate.c
  __setup("resumedelay=", resumedelay_setup);
  __setup("nohibernate", nohibernate_setup);
 +__setup("lockdown_hibernate", lockdown_hibernate_setup);
-diff -rupN a/drivers/input/touchscreen/surface3_spi.c b/drivers/input/touchscreen/surface3_spi.c
---- a/drivers/input/touchscreen/surface3_spi.c	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/input/touchscreen/surface3_spi.c	2026-01-26 14:31:08.729699421 +0100
+-- 
+2.53.0
+
+From 15ab9b53834ba0ab25433ecfc02ee1659b2ff95b Mon Sep 17 00:00:00 2001
+From: Tsuchiya Yuto <kitakar@gmail.com>
+Date: Sun, 18 Oct 2020 16:42:44 +0900
+Subject: [PATCH] (surface3-oemb) add DMI matches for Surface 3 with broken DMI
+ table
+
+On some Surface 3, the DMI table gets corrupted for unknown reasons
+and breaks existing DMI matching used for device-specific quirks.
+
+This commit adds the (broken) DMI data into dmi_system_id tables used
+for quirks so that each driver can enable quirks even on the affected
+systems.
+
+On affected systems, DMI data will look like this:
+    $ grep . /sys/devices/virtual/dmi/id/{bios_vendor,board_name,board_vendor,\
+    chassis_vendor,product_name,sys_vendor}
+    /sys/devices/virtual/dmi/id/bios_vendor:American Megatrends Inc.
+    /sys/devices/virtual/dmi/id/board_name:OEMB
+    /sys/devices/virtual/dmi/id/board_vendor:OEMB
+    /sys/devices/virtual/dmi/id/chassis_vendor:OEMB
+    /sys/devices/virtual/dmi/id/product_name:OEMB
+    /sys/devices/virtual/dmi/id/sys_vendor:OEMB
+
+Expected:
+    $ grep . /sys/devices/virtual/dmi/id/{bios_vendor,board_name,board_vendor,\
+    chassis_vendor,product_name,sys_vendor}
+    /sys/devices/virtual/dmi/id/bios_vendor:American Megatrends Inc.
+    /sys/devices/virtual/dmi/id/board_name:Surface 3
+    /sys/devices/virtual/dmi/id/board_vendor:Microsoft Corporation
+    /sys/devices/virtual/dmi/id/chassis_vendor:Microsoft Corporation
+    /sys/devices/virtual/dmi/id/product_name:Surface 3
+    /sys/devices/virtual/dmi/id/sys_vendor:Microsoft Corporation
+
+Signed-off-by: Tsuchiya Yuto <kitakar@gmail.com>
+Patchset: surface3
+---
+ drivers/platform/surface/surface3-wmi.c           | 7 +++++++
+ sound/soc/codecs/rt5645.c                         | 9 +++++++++
+ sound/soc/intel/common/soc-acpi-intel-cht-match.c | 8 ++++++++
+ 3 files changed, 24 insertions(+)
+
+diff --git a/drivers/platform/surface/surface3-wmi.c b/drivers/platform/surface/surface3-wmi.c
+index 6c8fb7a4dde4..22797a53f4d8 100644
+--- a/drivers/platform/surface/surface3-wmi.c
++++ b/drivers/platform/surface/surface3-wmi.c
+@@ -37,6 +37,13 @@ static const struct dmi_system_id surface3_dmi_table[] = {
+ 			DMI_MATCH(DMI_PRODUCT_NAME, "Surface 3"),
+ 		},
+ 	},
++	{
++		.matches = {
++			DMI_MATCH(DMI_BIOS_VENDOR, "American Megatrends Inc."),
++			DMI_MATCH(DMI_SYS_VENDOR, "OEMB"),
++			DMI_MATCH(DMI_PRODUCT_NAME, "OEMB"),
++		},
++	},
+ #endif
+ 	{ }
+ };
+diff --git a/sound/soc/codecs/rt5645.c b/sound/soc/codecs/rt5645.c
+index f7701b8d0d3c..0708c2fe8f61 100644
+--- a/sound/soc/codecs/rt5645.c
++++ b/sound/soc/codecs/rt5645.c
+@@ -3793,6 +3793,15 @@ static const struct dmi_system_id dmi_platform_data[] = {
+ 		},
+ 		.driver_data = (void *)&intel_braswell_platform_data,
+ 	},
++	{
++		.ident = "Microsoft Surface 3",
++		.matches = {
++			DMI_MATCH(DMI_BIOS_VENDOR, "American Megatrends Inc."),
++			DMI_MATCH(DMI_SYS_VENDOR, "OEMB"),
++			DMI_MATCH(DMI_PRODUCT_NAME, "OEMB"),
++		},
++		.driver_data = (void *)&intel_braswell_platform_data,
++	},
+ 	{
+ 		/*
+ 		 * Match for the GPDwin which unfortunately uses somewhat
+diff --git a/sound/soc/intel/common/soc-acpi-intel-cht-match.c b/sound/soc/intel/common/soc-acpi-intel-cht-match.c
+index e4c3492a0c28..0b930c91bccb 100644
+--- a/sound/soc/intel/common/soc-acpi-intel-cht-match.c
++++ b/sound/soc/intel/common/soc-acpi-intel-cht-match.c
+@@ -27,6 +27,14 @@ static const struct dmi_system_id cht_table[] = {
+ 			DMI_MATCH(DMI_PRODUCT_NAME, "Surface 3"),
+ 		},
+ 	},
++	{
++		.callback = cht_surface_quirk_cb,
++		.matches = {
++			DMI_MATCH(DMI_BIOS_VENDOR, "American Megatrends Inc."),
++			DMI_MATCH(DMI_SYS_VENDOR, "OEMB"),
++			DMI_MATCH(DMI_PRODUCT_NAME, "OEMB"),
++		},
++	},
+ 	{ }
+ };
+ 
+-- 
+2.53.0
+
+From c881590fdf25571ca9576ddb5fb1672092cd458a Mon Sep 17 00:00:00 2001
+From: kitakar5525 <34676735+kitakar5525@users.noreply.github.com>
+Date: Fri, 6 Dec 2019 23:10:30 +0900
+Subject: [PATCH] surface3-spi: workaround: disable DMA mode to avoid crash by
+ default
+
+On Arch Linux kernel at least after 4.19, touch input is broken after suspend
+(s2idle).
+
+        kern  :err   : [  +0.203408] Surface3-spi spi-MSHW0037:00: SPI transfer timed out
+
+On recent stable Arch Linux kernel (at least after 5.1), touch input will
+crash after the first touch.
+
+        kern  :err   : [  +0.203592] Surface3-spi spi-MSHW0037:00: SPI transfer timed out
+        kern  :err   : [  +0.000173] spi_master spi1: failed to transfer one message from queue
+
+I found on an affected system (Arch Linux kernel, etc.), the touchscreen
+driver uses DMA mode by default. Then, we found some kernels with different
+kernel config (5.1 kernel config from Jakeday [1] or Chromium OS kernel
+chromeos-4.19 [2]) will use PIO mode by default and no such issues there.
+
+So, this commit disables DMA mode on the touchscreen driver side as a quick
+workaround to avoid touch input crash.
+We may need to properly set up DMA mode to use the touchscreen driver with
+DMA mode.
+
+You can still switch DMA/PIO mode if you want:
+
+  switch to DMA mode (maybe broken)
+        echo 1 | sudo tee /sys/module/surface3_spi/parameters/use_dma
+  back to PIO mode
+        echo 0 | sudo tee /sys/module/surface3_spi/parameters/use_dma
+
+Link to issue: https://github.com/jakeday/linux-surface/issues/596
+
+References:
+[1] https://github.com/jakeday/linux-surface/blob/master/configs/5.1/config
+[2] https://chromium.googlesource.com/chromiumos/third_party/kernel/+/refs/heads/chromeos-4.19
+
+Tested on Arch Linux 5.4.1 with Surface 3, which will use DMA by default.
+This commit made the driver use PIO by default and no touch input crash.
+Also tested on chromeos-4.19 4.19.90 with Surface 3, which will use PIO by default
+even without this commit. After this commit, it still uses PIO and confirmed
+no functional changes regarding touch input.
+
+More details:
+  We can confirm which mode the touchscreen driver uses; first, enable
+  debug output:
+
+        echo "file drivers/spi/spi-pxa2xx.c +p" | sudo tee /sys/kernel/debug/dynamic_debug/control
+        echo "file drivers/input/touchscreen/surface3_spi.c +p" | sudo tee /sys/kernel/debug/dynamic_debug/control
+
+  Then, try to make a touch input and see dmesg log
+
+        (On Arch Linux kernel, uses DMA)
+        kern  :debug : [  +0.006383] Surface3-spi spi-MSHW0037:00: 7692307 Hz actual, DMA
+        kern  :debug : [  +0.000495] Surface3-spi spi-MSHW0037:00: surface3_spi_irq_handler received
+	-> ff ff ff ff a5 5a e7 7e 01 d2 00 80 01 03 03 18 00 e4 01 00 04 1a 04 1a e3 0c e3 0c b0 00
+	c5 00 00 00 00 00 ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+
+        (On the kernels I referenced above, uses PIO)
+        kern  :debug : [  +0.009260] Surface3-spi spi-MSHW0037:00: 7692307 Hz actual, PIO
+        kern  :debug : [  +0.001105] Surface3-spi spi-MSHW0037:00: surface3_spi_irq_handler received
+	-> ff ff ff ff a5 5a e7 7e 01 d2 00 80 01 03 03 24 00 e4 01 00 58 0b 58 0b 83 12 83 12 26 01
+	95 01 00 00 00 00 ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+
+Note (2025-03-08): This patch was originally dropped due to the
+comments in [3]. However, according to the commments in [4] it is still
+required.
+
+[3]: https://github.com/linux-surface/kernel/commit/a3421c12bed0e46c28518bcb8c6b22f237c6dc7a
+[4]: https://github.com/linux-surface/linux-surface/issues/1184
+
+Patchset: surface3
+---
+ drivers/input/touchscreen/surface3_spi.c | 26 ++++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+
+diff --git a/drivers/input/touchscreen/surface3_spi.c b/drivers/input/touchscreen/surface3_spi.c
+index 6074b7730e86..6aa3e1d6f160 100644
+--- a/drivers/input/touchscreen/surface3_spi.c
++++ b/drivers/input/touchscreen/surface3_spi.c
 @@ -25,6 +25,12 @@
  #define SURFACE3_REPORT_TOUCH	0xd2
  #define SURFACE3_REPORT_PEN	0x16
@@ -82,7 +307,7 @@ diff -rupN a/drivers/input/touchscreen/surface3_spi.c b/drivers/input/touchscree
  struct surface3_ts_data {
  	struct spi_device *spi;
  	struct gpio_desc *gpiod_rst[2];
-@@ -317,6 +323,13 @@ static int surface3_spi_create_pen_input
+@@ -317,6 +323,13 @@ static int surface3_spi_create_pen_input(struct surface3_ts_data *data)
  	return 0;
  }
  
@@ -96,7 +321,7 @@ diff -rupN a/drivers/input/touchscreen/surface3_spi.c b/drivers/input/touchscree
  static int surface3_spi_probe(struct spi_device *spi)
  {
  	struct surface3_ts_data *data;
-@@ -359,6 +372,19 @@ static int surface3_spi_probe(struct spi
+@@ -359,6 +372,19 @@ static int surface3_spi_probe(struct spi_device *spi)
  	if (error)
  		return error;
  
@@ -116,124 +341,47 @@ diff -rupN a/drivers/input/touchscreen/surface3_spi.c b/drivers/input/touchscree
  	return 0;
  }
  
-diff -rupN a/drivers/platform/surface/surface3-wmi.c b/drivers/platform/surface/surface3-wmi.c
---- a/drivers/platform/surface/surface3-wmi.c	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/platform/surface/surface3-wmi.c	2026-01-26 14:31:08.694089390 +0100
-@@ -37,6 +37,13 @@ static const struct dmi_system_id surfac
- 			DMI_MATCH(DMI_PRODUCT_NAME, "Surface 3"),
- 		},
- 	},
-+	{
-+		.matches = {
-+			DMI_MATCH(DMI_BIOS_VENDOR, "American Megatrends Inc."),
-+			DMI_MATCH(DMI_SYS_VENDOR, "OEMB"),
-+			DMI_MATCH(DMI_PRODUCT_NAME, "OEMB"),
-+		},
-+	},
- #endif
- 	{ }
- };
-diff -rupN a/sound/soc/codecs/rt5645.c b/sound/soc/codecs/rt5645.c
---- a/sound/soc/codecs/rt5645.c	2026-01-25 23:11:24.000000000 +0100
-+++ b/sound/soc/codecs/rt5645.c	2026-01-26 14:31:08.695007216 +0100
-@@ -3794,6 +3794,15 @@ static const struct dmi_system_id dmi_pl
- 		.driver_data = (void *)&intel_braswell_platform_data,
- 	},
- 	{
-+		.ident = "Microsoft Surface 3",
-+		.matches = {
-+			DMI_MATCH(DMI_BIOS_VENDOR, "American Megatrends Inc."),
-+			DMI_MATCH(DMI_SYS_VENDOR, "OEMB"),
-+			DMI_MATCH(DMI_PRODUCT_NAME, "OEMB"),
-+		},
-+		.driver_data = (void *)&intel_braswell_platform_data,
-+	},
-+	{
- 		/*
- 		 * Match for the GPDwin which unfortunately uses somewhat
- 		 * generic dmi strings, which is why we test for 4 strings.
-diff -rupN a/sound/soc/intel/common/soc-acpi-intel-cht-match.c b/sound/soc/intel/common/soc-acpi-intel-cht-match.c
---- a/sound/soc/intel/common/soc-acpi-intel-cht-match.c	2026-01-25 23:11:24.000000000 +0100
-+++ b/sound/soc/intel/common/soc-acpi-intel-cht-match.c	2026-01-26 14:31:08.696023896 +0100
-@@ -27,6 +27,14 @@ static const struct dmi_system_id cht_ta
- 			DMI_MATCH(DMI_PRODUCT_NAME, "Surface 3"),
- 		},
- 	},
-+	{
-+		.callback = cht_surface_quirk_cb,
-+		.matches = {
-+			DMI_MATCH(DMI_BIOS_VENDOR, "American Megatrends Inc."),
-+			DMI_MATCH(DMI_SYS_VENDOR, "OEMB"),
-+			DMI_MATCH(DMI_PRODUCT_NAME, "OEMB"),
-+		},
-+	},
- 	{ }
- };
- 
-diff -rupN a/drivers/bluetooth/btusb.c b/drivers/bluetooth/btusb.c
---- a/drivers/bluetooth/btusb.c	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/bluetooth/btusb.c	2026-01-26 14:40:52.291334308 +0100
-@@ -67,6 +67,7 @@ static struct usb_driver btusb_driver;
- #define BTUSB_INTEL_NO_WBS_SUPPORT	BIT(26)
- #define BTUSB_ACTIONS_SEMI		BIT(27)
- #define BTUSB_BARROT			BIT(28)
-+#define BTUSB_LOWER_LESCAN_INTERVAL	BIT(29)
- 
- static const struct usb_device_id btusb_table[] = {
- 	/* Generic Bluetooth USB device */
-@@ -472,6 +473,7 @@ static const struct usb_device_id quirks
- 	{ USB_DEVICE(0x1286, 0x2044), .driver_info = BTUSB_MARVELL },
- 	{ USB_DEVICE(0x1286, 0x2046), .driver_info = BTUSB_MARVELL },
- 	{ USB_DEVICE(0x1286, 0x204e), .driver_info = BTUSB_MARVELL },
-+	{ USB_DEVICE(0x1286, 0x204c), .driver_info = BTUSB_LOWER_LESCAN_INTERVAL },
- 
- 	/* Intel Bluetooth devices */
- 	{ USB_DEVICE(0x8087, 0x0025), .driver_info = BTUSB_INTEL_COMBINED },
-@@ -4227,6 +4229,19 @@ static int btusb_probe(struct usb_interf
- 	if (id->driver_info & BTUSB_MARVELL)
- 		hdev->set_bdaddr = btusb_set_bdaddr_marvell;
- 
-+	/* The Marvell 88W8897 combined wifi and bluetooth card is known for
-+	 * very bad bt+wifi coexisting performance.
-+	 *
-+	 * Decrease the passive BT Low Energy scan interval a bit
-+	 * (0x0190 * 0.625 msec = 250 msec) and make the scan window shorter
-+	 * (0x000a * 0,625 msec = 6.25 msec). This allows for significantly
-+	 * higher wifi throughput while passively scanning for BT LE devices.
-+	 */
-+	if (id->driver_info & BTUSB_LOWER_LESCAN_INTERVAL) {
-+		hdev->le_scan_interval = 0x0190;
-+		hdev->le_scan_window = 0x000a;
-+	}
-+
- 	if (IS_ENABLED(CONFIG_BT_HCIBTUSB_MTK) &&
- 	    (id->driver_info & BTUSB_MEDIATEK)) {
- 		hdev->setup = btusb_mtk_setup;
-diff -rupN a/drivers/net/wireless/marvell/mwifiex/pcie.c b/drivers/net/wireless/marvell/mwifiex/pcie.c
---- a/drivers/net/wireless/marvell/mwifiex/pcie.c	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/net/wireless/marvell/mwifiex/pcie.c	2026-01-26 14:40:52.236333962 +0100
-@@ -377,6 +377,7 @@ static int mwifiex_pcie_probe(struct pci
- 					const struct pci_device_id *ent)
- {
- 	struct pcie_service_card *card;
-+	struct pci_dev *parent_pdev = pci_upstream_bridge(pdev);
- 	int ret;
- 
- 	pr_debug("info: vendor=0x%4.04X device=0x%4.04X rev=%d\n",
-@@ -418,6 +419,12 @@ static int mwifiex_pcie_probe(struct pci
- 		return -1;
- 	}
- 
-+	/* disable bridge_d3 for Surface gen4+ devices to fix fw crashing
-+	 * after suspend
-+	 */
-+	if (card->quirks & QUIRK_NO_BRIDGE_D3)
-+		parent_pdev->bridge_d3 = false;
-+
- 	return 0;
- }
- 
-@@ -1702,9 +1709,21 @@ mwifiex_pcie_send_boot_cmd(struct mwifie
+-- 
+2.53.0
+
+From 5c32be551d5e372447cc2f4faae21d20a07ae94e Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Jonas=20Dre=C3=9Fler?= <verdre@v0yd.nl>
+Date: Tue, 3 Nov 2020 13:28:04 +0100
+Subject: [PATCH] mwifiex: Add quirk resetting the PCI bridge on MS Surface
+ devices
+
+The most recent firmware of the 88W8897 card reports a hardcoded LTR
+value to the system during initialization, probably as an (unsuccessful)
+attempt of the developers to fix firmware crashes. This LTR value
+prevents most of the Microsoft Surface devices from entering deep
+powersaving states (either platform C-State 10 or S0ix state), because
+the exit latency of that state would be higher than what the card can
+tolerate.
+
+Turns out the card works just the same (including the firmware crashes)
+no matter if that hardcoded LTR value is reported or not, so it's kind
+of useless and only prevents us from saving power.
+
+To get rid of those hardcoded LTR reports, it's possible to reset the
+PCI bridge device after initializing the cards firmware. I'm not exactly
+sure why that works, maybe the power management subsystem of the PCH
+resets its stored LTR values when doing a function level reset of the
+bridge device. Doing the reset once after starting the wifi firmware
+works very well, probably because the firmware only reports that LTR
+value a single time during firmware startup.
+
+Patchset: mwifiex
+---
+ drivers/net/wireless/marvell/mwifiex/pcie.c   | 12 +++++++++
+ .../wireless/marvell/mwifiex/pcie_quirks.c    | 26 +++++++++++++------
+ .../wireless/marvell/mwifiex/pcie_quirks.h    |  1 +
+ 3 files changed, 31 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/wireless/marvell/mwifiex/pcie.c b/drivers/net/wireless/marvell/mwifiex/pcie.c
+index a760de191fce..db9b203226a8 100644
+--- a/drivers/net/wireless/marvell/mwifiex/pcie.c
++++ b/drivers/net/wireless/marvell/mwifiex/pcie.c
+@@ -1702,9 +1702,21 @@ mwifiex_pcie_send_boot_cmd(struct mwifiex_adapter *adapter, struct sk_buff *skb)
  static void mwifiex_pcie_init_fw_port(struct mwifiex_adapter *adapter)
  {
  	struct pcie_service_card *card = adapter->card;
@@ -255,122 +403,348 @@ diff -rupN a/drivers/net/wireless/marvell/mwifiex/pcie.c b/drivers/net/wireless/
  	/* Write the RX ring read pointer in to reg->rx_rdptr */
  	mwifiex_write_reg(adapter, reg->rx_rdptr, card->rxbd_rdptr | tx_wrap);
  }
-diff -rupN a/drivers/net/wireless/marvell/mwifiex/pcie_quirks.c b/drivers/net/wireless/marvell/mwifiex/pcie_quirks.c
---- a/drivers/net/wireless/marvell/mwifiex/pcie_quirks.c	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/net/wireless/marvell/mwifiex/pcie_quirks.c	2026-01-26 14:40:52.237065999 +0100
-@@ -13,7 +13,9 @@ static const struct dmi_system_id mwifie
+diff --git a/drivers/net/wireless/marvell/mwifiex/pcie_quirks.c b/drivers/net/wireless/marvell/mwifiex/pcie_quirks.c
+index dd6d21f1dbfd..f46b06f8d643 100644
+--- a/drivers/net/wireless/marvell/mwifiex/pcie_quirks.c
++++ b/drivers/net/wireless/marvell/mwifiex/pcie_quirks.c
+@@ -13,7 +13,8 @@ static const struct dmi_system_id mwifiex_quirk_table[] = {
  			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Microsoft Corporation"),
  			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Surface Pro 4"),
  		},
 -		.driver_data = (void *)QUIRK_FW_RST_D3COLD,
 +		.driver_data = (void *)(QUIRK_FW_RST_D3COLD |
-+					QUIRK_DO_FLR_ON_BRIDGE |
-+					QUIRK_NO_BRIDGE_D3),
++					QUIRK_DO_FLR_ON_BRIDGE),
  	},
  	{
  		.ident = "Surface Pro 5",
-@@ -22,7 +24,9 @@ static const struct dmi_system_id mwifie
+@@ -22,7 +23,8 @@ static const struct dmi_system_id mwifiex_quirk_table[] = {
  			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Microsoft Corporation"),
  			DMI_EXACT_MATCH(DMI_PRODUCT_SKU, "Surface_Pro_1796"),
  		},
 -		.driver_data = (void *)QUIRK_FW_RST_D3COLD,
 +		.driver_data = (void *)(QUIRK_FW_RST_D3COLD |
-+					QUIRK_DO_FLR_ON_BRIDGE |
-+					QUIRK_NO_BRIDGE_D3),
++					QUIRK_DO_FLR_ON_BRIDGE),
  	},
  	{
  		.ident = "Surface Pro 5 (LTE)",
-@@ -31,7 +35,9 @@ static const struct dmi_system_id mwifie
+@@ -31,7 +33,8 @@ static const struct dmi_system_id mwifiex_quirk_table[] = {
  			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Microsoft Corporation"),
  			DMI_EXACT_MATCH(DMI_PRODUCT_SKU, "Surface_Pro_1807"),
  		},
 -		.driver_data = (void *)QUIRK_FW_RST_D3COLD,
 +		.driver_data = (void *)(QUIRK_FW_RST_D3COLD |
-+					QUIRK_DO_FLR_ON_BRIDGE |
-+					QUIRK_NO_BRIDGE_D3),
++					QUIRK_DO_FLR_ON_BRIDGE),
  	},
  	{
  		.ident = "Surface Pro 6",
-@@ -39,7 +45,9 @@ static const struct dmi_system_id mwifie
+@@ -39,7 +42,8 @@ static const struct dmi_system_id mwifiex_quirk_table[] = {
  			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Microsoft Corporation"),
  			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Surface Pro 6"),
  		},
 -		.driver_data = (void *)QUIRK_FW_RST_D3COLD,
 +		.driver_data = (void *)(QUIRK_FW_RST_D3COLD |
-+					QUIRK_DO_FLR_ON_BRIDGE |
-+					QUIRK_NO_BRIDGE_D3),
++					QUIRK_DO_FLR_ON_BRIDGE),
  	},
  	{
  		.ident = "Surface Book 1",
-@@ -47,7 +55,9 @@ static const struct dmi_system_id mwifie
+@@ -47,7 +51,8 @@ static const struct dmi_system_id mwifiex_quirk_table[] = {
  			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Microsoft Corporation"),
  			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Surface Book"),
  		},
 -		.driver_data = (void *)QUIRK_FW_RST_D3COLD,
 +		.driver_data = (void *)(QUIRK_FW_RST_D3COLD |
-+					QUIRK_DO_FLR_ON_BRIDGE |
-+					QUIRK_NO_BRIDGE_D3),
++					QUIRK_DO_FLR_ON_BRIDGE),
  	},
  	{
  		.ident = "Surface Book 2",
-@@ -55,7 +65,9 @@ static const struct dmi_system_id mwifie
+@@ -55,7 +60,8 @@ static const struct dmi_system_id mwifiex_quirk_table[] = {
  			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Microsoft Corporation"),
  			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Surface Book 2"),
  		},
 -		.driver_data = (void *)QUIRK_FW_RST_D3COLD,
 +		.driver_data = (void *)(QUIRK_FW_RST_D3COLD |
-+					QUIRK_DO_FLR_ON_BRIDGE |
-+					QUIRK_NO_BRIDGE_D3),
++					QUIRK_DO_FLR_ON_BRIDGE),
  	},
  	{
  		.ident = "Surface Laptop 1",
-@@ -63,7 +75,9 @@ static const struct dmi_system_id mwifie
+@@ -63,7 +69,8 @@ static const struct dmi_system_id mwifiex_quirk_table[] = {
  			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Microsoft Corporation"),
  			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Surface Laptop"),
  		},
 -		.driver_data = (void *)QUIRK_FW_RST_D3COLD,
 +		.driver_data = (void *)(QUIRK_FW_RST_D3COLD |
-+					QUIRK_DO_FLR_ON_BRIDGE |
-+					QUIRK_NO_BRIDGE_D3),
++					QUIRK_DO_FLR_ON_BRIDGE),
  	},
  	{
  		.ident = "Surface Laptop 2",
-@@ -71,7 +85,9 @@ static const struct dmi_system_id mwifie
+@@ -71,7 +78,8 @@ static const struct dmi_system_id mwifiex_quirk_table[] = {
  			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Microsoft Corporation"),
  			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Surface Laptop 2"),
  		},
 -		.driver_data = (void *)QUIRK_FW_RST_D3COLD,
 +		.driver_data = (void *)(QUIRK_FW_RST_D3COLD |
-+					QUIRK_DO_FLR_ON_BRIDGE |
-+					QUIRK_NO_BRIDGE_D3),
++					QUIRK_DO_FLR_ON_BRIDGE),
  	},
  	{}
  };
-@@ -89,6 +105,11 @@ void mwifiex_initialize_quirks(struct pc
+@@ -89,6 +97,8 @@ void mwifiex_initialize_quirks(struct pcie_service_card *card)
  		dev_info(&pdev->dev, "no quirks enabled\n");
  	if (card->quirks & QUIRK_FW_RST_D3COLD)
  		dev_info(&pdev->dev, "quirk reset_d3cold enabled\n");
 +	if (card->quirks & QUIRK_DO_FLR_ON_BRIDGE)
 +		dev_info(&pdev->dev, "quirk do_flr_on_bridge enabled\n");
+ }
+ 
+ static void mwifiex_pcie_set_power_d3cold(struct pci_dev *pdev)
+diff --git a/drivers/net/wireless/marvell/mwifiex/pcie_quirks.h b/drivers/net/wireless/marvell/mwifiex/pcie_quirks.h
+index d6ff964aec5b..5d30ae39d65e 100644
+--- a/drivers/net/wireless/marvell/mwifiex/pcie_quirks.h
++++ b/drivers/net/wireless/marvell/mwifiex/pcie_quirks.h
+@@ -4,6 +4,7 @@
+ #include "pcie.h"
+ 
+ #define QUIRK_FW_RST_D3COLD	BIT(0)
++#define QUIRK_DO_FLR_ON_BRIDGE	BIT(1)
+ 
+ void mwifiex_initialize_quirks(struct pcie_service_card *card);
+ int mwifiex_pcie_reset_d3cold_quirk(struct pci_dev *pdev);
+-- 
+2.53.0
+
+From e4b75eaf26d9ffaa19c85875a8b6604783500e38 Mon Sep 17 00:00:00 2001
+From: Tsuchiya Yuto <kitakar@gmail.com>
+Date: Sun, 4 Oct 2020 00:11:49 +0900
+Subject: [PATCH] mwifiex: pcie: disable bridge_d3 for Surface gen4+
+
+Currently, mwifiex fw will crash after suspend on recent kernel series.
+On Windows, it seems that the root port of wifi will never enter D3 state
+(stay on D0 state). And on Linux, disabling the D3 state for the
+bridge fixes fw crashing after suspend.
+
+This commit disables the D3 state of root port on driver initialization
+and fixes fw crashing after suspend.
+
+Signed-off-by: Tsuchiya Yuto <kitakar@gmail.com>
+Patchset: mwifiex
+---
+ drivers/net/wireless/marvell/mwifiex/pcie.c   |  7 +++++
+ .../wireless/marvell/mwifiex/pcie_quirks.c    | 27 +++++++++++++------
+ .../wireless/marvell/mwifiex/pcie_quirks.h    |  1 +
+ 3 files changed, 27 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/wireless/marvell/mwifiex/pcie.c b/drivers/net/wireless/marvell/mwifiex/pcie.c
+index db9b203226a8..ffd0c1fe9223 100644
+--- a/drivers/net/wireless/marvell/mwifiex/pcie.c
++++ b/drivers/net/wireless/marvell/mwifiex/pcie.c
+@@ -377,6 +377,7 @@ static int mwifiex_pcie_probe(struct pci_dev *pdev,
+ 					const struct pci_device_id *ent)
+ {
+ 	struct pcie_service_card *card;
++	struct pci_dev *parent_pdev = pci_upstream_bridge(pdev);
+ 	int ret;
+ 
+ 	pr_debug("info: vendor=0x%4.04X device=0x%4.04X rev=%d\n",
+@@ -418,6 +419,12 @@ static int mwifiex_pcie_probe(struct pci_dev *pdev,
+ 		return -1;
+ 	}
+ 
++	/* disable bridge_d3 for Surface gen4+ devices to fix fw crashing
++	 * after suspend
++	 */
++	if (card->quirks & QUIRK_NO_BRIDGE_D3)
++		parent_pdev->bridge_d3 = false;
++
+ 	return 0;
+ }
+ 
+diff --git a/drivers/net/wireless/marvell/mwifiex/pcie_quirks.c b/drivers/net/wireless/marvell/mwifiex/pcie_quirks.c
+index f46b06f8d643..99b024ecbade 100644
+--- a/drivers/net/wireless/marvell/mwifiex/pcie_quirks.c
++++ b/drivers/net/wireless/marvell/mwifiex/pcie_quirks.c
+@@ -14,7 +14,8 @@ static const struct dmi_system_id mwifiex_quirk_table[] = {
+ 			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Surface Pro 4"),
+ 		},
+ 		.driver_data = (void *)(QUIRK_FW_RST_D3COLD |
+-					QUIRK_DO_FLR_ON_BRIDGE),
++					QUIRK_DO_FLR_ON_BRIDGE |
++					QUIRK_NO_BRIDGE_D3),
+ 	},
+ 	{
+ 		.ident = "Surface Pro 5",
+@@ -24,7 +25,8 @@ static const struct dmi_system_id mwifiex_quirk_table[] = {
+ 			DMI_EXACT_MATCH(DMI_PRODUCT_SKU, "Surface_Pro_1796"),
+ 		},
+ 		.driver_data = (void *)(QUIRK_FW_RST_D3COLD |
+-					QUIRK_DO_FLR_ON_BRIDGE),
++					QUIRK_DO_FLR_ON_BRIDGE |
++					QUIRK_NO_BRIDGE_D3),
+ 	},
+ 	{
+ 		.ident = "Surface Pro 5 (LTE)",
+@@ -34,7 +36,8 @@ static const struct dmi_system_id mwifiex_quirk_table[] = {
+ 			DMI_EXACT_MATCH(DMI_PRODUCT_SKU, "Surface_Pro_1807"),
+ 		},
+ 		.driver_data = (void *)(QUIRK_FW_RST_D3COLD |
+-					QUIRK_DO_FLR_ON_BRIDGE),
++					QUIRK_DO_FLR_ON_BRIDGE |
++					QUIRK_NO_BRIDGE_D3),
+ 	},
+ 	{
+ 		.ident = "Surface Pro 6",
+@@ -43,7 +46,8 @@ static const struct dmi_system_id mwifiex_quirk_table[] = {
+ 			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Surface Pro 6"),
+ 		},
+ 		.driver_data = (void *)(QUIRK_FW_RST_D3COLD |
+-					QUIRK_DO_FLR_ON_BRIDGE),
++					QUIRK_DO_FLR_ON_BRIDGE |
++					QUIRK_NO_BRIDGE_D3),
+ 	},
+ 	{
+ 		.ident = "Surface Book 1",
+@@ -52,7 +56,8 @@ static const struct dmi_system_id mwifiex_quirk_table[] = {
+ 			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Surface Book"),
+ 		},
+ 		.driver_data = (void *)(QUIRK_FW_RST_D3COLD |
+-					QUIRK_DO_FLR_ON_BRIDGE),
++					QUIRK_DO_FLR_ON_BRIDGE |
++					QUIRK_NO_BRIDGE_D3),
+ 	},
+ 	{
+ 		.ident = "Surface Book 2",
+@@ -61,7 +66,8 @@ static const struct dmi_system_id mwifiex_quirk_table[] = {
+ 			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Surface Book 2"),
+ 		},
+ 		.driver_data = (void *)(QUIRK_FW_RST_D3COLD |
+-					QUIRK_DO_FLR_ON_BRIDGE),
++					QUIRK_DO_FLR_ON_BRIDGE |
++					QUIRK_NO_BRIDGE_D3),
+ 	},
+ 	{
+ 		.ident = "Surface Laptop 1",
+@@ -70,7 +76,8 @@ static const struct dmi_system_id mwifiex_quirk_table[] = {
+ 			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Surface Laptop"),
+ 		},
+ 		.driver_data = (void *)(QUIRK_FW_RST_D3COLD |
+-					QUIRK_DO_FLR_ON_BRIDGE),
++					QUIRK_DO_FLR_ON_BRIDGE |
++					QUIRK_NO_BRIDGE_D3),
+ 	},
+ 	{
+ 		.ident = "Surface Laptop 2",
+@@ -79,7 +86,8 @@ static const struct dmi_system_id mwifiex_quirk_table[] = {
+ 			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Surface Laptop 2"),
+ 		},
+ 		.driver_data = (void *)(QUIRK_FW_RST_D3COLD |
+-					QUIRK_DO_FLR_ON_BRIDGE),
++					QUIRK_DO_FLR_ON_BRIDGE |
++					QUIRK_NO_BRIDGE_D3),
+ 	},
+ 	{}
+ };
+@@ -99,6 +107,9 @@ void mwifiex_initialize_quirks(struct pcie_service_card *card)
+ 		dev_info(&pdev->dev, "quirk reset_d3cold enabled\n");
+ 	if (card->quirks & QUIRK_DO_FLR_ON_BRIDGE)
+ 		dev_info(&pdev->dev, "quirk do_flr_on_bridge enabled\n");
 +	if (card->quirks & QUIRK_NO_BRIDGE_D3)
 +		dev_info(&pdev->dev,
 +			 "quirk no_brigde_d3 enabled\n");
  }
  
  static void mwifiex_pcie_set_power_d3cold(struct pci_dev *pdev)
-diff -rupN a/drivers/net/wireless/marvell/mwifiex/pcie_quirks.h b/drivers/net/wireless/marvell/mwifiex/pcie_quirks.h
---- a/drivers/net/wireless/marvell/mwifiex/pcie_quirks.h	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/net/wireless/marvell/mwifiex/pcie_quirks.h	2026-01-26 14:40:52.237223775 +0100
-@@ -4,6 +4,8 @@
- #include "pcie.h"
+diff --git a/drivers/net/wireless/marvell/mwifiex/pcie_quirks.h b/drivers/net/wireless/marvell/mwifiex/pcie_quirks.h
+index 5d30ae39d65e..c14eb56eb911 100644
+--- a/drivers/net/wireless/marvell/mwifiex/pcie_quirks.h
++++ b/drivers/net/wireless/marvell/mwifiex/pcie_quirks.h
+@@ -5,6 +5,7 @@
  
  #define QUIRK_FW_RST_D3COLD	BIT(0)
-+#define QUIRK_DO_FLR_ON_BRIDGE	BIT(1)
+ #define QUIRK_DO_FLR_ON_BRIDGE	BIT(1)
 +#define QUIRK_NO_BRIDGE_D3	BIT(2)
  
  void mwifiex_initialize_quirks(struct pcie_service_card *card);
  int mwifiex_pcie_reset_d3cold_quirk(struct pci_dev *pdev);
-From 0c29379773e77fabade4af9340a46ad70024611b Mon Sep 17 00:00:00 2001
+-- 
+2.53.0
+
+From a15b4cd04c9904f36e0124d3175fa4daeeb1269b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Jonas=20Dre=C3=9Fler?= <verdre@v0yd.nl>
+Date: Thu, 25 Mar 2021 11:33:02 +0100
+Subject: [PATCH] Bluetooth: btusb: Lower passive lescan interval on Marvell
+ 88W8897
+
+The Marvell 88W8897 combined wifi and bluetooth card (pcie+usb version)
+is used in a lot of Microsoft Surface devices, and all those devices
+suffer from very low 2.4GHz wifi connection speeds while bluetooth is
+enabled. The reason for that is that the default passive scanning
+interval for Bluetooth Low Energy devices is quite high in Linux
+(interval of 60 msec and scan window of 30 msec, see hci_core.c), and
+the Marvell chip is known for its bad bt+wifi coexisting performance.
+
+So decrease that passive scan interval and make the scan window shorter
+on this particular device to allow for spending more time transmitting
+wifi signals: The new scan interval is 250 msec (0x190 * 0.625 msec) and
+the new scan window is 6.25 msec (0xa * 0,625 msec).
+
+This change has a very large impact on the 2.4GHz wifi speeds and gets
+it up to performance comparable with the Windows driver, which seems to
+apply a similar quirk.
+
+The interval and window length were tested and found to work very well
+with a lot of Bluetooth Low Energy devices, including the Surface Pen, a
+Bluetooth Speaker and two modern Bluetooth headphones. All devices were
+discovered immediately after turning them on. Even lower values were
+also tested, but they introduced longer delays until devices get
+discovered.
+
+Patchset: mwifiex
+---
+ drivers/bluetooth/btusb.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/drivers/bluetooth/btusb.c b/drivers/bluetooth/btusb.c
+index 80ccfa8fd982..093e17983eb7 100644
+--- a/drivers/bluetooth/btusb.c
++++ b/drivers/bluetooth/btusb.c
+@@ -67,6 +67,7 @@ static struct usb_driver btusb_driver;
+ #define BTUSB_INTEL_NO_WBS_SUPPORT	BIT(26)
+ #define BTUSB_ACTIONS_SEMI		BIT(27)
+ #define BTUSB_BARROT			BIT(28)
++#define BTUSB_LOWER_LESCAN_INTERVAL	BIT(29)
+ 
+ static const struct usb_device_id btusb_table[] = {
+ 	/* Generic Bluetooth USB device */
+@@ -472,6 +473,7 @@ static const struct usb_device_id quirks_table[] = {
+ 	{ USB_DEVICE(0x1286, 0x2044), .driver_info = BTUSB_MARVELL },
+ 	{ USB_DEVICE(0x1286, 0x2046), .driver_info = BTUSB_MARVELL },
+ 	{ USB_DEVICE(0x1286, 0x204e), .driver_info = BTUSB_MARVELL },
++	{ USB_DEVICE(0x1286, 0x204c), .driver_info = BTUSB_LOWER_LESCAN_INTERVAL },
+ 
+ 	/* Intel Bluetooth devices */
+ 	{ USB_DEVICE(0x8087, 0x0025), .driver_info = BTUSB_INTEL_COMBINED },
+@@ -4229,6 +4231,19 @@ static int btusb_probe(struct usb_interface *intf,
+ 	if (id->driver_info & BTUSB_MARVELL)
+ 		hdev->set_bdaddr = btusb_set_bdaddr_marvell;
+ 
++	/* The Marvell 88W8897 combined wifi and bluetooth card is known for
++	 * very bad bt+wifi coexisting performance.
++	 *
++	 * Decrease the passive BT Low Energy scan interval a bit
++	 * (0x0190 * 0.625 msec = 250 msec) and make the scan window shorter
++	 * (0x000a * 0,625 msec = 6.25 msec). This allows for significantly
++	 * higher wifi throughput while passively scanning for BT LE devices.
++	 */
++	if (id->driver_info & BTUSB_LOWER_LESCAN_INTERVAL) {
++		hdev->le_scan_interval = 0x0190;
++		hdev->le_scan_window = 0x000a;
++	}
++
+ 	if (IS_ENABLED(CONFIG_BT_HCIBTUSB_MTK) &&
+ 	    (id->driver_info & BTUSB_MEDIATEK)) {
+ 		hdev->setup = btusb_mtk_setup;
+-- 
+2.53.0
+
+From e5e36c49ec4ebd249eb220fa0028f57f1db3dc25 Mon Sep 17 00:00:00 2001
 From: Maximilian Luz <luzmaximilian@gmail.com>
 Date: Sat, 27 Feb 2021 00:45:52 +0100
 Subject: [PATCH] ath10k: Add module parameters to override board files
@@ -392,7 +766,7 @@ Patchset: ath10k
  1 file changed, 57 insertions(+)
 
 diff --git a/drivers/net/wireless/ath/ath10k/core.c b/drivers/net/wireless/ath/ath10k/core.c
-index 9ae3595fb..b26a39c97 100644
+index 7c2939cbde5f..eb402a3a8c5f 100644
 --- a/drivers/net/wireless/ath/ath10k/core.c
 +++ b/drivers/net/wireless/ath/ath10k/core.c
 @@ -41,6 +41,9 @@ static bool fw_diag_log;
@@ -488,11 +862,291 @@ index 9ae3595fb..b26a39c97 100644
  		snprintf(filename, sizeof(filename), "%s/%s/%s",
  			 dir, ar->board_name, file);
 -- 
-2.52.0
+2.53.0
 
-diff -rupN a/drivers/hid/ipts/cmd.c b/drivers/hid/ipts/cmd.c
---- a/drivers/hid/ipts/cmd.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ipts/cmd.c	2026-01-26 14:49:02.858258789 +0100
+From 6235e3f2891f0162cf07e78fd9a2d11f072d29e3 Mon Sep 17 00:00:00 2001
+From: Dorian Stoll <dorian.stoll@tmsp.io>
+Date: Thu, 30 Jul 2020 13:21:53 +0200
+Subject: [PATCH] mei: me: Add Icelake device ID for iTouch
+
+Signed-off-by: Dorian Stoll <dorian.stoll@tmsp.io>
+Patchset: ipts
+---
+ drivers/misc/mei/hw-me-regs.h | 1 +
+ drivers/misc/mei/pci-me.c     | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/drivers/misc/mei/hw-me-regs.h b/drivers/misc/mei/hw-me-regs.h
+index fa30899a5fa2..a1864dcb713d 100644
+--- a/drivers/misc/mei/hw-me-regs.h
++++ b/drivers/misc/mei/hw-me-regs.h
+@@ -92,6 +92,7 @@
+ #define MEI_DEV_ID_CDF        0x18D3  /* Cedar Fork */
+ 
+ #define MEI_DEV_ID_ICP_LP     0x34E0  /* Ice Lake Point LP */
++#define MEI_DEV_ID_ICP_LP_3   0x34E4  /* Ice Lake Point LP 3 (iTouch) */
+ #define MEI_DEV_ID_ICP_N      0x38E0  /* Ice Lake Point N */
+ 
+ #define MEI_DEV_ID_JSP_N      0x4DE0  /* Jasper Lake Point N */
+diff --git a/drivers/misc/mei/pci-me.c b/drivers/misc/mei/pci-me.c
+index 2a6e569558b9..c19dfba542c1 100644
+--- a/drivers/misc/mei/pci-me.c
++++ b/drivers/misc/mei/pci-me.c
+@@ -97,6 +97,7 @@ static const struct pci_device_id mei_me_pci_tbl[] = {
+ 	{MEI_PCI_DEVICE(MEI_DEV_ID_CMP_H_3, MEI_ME_PCH8_ITOUCH_CFG)},
+ 
+ 	{MEI_PCI_DEVICE(MEI_DEV_ID_ICP_LP, MEI_ME_PCH12_CFG)},
++	{MEI_PCI_DEVICE(MEI_DEV_ID_ICP_LP_3, MEI_ME_PCH12_CFG)},
+ 	{MEI_PCI_DEVICE(MEI_DEV_ID_ICP_N, MEI_ME_PCH12_CFG)},
+ 
+ 	{MEI_PCI_DEVICE(MEI_DEV_ID_TGP_LP, MEI_ME_PCH15_CFG)},
+-- 
+2.53.0
+
+From 36f2f146cc18cc0185c65637aa7f0d1689bcf4ee Mon Sep 17 00:00:00 2001
+From: Liban Hannan <liban.p@gmail.com>
+Date: Tue, 12 Apr 2022 23:31:12 +0100
+Subject: [PATCH] iommu: Use IOMMU passthrough mode for IPTS
+
+Adds a quirk so that IOMMU uses passthrough mode for the IPTS device.
+Otherwise, when IOMMU is enabled, IPTS produces DMAR errors like:
+
+DMAR: [DMA Read NO_PASID] Request device [00:16.4] fault addr
+0x104ea3000 [fault reason 0x06] PTE Read access is not set
+
+This is very similar to the bug described at:
+https://bugs.launchpad.net/bugs/1958004
+
+Fixed with the following patch which this patch basically copies:
+https://launchpadlibrarian.net/586396847/43255ca.diff
+
+Signed-off-by: Dorian Stoll <dorian.stoll@tmsp.io>
+Patchset: ipts
+---
+ drivers/iommu/intel/iommu.c | 29 +++++++++++++++++++++++++++++
+ 1 file changed, 29 insertions(+)
+
+diff --git a/drivers/iommu/intel/iommu.c b/drivers/iommu/intel/iommu.c
+index 134302fbcd92..09d031bc873f 100644
+--- a/drivers/iommu/intel/iommu.c
++++ b/drivers/iommu/intel/iommu.c
+@@ -39,6 +39,11 @@
+ #define IS_ISA_DEVICE(pdev) ((pdev->class >> 8) == PCI_CLASS_BRIDGE_ISA)
+ #define IS_AZALIA(pdev) ((pdev)->vendor == 0x8086 && (pdev)->device == 0x3a3e)
+ 
++#define IS_IPTS(pdev) ( \
++		((pdev)->vendor == PCI_VENDOR_ID_INTEL && (pdev)->device == 0x9D3E) || \
++		((pdev)->vendor == PCI_VENDOR_ID_INTEL && (pdev)->device == 0x34E4) \
++	)
++
+ #define IOAPIC_RANGE_START	(0xfee00000)
+ #define IOAPIC_RANGE_END	(0xfeefffff)
+ #define IOVA_START_ADDR		(0x1000)
+@@ -202,12 +207,14 @@ int intel_iommu_sm = IS_ENABLED(CONFIG_INTEL_IOMMU_SCALABLE_MODE_DEFAULT_ON);
+ int intel_iommu_enabled = 0;
+ EXPORT_SYMBOL_GPL(intel_iommu_enabled);
+ 
++static int dmar_map_ipts = 1;
+ static int intel_iommu_superpage = 1;
+ static int iommu_identity_mapping;
+ static int iommu_skip_te_disable;
+ static int disable_igfx_iommu;
+ 
+ #define IDENTMAP_AZALIA		4
++#define IDENTMAP_IPTS		16
+ 
+ const struct iommu_ops intel_iommu_ops;
+ 
+@@ -1401,6 +1408,9 @@ static int device_def_domain_type(struct device *dev)
+ 
+ 		if ((iommu_identity_mapping & IDENTMAP_AZALIA) && IS_AZALIA(pdev))
+ 			return IOMMU_DOMAIN_IDENTITY;
++
++		if ((iommu_identity_mapping & IDENTMAP_IPTS) && IS_IPTS(pdev))
++			return IOMMU_DOMAIN_IDENTITY;
+ 	}
+ 
+ 	return 0;
+@@ -1691,6 +1701,9 @@ static int __init init_dmars(void)
+ 		iommu_set_root_entry(iommu);
+ 	}
+ 
++	if (!dmar_map_ipts)
++		iommu_identity_mapping |= IDENTMAP_IPTS;
++
+ 	check_tylersburg_isoch();
+ 
+ 	/*
+@@ -3936,6 +3949,18 @@ static void quirk_iommu_igfx(struct pci_dev *dev)
+ 	disable_igfx_iommu = 1;
+ }
+ 
++static void quirk_iommu_ipts(struct pci_dev *dev)
++{
++	if (!IS_IPTS(dev))
++		return;
++
++	if (risky_device(dev))
++		return;
++
++	pci_info(dev, "Disabling IOMMU for IPTS\n");
++	dmar_map_ipts = 0;
++}
++
+ /* G4x/GM45 integrated gfx dmar support is totally busted. */
+ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x2a40, quirk_iommu_igfx);
+ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x2e00, quirk_iommu_igfx);
+@@ -3974,6 +3999,10 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x1632, quirk_iommu_igfx);
+ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x163A, quirk_iommu_igfx);
+ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x163D, quirk_iommu_igfx);
+ 
++/* disable IPTS dmar support */
++DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x9D3E, quirk_iommu_ipts);
++DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x34E4, quirk_iommu_ipts);
++
+ static void quirk_iommu_rwbf(struct pci_dev *dev)
+ {
+ 	if (risky_device(dev))
+-- 
+2.53.0
+
+From af52eedf010166a262fae4b5fdd962226a5f0672 Mon Sep 17 00:00:00 2001
+From: Dorian Stoll <dorian.stoll@tmsp.io>
+Date: Sun, 11 Dec 2022 12:00:59 +0100
+Subject: [PATCH] hid: Add support for Intel Precise Touch and Stylus
+
+Based on linux-surface/intel-precise-touch@8abe268
+
+Signed-off-by: Dorian Stoll <dorian.stoll@tmsp.io>
+Patchset: ipts
+---
+ drivers/hid/Kconfig            |   2 +
+ drivers/hid/Makefile           |   2 +
+ drivers/hid/ipts/Kconfig       |  14 +
+ drivers/hid/ipts/Makefile      |  16 ++
+ drivers/hid/ipts/cmd.c         |  61 +++++
+ drivers/hid/ipts/cmd.h         |  60 ++++
+ drivers/hid/ipts/context.h     |  52 ++++
+ drivers/hid/ipts/control.c     | 486 +++++++++++++++++++++++++++++++++
+ drivers/hid/ipts/control.h     | 126 +++++++++
+ drivers/hid/ipts/desc.h        |  80 ++++++
+ drivers/hid/ipts/eds1.c        | 104 +++++++
+ drivers/hid/ipts/eds1.h        |  35 +++
+ drivers/hid/ipts/eds2.c        | 145 ++++++++++
+ drivers/hid/ipts/eds2.h        |  35 +++
+ drivers/hid/ipts/hid.c         | 225 +++++++++++++++
+ drivers/hid/ipts/hid.h         |  24 ++
+ drivers/hid/ipts/main.c        | 126 +++++++++
+ drivers/hid/ipts/mei.c         | 188 +++++++++++++
+ drivers/hid/ipts/mei.h         |  66 +++++
+ drivers/hid/ipts/receiver.c    | 251 +++++++++++++++++
+ drivers/hid/ipts/receiver.h    |  16 ++
+ drivers/hid/ipts/resources.c   | 131 +++++++++
+ drivers/hid/ipts/resources.h   |  41 +++
+ drivers/hid/ipts/spec-data.h   | 100 +++++++
+ drivers/hid/ipts/spec-device.h | 290 ++++++++++++++++++++
+ drivers/hid/ipts/spec-hid.h    |  34 +++
+ drivers/hid/ipts/thread.c      |  84 ++++++
+ drivers/hid/ipts/thread.h      |  59 ++++
+ 28 files changed, 2853 insertions(+)
+ create mode 100644 drivers/hid/ipts/Kconfig
+ create mode 100644 drivers/hid/ipts/Makefile
+ create mode 100644 drivers/hid/ipts/cmd.c
+ create mode 100644 drivers/hid/ipts/cmd.h
+ create mode 100644 drivers/hid/ipts/context.h
+ create mode 100644 drivers/hid/ipts/control.c
+ create mode 100644 drivers/hid/ipts/control.h
+ create mode 100644 drivers/hid/ipts/desc.h
+ create mode 100644 drivers/hid/ipts/eds1.c
+ create mode 100644 drivers/hid/ipts/eds1.h
+ create mode 100644 drivers/hid/ipts/eds2.c
+ create mode 100644 drivers/hid/ipts/eds2.h
+ create mode 100644 drivers/hid/ipts/hid.c
+ create mode 100644 drivers/hid/ipts/hid.h
+ create mode 100644 drivers/hid/ipts/main.c
+ create mode 100644 drivers/hid/ipts/mei.c
+ create mode 100644 drivers/hid/ipts/mei.h
+ create mode 100644 drivers/hid/ipts/receiver.c
+ create mode 100644 drivers/hid/ipts/receiver.h
+ create mode 100644 drivers/hid/ipts/resources.c
+ create mode 100644 drivers/hid/ipts/resources.h
+ create mode 100644 drivers/hid/ipts/spec-data.h
+ create mode 100644 drivers/hid/ipts/spec-device.h
+ create mode 100644 drivers/hid/ipts/spec-hid.h
+ create mode 100644 drivers/hid/ipts/thread.c
+ create mode 100644 drivers/hid/ipts/thread.h
+
+diff --git a/drivers/hid/Kconfig b/drivers/hid/Kconfig
+index 920a64b66b25..314e3b0479be 100644
+--- a/drivers/hid/Kconfig
++++ b/drivers/hid/Kconfig
+@@ -1442,6 +1442,8 @@ source "drivers/hid/surface-hid/Kconfig"
+ 
+ source "drivers/hid/intel-thc-hid/Kconfig"
+ 
++source "drivers/hid/ipts/Kconfig"
++
+ endif # HID
+ 
+ # USB support may be used with HID disabled
+diff --git a/drivers/hid/Makefile b/drivers/hid/Makefile
+index 361a7daedeb8..b73a1bbd3a1d 100644
+--- a/drivers/hid/Makefile
++++ b/drivers/hid/Makefile
+@@ -187,4 +187,6 @@ obj-$(CONFIG_HID_SURFACE)	+= hid-surface.o
+ 
+ obj-$(CONFIG_INTEL_THC_HID)     += intel-thc-hid/
+ 
++obj-$(CONFIG_HID_IPTS)          += ipts/
++
+ obj-$(CONFIG_HID_MSI_CLAW)      += hid-msi-claw.o
+diff --git a/drivers/hid/ipts/Kconfig b/drivers/hid/ipts/Kconfig
+new file mode 100644
+index 000000000000..297401bd388d
+--- /dev/null
++++ b/drivers/hid/ipts/Kconfig
+@@ -0,0 +1,14 @@
++# SPDX-License-Identifier: GPL-2.0-or-later
++
++config HID_IPTS
++	tristate "Intel Precise Touch & Stylus"
++	depends on INTEL_MEI
++	depends on HID
++	help
++	  Say Y here if your system has a touchscreen using Intels
++	  Precise Touch & Stylus (IPTS) technology.
++
++	  If unsure say N.
++
++	  To compile this driver as a module, choose M here: the
++	  module will be called ipts.
+diff --git a/drivers/hid/ipts/Makefile b/drivers/hid/ipts/Makefile
+new file mode 100644
+index 000000000000..883896f68e6a
+--- /dev/null
++++ b/drivers/hid/ipts/Makefile
+@@ -0,0 +1,16 @@
++# SPDX-License-Identifier: GPL-2.0-or-later
++#
++# Makefile for the IPTS touchscreen driver
++#
++
++obj-$(CONFIG_HID_IPTS) += ipts.o
++ipts-objs := cmd.o
++ipts-objs += control.o
++ipts-objs += eds1.o
++ipts-objs += eds2.o
++ipts-objs += hid.o
++ipts-objs += main.o
++ipts-objs += mei.o
++ipts-objs += receiver.o
++ipts-objs += resources.o
++ipts-objs += thread.o
+diff --git a/drivers/hid/ipts/cmd.c b/drivers/hid/ipts/cmd.c
+new file mode 100644
+index 000000000000..63a4934bbc5f
+--- /dev/null
++++ b/drivers/hid/ipts/cmd.c
 @@ -0,0 +1,61 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
@@ -555,9 +1209,11 @@ diff -rupN a/drivers/hid/ipts/cmd.c b/drivers/hid/ipts/cmd.c
 +	dev_dbg(ipts->dev, "Sending 0x%02X with %ld bytes payload\n", code, size);
 +	return ipts_mei_send(&ipts->mei, &cmd, sizeof(cmd.cmd) + size);
 +}
-diff -rupN a/drivers/hid/ipts/cmd.h b/drivers/hid/ipts/cmd.h
---- a/drivers/hid/ipts/cmd.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ipts/cmd.h	2026-01-26 14:49:02.858480859 +0100
+diff --git a/drivers/hid/ipts/cmd.h b/drivers/hid/ipts/cmd.h
+new file mode 100644
+index 000000000000..2b4079075b64
+--- /dev/null
++++ b/drivers/hid/ipts/cmd.h
 @@ -0,0 +1,60 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +/*
@@ -619,9 +1275,11 @@ diff -rupN a/drivers/hid/ipts/cmd.h b/drivers/hid/ipts/cmd.h
 +int ipts_cmd_send(struct ipts_context *ipts, enum ipts_command_code code, void *data, size_t size);
 +
 +#endif /* IPTS_CMD_H */
-diff -rupN a/drivers/hid/ipts/context.h b/drivers/hid/ipts/context.h
---- a/drivers/hid/ipts/context.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ipts/context.h	2026-01-26 14:49:02.858697836 +0100
+diff --git a/drivers/hid/ipts/context.h b/drivers/hid/ipts/context.h
+new file mode 100644
+index 000000000000..ba33259f1f7c
+--- /dev/null
++++ b/drivers/hid/ipts/context.h
 @@ -0,0 +1,52 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +/*
@@ -675,9 +1333,11 @@ diff -rupN a/drivers/hid/ipts/context.h b/drivers/hid/ipts/context.h
 +};
 +
 +#endif /* IPTS_CONTEXT_H */
-diff -rupN a/drivers/hid/ipts/control.c b/drivers/hid/ipts/control.c
---- a/drivers/hid/ipts/control.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ipts/control.c	2026-01-26 14:49:02.858881663 +0100
+diff --git a/drivers/hid/ipts/control.c b/drivers/hid/ipts/control.c
+new file mode 100644
+index 000000000000..5360842d260b
+--- /dev/null
++++ b/drivers/hid/ipts/control.c
 @@ -0,0 +1,486 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
@@ -1165,9 +1825,11 @@ diff -rupN a/drivers/hid/ipts/control.c b/drivers/hid/ipts/control.c
 +
 +	return 0;
 +}
-diff -rupN a/drivers/hid/ipts/control.h b/drivers/hid/ipts/control.h
---- a/drivers/hid/ipts/control.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ipts/control.h	2026-01-26 14:49:02.859401165 +0100
+diff --git a/drivers/hid/ipts/control.h b/drivers/hid/ipts/control.h
+new file mode 100644
+index 000000000000..26629c5144ed
+--- /dev/null
++++ b/drivers/hid/ipts/control.h
 @@ -0,0 +1,126 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +/*
@@ -1295,9 +1957,11 @@ diff -rupN a/drivers/hid/ipts/control.h b/drivers/hid/ipts/control.h
 +int ipts_control_restart(struct ipts_context *ipts);
 +
 +#endif /* IPTS_CONTROL_H */
-diff -rupN a/drivers/hid/ipts/desc.h b/drivers/hid/ipts/desc.h
---- a/drivers/hid/ipts/desc.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ipts/desc.h	2026-01-26 14:49:02.859686145 +0100
+diff --git a/drivers/hid/ipts/desc.h b/drivers/hid/ipts/desc.h
+new file mode 100644
+index 000000000000..307438c7c80c
+--- /dev/null
++++ b/drivers/hid/ipts/desc.h
 @@ -0,0 +1,80 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +/*
@@ -1379,9 +2043,11 @@ diff -rupN a/drivers/hid/ipts/desc.h b/drivers/hid/ipts/desc.h
 +};
 +
 +#endif /* IPTS_DESC_H */
-diff -rupN a/drivers/hid/ipts/eds1.c b/drivers/hid/ipts/eds1.c
---- a/drivers/hid/ipts/eds1.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ipts/eds1.c	2026-01-26 14:49:02.859923862 +0100
+diff --git a/drivers/hid/ipts/eds1.c b/drivers/hid/ipts/eds1.c
+new file mode 100644
+index 000000000000..7b9f54388a9f
+--- /dev/null
++++ b/drivers/hid/ipts/eds1.c
 @@ -0,0 +1,104 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
@@ -1487,9 +2153,11 @@ diff -rupN a/drivers/hid/ipts/eds1.c b/drivers/hid/ipts/eds1.c
 +
 +	return ret;
 +}
-diff -rupN a/drivers/hid/ipts/eds1.h b/drivers/hid/ipts/eds1.h
---- a/drivers/hid/ipts/eds1.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ipts/eds1.h	2026-01-26 14:49:02.860146437 +0100
+diff --git a/drivers/hid/ipts/eds1.h b/drivers/hid/ipts/eds1.h
+new file mode 100644
+index 000000000000..eeeb6575e3e8
+--- /dev/null
++++ b/drivers/hid/ipts/eds1.h
 @@ -0,0 +1,35 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
@@ -1526,9 +2194,11 @@ diff -rupN a/drivers/hid/ipts/eds1.h b/drivers/hid/ipts/eds1.h
 + */
 +int ipts_eds1_raw_request(struct ipts_context *ipts, u8 *buffer, size_t size, u8 report_id,
 +			  enum hid_report_type report_type, enum hid_class_request request_type);
-diff -rupN a/drivers/hid/ipts/eds2.c b/drivers/hid/ipts/eds2.c
---- a/drivers/hid/ipts/eds2.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ipts/eds2.c	2026-01-26 14:49:02.860326326 +0100
+diff --git a/drivers/hid/ipts/eds2.c b/drivers/hid/ipts/eds2.c
+new file mode 100644
+index 000000000000..639940794615
+--- /dev/null
++++ b/drivers/hid/ipts/eds2.c
 @@ -0,0 +1,145 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
@@ -1675,9 +2345,11 @@ diff -rupN a/drivers/hid/ipts/eds2.c b/drivers/hid/ipts/eds2.c
 +	else
 +		return ipts_eds2_set_feature(ipts, buffer, size, report_id, feedback_type);
 +}
-diff -rupN a/drivers/hid/ipts/eds2.h b/drivers/hid/ipts/eds2.h
---- a/drivers/hid/ipts/eds2.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ipts/eds2.h	2026-01-26 14:49:02.860617168 +0100
+diff --git a/drivers/hid/ipts/eds2.h b/drivers/hid/ipts/eds2.h
+new file mode 100644
+index 000000000000..064e3716907a
+--- /dev/null
++++ b/drivers/hid/ipts/eds2.h
 @@ -0,0 +1,35 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
@@ -1714,9 +2386,11 @@ diff -rupN a/drivers/hid/ipts/eds2.h b/drivers/hid/ipts/eds2.h
 + */
 +int ipts_eds2_raw_request(struct ipts_context *ipts, u8 *buffer, size_t size, u8 report_id,
 +			  enum hid_report_type report_type, enum hid_class_request request_type);
-diff -rupN a/drivers/hid/ipts/hid.c b/drivers/hid/ipts/hid.c
---- a/drivers/hid/ipts/hid.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ipts/hid.c	2026-01-26 14:49:02.860798749 +0100
+diff --git a/drivers/hid/ipts/hid.c b/drivers/hid/ipts/hid.c
+new file mode 100644
+index 000000000000..e34a1a4f9fa7
+--- /dev/null
++++ b/drivers/hid/ipts/hid.c
 @@ -0,0 +1,225 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
@@ -1943,9 +2617,11 @@ diff -rupN a/drivers/hid/ipts/hid.c b/drivers/hid/ipts/hid.c
 +
 +	return 0;
 +}
-diff -rupN a/drivers/hid/ipts/hid.h b/drivers/hid/ipts/hid.h
---- a/drivers/hid/ipts/hid.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ipts/hid.h	2026-01-26 14:49:02.861104088 +0100
+diff --git a/drivers/hid/ipts/hid.h b/drivers/hid/ipts/hid.h
+new file mode 100644
+index 000000000000..1ebe77447903
+--- /dev/null
++++ b/drivers/hid/ipts/hid.h
 @@ -0,0 +1,24 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +/*
@@ -1971,27 +2647,11 @@ diff -rupN a/drivers/hid/ipts/hid.h b/drivers/hid/ipts/hid.h
 +int ipts_hid_free(struct ipts_context *ipts);
 +
 +#endif /* IPTS_HID_H */
-diff -rupN a/drivers/hid/ipts/Kconfig b/drivers/hid/ipts/Kconfig
---- a/drivers/hid/ipts/Kconfig	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ipts/Kconfig	2026-01-26 14:49:02.857920007 +0100
-@@ -0,0 +1,14 @@
-+# SPDX-License-Identifier: GPL-2.0-or-later
-+
-+config HID_IPTS
-+	tristate "Intel Precise Touch & Stylus"
-+	depends on INTEL_MEI
-+	depends on HID
-+	help
-+	  Say Y here if your system has a touchscreen using Intels
-+	  Precise Touch & Stylus (IPTS) technology.
-+
-+	  If unsure say N.
-+
-+	  To compile this driver as a module, choose M here: the
-+	  module will be called ipts.
-diff -rupN a/drivers/hid/ipts/main.c b/drivers/hid/ipts/main.c
---- a/drivers/hid/ipts/main.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ipts/main.c	2026-01-26 14:49:02.861277945 +0100
+diff --git a/drivers/hid/ipts/main.c b/drivers/hid/ipts/main.c
+new file mode 100644
+index 000000000000..fb5b5c13ee3e
+--- /dev/null
++++ b/drivers/hid/ipts/main.c
 @@ -0,0 +1,126 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
@@ -2119,29 +2779,11 @@ diff -rupN a/drivers/hid/ipts/main.c b/drivers/hid/ipts/main.c
 +MODULE_DESCRIPTION("IPTS touchscreen driver");
 +MODULE_AUTHOR("Dorian Stoll <dorian.stoll@tmsp.io>");
 +MODULE_LICENSE("GPL");
-diff -rupN a/drivers/hid/ipts/Makefile b/drivers/hid/ipts/Makefile
---- a/drivers/hid/ipts/Makefile	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ipts/Makefile	2026-01-26 14:49:02.858087572 +0100
-@@ -0,0 +1,16 @@
-+# SPDX-License-Identifier: GPL-2.0-or-later
-+#
-+# Makefile for the IPTS touchscreen driver
-+#
-+
-+obj-$(CONFIG_HID_IPTS) += ipts.o
-+ipts-objs := cmd.o
-+ipts-objs += control.o
-+ipts-objs += eds1.o
-+ipts-objs += eds2.o
-+ipts-objs += hid.o
-+ipts-objs += main.o
-+ipts-objs += mei.o
-+ipts-objs += receiver.o
-+ipts-objs += resources.o
-+ipts-objs += thread.o
-diff -rupN a/drivers/hid/ipts/mei.c b/drivers/hid/ipts/mei.c
---- a/drivers/hid/ipts/mei.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ipts/mei.c	2026-01-26 14:49:02.861532021 +0100
+diff --git a/drivers/hid/ipts/mei.c b/drivers/hid/ipts/mei.c
+new file mode 100644
+index 000000000000..1e0395ceae4a
+--- /dev/null
++++ b/drivers/hid/ipts/mei.c
 @@ -0,0 +1,188 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
@@ -2331,9 +2973,11 @@ diff -rupN a/drivers/hid/ipts/mei.c b/drivers/hid/ipts/mei.c
 +
 +	return 0;
 +}
-diff -rupN a/drivers/hid/ipts/mei.h b/drivers/hid/ipts/mei.h
---- a/drivers/hid/ipts/mei.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ipts/mei.h	2026-01-26 14:49:02.861796837 +0100
+diff --git a/drivers/hid/ipts/mei.h b/drivers/hid/ipts/mei.h
+new file mode 100644
+index 000000000000..973bade6b0fd
+--- /dev/null
++++ b/drivers/hid/ipts/mei.h
 @@ -0,0 +1,66 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +/*
@@ -2401,9 +3045,11 @@ diff -rupN a/drivers/hid/ipts/mei.h b/drivers/hid/ipts/mei.h
 +int ipts_mei_init(struct ipts_mei *mei, struct mei_cl_device *cldev);
 +
 +#endif /* IPTS_MEI_H */
-diff -rupN a/drivers/hid/ipts/receiver.c b/drivers/hid/ipts/receiver.c
---- a/drivers/hid/ipts/receiver.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ipts/receiver.c	2026-01-26 14:49:02.861996828 +0100
+diff --git a/drivers/hid/ipts/receiver.c b/drivers/hid/ipts/receiver.c
+new file mode 100644
+index 000000000000..977724c728c3
+--- /dev/null
++++ b/drivers/hid/ipts/receiver.c
 @@ -0,0 +1,251 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
@@ -2656,9 +3302,11 @@ diff -rupN a/drivers/hid/ipts/receiver.c b/drivers/hid/ipts/receiver.c
 +
 +	return 0;
 +}
-diff -rupN a/drivers/hid/ipts/receiver.h b/drivers/hid/ipts/receiver.h
---- a/drivers/hid/ipts/receiver.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ipts/receiver.h	2026-01-26 14:49:02.862333770 +0100
+diff --git a/drivers/hid/ipts/receiver.h b/drivers/hid/ipts/receiver.h
+new file mode 100644
+index 000000000000..3de7da62d40c
+--- /dev/null
++++ b/drivers/hid/ipts/receiver.h
 @@ -0,0 +1,16 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +/*
@@ -2676,9 +3324,11 @@ diff -rupN a/drivers/hid/ipts/receiver.h b/drivers/hid/ipts/receiver.h
 +int ipts_receiver_stop(struct ipts_context *ipts);
 +
 +#endif /* IPTS_RECEIVER_H */
-diff -rupN a/drivers/hid/ipts/resources.c b/drivers/hid/ipts/resources.c
---- a/drivers/hid/ipts/resources.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ipts/resources.c	2026-01-26 14:49:02.862530092 +0100
+diff --git a/drivers/hid/ipts/resources.c b/drivers/hid/ipts/resources.c
+new file mode 100644
+index 000000000000..cc14653b2a9f
+--- /dev/null
++++ b/drivers/hid/ipts/resources.c
 @@ -0,0 +1,131 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
@@ -2811,9 +3461,11 @@ diff -rupN a/drivers/hid/ipts/resources.c b/drivers/hid/ipts/resources.c
 +
 +	return 0;
 +}
-diff -rupN a/drivers/hid/ipts/resources.h b/drivers/hid/ipts/resources.h
---- a/drivers/hid/ipts/resources.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ipts/resources.h	2026-01-26 14:49:02.862787743 +0100
+diff --git a/drivers/hid/ipts/resources.h b/drivers/hid/ipts/resources.h
+new file mode 100644
+index 000000000000..2068e13285f0
+--- /dev/null
++++ b/drivers/hid/ipts/resources.h
 @@ -0,0 +1,41 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +/*
@@ -2856,9 +3508,11 @@ diff -rupN a/drivers/hid/ipts/resources.h b/drivers/hid/ipts/resources.h
 +int ipts_resources_free(struct ipts_resources *res);
 +
 +#endif /* IPTS_RESOURCES_H */
-diff -rupN a/drivers/hid/ipts/spec-data.h b/drivers/hid/ipts/spec-data.h
---- a/drivers/hid/ipts/spec-data.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ipts/spec-data.h	2026-01-26 14:49:02.862969542 +0100
+diff --git a/drivers/hid/ipts/spec-data.h b/drivers/hid/ipts/spec-data.h
+new file mode 100644
+index 000000000000..e8dd98895a7e
+--- /dev/null
++++ b/drivers/hid/ipts/spec-data.h
 @@ -0,0 +1,100 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +/*
@@ -2960,9 +3614,11 @@ diff -rupN a/drivers/hid/ipts/spec-data.h b/drivers/hid/ipts/spec-data.h
 +static_assert(sizeof(struct ipts_data_header) == 64);
 +
 +#endif /* IPTS_SPEC_DATA_H */
-diff -rupN a/drivers/hid/ipts/spec-device.h b/drivers/hid/ipts/spec-device.h
---- a/drivers/hid/ipts/spec-device.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ipts/spec-device.h	2026-01-26 14:49:02.863199734 +0100
+diff --git a/drivers/hid/ipts/spec-device.h b/drivers/hid/ipts/spec-device.h
+new file mode 100644
+index 000000000000..41845f9d9025
+--- /dev/null
++++ b/drivers/hid/ipts/spec-device.h
 @@ -0,0 +1,290 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +/*
@@ -3254,9 +3910,11 @@ diff -rupN a/drivers/hid/ipts/spec-device.h b/drivers/hid/ipts/spec-device.h
 +static_assert(sizeof(struct ipts_device_info) == 44);
 +
 +#endif /* IPTS_SPEC_DEVICE_H */
-diff -rupN a/drivers/hid/ipts/spec-hid.h b/drivers/hid/ipts/spec-hid.h
---- a/drivers/hid/ipts/spec-hid.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ipts/spec-hid.h	2026-01-26 14:49:02.863649975 +0100
+diff --git a/drivers/hid/ipts/spec-hid.h b/drivers/hid/ipts/spec-hid.h
+new file mode 100644
+index 000000000000..5a58d4a0a610
+--- /dev/null
++++ b/drivers/hid/ipts/spec-hid.h
 @@ -0,0 +1,34 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +/*
@@ -3292,9 +3950,11 @@ diff -rupN a/drivers/hid/ipts/spec-hid.h b/drivers/hid/ipts/spec-hid.h
 +static_assert(sizeof(struct ipts_hid_header) == 7);
 +
 +#endif /* IPTS_SPEC_HID_H */
-diff -rupN a/drivers/hid/ipts/thread.c b/drivers/hid/ipts/thread.c
---- a/drivers/hid/ipts/thread.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ipts/thread.c	2026-01-26 14:49:02.863830839 +0100
+diff --git a/drivers/hid/ipts/thread.c b/drivers/hid/ipts/thread.c
+new file mode 100644
+index 000000000000..355e92bea26f
+--- /dev/null
++++ b/drivers/hid/ipts/thread.c
 @@ -0,0 +1,84 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
@@ -3380,9 +4040,11 @@ diff -rupN a/drivers/hid/ipts/thread.c b/drivers/hid/ipts/thread.c
 +
 +	return ret;
 +}
-diff -rupN a/drivers/hid/ipts/thread.h b/drivers/hid/ipts/thread.h
---- a/drivers/hid/ipts/thread.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ipts/thread.h	2026-01-26 14:49:02.864040705 +0100
+diff --git a/drivers/hid/ipts/thread.h b/drivers/hid/ipts/thread.h
+new file mode 100644
+index 000000000000..1f966b8b32c4
+--- /dev/null
++++ b/drivers/hid/ipts/thread.h
 @@ -0,0 +1,59 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +/*
@@ -3443,133 +4105,155 @@ diff -rupN a/drivers/hid/ipts/thread.h b/drivers/hid/ipts/thread.h
 +int ipts_thread_stop(struct ipts_thread *thread);
 +
 +#endif /* IPTS_THREAD_H */
-diff -rupN a/drivers/hid/Kconfig b/drivers/hid/Kconfig
---- a/drivers/hid/Kconfig	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/hid/Kconfig	2026-01-26 14:49:02.850831512 +0100
-@@ -1442,6 +1442,8 @@ source "drivers/hid/surface-hid/Kconfig"
+-- 
+2.53.0
+
+From 703eeaea6536d65c01c092e5f844a784f2d18df5 Mon Sep 17 00:00:00 2001
+From: Dorian Stoll <dorian.stoll@tmsp.io>
+Date: Sun, 11 Dec 2022 12:03:38 +0100
+Subject: [PATCH] iommu: intel: Disable source id verification for ITHC
+
+Signed-off-by: Dorian Stoll <dorian.stoll@tmsp.io>
+Patchset: ithc
+---
+ drivers/iommu/intel/irq_remapping.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/drivers/iommu/intel/irq_remapping.c b/drivers/iommu/intel/irq_remapping.c
+index 8bcbfe3d9c72..c78806d35f2b 100644
+--- a/drivers/iommu/intel/irq_remapping.c
++++ b/drivers/iommu/intel/irq_remapping.c
+@@ -381,6 +381,22 @@ static int set_msi_sid(struct irte *irte, struct pci_dev *dev)
+ 	data.busmatch_count = 0;
+ 	pci_for_each_dma_alias(dev, set_msi_sid_cb, &data);
  
- source "drivers/hid/intel-thc-hid/Kconfig"
++	/*
++	 * The Intel Touch Host Controller is at 00:10.6, but for some reason
++	 * the MSI interrupts have request id 01:05.0.
++	 * Disable id verification to work around this.
++	 * FIXME Find proper fix or turn this into a quirk.
++	 */
++	if (dev->vendor == PCI_VENDOR_ID_INTEL && (dev->class >> 8) == PCI_CLASS_INPUT_PEN) {
++		switch(dev->device) {
++		case 0x98d0: case 0x98d1: // LKF
++		case 0xa0d0: case 0xa0d1: // TGL LP
++		case 0x43d0: case 0x43d1: // TGL H
++			set_irte_sid(irte, SVT_NO_VERIFY, SQ_ALL_16, 0);
++			return 0;
++		}
++	}
++
+ 	/*
+ 	 * DMA alias provides us with a PCI device and alias.  The only case
+ 	 * where the it will return an alias on a different bus than the
+-- 
+2.53.0
+
+From 063f50f47ef7f0a0d4466f70b3450dc8335f5f24 Mon Sep 17 00:00:00 2001
+From: quo <tuple@list.ru>
+Date: Sun, 11 Dec 2022 12:10:54 +0100
+Subject: [PATCH] hid: Add support for Intel Touch Host Controller
+
+Based on quo/ithc-linux@34539af4726d.
+
+Signed-off-by: Maximilian Stoll <luzmaximilian@gmail.com>
+Patchset: ithc
+---
+ drivers/hid/Kconfig              |   2 +
+ drivers/hid/Makefile             |   1 +
+ drivers/hid/ithc/Kbuild          |   6 +
+ drivers/hid/ithc/Kconfig         |  12 +
+ drivers/hid/ithc/ithc-debug.c    | 149 ++++++++
+ drivers/hid/ithc/ithc-debug.h    |   7 +
+ drivers/hid/ithc/ithc-dma.c      | 312 ++++++++++++++++
+ drivers/hid/ithc/ithc-dma.h      |  47 +++
+ drivers/hid/ithc/ithc-hid.c      | 207 +++++++++++
+ drivers/hid/ithc/ithc-hid.h      |  32 ++
+ drivers/hid/ithc/ithc-legacy.c   | 254 +++++++++++++
+ drivers/hid/ithc/ithc-legacy.h   |   8 +
+ drivers/hid/ithc/ithc-main.c     | 438 ++++++++++++++++++++++
+ drivers/hid/ithc/ithc-quickspi.c | 607 +++++++++++++++++++++++++++++++
+ drivers/hid/ithc/ithc-quickspi.h |  39 ++
+ drivers/hid/ithc/ithc-regs.c     | 154 ++++++++
+ drivers/hid/ithc/ithc-regs.h     | 211 +++++++++++
+ drivers/hid/ithc/ithc.h          |  89 +++++
+ 18 files changed, 2575 insertions(+)
+ create mode 100644 drivers/hid/ithc/Kbuild
+ create mode 100644 drivers/hid/ithc/Kconfig
+ create mode 100644 drivers/hid/ithc/ithc-debug.c
+ create mode 100644 drivers/hid/ithc/ithc-debug.h
+ create mode 100644 drivers/hid/ithc/ithc-dma.c
+ create mode 100644 drivers/hid/ithc/ithc-dma.h
+ create mode 100644 drivers/hid/ithc/ithc-hid.c
+ create mode 100644 drivers/hid/ithc/ithc-hid.h
+ create mode 100644 drivers/hid/ithc/ithc-legacy.c
+ create mode 100644 drivers/hid/ithc/ithc-legacy.h
+ create mode 100644 drivers/hid/ithc/ithc-main.c
+ create mode 100644 drivers/hid/ithc/ithc-quickspi.c
+ create mode 100644 drivers/hid/ithc/ithc-quickspi.h
+ create mode 100644 drivers/hid/ithc/ithc-regs.c
+ create mode 100644 drivers/hid/ithc/ithc-regs.h
+ create mode 100644 drivers/hid/ithc/ithc.h
+
+diff --git a/drivers/hid/Kconfig b/drivers/hid/Kconfig
+index 314e3b0479be..59d597b4effd 100644
+--- a/drivers/hid/Kconfig
++++ b/drivers/hid/Kconfig
+@@ -1444,6 +1444,8 @@ source "drivers/hid/intel-thc-hid/Kconfig"
  
-+source "drivers/hid/ipts/Kconfig"
+ source "drivers/hid/ipts/Kconfig"
+ 
++source "drivers/hid/ithc/Kconfig"
 +
  endif # HID
  
  # USB support may be used with HID disabled
-diff -rupN a/drivers/hid/Makefile b/drivers/hid/Makefile
---- a/drivers/hid/Makefile	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/hid/Makefile	2026-01-26 14:49:02.856831555 +0100
-@@ -187,4 +187,6 @@ obj-$(CONFIG_HID_SURFACE)	+= hid-surface.o
- 
+diff --git a/drivers/hid/Makefile b/drivers/hid/Makefile
+index b73a1bbd3a1d..3190ece25626 100644
+--- a/drivers/hid/Makefile
++++ b/drivers/hid/Makefile
+@@ -188,5 +188,6 @@ obj-$(CONFIG_HID_SURFACE)	+= hid-surface.o
  obj-$(CONFIG_INTEL_THC_HID)     += intel-thc-hid/
  
-+obj-$(CONFIG_HID_IPTS)          += ipts/
-+
+ obj-$(CONFIG_HID_IPTS)          += ipts/
++obj-$(CONFIG_HID_ITHC)          += ithc/
+ 
  obj-$(CONFIG_HID_MSI_CLAW)      += hid-msi-claw.o
-diff -rupN a/drivers/iommu/intel/iommu.c b/drivers/iommu/intel/iommu.c
---- a/drivers/iommu/intel/iommu.c	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/iommu/intel/iommu.c	2026-01-26 14:49:02.769830927 +0100
-@@ -39,6 +39,11 @@
- #define IS_ISA_DEVICE(pdev) ((pdev->class >> 8) == PCI_CLASS_BRIDGE_ISA)
- #define IS_AZALIA(pdev) ((pdev)->vendor == 0x8086 && (pdev)->device == 0x3a3e)
- 
-+#define IS_IPTS(pdev) ( \
-+		((pdev)->vendor == PCI_VENDOR_ID_INTEL && (pdev)->device == 0x9D3E) || \
-+		((pdev)->vendor == PCI_VENDOR_ID_INTEL && (pdev)->device == 0x34E4) \
-+	)
+diff --git a/drivers/hid/ithc/Kbuild b/drivers/hid/ithc/Kbuild
+new file mode 100644
+index 000000000000..4937ba131297
+--- /dev/null
++++ b/drivers/hid/ithc/Kbuild
+@@ -0,0 +1,6 @@
++obj-$(CONFIG_HID_ITHC) := ithc.o
 +
- #define IOAPIC_RANGE_START	(0xfee00000)
- #define IOAPIC_RANGE_END	(0xfeefffff)
- #define IOVA_START_ADDR		(0x1000)
-@@ -202,12 +207,14 @@ int intel_iommu_sm = IS_ENABLED(CONFIG_I
- int intel_iommu_enabled = 0;
- EXPORT_SYMBOL_GPL(intel_iommu_enabled);
- 
-+static int dmar_map_ipts = 1;
- static int intel_iommu_superpage = 1;
- static int iommu_identity_mapping;
- static int iommu_skip_te_disable;
- static int disable_igfx_iommu;
- 
- #define IDENTMAP_AZALIA		4
-+#define IDENTMAP_IPTS		16
- 
- const struct iommu_ops intel_iommu_ops;
- 
-@@ -1401,6 +1408,9 @@ static int device_def_domain_type(struct
- 
- 		if ((iommu_identity_mapping & IDENTMAP_AZALIA) && IS_AZALIA(pdev))
- 			return IOMMU_DOMAIN_IDENTITY;
++ithc-objs := ithc-main.o ithc-regs.o ithc-dma.o ithc-hid.o ithc-legacy.o ithc-quickspi.o ithc-debug.o
 +
-+		if ((iommu_identity_mapping & IDENTMAP_IPTS) && IS_IPTS(pdev))
-+			return IOMMU_DOMAIN_IDENTITY;
- 	}
- 
- 	return 0;
-@@ -1691,6 +1701,9 @@ static int __init init_dmars(void)
- 		iommu_set_root_entry(iommu);
- 	}
- 
-+	if (!dmar_map_ipts)
-+		iommu_identity_mapping |= IDENTMAP_IPTS;
++ccflags-y := -std=gnu11 -Wno-declaration-after-statement
 +
- 	check_tylersburg_isoch();
- 
- 	/*
-@@ -3936,6 +3949,18 @@ static void quirk_iommu_igfx(struct pci_
- 	disable_igfx_iommu = 1;
- }
- 
-+static void quirk_iommu_ipts(struct pci_dev *dev)
-+{
-+	if (!IS_IPTS(dev))
-+		return;
+diff --git a/drivers/hid/ithc/Kconfig b/drivers/hid/ithc/Kconfig
+new file mode 100644
+index 000000000000..ede713023609
+--- /dev/null
++++ b/drivers/hid/ithc/Kconfig
+@@ -0,0 +1,12 @@
++config HID_ITHC
++	tristate "Intel Touch Host Controller"
++	depends on PCI
++	depends on HID
++	help
++	  Say Y here if your system has a touchscreen using Intels
++	  Touch Host Controller (ITHC / IPTS) technology.
 +
-+	if (risky_device(dev))
-+		return;
++	  If unsure say N.
 +
-+	pci_info(dev, "Disabling IOMMU for IPTS\n");
-+	dmar_map_ipts = 0;
-+}
-+
- /* G4x/GM45 integrated gfx dmar support is totally busted. */
- DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x2a40, quirk_iommu_igfx);
- DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x2e00, quirk_iommu_igfx);
-@@ -3974,6 +3999,10 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_I
- DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x163A, quirk_iommu_igfx);
- DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x163D, quirk_iommu_igfx);
- 
-+/* disable IPTS dmar support */
-+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x9D3E, quirk_iommu_ipts);
-+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x34E4, quirk_iommu_ipts);
-+
- static void quirk_iommu_rwbf(struct pci_dev *dev)
- {
- 	if (risky_device(dev))
-diff -rupN a/drivers/misc/mei/hw-me-regs.h b/drivers/misc/mei/hw-me-regs.h
---- a/drivers/misc/mei/hw-me-regs.h	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/misc/mei/hw-me-regs.h	2026-01-26 14:49:02.738134911 +0100
-@@ -92,6 +92,7 @@
- #define MEI_DEV_ID_CDF        0x18D3  /* Cedar Fork */
- 
- #define MEI_DEV_ID_ICP_LP     0x34E0  /* Ice Lake Point LP */
-+#define MEI_DEV_ID_ICP_LP_3   0x34E4  /* Ice Lake Point LP 3 (iTouch) */
- #define MEI_DEV_ID_ICP_N      0x38E0  /* Ice Lake Point N */
- 
- #define MEI_DEV_ID_JSP_N      0x4DE0  /* Jasper Lake Point N */
-diff -rupN a/drivers/misc/mei/pci-me.c b/drivers/misc/mei/pci-me.c
---- a/drivers/misc/mei/pci-me.c	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/misc/mei/pci-me.c	2026-01-26 14:49:02.738211379 +0100
-@@ -97,6 +97,7 @@ static const struct pci_device_id mei_me
- 	{MEI_PCI_DEVICE(MEI_DEV_ID_CMP_H_3, MEI_ME_PCH8_ITOUCH_CFG)},
- 
- 	{MEI_PCI_DEVICE(MEI_DEV_ID_ICP_LP, MEI_ME_PCH12_CFG)},
-+	{MEI_PCI_DEVICE(MEI_DEV_ID_ICP_LP_3, MEI_ME_PCH12_CFG)},
- 	{MEI_PCI_DEVICE(MEI_DEV_ID_ICP_N, MEI_ME_PCH12_CFG)},
- 
- 	{MEI_PCI_DEVICE(MEI_DEV_ID_TGP_LP, MEI_ME_PCH15_CFG)},
-diff -rupN a/drivers/hid/ithc/ithc-debug.c b/drivers/hid/ithc/ithc-debug.c
---- a/drivers/hid/ithc/ithc-debug.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ithc/ithc-debug.c	2026-01-26 14:53:56.063298199 +0100
++	  To compile this driver as a module, choose M here: the
++	  module will be called ithc.
+diff --git a/drivers/hid/ithc/ithc-debug.c b/drivers/hid/ithc/ithc-debug.c
+new file mode 100644
+index 000000000000..2d8c6afe9966
+--- /dev/null
++++ b/drivers/hid/ithc/ithc-debug.c
 @@ -0,0 +1,149 @@
 +// SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
 +
@@ -3720,9 +4404,11 @@ diff -rupN a/drivers/hid/ithc/ithc-debug.c b/drivers/hid/ithc/ithc-debug.c
 +	return 0;
 +}
 +
-diff -rupN a/drivers/hid/ithc/ithc-debug.h b/drivers/hid/ithc/ithc-debug.h
---- a/drivers/hid/ithc/ithc-debug.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ithc/ithc-debug.h	2026-01-26 14:53:56.063591023 +0100
+diff --git a/drivers/hid/ithc/ithc-debug.h b/drivers/hid/ithc/ithc-debug.h
+new file mode 100644
+index 000000000000..38c53d916bdb
+--- /dev/null
++++ b/drivers/hid/ithc/ithc-debug.h
 @@ -0,0 +1,7 @@
 +/* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 +
@@ -3731,9 +4417,11 @@ diff -rupN a/drivers/hid/ithc/ithc-debug.h b/drivers/hid/ithc/ithc-debug.h
 +int ithc_debug_init_device(struct ithc *ithc);
 +void ithc_log_regs(struct ithc *ithc);
 +
-diff -rupN a/drivers/hid/ithc/ithc-dma.c b/drivers/hid/ithc/ithc-dma.c
---- a/drivers/hid/ithc/ithc-dma.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ithc/ithc-dma.c	2026-01-26 14:53:56.063749222 +0100
+diff --git a/drivers/hid/ithc/ithc-dma.c b/drivers/hid/ithc/ithc-dma.c
+new file mode 100644
+index 000000000000..bf4eab33062b
+--- /dev/null
++++ b/drivers/hid/ithc/ithc-dma.c
 @@ -0,0 +1,312 @@
 +// SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
 +
@@ -4047,9 +4735,11 @@ diff -rupN a/drivers/hid/ithc/ithc-dma.c b/drivers/hid/ithc/ithc-dma.c
 +	return ret;
 +}
 +
-diff -rupN a/drivers/hid/ithc/ithc-dma.h b/drivers/hid/ithc/ithc-dma.h
---- a/drivers/hid/ithc/ithc-dma.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ithc/ithc-dma.h	2026-01-26 14:53:56.064174588 +0100
+diff --git a/drivers/hid/ithc/ithc-dma.h b/drivers/hid/ithc/ithc-dma.h
+new file mode 100644
+index 000000000000..1749a5819b3e
+--- /dev/null
++++ b/drivers/hid/ithc/ithc-dma.h
 @@ -0,0 +1,47 @@
 +/* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 +
@@ -4098,102 +4788,11 @@ diff -rupN a/drivers/hid/ithc/ithc-dma.h b/drivers/hid/ithc/ithc-dma.h
 +int ithc_dma_rx(struct ithc *ithc, u8 channel);
 +int ithc_dma_tx(struct ithc *ithc, const struct ithc_data *data);
 +
-diff -rupN a/drivers/hid/ithc/ithc.h b/drivers/hid/ithc/ithc.h
---- a/drivers/hid/ithc/ithc.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ithc/ithc.h	2026-01-26 14:53:56.067552105 +0100
-@@ -0,0 +1,89 @@
-+/* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
-+
-+#include <linux/acpi.h>
-+#include <linux/debugfs.h>
-+#include <linux/delay.h>
-+#include <linux/dma-mapping.h>
-+#include <linux/hid.h>
-+#include <linux/highmem.h>
-+#include <linux/input.h>
-+#include <linux/io-64-nonatomic-lo-hi.h>
-+#include <linux/iopoll.h>
-+#include <linux/kthread.h>
-+#include <linux/miscdevice.h>
-+#include <linux/module.h>
-+#include <linux/pci.h>
-+#include <linux/poll.h>
-+#include <linux/timer.h>
-+#include <linux/vmalloc.h>
-+
-+#define DEVNAME "ithc"
-+#define DEVFULLNAME "Intel Touch Host Controller"
-+
-+#undef pr_fmt
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
-+#define CHECK(fn, ...) ({ int r = fn(__VA_ARGS__); if (r < 0) pci_err(ithc->pci, "%s: %s failed with %i\n", __func__, #fn, r); r; })
-+#define CHECK_RET(...) do { int r = CHECK(__VA_ARGS__); if (r < 0) return r; } while (0)
-+
-+#define NUM_RX_BUF 16
-+
-+// PCI device IDs:
-+// Lakefield
-+#define PCI_DEVICE_ID_INTEL_THC_LKF_PORT1    0x98d0
-+#define PCI_DEVICE_ID_INTEL_THC_LKF_PORT2    0x98d1
-+// Tiger Lake
-+#define PCI_DEVICE_ID_INTEL_THC_TGL_LP_PORT1 0xa0d0
-+#define PCI_DEVICE_ID_INTEL_THC_TGL_LP_PORT2 0xa0d1
-+#define PCI_DEVICE_ID_INTEL_THC_TGL_H_PORT1  0x43d0
-+#define PCI_DEVICE_ID_INTEL_THC_TGL_H_PORT2  0x43d1
-+// Alder Lake
-+#define PCI_DEVICE_ID_INTEL_THC_ADL_S_PORT1  0x7ad8
-+#define PCI_DEVICE_ID_INTEL_THC_ADL_S_PORT2  0x7ad9
-+#define PCI_DEVICE_ID_INTEL_THC_ADL_P_PORT1  0x51d0
-+#define PCI_DEVICE_ID_INTEL_THC_ADL_P_PORT2  0x51d1
-+#define PCI_DEVICE_ID_INTEL_THC_ADL_M_PORT1  0x54d0
-+#define PCI_DEVICE_ID_INTEL_THC_ADL_M_PORT2  0x54d1
-+// Raptor Lake
-+#define PCI_DEVICE_ID_INTEL_THC_RPL_S_PORT1  0x7a58
-+#define PCI_DEVICE_ID_INTEL_THC_RPL_S_PORT2  0x7a59
-+// Meteor Lake
-+#define PCI_DEVICE_ID_INTEL_THC_MTL_S_PORT1  0x7f59
-+#define PCI_DEVICE_ID_INTEL_THC_MTL_S_PORT2  0x7f5b
-+#define PCI_DEVICE_ID_INTEL_THC_MTL_MP_PORT1 0x7e49
-+#define PCI_DEVICE_ID_INTEL_THC_MTL_MP_PORT2 0x7e4b
-+
-+struct ithc;
-+
-+#include "ithc-regs.h"
-+#include "ithc-hid.h"
-+#include "ithc-dma.h"
-+#include "ithc-legacy.h"
-+#include "ithc-quickspi.h"
-+#include "ithc-debug.h"
-+
-+struct ithc {
-+	char phys[32];
-+	struct pci_dev *pci;
-+	int irq;
-+	struct task_struct *poll_thread;
-+	struct timer_list idle_timer;
-+
-+	struct ithc_registers __iomem *regs;
-+	struct ithc_registers *prev_regs; // for debugging
-+	struct ithc_dma_rx dma_rx[2];
-+	struct ithc_dma_tx dma_tx;
-+	struct ithc_hid hid;
-+
-+	bool use_quickspi;
-+	bool have_config;
-+	u16 vendor_id;
-+	u16 product_id;
-+	u32 product_rev;
-+	u32 max_rx_size;
-+	u32 max_tx_size;
-+	u32 legacy_touch_cfg;
-+};
-+
-+int ithc_reset(struct ithc *ithc);
-+
-diff -rupN a/drivers/hid/ithc/ithc-hid.c b/drivers/hid/ithc/ithc-hid.c
---- a/drivers/hid/ithc/ithc-hid.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ithc/ithc-hid.c	2026-01-26 14:53:56.064364028 +0100
+diff --git a/drivers/hid/ithc/ithc-hid.c b/drivers/hid/ithc/ithc-hid.c
+new file mode 100644
+index 000000000000..065646ab499e
+--- /dev/null
++++ b/drivers/hid/ithc/ithc-hid.c
 @@ -0,0 +1,207 @@
 +// SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
 +
@@ -4402,9 +5001,11 @@ diff -rupN a/drivers/hid/ithc/ithc-hid.c b/drivers/hid/ithc/ithc-hid.c
 +	return 0;
 +}
 +
-diff -rupN a/drivers/hid/ithc/ithc-hid.h b/drivers/hid/ithc/ithc-hid.h
---- a/drivers/hid/ithc/ithc-hid.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ithc/ithc-hid.h	2026-01-26 14:53:56.064689392 +0100
+diff --git a/drivers/hid/ithc/ithc-hid.h b/drivers/hid/ithc/ithc-hid.h
+new file mode 100644
+index 000000000000..599eb912c8c8
+--- /dev/null
++++ b/drivers/hid/ithc/ithc-hid.h
 @@ -0,0 +1,32 @@
 +/* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 +
@@ -4438,9 +5039,11 @@ diff -rupN a/drivers/hid/ithc/ithc-hid.h b/drivers/hid/ithc/ithc-hid.h
 +int ithc_hid_init(struct ithc *ithc);
 +void ithc_hid_process_data(struct ithc *ithc, struct ithc_data *d);
 +
-diff -rupN a/drivers/hid/ithc/ithc-legacy.c b/drivers/hid/ithc/ithc-legacy.c
---- a/drivers/hid/ithc/ithc-legacy.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ithc/ithc-legacy.c	2026-01-26 14:53:56.064870893 +0100
+diff --git a/drivers/hid/ithc/ithc-legacy.c b/drivers/hid/ithc/ithc-legacy.c
+new file mode 100644
+index 000000000000..8883987fb352
+--- /dev/null
++++ b/drivers/hid/ithc/ithc-legacy.c
 @@ -0,0 +1,254 @@
 +// SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
 +
@@ -4696,9 +5299,11 @@ diff -rupN a/drivers/hid/ithc/ithc-legacy.c b/drivers/hid/ithc/ithc-legacy.c
 +	return sizeof(*hdr) + padded;
 +}
 +
-diff -rupN a/drivers/hid/ithc/ithc-legacy.h b/drivers/hid/ithc/ithc-legacy.h
---- a/drivers/hid/ithc/ithc-legacy.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ithc/ithc-legacy.h	2026-01-26 14:53:56.065237272 +0100
+diff --git a/drivers/hid/ithc/ithc-legacy.h b/drivers/hid/ithc/ithc-legacy.h
+new file mode 100644
+index 000000000000..28d692462072
+--- /dev/null
++++ b/drivers/hid/ithc/ithc-legacy.h
 @@ -0,0 +1,8 @@
 +/* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 +
@@ -4708,9 +5313,11 @@ diff -rupN a/drivers/hid/ithc/ithc-legacy.h b/drivers/hid/ithc/ithc-legacy.h
 +ssize_t ithc_legacy_encode_tx(struct ithc *ithc, const struct ithc_data *src, void *dest,
 +	size_t maxlen);
 +
-diff -rupN a/drivers/hid/ithc/ithc-main.c b/drivers/hid/ithc/ithc-main.c
---- a/drivers/hid/ithc/ithc-main.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ithc/ithc-main.c	2026-01-26 14:53:56.065402226 +0100
+diff --git a/drivers/hid/ithc/ithc-main.c b/drivers/hid/ithc/ithc-main.c
+new file mode 100644
+index 000000000000..094d878d671b
+--- /dev/null
++++ b/drivers/hid/ithc/ithc-main.c
 @@ -0,0 +1,438 @@
 +// SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
 +
@@ -5150,9 +5757,11 @@ diff -rupN a/drivers/hid/ithc/ithc-main.c b/drivers/hid/ithc/ithc-main.c
 +module_init(ithc_init);
 +module_exit(ithc_exit);
 +
-diff -rupN a/drivers/hid/ithc/ithc-quickspi.c b/drivers/hid/ithc/ithc-quickspi.c
---- a/drivers/hid/ithc/ithc-quickspi.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ithc/ithc-quickspi.c	2026-01-26 14:53:56.065952785 +0100
+diff --git a/drivers/hid/ithc/ithc-quickspi.c b/drivers/hid/ithc/ithc-quickspi.c
+new file mode 100644
+index 000000000000..e2d1690b8cf8
+--- /dev/null
++++ b/drivers/hid/ithc/ithc-quickspi.c
 @@ -0,0 +1,607 @@
 +// SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
 +
@@ -5761,9 +6370,11 @@ diff -rupN a/drivers/hid/ithc/ithc-quickspi.c b/drivers/hid/ithc/ithc-quickspi.c
 +	return sizeof(*hdr) + padded;
 +}
 +
-diff -rupN a/drivers/hid/ithc/ithc-quickspi.h b/drivers/hid/ithc/ithc-quickspi.h
---- a/drivers/hid/ithc/ithc-quickspi.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ithc/ithc-quickspi.h	2026-01-26 14:53:56.066674881 +0100
+diff --git a/drivers/hid/ithc/ithc-quickspi.h b/drivers/hid/ithc/ithc-quickspi.h
+new file mode 100644
+index 000000000000..74d882f6b2f0
+--- /dev/null
++++ b/drivers/hid/ithc/ithc-quickspi.h
 @@ -0,0 +1,39 @@
 +/* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 +
@@ -5804,9 +6415,11 @@ diff -rupN a/drivers/hid/ithc/ithc-quickspi.h b/drivers/hid/ithc/ithc-quickspi.h
 +ssize_t ithc_quickspi_encode_tx(struct ithc *ithc, const struct ithc_data *src, void *dest,
 +	size_t maxlen);
 +
-diff -rupN a/drivers/hid/ithc/ithc-regs.c b/drivers/hid/ithc/ithc-regs.c
---- a/drivers/hid/ithc/ithc-regs.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ithc/ithc-regs.c	2026-01-26 14:53:56.066885505 +0100
+diff --git a/drivers/hid/ithc/ithc-regs.c b/drivers/hid/ithc/ithc-regs.c
+new file mode 100644
+index 000000000000..c0f13506af20
+--- /dev/null
++++ b/drivers/hid/ithc/ithc-regs.c
 @@ -0,0 +1,154 @@
 +// SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
 +
@@ -5962,9 +6575,11 @@ diff -rupN a/drivers/hid/ithc/ithc-regs.c b/drivers/hid/ithc/ithc-regs.c
 +	return 0;
 +}
 +
-diff -rupN a/drivers/hid/ithc/ithc-regs.h b/drivers/hid/ithc/ithc-regs.h
---- a/drivers/hid/ithc/ithc-regs.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ithc/ithc-regs.h	2026-01-26 14:53:56.067172602 +0100
+diff --git a/drivers/hid/ithc/ithc-regs.h b/drivers/hid/ithc/ithc-regs.h
+new file mode 100644
+index 000000000000..4f541fe533fa
+--- /dev/null
++++ b/drivers/hid/ithc/ithc-regs.h
 @@ -0,0 +1,211 @@
 +/* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 +
@@ -6177,96 +6792,123 @@ diff -rupN a/drivers/hid/ithc/ithc-regs.h b/drivers/hid/ithc/ithc-regs.h
 +int ithc_set_spi_config(struct ithc *ithc, u8 clkdiv, bool clkdiv8, u8 read_mode, u8 write_mode);
 +int ithc_spi_command(struct ithc *ithc, u8 command, u32 offset, u32 size, void *data);
 +
-diff -rupN a/drivers/hid/ithc/Kbuild b/drivers/hid/ithc/Kbuild
---- a/drivers/hid/ithc/Kbuild	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ithc/Kbuild	2026-01-26 14:53:56.062955900 +0100
-@@ -0,0 +1,6 @@
-+obj-$(CONFIG_HID_ITHC) := ithc.o
+diff --git a/drivers/hid/ithc/ithc.h b/drivers/hid/ithc/ithc.h
+new file mode 100644
+index 000000000000..aec320d4e945
+--- /dev/null
++++ b/drivers/hid/ithc/ithc.h
+@@ -0,0 +1,89 @@
++/* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 +
-+ithc-objs := ithc-main.o ithc-regs.o ithc-dma.o ithc-hid.o ithc-legacy.o ithc-quickspi.o ithc-debug.o
++#include <linux/acpi.h>
++#include <linux/debugfs.h>
++#include <linux/delay.h>
++#include <linux/dma-mapping.h>
++#include <linux/hid.h>
++#include <linux/highmem.h>
++#include <linux/input.h>
++#include <linux/io-64-nonatomic-lo-hi.h>
++#include <linux/iopoll.h>
++#include <linux/kthread.h>
++#include <linux/miscdevice.h>
++#include <linux/module.h>
++#include <linux/pci.h>
++#include <linux/poll.h>
++#include <linux/timer.h>
++#include <linux/vmalloc.h>
 +
-+ccflags-y := -std=gnu11 -Wno-declaration-after-statement
++#define DEVNAME "ithc"
++#define DEVFULLNAME "Intel Touch Host Controller"
 +
-diff -rupN a/drivers/hid/ithc/Kconfig b/drivers/hid/ithc/Kconfig
---- a/drivers/hid/ithc/Kconfig	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/ithc/Kconfig	2026-01-26 14:53:56.063131765 +0100
-@@ -0,0 +1,12 @@
-+config HID_ITHC
-+	tristate "Intel Touch Host Controller"
-+	depends on PCI
-+	depends on HID
-+	help
-+	  Say Y here if your system has a touchscreen using Intels
-+	  Touch Host Controller (ITHC / IPTS) technology.
++#undef pr_fmt
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 +
-+	  If unsure say N.
++#define CHECK(fn, ...) ({ int r = fn(__VA_ARGS__); if (r < 0) pci_err(ithc->pci, "%s: %s failed with %i\n", __func__, #fn, r); r; })
++#define CHECK_RET(...) do { int r = CHECK(__VA_ARGS__); if (r < 0) return r; } while (0)
 +
-+	  To compile this driver as a module, choose M here: the
-+	  module will be called ithc.
-diff -rupN a/drivers/hid/Kconfig b/drivers/hid/Kconfig
---- a/drivers/hid/Kconfig	2026-01-26 14:53:35.363797956 +0100
-+++ b/drivers/hid/Kconfig	2026-01-26 14:53:55.911946224 +0100
-@@ -1444,6 +1444,8 @@ source "drivers/hid/intel-thc-hid/Kconfi
- 
- source "drivers/hid/ipts/Kconfig"
- 
-+source "drivers/hid/ithc/Kconfig"
++#define NUM_RX_BUF 16
 +
- endif # HID
- 
- # USB support may be used with HID disabled
-diff -rupN a/drivers/hid/Makefile b/drivers/hid/Makefile
---- a/drivers/hid/Makefile	2026-01-26 14:53:35.364797963 +0100
-+++ b/drivers/hid/Makefile	2026-01-26 14:53:56.061947307 +0100
-@@ -188,5 +188,6 @@ obj-$(CONFIG_HID_SURFACE)	+= hid-surface.o
- obj-$(CONFIG_INTEL_THC_HID)     += intel-thc-hid/
- 
- obj-$(CONFIG_HID_IPTS)          += ipts/
-+obj-$(CONFIG_HID_ITHC)          += ithc/
- 
- obj-$(CONFIG_HID_MSI_CLAW)      += hid-msi-claw.o
-diff -rupN a/drivers/iommu/intel/irq_remapping.c b/drivers/iommu/intel/irq_remapping.c
---- a/drivers/iommu/intel/irq_remapping.c	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/iommu/intel/irq_remapping.c	2026-01-26 14:53:55.890946073 +0100
-@@ -382,6 +382,22 @@ static int set_msi_sid(struct irte *irte
- 	pci_for_each_dma_alias(dev, set_msi_sid_cb, &data);
- 
- 	/*
-+	 * The Intel Touch Host Controller is at 00:10.6, but for some reason
-+	 * the MSI interrupts have request id 01:05.0.
-+	 * Disable id verification to work around this.
-+	 * FIXME Find proper fix or turn this into a quirk.
-+	 */
-+	if (dev->vendor == PCI_VENDOR_ID_INTEL && (dev->class >> 8) == PCI_CLASS_INPUT_PEN) {
-+		switch(dev->device) {
-+		case 0x98d0: case 0x98d1: // LKF
-+		case 0xa0d0: case 0xa0d1: // TGL LP
-+		case 0x43d0: case 0x43d1: // TGL H
-+			set_irte_sid(irte, SVT_NO_VERIFY, SQ_ALL_16, 0);
-+			return 0;
-+		}
-+	}
++// PCI device IDs:
++// Lakefield
++#define PCI_DEVICE_ID_INTEL_THC_LKF_PORT1    0x98d0
++#define PCI_DEVICE_ID_INTEL_THC_LKF_PORT2    0x98d1
++// Tiger Lake
++#define PCI_DEVICE_ID_INTEL_THC_TGL_LP_PORT1 0xa0d0
++#define PCI_DEVICE_ID_INTEL_THC_TGL_LP_PORT2 0xa0d1
++#define PCI_DEVICE_ID_INTEL_THC_TGL_H_PORT1  0x43d0
++#define PCI_DEVICE_ID_INTEL_THC_TGL_H_PORT2  0x43d1
++// Alder Lake
++#define PCI_DEVICE_ID_INTEL_THC_ADL_S_PORT1  0x7ad8
++#define PCI_DEVICE_ID_INTEL_THC_ADL_S_PORT2  0x7ad9
++#define PCI_DEVICE_ID_INTEL_THC_ADL_P_PORT1  0x51d0
++#define PCI_DEVICE_ID_INTEL_THC_ADL_P_PORT2  0x51d1
++#define PCI_DEVICE_ID_INTEL_THC_ADL_M_PORT1  0x54d0
++#define PCI_DEVICE_ID_INTEL_THC_ADL_M_PORT2  0x54d1
++// Raptor Lake
++#define PCI_DEVICE_ID_INTEL_THC_RPL_S_PORT1  0x7a58
++#define PCI_DEVICE_ID_INTEL_THC_RPL_S_PORT2  0x7a59
++// Meteor Lake
++#define PCI_DEVICE_ID_INTEL_THC_MTL_S_PORT1  0x7f59
++#define PCI_DEVICE_ID_INTEL_THC_MTL_S_PORT2  0x7f5b
++#define PCI_DEVICE_ID_INTEL_THC_MTL_MP_PORT1 0x7e49
++#define PCI_DEVICE_ID_INTEL_THC_MTL_MP_PORT2 0x7e4b
 +
-+	/*
- 	 * DMA alias provides us with a PCI device and alias.  The only case
- 	 * where the it will return an alias on a different bus than the
- 	 * device is the case of a PCIe-to-PCI bridge, where the alias is for
-diff -rupN a/drivers/platform/surface/surface_aggregator_registry.c b/drivers/platform/surface/surface_aggregator_registry.c
---- a/drivers/platform/surface/surface_aggregator_registry.c	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/platform/surface/surface_aggregator_registry.c	2026-01-26 14:56:50.193800687 +0100
-@@ -460,6 +460,9 @@ static const struct acpi_device_id ssam_
- 	/* Surface Laptop 6 */
- 	{ "MSHW0530", (unsigned long)ssam_node_group_sl6 },
- 
-+	/* Surface Laptop 7 */
-+	{ "MSHW0551", (unsigned long)ssam_node_group_sl7 },
++struct ithc;
 +
- 	/* Surface Laptop Go 1 */
- 	{ "MSHW0118", (unsigned long)ssam_node_group_slg1 },
- 
-diff -rupN a/drivers/rtc/Kconfig b/drivers/rtc/Kconfig
---- a/drivers/rtc/Kconfig	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/rtc/Kconfig	2026-01-26 14:56:50.192203807 +0100
++#include "ithc-regs.h"
++#include "ithc-hid.h"
++#include "ithc-dma.h"
++#include "ithc-legacy.h"
++#include "ithc-quickspi.h"
++#include "ithc-debug.h"
++
++struct ithc {
++	char phys[32];
++	struct pci_dev *pci;
++	int irq;
++	struct task_struct *poll_thread;
++	struct timer_list idle_timer;
++
++	struct ithc_registers __iomem *regs;
++	struct ithc_registers *prev_regs; // for debugging
++	struct ithc_dma_rx dma_rx[2];
++	struct ithc_dma_tx dma_tx;
++	struct ithc_hid hid;
++
++	bool use_quickspi;
++	bool have_config;
++	u16 vendor_id;
++	u16 product_id;
++	u32 product_rev;
++	u32 max_rx_size;
++	u32 max_tx_size;
++	u32 legacy_touch_cfg;
++};
++
++int ithc_reset(struct ithc *ithc);
++
+-- 
+2.53.0
+
+From ce0fa0a3ecff792f7a9bfdac05d8fa21718a0dff Mon Sep 17 00:00:00 2001
+From: Maximilian Luz <luzmaximilian@gmail.com>
+Date: Fri, 17 Jun 2022 02:14:00 +0200
+Subject: [PATCH] rtc: Add basic support for RTC via Surface System Aggregator
+ Module
+
+Signed-off-by: Maximilian Luz <luzmaximilian@gmail.com>
+Patchset: surface-sam
+---
+ drivers/rtc/Kconfig       |   7 +++
+ drivers/rtc/Makefile      |   1 +
+ drivers/rtc/rtc-surface.c | 129 ++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 137 insertions(+)
+ create mode 100644 drivers/rtc/rtc-surface.c
+
+diff --git a/drivers/rtc/Kconfig b/drivers/rtc/Kconfig
+index 50dc779f7f98..63aaff40a0fd 100644
+--- a/drivers/rtc/Kconfig
++++ b/drivers/rtc/Kconfig
 @@ -1423,6 +1423,13 @@ config RTC_DRV_NTXEC
  	  embedded controller found in certain e-book readers designed by the
  	  original design manufacturer Netronix.
@@ -6281,10 +6923,11 @@ diff -rupN a/drivers/rtc/Kconfig b/drivers/rtc/Kconfig
  comment "on-CPU RTC drivers"
  
  config RTC_DRV_ASM9260
-diff -rupN a/drivers/rtc/Makefile b/drivers/rtc/Makefile
---- a/drivers/rtc/Makefile	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/rtc/Makefile	2026-01-26 14:56:50.193153417 +0100
-@@ -186,6 +186,7 @@ obj-$(CONFIG_RTC_DRV_SUN4V)	+= rtc-sun4v
+diff --git a/drivers/rtc/Makefile b/drivers/rtc/Makefile
+index 6cf7e066314e..18bd33b84d13 100644
+--- a/drivers/rtc/Makefile
++++ b/drivers/rtc/Makefile
+@@ -186,6 +186,7 @@ obj-$(CONFIG_RTC_DRV_SUN4V)	+= rtc-sun4v.o
  obj-$(CONFIG_RTC_DRV_SUN6I)	+= rtc-sun6i.o
  obj-$(CONFIG_RTC_DRV_SUNPLUS)	+= rtc-sunplus.o
  obj-$(CONFIG_RTC_DRV_SUNXI)	+= rtc-sunxi.o
@@ -6292,9 +6935,11 @@ diff -rupN a/drivers/rtc/Makefile b/drivers/rtc/Makefile
  obj-$(CONFIG_RTC_DRV_TEGRA)	+= rtc-tegra.o
  obj-$(CONFIG_RTC_DRV_TEST)	+= rtc-test.o
  obj-$(CONFIG_RTC_DRV_TI_K3)	+= rtc-ti-k3.o
-diff -rupN a/drivers/rtc/rtc-surface.c b/drivers/rtc/rtc-surface.c
---- a/drivers/rtc/rtc-surface.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/rtc/rtc-surface.c	2026-01-26 14:56:50.193467053 +0100
+diff --git a/drivers/rtc/rtc-surface.c b/drivers/rtc/rtc-surface.c
+new file mode 100644
+index 000000000000..f6c17c4e98d5
+--- /dev/null
++++ b/drivers/rtc/rtc-surface.c
 @@ -0,0 +1,129 @@
 +// SPDX-License-Identifier: GPL-2.0+
 +/*
@@ -6425,7 +7070,38 @@ diff -rupN a/drivers/rtc/rtc-surface.c b/drivers/rtc/rtc-surface.c
 +MODULE_AUTHOR("Maximilian Luz <luzmaximilian@gmail.com>");
 +MODULE_DESCRIPTION("RTC driver for Surface System Aggregator Module");
 +MODULE_LICENSE("GPL");
-From 7ed908f77f3703a80af9163376a0d257688fe63d Mon Sep 17 00:00:00 2001
+-- 
+2.53.0
+
+From 88065461b3da56157ade06b0cbab4b4bf2aa5cac Mon Sep 17 00:00:00 2001
+From: Maximilian Luz <luzmaximilian@gmail.com>
+Date: Sun, 20 Apr 2025 01:05:14 +0200
+Subject: [PATCH] platform/surface: aggregator_registry: Add Surface Laptop 7
+ (ACPI)
+
+Patchset: surface-sam
+---
+ drivers/platform/surface/surface_aggregator_registry.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/platform/surface/surface_aggregator_registry.c b/drivers/platform/surface/surface_aggregator_registry.c
+index 78ac3a8fbb73..10fe004e4e21 100644
+--- a/drivers/platform/surface/surface_aggregator_registry.c
++++ b/drivers/platform/surface/surface_aggregator_registry.c
+@@ -460,6 +460,9 @@ static const struct acpi_device_id ssam_platform_hub_acpi_match[] = {
+ 	/* Surface Laptop 6 */
+ 	{ "MSHW0530", (unsigned long)ssam_node_group_sl6 },
+ 
++	/* Surface Laptop 7 */
++	{ "MSHW0551", (unsigned long)ssam_node_group_sl7 },
++
+ 	/* Surface Laptop Go 1 */
+ 	{ "MSHW0118", (unsigned long)ssam_node_group_slg1 },
+ 
+-- 
+2.53.0
+
+From 2e4050a5807541e471392dccf9548e88489e70b6 Mon Sep 17 00:00:00 2001
 From: Maximilian Luz <luzmaximilian@gmail.com>
 Date: Sat, 25 Jul 2020 17:19:53 +0200
 Subject: [PATCH] i2c: acpi: Implement RawBytes read access
@@ -6482,7 +7158,7 @@ Patchset: surface-sam-over-hid
  1 file changed, 34 insertions(+)
 
 diff --git a/drivers/i2c/i2c-core-acpi.c b/drivers/i2c/i2c-core-acpi.c
-index ed90858a2..070c36637 100644
+index ed90858a27b7..070c36637811 100644
 --- a/drivers/i2c/i2c-core-acpi.c
 +++ b/drivers/i2c/i2c-core-acpi.c
 @@ -662,6 +662,27 @@ static int acpi_gsb_i2c_write_bytes(struct i2c_client *client,
@@ -6534,9 +7210,9 @@ index ed90858a2..070c36637 100644
  		dev_warn(&adapter->dev, "protocol 0x%02x not supported for client 0x%02x\n",
  			 accessor_type, client->addr);
 -- 
-2.52.0
+2.53.0
 
-From 990d8e44668a9a8fa90c998cca066877f0e094e8 Mon Sep 17 00:00:00 2001
+From 179eceb312b4dd735e9665d42637fe1805592412 Mon Sep 17 00:00:00 2001
 From: Maximilian Luz <luzmaximilian@gmail.com>
 Date: Sat, 13 Feb 2021 16:41:18 +0100
 Subject: [PATCH] platform/surface: Add driver for Surface Book 1 dGPU switch
@@ -6559,7 +7235,7 @@ Patchset: surface-sam-over-hid
  create mode 100644 drivers/platform/surface/surfacebook1_dgpu_switch.c
 
 diff --git a/drivers/platform/surface/Kconfig b/drivers/platform/surface/Kconfig
-index f775c6ca1..2075e3852 100644
+index f775c6ca1ec1..2075e3852053 100644
 --- a/drivers/platform/surface/Kconfig
 +++ b/drivers/platform/surface/Kconfig
 @@ -149,6 +149,13 @@ config SURFACE_AGGREGATOR_TABLET_SWITCH
@@ -6577,7 +7253,7 @@ index f775c6ca1..2075e3852 100644
  	tristate "Surface DTX (Detachment System) Driver"
  	depends on SURFACE_AGGREGATOR
 diff --git a/drivers/platform/surface/Makefile b/drivers/platform/surface/Makefile
-index 533443309..7efcd0cdb 100644
+index 53344330939b..7efcd0cdb532 100644
 --- a/drivers/platform/surface/Makefile
 +++ b/drivers/platform/surface/Makefile
 @@ -12,6 +12,7 @@ obj-$(CONFIG_SURFACE_AGGREGATOR_CDEV)	+= surface_aggregator_cdev.o
@@ -6590,7 +7266,7 @@ index 533443309..7efcd0cdb 100644
  obj-$(CONFIG_SURFACE_HOTPLUG)		+= surface_hotplug.o
 diff --git a/drivers/platform/surface/surfacebook1_dgpu_switch.c b/drivers/platform/surface/surfacebook1_dgpu_switch.c
 new file mode 100644
-index 000000000..68db23773
+index 000000000000..68db237734a1
 --- /dev/null
 +++ b/drivers/platform/surface/surfacebook1_dgpu_switch.c
 @@ -0,0 +1,136 @@
@@ -6731,9 +7407,9 @@ index 000000000..68db23773
 +MODULE_DESCRIPTION("Discrete GPU Power-Switch for Surface Book 1");
 +MODULE_LICENSE("GPL");
 -- 
-2.52.0
+2.53.0
 
-From 5435570ea3009568161af7bdfd7720b664d1140c Mon Sep 17 00:00:00 2001
+From 93e2e5694855fa7a53c6e465cedf07e18653bd43 Mon Sep 17 00:00:00 2001
 From: Sachi King <nakato@nakato.io>
 Date: Tue, 5 Oct 2021 00:05:09 +1100
 Subject: [PATCH] Input: soc_button_array - support AMD variant Surface devices
@@ -6755,7 +7431,7 @@ Patchset: surface-button
  1 file changed, 8 insertions(+), 25 deletions(-)
 
 diff --git a/drivers/input/misc/soc_button_array.c b/drivers/input/misc/soc_button_array.c
-index b8cad415c..43b5d5638 100644
+index b8cad415c62c..43b5d56383e3 100644
 --- a/drivers/input/misc/soc_button_array.c
 +++ b/drivers/input/misc/soc_button_array.c
 @@ -540,8 +540,8 @@ static const struct soc_device_data soc_device_MSHW0028 = {
@@ -6808,9 +7484,9 @@ index b8cad415c..43b5d5638 100644
  
  /*
 -- 
-2.52.0
+2.53.0
 
-From a84a014b4bdf583f23acd8056ce23464a4d4ca47 Mon Sep 17 00:00:00 2001
+From 63462c31da1c67a2a472be398ddc9ceee69ac32c Mon Sep 17 00:00:00 2001
 From: Sachi King <nakato@nakato.io>
 Date: Tue, 5 Oct 2021 00:22:57 +1100
 Subject: [PATCH] platform/surface: surfacepro3_button: don't load on amd
@@ -6831,7 +7507,7 @@ Patchset: surface-button
  1 file changed, 6 insertions(+), 24 deletions(-)
 
 diff --git a/drivers/platform/surface/surfacepro3_button.c b/drivers/platform/surface/surfacepro3_button.c
-index 2755601f9..4240c98ca 100644
+index 2755601f979c..4240c98ca226 100644
 --- a/drivers/platform/surface/surfacepro3_button.c
 +++ b/drivers/platform/surface/surfacepro3_button.c
 @@ -149,7 +149,8 @@ static int surface_button_resume(struct device *dev)
@@ -6880,11 +7556,88 @@ index 2755601f9..4240c98ca 100644
  
  
 -- 
-2.52.0
+2.53.0
 
-diff -rupN a/drivers/hid/hid-multitouch.c b/drivers/hid/hid-multitouch.c
---- a/drivers/hid/hid-multitouch.c	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/hid/hid-multitouch.c	2026-01-26 15:04:09.376038049 +0100
+From 65a6164c1eadb5f8ec8ccfa46e6c632ee0de16be Mon Sep 17 00:00:00 2001
+From: Maximilian Luz <luzmaximilian@gmail.com>
+Date: Sat, 18 Feb 2023 01:02:49 +0100
+Subject: [PATCH] USB: quirks: Add USB_QUIRK_DELAY_INIT for Surface Go 3
+ Type-Cover
+
+The touchpad on the Type-Cover of the Surface Go 3 is sometimes not
+being initialized properly. Apply USB_QUIRK_DELAY_INIT to fix this
+issue.
+
+More specifically, the device in question is a fairly standard modern
+touchpad with pointer and touchpad input modes. During setup, the device
+needs to be switched from pointer- to touchpad-mode (which is done in
+hid-multitouch) to fully utilize it as intended. Unfortunately, however,
+this seems to occasionally fail silently, leaving the device in
+pointer-mode. Applying USB_QUIRK_DELAY_INIT seems to fix this.
+
+Link: https://github.com/linux-surface/linux-surface/issues/1059
+Signed-off-by: Maximilian Luz <luzmaximilian@gmail.com>
+Patchset: surface-typecover
+---
+ drivers/usb/core/quirks.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/usb/core/quirks.c b/drivers/usb/core/quirks.c
+index c4d85089d19b..3d0d35c72189 100644
+--- a/drivers/usb/core/quirks.c
++++ b/drivers/usb/core/quirks.c
+@@ -223,6 +223,9 @@ static const struct usb_device_id usb_quirk_list[] = {
+ 	/* Microsoft Surface Dock Ethernet (RTL8153 GigE) */
+ 	{ USB_DEVICE(0x045e, 0x07c6), .driver_info = USB_QUIRK_NO_LPM },
+ 
++	/* Microsoft Surface Go 3 Type-Cover */
++	{ USB_DEVICE(0x045e, 0x09b5), .driver_info = USB_QUIRK_DELAY_INIT },
++
+ 	/* Cherry Stream G230 2.0 (G85-231) and 3.0 (G85-232) */
+ 	{ USB_DEVICE(0x046a, 0x0023), .driver_info = USB_QUIRK_RESET_RESUME },
+ 
+-- 
+2.53.0
+
+From 5950b1c8141212f47505f566e315858c79f33597 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Jonas=20Dre=C3=9Fler?= <verdre@v0yd.nl>
+Date: Thu, 5 Nov 2020 13:09:45 +0100
+Subject: [PATCH] hid/multitouch: Turn off Type Cover keyboard backlight when
+ suspending
+
+The Type Cover for Microsoft Surface devices supports a special usb
+control request to disable or enable the built-in keyboard backlight.
+On Windows, this request happens when putting the device into suspend or
+resuming it, without it the backlight of the Type Cover will remain
+enabled for some time even though the computer is suspended, which looks
+weird to the user.
+
+So add support for this special usb control request to hid-multitouch,
+which is the driver that's handling the Type Cover.
+
+The reason we have to use a pm_notifier for this instead of the usual
+suspend/resume methods is that those won't get called in case the usb
+device is already autosuspended.
+
+Also, if the device is autosuspended, we have to briefly autoresume it
+in order to send the request. Doing that should be fine, the usb-core
+driver does something similar during suspend inside choose_wakeup().
+
+To make sure we don't send that request to every device but only to
+devices which support it, add a new quirk
+MT_CLS_WIN_8_MS_SURFACE_TYPE_COVER to hid-multitouch. For now this quirk
+is only enabled for the usb id of the Surface Pro 2017 Type Cover, which
+is where I confirmed that it's working.
+
+Patchset: surface-typecover
+---
+ drivers/hid/hid-multitouch.c | 100 ++++++++++++++++++++++++++++++++++-
+ 1 file changed, 98 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/hid/hid-multitouch.c b/drivers/hid/hid-multitouch.c
+index b1c3ef129058..44ac1d672ee9 100644
+--- a/drivers/hid/hid-multitouch.c
++++ b/drivers/hid/hid-multitouch.c
 @@ -35,7 +35,10 @@
  #include <linux/device.h>
  #include <linux/hid.h>
@@ -6896,7 +7649,7 @@ diff -rupN a/drivers/hid/hid-multitouch.c b/drivers/hid/hid-multitouch.c
  #include <linux/input/mt.h>
  #include <linux/jiffies.h>
  #include <linux/string.h>
-@@ -48,6 +51,7 @@ MODULE_DESCRIPTION("HID multitouch panel
+@@ -48,6 +51,7 @@ MODULE_DESCRIPTION("HID multitouch panels");
  MODULE_LICENSE("GPL");
  
  #include "hid-ids.h"
@@ -6904,25 +7657,24 @@ diff -rupN a/drivers/hid/hid-multitouch.c b/drivers/hid/hid-multitouch.c
  
  #include "hid-haptic.h"
  
-@@ -76,12 +80,17 @@ MODULE_LICENSE("GPL");
+@@ -76,6 +80,7 @@ MODULE_LICENSE("GPL");
  #define MT_QUIRK_DISABLE_WAKEUP		BIT(21)
  #define MT_QUIRK_ORIENTATION_INVERT	BIT(22)
  #define MT_QUIRK_APPLE_TOUCHBAR		BIT(23)
-+#define MT_QUIRK_HAS_TYPE_COVER_BACKLIGHT 	BIT(24)
-+#define MT_QUIRK_HAS_TYPE_COVER_TABLET_MODE_SWITCH 	BIT(25)
++#define MT_QUIRK_HAS_TYPE_COVER_BACKLIGHT	BIT(24)
  
  #define MT_INPUTMODE_TOUCHSCREEN	0x02
  #define MT_INPUTMODE_TOUCHPAD		0x03
- 
+@@ -83,6 +88,8 @@ MODULE_LICENSE("GPL");
  #define MT_BUTTONTYPE_CLICKPAD		0
  #define MT_BUTTONTYPE_PRESSUREPAD	1
-+#define MS_TYPE_COVER_FEATURE_REPORT_USAGE	0xff050086
-+#define MS_TYPE_COVER_TABLET_MODE_SWITCH_USAGE	0xff050072
-+#define MS_TYPE_COVER_APPLICATION	0xff050050
  
++#define MS_TYPE_COVER_FEATURE_REPORT_USAGE	0xff050086
++
  enum latency_mode {
  	HID_LATENCY_NORMAL = 0,
-@@ -186,6 +195,8 @@ struct mt_device {
+ 	HID_LATENCY_HIGH = 1,
+@@ -186,6 +193,8 @@ struct mt_device {
  
  	struct list_head applications;
  	struct list_head reports;
@@ -6931,7 +7683,7 @@ diff -rupN a/drivers/hid/hid-multitouch.c b/drivers/hid/hid-multitouch.c
  };
  
  static void mt_post_parse_default_settings(struct mt_device *td,
-@@ -231,6 +242,7 @@ static void mt_post_parse(struct mt_devi
+@@ -231,6 +240,7 @@ static void mt_post_parse(struct mt_device *td, struct mt_application *app);
  #define MT_CLS_RAZER_BLADE_STEALTH		0x0112
  #define MT_CLS_SMART_TECH			0x0113
  #define MT_CLS_APPLE_TOUCHBAR			0x0114
@@ -6939,13 +7691,12 @@ diff -rupN a/drivers/hid/hid-multitouch.c b/drivers/hid/hid-multitouch.c
  #define MT_CLS_SIS				0x0457
  
  #define MT_DEFAULT_MAXCONTACT	10
-@@ -428,6 +440,17 @@ static const struct mt_class mt_classes[
+@@ -428,6 +438,16 @@ static const struct mt_class mt_classes[] = {
  			MT_QUIRK_ALWAYS_VALID |
  			MT_QUIRK_CONTACT_CNT_ACCURATE,
  	},
 +	{ .name = MT_CLS_WIN_8_MS_SURFACE_TYPE_COVER,
 +		.quirks = MT_QUIRK_HAS_TYPE_COVER_BACKLIGHT |
-+			MT_QUIRK_HAS_TYPE_COVER_TABLET_MODE_SWITCH |
 +			MT_QUIRK_ALWAYS_VALID |
 +			MT_QUIRK_IGNORE_DUPLICATES |
 +			MT_QUIRK_HOVERING |
@@ -6957,7 +7708,191 @@ diff -rupN a/drivers/hid/hid-multitouch.c b/drivers/hid/hid-multitouch.c
  	{ }
  };
  
-@@ -1454,6 +1477,9 @@ static int mt_input_mapping(struct hid_d
+@@ -1853,6 +1873,69 @@ static void mt_expired_timeout(struct timer_list *t)
+ 	clear_bit_unlock(MT_IO_FLAGS_RUNNING, &td->mt_io_flags);
+ }
+ 
++static void get_type_cover_backlight_field(struct hid_device *hdev,
++					   struct hid_field **field)
++{
++	struct hid_report_enum *rep_enum;
++	struct hid_report *rep;
++	struct hid_field *cur_field;
++	int i, j;
++
++	rep_enum = &hdev->report_enum[HID_FEATURE_REPORT];
++	list_for_each_entry(rep, &rep_enum->report_list, list) {
++		for (i = 0; i < rep->maxfield; i++) {
++			cur_field = rep->field[i];
++
++			for (j = 0; j < cur_field->maxusage; j++) {
++				if (cur_field->usage[j].hid
++				    == MS_TYPE_COVER_FEATURE_REPORT_USAGE) {
++					*field = cur_field;
++					return;
++				}
++			}
++		}
++	}
++}
++
++static void update_keyboard_backlight(struct hid_device *hdev, bool enabled)
++{
++	struct usb_device *udev = hid_to_usb_dev(hdev);
++	struct hid_field *field = NULL;
++
++	/* Wake up the device in case it's already suspended */
++	pm_runtime_get_sync(&udev->dev);
++
++	get_type_cover_backlight_field(hdev, &field);
++	if (!field) {
++		hid_err(hdev, "couldn't find backlight field\n");
++		goto out;
++	}
++
++	field->value[field->index] = enabled ? 0x01ff00ff : 0x00ff00ff;
++	hid_hw_request(hdev, field->report, HID_REQ_SET_REPORT);
++
++out:
++	pm_runtime_put_sync(&udev->dev);
++}
++
++static int mt_pm_notifier(struct notifier_block *notifier,
++			  unsigned long pm_event,
++			  void *unused)
++{
++	struct mt_device *td =
++		container_of(notifier, struct mt_device, pm_notifier);
++	struct hid_device *hdev = td->hdev;
++
++	if (td->mtclass.quirks & MT_QUIRK_HAS_TYPE_COVER_BACKLIGHT) {
++		if (pm_event == PM_SUSPEND_PREPARE)
++			update_keyboard_backlight(hdev, 0);
++		else if (pm_event == PM_POST_SUSPEND)
++			update_keyboard_backlight(hdev, 1);
++	}
++
++	return NOTIFY_DONE;
++}
++
+ static int mt_probe(struct hid_device *hdev, const struct hid_device_id *id)
+ {
+ 	int ret, i;
+@@ -1881,6 +1964,9 @@ static int mt_probe(struct hid_device *hdev, const struct hid_device_id *id)
+ 	td->inputmode_value = MT_INPUTMODE_TOUCHSCREEN;
+ 	hid_set_drvdata(hdev, td);
+ 
++	td->pm_notifier.notifier_call = mt_pm_notifier;
++	register_pm_notifier(&td->pm_notifier);
++
+ 	INIT_LIST_HEAD(&td->applications);
+ 	INIT_LIST_HEAD(&td->reports);
+ 
+@@ -1919,8 +2005,10 @@ static int mt_probe(struct hid_device *hdev, const struct hid_device_id *id)
+ 	timer_setup(&td->release_timer, mt_expired_timeout, 0);
+ 
+ 	ret = hid_parse(hdev);
+-	if (ret != 0)
++	if (ret != 0) {
++		unregister_pm_notifier(&td->pm_notifier);
+ 		return ret;
++	}
+ 
+ 	if (mtclass->name == MT_CLS_APPLE_TOUCHBAR &&
+ 	    !hid_find_field(hdev, HID_INPUT_REPORT,
+@@ -1934,8 +2022,10 @@ static int mt_probe(struct hid_device *hdev, const struct hid_device_id *id)
+ 		hdev->quirks |= HID_QUIRK_NOGET;
+ 
+ 	ret = hid_hw_start(hdev, HID_CONNECT_DEFAULT);
+-	if (ret)
++	if (ret) {
++		unregister_pm_notifier(&td->pm_notifier);
+ 		return ret;
++	}
+ 
+ 	ret = sysfs_create_group(&hdev->dev.kobj, &mt_attribute_group);
+ 	if (ret)
+@@ -1996,6 +2086,7 @@ static void mt_remove(struct hid_device *hdev)
+ {
+ 	struct mt_device *td = hid_get_drvdata(hdev);
+ 
++	unregister_pm_notifier(&td->pm_notifier);
+ 	timer_delete_sync(&td->release_timer);
+ 
+ 	sysfs_remove_group(&hdev->dev.kobj, &mt_attribute_group);
+@@ -2440,6 +2531,11 @@ static const struct hid_device_id mt_devices[] = {
+ 		HID_USB_DEVICE(USB_VENDOR_ID_APPLE,
+ 			USB_DEVICE_ID_APPLE_TOUCHBAR_DISPLAY) },
+ 
++	/* Microsoft Surface type cover */
++	{ .driver_data = MT_CLS_WIN_8_MS_SURFACE_TYPE_COVER,
++		HID_DEVICE(HID_BUS_ANY, HID_GROUP_ANY,
++			USB_VENDOR_ID_MICROSOFT, 0x09c0) },
++
+ 	/* Google MT devices */
+ 	{ .driver_data = MT_CLS_GOOGLE,
+ 		HID_DEVICE(HID_BUS_ANY, HID_GROUP_ANY, USB_VENDOR_ID_GOOGLE,
+-- 
+2.53.0
+
+From 07990c05b76076db813df4fefa9451595fb123c5 Mon Sep 17 00:00:00 2001
+From: PJungkamp <p.jungkamp@gmail.com>
+Date: Fri, 25 Feb 2022 12:04:25 +0100
+Subject: [PATCH] hid/multitouch: Add support for surface pro type cover tablet
+ switch
+
+The Surface Pro Type Cover has several non standard HID usages in it's
+hid report descriptor.
+I noticed that, upon folding the typecover back, a vendor specific range
+of 4 32 bit integer hid usages is transmitted.
+Only the first byte of the message seems to convey reliable information
+about the keyboard state.
+
+0x22 => Normal (keys enabled)
+0x33 => Folded back (keys disabled)
+0x53 => Rotated left/right side up (keys disabled)
+0x13 => Cover closed (keys disabled)
+0x43 => Folded back and Tablet upside down (keys disabled)
+This list may not be exhaustive.
+
+The tablet mode switch will be disabled for a value of 0x22 and enabled
+on any other value.
+
+Patchset: surface-typecover
+---
+ drivers/hid/hid-multitouch.c | 148 +++++++++++++++++++++++++++++------
+ 1 file changed, 122 insertions(+), 26 deletions(-)
+
+diff --git a/drivers/hid/hid-multitouch.c b/drivers/hid/hid-multitouch.c
+index 44ac1d672ee9..bd2554f2127f 100644
+--- a/drivers/hid/hid-multitouch.c
++++ b/drivers/hid/hid-multitouch.c
+@@ -81,6 +81,7 @@ MODULE_LICENSE("GPL");
+ #define MT_QUIRK_ORIENTATION_INVERT	BIT(22)
+ #define MT_QUIRK_APPLE_TOUCHBAR		BIT(23)
+ #define MT_QUIRK_HAS_TYPE_COVER_BACKLIGHT	BIT(24)
++#define MT_QUIRK_HAS_TYPE_COVER_TABLET_MODE_SWITCH	BIT(25)
+ 
+ #define MT_INPUTMODE_TOUCHSCREEN	0x02
+ #define MT_INPUTMODE_TOUCHPAD		0x03
+@@ -89,6 +90,8 @@ MODULE_LICENSE("GPL");
+ #define MT_BUTTONTYPE_PRESSUREPAD	1
+ 
+ #define MS_TYPE_COVER_FEATURE_REPORT_USAGE	0xff050086
++#define MS_TYPE_COVER_TABLET_MODE_SWITCH_USAGE	0xff050072
++#define MS_TYPE_COVER_APPLICATION	0xff050050
+ 
+ enum latency_mode {
+ 	HID_LATENCY_NORMAL = 0,
+@@ -440,6 +443,7 @@ static const struct mt_class mt_classes[] = {
+ 	},
+ 	{ .name = MT_CLS_WIN_8_MS_SURFACE_TYPE_COVER,
+ 		.quirks = MT_QUIRK_HAS_TYPE_COVER_BACKLIGHT |
++			MT_QUIRK_HAS_TYPE_COVER_TABLET_MODE_SWITCH |
+ 			MT_QUIRK_ALWAYS_VALID |
+ 			MT_QUIRK_IGNORE_DUPLICATES |
+ 			MT_QUIRK_HOVERING |
+@@ -1474,6 +1478,9 @@ static int mt_input_mapping(struct hid_device *hdev, struct hid_input *hi,
  	    field->application != HID_CP_CONSUMER_CONTROL &&
  	    field->application != HID_GD_WIRELESS_RADIO_CTLS &&
  	    field->application != HID_GD_SYSTEM_MULTIAXIS &&
@@ -6967,7 +7902,7 @@ diff -rupN a/drivers/hid/hid-multitouch.c b/drivers/hid/hid-multitouch.c
  	    !(field->application == HID_VD_ASUS_CUSTOM_MEDIA_KEYS &&
  	      application->quirks & MT_QUIRK_ASUS_CUSTOM_UP))
  		return -1;
-@@ -1481,6 +1507,21 @@ static int mt_input_mapping(struct hid_d
+@@ -1501,6 +1508,21 @@ static int mt_input_mapping(struct hid_device *hdev, struct hid_input *hi,
  		return 1;
  	}
  
@@ -6989,7 +7924,7 @@ diff -rupN a/drivers/hid/hid-multitouch.c b/drivers/hid/hid-multitouch.c
  	if (rdata->is_mt_collection)
  		return mt_touch_input_mapping(hdev, hi, field, usage, bit, max,
  					      application);
-@@ -1507,6 +1548,7 @@ static int mt_input_mapped(struct hid_de
+@@ -1527,6 +1549,7 @@ static int mt_input_mapped(struct hid_device *hdev, struct hid_input *hi,
  {
  	struct mt_device *td = hid_get_drvdata(hdev);
  	struct mt_report_data *rdata;
@@ -6997,7 +7932,7 @@ diff -rupN a/drivers/hid/hid-multitouch.c b/drivers/hid/hid-multitouch.c
  
  	rdata = mt_find_report_data(td, field->report);
  	if (rdata && rdata->is_mt_collection) {
-@@ -1514,6 +1556,19 @@ static int mt_input_mapped(struct hid_de
+@@ -1534,6 +1557,19 @@ static int mt_input_mapped(struct hid_device *hdev, struct hid_input *hi,
  		return -1;
  	}
  
@@ -7017,7 +7952,7 @@ diff -rupN a/drivers/hid/hid-multitouch.c b/drivers/hid/hid-multitouch.c
  	/* let hid-core decide for the others */
  	return 0;
  }
-@@ -1523,11 +1578,21 @@ static int mt_event(struct hid_device *h
+@@ -1543,11 +1579,21 @@ static int mt_event(struct hid_device *hid, struct hid_field *field,
  {
  	struct mt_device *td = hid_get_drvdata(hid);
  	struct mt_report_data *rdata;
@@ -7039,7 +7974,7 @@ diff -rupN a/drivers/hid/hid-multitouch.c b/drivers/hid/hid-multitouch.c
  	return 0;
  }
  
-@@ -1710,6 +1775,42 @@ static void mt_post_parse(struct mt_devi
+@@ -1730,6 +1776,42 @@ static void mt_post_parse(struct mt_device *td, struct mt_application *app)
  		app->quirks &= ~MT_QUIRK_CONTACT_CNT_ACCURATE;
  }
  
@@ -7082,7 +8017,7 @@ diff -rupN a/drivers/hid/hid-multitouch.c b/drivers/hid/hid-multitouch.c
  static int mt_input_configured(struct hid_device *hdev, struct hid_input *hi)
  {
  	struct mt_device *td = hid_get_drvdata(hdev);
-@@ -1767,6 +1868,13 @@ static int mt_input_configured(struct hi
+@@ -1787,6 +1869,13 @@ static int mt_input_configured(struct hid_device *hdev, struct hid_input *hi)
  		/* force BTN_STYLUS to allow tablet matching in udev */
  		__set_bit(BTN_STYLUS, hi->input->keybit);
  		break;
@@ -7096,88 +8031,50 @@ diff -rupN a/drivers/hid/hid-multitouch.c b/drivers/hid/hid-multitouch.c
  	default:
  		suffix = "UNKNOWN";
  		break;
-@@ -1853,6 +1961,46 @@ static void mt_expired_timeout(struct ti
+@@ -1873,30 +1962,6 @@ static void mt_expired_timeout(struct timer_list *t)
  	clear_bit_unlock(MT_IO_FLAGS_RUNNING, &td->mt_io_flags);
  }
  
-+static void update_keyboard_backlight(struct hid_device *hdev, bool enabled)
-+{
-+	struct usb_device *udev = hid_to_usb_dev(hdev);
-+	struct hid_field *field = NULL;
-+
-+	/* Wake up the device in case it's already suspended */
-+	pm_runtime_get_sync(&udev->dev);
-+
+-static void get_type_cover_backlight_field(struct hid_device *hdev,
+-					   struct hid_field **field)
+-{
+-	struct hid_report_enum *rep_enum;
+-	struct hid_report *rep;
+-	struct hid_field *cur_field;
+-	int i, j;
+-
+-	rep_enum = &hdev->report_enum[HID_FEATURE_REPORT];
+-	list_for_each_entry(rep, &rep_enum->report_list, list) {
+-		for (i = 0; i < rep->maxfield; i++) {
+-			cur_field = rep->field[i];
+-
+-			for (j = 0; j < cur_field->maxusage; j++) {
+-				if (cur_field->usage[j].hid
+-				    == MS_TYPE_COVER_FEATURE_REPORT_USAGE) {
+-					*field = cur_field;
+-					return;
+-				}
+-			}
+-		}
+-	}
+-}
+-
+ static void update_keyboard_backlight(struct hid_device *hdev, bool enabled)
+ {
+ 	struct usb_device *udev = hid_to_usb_dev(hdev);
+@@ -1905,8 +1970,9 @@ static void update_keyboard_backlight(struct hid_device *hdev, bool enabled)
+ 	/* Wake up the device in case it's already suspended */
+ 	pm_runtime_get_sync(&udev->dev);
+ 
+-	get_type_cover_backlight_field(hdev, &field);
+-	if (!field) {
 +	if (!get_type_cover_field(&hdev->report_enum[HID_FEATURE_REPORT],
 +				  &field,
 +				  MS_TYPE_COVER_FEATURE_REPORT_USAGE)) {
-+		hid_err(hdev, "couldn't find backlight field\n");
-+		goto out;
-+	}
-+
-+	field->value[field->index] = enabled ? 0x01ff00ff : 0x00ff00ff;
-+	hid_hw_request(hdev, field->report, HID_REQ_SET_REPORT);
-+
-+out:
-+	pm_runtime_put_sync(&udev->dev);
-+}
-+
-+static int mt_pm_notifier(struct notifier_block *notifier,
-+			  unsigned long pm_event,
-+			  void *unused)
-+{
-+	struct mt_device *td =
-+		container_of(notifier, struct mt_device, pm_notifier);
-+	struct hid_device *hdev = td->hdev;
-+
-+	if (td->mtclass.quirks & MT_QUIRK_HAS_TYPE_COVER_BACKLIGHT) {
-+		if (pm_event == PM_SUSPEND_PREPARE)
-+			update_keyboard_backlight(hdev, 0);
-+		else if (pm_event == PM_POST_SUSPEND)
-+			update_keyboard_backlight(hdev, 1);
-+	}
-+
-+	return NOTIFY_DONE;
-+}
-+
- static int mt_probe(struct hid_device *hdev, const struct hid_device_id *id)
- {
- 	int ret, i;
-@@ -1881,6 +2029,9 @@ static int mt_probe(struct hid_device *h
- 	td->inputmode_value = MT_INPUTMODE_TOUCHSCREEN;
- 	hid_set_drvdata(hdev, td);
- 
-+	td->pm_notifier.notifier_call = mt_pm_notifier;
-+	register_pm_notifier(&td->pm_notifier);
-+
- 	INIT_LIST_HEAD(&td->applications);
- 	INIT_LIST_HEAD(&td->reports);
- 
-@@ -1919,8 +2070,10 @@ static int mt_probe(struct hid_device *h
- 	timer_setup(&td->release_timer, mt_expired_timeout, 0);
- 
- 	ret = hid_parse(hdev);
--	if (ret != 0)
-+	if (ret != 0) {
-+		unregister_pm_notifier(&td->pm_notifier);
- 		return ret;
-+	}
- 
- 	if (mtclass->name == MT_CLS_APPLE_TOUCHBAR &&
- 	    !hid_find_field(hdev, HID_INPUT_REPORT,
-@@ -1934,8 +2087,10 @@ static int mt_probe(struct hid_device *h
- 		hdev->quirks |= HID_QUIRK_NOGET;
- 
- 	ret = hid_hw_start(hdev, HID_CONNECT_DEFAULT);
--	if (ret)
-+	if (ret) {
-+		unregister_pm_notifier(&td->pm_notifier);
- 		return ret;
-+	}
- 
- 	ret = sysfs_create_group(&hdev->dev.kobj, &mt_attribute_group);
- 	if (ret)
-@@ -1974,13 +2129,24 @@ static int mt_suspend(struct hid_device
+ 		hid_err(hdev, "couldn't find backlight field\n");
+ 		goto out;
+ 	}
+@@ -2064,13 +2130,24 @@ static int mt_suspend(struct hid_device *hdev, pm_message_t state)
  
  static int mt_reset_resume(struct hid_device *hdev)
  {
@@ -7202,7 +8099,7 @@ diff -rupN a/drivers/hid/hid-multitouch.c b/drivers/hid/hid-multitouch.c
  	/* Some Elan legacy devices require SET_IDLE to be set on resume.
  	 * It should be safe to send it to other devices too.
  	 * Tested on 3M, Stantum, Cypress, Zytronic, eGalax, and Elan panels. */
-@@ -1989,13 +2155,33 @@ static int mt_resume(struct hid_device *
+@@ -2079,12 +2156,31 @@ static int mt_resume(struct hid_device *hdev)
  
  	mt_set_modes(hdev, HID_LATENCY_NORMAL, TOUCHPAD_REPORT_ALL);
  
@@ -7218,7 +8115,7 @@ diff -rupN a/drivers/hid/hid-multitouch.c b/drivers/hid/hid-multitouch.c
  	struct mt_device *td = hid_get_drvdata(hdev);
 +	struct hid_field *field;
 +	struct input_dev *input;
- 
++
 +	/* Reset tablet mode switch on disconnect. */
 +	if (td->mtclass.quirks & MT_QUIRK_HAS_TYPE_COVER_TABLET_MODE_SWITCH) {
 +		if (get_type_cover_field(&hdev->report_enum[HID_INPUT_REPORT],
@@ -7231,40 +8128,41 @@ diff -rupN a/drivers/hid/hid-multitouch.c b/drivers/hid/hid-multitouch.c
 +			hid_err(hdev, "couldn't find tablet mode field\n");
 +		}
 +	}
-+
-+	unregister_pm_notifier(&td->pm_notifier);
+ 
+ 	unregister_pm_notifier(&td->pm_notifier);
  	timer_delete_sync(&td->release_timer);
- 
- 	sysfs_remove_group(&hdev->dev.kobj, &mt_attribute_group);
-@@ -2440,6 +2626,11 @@ static const struct hid_device_id mt_dev
- 		HID_USB_DEVICE(USB_VENDOR_ID_APPLE,
- 			USB_DEVICE_ID_APPLE_TOUCHBAR_DISPLAY) },
- 
-+	/* Microsoft Surface type cover */
-+	{ .driver_data = MT_CLS_WIN_8_MS_SURFACE_TYPE_COVER,
-+		HID_DEVICE(HID_BUS_ANY, HID_GROUP_ANY,
-+			USB_VENDOR_ID_MICROSOFT, 0x09c0) },
-+
- 	/* Google MT devices */
- 	{ .driver_data = MT_CLS_GOOGLE,
- 		HID_DEVICE(HID_BUS_ANY, HID_GROUP_ANY, USB_VENDOR_ID_GOOGLE,
-diff -rupN a/drivers/usb/core/quirks.c b/drivers/usb/core/quirks.c
---- a/drivers/usb/core/quirks.c	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/usb/core/quirks.c	2026-01-26 15:00:35.968738443 +0100
-@@ -223,6 +223,9 @@ static const struct usb_device_id usb_qu
- 	/* Microsoft Surface Dock Ethernet (RTL8153 GigE) */
- 	{ USB_DEVICE(0x045e, 0x07c6), .driver_info = USB_QUIRK_NO_LPM },
- 
-+	/* Microsoft Surface Go 3 Type-Cover */
-+	{ USB_DEVICE(0x045e, 0x09b5), .driver_info = USB_QUIRK_DELAY_INIT },
-+
- 	/* Cherry Stream G230 2.0 (G85-231) and 3.0 (G85-232) */
- 	{ USB_DEVICE(0x046a, 0x0023), .driver_info = USB_QUIRK_RESET_RESUME },
- 
-diff -rupN a/drivers/pci/pci-driver.c b/drivers/pci/pci-driver.c
---- a/drivers/pci/pci-driver.c	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/pci/pci-driver.c	2026-01-26 15:09:01.573613904 +0100
-@@ -505,6 +505,9 @@ static void pci_device_shutdown(struct d
+-- 
+2.53.0
+
+From f1da140af03cace2df8b9462fe4ce041bf8dd954 Mon Sep 17 00:00:00 2001
+From: Maximilian Luz <luzmaximilian@gmail.com>
+Date: Sun, 19 Feb 2023 22:12:24 +0100
+Subject: [PATCH] PCI: Add quirk to prevent calling shutdown method
+
+Work around buggy EFI firmware: On some Microsoft Surface devices
+(Surface Pro 9 and Surface Laptop 5) the EFI ResetSystem call with
+EFI_RESET_SHUTDOWN doesn't function properly. Instead of shutting the
+system down, it returns and the system stays on.
+
+It turns out that this only happens after PCI shutdown callbacks ran for
+specific devices. Excluding those devices from the shutdown process
+makes the ResetSystem call work as expected.
+
+TODO: Maybe we can find a better way or the root cause of this?
+
+Not-Signed-off-by: Maximilian Luz <luzmaximilian@gmail.com>
+Patchset: surface-shutdown
+---
+ drivers/pci/pci-driver.c |  3 +++
+ drivers/pci/quirks.c     | 36 ++++++++++++++++++++++++++++++++++++
+ include/linux/pci.h      |  1 +
+ 3 files changed, 40 insertions(+)
+
+diff --git a/drivers/pci/pci-driver.c b/drivers/pci/pci-driver.c
+index 7c2d9d596258..dc792984c2a7 100644
+--- a/drivers/pci/pci-driver.c
++++ b/drivers/pci/pci-driver.c
+@@ -505,6 +505,9 @@ static void pci_device_shutdown(struct device *dev)
  	struct pci_dev *pci_dev = to_pci_dev(dev);
  	struct pci_driver *drv = pci_dev->driver;
  
@@ -7274,10 +8172,11 @@ diff -rupN a/drivers/pci/pci-driver.c b/drivers/pci/pci-driver.c
  	pm_runtime_resume(dev);
  
  	if (drv && drv->shutdown)
-diff -rupN a/drivers/pci/quirks.c b/drivers/pci/quirks.c
---- a/drivers/pci/quirks.c	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/pci/quirks.c	2026-01-26 15:09:01.580796852 +0100
-@@ -6340,3 +6340,52 @@ static void pci_mask_replay_timer_timeou
+diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+index 280cd50d693b..454d1cb23dde 100644
+--- a/drivers/pci/quirks.c
++++ b/drivers/pci/quirks.c
+@@ -6340,3 +6340,39 @@ static void pci_mask_replay_timer_timeout(struct pci_dev *pdev)
  DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_GLI, 0x9750, pci_mask_replay_timer_timeout);
  DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_GLI, 0x9755, pci_mask_replay_timer_timeout);
  #endif
@@ -7300,13 +8199,6 @@ diff -rupN a/drivers/pci/quirks.c b/drivers/pci/quirks.c
 +			DMI_MATCH(DMI_PRODUCT_NAME, "Surface Laptop 5"),
 +		},
 +	},
-+	{
-+		.ident = "Microsoft Surface Laptop Studio 2",
-+		.matches = {
-+			DMI_MATCH(DMI_SYS_VENDOR, "Microsoft Corporation"),
-+			DMI_MATCH(DMI_PRODUCT_NAME, "Surface Laptop Studio 2"),
-+		},
-+	},
 +	{}
 +};
 +
@@ -7324,15 +8216,10 @@ diff -rupN a/drivers/pci/quirks.c b/drivers/pci/quirks.c
 +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0x462f, quirk_no_shutdown);  // Thunderbolt 4 PCI Express Root Port
 +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0x466d, quirk_no_shutdown);  // Thunderbolt 4 NHI
 +DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0x46a8, quirk_no_shutdown);  // GPU
-+
-+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0xa76e, quirk_no_shutdown);  // Thunderbolt 4 USB Controller
-+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0xa71e, quirk_no_shutdown);  // Thunderbolt 4 PCI Express Root Port
-+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0xa73f, quirk_no_shutdown);  // Thunderbolt 4 PCI Express Root Port
-+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0xa73e, quirk_no_shutdown);  // Thunderbolt 4 NHI
-+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0xa7a0, quirk_no_shutdown);  // GPU
-diff -rupN a/include/linux/pci.h b/include/linux/pci.h
---- a/include/linux/pci.h	2026-01-25 23:11:24.000000000 +0100
-+++ b/include/linux/pci.h	2026-01-26 15:09:01.577000559 +0100
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index b5cc0c2b9906..9cd35904dafc 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
 @@ -488,6 +488,7 @@ struct pci_dev {
  	unsigned int	rom_bar_overlap:1;	/* ROM BAR disable broken */
  	unsigned int	rom_attr_enabled:1;	/* Display of ROM attribute enabled? */
@@ -7341,7 +8228,53 @@ diff -rupN a/include/linux/pci.h b/include/linux/pci.h
  	pci_dev_flags_t dev_flags;
  	atomic_t	enable_cnt;	/* pci_enable_device has been called */
  
-From c8d2a9c279cb950a3c8d0793386592c6fa48de0e Mon Sep 17 00:00:00 2001
+-- 
+2.53.0
+
+From 1fbb5e7dcfcfafc56d810d0c3bb974211fd35c7b Mon Sep 17 00:00:00 2001
+From: LegendaryFire <tristan.balon@outlook.com>
+Date: Wed, 7 Jan 2026 01:06:25 +0100
+Subject: [PATCH] PCI: Add Surface Laptop Studio 2 devices to shutdown ops
+ quirk
+
+Link: https://github.com/linux-surface/linux-surface/pull/1948
+Patchset: surface-shutdown
+---
+ drivers/pci/quirks.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+index 454d1cb23dde..7d2e7f6572db 100644
+--- a/drivers/pci/quirks.c
++++ b/drivers/pci/quirks.c
+@@ -6359,6 +6359,13 @@ static const struct dmi_system_id no_shutdown_dmi_table[] = {
+ 			DMI_MATCH(DMI_PRODUCT_NAME, "Surface Laptop 5"),
+ 		},
+ 	},
++	{
++		.ident = "Microsoft Surface Laptop Studio 2",
++		.matches = {
++			DMI_MATCH(DMI_SYS_VENDOR, "Microsoft Corporation"),
++			DMI_MATCH(DMI_PRODUCT_NAME, "Surface Laptop Studio 2"),
++		},
++	},
+ 	{}
+ };
+ 
+@@ -6376,3 +6383,9 @@ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0x461f, quirk_no_shutdown);  // Thu
+ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0x462f, quirk_no_shutdown);  // Thunderbolt 4 PCI Express Root Port
+ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0x466d, quirk_no_shutdown);  // Thunderbolt 4 NHI
+ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0x46a8, quirk_no_shutdown);  // GPU
++
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0xa76e, quirk_no_shutdown);  // Thunderbolt 4 USB Controller
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0xa71e, quirk_no_shutdown);  // Thunderbolt 4 PCI Express Root Port
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0xa73f, quirk_no_shutdown);  // Thunderbolt 4 PCI Express Root Port
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0xa73e, quirk_no_shutdown);  // Thunderbolt 4 NHI
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0xa7a0, quirk_no_shutdown);  // GPU
+-- 
+2.53.0
+
+From a3871f3b131eda9f5dfc8534915339bff3700bed Mon Sep 17 00:00:00 2001
 From: Maximilian Luz <luzmaximilian@gmail.com>
 Date: Sun, 12 Mar 2023 01:41:57 +0100
 Subject: [PATCH] platform/surface: gpe: Add support for Surface Pro 9
@@ -7355,7 +8288,7 @@ Patchset: surface-gpe
  1 file changed, 17 insertions(+)
 
 diff --git a/drivers/platform/surface/surface_gpe.c b/drivers/platform/surface/surface_gpe.c
-index b35941390..b4496db79 100644
+index b359413903b1..b4496db79f39 100644
 --- a/drivers/platform/surface/surface_gpe.c
 +++ b/drivers/platform/surface/surface_gpe.c
 @@ -41,6 +41,11 @@ static const struct property_entry lid_device_props_l4F[] = {
@@ -7390,12 +8323,72 @@ index b35941390..b4496db79 100644
  		.ident = "Surface Book 1",
  		.matches = {
 -- 
-2.52.0
+2.53.0
 
-diff -rupN a/drivers/acpi/scan.c b/drivers/acpi/scan.c
---- a/drivers/acpi/scan.c	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/acpi/scan.c	2026-01-26 15:11:37.432712618 +0100
-@@ -2205,6 +2205,9 @@ static acpi_status acpi_bus_check_add_2(
+From 11bafd85c10d84fbabd327c0dc6fb3dd6f16ba19 Mon Sep 17 00:00:00 2001
+From: Hans de Goede <hdegoede@redhat.com>
+Date: Sun, 10 Oct 2021 20:56:57 +0200
+Subject: [PATCH] ACPI: delay enumeration of devices with a _DEP pointing to an
+ INT3472 device
+
+The clk and regulator frameworks expect clk/regulator consumer-devices
+to have info about the consumed clks/regulators described in the device's
+fw_node.
+
+To work around cases where this info is not present in the firmware tables,
+which is often the case on x86/ACPI devices, both frameworks allow the
+provider-driver to attach info about consumers to the clks/regulators
+when registering these.
+
+This causes problems with the probe ordering wrt drivers for consumers
+of these clks/regulators. Since the lookups are only registered when the
+provider-driver binds, trying to get these clks/regulators before then
+results in a -ENOENT error for clks and a dummy regulator for regulators.
+
+One case where we hit this issue is camera sensors such as e.g. the OV8865
+sensor found on the Microsoft Surface Go. The sensor uses clks, regulators
+and GPIOs provided by a TPS68470 PMIC which is described in an INT3472
+ACPI device. There is special platform code handling this and setting
+platform_data with the necessary consumer info on the MFD cells
+instantiated for the PMIC under: drivers/platform/x86/intel/int3472.
+
+For this to work properly the ov8865 driver must not bind to the I2C-client
+for the OV8865 sensor until after the TPS68470 PMIC gpio, regulator and
+clk MFD cells have all been fully setup.
+
+The OV8865 on the Microsoft Surface Go is just one example, all X86
+devices using the Intel IPU3 camera block found on recent Intel SoCs
+have similar issues where there is an INT3472 HID ACPI-device, which
+describes the clks and regulators, and the driver for this INT3472 device
+must be fully initialized before the sensor driver (any sensor driver)
+binds for things to work properly.
+
+On these devices the ACPI nodes describing the sensors all have a _DEP
+dependency on the matching INT3472 ACPI device (there is one per sensor).
+
+This allows solving the probe-ordering problem by delaying the enumeration
+(instantiation of the I2C-client in the ov8865 example) of ACPI-devices
+which have a _DEP dependency on an INT3472 device.
+
+The new acpi_dev_ready_for_enumeration() helper used for this is also
+exported because for devices, which have the enumeration_by_parent flag
+set, the parent-driver will do its own scan of child ACPI devices and
+it will try to enumerate those during its probe(). Code doing this such
+as e.g. the i2c-core-acpi.c code must call this new helper to ensure
+that it too delays the enumeration until all the _DEP dependencies are
+met on devices which have the new honor_deps flag set.
+
+Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+Patchset: cameras
+---
+ drivers/acpi/scan.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/acpi/scan.c b/drivers/acpi/scan.c
+index 416d87f9bd10..ce740ec99863 100644
+--- a/drivers/acpi/scan.c
++++ b/drivers/acpi/scan.c
+@@ -2205,6 +2205,9 @@ static acpi_status acpi_bus_check_add_2(acpi_handle handle, u32 lvl_not_used,
  
  static void acpi_default_enumeration(struct acpi_device *device)
  {
@@ -7405,9 +8398,38 @@ diff -rupN a/drivers/acpi/scan.c b/drivers/acpi/scan.c
  	/*
  	 * Do not enumerate devices with enumeration_by_parent flag set as
  	 * they will be enumerated by their respective parents.
-diff -rupN a/drivers/iommu/intel/iommu.c b/drivers/iommu/intel/iommu.c
---- a/drivers/iommu/intel/iommu.c	2026-01-26 14:53:35.379798071 +0100
-+++ b/drivers/iommu/intel/iommu.c	2026-01-26 15:11:37.434712630 +0100
+-- 
+2.53.0
+
+From 56075a65d86fcbd501c34548e8bb0e717cea243e Mon Sep 17 00:00:00 2001
+From: zouxiaoh <xiaohong.zou@intel.com>
+Date: Fri, 25 Jun 2021 08:52:59 +0800
+Subject: [PATCH] iommu: intel-ipu: use IOMMU passthrough mode for Intel IPUs
+
+Intel IPU(Image Processing Unit) has its own (IO)MMU hardware,
+The IPU driver allocates its own page table that is not mapped
+via the DMA, and thus the Intel IOMMU driver blocks access giving
+this error: DMAR: DRHD: handling fault status reg 3 DMAR:
+[DMA Read] Request device [00:05.0] PASID ffffffff
+fault addr 76406000 [fault reason 06] PTE Read access is not set
+As IPU is not an external facing device which is not risky, so use
+IOMMU passthrough mode for Intel IPUs.
+
+Change-Id: I6dcccdadac308cf42e20a18e1b593381391e3e6b
+Depends-On: Iacd67578e8c6a9b9ac73285f52b4081b72fb68a6
+Tracked-On: #JIITL8-411
+Signed-off-by: Bingbu Cao <bingbu.cao@intel.com>
+Signed-off-by: zouxiaoh <xiaohong.zou@intel.com>
+Signed-off-by: Xu Chongyang <chongyang.xu@intel.com>
+Patchset: cameras
+---
+ drivers/iommu/intel/iommu.c | 30 ++++++++++++++++++++++++++++++
+ 1 file changed, 30 insertions(+)
+
+diff --git a/drivers/iommu/intel/iommu.c b/drivers/iommu/intel/iommu.c
+index 09d031bc873f..757208a8e370 100644
+--- a/drivers/iommu/intel/iommu.c
++++ b/drivers/iommu/intel/iommu.c
 @@ -44,6 +44,13 @@
  		((pdev)->vendor == PCI_VENDOR_ID_INTEL && (pdev)->device == 0x34E4) \
  	)
@@ -7437,7 +8459,7 @@ diff -rupN a/drivers/iommu/intel/iommu.c b/drivers/iommu/intel/iommu.c
  #define IDENTMAP_IPTS		16
  
  const struct iommu_ops intel_iommu_ops;
-@@ -1409,6 +1418,9 @@ static int device_def_domain_type(struct
+@@ -1409,6 +1418,9 @@ static int device_def_domain_type(struct device *dev)
  		if ((iommu_identity_mapping & IDENTMAP_AZALIA) && IS_AZALIA(pdev))
  			return IOMMU_DOMAIN_IDENTITY;
  
@@ -7457,7 +8479,7 @@ diff -rupN a/drivers/iommu/intel/iommu.c b/drivers/iommu/intel/iommu.c
  	if (!dmar_map_ipts)
  		iommu_identity_mapping |= IDENTMAP_IPTS;
  
-@@ -3949,6 +3964,18 @@ static void quirk_iommu_igfx(struct pci_
+@@ -3949,6 +3964,18 @@ static void quirk_iommu_igfx(struct pci_dev *dev)
  	disable_igfx_iommu = 1;
  }
  
@@ -7476,7 +8498,7 @@ diff -rupN a/drivers/iommu/intel/iommu.c b/drivers/iommu/intel/iommu.c
  static void quirk_iommu_ipts(struct pci_dev *dev)
  {
  	if (!IS_IPTS(dev))
-@@ -3999,6 +4026,9 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_I
+@@ -3999,6 +4026,9 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x1632, quirk_iommu_igfx);
  DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x163A, quirk_iommu_igfx);
  DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x163D, quirk_iommu_igfx);
  
@@ -7486,9 +8508,244 @@ diff -rupN a/drivers/iommu/intel/iommu.c b/drivers/iommu/intel/iommu.c
  /* disable IPTS dmar support */
  DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x9D3E, quirk_iommu_ipts);
  DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x34E4, quirk_iommu_ipts);
-diff -rupN a/drivers/leds/Kconfig b/drivers/leds/Kconfig
---- a/drivers/leds/Kconfig	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/leds/Kconfig	2026-01-26 15:11:37.473712859 +0100
+-- 
+2.53.0
+
+From 998402c80cb2ab636207e1e01d1885bdbbbfaf69 Mon Sep 17 00:00:00 2001
+From: Daniel Scally <djrscally@gmail.com>
+Date: Sun, 10 Oct 2021 20:57:02 +0200
+Subject: [PATCH] platform/x86: int3472: Enable I2c daisy chain
+
+The TPS68470 PMIC has an I2C passthrough mode through which I2C traffic
+can be forwarded to a device connected to the PMIC as though it were
+connected directly to the system bus. Enable this mode when the chip
+is initialised.
+
+Signed-off-by: Daniel Scally <djrscally@gmail.com>
+Patchset: cameras
+---
+ drivers/platform/x86/intel/int3472/tps68470.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/platform/x86/intel/int3472/tps68470.c b/drivers/platform/x86/intel/int3472/tps68470.c
+index 0133405697dc..9e0763bdc758 100644
+--- a/drivers/platform/x86/intel/int3472/tps68470.c
++++ b/drivers/platform/x86/intel/int3472/tps68470.c
+@@ -46,6 +46,13 @@ static int tps68470_chip_init(struct device *dev, struct regmap *regmap)
+ 		return ret;
+ 	}
+ 
++	/* Enable I2C daisy chain */
++	ret = regmap_write(regmap, TPS68470_REG_S_I2C_CTL, 0x03);
++	if (ret) {
++		dev_err(dev, "Failed to enable i2c daisy chain\n");
++		return ret;
++	}
++
+ 	dev_info(dev, "TPS68470 REVID: 0x%02x\n", version);
+ 
+ 	return 0;
+-- 
+2.53.0
+
+From 5d74ab9a86f7ea746e7bcf00541eddaec4d4db85 Mon Sep 17 00:00:00 2001
+From: Daniel Scally <dan.scally@ideasonboard.com>
+Date: Tue, 21 Mar 2023 13:45:26 +0000
+Subject: [PATCH] media: i2c: Clarify that gain is Analogue gain in OV7251
+
+Update the control ID for the gain control in the ov7251 driver to
+V4L2_CID_ANALOGUE_GAIN.
+
+Signed-off-by: Daniel Scally <dan.scally@ideasonboard.com>
+Patchset: cameras
+---
+ drivers/media/i2c/ov7251.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/media/i2c/ov7251.c b/drivers/media/i2c/ov7251.c
+index 27afc3fc0175..28b192c9a5ec 100644
+--- a/drivers/media/i2c/ov7251.c
++++ b/drivers/media/i2c/ov7251.c
+@@ -1053,7 +1053,7 @@ static int ov7251_s_ctrl(struct v4l2_ctrl *ctrl)
+ 	case V4L2_CID_EXPOSURE:
+ 		ret = ov7251_set_exposure(ov7251, ctrl->val);
+ 		break;
+-	case V4L2_CID_GAIN:
++	case V4L2_CID_ANALOGUE_GAIN:
+ 		ret = ov7251_set_gain(ov7251, ctrl->val);
+ 		break;
+ 	case V4L2_CID_TEST_PATTERN:
+@@ -1579,7 +1579,7 @@ static int ov7251_init_ctrls(struct ov7251 *ov7251)
+ 	ov7251->exposure = v4l2_ctrl_new_std(&ov7251->ctrls, &ov7251_ctrl_ops,
+ 					     V4L2_CID_EXPOSURE, 1, 32, 1, 32);
+ 	ov7251->gain = v4l2_ctrl_new_std(&ov7251->ctrls, &ov7251_ctrl_ops,
+-					 V4L2_CID_GAIN, 16, 1023, 1, 16);
++					 V4L2_CID_ANALOGUE_GAIN, 16, 1023, 1, 16);
+ 	v4l2_ctrl_new_std_menu_items(&ov7251->ctrls, &ov7251_ctrl_ops,
+ 				     V4L2_CID_TEST_PATTERN,
+ 				     ARRAY_SIZE(ov7251_test_pattern_menu) - 1,
+-- 
+2.53.0
+
+From 3ccb6e791a14beda5ecf46b1ff6bc1567f2c9eb7 Mon Sep 17 00:00:00 2001
+From: Daniel Scally <dan.scally@ideasonboard.com>
+Date: Wed, 22 Mar 2023 11:01:42 +0000
+Subject: [PATCH] media: v4l2-core: Acquire privacy led in
+ v4l2_async_register_subdev()
+
+The current call to v4l2_subdev_get_privacy_led() is contained in
+v4l2_async_register_subdev_sensor(), but that function isn't used by
+all the sensor drivers. Move the acquisition of the privacy led to
+v4l2_async_register_subdev() instead.
+
+Signed-off-by: Daniel Scally <dan.scally@ideasonboard.com>
+Patchset: cameras
+---
+ drivers/media/v4l2-core/v4l2-async.c  | 4 ++++
+ drivers/media/v4l2-core/v4l2-fwnode.c | 4 ----
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/media/v4l2-core/v4l2-async.c b/drivers/media/v4l2-core/v4l2-async.c
+index ee884a8221fb..4f6bafd900ee 100644
+--- a/drivers/media/v4l2-core/v4l2-async.c
++++ b/drivers/media/v4l2-core/v4l2-async.c
+@@ -799,6 +799,10 @@ int __v4l2_async_register_subdev(struct v4l2_subdev *sd, struct module *module)
+ 
+ 	INIT_LIST_HEAD(&sd->asc_list);
+ 
++	ret = v4l2_subdev_get_privacy_led(sd);
++	if (ret < 0)
++		return ret;
++
+ 	/*
+ 	 * No reference taken. The reference is held by the device (struct
+ 	 * v4l2_subdev.dev), and async sub-device does not exist independently
+diff --git a/drivers/media/v4l2-core/v4l2-fwnode.c b/drivers/media/v4l2-core/v4l2-fwnode.c
+index cb153ce42c45..f11b499e14bb 100644
+--- a/drivers/media/v4l2-core/v4l2-fwnode.c
++++ b/drivers/media/v4l2-core/v4l2-fwnode.c
+@@ -1260,10 +1260,6 @@ int v4l2_async_register_subdev_sensor(struct v4l2_subdev *sd)
+ 
+ 	v4l2_async_subdev_nf_init(notifier, sd);
+ 
+-	ret = v4l2_subdev_get_privacy_led(sd);
+-	if (ret < 0)
+-		goto out_cleanup;
+-
+ 	ret = v4l2_async_nf_parse_fwnode_sensor(sd->dev, notifier);
+ 	if (ret < 0)
+ 		goto out_cleanup;
+-- 
+2.53.0
+
+From 7125994d148d732de64f0dfede3dad68958bcd19 Mon Sep 17 00:00:00 2001
+From: Kate Hsuan <hpa@redhat.com>
+Date: Tue, 21 Mar 2023 23:37:16 +0800
+Subject: [PATCH] platform: x86: int3472: Add MFD cell for tps68470 LED
+
+Add MFD cell for tps68470-led.
+
+Reviewed-by: Daniel Scally <dan.scally@ideasonboard.com>
+Signed-off-by: Kate Hsuan <hpa@redhat.com>
+Reviewed-by: Hans de Goede <hdegoede@redhat.com>
+Patchset: cameras
+---
+ drivers/platform/x86/intel/int3472/tps68470.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/platform/x86/intel/int3472/tps68470.c b/drivers/platform/x86/intel/int3472/tps68470.c
+index 9e0763bdc758..0976b267972b 100644
+--- a/drivers/platform/x86/intel/int3472/tps68470.c
++++ b/drivers/platform/x86/intel/int3472/tps68470.c
+@@ -17,7 +17,7 @@
+ #define DESIGNED_FOR_CHROMEOS		1
+ #define DESIGNED_FOR_WINDOWS		2
+ 
+-#define TPS68470_WIN_MFD_CELL_COUNT	3
++#define TPS68470_WIN_MFD_CELL_COUNT	4
+ 
+ static const struct mfd_cell tps68470_cros[] = {
+ 	{ .name = "tps68470-gpio" },
+@@ -203,7 +203,8 @@ static int skl_int3472_tps68470_probe(struct i2c_client *client)
+ 		cells[1].name = "tps68470-regulator";
+ 		cells[1].platform_data = (void *)board_data->tps68470_regulator_pdata;
+ 		cells[1].pdata_size = sizeof(struct tps68470_regulator_platform_data);
+-		cells[2].name = "tps68470-gpio";
++		cells[2].name = "tps68470-led";
++		cells[3].name = "tps68470-gpio";
+ 
+ 		for (i = 0; i < board_data->n_gpiod_lookups; i++)
+ 			gpiod_add_lookup_table(board_data->tps68470_gpio_lookup_tables[i]);
+-- 
+2.53.0
+
+From 9743d4b7ae82c9942549a183d4f48b135a52b324 Mon Sep 17 00:00:00 2001
+From: Kate Hsuan <hpa@redhat.com>
+Date: Tue, 21 Mar 2023 23:37:17 +0800
+Subject: [PATCH] include: mfd: tps68470: Add masks for LEDA and LEDB
+
+Add flags for both LEDA(TPS68470_ILEDCTL_ENA), LEDB
+(TPS68470_ILEDCTL_ENB), and current control mask for LEDB
+(TPS68470_ILEDCTL_CTRLB)
+
+Reviewed-by: Daniel Scally <dan.scally@ideasonboard.com>
+Reviewed-by: Hans de Goede <hdegoede@redhat.com>
+Signed-off-by: Kate Hsuan <hpa@redhat.com>
+Patchset: cameras
+---
+ include/linux/mfd/tps68470.h | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/include/linux/mfd/tps68470.h b/include/linux/mfd/tps68470.h
+index 7807fa329db0..2d2abb25b944 100644
+--- a/include/linux/mfd/tps68470.h
++++ b/include/linux/mfd/tps68470.h
+@@ -34,6 +34,7 @@
+ #define TPS68470_REG_SGPO		0x22
+ #define TPS68470_REG_GPDI		0x26
+ #define TPS68470_REG_GPDO		0x27
++#define TPS68470_REG_ILEDCTL		0x28
+ #define TPS68470_REG_VCMVAL		0x3C
+ #define TPS68470_REG_VAUX1VAL		0x3D
+ #define TPS68470_REG_VAUX2VAL		0x3E
+@@ -94,4 +95,8 @@
+ #define TPS68470_GPIO_MODE_OUT_CMOS	2
+ #define TPS68470_GPIO_MODE_OUT_ODRAIN	3
+ 
++#define TPS68470_ILEDCTL_ENA		BIT(2)
++#define TPS68470_ILEDCTL_ENB		BIT(6)
++#define TPS68470_ILEDCTL_CTRLB		GENMASK(5, 4)
++
+ #endif /* __LINUX_MFD_TPS68470_H */
+-- 
+2.53.0
+
+From 437b2a4533778de6d361f397da107cc9b4982d0d Mon Sep 17 00:00:00 2001
+From: Kate Hsuan <hpa@redhat.com>
+Date: Tue, 21 Mar 2023 23:37:18 +0800
+Subject: [PATCH] leds: tps68470: Add LED control for tps68470
+
+There are two LED controllers, LEDA indicator LED and LEDB flash LED for
+tps68470. LEDA can be enabled by setting TPS68470_ILEDCTL_ENA. Moreover,
+tps68470 provides four levels of power status for LEDB. If the
+properties called "ti,ledb-current" can be found, the current will be
+set according to the property values. These two LEDs can be controlled
+through the LED class of sysfs (tps68470-leda and tps68470-ledb).
+
+Signed-off-by: Kate Hsuan <hpa@redhat.com>
+Reviewed-by: Hans de Goede <hdegoede@redhat.com>
+Patchset: cameras
+---
+ drivers/leds/Kconfig         |  12 +++
+ drivers/leds/Makefile        |   1 +
+ drivers/leds/leds-tps68470.c | 185 +++++++++++++++++++++++++++++++++++
+ 3 files changed, 198 insertions(+)
+ create mode 100644 drivers/leds/leds-tps68470.c
+
+diff --git a/drivers/leds/Kconfig b/drivers/leds/Kconfig
+index 11e7282dc297..c5665bd5e522 100644
+--- a/drivers/leds/Kconfig
++++ b/drivers/leds/Kconfig
 @@ -998,6 +998,18 @@ config LEDS_TPS6105X
  	  It is a single boost converter primarily for white LEDs and
  	  audio amplifiers.
@@ -7508,9 +8765,23 @@ diff -rupN a/drivers/leds/Kconfig b/drivers/leds/Kconfig
  config LEDS_IP30
  	tristate "LED support for SGI Octane machines"
  	depends on LEDS_CLASS
-diff -rupN a/drivers/leds/leds-tps68470.c b/drivers/leds/leds-tps68470.c
---- a/drivers/leds/leds-tps68470.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/leds/leds-tps68470.c	2026-01-26 15:11:37.476339000 +0100
+diff --git a/drivers/leds/Makefile b/drivers/leds/Makefile
+index 9a0333ec1a86..4e1ca8fc9b41 100644
+--- a/drivers/leds/Makefile
++++ b/drivers/leds/Makefile
+@@ -93,6 +93,7 @@ obj-$(CONFIG_LEDS_TCA6507)		+= leds-tca6507.o
+ obj-$(CONFIG_LEDS_TI_LMU_COMMON)	+= leds-ti-lmu-common.o
+ obj-$(CONFIG_LEDS_TLC591XX)		+= leds-tlc591xx.o
+ obj-$(CONFIG_LEDS_TPS6105X)		+= leds-tps6105x.o
++obj-$(CONFIG_LEDS_TPS68470)		+= leds-tps68470.o
+ obj-$(CONFIG_LEDS_TURRIS_OMNIA)		+= leds-turris-omnia.o
+ obj-$(CONFIG_LEDS_UPBOARD)		+= leds-upboard.o
+ obj-$(CONFIG_LEDS_WM831X_STATUS)	+= leds-wm831x-status.o
+diff --git a/drivers/leds/leds-tps68470.c b/drivers/leds/leds-tps68470.c
+new file mode 100644
+index 000000000000..35aeb5db89c8
+--- /dev/null
++++ b/drivers/leds/leds-tps68470.c
 @@ -0,0 +1,185 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
@@ -7697,21 +8968,29 @@ diff -rupN a/drivers/leds/leds-tps68470.c b/drivers/leds/leds-tps68470.c
 +MODULE_ALIAS("platform:tps68470-led");
 +MODULE_DESCRIPTION("LED driver for TPS68470 PMIC");
 +MODULE_LICENSE("GPL v2");
-diff -rupN a/drivers/leds/Makefile b/drivers/leds/Makefile
---- a/drivers/leds/Makefile	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/leds/Makefile	2026-01-26 15:11:37.475991014 +0100
-@@ -93,6 +93,7 @@ obj-$(CONFIG_LEDS_TCA6507)		+= leds-tca6
- obj-$(CONFIG_LEDS_TI_LMU_COMMON)	+= leds-ti-lmu-common.o
- obj-$(CONFIG_LEDS_TLC591XX)		+= leds-tlc591xx.o
- obj-$(CONFIG_LEDS_TPS6105X)		+= leds-tps6105x.o
-+obj-$(CONFIG_LEDS_TPS68470)		+= leds-tps68470.o
- obj-$(CONFIG_LEDS_TURRIS_OMNIA)		+= leds-turris-omnia.o
- obj-$(CONFIG_LEDS_UPBOARD)		+= leds-upboard.o
- obj-$(CONFIG_LEDS_WM831X_STATUS)	+= leds-wm831x-status.o
-diff -rupN a/drivers/media/i2c/dw9719.c b/drivers/media/i2c/dw9719.c
---- a/drivers/media/i2c/dw9719.c	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/media/i2c/dw9719.c	2026-01-26 15:13:03.482948192 +0100
-@@ -121,6 +121,9 @@ static int dw9719_power_up(struct dw9719
+-- 
+2.53.0
+
+From 59e06c991c522d4ded28c1f9a5b901df53b7c4df Mon Sep 17 00:00:00 2001
+From: mojyack <mojyack@gmail.com>
+Date: Tue, 26 Mar 2024 05:55:44 +0900
+Subject: [PATCH] media: i2c: dw9719: fix probe error on surface go 2
+
+On surface go 2, sometimes probing dw9719 fails with "dw9719: probe of i2c-INT347A:00-VCM failed with error -121".
+The -121(-EREMOTEIO) is came from drivers/i2c/busses/i2c-designware-common.c:575, and indicates the initialize occurs too early.
+So just add some delay.
+There is no exact reason for this 10000us, but 100us failed.
+
+Patchset: cameras
+---
+ drivers/media/i2c/dw9719.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/media/i2c/dw9719.c b/drivers/media/i2c/dw9719.c
+index 59558335989e..b89765521af5 100644
+--- a/drivers/media/i2c/dw9719.c
++++ b/drivers/media/i2c/dw9719.c
+@@ -121,6 +121,9 @@ static int dw9719_power_up(struct dw9719_device *dw9719, bool detect)
  	if (ret)
  		return ret;
  
@@ -7721,9 +9000,29 @@ diff -rupN a/drivers/media/i2c/dw9719.c b/drivers/media/i2c/dw9719.c
  	/*
  	 * Need 100us to transition from SHUTDOWN to STANDBY.
  	 * Jiggle the SCL pin to wake up the device (even when the regulator is
-diff -rupN a/drivers/media/i2c/ov13858.c b/drivers/media/i2c/ov13858.c
---- a/drivers/media/i2c/ov13858.c	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/media/i2c/ov13858.c	2026-01-26 15:11:37.487712941 +0100
+-- 
+2.53.0
+
+From 800e119032793baa8a62173144ddc79d221a75e2 Mon Sep 17 00:00:00 2001
+From: Tooraj Taraz <tooraj.taraz@yahoo.com>
+Date: Wed, 31 Dec 2025 00:35:50 +0100
+Subject: [PATCH] Add camera support for Surface Pro 9
+
+Experimental camera support for the Surface Pro 9.
+
+Link: https://github.com/linux-surface/linux-surface/pull/1867
+Patchset: cameras
+---
+ drivers/media/i2c/ov13858.c                   | 158 +++++++++++++++++-
+ drivers/media/i2c/ov5693.c                    |   1 +
+ drivers/media/pci/intel/ipu-bridge.c          |   4 +
+ drivers/platform/x86/intel/int3472/discrete.c |  23 +++
+ 4 files changed, 184 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/media/i2c/ov13858.c b/drivers/media/i2c/ov13858.c
+index 162b49046990..85cd0c98af03 100644
+--- a/drivers/media/i2c/ov13858.c
++++ b/drivers/media/i2c/ov13858.c
 @@ -2,6 +2,7 @@
  // Copyright (c) 2017 Intel Corporation.
  
@@ -7874,7 +9173,7 @@ diff -rupN a/drivers/media/i2c/ov13858.c b/drivers/media/i2c/ov13858.c
  /* Read registers up to 4 at a time */
  static int ov13858_read_reg(struct ov13858 *ov13858, u16 reg, u32 len,
  			    u32 *val)
-@@ -1498,8 +1621,11 @@ static int ov13858_identify_module(struc
+@@ -1498,8 +1621,11 @@ static int ov13858_identify_module(struct ov13858 *ov13858)
  	int ret;
  	u32 val;
  
@@ -7886,7 +9185,7 @@ diff -rupN a/drivers/media/i2c/ov13858.c b/drivers/media/i2c/ov13858.c
  	if (ret)
  		return ret;
  
-@@ -1509,6 +1635,7 @@ static int ov13858_identify_module(struc
+@@ -1509,6 +1635,7 @@ static int ov13858_identify_module(struct ov13858 *ov13858)
  		return -EIO;
  	}
  
@@ -7894,7 +9193,7 @@ diff -rupN a/drivers/media/i2c/ov13858.c b/drivers/media/i2c/ov13858.c
  	return 0;
  }
  
-@@ -1678,14 +1805,33 @@ static int ov13858_probe(struct i2c_clie
+@@ -1678,14 +1805,33 @@ static int ov13858_probe(struct i2c_client *client)
  				     "external clock %lu is not supported\n",
  				     freq);
  
@@ -7929,7 +9228,7 @@ diff -rupN a/drivers/media/i2c/ov13858.c b/drivers/media/i2c/ov13858.c
  	}
  
  	/* Set default mode to max resolution */
-@@ -1693,7 +1839,7 @@ static int ov13858_probe(struct i2c_clie
+@@ -1693,7 +1839,7 @@ static int ov13858_probe(struct i2c_client *client)
  
  	ret = ov13858_init_controls(ov13858);
  	if (ret)
@@ -7938,7 +9237,7 @@ diff -rupN a/drivers/media/i2c/ov13858.c b/drivers/media/i2c/ov13858.c
  
  	/* Initialize subdev */
  	ov13858->sd.internal_ops = &ov13858_internal_ops;
-@@ -1729,6 +1875,10 @@ error_media_entity:
+@@ -1729,6 +1875,10 @@ static int ov13858_probe(struct i2c_client *client)
  
  error_handler_free:
  	ov13858_free_controls(ov13858);
@@ -7949,7 +9248,7 @@ diff -rupN a/drivers/media/i2c/ov13858.c b/drivers/media/i2c/ov13858.c
  	dev_err(ov13858->dev, "%s failed:%d\n", __func__, ret);
  
  	return ret;
-@@ -1744,6 +1894,9 @@ static void ov13858_remove(struct i2c_cl
+@@ -1744,6 +1894,9 @@ static void ov13858_remove(struct i2c_client *client)
  	ov13858_free_controls(ov13858);
  
  	pm_runtime_disable(ov13858->dev);
@@ -7959,7 +9258,7 @@ diff -rupN a/drivers/media/i2c/ov13858.c b/drivers/media/i2c/ov13858.c
  }
  
  static const struct i2c_device_id ov13858_id_table[] = {
-@@ -1765,6 +1918,7 @@ MODULE_DEVICE_TABLE(acpi, ov13858_acpi_i
+@@ -1765,6 +1918,7 @@ MODULE_DEVICE_TABLE(acpi, ov13858_acpi_ids);
  static struct i2c_driver ov13858_i2c_driver = {
  	.driver = {
  		.name = "ov13858",
@@ -7967,10 +9266,11 @@ diff -rupN a/drivers/media/i2c/ov13858.c b/drivers/media/i2c/ov13858.c
  		.acpi_match_table = ACPI_PTR(ov13858_acpi_ids),
  	},
  	.probe = ov13858_probe,
-diff -rupN a/drivers/media/i2c/ov5693.c b/drivers/media/i2c/ov5693.c
---- a/drivers/media/i2c/ov5693.c	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/media/i2c/ov5693.c	2026-01-26 15:11:37.489712953 +0100
-@@ -1396,6 +1396,7 @@ static const struct dev_pm_ops ov5693_pm
+diff --git a/drivers/media/i2c/ov5693.c b/drivers/media/i2c/ov5693.c
+index 4cc796bbee92..02236f3db19d 100644
+--- a/drivers/media/i2c/ov5693.c
++++ b/drivers/media/i2c/ov5693.c
+@@ -1396,6 +1396,7 @@ static const struct dev_pm_ops ov5693_pm_ops = {
  
  static const struct acpi_device_id ov5693_acpi_match[] = {
  	{"INT33BE"},
@@ -7978,31 +9278,11 @@ diff -rupN a/drivers/media/i2c/ov5693.c b/drivers/media/i2c/ov5693.c
  	{},
  };
  MODULE_DEVICE_TABLE(acpi, ov5693_acpi_match);
-diff -rupN a/drivers/media/i2c/ov7251.c b/drivers/media/i2c/ov7251.c
---- a/drivers/media/i2c/ov7251.c	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/media/i2c/ov7251.c	2026-01-26 15:11:37.448712712 +0100
-@@ -1053,7 +1053,7 @@ static int ov7251_s_ctrl(struct v4l2_ctr
- 	case V4L2_CID_EXPOSURE:
- 		ret = ov7251_set_exposure(ov7251, ctrl->val);
- 		break;
--	case V4L2_CID_GAIN:
-+	case V4L2_CID_ANALOGUE_GAIN:
- 		ret = ov7251_set_gain(ov7251, ctrl->val);
- 		break;
- 	case V4L2_CID_TEST_PATTERN:
-@@ -1579,7 +1579,7 @@ static int ov7251_init_ctrls(struct ov72
- 	ov7251->exposure = v4l2_ctrl_new_std(&ov7251->ctrls, &ov7251_ctrl_ops,
- 					     V4L2_CID_EXPOSURE, 1, 32, 1, 32);
- 	ov7251->gain = v4l2_ctrl_new_std(&ov7251->ctrls, &ov7251_ctrl_ops,
--					 V4L2_CID_GAIN, 16, 1023, 1, 16);
-+					 V4L2_CID_ANALOGUE_GAIN, 16, 1023, 1, 16);
- 	v4l2_ctrl_new_std_menu_items(&ov7251->ctrls, &ov7251_ctrl_ops,
- 				     V4L2_CID_TEST_PATTERN,
- 				     ARRAY_SIZE(ov7251_test_pattern_menu) - 1,
-diff -rupN a/drivers/media/pci/intel/ipu-bridge.c b/drivers/media/pci/intel/ipu-bridge.c
---- a/drivers/media/pci/intel/ipu-bridge.c	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/media/pci/intel/ipu-bridge.c	2026-01-26 15:11:37.494712982 +0100
-@@ -61,6 +61,10 @@ static const struct ipu_sensor_config ip
+diff --git a/drivers/media/pci/intel/ipu-bridge.c b/drivers/media/pci/intel/ipu-bridge.c
+index b2b710094914..f5456330bbc9 100644
+--- a/drivers/media/pci/intel/ipu-bridge.c
++++ b/drivers/media/pci/intel/ipu-bridge.c
+@@ -61,6 +61,10 @@ static const struct ipu_sensor_config ipu_supported_sensors[] = {
  	IPU_SENSOR_CONFIG("INT33BE", 1, 419200000),
  	/* Onsemi MT9M114 */
  	IPU_SENSOR_CONFIG("INT33F0", 1, 384000000),
@@ -8013,38 +9293,11 @@ diff -rupN a/drivers/media/pci/intel/ipu-bridge.c b/drivers/media/pci/intel/ipu-
  	/* Omnivision OV2740 */
  	IPU_SENSOR_CONFIG("INT3474", 1, 180000000),
  	/* Omnivision OV5670 */
-diff -rupN a/drivers/media/v4l2-core/v4l2-async.c b/drivers/media/v4l2-core/v4l2-async.c
---- a/drivers/media/v4l2-core/v4l2-async.c	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/media/v4l2-core/v4l2-async.c	2026-01-26 15:11:37.458712771 +0100
-@@ -799,6 +799,10 @@ int __v4l2_async_register_subdev(struct
- 
- 	INIT_LIST_HEAD(&sd->asc_list);
- 
-+	ret = v4l2_subdev_get_privacy_led(sd);
-+	if (ret < 0)
-+		return ret;
-+
- 	/*
- 	 * No reference taken. The reference is held by the device (struct
- 	 * v4l2_subdev.dev), and async sub-device does not exist independently
-diff -rupN a/drivers/media/v4l2-core/v4l2-fwnode.c b/drivers/media/v4l2-core/v4l2-fwnode.c
---- a/drivers/media/v4l2-core/v4l2-fwnode.c	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/media/v4l2-core/v4l2-fwnode.c	2026-01-26 15:11:37.461271919 +0100
-@@ -1260,10 +1260,6 @@ int v4l2_async_register_subdev_sensor(st
- 
- 	v4l2_async_subdev_nf_init(notifier, sd);
- 
--	ret = v4l2_subdev_get_privacy_led(sd);
--	if (ret < 0)
--		goto out_cleanup;
--
- 	ret = v4l2_async_nf_parse_fwnode_sensor(sd->dev, notifier);
- 	if (ret < 0)
- 		goto out_cleanup;
-diff -rupN a/drivers/platform/x86/intel/int3472/discrete.c b/drivers/platform/x86/intel/int3472/discrete.c
---- a/drivers/platform/x86/intel/int3472/discrete.c	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/platform/x86/intel/int3472/discrete.c	2026-01-26 15:11:37.495909626 +0100
-@@ -229,6 +229,14 @@ static void int3472_get_con_id_and_polar
+diff --git a/drivers/platform/x86/intel/int3472/discrete.c b/drivers/platform/x86/intel/int3472/discrete.c
+index 1505fc3ef7a8..20962e8acb26 100644
+--- a/drivers/platform/x86/intel/int3472/discrete.c
++++ b/drivers/platform/x86/intel/int3472/discrete.c
+@@ -229,6 +229,14 @@ static void int3472_get_con_id_and_polarity(struct int3472_discrete_device *int3
  		/* Setups using a handshake pin need 25 ms enable delay */
  		*enable_time_us = 25 * USEC_PER_MSEC;
  		break;
@@ -8059,7 +9312,7 @@ diff -rupN a/drivers/platform/x86/intel/int3472/discrete.c b/drivers/platform/x8
  	default:
  		*con_id = "unknown";
  		*gpio_flags = GPIO_ACTIVE_HIGH;
-@@ -333,6 +341,8 @@ static int skl_int3472_handle_gpio_resou
+@@ -333,6 +341,8 @@ static int skl_int3472_handle_gpio_resources(struct acpi_resource *ares,
  	case INT3472_GPIO_TYPE_PRIVACY_LED:
  	case INT3472_GPIO_TYPE_POWER_ENABLE:
  	case INT3472_GPIO_TYPE_HANDSHAKE:
@@ -8068,7 +9321,7 @@ diff -rupN a/drivers/platform/x86/intel/int3472/discrete.c b/drivers/platform/x8
  		gpio = skl_int3472_gpiod_get_from_temp_lookup(int3472, agpio, con_id, gpio_flags);
  		if (IS_ERR(gpio)) {
  			ret = PTR_ERR(gpio);
-@@ -363,6 +373,19 @@ static int skl_int3472_handle_gpio_resou
+@@ -363,6 +373,19 @@ static int skl_int3472_handle_gpio_resources(struct acpi_resource *ares,
  				err_msg = "Failed to register regulator\n";
  
  			break;
@@ -8088,63 +9341,10 @@ diff -rupN a/drivers/platform/x86/intel/int3472/discrete.c b/drivers/platform/x8
  		default: /* Never reached */
  			ret = -EINVAL;
  			break;
-diff -rupN a/drivers/platform/x86/intel/int3472/tps68470.c b/drivers/platform/x86/intel/int3472/tps68470.c
---- a/drivers/platform/x86/intel/int3472/tps68470.c	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/platform/x86/intel/int3472/tps68470.c	2026-01-26 15:11:37.462709528 +0100
-@@ -17,7 +17,7 @@
- #define DESIGNED_FOR_CHROMEOS		1
- #define DESIGNED_FOR_WINDOWS		2
- 
--#define TPS68470_WIN_MFD_CELL_COUNT	3
-+#define TPS68470_WIN_MFD_CELL_COUNT	4
- 
- static const struct mfd_cell tps68470_cros[] = {
- 	{ .name = "tps68470-gpio" },
-@@ -46,6 +46,13 @@ static int tps68470_chip_init(struct dev
- 		return ret;
- 	}
- 
-+	/* Enable I2C daisy chain */
-+	ret = regmap_write(regmap, TPS68470_REG_S_I2C_CTL, 0x03);
-+	if (ret) {
-+		dev_err(dev, "Failed to enable i2c daisy chain\n");
-+		return ret;
-+	}
-+
- 	dev_info(dev, "TPS68470 REVID: 0x%02x\n", version);
- 
- 	return 0;
-@@ -196,7 +203,8 @@ static int skl_int3472_tps68470_probe(st
- 		cells[1].name = "tps68470-regulator";
- 		cells[1].platform_data = (void *)board_data->tps68470_regulator_pdata;
- 		cells[1].pdata_size = sizeof(struct tps68470_regulator_platform_data);
--		cells[2].name = "tps68470-gpio";
-+		cells[2].name = "tps68470-led";
-+		cells[3].name = "tps68470-gpio";
- 
- 		for (i = 0; i < board_data->n_gpiod_lookups; i++)
- 			gpiod_add_lookup_table(board_data->tps68470_gpio_lookup_tables[i]);
-diff -rupN a/include/linux/mfd/tps68470.h b/include/linux/mfd/tps68470.h
---- a/include/linux/mfd/tps68470.h	2026-01-25 23:11:24.000000000 +0100
-+++ b/include/linux/mfd/tps68470.h	2026-01-26 15:11:37.462981959 +0100
-@@ -34,6 +34,7 @@
- #define TPS68470_REG_SGPO		0x22
- #define TPS68470_REG_GPDI		0x26
- #define TPS68470_REG_GPDO		0x27
-+#define TPS68470_REG_ILEDCTL		0x28
- #define TPS68470_REG_VCMVAL		0x3C
- #define TPS68470_REG_VAUX1VAL		0x3D
- #define TPS68470_REG_VAUX2VAL		0x3E
-@@ -94,4 +95,8 @@
- #define TPS68470_GPIO_MODE_OUT_CMOS	2
- #define TPS68470_GPIO_MODE_OUT_ODRAIN	3
- 
-+#define TPS68470_ILEDCTL_ENA		BIT(2)
-+#define TPS68470_ILEDCTL_ENB		BIT(6)
-+#define TPS68470_ILEDCTL_CTRLB		GENMASK(5, 4)
-+
- #endif /* __LINUX_MFD_TPS68470_H */
-From d3d85f0c39e70ea972456bad4c7447b5eb207db3 Mon Sep 17 00:00:00 2001
+-- 
+2.53.0
+
+From d97bb3ff6090aa36907b602f41fe706968b1c6d4 Mon Sep 17 00:00:00 2001
 From: Sachi King <nakato@nakato.io>
 Date: Sat, 29 May 2021 17:47:38 +1000
 Subject: [PATCH] ACPI: Add quirk for Surface Laptop 4 AMD missing irq 7
@@ -8167,7 +9367,7 @@ Patchset: amd-gpio
  1 file changed, 17 insertions(+)
 
 diff --git a/arch/x86/kernel/acpi/boot.c b/arch/x86/kernel/acpi/boot.c
-index 9fa321a95..8914a922b 100644
+index 9fa321a95eb3..8914a922be2b 100644
 --- a/arch/x86/kernel/acpi/boot.c
 +++ b/arch/x86/kernel/acpi/boot.c
 @@ -22,6 +22,7 @@
@@ -8209,9 +9409,9 @@ index 9fa321a95..8914a922b 100644
  	mp_config_acpi_legacy_irqs();
  
 -- 
-2.52.0
+2.53.0
 
-From 78dd2102bdfd831dd957e3f4c8710eb6ded17f2b Mon Sep 17 00:00:00 2001
+From 3dba74f758f1ba60e5ccc3bf62fc20b116716555 Mon Sep 17 00:00:00 2001
 From: Maximilian Luz <luzmaximilian@gmail.com>
 Date: Thu, 3 Jun 2021 14:04:26 +0200
 Subject: [PATCH] ACPI: Add AMD 13" Surface Laptop 4 model to irq 7 override
@@ -8226,7 +9426,7 @@ Patchset: amd-gpio
  1 file changed, 8 insertions(+), 1 deletion(-)
 
 diff --git a/arch/x86/kernel/acpi/boot.c b/arch/x86/kernel/acpi/boot.c
-index 8914a922b..c43d0a553 100644
+index 8914a922be2b..c43d0a553867 100644
 --- a/arch/x86/kernel/acpi/boot.c
 +++ b/arch/x86/kernel/acpi/boot.c
 @@ -1174,12 +1174,19 @@ static void __init mp_config_acpi_legacy_irqs(void)
@@ -8251,12 +9451,35 @@ index 8914a922b..c43d0a553 100644
  };
  
 -- 
-2.52.0
+2.53.0
 
-diff -rupN a/drivers/acpi/acpi_tad.c b/drivers/acpi/acpi_tad.c
---- a/drivers/acpi/acpi_tad.c	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/acpi/acpi_tad.c	2026-01-26 15:18:57.293117853 +0100
-@@ -438,6 +438,14 @@ static ssize_t caps_show(struct device *
+From 637e1e0d2226b877d44666f60dbe1998ad509c03 Mon Sep 17 00:00:00 2001
+From: "Bart Groeneveld | GPX Solutions B.V" <bart@gpxbv.nl>
+Date: Mon, 5 Dec 2022 16:08:46 +0100
+Subject: [PATCH] acpi: allow usage of acpi_tad on HW-reduced platforms
+
+The specification [1] allows so-called HW-reduced platforms,
+which do not implement everything, especially the wakeup related stuff.
+
+In that case, it is still usable as a RTC. This is helpful for [2]
+and [3], which is about a device with no other working RTC,
+but it does have an HW-reduced TAD, which can be used as a RTC instead.
+
+[1]: https://uefi.org/specs/ACPI/6.5/09_ACPI_Defined_Devices_and_Device_Specific_Objects.html#time-and-alarm-device
+[2]: https://bugzilla.kernel.org/show_bug.cgi?id=212313
+[3]: https://github.com/linux-surface/linux-surface/issues/415
+
+Signed-off-by: Bart Groeneveld | GPX Solutions B.V. <bart@gpxbv.nl>
+Patchset: rtc
+---
+ drivers/acpi/acpi_tad.c | 36 ++++++++++++++++++++++++------------
+ 1 file changed, 24 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/acpi/acpi_tad.c b/drivers/acpi/acpi_tad.c
+index 6d870d97ada6..a19cd08e1554 100644
+--- a/drivers/acpi/acpi_tad.c
++++ b/drivers/acpi/acpi_tad.c
+@@ -438,6 +438,14 @@ static ssize_t caps_show(struct device *dev, struct device_attribute *attr,
  
  static DEVICE_ATTR_RO(caps);
  
@@ -8271,7 +9494,7 @@ diff -rupN a/drivers/acpi/acpi_tad.c b/drivers/acpi/acpi_tad.c
  static ssize_t ac_alarm_store(struct device *dev, struct device_attribute *attr,
  			      const char *buf, size_t count)
  {
-@@ -486,15 +494,14 @@ static ssize_t ac_status_show(struct dev
+@@ -486,15 +494,14 @@ static ssize_t ac_status_show(struct device *dev, struct device_attribute *attr,
  
  static DEVICE_ATTR_RW(ac_status);
  
@@ -8290,7 +9513,7 @@ diff -rupN a/drivers/acpi/acpi_tad.c b/drivers/acpi/acpi_tad.c
  };
  
  static ssize_t dc_alarm_store(struct device *dev, struct device_attribute *attr,
-@@ -571,14 +578,19 @@ static void acpi_tad_remove(struct platf
+@@ -571,14 +578,19 @@ static void acpi_tad_remove(struct platform_device *pdev)
  	if (dd->capabilities & ACPI_TAD_RT)
  		sysfs_remove_group(&dev->kobj, &acpi_tad_time_attr_group);
  
@@ -8312,7 +9535,7 @@ diff -rupN a/drivers/acpi/acpi_tad.c b/drivers/acpi/acpi_tad.c
  		if (dd->capabilities & ACPI_TAD_DC_WAKE) {
  			acpi_tad_disable_timer(dev, ACPI_TAD_DC_TIMER);
  			acpi_tad_clear_status(dev, ACPI_TAD_DC_TIMER);
-@@ -621,12 +633,6 @@ static int acpi_tad_probe(struct platfor
+@@ -621,12 +633,6 @@ static int acpi_tad_probe(struct platform_device *pdev)
  		goto remove_handler;
  	}
  
@@ -8325,7 +9548,7 @@ diff -rupN a/drivers/acpi/acpi_tad.c b/drivers/acpi/acpi_tad.c
  	dd = devm_kzalloc(dev, sizeof(*dd), GFP_KERNEL);
  	if (!dd) {
  		ret = -ENOMEM;
-@@ -657,6 +663,12 @@ static int acpi_tad_probe(struct platfor
+@@ -657,6 +663,12 @@ static int acpi_tad_probe(struct platform_device *pdev)
  	if (ret)
  		goto fail;
  
@@ -8338,82 +9561,73 @@ diff -rupN a/drivers/acpi/acpi_tad.c b/drivers/acpi/acpi_tad.c
  	if (caps & ACPI_TAD_DC_WAKE) {
  		ret = sysfs_create_group(&dev->kobj, &acpi_tad_dc_attr_group);
  		if (ret)
-diff -rupN a/drivers/hid/hid-multitouch.c b/drivers/hid/hid-multitouch.c
---- a/drivers/hid/hid-multitouch.c	2026-01-26 15:08:43.239689087 +0100
-+++ b/drivers/hid/hid-multitouch.c	2026-01-26 15:23:00.109610361 +0100
-@@ -82,6 +82,7 @@ MODULE_LICENSE("GPL");
- #define MT_QUIRK_APPLE_TOUCHBAR		BIT(23)
- #define MT_QUIRK_HAS_TYPE_COVER_BACKLIGHT 	BIT(24)
- #define MT_QUIRK_HAS_TYPE_COVER_TABLET_MODE_SWITCH 	BIT(25)
-+#define MT_QUIRK_SKIP_MODESET_ON_HW_OPEN_CLOSE 	BIT(26)
+-- 
+2.53.0
+
+From 8de1717f5eafe891c12671c2a2bc35424658b45c Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Ciar=C3=A1n=20Coffey?= <github@ccoffey.ie>
+Date: Fri, 10 Oct 2025 19:04:03 +0100
+Subject: [PATCH] HID: Add hid-surface driver to filter BTN_0 (FN key)
+
+The Surface Aggregator Module firmware incorrectly reports the FN key
+as BTN_0 (button 256) through runtime HID events. This button can get
+stuck in pressed state, flooding the input system and breaking focus
+tracking in KWin Wayland compositor.
+
+Add a new hid-surface driver that filters BTN_0 events using the event
+callback. The FN key should be handled as a hardware modifier and not
+reported to the OS.
+
+Tested on Surface Laptop 4 AMD with KDE Plasma Wayland. After the fix:
+- FN key combinations work correctly (volume, brightness)
+- Focus tracking no longer breaks
+- Mouse clicks work on all windows
+
+Fixes: https://github.com/linux-surface/linux-surface/issues/1851
+Patchset: hid-surface
+---
+ drivers/hid/Kconfig       |  8 ++++
+ drivers/hid/Makefile      |  1 +
+ drivers/hid/hid-surface.c | 90 +++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 99 insertions(+)
+ create mode 100644 drivers/hid/hid-surface.c
+
+diff --git a/drivers/hid/Kconfig b/drivers/hid/Kconfig
+index 59d597b4effd..d59290a9388e 100644
+--- a/drivers/hid/Kconfig
++++ b/drivers/hid/Kconfig
+@@ -1142,6 +1142,14 @@ config HID_SUNPLUS
+ 	help
+ 	Support for Sunplus wireless desktop.
  
- #define MT_INPUTMODE_TOUCHSCREEN	0x02
- #define MT_INPUTMODE_TOUCHPAD		0x03
-@@ -243,6 +244,7 @@ static void mt_post_parse(struct mt_devi
- #define MT_CLS_SMART_TECH			0x0113
- #define MT_CLS_APPLE_TOUCHBAR			0x0114
- #define MT_CLS_WIN_8_MS_SURFACE_TYPE_COVER	0x0115
-+#define MT_CLS_SURFACE_TOUCHPAD                0x0116
- #define MT_CLS_SIS				0x0457
- 
- #define MT_DEFAULT_MAXCONTACT	10
-@@ -451,6 +453,10 @@ static const struct mt_class mt_classes[
- 			MT_QUIRK_WIN8_PTP_BUTTONS,
- 		.export_all_inputs = true
- 	},
-+	{ .name = MT_CLS_SURFACE_TOUCHPAD,
-+		.quirks = MT_QUIRK_ALWAYS_VALID |
-+			MT_QUIRK_SKIP_MODESET_ON_HW_OPEN_CLOSE
-+	},
- 	{ }
- };
- 
-@@ -2190,11 +2196,30 @@ static void mt_remove(struct hid_device
- 
- static void mt_on_hid_hw_open(struct hid_device *hdev)
- {
-+	/*
-+	 * Some devices (e.g. Surface Laptop Studio 2 touchpad) can get stuck
-+	 * non-functional if we change touchpad reporting modes from the HID
-+	 * open/close hooks. Avoid mode switching on hw_open/hw_close for
-+	 * those devices.
-+	 */
-+	struct mt_device *td = hid_get_drvdata(hdev);
-+	if (td && td->mtclass.quirks & MT_QUIRK_SKIP_MODESET_ON_HW_OPEN_CLOSE)
-+		return;
- 	mt_set_modes(hdev, HID_LATENCY_NORMAL, TOUCHPAD_REPORT_ALL);
- }
- 
- static void mt_on_hid_hw_close(struct hid_device *hdev)
- {
-+	/*
-+	 * Some devices (e.g. Surface Laptop Studio 2 touchpad) can get stuck
-+	 * non-functional if we change touchpad reporting modes from the HID
-+	 * open/close hooks. Avoid mode switching on hw_open/hw_close for
-+	 * those devices.
-+	 */
-+	struct mt_device *td = hid_get_drvdata(hdev);
-+	if (td && td->mtclass.quirks & MT_QUIRK_SKIP_MODESET_ON_HW_OPEN_CLOSE)
-+		return;
++config HID_SURFACE
++	tristate "Microsoft Surface"
++	depends on SURFACE_AGGREGATOR
++	help
++	Say Y here to enable HID driver for Microsoft Surface integrated
++	keyboard and touchpad. This driver filters out erroneous BTN_0
++	(FN key) events that can cause input focus issues.
 +
- 	mt_set_modes(hdev, HID_LATENCY_HIGH, TOUCHPAD_REPORT_NONE);
- }
+ config HID_RMI
+ 	tristate "Synaptics RMI4 device support"
+ 	select RMI4_CORE
+diff --git a/drivers/hid/Makefile b/drivers/hid/Makefile
+index 3190ece25626..4d2891879548 100644
+--- a/drivers/hid/Makefile
++++ b/drivers/hid/Makefile
+@@ -174,6 +174,7 @@ obj-$(CONFIG_INTEL_ISH_HID)	+= intel-ish-hid/
+ obj-$(CONFIG_AMD_SFH_HID)       += amd-sfh-hid/
  
-@@ -2631,6 +2656,11 @@ static const struct hid_device_id mt_dev
- 		HID_DEVICE(HID_BUS_ANY, HID_GROUP_ANY,
- 			USB_VENDOR_ID_MICROSOFT, 0x09c0) },
+ obj-$(CONFIG_SURFACE_HID_CORE)  += surface-hid/
++obj-$(CONFIG_HID_SURFACE)	+= hid-surface.o
  
-+	/* Microsoft Surface touch pad */
-+	{ .driver_data = MT_CLS_SURFACE_TOUCHPAD,
-+		HID_DEVICE(HID_BUS_ANY, HID_GROUP_ANY,
-+			USB_VENDOR_ID_MICROSOFT, 0x0C46) },
-+
- 	/* Google MT devices */
- 	{ .driver_data = MT_CLS_GOOGLE,
- 		HID_DEVICE(HID_BUS_ANY, HID_GROUP_ANY, USB_VENDOR_ID_GOOGLE,
-diff -rupN a/drivers/hid/hid-surface.c b/drivers/hid/hid-surface.c
---- a/drivers/hid/hid-surface.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/hid-surface.c	2026-01-26 15:22:01.003066532 +0100
+ obj-$(CONFIG_INTEL_THC_HID)     += intel-thc-hid/
+ 
+diff --git a/drivers/hid/hid-surface.c b/drivers/hid/hid-surface.c
+new file mode 100644
+index 000000000000..a171ea65672f
+--- /dev/null
++++ b/drivers/hid/hid-surface.c
 @@ -0,0 +1,90 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
@@ -8505,39 +9719,117 @@ diff -rupN a/drivers/hid/hid-surface.c b/drivers/hid/hid-surface.c
 +MODULE_AUTHOR("Linux Surface Project");
 +MODULE_DESCRIPTION("Microsoft Surface HID driver");
 +MODULE_LICENSE("GPL");
-diff -rupN a/drivers/hid/Kconfig b/drivers/hid/Kconfig
---- a/drivers/hid/Kconfig	2026-01-26 14:55:52.212785440 +0100
-+++ b/drivers/hid/Kconfig	2026-01-26 15:22:01.001279032 +0100
-@@ -1142,6 +1142,14 @@ config HID_SUNPLUS
- 	help
- 	Support for Sunplus wireless desktop.
+-- 
+2.53.0
+
+From de9b50c2e866713da82ecd3856216a7c3ff5dce4 Mon Sep 17 00:00:00 2001
+From: LegendaryFire <tristan.balon@outlook.com>
+Date: Wed, 24 Dec 2025 00:54:44 -0800
+Subject: [PATCH] hid/multitouch: Prevent mode set on Surface Laptop Studio 2
+ touch pad
+
+Patchset: hid-surface
+---
+ drivers/hid/hid-multitouch.c | 30 ++++++++++++++++++++++++++++++
+ 1 file changed, 30 insertions(+)
+
+diff --git a/drivers/hid/hid-multitouch.c b/drivers/hid/hid-multitouch.c
+index bd2554f2127f..973f55f23ddf 100644
+--- a/drivers/hid/hid-multitouch.c
++++ b/drivers/hid/hid-multitouch.c
+@@ -82,6 +82,7 @@ MODULE_LICENSE("GPL");
+ #define MT_QUIRK_APPLE_TOUCHBAR		BIT(23)
+ #define MT_QUIRK_HAS_TYPE_COVER_BACKLIGHT	BIT(24)
+ #define MT_QUIRK_HAS_TYPE_COVER_TABLET_MODE_SWITCH	BIT(25)
++#define MT_QUIRK_SKIP_MODESET_ON_HW_OPEN_CLOSE  BIT(26)
  
-+config HID_SURFACE
-+	tristate "Microsoft Surface"
-+	depends on SURFACE_AGGREGATOR
-+	help
-+	Say Y here to enable HID driver for Microsoft Surface integrated
-+	keyboard and touchpad. This driver filters out erroneous BTN_0
-+	(FN key) events that can cause input focus issues.
+ #define MT_INPUTMODE_TOUCHSCREEN	0x02
+ #define MT_INPUTMODE_TOUCHPAD		0x03
+@@ -244,6 +245,7 @@ static void mt_post_parse(struct mt_device *td, struct mt_application *app);
+ #define MT_CLS_SMART_TECH			0x0113
+ #define MT_CLS_APPLE_TOUCHBAR			0x0114
+ #define MT_CLS_WIN_8_MS_SURFACE_TYPE_COVER	0x0115
++#define MT_CLS_SURFACE_TOUCHPAD                0x0116
+ #define MT_CLS_SIS				0x0457
+ 
+ #define MT_DEFAULT_MAXCONTACT	10
+@@ -452,6 +454,10 @@ static const struct mt_class mt_classes[] = {
+ 			MT_QUIRK_WIN8_PTP_BUTTONS,
+ 		.export_all_inputs = true
+ 	},
++	{ .name = MT_CLS_SURFACE_TOUCHPAD,
++		.quirks = MT_QUIRK_ALWAYS_VALID |
++			MT_QUIRK_SKIP_MODESET_ON_HW_OPEN_CLOSE
++	},
+ 	{ }
+ };
+ 
+@@ -2191,11 +2197,30 @@ static void mt_remove(struct hid_device *hdev)
+ 
+ static void mt_on_hid_hw_open(struct hid_device *hdev)
+ {
++	/*
++	 * Some devices (e.g. Surface Laptop Studio 2 touchpad) can get stuck
++	 * non-functional if we change touchpad reporting modes from the HID
++	 * open/close hooks. Avoid mode switching on hw_open/hw_close for
++	 * those devices.
++	 */
++	struct mt_device *td = hid_get_drvdata(hdev);
++	if (td && td->mtclass.quirks & MT_QUIRK_SKIP_MODESET_ON_HW_OPEN_CLOSE)
++		return;
+ 	mt_set_modes(hdev, HID_LATENCY_NORMAL, TOUCHPAD_REPORT_ALL);
+ }
+ 
+ static void mt_on_hid_hw_close(struct hid_device *hdev)
+ {
++	/*
++	 * Some devices (e.g. Surface Laptop Studio 2 touchpad) can get stuck
++	 * non-functional if we change touchpad reporting modes from the HID
++	 * open/close hooks. Avoid mode switching on hw_open/hw_close for
++	 * those devices.
++	 */
++	struct mt_device *td = hid_get_drvdata(hdev);
++	if (td && td->mtclass.quirks & MT_QUIRK_SKIP_MODESET_ON_HW_OPEN_CLOSE)
++		return;
 +
- config HID_RMI
- 	tristate "Synaptics RMI4 device support"
- 	select RMI4_CORE
-diff -rupN a/drivers/hid/Makefile b/drivers/hid/Makefile
---- a/drivers/hid/Makefile	2026-01-26 14:55:52.214785454 +0100
-+++ b/drivers/hid/Makefile	2026-01-26 15:22:01.002763340 +0100
-@@ -174,6 +174,7 @@ obj-$(CONFIG_INTEL_ISH_HID)	+= intel-ish
- obj-$(CONFIG_AMD_SFH_HID)       += amd-sfh-hid/
+ 	mt_set_modes(hdev, HID_LATENCY_HIGH, TOUCHPAD_REPORT_NONE);
+ }
  
- obj-$(CONFIG_SURFACE_HID_CORE)  += surface-hid/
-+obj-$(CONFIG_HID_SURFACE)	+= hid-surface.o
+@@ -2632,6 +2657,11 @@ static const struct hid_device_id mt_devices[] = {
+ 		HID_DEVICE(HID_BUS_ANY, HID_GROUP_ANY,
+ 			USB_VENDOR_ID_MICROSOFT, 0x09c0) },
  
- obj-$(CONFIG_INTEL_THC_HID)     += intel-thc-hid/
- 
-diff -rupN a/drivers/powercap/intel_rapl_msr.c b/drivers/powercap/intel_rapl_msr.c
---- a/drivers/powercap/intel_rapl_msr.c	2026-01-25 23:11:24.000000000 +0100
-+++ b/drivers/powercap/intel_rapl_msr.c	2026-01-26 15:25:40.698829335 +0100
-@@ -162,6 +162,7 @@ static int rapl_msr_write_raw(int cpu, s
++	/* Microsoft Surface touch pad */
++	{ .driver_data = MT_CLS_SURFACE_TOUCHPAD,
++		HID_DEVICE(HID_BUS_ANY, HID_GROUP_ANY,
++			USB_VENDOR_ID_MICROSOFT, 0x0C46) },
++
+ 	/* Google MT devices */
+ 	{ .driver_data = MT_CLS_GOOGLE,
+ 		HID_DEVICE(HID_BUS_ANY, HID_GROUP_ANY, USB_VENDOR_ID_GOOGLE,
+-- 
+2.53.0
+
+From ce7514b67d4a0481bbc29536ce468c679679dbe6 Mon Sep 17 00:00:00 2001
+From: Daniel Tang <danielzgtg.opensource@gmail.com>
+Date: Wed, 14 Jan 2026 20:31:38 -0500
+Subject: [PATCH] powercap: intel_rapl: Add PL4 support for Ice Lake
+
+Microsoft Surface Pro 7 firmware throttles the processor upon
+boot/resume. Userspace needs to be able to restore the correct value.
+
+Link: https://github.com/linux-surface/linux-surface/issues/706
+Signed-off-by: Daniel Tang <danielzgtg.opensource@gmail.com>
+Patchset: powercap
+---
+ drivers/powercap/intel_rapl_msr.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/powercap/intel_rapl_msr.c b/drivers/powercap/intel_rapl_msr.c
+index 9a7e150b3536..a2bc0a9c1e10 100644
+--- a/drivers/powercap/intel_rapl_msr.c
++++ b/drivers/powercap/intel_rapl_msr.c
+@@ -162,6 +162,7 @@ static int rapl_msr_write_raw(int cpu, struct reg_action *ra)
  
  /* List of verified CPUs. */
  static const struct x86_cpu_id pl4_support_ids[] = {
@@ -8545,3 +9837,6 @@ diff -rupN a/drivers/powercap/intel_rapl_msr.c b/drivers/powercap/intel_rapl_msr
  	X86_MATCH_VFM(INTEL_TIGERLAKE_L, NULL),
  	X86_MATCH_VFM(INTEL_ALDERLAKE, NULL),
  	X86_MATCH_VFM(INTEL_ALDERLAKE_L, NULL),
+-- 
+2.53.0
+
