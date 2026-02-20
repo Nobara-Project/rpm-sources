@@ -1,5 +1,5 @@
 Name:          cfhdb
-Version:       0.1.3
+Version:       0.2.0
 Release:       1%{?dist}
 License:       MPLv2
 Group:         System Environment/Libraries
@@ -16,6 +16,7 @@ BuildRequires:    clang-devel
 BuildRequires:    kernel-devel
 BuildRequires:    llvm-devel
 BuildRequires:    openssl-devel
+BuildRequires:    pkgconfig(dbus-1)
 BuildRequires:    pkgconfig(libusb-1.0)
 BuildRequires:    pkgconfig(libpci)
 
@@ -34,13 +35,13 @@ mv %{buildroot}/usr/share/actions/* %{buildroot}/usr/share/polkit-1/actions/
 CosmicFusion Hardware Database - Nobara Edition
 
 %files
-%{_prefix}/lib/cfhdb/*
+%{_prefix}/lib/%{name}/*
 %{_prefix}/lib/systemd/system/*
 %{_datadir}/polkit-1/*
 %{_bindir}/*
-%{_sysconfdir}/cfhdb/*
+%{_sysconfdir}/%{name}/*
 
 %post
-mkdir -p /var/cache/cfhdb || true
-chmod -R 777 /var/cache/cfhdb
-systemctl enable cfhdb-unbind-blacklist.service || true
+mkdir -p /var/cache/%{name} || true
+chmod -R 777 /var/cache/%{name}
+systemctl enable %{name}-unbind-blacklist.service || true
