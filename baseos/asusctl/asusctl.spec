@@ -2,7 +2,7 @@
 %global appid org.asus_linux.rog_control_center
 
 Name:           asusctl
-Version:        6.3.2
+Version:        6.3.4
 Release:        %autorelease
 Summary:        A control daemon, CLI tools, and a collection of crates for interacting with ASUS ROG laptops
 URL:            https://gitlab.com/asus-linux/asusctl
