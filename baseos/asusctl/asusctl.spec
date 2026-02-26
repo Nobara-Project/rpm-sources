@@ -65,7 +65,6 @@ desktop-file-validate %{buildroot}/%{_datadir}/applications/rog-control-center.d
 %{_bindir}/asusd-user
 %{_bindir}/asusctl
 %{_unitdir}/asusd.service
-%{_userunitdir}/asusd-user.service
 %{_udevrulesdir}/99-asusd.rules
 %dnl %{_sysconfdir}/asusd/
 %{_datadir}/asusd/aura_support.ron
@@ -87,15 +86,12 @@ desktop-file-validate %{buildroot}/%{_datadir}/applications/rog-control-center.d
 
 %post
 %systemd_post asusd.service
-%systemd_user_post asusd-user.service
 
 %preun
 %systemd_preun asusd.service
-%systemd_user_preun asusd-user.service
 
 %postun
 %systemd_postun_with_restart asusd.service
-%systemd_user_postun_with_restart asusd-user.service
 
 %files rog-gui
 %{_bindir}/rog-control-center
