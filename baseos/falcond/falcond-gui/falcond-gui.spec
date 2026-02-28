@@ -1,5 +1,5 @@
 Name:           falcond-gui
-Version:        1.0.1
+Version:        1.0.2
 Release:        %autorelease
 Summary:        A GTK4/LibAdwaita application to control and monitor the Falcond gaming optimization daemon.
 
@@ -38,10 +38,10 @@ cd %{name}
 %install
 cd %{name}
 %cargo_install
-install -Dpm 0644 res/%{name}.desktop %{buildroot}%{_datadir}/applications/%{name}.desktop
+install -Dpm 0644 res/com.pikaos.falcondgui.desktop %{buildroot}%{_datadir}/applications/com.pikaos.falcondgui.desktop
 install -dm 0755 %{buildroot}%{_datadir}/icons/hicolor/512x512/apps
-install -pm 0644 res/falcond.png %{buildroot}%{_datadir}/icons/hicolor/512x512/apps/falcond.png
-desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop
+install -pm 0644 res/com.pikaos.falcondgui.png %{buildroot}%{_datadir}/icons/hicolor/512x512/apps/com.pikaos.falcondgui.png
+desktop-file-validate %{buildroot}%{_datadir}/applications/com.pikaos.falcondgui.desktop
 
 %posttrans
 /usr/bin/gtk-update-icon-cache %{_datadir}/icons/hicolor/ &>/dev/null || :
@@ -51,10 +51,13 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop
 %license LICENSE.md
 %license LICENSE.dependencies
 %{_bindir}/%{name}
-%{_datadir}/applications/%{name}.desktop
-%{_datadir}/icons/hicolor/512x512/apps/falcond.png
+%{_datadir}/applications/com.pikaos.falcondgui.desktop
+%{_datadir}/icons/hicolor/512x512/apps/com.pikaos.falcondgui.png
 
 %changelog
+* Thu Feb 19 2026 LionHeartP <LionHeartP@proton.me> - 1.0.2-1
+- Update to 1.0.2
+
 * Mon Jan 12 2026 LionHeartP <LionHeartP@proton.me> - 1.0.1-1
 - Update to 1.0.1
 
