@@ -75,7 +75,7 @@ algorithms and decoding only VC1 algorithm.
 
 Name:           %{srcname}-freeworld
 Summary:        Mesa graphics libraries
-Version:        26.0.0
+Version:        26.0.1
 Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
 URL:            http://www.mesa3d.org
@@ -97,10 +97,10 @@ Source2:        org.mesa3d.vaapi.freeworld.metainfo.xml
 # https://gitlab.freedesktop.org/mesa/mesa/-/tree/main/subprojects
 # but we generally want the latest compatible versions
 %global rust_paste_ver 1.0.15
-%global rust_proc_macro2_ver 1.0.101
-%global rust_quote_ver 1.0.40
-%global rust_syn_ver 2.0.106
-%global rust_unicode_ident_ver 1.0.18
+%global rust_proc_macro2_ver 1.0.106
+%global rust_quote_ver 1.0.44
+%global rust_syn_ver 2.0.115
+%global rust_unicode_ident_ver 1.0.23
 %global rustc_hash_ver 2.1.1
 Source10:       https://crates.io/api/v1/crates/paste/%{rust_paste_ver}/download#/paste-%{rust_paste_ver}.tar.gz
 Source11:       https://crates.io/api/v1/crates/proc-macro2/%{rust_proc_macro2_ver}/download#/proc-macro2-%{rust_proc_macro2_ver}.tar.gz
@@ -209,28 +209,15 @@ BuildRequires:  pkgconfig(DirectX-Headers) >= 1.614.1
 %package -n %{srcname}-libgallium-freeworld
 Summary:        Mesa-based libgallium driver
 Requires:       %{srcname}-filesystem%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
-%if 0%{?with_va}
-Recommends:     %{srcname}-va-drivers%{?_isa}
-%endif
 Provides:       %{srcname}-libgallium%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
 Provides:       %{srcname}-libgallium-freeworld%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
 Obsoletes:      %{srcname}-libgallium
+Obsoletes:      %{srcname}-vdpau-drivers-freeworld < %{?epoch:%{epoch}:}%{version}-%{release}
+Obsoletes:      %{srcname}-va-drivers-freeworld < %{?epoch:%{epoch}:}%{version}-%{release}
+Provides:       %{srcname}-va-drivers-freeworld%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
 
 %description  -n %{srcname}-libgallium-freeworld
 %{summary}.
-
-%if 0%{?with_va}
-%package        -n %{srcname}-va-drivers-freeworld
-Summary:        Mesa-based VA-API drivers
-Requires:       %{srcname}-filesystem%{?_isa} = %{?epoch:%{epoch}:}%{version}
-Requires:       %{srcname}-libgallium-freeworld%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
-Obsoletes:      %{srcname}-vdpau-drivers-freeworld < %{?epoch:%{epoch}:}%{version}-%{release}
-
-Conflicts:      %{srcname}-va-drivers%{?_isa}
-
-%description    -n %{srcname}-va-drivers-freeworld
-%{_description}
-%endif
 
 %prep
 %autosetup -n %{srcname}-%{ver} -p1
@@ -396,8 +383,9 @@ rm -fr %{buildroot}%{_libdir}/libEGL*
 rm -fr %{buildroot}%{_libdir}/libGLX*
 rm -fr %{buildroot}%{_libdir}/libteflon*
 
+%files -n %{srcname}-libgallium-freeworld
+%{_libdir}/libgallium-*.so
 %if 0%{?with_va}
-%files -n %{srcname}-va-drivers-freeworld
 %{_libdir}/dri/nouveau_drv_video.so
 %if 0%{?with_r600}
 %{_libdir}/dri/r600_drv_video.so
@@ -413,10 +401,11 @@ rm -fr %{buildroot}%{_libdir}/libteflon*
 %license docs/license.rst
 %endif
 
-%files -n %{srcname}-libgallium-freeworld
-%{_libdir}/libgallium-*.so
-
 %changelog
+* Thu Feb 26 2026 LionHeartP <LionHeartP@proton.me> - 26.0.1-1
+- Update to 26.0.1
+- Obsolete va-drivers (provided by gallium)
+
 * Thu Feb 12 2026 LionHeartP <LionHeartP@proton.me> - 26.0.0-1
 - Update to 26.0.0
 

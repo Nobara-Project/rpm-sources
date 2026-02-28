@@ -67,7 +67,7 @@
 
 Name:           mesa-vulkan-drivers-freeworld
 Summary:        The mesa graphics vulkan driver stack.
-Version:        26.0.0
+Version:        26.0.1
 Release:        %autorelease
 License:        MIT
 URL:            http://www.mesa3d.org
@@ -84,10 +84,10 @@ Source0:        https://archive.mesa3d.org/mesa-%{ver}.tar.xz
 Source1:        Mesa-MLAA-License-Clarification-Email.txt
 
 %global rust_paste_ver 1.0.15
-%global rust_proc_macro2_ver 1.0.101
-%global rust_quote_ver 1.0.40
-%global rust_syn_ver 2.0.106
-%global rust_unicode_ident_ver 1.0.18
+%global rust_proc_macro2_ver 1.0.106
+%global rust_quote_ver 1.0.44
+%global rust_syn_ver 2.0.115
+%global rust_unicode_ident_ver 1.0.23
 %global rustc_hash_ver 2.1.1
 Source10:       https://crates.io/api/v1/crates/paste/%{rust_paste_ver}/download#/paste-%{rust_paste_ver}.tar.gz
 Source11:       https://crates.io/api/v1/crates/proc-macro2/%{rust_proc_macro2_ver}/download#/proc-macro2-%{rust_proc_macro2_ver}.tar.gz
@@ -480,6 +480,9 @@ install -Dpm0644 cargo-vendor.txt \
 %endif
 
 %changelog
+* Thu Feb 26 2026 LionHeartP <LionHeartP@proton.me> - 26.0.1-1
+- Update to 26.0.1
+
 * Thu Feb 12 2026 LionHeartP <LionHeartP@proton.me> - 26.0.0-1
 - Update to 26.0.0
 
