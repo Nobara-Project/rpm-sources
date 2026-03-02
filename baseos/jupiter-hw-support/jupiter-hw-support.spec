@@ -1,6 +1,6 @@
 Name:           jupiter-hw-support
 Version:        0.0.git.1256.484fa801
-Release:        41%{?dist}
+Release:        42%{?dist}
 Summary:        Steam Deck Hardware Support Package
 License:        MIT
 URL:            https://github.com/nobara-project/steamdeck-edition-packages
