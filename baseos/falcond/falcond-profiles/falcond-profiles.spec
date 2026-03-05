@@ -1,7 +1,7 @@
 %global debug_package %{nil}
 Name:           falcond-profiles
 Version:        1.0
-Release:        %autorelease -b11
+Release:        %autorelease -b12
 Summary:        Advanced Linux Gaming Performance Daemon
 
 License:        MIT

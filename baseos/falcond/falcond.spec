@@ -2,7 +2,7 @@
 %global debug_package %{nil}
 
 Name:           falcond
-Version:        1.2.3
+Version:        2.0.0
 Release:        %autorelease
 Summary:        Advanced Linux Gaming Performance Daemon
 
@@ -12,7 +12,7 @@ Source0:        %{url}/archive/v%{version}.tar.gz
 
 ExclusiveArch:	x86_64
 
-BuildRequires:  zig >= 0.14.0
+BuildRequires:  zig >= 0.15.2
 BuildRequires:  systemd-rpm-macros
 
 Recommends:	%{name}-profiles
