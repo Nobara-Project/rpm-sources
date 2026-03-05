@@ -59,7 +59,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 200
+%define customver 201
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -126,6 +126,9 @@ Patch12: capture-device-nv12-fixup.patch
 
 # Piece-Of-Cake Fast Idle CPU Selector
 Patch13: https://raw.githubusercontent.com/CachyOS/kernel-patches/refs/heads/master/%{_basekver}/misc/poc-selector.patch
+
+# Add "ROG STRIX X870-I GAMING WIFI"
+Patch14: 0857-hwmon-nct6775-Add-ROG-STRIX-X870-I-GAMING-WIFI.patch
 
 # aarch64 patches
 Patch21: 0001-arm64-mm-Handle-alignment-faults.patch
@@ -440,6 +443,7 @@ patch -p1 -i %{PATCH10}
 patch -p1 -i %{PATCH11}
 patch -p1 -i %{PATCH12}
 patch -p1 -i %{PATCH13}
+patch -p1 -i %{PATCH14}
 
 # Apply aarch64 patches
 %ifarch aarch64
@@ -1162,6 +1166,9 @@ fi
 %files
 
 %changelog
+* Thu Mar 05 2026 LionHeartP <LionHeartP@proton.me> - 6.19.6-201
+- Add "ROG STRIX X870-I GAMING WIFI" patch
+
 * Wed Mar 04 2026 LionHeartP <LionHeartP@proton.me> - 6.19.6-200
 - Update to 6.19.6
 
