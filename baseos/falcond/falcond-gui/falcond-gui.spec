@@ -7,7 +7,7 @@ License:        MIT
 URL:            https://git.pika-os.com/general-packages/%{name}
 Source0:        %{URL}/archive/v%{version}.tar.gz
 
-ExclusiveArch:	x86_64
+ExclusiveArch:	x86_64 aarch64
 
 BuildRequires:	anda-srpm-macros
 BuildRequires:  cargo-rpm-macros
@@ -55,6 +55,9 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/com.pikaos.falcondgui
 %{_datadir}/icons/hicolor/512x512/apps/com.pikaos.falcondgui.png
 
 %changelog
+* Sat Mar 07 2026 Radical <radical@radical.fun> - 1.2.3-1
+- Update specfile to allow aarch64 build
+
 * Thu Feb 19 2026 LionHeartP <LionHeartP@proton.me> - 1.0.2-1
 - Update to 1.0.2
 

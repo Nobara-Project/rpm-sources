@@ -10,7 +10,7 @@ License:        MIT
 URL:            https://git.pika-os.com/general-packages/%{name}
 Source0:        %{url}/archive/v%{version}.tar.gz
 
-ExclusiveArch:	x86_64
+ExclusiveArch:	x86_64 aarch64
 
 BuildRequires:  zig >= 0.14.0
 BuildRequires:  systemd-rpm-macros
@@ -37,9 +37,14 @@ cd %{name}
 mkdir -p %{buildroot}%{_unitdir}/
 install -Dm644 debian/%{name}.service %{buildroot}%{_unitdir}
 DESTDIR="%{buildroot}" \
+%ifarch x86_64
 zig build \
     -Doptimize=ReleaseFast \
     -Dcpu=x86_64_v2
+%else
+zig build \
+    -Doptimize=ReleaseFast
+%endif
     
 %pre
 # Create falcond group if it doesn't exist
@@ -64,6 +69,9 @@ usermod -aG 'falcond' root || :
 %{_unitdir}/%{name}.service
 
 %changelog
+* Sat Mar 07 2026 Radical <radical@radical.fun> - 1.2.3-1
+- Update specfile to allow aarch64 build
+
 * Tue Jan 06 2026 LionHeartP <LionHeartP@proton.me> - 1.2.3-1
 - Update to 1.2.3
 
