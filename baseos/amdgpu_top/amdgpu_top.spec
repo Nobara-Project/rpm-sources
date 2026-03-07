@@ -1,12 +1,12 @@
 Name:           amdgpu_top
 Version:        0.11.2
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Tool that displays AMD GPU utilization
 License:        MIT
 URL:            https://github.com/Umio-Yasuno/amdgpu_top
 Source0:        %{url}/archive/refs/tags/v%{version}.tar.gz
 
-ExclusiveArch:	x86_64
+ExclusiveArch: x86_64 aarch64
 
 BuildRequires:	anda-srpm-macros
 BuildRequires:  cargo-rpm-macros
@@ -52,6 +52,9 @@ appstream-util validate-relax --nonet %{buildroot}%{_datadir}/metainfo/*.metainf
 %{_datadir}/metainfo/io.github.umio_yasuno.amdgpu_top.metainfo.xml
 
 %changelog
+* Sat Mar 07 2026 Radical <radical@radical.fun> - 0.11.2-2
+- Change ExclusiveArch to allow building for aarch64
+
 * Thu Feb 05 2026 LionHeartP <LionHeartP@proton.me> - 0.11.2-1
 - Update to 0.11.2
 
