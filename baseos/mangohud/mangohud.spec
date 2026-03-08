@@ -68,7 +68,9 @@ Requires:       python3-numpy
 Requires:       hicolor-icon-theme
 Requires:       vulkan-loader%{?_isa}
 
+%ifarch x86_64
 Recommends:     (mangohud(x86-32) if glibc(x86-32))
+%endif
 
 Suggests:       %{name}-mangoplot
 Suggests:       goverlay
