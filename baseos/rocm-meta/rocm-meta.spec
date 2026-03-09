@@ -33,10 +33,9 @@ Requires:      rocm-hip-devel
 
 Provides:      rocm-meta
 
-BuildArch:     x86_64
 Name:          rocm-meta
 Version:       %{ROCM_MAJOR_VERSION}.%{ROCM_MINOR_VERSION}.%{ROCM_PATCH_VERSION}
-Release:       1.copr%{?dist}
+Release:       2.copr%{?dist}
 License:       MIT
 Group:         System Environment/Libraries
 Summary:       Radeon Open Compute (ROCm) Runtime software stack
