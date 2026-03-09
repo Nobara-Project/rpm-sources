@@ -1,6 +1,6 @@
 Name:          nobara-welcome
 Version:       5.0.2
-Release:       30%{?dist}
+Release:       31%{?dist}
 License:       GPLv2
 Group:         System Environment/Libraries
 Summary:       Nobara's Welcome App
@@ -30,7 +30,11 @@ Requires:	python3-gobject
 Requires:	nobara-controller-config
 Requires:	webapp-manager
 Requires:	papirus-icon-theme
+%ifarch x86_64
 Requires: 	gperftools-libs(x86-32)
+%else
+Requires: gperftools-libs
+%endif
 Requires: 	xterm-resize
 Requires: 	colorized-logs
 Requires: 	util-linux
