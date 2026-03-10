@@ -3,15 +3,13 @@
 %global appid com.mitchellh.ghostty
 
 Name:           ghostty
-Version:        1.2.3
-Release:        3%?dist
+Version:        1.3.0
+Release:        1%?dist
 Summary:        A fast, native terminal emulator written in Zig.
 License:        MIT AND MPL-2.0 AND OFL-1.1 AND (WTFPL OR CC0-1.0) AND Apache-2.0
 URL:            https://ghostty.org/
 Source0:        https://release.files.ghostty.org/%{version}/ghostty-%{version}.tar.gz
 Source1:        https://release.files.ghostty.org/%{version}/ghostty-%{version}.tar.gz.minisig
-
-Patch: 		update-themes-url.patch
 
 # https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
 ExcludeArch:    %{ix86}
@@ -26,7 +24,7 @@ BuildRequires:  ncurses
 BuildRequires:  ncurses-devel
 BuildRequires:  pandoc-cli
 BuildRequires:  systemd-rpm-macros
-BuildRequires:  zig <= 0.15.0
+BuildRequires:  zig
 BuildRequires:  zig-rpm-macros
 BuildRequires:  pkgconfig(blueprint-compiler)
 BuildRequires:  pkgconfig(bzip2)
@@ -81,6 +79,13 @@ BuildArch:      noarch
 
 %description    zsh-completion
 Zsh shell completion for Ghostty.
+
+%package        devel
+Summary:        Development files for Ghostty.
+Requires:       %{name} = %{evr}
+
+%description    devel
+This package includes the development files for Ghostty.
 
 %package        kio
 Summary:        KIO support for Ghostty
@@ -150,6 +155,19 @@ BuildArch:      noarch
 %description    terminfo
 Ghostty's terminfo. Needed for basic terminal function.
 
+%package -n     libghostty-vt
+Summary:        The libghostty-vt libraries
+
+%description -n libghostty-vt
+This package contains the libghostty-vt libraries, the first of many libghostty libaries in development.
+
+%package -n     libghostty-vt-devel
+Summary:        Development files for libghostty-vt
+Requires:       libghostty-vt = %{evr}
+
+%description -n libghostty-vt-devel
+This package contains the libraries and header files that are needed for developing with libghostty-vt.
+
 %prep
 /usr/bin/minisign -V -m %{SOURCE0} -x %{SOURCE1} -P %{public_key}
 %autosetup -p1
@@ -208,6 +226,9 @@ rm -rf %{buildroot}%{_datadir}/terminfo/g/%{name}
 %files zsh-completion
 %{zsh_completions_dir}/_%{name}
 
+%files devel
+%{_includedir}/ghostty/
+
 %files kio
 %{_datadir}/kio/servicemenus/%{appid}.desktop
 
@@ -235,6 +256,7 @@ rm -rf %{buildroot}%{_datadir}/terminfo/g/%{name}
 %{_datadir}/%{name}/shell-integration/bash/%{name}.bash
 %{_datadir}/%{name}/shell-integration/elvish/lib/%{name}-integration.elv
 %{_datadir}/%{name}/shell-integration/fish/vendor_conf.d/%{name}-shell-integration.fish
+%{_datadir}/%{name}/shell-integration/nushell/vendor/autoload/%{name}.nu
 %{_datadir}/%{name}/shell-integration/zsh/.zshenv
 %{_datadir}/%{name}/shell-integration/zsh/%{name}-integration
 
@@ -243,6 +265,13 @@ rm -rf %{buildroot}%{_datadir}/terminfo/g/%{name}
 %{_datadir}/terminfo/g/%{name}
 %endif
 %{_datadir}/terminfo/x/xterm-%{name}
+
+%files -n libghostty-vt
+%{_libdir}/libghostty-vt.so.*
+
+%files -n libghostty-vt-devel
+%{_libdir}/libghostty-vt.so
+%{_datadir}/pkgconfig/libghostty-vt.pc
 
 %post
 %systemd_user_post app-%{appid}.service
