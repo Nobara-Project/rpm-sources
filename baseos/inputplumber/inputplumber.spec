@@ -14,7 +14,9 @@ BuildRequires:  libevdev-devel libiio-devel git make cargo libudev-devel llvm-de
 Requires:       libevdev libiio
 Recommends:     steam gamescope-session linuxconsoletools
 Provides:       inputplumber
+%ifarch x86_64
 Requires:       opengamepadui
+%endif
 Conflicts:      hhd
 
 %description
