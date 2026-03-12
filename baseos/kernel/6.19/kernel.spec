@@ -43,7 +43,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.19
-%define _stablekver 6
+%define _stablekver 7
 %define _rcver rc7
 %if %{_stablekver} == 0
 %define _tarkver %{_basekver}
@@ -59,7 +59,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 201
+%define customver 200
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -1166,6 +1166,9 @@ fi
 %files
 
 %changelog
+* Thu Mar 12 2026 LionHeartP <LionHeartP@proton.me> - 6.19.7-200
+- Update to 6.19.7
+
 * Thu Mar 05 2026 LionHeartP <LionHeartP@proton.me> - 6.19.6-201
 - Add "ROG STRIX X870-I GAMING WIFI" patch
 
