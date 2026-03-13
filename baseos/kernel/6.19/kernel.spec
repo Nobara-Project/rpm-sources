@@ -43,7 +43,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.19
-%define _stablekver 5
+%define _stablekver 7
 %define _rcver rc7
 %if %{_stablekver} == 0
 %define _tarkver %{_basekver}
@@ -126,6 +126,9 @@ Patch12: capture-device-nv12-fixup.patch
 
 # Piece-Of-Cake Fast Idle CPU Selector
 Patch13: https://raw.githubusercontent.com/CachyOS/kernel-patches/refs/heads/master/%{_basekver}/misc/poc-selector.patch
+
+# Add "ROG STRIX X870-I GAMING WIFI"
+Patch14: 0857-hwmon-nct6775-Add-ROG-STRIX-X870-I-GAMING-WIFI.patch
 
 # aarch64 patches
 Patch21: 0001-arm64-mm-Handle-alignment-faults.patch
@@ -440,6 +443,7 @@ patch -p1 -i %{PATCH10}
 patch -p1 -i %{PATCH11}
 patch -p1 -i %{PATCH12}
 patch -p1 -i %{PATCH13}
+patch -p1 -i %{PATCH14}
 
 # Apply aarch64 patches
 %ifarch aarch64
@@ -1162,6 +1166,15 @@ fi
 %files
 
 %changelog
+* Thu Mar 12 2026 LionHeartP <LionHeartP@proton.me> - 6.19.7-200
+- Update to 6.19.7
+
+* Thu Mar 05 2026 LionHeartP <LionHeartP@proton.me> - 6.19.6-201
+- Add "ROG STRIX X870-I GAMING WIFI" patch
+
+* Wed Mar 04 2026 LionHeartP <LionHeartP@proton.me> - 6.19.6-200
+- Update to 6.19.6
+
 * Fri Feb 27 2026 LionHeartP <LionHeartP@proton.me> - 6.19.4-200
 - Update to 6.19.4
 
