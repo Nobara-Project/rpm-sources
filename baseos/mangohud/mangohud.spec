@@ -1,14 +1,12 @@
 %global appname MangoHud
 %global forgeurl https://github.com/flightlessmango/MangoHud
-%global commit 33c2c7ddbb72c15e19a42163d75424d5804f8ec8
+%global commit 9f323752a0aa169c74a7e3d761045c7c92797e63
 %global _lto_cflags %{nil}
 %forgemeta
 %global imgui_ver 1.91.6
 %global imgui_rev 2
 %global imgui_wrap_ver 3
-%global vulkan_headers_ver 1.3.283
-%global vulkan_headers_wrap_ver 2
-%global vulkan_headers_rev 1
+%global vulkan_headers_ver 1.4.346
 %global implot_ver 0.16
 %global implot_wrap_ver 2
 
@@ -16,7 +14,7 @@
 
 Name:           mangohud
 Version:        0.8.3
-Release:        %autorelease -b3
+Release:        %autorelease -b4
 Summary:        Vulkan and OpenGL overlay for monitoring FPS, temperatures, CPU/GPU load
 
 License:        MIT
@@ -27,20 +25,17 @@ Source1:        https://github.com/ocornut/imgui/archive/v%{imgui_ver}/imgui-%{i
 Source2:	https://wrapdb.mesonbuild.com/v%{imgui_rev}/imgui_%{imgui_ver}-1/get_patch#/imgui-%{imgui_ver}-%{imgui_wrap_ver}-wrap.zip
 # Vulkan-Headers
 Source3:        https://github.com/KhronosGroup/Vulkan-Headers/archive/v%{vulkan_headers_ver}/Vulkan-Headers-%{vulkan_headers_ver}.tar.gz
-Source4:	https://wrapdb.mesonbuild.com/v%{vulkan_headers_wrap_ver}/vulkan-headers_%{vulkan_headers_ver}-%{vulkan_headers_rev}/get_patch#/vulkan-headers-%{vulkan_headers_ver}-%{vulkan_headers_rev}-patch.zip
+Source4:	https://github.com/KhronosGroup/Vulkan-Utility-Libraries/archive/v%{vulkan_headers_ver}/Vulkan-Utility-Librarys-%{vulkan_headers_ver}.tar.gz
 # implot
 Source5:        https://github.com/epezent/implot/archive/v%{implot_ver}/implot-%{implot_ver}.tar.gz
 Source6:        https://wrapdb.mesonbuild.com/v%{implot_wrap_ver}/implot_%{implot_ver}-1/get_patch#/implot-%{implot_ver}-%{implot_wrap_ver}-wrap.zip
 Source20:       README.Fedora.md
 
-# Fix crashing while attempting to stop logging
-Patch:		fix-empty-strings-in-overlay-cpp.patch
-
 BuildRequires:  vulkan-headers
 BuildRequires:  appstream
 BuildRequires:  dbus-devel
 BuildRequires:  gcc-c++
-BuildRequires:  git-core
+BuildRequires:  git
 BuildRequires:  glew-devel
 BuildRequires:  glfw-devel
 BuildRequires:  glslang-devel
@@ -108,8 +103,18 @@ Local visualization "mangoplot" for %{name}.
 mv imgui-%{imgui_ver} subprojects/
 # Vulkan-Headers
 mv Vulkan-Headers-%{vulkan_headers_ver} subprojects/
+# Vulkan-Utility-Libraries
+mv Vulkan-Utility-Libraries-%{vulkan_headers_ver} subprojects/
 # implot
 mv implot-%{implot_ver} subprojects/
+
+# Copy MangoHud's internal Meson build files
+cp -rv subprojects/packagefiles/vulkan-headers/* subprojects/Vulkan-Headers-%{vulkan_headers_ver}/
+cp -rv subprojects/packagefiles/vulkan-utility-libraries/* subprojects/Vulkan-Utility-Libraries-%{vulkan_headers_ver}/
+
+# Copy WrapDB patches for imgui and implot
+cp -n meson.build subprojects/imgui-%{imgui_ver}/ 2>/dev/null || :
+cp -n meson.build subprojects/implot-%{implot_ver}/ 2>/dev/null || :
 
 %build
 %meson \
@@ -161,6 +166,14 @@ install -D -p -m 0644 %{SOURCE20} %{buildroot}%{_docdir}/%{name}/README.Fedora.m
 
 
 %changelog
+* Mon Mar 16 2026 LionHeartP <LionHeartP@proton.me> - 0.8.3-4
+- build: Update to latest commit
+- drop patch for crashing when logging stops [MERGED]
+- bump vulkan-headers to 1.4.346
+- add Vulkan-Utility-Libraries subrpoject
+- use provided meson build files instead
+- change build dep git-core to git so meson recognizes it and appends commit information
+
 * Tue Mar 10 2026 LionHeartP <LionHeartP@proton.me> - 0.8.3-3
 - build: Update to latest commit
 
