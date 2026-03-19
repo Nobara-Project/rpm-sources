@@ -1,6 +1,6 @@
 Name:          nobara-updater
 Version:       2.0.1
-Release:       17%{?dist}
+Release:       25%{?dist}
 License:       GPL-3.0-or-later
 Summary:       Nobara System Updater
 
@@ -11,7 +11,7 @@ BuildArch:      noarch
 BuildRequires:  python3-devel
 BuildRequires:  make
 
-Provides:	nobara-updater
+Provides:   nobara-updater
 
 # App Deps
 Requires: python
@@ -66,7 +66,7 @@ if [ ! -f /usr/bin/xdg-mime ]; then
 fi
 
 # Set the default application for .rpm files
-xdg-mime default /usr/share/applications/nobara-rpm-installer.desktop application/x-rpm
+xdg-mime default /usr/share/applications/org.dnf.AppCenter.desktop application/x-rpm
 update-mime-database /usr/share/mime
 
 %files
@@ -74,10 +74,8 @@ update-mime-database /usr/share/mime
 %{python3_sitelib}/nobara_updater/
 %{_bindir}/nobara-sync
 %{_bindir}/nobara-updater
-%{_bindir}/nobara-rpm-installer
 %{_bindir}/nobara-codec-wizard
 %{_datadir}/applications/nobara-updater.desktop
-%{_datadir}/applications/nobara-rpm-installer.desktop
 %{_datadir}/applications/nobara-codec-wizard.desktop
 %{_datadir}/icons/hicolor/64x64/apps/nobara-updater.svg
 %{_datadir}/nobara-codec-wizard/
