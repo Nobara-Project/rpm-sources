@@ -1,0 +1,16 @@
+using Gtk 4.0;
+
+template $YumexFlatpakView: Gtk.ListView {
+  name: "flatpak_view";
+  hexpand: true;
+  vexpand: true;
+  model: selection;
+  factory: flatpak_factory;
+}
+
+Gtk.SingleSelection selection {}
+
+Gtk.SignalListItemFactory flatpak_factory {
+  setup => $on_row_setup();
+  bind => $on_row_bind();
+}
