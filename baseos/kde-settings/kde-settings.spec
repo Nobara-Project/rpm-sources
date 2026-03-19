@@ -6,8 +6,8 @@
 
 Summary: Config files for KDE
 Name:    kde-settings
-Version: 43.1
-Release: 3%{?dist}
+Version: 43.101
+Release: 4%{?dist}
 
 License: MIT
 URL:     https://pagure.io/fedora-kde/kde-settings
@@ -22,11 +22,7 @@ BuildRequires: kde-filesystem
 BuildRequires: systemd-rpm-macros
 Source10: ssh-agent.sh
 
-%if ! 0%{?bootstrap}
-# for f33+ , consider merging version_maj with version, ie, use Version: 33 --rex
-%global  version_maj %(echo %{version} | cut -d. -f1)
-BuildRequires: f%{version_maj}-backgrounds-kde
-%endif
+BuildRequires: system-backgrounds-kde
 
 # when kdebugrc was moved here
 Conflicts: kf5-kdelibs4support < 5.7.0-3
@@ -47,6 +43,7 @@ Requires: shared-mime-info
 %package plasma
 Summary: Configuration files for plasma
 Requires: %{name} = %{version}-%{release}
+Requires: system-backgrounds-kde
 Requires: system-logos
 Requires: google-noto-sans-fonts
 # Not required but expected by users as we use other fonts from the noto "family"
@@ -65,6 +62,16 @@ Summary: Configuration files for sddm
 Requires: sddm
 Requires: breeze-cursor-theme
 %description sddm
+%{summary}.
+
+%package plasmalogin
+Summary: Configuration files for Plasma Login Manager
+Requires: plasma-login-manager >= 0.21.0~git1.20260112
+%if 0%{?version_maj:1}
+Requires: f%{version_maj}-backgrounds-kde
+%endif
+Supplements: (%{name} and plasma-login-manager)
+%description plasmalogin
 %{summary}.
 
 
@@ -99,7 +106,7 @@ Summary: Run initial-setup GUI on Plasma Wayland
 Provides: firstboot(gui-backend)
 Conflicts: firstboot(gui-backend)
 Requires: kwin-wayland
-Requires: maliit-keyboard
+Requires: plasma-keyboard
 Requires: xorg-x11-server-Xwayland
 Requires: initial-setup-gui >= 0.3.99
 Supplements: ((initial-setup or initial-setup-gui) and kwin-wayland)
@@ -133,11 +140,9 @@ fi
 
 cp -p %{SOURCE1} .
 
-# default wallpaper symlink
-%if 0%{?version_maj:1}
+# legacy default wallpaper symlink
 mkdir -p %{buildroot}%{_datadir}/wallpapers
-ln -s F%{version_maj} %{buildroot}%{_datadir}/wallpapers/Fedora
-%endif
+ln -s Default %{buildroot}%{_datadir}/wallpapers/Fedora
 
 %if 0%{?rhel} && 0%{?rhel} < 9
 # for rhel 8 and older with older noto fonts
@@ -154,12 +159,12 @@ rm -rv %{buildroot}%{_libexecdir}/initial-setup
 
 ## unpackaged files
 rm -Rf %{buildroot}%{_datadir}/plasma/look-and-feel/org.fedoraproject.fedora.desktop
+rm -Rf %{buildroot}%{_datadir}/plasma/look-and-feel/org.fedoraproject.fedoradark.desktop
+rm -Rf %{buildroot}%{_datadir}/plasma/look-and-feel/org.fedoraproject.fedoralight.desktop
 rm -Rf %{buildroot}%{_datadir}/wallpapers/Fedora
 
 %check
-%if 0%{?version_maj:1} && 1%{?flatpak} == 0
-test -f %{_datadir}/wallpapers/F%{version_maj} || ls -l %{_datadir}/wallpapers
-%endif
+test -e %{_datadir}/wallpapers/Default || ls -l %{_datadir}/wallpapers
 
 
 %files
@@ -203,6 +208,10 @@ test -f %{_datadir}/wallpapers/F%{version_maj} || ls -l %{_datadir}/wallpapers
 %{_prefix}/lib/sddm/sddm.conf.d/kde_settings.conf
 
 
+%files plasmalogin
+%{_prefix}/lib/plasmalogin/defaults.conf
+
+
 %files pulseaudio
 # nothing, this is a metapackage
 
@@ -217,6 +226,36 @@ test -f %{_datadir}/wallpapers/F%{version_maj} || ls -l %{_datadir}/wallpapers
 
 
 %changelog
+* Fri Feb 20 2026 Neal Gompa <ngompa@fedoraproject.org> - 43.101-5
+- Handle correct xdg-user-dirs versioned dependency for EL10
+
+* Wed Feb 18 2026 Neal Gompa <ngompa@fedoraproject.org> - 43.101-4
+- Add backgrounds dep on plasmalogin subpackage
+
+* Sun Feb 08 2026 Neal Gompa <ngompa@fedoraproject.org> - 43.101-3
+- Correctly require plasma-keyboard
+
+* Fri Jan 16 2026 Fedora Release Engineering <releng@fedoraproject.org> - 43.101-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_44_Mass_Rebuild
+
+* Mon Jan 12 2026 Neal Gompa <ngompa@fedoraproject.org> - 43.101-1
+- plasmalogin, kscreenlocker: Use the proper wallpaper theme and PLM config file path
+
+* Sun Jan 11 2026 Neal Gompa <ngompa@fedoraproject.org> - 43.100-1
+- Set wallpaper configuration for plasmalogin and kscreenlocker properly
+
+* Fri Jan 09 2026 Yaakov Selkowitz <yselkowi@redhat.com> - 43.99-2
+- Use system-backgrounds-kde for wallpaper symlink
+
+* Sat Dec 27 2025 Neal Gompa <ngompa@fedoraproject.org> - 43.99-1
+- look-and-feel: Add support for Fedora light/dark themes
+
+* Mon Dec 15 2025 Alessandro Astone <ales.astone@gmail.com> - 43.98-1
+- Use plasma-keyboard as the virtual keyboard for initial-setup
+
+* Sun Dec 14 2025 Alessandro Astone <ales.astone@gmail.com> - 43.97-1
+- Set org.kde.plasma.keyboard as default virtual keyboard
+
 * Mon Sep 29 2025 Alessandro Astone <ales.astone@gmail.com> - 43.1-1
 - Add default list of favorites for the application launcher
 
