@@ -1,5 +1,9 @@
+
+# https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
+ExcludeArch: %{ix86}
+
 Name:    plasma-workspace-wallpapers
-Version: 6.5.5
+Version: 6.6.2
 Release: 1%{?dist}
 Summary: Additional wallpapers for Plasma workspace
 # Automatically converted from old format: LGPLv3 - review is highly recommended.
@@ -76,8 +80,36 @@ Obsoletes:      plasma-workspace-wallpapers < 5.2.0-2
 %{_datadir}/wallpapers/summer_1am/
 %{_datadir}/wallpapers/Volna/
 %{_datadir}/wallpapers/Coast/
+%{_datadir}/wallpapers/Orionids/
 
 %changelog
+* Tue Mar 03 2026 Steve Cossette <farchord@gmail.com> - 6.6.2-1
+- 6.6.2
+
+* Tue Feb 24 2026 Steve Cossette <farchord@gmail.com> - 6.6.1-1
+- 6.6.1
+
+* Thu Feb 12 2026 Steve Cossette <farchord@gmail.com> - 6.6.0-1
+- 6.6.0
+
+* Tue Jan 27 2026 Steve Cossette <farchord@gmail.com> - 6.5.91-1
+- 6.5.91
+
+* Sat Jan 17 2026 Fedora Release Engineering <releng@fedoraproject.org> - 6.5.90-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_44_Mass_Rebuild
+
+* Tue Jan 13 2026 farchord@gmail.com - 6.5.90-1
+- 6.5.90
+
+* Tue Jan 13 2026 farchord@gmail.com - 6.5.5-1
+- 6.5.5
+
+* Tue Dec 09 2025 Steve Cossette <farchord@gmail.com> - 6.5.4-1
+- 6.5.4
+
+* Tue Nov 18 2025 Steve Cossette <farchord@gmail.com> - 6.5.3-1
+- 6.5.3
+
 * Tue Nov 04 2025 Steve Cossette <farchord@gmail.com> - 6.5.2-1
 - 6.5.2
 
