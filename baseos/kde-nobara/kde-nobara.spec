@@ -1,6 +1,6 @@
 Name:           kde-nobara
-Version:        6.5.5
-Release:        1%{?dist}
+Version:        6.6.2
+Release:        4%{?dist}
 Summary:        KDE Presets from NobaraProject Official
 License:    	GPLv2
 URL:            https://github.com/nobara-project/nobara-core-packages
@@ -19,6 +19,7 @@ Recommends:       starship
 Provides:       kde-nobara
 Provides: plasma-lookandfeel-nobara
 Requires: kde-nobara-sddm
+Requires: kde-nobara-plasmalogin
 Recommends: kde-steamdeck-additions
 Recommends: kde-nobara-extras-wallpapers
 Obsoletes: nobara-kde-presets
@@ -56,7 +57,16 @@ License: GPLv2+ or LGPLv3+
 
 %description sddm
 
-Nobara sddm theme
+%package plasmalogin
+Provides: kde-nobara-plasmalogin
+
+Summary: Nobara plasmalogin theme
+
+License: GPLv2+ or LGPLv3+
+
+%description plasmalogin
+
+Nobara plasmalogin theme
 
 # Disable debug packages
 %define debug_package %{nil}
@@ -122,6 +132,9 @@ cp -rv etc/* %{buildroot}%{_sysconfdir}
 
 %files sddm
 %{_datadir}/sddm/*
+
+%files plasmalogin
+%{_datadir}/plasmalogin/*
 
 # Finally, changes from the latest release of your application are generated from
 # your project's Git history. It will be empty until you make first annotated Git tag.
