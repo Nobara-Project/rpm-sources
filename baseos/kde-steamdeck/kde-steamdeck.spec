@@ -1,6 +1,6 @@
 Name:           kde-steamdeck
-Version:        6.5.5.git.84.1c1d05a9
-Release:        1%{?dist}
+Version:        6.6.2.git.84.1c1d05a9
+Release:        2%{?dist}
 Summary:        KDE Presets from Valve's SteamOS 3.0
 License:    	GPLv2
 URL:            https://github.com/nobara-project/steamdeck-edition-packages
@@ -12,6 +12,8 @@ BuildArch:      noarch
 
 Requires:		kde-filesystem
 Requires:       kde-steamdeck-additions
+Requires:       kde-steamdeck-sddm
+Requires:       kde-steamdeck-plasmalogin
 
 Conflicts:  	steamdeck-kde-themes
 Obsoletes:      steamdeck-kde-presets
@@ -29,7 +31,16 @@ License: GPLv2+ or LGPLv3+
 
 %description sddm
 
-SteamOS 3.0 sddm theme
+%package plasmalogin
+Provides:       kde-steamdeck-plasmalogin
+
+Summary: SteamOS 3.0 plasmalogin theme
+
+License: GPLv2+ or LGPLv3+
+
+%description plasmalogin
+
+SteamOS 3.0 plasmalogin theme
 
 # Disable debug packages
 %define debug_package %{nil}
@@ -398,6 +409,9 @@ cp -rv etc/* %{buildroot}%{_sysconfdir}
 %files sddm
 %license COPYING
 %{_datadir}/sddm/themes/sugar-steamOS/*
+
+%files plasmalogin
+%{_datadir}/plasmalogin/*
 
 # Finally, changes from the latest release of your application are generated from
 # your project's Git history. It will be empty until you make first annotated Git tag.
