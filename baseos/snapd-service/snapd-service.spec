@@ -90,7 +90,7 @@
 
 Name:           snapd-service
 Version:        2.72
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        A transactional software package manager
 License:        GPL-3.0-only
 URL:            https://%{provider_prefix}
@@ -621,6 +621,7 @@ mkdir -p %{buildroot}%{_presetdir}/
 
 # Create preset file
 cat > %{buildroot}%{_presetdir}/snapd.preset << EOF
+enable snapd.socket
 enable snapd.service
 enable snapd.apparmor.service
 EOF
@@ -909,13 +910,14 @@ make -C data -k check
 %endif
 %systemd_post %{snappy_svcs}
 %systemd_user_post %{snappy_user_svcs}
-# If install, test if snapd socket and timer are enabled.
-# If enabled, then attempt to start them. This will silently fail
-# in chroots or other environments where services aren't expected
-# to be started.
+
+# Fresh install: start the socket/service if enabled by preset/admin policy
 if [ $1 -eq 1 ] ; then
-   if systemctl -q is-enabled snapd.socket > /dev/null 2>&1 ; then
-      systemctl start snapd.socket > /dev/null 2>&1 || :
+   if systemctl -q is-enabled snapd.socket >/dev/null 2>&1 ; then
+      systemctl start snapd.socket >/dev/null 2>&1 || :
+   fi
+   if systemctl -q is-enabled snapd.service >/dev/null 2>&1 ; then
+      systemctl start snapd.service >/dev/null 2>&1 || :
    fi
 fi
 
