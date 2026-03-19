@@ -976,8 +976,8 @@ fi
 
 %posttrans core
 /bin/kernel-install add %{kverstr} /lib/modules/%{kverstr}/vmlinuz || exit $?
-if [ ! -z $(rpm -qa | grep grubby) ]; then
-  grubby --set-default="/boot/vmlinuz-%{kverstr}"
+if [ -x /usr/sbin/grubby ]; then
+    /usr/sbin/grubby --set-default="/boot/vmlinuz-%{kverstr}"
 fi
 
 %preun core
