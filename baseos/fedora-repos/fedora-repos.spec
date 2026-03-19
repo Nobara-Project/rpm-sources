@@ -4,7 +4,7 @@
 Summary:        Fedora package repositories
 Name:           fedora-repos
 Version:        43
-Release:        1%{?eln:.eln%{eln}}
+Release:        2%{?eln:.eln%{eln}}
 License:        MIT
 URL:            https://fedoraproject.org/
 
@@ -374,32 +374,25 @@ for VER in %{version} %{rawhide_release} ${rawhide_next}; do
 done
 rm -f "$TMPRING"
 
+# in nobara NONE of these repos are used, only the keys, so make sure the disabled repos cannot be read by package managers
+mkdir -p $RPM_BUILD_ROOT/etc/yum.repos.d/no-touch-disabled/
+mv $RPM_BUILD_ROOT/etc/yum.repos.d/*.repo $RPM_BUILD_ROOT/etc/yum.repos.d/no-touch-disabled/
+
 %posttrans
-if [[ -f /etc/yum.repos.d/fedora.repo.rpmsave ]]; then
-  rm /etc/yum.repos.d/fedora.repo.rpmsave
-fi
-if [[ -f /etc/yum.repos.d/fedora.repo.rpmnew ]]; then
-  mv /etc/yum.repos.d/fedora.repo.rpmnew /etc/yum.repos.d/fedora.repo
-fi
-if [[ -f /etc/yum.repos.d/fedora-updates.repo.rpmsave ]]; then
-  rm /etc/yum.repos.d/fedora-updates.repo.rpmsave
-fi
-if [[ -f /etc/yum.repos.d/fedora-updates.repo.rpmnew ]]; then
-  mv /etc/yum.repos.d/fedora-updates.repo.rpmnew /etc/yum.repos.d/fedora-updates.repo
-fi
+rm -Rf /etc/yum.repos.d/fedora.repo.rpmsave
 
 %files
-%dir /etc/yum.repos.d
-/etc/yum.repos.d/fedora.repo
-/etc/yum.repos.d/fedora-cisco-openh264.repo
-/etc/yum.repos.d/fedora-updates.repo
-/etc/yum.repos.d/fedora-updates-testing.repo
+%dir /etc/yum.repos.d/no-touch-disabled/
+/etc/yum.repos.d/no-touch-disabled/fedora.repo
+/etc/yum.repos.d/no-touch-disabled/fedora-cisco-openh264.repo
+/etc/yum.repos.d/no-touch-disabled/fedora-updates.repo
+/etc/yum.repos.d/no-touch-disabled/fedora-updates-testing.repo
 
 %files archive
-/etc/yum.repos.d/fedora-updates-archive.repo
+/etc/yum.repos.d/no-touch-disabled/fedora-updates-archive.repo
 
 %files rawhide
-/etc/yum.repos.d/fedora-rawhide.repo
+/etc/yum.repos.d/no-touch-disabled/fedora-rawhide.repo
 
 
 %files -n fedora-gpg-keys
@@ -417,7 +410,7 @@ fi
 /etc/ostree/remotes.d/fedora-compose.conf
 
 %files eln
-/etc/yum.repos.d/fedora-eln.repo
+/etc/yum.repos.d/no-touch-disabled/fedora-eln.repo
 
 
 %changelog
