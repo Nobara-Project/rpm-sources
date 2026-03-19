@@ -1,6 +1,6 @@
-From c98216b84cb3bd39cf384b175d8bb8c2b0a7f645 Mon Sep 17 00:00:00 2001
+From c94e78cf318b6365569860086776ea4880f80638 Mon Sep 17 00:00:00 2001
 From: Peter Jung <admin@ptr1337.dev>
-Date: Thu, 12 Mar 2026 16:08:04 +0100
+Date: Thu, 19 Mar 2026 18:25:23 +0100
 Subject: [PATCH 1/8] amd-isp4
 
 Signed-off-by: Peter Jung <admin@ptr1337.dev>
@@ -4341,9 +4341,9 @@ index 000000000000..c66451e26166
 -- 
 2.53.0
 
-From 9f9e7a2a90dad5df422fd370c73430c1ee59e895 Mon Sep 17 00:00:00 2001
+From 9f313acd769d7455085bff8954460c360ee51179 Mon Sep 17 00:00:00 2001
 From: Peter Jung <admin@ptr1337.dev>
-Date: Thu, 12 Mar 2026 16:10:17 +0100
+Date: Thu, 19 Mar 2026 18:25:35 +0100
 Subject: [PATCH 2/8] bbr3
 
 Signed-off-by: Peter Jung <admin@ptr1337.dev>
@@ -4672,7 +4672,7 @@ index dce3113787a7..6efba4f74f6f 100644
  /*
   * Sender's congestion state indicating normal or abnormal situations
 diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-index b71c22475c51..85d95a59708e 100644
+index df922f9f5289..0db06aca87ca 100644
 --- a/net/ipv4/Kconfig
 +++ b/net/ipv4/Kconfig
 @@ -669,15 +669,18 @@ config TCP_CONG_BBR
@@ -4726,10 +4726,10 @@ index e01492234b0b..27893b774e08 100644
  	.undo_cwnd = bpf_tcp_ca_undo_cwnd,
  	.sndbuf_expand = bpf_tcp_ca_sndbuf_expand,
 diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 699212cd6c22..3d83de11a21c 100644
+index 7fbaccf4c0ad..af918c00cc7f 100644
 --- a/net/ipv4/tcp.c
 +++ b/net/ipv4/tcp.c
-@@ -3471,6 +3471,7 @@ int tcp_disconnect(struct sock *sk, int flags)
+@@ -3472,6 +3472,7 @@ int tcp_disconnect(struct sock *sk, int flags)
  	tp->rx_opt.dsack = 0;
  	tp->rx_opt.num_sacks = 0;
  	tp->rcv_ooopack = 0;
@@ -4737,7 +4737,7 @@ index 699212cd6c22..3d83de11a21c 100644
  
  
  	/* Clean up fastopen related fields */
-@@ -4251,6 +4252,8 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
+@@ -4252,6 +4253,8 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
  		info->tcpi_options |= TCPI_OPT_ECN;
  	if (tp->ecn_flags & TCP_ECN_SEEN)
  		info->tcpi_options |= TCPI_OPT_ECN_SEEN;
@@ -7736,9 +7736,9 @@ index 160080c9021d..06ee74f2c01d 100644
 -- 
 2.53.0
 
-From 458ad0a2e91ad2c56ad782a88b10c472b7cde4d6 Mon Sep 17 00:00:00 2001
+From 4b5c94fa3c1b43dc3cb68d18349571019c0ad56f Mon Sep 17 00:00:00 2001
 From: Peter Jung <admin@ptr1337.dev>
-Date: Thu, 12 Mar 2026 16:10:31 +0100
+Date: Thu, 19 Mar 2026 18:25:53 +0100
 Subject: [PATCH 3/8] cachy
 
 Signed-off-by: Peter Jung <admin@ptr1337.dev>
@@ -7791,7 +7791,7 @@ Signed-off-by: Peter Jung <admin@ptr1337.dev>
  kernel/Kconfig.preempt                        |    2 +-
  kernel/fork.c                                 |   28 +
  kernel/locking/rwsem.c                        |    4 +-
- kernel/sched/fair.c                           |   79 +-
+ kernel/sched/fair.c                           |   82 +-
  kernel/sched/sched.h                          |    2 +-
  mm/Kconfig                                    |   65 +-
  mm/compaction.c                               |    4 +
@@ -7808,7 +7808,7 @@ Signed-off-by: Peter Jung <admin@ptr1337.dev>
  scripts/mod/modpost.c                         |   15 +-
  scripts/package/PKGBUILD                      |    5 +
  tag-release.sh                                |  217 ++
- 65 files changed, 8710 insertions(+), 99 deletions(-)
+ 65 files changed, 8713 insertions(+), 99 deletions(-)
  create mode 100644 block/adios.c
  create mode 100644 drivers/media/v4l2-core/v4l2loopback.c
  create mode 100644 drivers/media/v4l2-core/v4l2loopback.h
@@ -7969,10 +7969,10 @@ index 06d0ebddeefa..c240a9b6bdbc 100644
  unprivileged_userfaultfd
  ========================
 diff --git a/Makefile b/Makefile
-index eb431129c7ab..ea0dbe18f7cf 100644
+index 96640a9632ef..cb5ce5c18f3f 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -888,11 +888,19 @@ KBUILD_CFLAGS	+= -fno-delete-null-pointer-checks
+@@ -889,11 +889,19 @@ KBUILD_CFLAGS	+= -fno-delete-null-pointer-checks
  ifdef CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE
  KBUILD_CFLAGS += -O2
  KBUILD_RUSTFLAGS += -Copt-level=2
@@ -7992,7 +7992,7 @@ index eb431129c7ab..ea0dbe18f7cf 100644
  # Always set `debug-assertions` and `overflow-checks` because their default
  # depends on `opt-level` and `debug-assertions`, respectively.
  KBUILD_RUSTFLAGS += -Cdebug-assertions=$(if $(CONFIG_RUST_DEBUG_ASSERTIONS),y,n)
-@@ -1022,10 +1030,10 @@ export CC_FLAGS_SCS
+@@ -1023,10 +1031,10 @@ export CC_FLAGS_SCS
  endif
  
  ifdef CONFIG_LTO_CLANG
@@ -8006,7 +8006,7 @@ index eb431129c7ab..ea0dbe18f7cf 100644
  endif
  CC_FLAGS_LTO	+= -fvisibility=hidden
  
-@@ -1232,7 +1240,7 @@ export ARCH_DRIVERS	:= $(drivers-y) $(drivers-m)
+@@ -1233,7 +1241,7 @@ export ARCH_DRIVERS	:= $(drivers-y) $(drivers-m)
  KBUILD_VMLINUX_OBJS := built-in.a $(patsubst %/, %/lib.a, $(filter %/, $(libs-y)))
  KBUILD_VMLINUX_LIBS := $(filter-out %/, $(libs-y))
  
@@ -8015,7 +8015,7 @@ index eb431129c7ab..ea0dbe18f7cf 100644
  export KBUILD_LDS          := arch/$(SRCARCH)/kernel/vmlinux.lds
  
  ifdef CONFIG_TRIM_UNUSED_KSYMS
-@@ -1241,16 +1249,12 @@ ifdef CONFIG_TRIM_UNUSED_KSYMS
+@@ -1242,16 +1250,12 @@ ifdef CONFIG_TRIM_UNUSED_KSYMS
  KBUILD_MODULES := y
  endif
  
@@ -8037,7 +8037,7 @@ index eb431129c7ab..ea0dbe18f7cf 100644
  
  PHONY += vmlinux_o
  vmlinux_o: vmlinux.a $(KBUILD_VMLINUX_LIBS)
-@@ -1619,6 +1623,7 @@ endif # CONFIG_MODULES
+@@ -1620,6 +1624,7 @@ endif # CONFIG_MODULES
  CLEAN_FILES += vmlinux.symvers modules-only.symvers \
  	       modules.builtin modules.builtin.modinfo modules.nsdeps \
  	       modules.builtin.ranges vmlinux.o.map vmlinux.unstripped \
@@ -8045,7 +8045,7 @@ index eb431129c7ab..ea0dbe18f7cf 100644
  	       compile_commands.json rust/test \
  	       rust-project.json .vmlinux.objs .vmlinux.export.c \
                 .builtin-dtbs-list .builtin-dtb.S
-@@ -2072,7 +2077,7 @@ clean: $(clean-dirs)
+@@ -2073,7 +2078,7 @@ clean: $(clean-dirs)
  	$(call cmd,rmfiles)
  	@find . $(RCS_FIND_IGNORE) \
  		\( -name '*.[aios]' -o -name '*.rsi' -o -name '*.ko' -o -name '.*.cmd' \
@@ -10450,10 +10450,10 @@ index 2c5c228408bf..918e2bebfe78 100644
  	  This driver adds a CPUFreq driver which utilizes a fine grain
  	  processor performance frequency control range instead of legacy
 diff --git a/drivers/cpufreq/intel_pstate.c b/drivers/cpufreq/intel_pstate.c
-index ec8308629432..177b8cbd46c9 100644
+index 31df8d85816a..ef47342248ef 100644
 --- a/drivers/cpufreq/intel_pstate.c
 +++ b/drivers/cpufreq/intel_pstate.c
-@@ -3914,6 +3914,8 @@ static int __init intel_pstate_setup(char *str)
+@@ -3916,6 +3916,8 @@ static int __init intel_pstate_setup(char *str)
  
  	if (!strcmp(str, "disable"))
  		no_load = 1;
@@ -16435,7 +16435,7 @@ index 000000000000..64b09ece2e5a
 +module_exit(vhba_exit);
 +
 diff --git a/include/linux/mm.h b/include/linux/mm.h
-index f0d5be9dc736..f25889adfa43 100644
+index 05dbfdb6dd1e..585c9f690cb2 100644
 --- a/include/linux/mm.h
 +++ b/include/linux/mm.h
 @@ -207,6 +207,14 @@ static inline void __mm_zero_struct_page(struct page *page)
@@ -16573,7 +16573,7 @@ index da326800c1c9..cf5267cac7bb 100644
  	help
  	  This option turns the kernel into a real-time kernel by replacing
 diff --git a/kernel/fork.c b/kernel/fork.c
-index b1f3915d5f8e..f779ad112643 100644
+index 5b45887435dc..ecf33c82df7f 100644
 --- a/kernel/fork.c
 +++ b/kernel/fork.c
 @@ -123,6 +123,16 @@
@@ -16605,7 +16605,7 @@ index b1f3915d5f8e..f779ad112643 100644
  	/*
  	 * Force any signals received before this point to be delivered
  	 * before the fork happens.  Collect up signals sent to multiple
-@@ -3067,6 +3082,10 @@ static int check_unshare_flags(unsigned long unshare_flags)
+@@ -3066,6 +3081,10 @@ static int check_unshare_flags(unsigned long unshare_flags)
  		if (!current_is_single_threaded())
  			return -EINVAL;
  	}
@@ -16616,7 +16616,7 @@ index b1f3915d5f8e..f779ad112643 100644
  
  	return 0;
  }
-@@ -3297,6 +3316,15 @@ static const struct ctl_table fork_sysctl_table[] = {
+@@ -3296,6 +3315,15 @@ static const struct ctl_table fork_sysctl_table[] = {
  		.mode		= 0644,
  		.proc_handler	= sysctl_max_threads,
  	},
@@ -16655,7 +16655,7 @@ index 24df4d98f7d2..1d5923996fa5 100644
  
  	return state;
 diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
-index a8e766eaca1f..fe51aa114f46 100644
+index a8e766eaca1f..eb88f2c3c79b 100644
 --- a/kernel/sched/fair.c
 +++ b/kernel/sched/fair.c
 @@ -76,10 +76,19 @@ unsigned int sysctl_sched_tunable_scaling = SCHED_TUNABLESCALING_LOG;
@@ -16725,7 +16725,7 @@ index a8e766eaca1f..fe51aa114f46 100644
  static inline void set_idle_cores(int cpu, int val)
  {
  	struct sched_domain_shared *sds;
-@@ -7880,13 +7911,26 @@ static inline bool asym_fits_cpu(unsigned long util,
+@@ -7880,13 +7911,29 @@ static inline bool asym_fits_cpu(unsigned long util,
  /*
   * Try and locate an idle core/thread in the LLC cache domain.
   */
@@ -16743,9 +16743,12 @@ index a8e766eaca1f..fe51aa114f46 100644
 +	if (recent_used_cpu != prev &&
 +	    recent_used_cpu != target &&
 +	    cpus_share_cache(recent_used_cpu, target) &&
-+	    is_idle_core(recent_used_cpu) &&
++	    (available_idle_cpu(recent_used_cpu) || sched_idle_cpu(recent_used_cpu)) &&
 +	    cpumask_test_cpu(recent_used_cpu, p->cpus_ptr)) {
-+		return recent_used_cpu;
++
++		if ((unsigned int)recent_used_cpu < nr_cpumask_bits &&
++		    is_idle_core(recent_used_cpu))
++			return recent_used_cpu;
 +	} else {
 +		recent_used_cpu = -1;
 +	}
@@ -16753,7 +16756,7 @@ index a8e766eaca1f..fe51aa114f46 100644
  	/*
  	 * On asymmetric system, update task utilization because we will check
  	 * that the task fits with CPU's capacity.
-@@ -7903,7 +7947,7 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
+@@ -7903,7 +7950,7 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
  	 */
  	lockdep_assert_irqs_disabled();
  
@@ -16762,7 +16765,7 @@ index a8e766eaca1f..fe51aa114f46 100644
  	    asym_fits_cpu(task_util, util_min, util_max, target))
  		return target;
  
-@@ -7937,24 +7981,6 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
+@@ -7937,24 +7984,6 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
  		return prev;
  	}
  
@@ -16787,7 +16790,7 @@ index a8e766eaca1f..fe51aa114f46 100644
  	/*
  	 * For asymmetric CPU capacity systems, our domain of interest is
  	 * sd_asym_cpucapacity rather than sd_llc.
-@@ -8688,7 +8714,14 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int wake_flags)
+@@ -8688,7 +8717,14 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int wake_flags)
  		new_cpu = sched_balance_find_dst_cpu(sd, p, cpu, prev_cpu, sd_flag);
  	} else if (wake_flags & WF_TTWU) { /* XXX always ? */
  		/* Fast path */
@@ -16803,7 +16806,7 @@ index a8e766eaca1f..fe51aa114f46 100644
  	}
  	rcu_read_unlock();
  
-@@ -10372,7 +10405,7 @@ static bool sched_use_asym_prio(struct sched_domain *sd, int cpu)
+@@ -10372,7 +10408,7 @@ static bool sched_use_asym_prio(struct sched_domain *sd, int cpu)
  	if (!sched_smt_active())
  		return true;
  
@@ -16925,7 +16928,7 @@ index 1e8f8eca318c..32326c48162b 100644
  static int __read_mostly sysctl_compact_memory;
  
 diff --git a/mm/huge_memory.c b/mm/huge_memory.c
-index d3beddd8cc30..8d12de6c50af 100644
+index e3992314df9a..f7cb08392424 100644
 --- a/mm/huge_memory.c
 +++ b/mm/huge_memory.c
 @@ -63,7 +63,11 @@ unsigned long transparent_hugepage_flags __read_mostly =
@@ -16981,7 +16984,7 @@ index ccdeb0e84d39..57a9eb278221 100644
  EXPORT_SYMBOL_GPL(dirty_writeback_interval);
  
 diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index 04e32adaeb1d..072c4729dd98 100644
+index 469ee8cb7b2e..312a0a77ecda 100644
 --- a/mm/page_alloc.c
 +++ b/mm/page_alloc.c
 @@ -302,7 +302,11 @@ const char * const migratetype_names[MIGRATE_TYPES] = {
@@ -17734,9 +17737,9 @@ index 000000000000..98f9c55e3a86
 -- 
 2.53.0
 
-From 99ac06cd0142097bc7c9d1cad3e0b66c92bc1e59 Mon Sep 17 00:00:00 2001
+From f951025d40a34d194f12803e0f91c18f87b387e7 Mon Sep 17 00:00:00 2001
 From: Peter Jung <admin@ptr1337.dev>
-Date: Thu, 12 Mar 2026 16:13:52 +0100
+Date: Thu, 19 Mar 2026 18:28:19 +0100
 Subject: [PATCH 4/8] fixes
 
 Signed-off-by: Peter Jung <admin@ptr1337.dev>
@@ -17754,7 +17757,6 @@ Signed-off-by: Peter Jung <admin@ptr1337.dev>
  drivers/gpu/drm/i915/gt/intel_rc6.c        | 13 ++++-
  drivers/input/joystick/xpad.c              |  1 +
  drivers/iommu/iommu.c                      |  6 ++-
- drivers/usb/core/quirks.c                  |  9 ++++
  include/linux/perf_event.h                 |  2 +-
  include/linux/sched/mm.h                   | 10 ++--
  include/linux/sched/topology.h             |  3 --
@@ -17767,7 +17769,8 @@ Signed-off-by: Peter Jung <admin@ptr1337.dev>
  kernel/sched/features.h                    |  5 --
  kernel/sched/sched.h                       | 31 ++++++------
  kernel/sched/topology.c                    |  6 ---
- 26 files changed, 120 insertions(+), 139 deletions(-)
+ sound/hda/codecs/realtek/alc269.c          | 12 ++---
+ 26 files changed, 117 insertions(+), 145 deletions(-)
 
 diff --git a/arch/arm/include/asm/mmu_context.h b/arch/arm/include/asm/mmu_context.h
 index db2cb06aa8cf..bebde469f81a 100644
@@ -17948,10 +17951,10 @@ index a41bb1e2a279..aad21f7831cc 100644
  						     BTUSB_WIDEBAND_SPEECH },
  	{ USB_DEVICE(0x13d3, 0x3610), .driver_info = BTUSB_MEDIATEK |
 diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
-index ad5a3235a75f..bd4fe7e790ce 100644
+index 051c12ab5968..1726f6262f33 100644
 --- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
 +++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
-@@ -5069,7 +5069,7 @@ void amdgpu_device_fini_hw(struct amdgpu_device *adev)
+@@ -5081,7 +5081,7 @@ void amdgpu_device_fini_hw(struct amdgpu_device *adev)
  	 * before ip_fini_early to prevent kfd locking refcount issues by calling
  	 * amdgpu_amdkfd_suspend()
  	 */
@@ -17960,7 +17963,7 @@ index ad5a3235a75f..bd4fe7e790ce 100644
  		amdgpu_amdkfd_device_fini_sw(adev);
  
  	amdgpu_device_ip_fini_early(adev);
-@@ -5081,7 +5081,7 @@ void amdgpu_device_fini_hw(struct amdgpu_device *adev)
+@@ -5093,7 +5093,7 @@ void amdgpu_device_fini_hw(struct amdgpu_device *adev)
  
  	amdgpu_gart_dummy_page_fini(adev);
  
@@ -18031,40 +18034,6 @@ index 2ca990dfbb88..3a0c0e4b42ff 100644
  			if (!phys_addr) {
  				map_size += pg_size;
  				continue;
-diff --git a/drivers/usb/core/quirks.c b/drivers/usb/core/quirks.c
-index c4d85089d19b..f4c80063864f 100644
---- a/drivers/usb/core/quirks.c
-+++ b/drivers/usb/core/quirks.c
-@@ -377,6 +377,9 @@ static const struct usb_device_id usb_quirk_list[] = {
- 	/* SanDisk Extreme 55AE */
- 	{ USB_DEVICE(0x0781, 0x55ae), .driver_info = USB_QUIRK_NO_LPM },
- 
-+	/* Avermedia Live Gamer Ultra 2.1 (GC553G2) - BOS descriptor fetch hangs at SuperSpeed Plus */
-+	{ USB_DEVICE(0x07ca, 0x2553), .driver_info = USB_QUIRK_NO_BOS },
-+
- 	/* Realforce 87U Keyboard */
- 	{ USB_DEVICE(0x0853, 0x011b), .driver_info = USB_QUIRK_NO_LPM },
- 
-@@ -437,6 +440,9 @@ static const struct usb_device_id usb_quirk_list[] = {
- 	{ USB_DEVICE(0x0b05, 0x17e0), .driver_info =
- 			USB_QUIRK_IGNORE_REMOTE_WAKEUP },
- 
-+	/* ASUS TUF 4K PRO - BOS descriptor fetch hangs at SuperSpeed Plus */
-+	{ USB_DEVICE(0x0b05, 0x1ab9), .driver_info = USB_QUIRK_NO_BOS },
-+
- 	/* Realtek Semiconductor Corp. Mass Storage Device (Multicard Reader)*/
- 	{ USB_DEVICE(0x0bda, 0x0151), .driver_info = USB_QUIRK_CONFIG_INTF_STRINGS },
- 
-@@ -565,6 +571,9 @@ static const struct usb_device_id usb_quirk_list[] = {
- 
- 	{ USB_DEVICE(0x2386, 0x350e), .driver_info = USB_QUIRK_NO_LPM },
- 
-+	/* UGREEN 35871 - BOS descriptor fetch hangs at SuperSpeed Plus */
-+	{ USB_DEVICE(0x2b89, 0x5871), .driver_info = USB_QUIRK_NO_BOS },
-+
- 	/* APTIV AUTOMOTIVE HUB */
- 	{ USB_DEVICE(0x2c48, 0x0132), .driver_info =
- 			USB_QUIRK_SHORT_SET_ADDRESS_REQ_TIMEOUT },
 diff --git a/include/linux/perf_event.h b/include/linux/perf_event.h
 index 9ded2e582c60..fbe94b65b30a 100644
 --- a/include/linux/perf_event.h
@@ -18226,7 +18195,7 @@ index 293bbd9ac3f4..2c1c9759e278 100644
  }
  
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index dbf4e32a063f..1a6b1bfdb497 100644
+index 011fe1b2ae91..06c9929e9d83 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -124,7 +124,6 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(sched_exit_tp);
@@ -18249,7 +18218,7 @@ index dbf4e32a063f..1a6b1bfdb497 100644
  /*
   * double_rq_lock - safely lock two runqueues
   */
-@@ -4873,7 +4867,7 @@ static inline void prepare_task(struct task_struct *next)
+@@ -4876,7 +4870,7 @@ static inline void prepare_task(struct task_struct *next)
  	WRITE_ONCE(next->on_cpu, 1);
  }
  
@@ -18258,7 +18227,7 @@ index dbf4e32a063f..1a6b1bfdb497 100644
  {
  	/*
  	 * This must be the very last reference to @prev from this CPU. After
-@@ -4889,7 +4883,7 @@ static inline void finish_task(struct task_struct *prev)
+@@ -4892,7 +4886,7 @@ static inline void finish_task(struct task_struct *prev)
  	smp_store_release(&prev->on_cpu, 0);
  }
  
@@ -18267,7 +18236,7 @@ index dbf4e32a063f..1a6b1bfdb497 100644
  {
  	void (*func)(struct rq *rq);
  	struct balance_callback *next;
-@@ -4924,7 +4918,7 @@ struct balance_callback balance_push_callback = {
+@@ -4927,7 +4921,7 @@ struct balance_callback balance_push_callback = {
  	.func = balance_push,
  };
  
@@ -18276,7 +18245,7 @@ index dbf4e32a063f..1a6b1bfdb497 100644
  __splice_balance_callbacks(struct rq *rq, bool split)
  {
  	struct balance_callback *head = rq->balance_callback;
-@@ -4954,7 +4948,7 @@ struct balance_callback *splice_balance_callbacks(struct rq *rq)
+@@ -4957,7 +4951,7 @@ struct balance_callback *splice_balance_callbacks(struct rq *rq)
  	return __splice_balance_callbacks(rq, true);
  }
  
@@ -18285,7 +18254,7 @@ index dbf4e32a063f..1a6b1bfdb497 100644
  {
  	if (rf)
  		rq_unpin_lock(rq, rf);
-@@ -4991,7 +4985,7 @@ prepare_lock_switch(struct rq *rq, struct task_struct *next, struct rq_flags *rf
+@@ -4994,7 +4988,7 @@ prepare_lock_switch(struct rq *rq, struct task_struct *next, struct rq_flags *rf
  #endif
  }
  
@@ -18294,7 +18263,7 @@ index dbf4e32a063f..1a6b1bfdb497 100644
  {
  	/*
  	 * If we are tracking spinlock dependencies then we have to
-@@ -5023,7 +5017,7 @@ static inline void kmap_local_sched_out(void)
+@@ -5026,7 +5020,7 @@ static inline void kmap_local_sched_out(void)
  #endif
  }
  
@@ -18303,7 +18272,7 @@ index dbf4e32a063f..1a6b1bfdb497 100644
  {
  #ifdef CONFIG_KMAP_LOCAL
  	if (unlikely(current->kmap_ctrl.idx))
-@@ -5076,7 +5070,7 @@ prepare_task_switch(struct rq *rq, struct task_struct *prev,
+@@ -5079,7 +5073,7 @@ prepare_task_switch(struct rq *rq, struct task_struct *prev,
   * past. 'prev == current' is still correct but we need to recalculate this_rq
   * because prev may have moved to another CPU.
   */
@@ -18312,7 +18281,7 @@ index dbf4e32a063f..1a6b1bfdb497 100644
  	__releases(rq->lock)
  {
  	struct rq *rq = this_rq();
-@@ -8495,8 +8489,6 @@ void __init sched_init_smp(void)
+@@ -8498,8 +8492,6 @@ void __init sched_init_smp(void)
  {
  	sched_init_numa(NUMA_NO_NODE);
  
@@ -18322,10 +18291,10 @@ index dbf4e32a063f..1a6b1bfdb497 100644
  	 * There's no userspace yet to cause hotplug operations; hence all the
  	 * CPU masks are stable and all blatant races in the below code cannot
 diff --git a/kernel/sched/ext.c b/kernel/sched/ext.c
-index 0bb8fa927e9e..94d75bf0c119 100644
+index f7eeccbd893a..be8870ca206a 100644
 --- a/kernel/sched/ext.c
 +++ b/kernel/sched/ext.c
-@@ -3488,8 +3488,8 @@ static void destroy_dsq(struct scx_sched *sch, u64 dsq_id)
+@@ -3487,8 +3487,8 @@ static void destroy_dsq(struct scx_sched *sch, u64 dsq_id)
  	 * operations inside scheduler locks.
  	 */
  	dsq->id = SCX_DSQ_INVALID;
@@ -18337,7 +18306,7 @@ index 0bb8fa927e9e..94d75bf0c119 100644
  out_unlock_dsq:
  	raw_spin_unlock_irqrestore(&dsq->lock, flags);
 diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
-index fe51aa114f46..319c32e41610 100644
+index eb88f2c3c79b..8cc947d9f3fa 100644
 --- a/kernel/sched/fair.c
 +++ b/kernel/sched/fair.c
 @@ -2563,11 +2563,8 @@ static void task_numa_find_cpu(struct task_numa_env *env,
@@ -18354,7 +18323,7 @@ index fe51aa114f46..319c32e41610 100644
  		env->dst_cpu = cpu;
  		if (task_numa_compare(env, taskimp, groupimp, maymove))
  			break;
-@@ -8501,9 +8498,7 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu)
+@@ -8504,9 +8501,7 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu)
  		int max_spare_cap_cpu = -1;
  		int fits, max_fits = -1;
  
@@ -18365,7 +18334,7 @@ index fe51aa114f46..319c32e41610 100644
  			continue;
  
  		/* Account external pressure for the energy estimation */
-@@ -12351,27 +12346,11 @@ void update_max_interval(void)
+@@ -12354,27 +12349,11 @@ void update_max_interval(void)
  	max_load_balance_interval = HZ*num_online_cpus()/10;
  }
  
@@ -18394,7 +18363,7 @@ index fe51aa114f46..319c32e41610 100644
  	if (cost > sd->max_newidle_lb_cost) {
  		/*
  		 * Track max cost of a domain to make sure to not delay the
-@@ -12419,7 +12398,7 @@ static void sched_balance_domains(struct rq *rq, enum cpu_idle_type idle)
+@@ -12422,7 +12401,7 @@ static void sched_balance_domains(struct rq *rq, enum cpu_idle_type idle)
  		 * Decay the newidle max times here because this is a regular
  		 * visit to all the domains.
  		 */
@@ -18403,7 +18372,7 @@ index fe51aa114f46..319c32e41610 100644
  		max_cost += sd->max_newidle_lb_cost;
  
  		/*
-@@ -13055,22 +13034,6 @@ static int sched_balance_newidle(struct rq *this_rq, struct rq_flags *rf)
+@@ -13058,22 +13037,6 @@ static int sched_balance_newidle(struct rq *this_rq, struct rq_flags *rf)
  			break;
  
  		if (sd->flags & SD_BALANCE_NEWIDLE) {
@@ -18426,7 +18395,7 @@ index fe51aa114f46..319c32e41610 100644
  
  			pulled_task = sched_balance_rq(this_cpu, this_rq,
  						   sd, CPU_NEWLY_IDLE,
-@@ -13078,14 +13041,10 @@ static int sched_balance_newidle(struct rq *this_rq, struct rq_flags *rf)
+@@ -13081,14 +13044,10 @@ static int sched_balance_newidle(struct rq *this_rq, struct rq_flags *rf)
  
  			t1 = sched_clock_cpu(this_cpu);
  			domain_cost = t1 - t0;
@@ -18575,17 +18544,40 @@ index cf643a5ddedd..711076aa4980 100644
  		.max_newidle_lb_cost	= 0,
  		.last_decay_max_lb_cost	= jiffies,
  		.child			= child,
+diff --git a/sound/hda/codecs/realtek/alc269.c b/sound/hda/codecs/realtek/alc269.c
+index 4c49f1195e1b..2144865ff29b 100644
+--- a/sound/hda/codecs/realtek/alc269.c
++++ b/sound/hda/codecs/realtek/alc269.c
+@@ -7303,12 +7303,12 @@ static const struct hda_quirk alc269_fixup_tbl[] = {
+ 	SND_PCI_QUIRK(0x1043, 0x3e00, "ASUS G814FH/FM/FP", ALC287_FIXUP_CS35L41_I2C_2),
+ 	SND_PCI_QUIRK(0x1043, 0x3e20, "ASUS G814PH/PM/PP", ALC287_FIXUP_CS35L41_I2C_2),
+ 	SND_PCI_QUIRK(0x1043, 0x3e30, "ASUS TP3607SA", ALC287_FIXUP_TAS2781_I2C),
+-	SND_PCI_QUIRK(0x1043, 0x3ee0, "ASUS Strix G815_JHR_JMR_JPR", ALC287_FIXUP_TAS2781_I2C),
+-	SND_PCI_QUIRK(0x1043, 0x3ef0, "ASUS Strix G635LR_LW_LX", ALC287_FIXUP_TAS2781_I2C),
+-	SND_PCI_QUIRK(0x1043, 0x3f00, "ASUS Strix G815LH_LM_LP", ALC287_FIXUP_TAS2781_I2C),
+-	SND_PCI_QUIRK(0x1043, 0x3f10, "ASUS Strix G835LR_LW_LX", ALC287_FIXUP_TAS2781_I2C),
+-	SND_PCI_QUIRK(0x1043, 0x3f20, "ASUS Strix G615LR_LW", ALC287_FIXUP_TAS2781_I2C),
+-	SND_PCI_QUIRK(0x1043, 0x3f30, "ASUS Strix G815LR_LW", ALC287_FIXUP_TAS2781_I2C),
++	SND_PCI_QUIRK(0x1043, 0x3ee0, "ASUS Strix G815_JHR_JMR_JPR", ALC287_FIXUP_TXNW2781_I2C),
++	SND_PCI_QUIRK(0x1043, 0x3ef0, "ASUS Strix G635LR_LW_LX", ALC287_FIXUP_TXNW2781_I2C),
++	SND_PCI_QUIRK(0x1043, 0x3f00, "ASUS Strix G815LH_LM_LP", ALC287_FIXUP_TXNW2781_I2C),
++	SND_PCI_QUIRK(0x1043, 0x3f10, "ASUS Strix G835LR_LW_LX", ALC287_FIXUP_TXNW2781_I2C),
++	SND_PCI_QUIRK(0x1043, 0x3f20, "ASUS Strix G615LR_LW", ALC287_FIXUP_TXNW2781_I2C),
++	SND_PCI_QUIRK(0x1043, 0x3f30, "ASUS Strix G815LR_LW", ALC287_FIXUP_TXNW2781_I2C),
+ 	SND_PCI_QUIRK(0x1043, 0x3fd0, "ASUS B3605CVA", ALC245_FIXUP_CS35L41_SPI_2),
+ 	SND_PCI_QUIRK(0x1043, 0x3ff0, "ASUS B5405CVA", ALC245_FIXUP_CS35L41_SPI_2),
+ 	SND_PCI_QUIRK(0x1043, 0x831a, "ASUS P901", ALC269_FIXUP_STEREO_DMIC),
 -- 
 2.53.0
 
-From ea2e0069fca6e2a21c0d116c852abc5528583feb Mon Sep 17 00:00:00 2001
+From 237d93652cfc545265e3db9bb24c2e4c3161e1b1 Mon Sep 17 00:00:00 2001
 From: Peter Jung <admin@ptr1337.dev>
-Date: Thu, 12 Mar 2026 16:14:08 +0100
+Date: Thu, 19 Mar 2026 18:29:14 +0100
 Subject: [PATCH 5/8] hdmi
 
 Signed-off-by: Peter Jung <admin@ptr1337.dev>
 ---
- .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 304 +++++++++++++----
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 306 +++++++++++++----
  .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h |   4 +
  .../amd/display/amdgpu_dm/amdgpu_dm_helpers.c |  49 ++-
  drivers/gpu/drm/amd/display/dc/core/dc.c      |   3 +
@@ -18607,10 +18599,10 @@ Signed-off-by: Peter Jung <admin@ptr1337.dev>
  include/drm/drm_connector.h                   |  99 ++++++
  include/drm/drm_crtc.h                        |   9 +
  include/drm/drm_mode_config.h                 |   6 +
- 22 files changed, 872 insertions(+), 196 deletions(-)
+ 22 files changed, 874 insertions(+), 196 deletions(-)
 
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index 98e44801d61e..86fa71497e3e 100644
+index 98e44801d61e..25ab463617cb 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 @@ -2069,6 +2069,9 @@ static int amdgpu_dm_init(struct amdgpu_device *adev)
@@ -18821,7 +18813,7 @@ index 98e44801d61e..86fa71497e3e 100644
  
  	/*----- drm_find_cea_extension() -----*/
  	/* No EDID or EDID extensions */
-@@ -13197,9 +13265,99 @@ static int parse_hdmi_amd_vsdb(struct amdgpu_dm_connector *aconnector,
+@@ -13197,9 +13265,100 @@ static int parse_hdmi_amd_vsdb(struct amdgpu_dm_connector *aconnector,
  	if (edid_ext[0] != CEA_EXT)
  		return -ENODEV;
  
@@ -18915,7 +18907,8 @@ index 98e44801d61e..86fa71497e3e 100644
 +	 *
 +	 * Work around that by not touching VRR min if it still supports LFC.
 +	 */
-+	if (vsdb->min_refresh_rate_hz < vrr_min && (vrr_min * 2 >= vrr_max))
++	if (vsdb->min_refresh_rate_hz > 0 &&
++	    vsdb->min_refresh_rate_hz < vrr_min && (vrr_min * 2 >= vrr_max))
 +		vrr_min = vsdb->min_refresh_rate_hz;
 +
 +	display->monitor_range.min_vfreq = vrr_min;
@@ -18923,7 +18916,7 @@ index 98e44801d61e..86fa71497e3e 100644
  }
  
  /**
-@@ -13216,16 +13374,20 @@ static int parse_hdmi_amd_vsdb(struct amdgpu_dm_connector *aconnector,
+@@ -13216,16 +13375,20 @@ static int parse_hdmi_amd_vsdb(struct amdgpu_dm_connector *aconnector,
  void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
  				    const struct drm_edid *drm_edid)
  {
@@ -18946,7 +18939,7 @@ index 98e44801d61e..86fa71497e3e 100644
  
  	if (!connector->state) {
  		drm_err(adev_to_drm(adev), "%s - Connector has no state", __func__);
-@@ -13253,68 +13415,77 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
+@@ -13253,68 +13416,78 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
  	if (!adev->dm.freesync_module || !dc_supports_vrr(sink->ctx->dce_version))
  		goto update;
  
@@ -18990,7 +18983,8 @@ index 98e44801d61e..86fa71497e3e 100644
 -				freesync_capable = true;
 -		}
 +		/* Try extending range if found in AMD vsdb */
-+		extend_range_from_vsdb(&connector->display_info, &vsdb_info);
++		if (vsdb_info.freesync_supported)
++			extend_range_from_vsdb(&connector->display_info, &vsdb_info);
  
 -		parse_amd_vsdb(amdgpu_dm_connector, edid, &vsdb_info);
 +		if (dpcd_caps.allow_invalid_MSA_timing_param)
@@ -19073,7 +19067,7 @@ index 98e44801d61e..86fa71497e3e 100644
  
  	if (connector->state && amdgpu_dm_connector->dc_link && !freesync_capable &&
  	    amdgpu_dm_connector->dc_link->replay_settings.config.replay_supported) {
-@@ -13323,8 +13494,15 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
+@@ -13323,8 +13496,15 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
  	}
  
  	if (connector->vrr_capable_property)
@@ -20307,9 +20301,9 @@ index 895fb820dba0..23ce744b233b 100644
 -- 
 2.53.0
 
-From 218e2952c9da3fdb929f5426d5342afd323ea2ac Mon Sep 17 00:00:00 2001
+From c215c5a106d91a8febb9e72754a5a71837cb509e Mon Sep 17 00:00:00 2001
 From: Peter Jung <admin@ptr1337.dev>
-Date: Thu, 12 Mar 2026 16:15:47 +0100
+Date: Thu, 19 Mar 2026 18:31:32 +0100
 Subject: [PATCH 6/8] t2
 
 Signed-off-by: Peter Jung <admin@ptr1337.dev>
@@ -20317,7 +20311,7 @@ Signed-off-by: Peter Jung <admin@ptr1337.dev>
  drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c       |    3 +
  drivers/gpu/drm/i915/display/intel_ddi.c      |    3 +
  drivers/gpu/drm/i915/display/intel_fbdev.c    |    6 +-
- drivers/gpu/drm/i915/display/intel_quirks.c   |   17 +-
+ drivers/gpu/drm/i915/display/intel_quirks.c   |   16 +
  drivers/gpu/drm/i915/display/intel_quirks.h   |    1 +
  drivers/gpu/vga/vga_switcheroo.c              |    7 +-
  drivers/hid/Kconfig                           |   10 +-
@@ -20371,7 +20365,7 @@ Signed-off-by: Peter Jung <admin@ptr1337.dev>
  drivers/staging/apple-bce/vhci/vhci.h         |   53 +
  include/linux/hid.h                           |    6 +-
  include/linux/soc/apple/dockchannel.h         |   26 +
- 57 files changed, 10706 insertions(+), 352 deletions(-)
+ 57 files changed, 10706 insertions(+), 351 deletions(-)
  create mode 100644 drivers/hid/dockchannel-hid/Kconfig
  create mode 100644 drivers/hid/dockchannel-hid/Makefile
  create mode 100644 drivers/hid/dockchannel-hid/dockchannel-hid.c
@@ -20457,7 +20451,7 @@ index 44f4fcce526e..695eadc88eab 100644
  			    fb->base.width, fb->base.height,
  			    sizes->fb_width, sizes->fb_height);
 diff --git a/drivers/gpu/drm/i915/display/intel_quirks.c b/drivers/gpu/drm/i915/display/intel_quirks.c
-index 1abbdd426e58..85f26517771a 100644
+index 1abbdd426e58..8028f6a304b7 100644
 --- a/drivers/gpu/drm/i915/display/intel_quirks.c
 +++ b/drivers/gpu/drm/i915/display/intel_quirks.c
 @@ -66,6 +66,18 @@ static void quirk_increase_ddi_disabled_time(struct intel_display *display)
@@ -20479,11 +20473,10 @@ index 1abbdd426e58..85f26517771a 100644
  static void quirk_no_pps_backlight_power_hook(struct intel_display *display)
  {
  	intel_set_quirk(display, QUIRK_NO_PPS_BACKLIGHT_POWER_HOOK);
-@@ -239,7 +251,10 @@ static struct intel_quirk intel_quirks[] = {
- 	{ 0x0f31, 0x103c, 0x220f, quirk_invert_brightness },
+@@ -240,6 +252,10 @@ static struct intel_quirk intel_quirks[] = {
  
  	/* Dell XPS 13 7390 2-in-1 */
--	{ 0x8a52, 0x1028, 0x08b0, quirk_edp_limit_rate_hbr2 },
+ 	{ 0x8a52, 0x1028, 0x08b0, quirk_edp_limit_rate_hbr2 },
 +	{ 0x8a12, 0x1028, 0x08b0, quirk_edp_limit_rate_hbr2 },
 +
 +	/* Apple MacBookPro15,1 */
@@ -33015,9 +33008,9 @@ index 000000000000..0b7093935ddf
 -- 
 2.53.0
 
-From b4eea86094a3a45960539f83dab1f8dd9c8beafb Mon Sep 17 00:00:00 2001
+From e8030fa3949504e30c4d66cbb64f66a57b40f49c Mon Sep 17 00:00:00 2001
 From: Peter Jung <admin@ptr1337.dev>
-Date: Thu, 12 Mar 2026 16:16:01 +0100
+Date: Thu, 19 Mar 2026 18:31:47 +0100
 Subject: [PATCH 7/8] vesa-dsc-bpp
 
 Signed-off-by: Peter Jung <admin@ptr1337.dev>
@@ -33032,7 +33025,7 @@ Signed-off-by: Peter Jung <admin@ptr1337.dev>
  7 files changed, 112 insertions(+), 39 deletions(-)
 
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index 86fa71497e3e..af9bd8d65bd9 100644
+index 25ab463617cb..28d8f406ad70 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 @@ -6789,6 +6789,11 @@ static void fill_stream_properties_from_drm_display_mode(
@@ -33407,9 +33400,9 @@ index b9bb92e4b029..312e5c03af9a 100644
 -- 
 2.53.0
 
-From 1d974df7fef27ba41cd7aa162b1b0c3dff397380 Mon Sep 17 00:00:00 2001
+From 0d3e4eb595a94bdb8d2a3f0a24c5b5d05cf88421 Mon Sep 17 00:00:00 2001
 From: Peter Jung <admin@ptr1337.dev>
-Date: Thu, 12 Mar 2026 16:16:21 +0100
+Date: Thu, 19 Mar 2026 18:32:01 +0100
 Subject: [PATCH 8/8] vmscape
 
 Signed-off-by: Peter Jung <admin@ptr1337.dev>

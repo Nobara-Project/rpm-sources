@@ -43,7 +43,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.19
-%define _stablekver 8
+%define _stablekver 9
 %define _rcver rc7
 %if %{_stablekver} == 0
 %define _tarkver %{_basekver}
@@ -104,31 +104,29 @@ Patch4: ROG-ALLY-NCT6775-PLATFORM.patch
 Patch5: ps-logitech-wheel.patch
 # fixes framerate control in gamescope
 Patch6: valve-gamescope-framerate-control-fixups.patch
-# fixes orientation on SuiPlay0X1
-Patch7: suiplay0x1-orientation-quirk.patch
 
 # temporary patches
 # fixes HAINAN amdgpu card not being bootable
 # https://gitlab.freedesktop.org/drm/amd/-/issues/1839
-Patch8: amdgpu-HAINAN-variant-fixup.patch
+Patch7: amdgpu-HAINAN-variant-fixup.patch
 # Allow to set custom USB pollrate for specific devices like so:
 # usbcore.interrupt_interval_override=045e:00db:16,1bcf:0005:1
 # useful for setting polling rate of wired PS4/PS5 controller to 1000Hz
 # https://github.com/KarsMulder/Linux-Pollrate-Patch
 # https://gitlab.com/GloriousEggroll/nobara-images/-/issues/64
-Patch9: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
+Patch8: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
 # Add xpadneo as patch instead of using dkms module
-Patch10: 0001-Add-xpadneo-bluetooth-hid-driver-module.patch
-Patch11: MA350.patch
+Patch9: 0001-Add-xpadneo-bluetooth-hid-driver-module.patch
+Patch10: MA350.patch
 
 # Capture device quirks
-Patch12: capture-device-nv12-fixup.patch
+Patch11: capture-device-nv12-fixup.patch
 
 # Piece-Of-Cake Fast Idle CPU Selector
-Patch13: https://raw.githubusercontent.com/CachyOS/kernel-patches/refs/heads/master/%{_basekver}/misc/poc-selector.patch
+Patch12: https://raw.githubusercontent.com/CachyOS/kernel-patches/refs/heads/master/%{_basekver}/misc/poc-selector.patch
 
 # Add "ROG STRIX X870-I GAMING WIFI"
-Patch14: 0857-hwmon-nct6775-Add-ROG-STRIX-X870-I-GAMING-WIFI.patch
+Patch13: 0857-hwmon-nct6775-Add-ROG-STRIX-X870-I-GAMING-WIFI.patch
 
 # aarch64 patches
 Patch21: 0001-arm64-mm-Handle-alignment-faults.patch
@@ -443,7 +441,6 @@ patch -p1 -i %{PATCH10}
 patch -p1 -i %{PATCH11}
 patch -p1 -i %{PATCH12}
 patch -p1 -i %{PATCH13}
-patch -p1 -i %{PATCH14}
 
 # Apply aarch64 patches
 %ifarch aarch64
@@ -1166,6 +1163,10 @@ fi
 %files
 
 %changelog
+* Thu Mar 19 2026 LionHeartP <LionHeartP@proton.me> - 6.19.9-200
+- Update to 6.19.9
+- Remove suiplay orientation fix patch (now included in cachyos handheld)
+
 * Fri Mar 13 2026 LionHeartP <LionHeartP@proton.me> - 6.19.8-200
 - Update to 6.19.8
 
