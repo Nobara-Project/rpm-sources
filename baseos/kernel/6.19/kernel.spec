@@ -59,7 +59,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 200
+%define customver 201
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -116,7 +116,7 @@ Patch7: amdgpu-HAINAN-variant-fixup.patch
 # https://gitlab.com/GloriousEggroll/nobara-images/-/issues/64
 Patch8: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
 # Add xpadneo as patch instead of using dkms module
-Patch9: 0001-Add-xpadneo-bluetooth-hid-driver-module.patch
+Patch9: xpadneo-kernel-integration.patch
 Patch10: MA350.patch
 
 # Capture device quirks
@@ -1163,6 +1163,10 @@ fi
 %files
 
 %changelog
+* Fri Mar 20 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 6.19.9-201
+- Update to 6.19.9
+- Rebase xpadneo patch to latest version
+
 * Thu Mar 19 2026 LionHeartP <LionHeartP@proton.me> - 6.19.9-200
 - Update to 6.19.9
 - Remove suiplay orientation fix patch (now included in cachyos handheld)
