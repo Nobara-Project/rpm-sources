@@ -1,6 +1,6 @@
 Name:           dnf-app-center
 Version:        0.1.0
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        GTK App Center for DNF/AppStream with updater tray service
 
 # Replace this with your real SPDX license identifier before distributing publicly.
