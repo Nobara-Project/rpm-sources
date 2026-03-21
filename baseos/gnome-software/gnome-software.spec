@@ -29,7 +29,7 @@
 %global __provides_exclude_from ^%{_libdir}/%{name}/plugins-%{gs_plugin_version}/.*\\.so.*$
 
 Name:      gnome-software
-Version:   49.2
+Version:   49.3
 Release:   1%{?dist}
 Summary:   A software center for GNOME
 
