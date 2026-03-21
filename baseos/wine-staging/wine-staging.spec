@@ -55,7 +55,9 @@ Source99:	wine.keyring
 ExcludeArch:    %{ix86}
 
 BuildRequires:  mingw32-gcc
+BuildRequires:  mingw32-gcc-c++
 BuildRequires:  mingw64-gcc
+BuildRequires:  mingw64-gcc-c++
 BuildRequires:  SDL2-devel
 BuildRequires:  gcc
 BuildRequires:  make
