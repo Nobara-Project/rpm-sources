@@ -7,7 +7,7 @@
 
 Name:     xpad-noone
 Version:  1
-Release:  4%{?dist}
+Release:  5%{?dist}
 Summary:  xpad drivers without support for Xbox Controllers
 License:  GPLv2
 URL:      https://github.com/medusalix/xpad-noone
@@ -18,65 +18,54 @@ Patch0:  https://github.com/medusalix/xpad-noone/pull/8.patch
 # Fix for kernel 6.18
 Patch1:  https://github.com/medusalix/xpad-noone/pull/9.patch
 
-BuildRequires:  gcc
-BuildRequires:  make
-BuildRequires:  kmodtool
+BuildArch:      noarch
 BuildRequires:  systemd-rpm-macros
+BuildRequires:  sed
 
+Requires:	dkms
 Requires:       bash
+Requires:	gcc
 
 Provides:       %{name}-kmod-common = %{version}-%{release}
-Requires:       %{name}-kmod >= %{version}
-
+Obsoletes:      akmod-xpad-noone < %{version}-%{release}
 Conflicts:      xow <= 0.5
 Obsoletes:      xow <= 0.5
-
-# kmodtool does its magic here
-%{expand:%(kmodtool --target %{_target_cpu} --kmodname %{name} %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null) }
 
 %description
 xpad drivers without support for Xbox Controllers
 Intended to be used with xone
 
-%package kmod
-Summary:  Kernel module (kmod) for %{name}
-Requires: kernel-devel
-
-%description kmod
-kmod package for %{name}
-
 %prep
-# error out if there was something wrong with kmodtool
-%{?kmodtool_check}
-
-# print kmodtool output for debugging purposes:
-kmodtool --target %{_target_cpu} --kmodname %{name} %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null
-
 %autosetup -n %{name}-%{short_commit} -N
 %autopatch -p1
 
-for kernel_version  in %{?kernel_versions} ; do
-  cp -a . _kmod_build_${kernel_version%%___*}
-done
+sed -i 's/PACKAGE_VERSION=.*/PACKAGE_VERSION="%{version}"/' dkms.conf
+sed -i 's|M=$PWD|M=$dkms_tree/$PACKAGE_NAME/$PACKAGE_VERSION/build|' dkms.conf
 
 %build
-for kernel_version  in %{?kernel_versions} ; do
-  make V=1 %{?_smp_mflags} -C ${kernel_version##*___} M=${PWD}/_kmod_build_${kernel_version%%___*} VERSION=v%{version} modules
-done
 
 %install
-for kernel_version in %{?kernel_versions}; do
- mkdir -p %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/
- install -D -m 755 _kmod_build_${kernel_version%%___*}/%{name}.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/
- chmod a+x %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/%{name}.ko
-done
-%{?akmod_install}
+%global dkms_source_dir %{_usrsrc}/%{name}-%{version}
+mkdir -p %{buildroot}%{dkms_source_dir}
+cp -fr . %{buildroot}%{dkms_source_dir}
+
+%post
+dkms add -m %{name} -v %{version} --rpm_safe_upgrade || :
+dkms build -m %{name} -v %{version} || :
+dkms install -m %{name} -v %{version} || :
+
+%preun
+dkms remove -m %{name} -v %{version} --all --rpm_safe_upgrade || :
 
 %files
 %doc README.md 
 %license LICENSE
+%{_usrsrc}/%{name}-%{version}
 
 %changelog
+* Sun Mar 22 2026 LionHeartP <LionHeartP@proton.me> - 1-5
+- Convert to DKMS
+
 * Wed Dec 17 2025 LionHeartP <LionHeartP@proton.me> - 1-4
 - Patch for kernels 6.18+
 - Patch to add new devices
