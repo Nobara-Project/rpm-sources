@@ -6,7 +6,7 @@ Summary:        GTK App Center for DNF/AppStream with updater tray service
 # Replace this with your real SPDX license identifier before distributing publicly.
 License:        GPL-2.0-only
 URL:            https://github.com/Nobara-Project/dnf-app-center
-Source0:        %{url}/archive/refs/tags/0.1.1.tar.gz
+Source0:        %{url}/archive/refs/tags/%{version}.tar.gz
 %global _update_feed_url https://updates.nobaraproject.org/updates.txt
 
 BuildArch:      noarch
