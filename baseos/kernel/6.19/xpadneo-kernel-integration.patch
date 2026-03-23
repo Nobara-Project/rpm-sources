@@ -1,6 +1,6 @@
 Add xpadneo Xbox Wireless Controller driver for Bluetooth support
 
-This patch integrates the xpadneo driver (v0.11-pre-7-gd67479f) into the kernel tree.
+This patch integrates the xpadneo driver (v0.10) into the kernel tree.
 xpadneo provides advanced support for Xbox One S/X, Series X|S, and Elite
 controllers connected via Bluetooth, including force feedback, battery
 reporting, and profile switching.
@@ -10,7 +10,7 @@ Signed-off-by: GloriousEggroll <gloriouseggroll@gmail.com>
 
 diff -Naur linux-clean/drivers/hid/hid-microsoft.c linux-patched/drivers/hid/hid-microsoft.c
 --- linux-clean/drivers/hid/hid-microsoft.c	2026-03-19 09:15:33.000000000 -0600
-+++ linux-patched/drivers/hid/hid-microsoft.c	2026-03-20 02:42:11.480421408 -0600
++++ linux-patched/drivers/hid/hid-microsoft.c	2026-03-23 15:01:46.781793736 -0600
 @@ -447,18 +447,8 @@
  	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x091B),
  		.driver_data = MS_SURFACE_DIAL },
@@ -34,7 +34,7 @@ diff -Naur linux-clean/drivers/hid/hid-microsoft.c linux-patched/drivers/hid/hid
  MODULE_DEVICE_TABLE(hid, ms_devices);
 diff -Naur linux-clean/drivers/hid/Kconfig linux-patched/drivers/hid/Kconfig
 --- linux-clean/drivers/hid/Kconfig	2026-03-19 09:15:33.000000000 -0600
-+++ linux-patched/drivers/hid/Kconfig	2026-03-20 02:42:11.479181141 -0600
++++ linux-patched/drivers/hid/Kconfig	2026-03-23 15:01:46.781613225 -0600
 @@ -1443,6 +1443,9 @@
  
  source "drivers/hid/intel-thc-hid/Kconfig"
@@ -47,7 +47,7 @@ diff -Naur linux-clean/drivers/hid/Kconfig linux-patched/drivers/hid/Kconfig
  # USB support may be used with HID disabled
 diff -Naur linux-clean/drivers/hid/Makefile linux-patched/drivers/hid/Makefile
 --- linux-clean/drivers/hid/Makefile	2026-03-19 09:15:33.000000000 -0600
-+++ linux-patched/drivers/hid/Makefile	2026-03-20 02:42:11.480184747 -0600
++++ linux-patched/drivers/hid/Makefile	2026-03-23 15:01:46.781696595 -0600
 @@ -180,6 +180,8 @@ obj-$(CONFIG_SURFACE_HID_CORE)  += surface-hid/
  
  obj-$(CONFIG_INTEL_THC_HID)     += intel-thc-hid/
@@ -59,7 +59,7 @@ diff -Naur linux-clean/drivers/hid/Makefile linux-patched/drivers/hid/Makefile
  obj-$(CONFIG_HID_DOCKCHANNEL)   += dockchannel-hid/
 diff -Naur linux-clean/drivers/hid/xpadneo/compat.h linux-patched/drivers/hid/xpadneo/compat.h
 --- linux-clean/drivers/hid/xpadneo/compat.h	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/compat.h	2026-03-19 23:39:09.467190493 -0600
++++ linux-patched/drivers/hid/xpadneo/compat.h	2026-03-23 15:00:21.179840339 -0600
 @@ -0,0 +1,53 @@
 +/* SPDX-License-Identifier: GPL-2.0-only */
 +
@@ -116,7 +116,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/compat.h linux-patched/drivers/hid/xp
 +#endif
 diff -Naur linux-clean/drivers/hid/xpadneo/consumer.c linux-patched/drivers/hid/xpadneo/consumer.c
 --- linux-clean/drivers/hid/xpadneo/consumer.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/consumer.c	2026-03-19 23:39:09.467216843 -0600
++++ linux-patched/drivers/hid/xpadneo/consumer.c	2026-03-23 15:00:21.179862039 -0600
 @@ -0,0 +1,34 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
@@ -154,7 +154,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/consumer.c linux-patched/drivers/hid/
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/core.c linux-patched/drivers/hid/xpadneo/core.c
 --- linux-clean/drivers/hid/xpadneo/core.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/core.c	2026-03-19 23:39:09.467216843 -0600
++++ linux-patched/drivers/hid/xpadneo/core.c	2026-03-23 15:00:21.179862039 -0600
 @@ -0,0 +1,315 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
@@ -473,7 +473,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/core.c linux-patched/drivers/hid/xpad
 +module_exit(core_exit);
 diff -Naur linux-clean/drivers/hid/xpadneo/device.c linux-patched/drivers/hid/xpadneo/device.c
 --- linux-clean/drivers/hid/xpadneo/device.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/device.c	2026-03-19 23:39:09.467216843 -0600
++++ linux-patched/drivers/hid/xpadneo/device.c	2026-03-23 15:01:10.671356241 -0600
 @@ -0,0 +1,149 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
@@ -626,8 +626,8 @@ diff -Naur linux-clean/drivers/hid/xpadneo/device.c linux-patched/drivers/hid/xp
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/events.c linux-patched/drivers/hid/xpadneo/events.c
 --- linux-clean/drivers/hid/xpadneo/events.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/events.c	2026-03-19 23:39:09.467216843 -0600
-@@ -0,0 +1,348 @@
++++ linux-patched/drivers/hid/xpadneo/events.c	2026-03-23 15:01:10.671356241 -0600
+@@ -0,0 +1,376 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
 +/*
@@ -658,6 +658,12 @@ diff -Naur linux-clean/drivers/hid/xpadneo/events.c linux-patched/drivers/hid/xp
 +module_param_named(disable_deadzones, param_disable_deadzones, bool, 0444);
 +MODULE_PARM_DESC(disable_deadzones,
 +		 "(bool) Disable dead zone handling for raw processing by Wine/Proton, confuses joydev. "
++		 "0: disable, 1: enable.");
++
++static bool param_enable_rolling_axis;
++module_param_named(enable_rolling_axis, param_enable_rolling_axis, bool, 0444);
++MODULE_PARM_DESC(enable_rolling_axis,
++		 "(bool) Enable rolling axis by combining both triggers, out of spec for many games. (deprecated) "
 +		 "0: disable, 1: enable.");
 +
 +static bool param_disable_shift_mode;
@@ -812,6 +818,12 @@ diff -Naur linux-clean/drivers/hid/xpadneo/events.c linux-patched/drivers/hid/xp
 +				goto stop_processing;
 +			}
 +			break;
++		case ABS_Z:
++			xdata->last_abs_z = value;
++			goto combine_z_axes;
++		case ABS_RZ:
++			xdata->last_abs_rz = value;
++			goto combine_z_axes;
 +		}
 +	} else if (!param_disable_shift_mode && (usage->type == EV_KEY)
 +		   && (usage->code == BTN_XBOX)) {
@@ -879,6 +891,16 @@ diff -Naur linux-clean/drivers/hid/xpadneo/events.c linux-patched/drivers/hid/xp
 +
 +	/* Let hid-core handle the event */
 +	xdata->gamepad.sync = true;
++	return 0;
++
++combine_z_axes:
++	if (++xdata->count_abs_z_rz == 2) {
++		xdata->count_abs_z_rz = 0;
++		if (param_enable_rolling_axis) {
++			input_report_abs(gamepad, ABS_MISC, xdata->last_abs_rz - xdata->last_abs_z);
++			xdata->gamepad.sync = true;
++		}
++	}
 +	return 0;
 +
 +keyboard_missing:
@@ -957,6 +979,12 @@ diff -Naur linux-clean/drivers/hid/xpadneo/events.c linux-patched/drivers/hid/xp
 +		input_set_abs_params(gamepad, ABS_Z, 0, 1023, 4, 0);
 +		input_set_abs_params(gamepad, ABS_RZ, 0, 1023, 4, 0);
 +
++		/* combine triggers to form a rudder, use ABS_MISC to order after dpad */
++		if (param_enable_rolling_axis) {
++			hid_info(hdev, "enabling rolling axis is deprecated\n");
++			input_set_abs_params(gamepad, ABS_MISC, -1023, 1023, 3, 63);
++		}
++
 +		/* do not report the keyboard buttons as part of the gamepad */
 +		__clear_bit(BTN_SHARE, gamepad->keybit);
 +		__clear_bit(KEY_RECORD, gamepad->keybit);
@@ -978,7 +1006,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/events.c linux-patched/drivers/hid/xp
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/helpers.h linux-patched/drivers/hid/xpadneo/helpers.h
 --- linux-clean/drivers/hid/xpadneo/helpers.h	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/helpers.h	2026-03-19 23:39:09.467341114 -0600
++++ linux-patched/drivers/hid/xpadneo/helpers.h	2026-03-23 15:00:21.179862039 -0600
 @@ -0,0 +1,38 @@
 +/* SPDX-License-Identifier: GPL-2.0-only */
 +
@@ -1020,7 +1048,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/helpers.h linux-patched/drivers/hid/x
 +#endif
 diff -Naur linux-clean/drivers/hid/xpadneo/Kconfig linux-patched/drivers/hid/xpadneo/Kconfig
 --- linux-clean/drivers/hid/xpadneo/Kconfig	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/Kconfig	2026-03-20 02:42:11.398487497 -0600
++++ linux-patched/drivers/hid/xpadneo/Kconfig	2026-03-23 15:01:46.781389583 -0600
 @@ -0,0 +1,20 @@
 +# SPDX-License-Identifier: GPL-2.0-only
 +config HID_XPADNEO
@@ -1044,7 +1072,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/Kconfig linux-patched/drivers/hid/xpa
 +	  will be called hid-xpadneo.
 diff -Naur linux-clean/drivers/hid/xpadneo/keyboard.c linux-patched/drivers/hid/xpadneo/keyboard.c
 --- linux-clean/drivers/hid/xpadneo/keyboard.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/keyboard.c	2026-03-19 23:39:09.467341114 -0600
++++ linux-patched/drivers/hid/xpadneo/keyboard.c	2026-03-23 15:00:21.179862039 -0600
 @@ -0,0 +1,46 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
@@ -1094,11 +1122,11 @@ diff -Naur linux-clean/drivers/hid/xpadneo/keyboard.c linux-patched/drivers/hid/
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/Makefile linux-patched/drivers/hid/xpadneo/Makefile
 --- linux-clean/drivers/hid/xpadneo/Makefile	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/Makefile	2026-03-20 02:42:11.398513787 -0600
++++ linux-patched/drivers/hid/xpadneo/Makefile	2026-03-23 15:01:46.781407934 -0600
 @@ -0,0 +1,18 @@
 +# SPDX-License-Identifier: GPL-2.0-only
 +
-+ccflags-y += -DVERSION=v0.11-pre-7-gd67479f
++ccflags-y += -DVERSION=v0.10
 +
 +obj-$(CONFIG_HID_XPADNEO) += hid-xpadneo.o
 +
@@ -1116,7 +1144,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/Makefile linux-patched/drivers/hid/xp
 +	synthetic.o
 diff -Naur linux-clean/drivers/hid/xpadneo/mappings.c linux-patched/drivers/hid/xpadneo/mappings.c
 --- linux-clean/drivers/hid/xpadneo/mappings.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/mappings.c	2026-03-19 23:39:09.467341114 -0600
++++ linux-patched/drivers/hid/xpadneo/mappings.c	2026-03-23 15:00:21.179862039 -0600
 @@ -0,0 +1,127 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
@@ -1247,7 +1275,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/mappings.c linux-patched/drivers/hid/
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/mouse.c linux-patched/drivers/hid/xpadneo/mouse.c
 --- linux-clean/drivers/hid/xpadneo/mouse.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/mouse.c	2026-03-19 23:39:09.467341114 -0600
++++ linux-patched/drivers/hid/xpadneo/mouse.c	2026-03-23 15:01:10.671356241 -0600
 @@ -0,0 +1,255 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
@@ -1506,7 +1534,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/mouse.c linux-patched/drivers/hid/xpa
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/power.c linux-patched/drivers/hid/xpadneo/power.c
 --- linux-clean/drivers/hid/xpadneo/power.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/power.c	2026-03-19 23:39:09.467341114 -0600
++++ linux-patched/drivers/hid/xpadneo/power.c	2026-03-23 15:00:21.179862039 -0600
 @@ -0,0 +1,184 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
@@ -1694,7 +1722,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/power.c linux-patched/drivers/hid/xpa
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/quirks.c linux-patched/drivers/hid/xpadneo/quirks.c
 --- linux-clean/drivers/hid/xpadneo/quirks.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/quirks.c	2026-03-19 23:39:09.467341114 -0600
++++ linux-patched/drivers/hid/xpadneo/quirks.c	2026-03-23 15:01:10.671356241 -0600
 @@ -0,0 +1,173 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
@@ -1871,8 +1899,8 @@ diff -Naur linux-clean/drivers/hid/xpadneo/quirks.c linux-patched/drivers/hid/xp
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/rumble.c linux-patched/drivers/hid/xpadneo/rumble.c
 --- linux-clean/drivers/hid/xpadneo/rumble.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/rumble.c	2026-03-19 23:39:09.467341114 -0600
-@@ -0,0 +1,381 @@
++++ linux-patched/drivers/hid/xpadneo/rumble.c	2026-03-23 15:01:10.671356241 -0600
+@@ -0,0 +1,391 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
 +/*
@@ -1914,21 +1942,6 @@ diff -Naur linux-clean/drivers/hid/xpadneo/rumble.c linux-patched/drivers/hid/xp
 +
 +static struct workqueue_struct *rumble_wq;
 +
-+static inline unsigned long calculate_throttling_delay(struct xpadneo_devdata *xdata)
-+{
-+	unsigned long rumble_run_at = jiffies, rumble_throttle_until = xdata->rumble.throttle_until;
-+
-+	if (time_before(rumble_run_at, rumble_throttle_until)) {
-+		/* last rumble was recently executed */
-+		long delay_work = (long)(rumble_throttle_until - rumble_run_at);
-+
-+		return clamp(delay_work, 0L, (long)RUMBLE_THROTTLE_DELAY);
-+	}
-+
-+	/* the firmware is ready */
-+	return 0;
-+}
-+
 +static void rumble_worker(struct work_struct *work)
 +{
 +	struct xpadneo_devdata *xdata =
@@ -1936,6 +1949,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/rumble.c linux-patched/drivers/hid/xp
 +	struct hid_device *hdev = xdata->hdev;
 +	struct xpadneo_rumble_report *r = xdata->rumble.output_report_dmabuf;
 +	int ret;
++	unsigned long flags;
 +
 +	memset(r, 0, sizeof(*r));
 +	r->report_id = XPADNEO_XBOX_RUMBLE_REPORT;
@@ -1957,72 +1971,83 @@ diff -Naur linux-clean/drivers/hid/xpadneo/rumble.c linux-patched/drivers/hid/xp
 +		r->data.loop_count = 0xEB;
 +	}
 +
-+	scoped_guard(spinlock_irq, &xdata->rumble.lock) {
++	spin_lock_irqsave(&xdata->rumble.lock, flags);
 +
-+		/* let our scheduler know we've been called */
-+		xdata->rumble.scheduled = false;
++	/* let our scheduler know we've been called */
++	xdata->rumble.scheduled = false;
 +
-+		if (unlikely(xdata->quirks & XPADNEO_QUIRK_NO_TRIGGER_RUMBLE)) {
-+			/* do not send these bits if not supported */
-+			r->data.enable &= ~XBOX_RUMBLE_TRIGGERS;
-+		} else {
-+			/* trigger motors */
-+			r->data.magnitude_left = xdata->rumble.data.magnitude_left;
-+			r->data.magnitude_right = xdata->rumble.data.magnitude_right;
-+		}
-+
-+		/* main motors */
-+		r->data.magnitude_strong = xdata->rumble.data.magnitude_strong;
-+		r->data.magnitude_weak = xdata->rumble.data.magnitude_weak;
-+
-+		/* do not reprogram motors that have not changed */
-+		if (unlikely(xdata->rumble.shadow.magnitude_strong == r->data.magnitude_strong))
-+			r->data.enable &= ~XBOX_RUMBLE_STRONG;
-+		if (unlikely(xdata->rumble.shadow.magnitude_weak == r->data.magnitude_weak))
-+			r->data.enable &= ~XBOX_RUMBLE_WEAK;
-+		if (likely(xdata->rumble.shadow.magnitude_left == r->data.magnitude_left))
-+			r->data.enable &= ~XBOX_RUMBLE_LEFT;
-+		if (likely(xdata->rumble.shadow.magnitude_right == r->data.magnitude_right))
-+			r->data.enable &= ~XBOX_RUMBLE_RIGHT;
-+
-+		/* do not send a report if nothing changed */
-+		if (unlikely(r->data.enable == XBOX_RUMBLE_NONE))
-+			return;
-+
-+		/* shadow our current rumble values for the next cycle */
-+		memcpy(&xdata->rumble.shadow, &xdata->rumble.data, sizeof(xdata->rumble.data));
-+
-+		/*
-+		 * throttle next command submission, the firmware doesn't like us to
-+		 * send rumble data any faster
-+		 */
-+		xdata->rumble.throttle_until = RUMBLE_THROTTLE_JIFFIES;
-+
-+		/* set all bits if not supported (some clones require these set) */
-+		if (unlikely(xdata->quirks & XPADNEO_QUIRK_NO_MOTOR_MASK))
-+			r->data.enable = XBOX_RUMBLE_ALL;
-+
-+		/* reverse the bits for trigger and main motors */
-+		if (unlikely(xdata->quirks & XPADNEO_QUIRK_REVERSE_MASK))
-+			r->data.enable = SWAP_BITS(SWAP_BITS(r->data.enable, 1, 2), 0, 3);
-+
-+		/* swap the bits of trigger and main motors */
-+		if (unlikely(xdata->quirks & XPADNEO_QUIRK_SWAPPED_MASK))
-+			r->data.enable = SWAP_BITS(SWAP_BITS(r->data.enable, 0, 2), 1, 3);
++	if (unlikely(xdata->quirks & XPADNEO_QUIRK_NO_TRIGGER_RUMBLE)) {
++		/* do not send these bits if not supported */
++		r->data.enable &= ~XBOX_RUMBLE_TRIGGERS;
++	} else {
++		/* trigger motors */
++		r->data.magnitude_left = xdata->rumble.data.magnitude_left;
++		r->data.magnitude_right = xdata->rumble.data.magnitude_right;
 +	}
++
++	/* main motors */
++	r->data.magnitude_strong = xdata->rumble.data.magnitude_strong;
++	r->data.magnitude_weak = xdata->rumble.data.magnitude_weak;
++
++	/* do not reprogram motors that have not changed */
++	if (unlikely(xdata->rumble.shadow.magnitude_strong == r->data.magnitude_strong))
++		r->data.enable &= ~XBOX_RUMBLE_STRONG;
++	if (unlikely(xdata->rumble.shadow.magnitude_weak == r->data.magnitude_weak))
++		r->data.enable &= ~XBOX_RUMBLE_WEAK;
++	if (likely(xdata->rumble.shadow.magnitude_left == r->data.magnitude_left))
++		r->data.enable &= ~XBOX_RUMBLE_LEFT;
++	if (likely(xdata->rumble.shadow.magnitude_right == r->data.magnitude_right))
++		r->data.enable &= ~XBOX_RUMBLE_RIGHT;
++
++	/* do not send a report if nothing changed */
++	if (unlikely(r->data.enable == XBOX_RUMBLE_NONE)) {
++		spin_unlock_irqrestore(&xdata->rumble.lock, flags);
++		return;
++	}
++
++	/* shadow our current rumble values for the next cycle */
++	memcpy(&xdata->rumble.shadow, &xdata->rumble.data, sizeof(xdata->rumble.data));
++
++	/* clear the magnitudes to properly accumulate the maximum values */
++	xdata->rumble.data.magnitude_left = 0;
++	xdata->rumble.data.magnitude_right = 0;
++	xdata->rumble.data.magnitude_weak = 0;
++	xdata->rumble.data.magnitude_strong = 0;
++
++	/*
++	 * throttle next command submission, the firmware doesn't like us to
++	 * send rumble data any faster
++	 */
++	xdata->rumble.throttle_until = RUMBLE_THROTTLE_JIFFIES;
++
++	spin_unlock_irqrestore(&xdata->rumble.lock, flags);
++
++	/* set all bits if not supported (some clones require these set) */
++	if (unlikely(xdata->quirks & XPADNEO_QUIRK_NO_MOTOR_MASK))
++		r->data.enable = XBOX_RUMBLE_ALL;
++
++	/* reverse the bits for trigger and main motors */
++	if (unlikely(xdata->quirks & XPADNEO_QUIRK_REVERSE_MASK))
++		r->data.enable = SWAP_BITS(SWAP_BITS(r->data.enable, 1, 2), 0, 3);
++
++	/* swap the bits of trigger and main motors */
++	if (unlikely(xdata->quirks & XPADNEO_QUIRK_SWAPPED_MASK))
++		r->data.enable = SWAP_BITS(SWAP_BITS(r->data.enable, 0, 2), 1, 3);
 +
 +	ret = xpadneo_device_output_report(hdev, (__u8 *) r, sizeof(*r));
 +	if (ret < 0)
 +		hid_warn(hdev, "failed to send FF report: %d\n", ret);
 +}
 +
-+static inline u8 calculate_magnitude(s32 magnitude, int fraction)
++static inline void update_magnitude(u8 *m, u8 v)
 +{
-+	return (u8)((magnitude * fraction + S16_MAX) / U16_MAX);
++	*m = v > 0 ? max(*m, v) : 0;
 +}
 +
 +static int rumble_play(struct input_dev *dev, void *data, struct ff_effect *effect)
 +{
++	unsigned long flags, rumble_run_at, rumble_throttle_until;
++	long delay_work;
 +	int fraction_TL, fraction_TR, fraction_MAIN, percent_TRIGGERS, percent_MAIN;
 +	s32 weak, strong, max_main;
 +
@@ -2064,34 +2089,47 @@ diff -Naur linux-clean/drivers/hid/xpadneo/rumble.c linux-patched/drivers/hid/xp
 +	 */
 +	max_main = max(weak, strong);
 +
-+	scoped_guard(spinlock_irq, &xdata->rumble.lock) {
-+		unsigned long delay_work;
++	spin_lock_irqsave(&xdata->rumble.lock, flags);
 +
-+		/* calculate the physical magnitudes, scale from 16 bit to 0..100 */
-+		xdata->rumble.data.magnitude_strong = calculate_magnitude(strong, fraction_MAIN);
-+		xdata->rumble.data.magnitude_weak = calculate_magnitude(weak, fraction_MAIN);
++	/* calculate the physical magnitudes, scale from 16 bit to 0..100 */
++	update_magnitude(&xdata->rumble.data.magnitude_strong,
++			 (u8)((strong * fraction_MAIN + S16_MAX) / U16_MAX));
++	update_magnitude(&xdata->rumble.data.magnitude_weak,
++			 (u8)((weak * fraction_MAIN + S16_MAX) / U16_MAX));
 +
-+		/* calculate the physical magnitudes, scale from 16 bit to 0..100 */
-+		xdata->rumble.data.magnitude_left = calculate_magnitude(max_main, fraction_TL);
-+		xdata->rumble.data.magnitude_right = calculate_magnitude(max_main, fraction_TR);
++	/* calculate the physical magnitudes, scale from 16 bit to 0..100 */
++	update_magnitude(&xdata->rumble.data.magnitude_left,
++			 (u8)((max_main * fraction_TL + S16_MAX) / U16_MAX));
++	update_magnitude(&xdata->rumble.data.magnitude_right,
++			 (u8)((max_main * fraction_TR + S16_MAX) / U16_MAX));
 +
-+		/* synchronize: is our worker still scheduled? */
-+		if (xdata->rumble.scheduled) {
-+			/* the worker is still guarding rumble programming */
-+			hid_notice_once(hdev, "throttling rumble reprogramming\n");
-+			break;
-+		}
-+
-+		/* we want to run now but may be throttled */
-+		delay_work = calculate_throttling_delay(xdata);
-+
-+		/* schedule writing a rumble report to the controller */
-+		if (queue_delayed_work(rumble_wq, &xdata->rumble.worker, delay_work))
-+			xdata->rumble.scheduled = true;
-+		else
-+			hid_err(hdev, "lost rumble packet\n");
++	/* synchronize: is our worker still scheduled? */
++	if (xdata->rumble.scheduled) {
++		/* the worker is still guarding rumble programming */
++		hid_notice_once(hdev, "throttling rumble reprogramming\n");
++		goto unlock_and_return;
 +	}
 +
++	/* we want to run now but may be throttled */
++	rumble_run_at = jiffies;
++	rumble_throttle_until = xdata->rumble.throttle_until;
++	if (time_before(rumble_run_at, rumble_throttle_until)) {
++		/* last rumble was recently executed */
++		delay_work = (long)rumble_throttle_until - (long)rumble_run_at;
++		delay_work = clamp(delay_work, 0L, (long)HZ);
++	} else {
++		/* the firmware is ready */
++		delay_work = 0;
++	}
++
++	/* schedule writing a rumble report to the controller */
++	if (queue_delayed_work(rumble_wq, &xdata->rumble.worker, delay_work))
++		xdata->rumble.scheduled = true;
++	else
++		hid_err(hdev, "lost rumble packet\n");
++
++unlock_and_return:
++	spin_unlock_irqrestore(&xdata->rumble.lock, flags);
 +	return 0;
 +}
 +
@@ -2167,7 +2205,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/rumble.c linux-patched/drivers/hid/xp
 +	mdelay(30);
 +}
 +
-+static void rumble_welcome(struct hid_device *hdev)
++static void xpadneo_rumble_welcome(struct hid_device *hdev)
 +{
 +	struct xpadneo_devdata *xdata = hid_get_drvdata(hdev);
 +	struct xpadneo_rumble_report pck = { };
@@ -2223,7 +2261,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/rumble.c linux-patched/drivers/hid/xp
 +		xdata->quirks |= XPADNEO_QUIRK_NO_TRIGGER_RUMBLE;
 +
 +	if (param_ff_connect_notify)
-+		xpadneo_benchmark(rumble_welcome, hdev);
++		xpadneo_benchmark(xpadneo_rumble_welcome, hdev);
 +
 +	/* initialize our rumble command throttle */
 +	xdata->rumble.throttle_until = RUMBLE_THROTTLE_JIFFIES;
@@ -2256,7 +2294,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/rumble.c linux-patched/drivers/hid/xp
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/synthetic.c linux-patched/drivers/hid/xpadneo/synthetic.c
 --- linux-clean/drivers/hid/xpadneo/synthetic.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/synthetic.c	2026-03-19 23:39:09.467341114 -0600
++++ linux-patched/drivers/hid/xpadneo/synthetic.c	2026-03-23 15:00:21.179862039 -0600
 @@ -0,0 +1,81 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
@@ -2341,7 +2379,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/synthetic.c linux-patched/drivers/hid
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/xpadneo.h linux-patched/drivers/hid/xpadneo/xpadneo.h
 --- linux-clean/drivers/hid/xpadneo/xpadneo.h	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/xpadneo.h	2026-03-19 23:39:09.467341114 -0600
++++ linux-patched/drivers/hid/xpadneo/xpadneo.h	2026-03-23 15:01:10.671356241 -0600
 @@ -0,0 +1,236 @@
 +/* SPDX-License-Identifier: GPL-2.0-only */
 +
