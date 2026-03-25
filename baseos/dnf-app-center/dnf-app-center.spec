@@ -1,5 +1,5 @@
 Name:           dnf-app-center
-Version:        0.1.2
+Version:        0.1.3
 Release:        1%{?dist}
 Summary:        GTK App Center for DNF/AppStream with updater tray service
 
@@ -23,6 +23,7 @@ Requires:       gtk4
 Requires:       libadwaita
 Requires:       libayatana-appindicator-gtk3
 Requires:       pbcli
+Requires:       polkit
 Requires:       python3-gobject
 Requires:       python3-libdnf5
 Requires:       xdg-utils
@@ -77,6 +78,10 @@ install -d %{buildroot}%{_sysconfdir}/xdg/autostart
 install -pm 0644 org.dnf.AppCenter.Updater.desktop \
   %{buildroot}%{_sysconfdir}/xdg/autostart/org.dnf.AppCenter.Updater.desktop
 
+install -d %{buildroot}%{_datadir}/polkit-1/rules.d
+install -pm 0644 polkit/50-dnf-app-center-nobara-sync.rules \
+  %{buildroot}%{_datadir}/polkit-1/rules.d/50-dnf-app-center-nobara-sync.rules
+
 %check
 desktop-file-validate %{buildroot}%{_datadir}/applications/org.dnf.AppCenter.desktop
 # The updater autostart entry is also a desktop file.
@@ -90,6 +95,7 @@ desktop-file-validate %{buildroot}%{_sysconfdir}/xdg/autostart/org.dnf.AppCenter
 %{_datadir}/applications/org.dnf.AppCenter.desktop
 %{_datadir}/icons/hicolor/scalable/apps/org.dnf.AppCenter.svg
 %config(noreplace) %{_sysconfdir}/xdg/autostart/org.dnf.AppCenter.Updater.desktop
+%{_datadir}/polkit-1/rules.d/50-dnf-app-center-nobara-sync.rules
 
 %lang(de) %{_datadir}/locale/de/LC_MESSAGES/org.dnf.AppCenter.mo
 %lang(es) %{_datadir}/locale/es/LC_MESSAGES/org.dnf.AppCenter.mo
@@ -103,5 +109,12 @@ desktop-file-validate %{buildroot}%{_sysconfdir}/xdg/autostart/org.dnf.AppCenter
 %lang(zh_TW) %{_datadir}/locale/zh_TW/LC_MESSAGES/org.dnf.AppCenter.mo
 
 %changelog
-* Sat Mar 14 2026 Tom Crider <gloriouseggroll@gmail.com> - 0.1.0-1
+* Tue Mar 25 2026 DNF App Center <packages@example.invalid> - 0.1.0-2
+- Add polkit rule for nobara-sync authentication passthrough
+- Search on Enter instead of live-typing for better performance
+- Add list/grid view toggle with persistent preferences
+- Change "Update System" to "Select All and Update" with visual feedback
+- Auto-refresh after updates complete
+
+* Sat Mar 14 2026 OpenAI <packages@example.invalid> - 0.1.0-1
 - Initial RPM packaging draft for DNF App Center
