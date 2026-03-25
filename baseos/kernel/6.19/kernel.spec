@@ -59,7 +59,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 202
+%define customver 203
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -974,11 +974,18 @@ if [ `uname -i` == "x86_64" -o `uname -i` == "i386" ] &&
   /bin/sed -r -i -e 's/^DEFAULTKERNEL=kernel-smp$/DEFAULTKERNEL=kernel/' /etc/sysconfig/kernel || exit $?
 fi
 
+
 %posttrans core
+# Skip kernel-install during image builds (no systemd running)
+if [ ! -d /run/systemd/system ]; then
+    exit 0
+fi
+
 /bin/kernel-install add %{kverstr} /lib/modules/%{kverstr}/vmlinuz || exit $?
 if [ -x /usr/sbin/grubby ]; then
     /usr/sbin/grubby --set-default="/boot/vmlinuz-%{kverstr}"
 fi
+
 
 %preun core
 /bin/kernel-install remove %{kverstr} /lib/modules/%{kverstr}/vmlinuz || exit $?
