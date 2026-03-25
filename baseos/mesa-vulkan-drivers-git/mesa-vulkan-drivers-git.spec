@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit af8923bb01a27271f9943cbfaf8576253c4df2fb
+%global commit a6992c7bbeee4e5e1ddd3555a0d2a25b8113f7d5
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 6.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 7.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -346,7 +346,7 @@ rm -vf %{buildroot}%{_libdir}/libGLES*
 
 # glvnd needs a default provider for indirect rendering where it cannot
 # determine the vendor
-ln -s %{_libdir}/libGLX_mesa.so.0 %{buildroot}%{_libdir}/libGLX_system.so.0
+ln -s libGLX_mesa.so.0 %{buildroot}%{_libdir}/libGLX_system.so.0
 
 # cleanup unused
 rm -Rf %{buildroot}%{_bindir}/spirv2dxil
@@ -526,6 +526,9 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Wed Mar 25 2026 LionHeartP <LionHeartP@proton.me> - 26.1.0-7
+- Update to latest commit
+
 * Wed Mar 18 2026 LionHeartP <LionHeartP@proton.me> - 26.1.0-6
 - Update to latest commit
 
