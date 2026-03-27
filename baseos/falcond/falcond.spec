@@ -2,17 +2,18 @@
 %global debug_package %{nil}
 
 Name:           falcond
-Version:        1.2.3
+Version:        2.0.1
 Release:        %autorelease
 Summary:        Advanced Linux Gaming Performance Daemon
 
 License:        MIT
 URL:            https://git.pika-os.com/general-packages/%{name}
 Source0:        %{url}/archive/v%{version}.tar.gz
+Source1:	falcond-vendor.tar.gz
 
 ExclusiveArch:	x86_64 aarch64
 
-BuildRequires:  zig >= 0.14.0
+BuildRequires:  zig >= 0.15.2
 BuildRequires:  systemd-rpm-macros
 
 Recommends:	%{name}-profiles
@@ -29,6 +30,8 @@ falcond is a powerful system daemon designed to automatically optimize your Linu
 %prep
 
 %autosetup -n %{name}
+mkdir -p .zig-cache-local
+tar -xzf %{SOURCE1} -C .zig-cache-local
 
 %build
 
@@ -39,6 +42,7 @@ install -Dm644 debian/%{name}.service %{buildroot}%{_unitdir}
 DESTDIR="%{buildroot}" \
 %ifarch x86_64
 zig build \
+    --global-cache-dir ../.zig-cache-local \
     -Doptimize=ReleaseFast \
     -Dcpu=x86_64_v2
 %else
@@ -69,6 +73,9 @@ usermod -aG 'falcond' root || :
 %{_unitdir}/%{name}.service
 
 %changelog
+* Sat Mar 14 2026 LionHeartP <LionHeartP@proton.me> - 2.0.1-1
+- Update to 2.0.1
+
 * Sat Mar 07 2026 Radical <radical@radical.fun> - 1.2.3-1
 - Update specfile to allow aarch64 build
 

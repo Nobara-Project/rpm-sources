@@ -3,15 +3,17 @@
 %global dkms_source_dir %{_usrsrc}/%{name}-%{version}
 
 Name:     xone
-Version:  0.5.5
-Release:  1%{?dist}
+Version:  0.5.8
+Release:  2%{?dist}
 Summary:  Linux kernel driver for Xbox One and Xbox Series X|S accessories
 License:  GPLv2
 URL:      https://github.com/dlundqvist/xone
 Source0:  %{url}/archive/refs/tags/v%{version}.tar.gz
+
+# NOTE: xone_gip_headset is intentionally left out of early module loading because it tries to load snd before snd is available
+# It should still load automatically when you plug in the device.
 Source1:  modules-load-d-%{name}.conf
-#Patch0:   0001-revert-powera-changes.patch
-Patch1:   0001-convert-to-dongle-only-build.patch
+Patch1:   0002-fix-wired-usb-reset-race-condition.patch
 
 BuildRequires:  systemd-rpm-macros
 BuildRequires:  sed

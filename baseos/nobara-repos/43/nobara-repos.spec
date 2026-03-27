@@ -3,7 +3,7 @@
 Summary:        Nobara package repositories
 Name:           nobara-repos
 Version:        43
-Release:        2%{?eln:.eln%{eln}}
+Release:        7%{?eln:.eln%{eln}}
 License:        MIT
 URL:            https://fedoraproject.org/
 
@@ -25,14 +25,16 @@ Source4:       nv-nvb.repo
 Source5:       nv-nvnf.repo
 Source6:       nobara-pikaos-additional.repo
 Source7:       brave-browser.repo
+Source8:       terra.repo
 
-Source8:       RPM-GPG-KEY-nobara-pubkey
+Source9:       RPM-GPG-KEY-nobara-pubkey
 Source10:       RPM-GPG-KEY-nobara-baseos-pubkey-41
 Source11:       RPM-GPG-KEY-nobara-baseos-pubkey-42
 Source12:       RPM-GPG-KEY-nobara-baseos-pubkey-43
 Source13:       brave-core.asc
 Source14:       RPM-GPG-KEY-nobara-rolling-pubkey
 Source15:       RPM-GPG-KEY-nobara-rocm-pubkey
+Source16:       RPM-GPG-KEY-terra43
 
 %description
 Nobara package repository files for yum and dnf along with gpg public keys.
@@ -69,6 +71,22 @@ fi
 if [[ -f /etc/yum.repos.d/nobara.repo.rpmnew ]]; then
   mv /etc/yum.repos.d/nobara.repo.rpmnew /etc/yum.repos.d/nobara.repo
 fi
+# Disable unused nvidia drivers
+dest_dir="%{_sysconfdir}/yum.repos.d/no-touch-disabled"
+mkdir -p "$dest_dir" || :
+
+for repo in \
+    "%{_sysconfdir}/yum.repos.d/nv-nvp.repo" \
+    "%{_sysconfdir}/yum.repos.d/nv-nvb.repo" \
+    "%{_sysconfdir}/yum.repos.d/nv-nvnf.repo"
+do
+    [ -f "$repo" ] || continue
+    if grep -qE '^[[:space:]]*enabled=0[[:space:]]*$' "$repo"; then
+        mv -f -- "$repo" "$dest_dir/" || :
+    fi
+done
+
+:
 
 %files
 %dir /etc/yum.repos.d
@@ -78,6 +96,7 @@ fi
 %config(noreplace) /etc/yum.repos.d/nv-nvb.repo
 %config(noreplace) /etc/yum.repos.d/nv-nvnf.repo
 %config(noreplace) /etc/yum.repos.d/brave-browser.repo
+%config(noreplace) /etc/yum.repos.d/terra.repo
 
 %files -n nobara-gpg-keys
 %dir /etc/pki/rpm-gpg

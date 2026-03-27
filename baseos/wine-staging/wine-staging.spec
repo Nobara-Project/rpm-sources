@@ -9,9 +9,9 @@
 # check buildresult after a while
 
 %define _lto_cflags %{nil}
-%define realver     11.3
-%define stagingver  11.3
-%define packagever  11.3
+%define realver     11.5
+%define stagingver  11.5
+%define packagever  11.5
 
 %global flavor %nil
 %global build_type_safety_c 0
@@ -55,7 +55,9 @@ Source99:	wine.keyring
 ExcludeArch:    %{ix86}
 
 BuildRequires:  mingw32-gcc
+BuildRequires:  mingw32-gcc-c++
 BuildRequires:  mingw64-gcc
+BuildRequires:  mingw64-gcc-c++
 BuildRequires:  SDL2-devel
 BuildRequires:  gcc
 BuildRequires:  make
@@ -332,7 +334,7 @@ install -p -m 0644 tools/wine/wine.pl.UTF-8.man "%{buildroot}/usr/share/man/pl.U
 %{_mandir}/man?/wineserver.?*
 %dir %{_datadir}/wine
 %{_datadir}/wine/wine.inf
-%{_datadir}/wine/nls/*.nls
+%{_datadir}/wine/nls/*
 %{_datadir}/wine/winmd/*.winmd
 %{_datadir}/applications/*.desktop
 %dir %{_datadir}/wine/fonts

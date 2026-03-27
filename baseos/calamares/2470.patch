@@ -1,0 +1,98 @@
+From 2ad6abdfb4a9ac067630ed811bfba753fc98d400 Mon Sep 17 00:00:00 2001
+From: Thomas Duckworth <tduck@filotimoproject.org>
+Date: Sat, 29 Nov 2025 16:19:11 +1100
+Subject: [PATCH] [displaymanager] add support for plasmalogin
+
+This is required for use on KDE Linux, and will be necessary in future once it's adopted across KDE.
+---
+ .../displaymanager/displaymanager.conf        |  1 +
+ .../displaymanager/displaymanager.schema.yaml |  2 +-
+ src/modules/displaymanager/main.py            | 47 +++++++++++++++++++
+ 3 files changed, 49 insertions(+), 1 deletion(-)
+
+diff --git a/src/modules/displaymanager/displaymanager.conf b/src/modules/displaymanager/displaymanager.conf
+index d0a6a3591..3585695bd 100644
+--- a/src/modules/displaymanager/displaymanager.conf
++++ b/src/modules/displaymanager/displaymanager.conf
+@@ -17,6 +17,7 @@
+ #
+ displaymanagers:
+   - slim
++  - plasmalogin
+   - sddm
+   - lightdm
+   - gdm
+diff --git a/src/modules/displaymanager/displaymanager.schema.yaml b/src/modules/displaymanager/displaymanager.schema.yaml
+index dcd2baa31..9b4fd2b05 100644
+--- a/src/modules/displaymanager/displaymanager.schema.yaml
++++ b/src/modules/displaymanager/displaymanager.schema.yaml
+@@ -10,7 +10,7 @@ properties:
+         type: array
+         items:
+             type: string
+-            enum: [slim, sddm, lightdm, gdm, mdm, lxdm, greetd]
++            enum: [slim, plasmalogin, sddm, lightdm, gdm, mdm, lxdm, greetd]
+         minItems: 1  # Must be non-empty, if present at all
+     defaultDesktopEnvironment:
+         type: object
+diff --git a/src/modules/displaymanager/main.py b/src/modules/displaymanager/main.py
+index 6ca279e18..73a884df7 100644
+--- a/src/modules/displaymanager/main.py
++++ b/src/modules/displaymanager/main.py
+@@ -743,6 +743,53 @@ class DMslim(DisplayManager):
+     def greeter_setup(self):
+         pass
+ 
++class DMplasmalogin(DisplayManager):
++    name = "plasmalogin"
++    executable = "plasmalogin"
++
++    configuration_file = "/etc/plasmalogin.conf"
++
++    def set_autologin(self, username, do_autologin, default_desktop_environment):
++        import configparser
++
++        # Systems with plasmalogin as Desktop Manager
++        plasmalogin_conf_path = os.path.join(self.root_mount_point, self.configuration_file.lstrip('/'))
++
++        plasmalogin_config = configparser.ConfigParser(strict=False)
++        # Make everything case sensitive
++        plasmalogin_config.optionxform = str
++
++        if os.path.isfile(plasmalogin_conf_path):
++            plasmalogin_config.read(plasmalogin_conf_path)
++
++        if 'Autologin' not in plasmalogin_config:
++            plasmalogin_config.add_section('Autologin')
++
++        if do_autologin:
++            plasmalogin_config.set('Autologin', 'User', username)
++        elif plasmalogin_config.has_option('Autologin', 'User'):
++            plasmalogin_config.remove_option('Autologin', 'User')
++
++        if default_desktop_environment is not None:
++            plasmalogin_config.set(
++                'Autologin',
++                'Session',
++                default_desktop_environment.desktop_file
++                )
++
++        with open(plasmalogin_conf_path, 'w') as plasmalogin_config_file:
++            plasmalogin_config.write(plasmalogin_config_file, space_around_delimiters=False)
++
++
++    def basic_setup(self):
++        pass
++
++    def desktop_environment_setup(self, desktop_environment):
++        pass
++
++    def greeter_setup(self):
++        pass
++
+ 
+ class DMsddm(DisplayManager):
+     name = "sddm"
+-- 
+2.47.3
+

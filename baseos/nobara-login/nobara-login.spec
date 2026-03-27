@@ -1,7 +1,7 @@
 Summary: A set of scripts to run upon first user login
 Name: nobara-login
 Version: 1.2
-Release: 15%{?dist}
+Release: 16%{?dist}
 License: Public Domain
 Group: System Environment/Base
 Source0: hwcheck.sh
@@ -18,12 +18,8 @@ Source14: 90-corectrl.rules
 Source15: 00-handheld-power.conf
 Source16: wine_gaming.conf
 Source21: 99-ntsync.rules
-Source22: 70-wooting.rules
-Source23: 70-asus.rules
-Source24: 70-drunkdeer.rules
 Source27: 75-powercap.rules
 Source28: krunnerrc
-Source29: 99-steelseries.rules
 Source30: nobara_login_discord.sh
 Source31: nobara_login_extest_wayland_input.sh
 Source32: nobara_login_force_nobara_rpm_installer_default.sh
@@ -84,12 +80,8 @@ install -m 0755 %{SOURCE15} $RPM_BUILD_ROOT%{_sysconfdir}/login.conf.d/00-handhe
 install -m 0755 %{SOURCE16} $RPM_BUILD_ROOT%{_datadir}/pipewire/pipewire-pulse.conf.d/wine_gaming.conf
 install -m 0644 %{SOURCE21} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/99-ntsync.rules
 install -m 0644 %{SOURCE34} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/99-thunderbolt.rules
-install -m 0644 %{SOURCE22} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/70-wooting.rules
-install -m 0644 %{SOURCE23} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/70-asus.rules
-install -m 0644 %{SOURCE24} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/70-drunkdeer.rules
 install -m 0644 %{SOURCE27} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/75-powercap.rules
 install -m 0644 %{SOURCE28} $RPM_BUILD_ROOT%{_sysconfdir}/xdg/krunnerrc
-install -m 0644 %{SOURCE29} $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d/99-steelseries.rules
 install -m 0755 %{SOURCE30} $RPM_BUILD_ROOT%{_bindir}/nobara_login_discord.sh
 install -m 0755 %{SOURCE31} $RPM_BUILD_ROOT%{_bindir}/nobara_login_extest_wayland_input.sh
 install -m 0755 %{SOURCE32} $RPM_BUILD_ROOT%{_bindir}/nobara_login_force_nobara_rpm_installer_default.sh
@@ -109,15 +101,11 @@ install -m 0755 %{SOURCE33} $RPM_BUILD_ROOT%{_bindir}/nobara_login_gnome_newfile
 %{_sysconfdir}/udev/rules.d/60-ioschedulers.rules
 %{_sysconfdir}/udev/rules.d/99-ntsync.rules
 %{_sysconfdir}/udev/rules.d/99-thunderbolt.rules
-%{_sysconfdir}/udev/rules.d/70-wooting.rules
-%{_sysconfdir}/udev/rules.d/70-drunkdeer.rules
-%{_sysconfdir}/udev/rules.d/70-asus.rules
+%{_sysconfdir}/udev/rules.d/75-powercap.rules
 %{_sysconfdir}/polkit-1/rules.d/90-corectrl.rules
 %{_sysconfdir}/login.conf.d/00-handheld-power.conf
 %{_datadir}/pipewire/pipewire-pulse.conf.d/wine_gaming.conf
-%{_sysconfdir}/udev/rules.d/75-powercap.rules
 %{_sysconfdir}/xdg/krunnerrc
-%{_sysconfdir}/udev/rules.d/99-steelseries.rules
 %{_sysconfdir}/xdg/autostart/nobara-firstrun.desktop
 
 

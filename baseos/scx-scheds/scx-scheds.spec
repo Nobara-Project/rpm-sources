@@ -1,7 +1,7 @@
 %define _disable_source_fetch 0
 
 Name:           scx-scheds
-Version:        1.0.20
+Version:        1.1.0
 Release:        1%{?dist}
 Summary:        Sched_ext Schedulers and Tools
 
@@ -81,6 +81,9 @@ find target/release \
 %{_bindir}/*
 
 %changelog
+* Sat Mar 07 2026 LionHeartP <LionHeartP@proton.me> - 1.1.0-1
+- Update to 1.1.0
+
 * Sat Feb 07 2026 LionHeartP <LionHeartP@proton.me> - 1.0.20-1
 - Update to 1.0.20
 

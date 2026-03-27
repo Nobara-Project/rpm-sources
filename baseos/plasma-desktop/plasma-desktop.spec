@@ -5,8 +5,8 @@
 
 Name:    plasma-desktop
 Summary: Plasma Desktop shell
-Version: 6.5.5
-Release: 1%{?dist}
+Version: 6.6.2
+Release: 2%{?dist}
 
 License: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only)
 URL:     https://invent.kde.org/plasma/%{name}
@@ -166,6 +166,8 @@ Requires:       kpipewire%{?_isa}
 BuildRequires:  signon-plugin-oauth2-devel
 Requires:       signon-plugin-oauth2%{?_isa}
 
+# applets/kickoff/KickoffSingleton.qml unconditionally imports org.kde.plasma.plasma5support
+Requires:       qt6qml(org.kde.plasma.plasma5support)
 
 # for kimpanel-ibus-panel and kimpanel-ibus-panel-launcher
 Recommends: ibus
@@ -345,6 +347,30 @@ desktop-file-validate %{buildroot}/%{_datadir}/applications/kaccess.desktop
 
 
 %changelog
+* Tue Mar 03 2026 Steve Cossette <farchord@gmail.com> - 6.6.2-1
+- 6.6.2
+
+* Tue Feb 24 2026 Steve Cossette <farchord@gmail.com> - 6.6.1-1
+- 6.6.1
+
+* Thu Feb 12 2026 Steve Cossette <farchord@gmail.com> - 6.6.0-1
+- 6.6.0
+
+* Mon Feb 09 2026 Adam Williamson <awilliam@redhat.com> - 6.5.91-2
+- Require plasma5support (applets/kickoff/KickoffSingleton.qml needs it)
+
+* Tue Jan 27 2026 Steve Cossette <farchord@gmail.com> - 6.5.91-1
+- 6.5.91
+
+* Sat Jan 17 2026 Fedora Release Engineering <releng@fedoraproject.org> - 6.5.90-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_44_Mass_Rebuild
+
+* Tue Jan 13 2026 farchord@gmail.com - 6.5.90-1
+- 6.5.90
+
+* Tue Jan 13 2026 farchord@gmail.com - 6.5.5-1
+- 6.5.5
+
 * Tue Dec 16 2025 Neal Gompa <ngompa@fedoraproject.org> - 6.5.4-2
 - Add weak dependency on udev-hid-bpf-stable for tablet support
 

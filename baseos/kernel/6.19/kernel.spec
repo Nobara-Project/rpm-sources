@@ -43,7 +43,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.19
-%define _stablekver 5
+%define _stablekver 10
 %define _rcver rc7
 %if %{_stablekver} == 0
 %define _tarkver %{_basekver}
@@ -65,7 +65,7 @@ Version: %{_basekver}.%{_stablekver}
 Release:%{customver}.nobara%{?dist}
 
 # Define rawhide fedora version
-%define _rawhidever 44
+%define _rawhidever 45
 
 %define rpmver %{version}-%{release}
 %define rpmverobsolete 6.12.9-200.fsync%{?dist}
@@ -104,28 +104,23 @@ Patch4: ROG-ALLY-NCT6775-PLATFORM.patch
 Patch5: ps-logitech-wheel.patch
 # fixes framerate control in gamescope
 Patch6: valve-gamescope-framerate-control-fixups.patch
-# fixes orientation on SuiPlay0X1
-Patch7: suiplay0x1-orientation-quirk.patch
 
 # temporary patches
-# fixes HAINAN amdgpu card not being bootable
-# https://gitlab.freedesktop.org/drm/amd/-/issues/1839
-Patch8: amdgpu-HAINAN-variant-fixup.patch
 # Allow to set custom USB pollrate for specific devices like so:
 # usbcore.interrupt_interval_override=045e:00db:16,1bcf:0005:1
 # useful for setting polling rate of wired PS4/PS5 controller to 1000Hz
 # https://github.com/KarsMulder/Linux-Pollrate-Patch
 # https://gitlab.com/GloriousEggroll/nobara-images/-/issues/64
-Patch9: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
+Patch7: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
 # Add xpadneo as patch instead of using dkms module
-Patch10: 0001-Add-xpadneo-bluetooth-hid-driver-module.patch
-Patch11: MA350.patch
+Patch8: xpadneo-kernel-integration.patch
+Patch9: MA350.patch
 
 # Capture device quirks
-Patch12: capture-device-nv12-fixup.patch
+Patch10: capture-device-nv12-fixup.patch
 
-# Piece-Of-Cake Fast Idle CPU Selector
-Patch13: https://raw.githubusercontent.com/CachyOS/kernel-patches/refs/heads/master/%{_basekver}/misc/poc-selector.patch
+# Add "ROG STRIX X870-I GAMING WIFI"
+Patch11: 0857-hwmon-nct6775-Add-ROG-STRIX-X870-I-GAMING-WIFI.patch
 
 # aarch64 patches
 Patch21: 0001-arm64-mm-Handle-alignment-faults.patch
@@ -438,8 +433,6 @@ patch -p1 -i %{PATCH8}
 patch -p1 -i %{PATCH9}
 patch -p1 -i %{PATCH10}
 patch -p1 -i %{PATCH11}
-patch -p1 -i %{PATCH12}
-patch -p1 -i %{PATCH13}
 
 # Apply aarch64 patches
 %ifarch aarch64
@@ -973,11 +966,18 @@ if [ `uname -i` == "x86_64" -o `uname -i` == "i386" ] &&
   /bin/sed -r -i -e 's/^DEFAULTKERNEL=kernel-smp$/DEFAULTKERNEL=kernel/' /etc/sysconfig/kernel || exit $?
 fi
 
+
 %posttrans core
-/bin/kernel-install add %{kverstr} /lib/modules/%{kverstr}/vmlinuz || exit $?
-if [ ! -z $(rpm -qa | grep grubby) ]; then
-  grubby --set-default="/boot/vmlinuz-%{kverstr}"
+# Skip kernel-install during image builds (no systemd running)
+if [ ! -d /run/systemd/system ]; then
+    exit 0
 fi
+
+/bin/kernel-install add %{kverstr} /lib/modules/%{kverstr}/vmlinuz || exit $?
+if [ -x /usr/sbin/grubby ]; then
+    /usr/sbin/grubby --set-default="/boot/vmlinuz-%{kverstr}"
+fi
+
 
 %preun core
 /bin/kernel-install remove %{kverstr} /lib/modules/%{kverstr}/vmlinuz || exit $?
@@ -1162,6 +1162,31 @@ fi
 %files
 
 %changelog
+* Wed Mar 25 2026 LionHeartP <LionHeartP@proton.me> - 6.19.10-200
+- Update to 6.19.10
+- Drop amdgpu-HAINAN-variant-fixup.patch [upstreamed]
+- Drop poc-selector.patch
+
+* Fri Mar 20 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 6.19.9-201
+- Update to 6.19.9
+- Rebase xpadneo patch to latest version
+
+* Thu Mar 19 2026 LionHeartP <LionHeartP@proton.me> - 6.19.9-200
+- Update to 6.19.9
+- Remove suiplay orientation fix patch (now included in cachyos handheld)
+
+* Fri Mar 13 2026 LionHeartP <LionHeartP@proton.me> - 6.19.8-200
+- Update to 6.19.8
+
+* Thu Mar 12 2026 LionHeartP <LionHeartP@proton.me> - 6.19.7-200
+- Update to 6.19.7
+
+* Thu Mar 05 2026 LionHeartP <LionHeartP@proton.me> - 6.19.6-201
+- Add "ROG STRIX X870-I GAMING WIFI" patch
+
+* Wed Mar 04 2026 LionHeartP <LionHeartP@proton.me> - 6.19.6-200
+- Update to 6.19.6
+
 * Fri Feb 27 2026 LionHeartP <LionHeartP@proton.me> - 6.19.4-200
 - Update to 6.19.4
 

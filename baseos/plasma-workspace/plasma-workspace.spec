@@ -4,8 +4,8 @@
 
 Name:    plasma-workspace
 Summary: Plasma workspace, applications and applets
-Version: 6.5.5
-Release: 1%{?dist}
+Version: 6.6.2
+Release: 2%{?dist}
 
 # Automatically converted from old format: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only) AND MIT - review is highly recommended.
 License: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only) AND MIT
@@ -24,6 +24,9 @@ Source102:      kde-smartcard
 Source40:       ssh-agent.conf
 
 ## upstream patches
+# Fix for build failure regarding the plasma-shell wayland interface
+# https://invent.kde.org/plasma/plasma-workspace/-/commit/9114115f5af2594de64477e38e8762ff8dddbbd7
+Source200:      9114115f5af2594de64477e38e8762ff8dddbbd7.patch
 
 ## upstreamable Patches
 
@@ -243,7 +246,7 @@ Requires:       ocean-sound-theme
 Requires:        polkit-kde
 
 # onscreen keyboard
-Requires:        (plasma-keyboard%{?_isa} or maliit-keyboard%{?_isa})
+Requires:        plasma-keyboard%{?_isa}
 
 # lockscreen look-and-feel imports qml: QtQuick.VirtualKeyboard
 Requires:        qt6-qtvirtualkeyboard
@@ -359,7 +362,7 @@ Provides:       sddm-greeter-displayserver
 Conflicts:      sddm-greeter-displayserver
 Requires:       kwin-wayland
 Requires:       layer-shell-qt
-Requires:       maliit-keyboard
+Requires:       plasma-keyboard
 Supplements:    (sddm and plasma-workspace)
 %if ! (0%{?fedora} && 0%{?fedora} < 38)
 # Replace sddm-x11 with sddm-wayland-plasma
@@ -412,7 +415,7 @@ rm -v %{buildroot}%{_kf6_bindir}/startplasma-x11 %{buildroot}%{_datadir}/xsessio
 %endif
 
 
-chrpath --delete %{buildroot}%{_kf6_qtplugindir}/phonon_platform/kde.so
+#chrpath --delete %{buildroot}%{_kf6_qtplugindir}/phonon_platform/kde.so
 
 # General startplasma symlink
 ln -sr %{buildroot}%{_kf6_bindir}/startplasma-wayland %{buildroot}%{_kf6_bindir}/startplasma
@@ -448,7 +451,7 @@ cat *.lang | sort | uniq -u > %{name}.lang
 
 
 %check
-desktop-file-validate %{buildroot}%{_kf6_datadir}/applications/org.kde.{plasmashell,kcolorschemeeditor,kfontview,plasmawindowed,klipper,plasma-interactiveconsole}.desktop
+desktop-file-validate %{buildroot}%{_kf6_datadir}/applications/org.kde.{plasmashell,kcolorschemeeditor,kfontview,plasmawindowed,klipper,plasma-interactiveconsole,baloorunner,secretprompter}.desktop
 
 %post
 if [ -s /usr/sbin/setsebool ] ; then
@@ -459,6 +462,9 @@ fi
 %license LICENSES
 
 %files -f %{name}.lang
+%{_libexecdir}/ksecretprompter
+%{_kf6_datadir}/applications/org.kde.baloorunner.desktop
+%{_kf6_datadir}/applications/org.kde.secretprompter.desktop
 %{_kf6_datadir}/xdg-desktop-portal/kde-portals.conf
 %{_sysconfdir}/xdg/menus/plasma-applications.menu
 %{_kf6_bindir}/gmenudbusmenuproxy
@@ -516,7 +522,6 @@ fi
 %{_kf6_datadir}/knotifications6/*.notifyrc
 %{_kf6_datadir}/config.kcfg/*
 %{_kf6_datadir}/kio_desktop/
-%{_kf6_datadir}/plasma5support/services/*.operations
 %{_kf6_datadir}/applications/kcm_*
 %{_kf6_datadir}/applications/org.kde.plasmashell.desktop
 %{_kf6_datadir}/applications/org.kde.kcolorschemeeditor.desktop
@@ -558,7 +563,6 @@ fi
 %{_libdir}/libkworkspace6.so.*
 
 %files libs
-%{_sysconfdir}/xdg/taskmanagerrulesrc
 %{_libdir}/libbatterycontrol.so.*
 %{_libdir}/libtaskmanager.so.*
 %{_libdir}/libklipper.so.*
@@ -571,8 +575,6 @@ fi
 %if %{with kf6_pim}
 %{_kf6_qtplugindir}/plasmacalendarplugins/
 %endif
-%dir %{_kf6_qtplugindir}/phonon_platform/
-%{_kf6_qtplugindir}/phonon_platform/kde.so
 %{_kf6_plugindir}/kio/*.so
 %{_kf6_plugindir}/kded/*.so
 %{_libdir}/libklookandfeel.so.6
@@ -591,7 +593,6 @@ fi
 %{_kf6_qtplugindir}/plasma/containmentactions/org.kde.switchdesktop.so
 %{_kf6_qtplugindir}/plasma/containmentactions/switchwindow.so
 %{_kf6_qtplugindir}/plasma/containmentactions/switchactivity.so
-%{_kf6_qtplugindir}/plasma5support/dataengine/*
 %{_kf6_qtplugindir}/plasma/kcminit/kcm_fonts_init.so
 %{_kf6_qtplugindir}/plasma/kcminit/kcm_style_init.so
 %{_kf6_qtplugindir}/plasma/kcms/systemsettings_qwidgets/kcm_fontinst.so
@@ -642,6 +643,45 @@ fi
 
 
 %changelog
+* Tue Mar 03 2026 Steve Cossette <farchord@gmail.com> - 6.6.2-1
+- 6.6.2
+
+* Tue Feb 24 2026 Steve Cossette <farchord@gmail.com> - 6.6.1-1
+- 6.6.1
+
+* Thu Feb 12 2026 Steve Cossette <farchord@gmail.com> - 6.6.0-1
+- 6.6.0
+
+* Sun Feb 08 2026 Neal Gompa <ngompa@fedoraproject.org> - 6.5.91-2
+- Unconditionally require plasma-keyboard
+
+* Tue Jan 27 2026 Steve Cossette <farchord@gmail.com> - 6.5.91-1
+- 6.5.91
+
+* Sat Jan 17 2026 Fedora Release Engineering <releng@fedoraproject.org> - 6.5.90-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_44_Mass_Rebuild
+
+* Tue Jan 13 2026 farchord@gmail.com - 6.5.90-1
+- 6.5.90
+
+* Tue Jan 13 2026 farchord@gmail.com - 6.5.5-1
+- 6.5.5
+
+* Sun Dec 14 2025 Alessandro Astone <ales.astone@gmail.com> - 6.5.4-2
+- Default to plasma-keyboard in sddm for f44
+
+* Tue Dec 09 2025 Steve Cossette <farchord@gmail.com> - 6.5.4-1
+- 6.5.4
+
+* Fri Dec 05 2025 Neal Gompa <ngompa@fedoraproject.org> - 6.5.3-3
+- Install light/dark variants of Fedora look and feel theme
+
+* Sun Nov 23 2025 Steve Cossette <farchord@gmail.com> - 6.5.3-2
+- Rebuild
+
+* Tue Nov 18 2025 Steve Cossette <farchord@gmail.com> - 6.5.3-1
+- 6.5.3
+
 * Tue Nov 04 2025 Steve Cossette <farchord@gmail.com> - 6.5.2-1
 - 6.5.2
 

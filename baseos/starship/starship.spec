@@ -2,7 +2,7 @@
 %undefine _package_note_file
 
 Name: starship
-Version: 1.24.0
+Version: 1.24.2
 Release: 1%{?dist}
 Summary: â˜„ðŸŒŒï¸� The minimal, blazing-fast, and infinitely customizable prompt for any shell!
 
@@ -13,7 +13,7 @@ Source1: starship.toml
 Source2: nobara_profile_starship.sh
 
 BuildRequires: cargo >= 1.74
-BuildRequires: cmake3
+BuildRequires: cmake
 BuildRequires: gcc
 BuildRequires: rust >= 1.74
 
@@ -38,7 +38,6 @@ The minimal, blazing-fast, and infinitely customizable prompt for any shell!
 
 %install
 export CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_OPT_LEVEL=3
-export CMAKE=cmake3
 RUSTFLAGS='-C strip=symbols' cargo install --root=%{buildroot}%{_prefix} --path=.
 rm -f %{buildroot}%{_prefix}/.crates.toml \
     %{buildroot}%{_prefix}/.crates2.json
@@ -57,6 +56,10 @@ cp %{SOURCE2} %{buildroot}/etc/profile.d/
 %config(noreplace) /etc/profile.d/nobara_profile_starship.sh
 
 %changelog
+* Sat Mar 21 2026 LionHeartP <LionHeartP@proton.me> - 1.24.2-1
+- chore: Update to latest release
+- build: Change cmake3 to cmake for f44+ compatibility
+
 * Sat Nov 15 2025 LionHeartP <LionHeartP@proton.me> - 1.24.0-1
 - chore: Update to latest release
 
