@@ -59,7 +59,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 200
+%define customver 202
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -152,7 +152,6 @@ BuildRequires: dwarves
 BuildRequires: gcc, binutils, redhat-rpm-config, hmaccalc, bison, flex, gcc-c++
 BuildRequires: gettext ncurses-devel
 BuildRequires: glibc-static
-BuildRequires: grubby
 BuildRequires: gzip
 BuildRequires: hostname
 BuildRequires: java-devel
@@ -961,23 +960,19 @@ popd
 rm -rf %{buildroot}
 
 %post core
-if [ `uname -i` == "x86_64" -o `uname -i` == "i386" ] &&
-   [ -f /etc/sysconfig/kernel ]; then
-  /bin/sed -r -i -e 's/^DEFAULTKERNEL=kernel-smp$/DEFAULTKERNEL=kernel/' /etc/sysconfig/kernel || exit $?
+if [[ "$(uname -m)" == "x86_64" ]]; then
+    if [ -f /etc/sysconfig/kernel ]; then
+        sed -i 's/^DEFAULTKERNEL=.*/DEFAULTKERNEL=kernel/' /etc/sysconfig/kernel
+    else
+        cat <<EOF > /etc/sysconfig/kernel
+UPDATEDEFAULT=yes
+DEFAULTKERNEL=kernel
+EOF
+    fi
 fi
-
 
 %posttrans core
-# Skip kernel-install during image builds (no systemd running)
-if [ ! -d /run/systemd/system ]; then
-    exit 0
-fi
-
 /bin/kernel-install add %{kverstr} /lib/modules/%{kverstr}/vmlinuz || exit $?
-if [ -x /usr/sbin/grubby ]; then
-    /usr/sbin/grubby --set-default="/boot/vmlinuz-%{kverstr}"
-fi
-
 
 %preun core
 /bin/kernel-install remove %{kverstr} /lib/modules/%{kverstr}/vmlinuz || exit $?
@@ -1162,6 +1157,9 @@ fi
 %files
 
 %changelog
+* Sun Mar 29 2026 LionHeartP <LionHeartP@proton.me> - 6.19.10-202
+- Update %post core to set default kernel without grubby
+
 * Wed Mar 25 2026 LionHeartP <LionHeartP@proton.me> - 6.19.10-200
 - Update to 6.19.10
 - Drop amdgpu-HAINAN-variant-fixup.patch [upstreamed]
