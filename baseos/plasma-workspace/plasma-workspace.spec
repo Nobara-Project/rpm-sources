@@ -5,7 +5,7 @@
 Name:    plasma-workspace
 Summary: Plasma workspace, applications and applets
 Version: 6.6.2
-Release: 2%{?dist}
+Release: 3%{?dist}
 
 # Automatically converted from old format: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only) AND MIT - review is highly recommended.
 License: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only) AND MIT
@@ -289,8 +289,6 @@ Requires:   qt6-qtwayland%{?_isa}
 # startplasmacompositor deps
 Requires:   qt6-qttools
 Requires:   xdg-desktop-portal-kde
-# Enables X11 apps to screenshare a Wayland environment
-Recommends: xwaylandvideobridge
 # Replace the old -wayland subpackage
 Obsoletes:  %{name}-wayland < 6.4.1-2
 Conflicts:  %{name}-wayland < 6.4.1-2
