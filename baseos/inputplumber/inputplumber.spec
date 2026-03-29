@@ -1,8 +1,8 @@
 %global _name   inputplumber
 
 Name:           inputplumber
-Version:        0.71.0
-Release:        4%{?dist}
+Version:        0.75.2
+Release:        1%{?dist}
 Summary:        InputPlumber is an open source input routing and control daemon for Linux. It can be used to combine any number of input devices (like gamepads, mice, and keyboards) and translate their input to a variety of virtual device formats.
 
 License:        GPLv3+
@@ -12,7 +12,7 @@ ExcludeArch:    %{ix86}
 
 BuildRequires:  libevdev-devel libiio-devel git make cargo libudev-devel llvm-devel clang-devel
 Requires:       libevdev libiio
-Recommends:     steam gamescope-session linuxconsoletools
+Recommends:     steam linuxconsoletools
 Provides:       inputplumber
 Requires:       opengamepadui
 Conflicts:      hhd
