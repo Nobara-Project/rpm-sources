@@ -1,7 +1,7 @@
 Summary: A set of scripts to run upon first user login
 Name: nobara-login
 Version: 1.2
-Release: 16%{?dist}
+Release: 17%{?dist}
 License: Public Domain
 Group: System Environment/Base
 Source0: hwcheck.sh
@@ -25,6 +25,7 @@ Source31: nobara_login_extest_wayland_input.sh
 Source32: nobara_login_force_nobara_rpm_installer_default.sh
 Source33: nobara_login_gnome_newfile.sh
 Source34: 99-thunderbolt.rules
+Source35: xpadneo.conf
 
 BuildArch: noarch
 BuildRequires: filesystem
@@ -86,6 +87,7 @@ install -m 0755 %{SOURCE30} $RPM_BUILD_ROOT%{_bindir}/nobara_login_discord.sh
 install -m 0755 %{SOURCE31} $RPM_BUILD_ROOT%{_bindir}/nobara_login_extest_wayland_input.sh
 install -m 0755 %{SOURCE32} $RPM_BUILD_ROOT%{_bindir}/nobara_login_force_nobara_rpm_installer_default.sh
 install -m 0755 %{SOURCE33} $RPM_BUILD_ROOT%{_bindir}/nobara_login_gnome_newfile.sh
+install -Dm644 %{SOURCE35} $RPM_BUILD_ROOT%{_prefix}/lib/modprobe.d/xpadneo.conf
 
 
 %files
@@ -107,7 +109,7 @@ install -m 0755 %{SOURCE33} $RPM_BUILD_ROOT%{_bindir}/nobara_login_gnome_newfile
 %{_datadir}/pipewire/pipewire-pulse.conf.d/wine_gaming.conf
 %{_sysconfdir}/xdg/krunnerrc
 %{_sysconfdir}/xdg/autostart/nobara-firstrun.desktop
-
+%{_prefix}/lib/modprobe.d/xpadneo.conf
 
 %files sysctl
 %{_prefix}/lib/sysctl.d/20-starcitizen-max_map_count.conf
