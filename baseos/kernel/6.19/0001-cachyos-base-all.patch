@@ -22501,7 +22501,7 @@ index 895fb820dba0..23ce744b233b 100644
 -- 
 2.53.0
 
-From f0be4ec5d6b6258888c9d926a49c3a6f54a8c431 Mon Sep 17 00:00:00 2001
+From 5a98916e3730655998d0e3ee1f20059961b77bb2 Mon Sep 17 00:00:00 2001
 From: Peter Jung <admin@ptr1337.dev>
 Date: Thu, 2 Apr 2026 16:44:11 +0200
 Subject: [PATCH 6/8] t2
@@ -22513,7 +22513,7 @@ Signed-off-by: Peter Jung <admin@ptr1337.dev>
  drivers/gpu/drm/i915/display/intel_fbdev.c    |    6 +-
  drivers/gpu/drm/i915/display/intel_quirks.c   |   16 +
  drivers/gpu/drm/i915/display/intel_quirks.h   |    1 +
- drivers/gpu/vga/vga_switcheroo.c              |    9 +-
+ drivers/gpu/vga/vga_switcheroo.c              |   41 +-
  drivers/hid/Kconfig                           |   10 +-
  drivers/hid/Makefile                          |    6 +
  drivers/hid/dockchannel-hid/Kconfig           |   14 +
@@ -22565,7 +22565,7 @@ Signed-off-by: Peter Jung <admin@ptr1337.dev>
  drivers/staging/apple-bce/vhci/vhci.h         |   53 +
  include/linux/hid.h                           |    6 +-
  include/linux/soc/apple/dockchannel.h         |   26 +
- 57 files changed, 10708 insertions(+), 351 deletions(-)
+ 57 files changed, 10740 insertions(+), 351 deletions(-)
  create mode 100644 drivers/hid/dockchannel-hid/Kconfig
  create mode 100644 drivers/hid/dockchannel-hid/Makefile
  create mode 100644 drivers/hid/dockchannel-hid/dockchannel-hid.c
@@ -22697,20 +22697,62 @@ index 06da0e286c67..71b89e52ebe7 100644
  
  void intel_init_quirks(struct intel_display *display);
 diff --git a/drivers/gpu/vga/vga_switcheroo.c b/drivers/gpu/vga/vga_switcheroo.c
-index 68e45a26e85f..5e1d73ab3a54 100644
+index 68e45a26e85f..7654654dfcc0 100644
 --- a/drivers/gpu/vga/vga_switcheroo.c
 +++ b/drivers/gpu/vga/vga_switcheroo.c
-@@ -31,6 +31,7 @@
- #define pr_fmt(fmt) "vga_switcheroo: " fmt
- 
+@@ -33,6 +33,7 @@
  #include <linux/apple-gmux.h>
-+#include <linux/cachy-t2.h>
  #include <linux/console.h>
  #include <linux/debugfs.h>
++#include <linux/dmi.h>
  #include <linux/fb.h>
-@@ -438,12 +439,8 @@ find_active_client(struct list_head *head)
+ #include <linux/fs.h>
+ #include <linux/fbcon.h>
+@@ -167,6 +168,14 @@ struct vgasr_priv {
+ #define client_is_vga(c)		(!client_is_audio(c))
+ #define client_id(c)		((c)->id & ~ID_BIT_AUDIO)
+ 
++#ifndef T2_MAC
++#define T2_MAC(vendor, product) \
++		 .matches = { \
++			DMI_MATCH(DMI_BOARD_VENDOR, vendor), \
++			DMI_MATCH(DMI_PRODUCT_NAME, product), \
++		},
++#endif
++
+ static void vga_switcheroo_debugfs_init(struct vgasr_priv *priv);
+ static void vga_switcheroo_debugfs_fini(struct vgasr_priv *priv);
+ 
+@@ -435,15 +444,35 @@ find_active_client(struct list_head *head)
+  *
+  * Return: %true if probing should be deferred, otherwise %false.
+  */
++
++static const struct dmi_system_id is_t2_mac[] = {
++	{ T2_MAC("Apple Inc.", "MacBookPro15,1") },
++	{ T2_MAC("Apple Inc.", "MacBookPro15,2") },
++	{ T2_MAC("Apple Inc.", "MacBookPro15,3") },
++	{ T2_MAC("Apple Inc.", "MacBookPro15,4") },
++	{ T2_MAC("Apple Inc.", "MacBookPro16,1") },
++	{ T2_MAC("Apple Inc.", "MacBookPro16,2") },
++	{ T2_MAC("Apple Inc.", "MacBookPro16,3") },
++	{ T2_MAC("Apple Inc.", "MacBookPro16,4") },
++	{ T2_MAC("Apple Inc.", "MacBookAir8,1") },
++	{ T2_MAC("Apple Inc.", "MacBookAir8,2") },
++	{ T2_MAC("Apple Inc.", "MacBookAir9,1") },
++	{ T2_MAC("Apple Inc.", "Macmini8,1") },
++	{ T2_MAC("Apple Inc.", "MacPro7,1") },
++	{ T2_MAC("Apple Inc.", "iMac20,1") },
++	{ T2_MAC("Apple Inc.", "iMac20,2") },
++	{ T2_MAC("Apple Inc.", "iMacPro1,1") },
++	{ }
++};
++
  bool vga_switcheroo_client_probe_defer(struct pci_dev *pdev)
  {
++	const struct dmi_system_id *dmi_id;
++	dmi_id = dmi_first_match(is_t2_mac);
++
  	if (pci_is_display(pdev)) {
 -		/*
 -		 * apple-gmux is needed on pre-retina MacBook Pro
@@ -22719,7 +22761,7 @@ index 68e45a26e85f..5e1d73ab3a54 100644
 -		if (apple_gmux_present() && pdev != vga_default_device() &&
 -		    !vgasr_priv.handler_flags)
 +		if (apple_gmux_present() && !vgasr_priv.handler_flags &&
-+		    (pdev != vga_default_device() || apple_is_t2_mac()))
++		    (pdev != vga_default_device() || dmi_id))
  			return true;
  	}
  
@@ -35217,7 +35259,7 @@ index 000000000000..0b7093935ddf
 -- 
 2.53.0
 
-From dd1897dc71eddfecfdbb134df688f1a9c9b05453 Mon Sep 17 00:00:00 2001
+From 0e7319541e423e5c4bc0250d3ae7fc9cae6950cc Mon Sep 17 00:00:00 2001
 From: Peter Jung <admin@ptr1337.dev>
 Date: Thu, 2 Apr 2026 16:44:24 +0200
 Subject: [PATCH 7/8] vesa-dsc-bpp
@@ -35609,7 +35651,7 @@ index b9bb92e4b029..312e5c03af9a 100644
 -- 
 2.53.0
 
-From b4f6c3b372b0def7cdac19472d3bfa2056e1a1fd Mon Sep 17 00:00:00 2001
+From 2cf0b41682b63e315028f6df4ba9856bf15073e9 Mon Sep 17 00:00:00 2001
 From: Peter Jung <admin@ptr1337.dev>
 Date: Thu, 2 Apr 2026 16:44:36 +0200
 Subject: [PATCH 8/8] vmscape
