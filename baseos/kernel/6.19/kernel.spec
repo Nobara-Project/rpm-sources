@@ -43,7 +43,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.19
-%define _stablekver 10
+%define _stablekver 11
 %define _rcver rc7
 %if %{_stablekver} == 0
 %define _tarkver %{_basekver}
@@ -59,7 +59,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 202
+%define customver 200
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -1157,6 +1157,9 @@ fi
 %files
 
 %changelog
+* Thu Apr 02 2026 LionHeartP <LionHeartP@proton.me> - 6.19.11-200
+- Update to 6.19.11
+
 * Sun Mar 29 2026 LionHeartP <LionHeartP@proton.me> - 6.19.10-202
 - Update %post core to set default kernel without grubby
 

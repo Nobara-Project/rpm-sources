@@ -10,7 +10,7 @@ Signed-off-by: GloriousEggroll <gloriouseggroll@gmail.com>
 
 diff -Naur linux-clean/drivers/hid/hid-microsoft.c linux-patched/drivers/hid/hid-microsoft.c
 --- linux-clean/drivers/hid/hid-microsoft.c	2026-03-25 04:13:32.000000000 -0600
-+++ linux-patched/drivers/hid/hid-microsoft.c	2026-03-29 04:46:16.723525218 -0600
++++ linux-patched/drivers/hid/hid-microsoft.c	2026-03-31 00:44:43.877863013 -0600
 @@ -447,18 +447,8 @@
  	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x091B),
  		.driver_data = MS_SURFACE_DIAL },
@@ -34,7 +34,7 @@ diff -Naur linux-clean/drivers/hid/hid-microsoft.c linux-patched/drivers/hid/hid
  MODULE_DEVICE_TABLE(hid, ms_devices);
 diff -Naur linux-clean/drivers/hid/Kconfig linux-patched/drivers/hid/Kconfig
 --- linux-clean/drivers/hid/Kconfig	2026-03-25 04:13:32.000000000 -0600
-+++ linux-patched/drivers/hid/Kconfig	2026-03-29 04:46:16.722441732 -0600
++++ linux-patched/drivers/hid/Kconfig	2026-03-31 00:44:43.877156999 -0600
 @@ -1443,6 +1443,9 @@
  
  source "drivers/hid/intel-thc-hid/Kconfig"
@@ -47,7 +47,7 @@ diff -Naur linux-clean/drivers/hid/Kconfig linux-patched/drivers/hid/Kconfig
  # USB support may be used with HID disabled
 diff -Naur linux-clean/drivers/hid/Makefile linux-patched/drivers/hid/Makefile
 --- linux-clean/drivers/hid/Makefile	2026-03-25 04:13:32.000000000 -0600
-+++ linux-patched/drivers/hid/Makefile	2026-03-29 04:46:16.723225137 -0600
++++ linux-patched/drivers/hid/Makefile	2026-03-31 00:44:43.877598312 -0600
 @@ -180,6 +180,8 @@ obj-$(CONFIG_SURFACE_HID_CORE)  += surface-hid/
  
  obj-$(CONFIG_INTEL_THC_HID)     += intel-thc-hid/
@@ -154,8 +154,8 @@ diff -Naur linux-clean/drivers/hid/xpadneo/consumer.c linux-patched/drivers/hid/
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/core.c linux-patched/drivers/hid/xpadneo/core.c
 --- linux-clean/drivers/hid/xpadneo/core.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/core.c	2026-03-29 04:45:06.774073161 -0600
-@@ -0,0 +1,325 @@
++++ linux-patched/drivers/hid/xpadneo/core.c	2026-03-31 00:34:41.354022774 -0600
+@@ -0,0 +1,332 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
 +/*
@@ -195,8 +195,15 @@ diff -Naur linux-clean/drivers/hid/xpadneo/core.c linux-patched/drivers/hid/xpad
 +static bool param_enable_pid_spoof = false;
 +module_param_named(enable_pid_spoof, param_enable_pid_spoof, bool, 0444);
 +MODULE_PARM_DESC(enable_pid_spoof,
-+		 "(bool) Enable PID/version spoofing to pretend Xbox 360 controller for SDL2 compatibility (default: disabled). "
-+		 "Only needed for older SDL2 versions (<2.28). Modern games and Steam Input work better with real PIDs.");
++		 "(bool) Enable PID/version spoofing and Linux gamepad spec compliance mode (default: disabled). "
++		 "When enabled: pretends to be Xbox 360, applies HID descriptor mods, uses strict button mapping. "
++		 "When disabled (default): uses real PID, native firmware layout, works with Steam Input and Wine/Proton. "
++		 "Only enable for legacy SDL2 (<2.28) games that need Xbox 360 emulation.");
++
++bool xpadneo_param_enable_pid_spoof(void)
++{
++	return param_enable_pid_spoof;
++}
 +
 +#ifndef USB_VENDOR_ID_MICROSOFT
 +#define USB_VENDOR_ID_MICROSOFT 0x045e
@@ -654,8 +661,8 @@ diff -Naur linux-clean/drivers/hid/xpadneo/debug.c linux-patched/drivers/hid/xpa
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/device.c linux-patched/drivers/hid/xpadneo/device.c
 --- linux-clean/drivers/hid/xpadneo/device.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/device.c	2026-03-29 02:39:57.434535052 -0600
-@@ -0,0 +1,123 @@
++++ linux-patched/drivers/hid/xpadneo/device.c	2026-03-31 00:34:31.714932510 -0600
+@@ -0,0 +1,133 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
 +/*
@@ -761,15 +768,25 @@ diff -Naur linux-clean/drivers/hid/xpadneo/device.c linux-patched/drivers/hid/xp
 +	/* fixup reported button count for Xbox controllers in Linux mode */
 +	if (*rsize >= 164) {
 +		/*
-+		 * 12 buttons instead of 10: properly remap the
-+		 * Xbox button (button 11)
-+		 * Share button (button 12)
++		 * Button count modifications + LINUX_BUTTONS quirk create Linux
++		 * gamepad spec compliance, but break Wine/Proton/Steam Input when
++		 * using real PIDs (default).
++		 *
++		 * ONLY apply these modifications when PID spoofing is enabled
++		 * (enable_pid_spoof=1). In spoof mode, we're pretending to be an
++		 * Xbox 360 controller for legacy SDL2 compatibility, so strict
++		 * Linux gamepad spec compliance is desired.
++		 *
++		 * With real PIDs (default), leave descriptor unmodified like
++		 * hid_microsoft does, which works for both Steam Input AND
++		 * Wine/Proton with the firmware's native button order.
 +		 */
-+		if (rdesc[140] == 0x05 && rdesc[141] == 0x09 &&
++		if (xpadneo_param_enable_pid_spoof() &&
++		    rdesc[140] == 0x05 && rdesc[141] == 0x09 &&
 +		    rdesc[144] == 0x29 && rdesc[145] == 0x0F &&
 +		    rdesc[152] == 0x95 && rdesc[153] == 0x0F &&
 +		    rdesc[162] == 0x95 && rdesc[163] == 0x01) {
-+			hid_notice(hdev, "fixing up button mapping\n");
++			hid_notice(hdev, "fixing up button mapping (PID spoof mode)\n");
 +			xdata->quirks |= XPADNEO_QUIRK_LINUX_BUTTONS;
 +			rdesc[145] = 0x0C;	/* 15 buttons -> 12 buttons */
 +			rdesc[153] = 0x0C;	/* 15 bits -> 12 bits buttons */
@@ -1203,7 +1220,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/helpers.h linux-patched/drivers/hid/x
 +#endif
 diff -Naur linux-clean/drivers/hid/xpadneo/Kconfig linux-patched/drivers/hid/xpadneo/Kconfig
 --- linux-clean/drivers/hid/xpadneo/Kconfig	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/Kconfig	2026-03-29 04:46:16.721155483 -0600
++++ linux-patched/drivers/hid/xpadneo/Kconfig	2026-03-31 00:44:43.876563495 -0600
 @@ -0,0 +1,20 @@
 +# SPDX-License-Identifier: GPL-2.0-only
 +config HID_XPADNEO
@@ -1277,7 +1294,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/keyboard.c linux-patched/drivers/hid/
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/Makefile linux-patched/drivers/hid/xpadneo/Makefile
 --- linux-clean/drivers/hid/xpadneo/Makefile	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/Makefile	2026-03-29 04:46:16.721177884 -0600
++++ linux-patched/drivers/hid/xpadneo/Makefile	2026-03-31 00:44:43.876587475 -0600
 @@ -0,0 +1,19 @@
 +# SPDX-License-Identifier: GPL-2.0-only
 +
@@ -1300,7 +1317,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/Makefile linux-patched/drivers/hid/xp
 +	synthetic.o
 diff -Naur linux-clean/drivers/hid/xpadneo/mappings.c linux-patched/drivers/hid/xpadneo/mappings.c
 --- linux-clean/drivers/hid/xpadneo/mappings.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/mappings.c	2026-03-29 02:39:57.434535052 -0600
++++ linux-patched/drivers/hid/xpadneo/mappings.c	2026-03-30 21:53:36.337698370 -0600
 @@ -0,0 +1,127 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
@@ -2579,8 +2596,8 @@ diff -Naur linux-clean/drivers/hid/xpadneo/synthetic.c linux-patched/drivers/hid
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/xpadneo.h linux-patched/drivers/hid/xpadneo/xpadneo.h
 --- linux-clean/drivers/hid/xpadneo/xpadneo.h	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/xpadneo.h	2026-03-29 04:44:54.776527122 -0600
-@@ -0,0 +1,245 @@
++++ linux-patched/drivers/hid/xpadneo/xpadneo.h	2026-03-31 00:34:04.781680296 -0600
+@@ -0,0 +1,248 @@
 +/* SPDX-License-Identifier: GPL-2.0-only */
 +
 +/*
@@ -2824,5 +2841,8 @@ diff -Naur linux-clean/drivers/hid/xpadneo/xpadneo.h linux-patched/drivers/hid/x
 +extern int xpadneo_events_raw_event(struct hid_device *, struct hid_report *, u8 *, int);
 +extern int xpadneo_events_event(struct hid_device *, struct hid_field *, struct hid_usage *, __s32);
 +extern int xpadneo_events_input_configured(struct hid_device *, struct hid_input *);
++
++/* module parameters */
++extern bool xpadneo_param_enable_pid_spoof(void);
 +
 +#endif
