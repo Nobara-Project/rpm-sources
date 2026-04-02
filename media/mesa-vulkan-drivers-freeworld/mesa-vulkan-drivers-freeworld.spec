@@ -67,7 +67,7 @@
 
 Name:           mesa-vulkan-drivers-freeworld
 Summary:        The mesa graphics vulkan driver stack.
-Version:        26.0.3
+Version:        26.0.4
 Release:        %autorelease
 License:        MIT
 URL:            http://www.mesa3d.org
@@ -310,7 +310,7 @@ rm -vf %{buildroot}%{_libdir}/libGLES*
 
 # glvnd needs a default provider for indirect rendering where it cannot
 # determine the vendor
-ln -s %{_libdir}/libGLX_mesa.so.0 %{buildroot}%{_libdir}/libGLX_system.so.0
+ln -s libGLX_mesa.so.0 %{buildroot}%{_libdir}/libGLX_system.so.0
 
 # cleanup unused
 rm -Rf %{buildroot}%{_libdir}/libGLX_mesa.so.0*
@@ -480,6 +480,10 @@ install -Dpm0644 cargo-vendor.txt \
 %endif
 
 %changelog
+* Thu Apr 02 2026 LionHeartP <LionHeartP@proton.me> - 26.0.4-1
+- Update to 26.0.4
+- Adjust libGLX symlink to avoid warning (Fedora change)
+
 * Wed Mar 18 2026 LionHeartP <LionHeartP@proton.me> - 26.0.3-1
 - Update to 26.0.3
 
