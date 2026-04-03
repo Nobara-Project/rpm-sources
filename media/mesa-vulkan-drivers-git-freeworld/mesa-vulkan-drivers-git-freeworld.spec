@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit a6992c7bbeee4e5e1ddd3555a0d2a25b8113f7d5
+%global commit e6af9524b0a77a48ba93b6fbdfe20d376581654b
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 7.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 8.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -95,10 +95,10 @@ Source1:        Mesa-MLAA-License-Clarification-Email.txt
 # https://gitlab.freedesktop.org/mesa/mesa/-/tree/main/subprojects
 # but we generally want the latest compatible versions
 %global rust_paste_ver 1.0.15
-%global rust_proc_macro2_ver 1.0.101
-%global rust_quote_ver 1.0.40
-%global rust_syn_ver 2.0.106
-%global rust_unicode_ident_ver 1.0.18
+%global rust_proc_macro2_ver 1.0.106
+%global rust_quote_ver 1.0.44
+%global rust_syn_ver 2.0.115
+%global rust_unicode_ident_ver 1.0.23
 %global rustc_hash_ver 2.1.1
 Source10:       https://crates.io/api/v1/crates/paste/%{rust_paste_ver}/download#/paste-%{rust_paste_ver}.tar.gz
 Source11:       https://crates.io/api/v1/crates/proc-macro2/%{rust_proc_macro2_ver}/download#/proc-macro2-%{rust_proc_macro2_ver}.tar.gz
@@ -526,6 +526,9 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Thu Apr 02 2026 LionHeartP <LionHeartP@proton.me> - 26.1.0-8
+- Update to latest commit
+
 * Wed Mar 25 2026 LionHeartP <LionHeartP@proton.me> - 26.1.0-7
 - Update to latest commit
 
