@@ -1,6 +1,6 @@
-From cc34a23cd80a7d5692254ab20e73c53a7ae43f06 Mon Sep 17 00:00:00 2001
+From 8a675395d6f962a2b458d5110496cb763ef5d1c2 Mon Sep 17 00:00:00 2001
 From: Peter Jung <admin@ptr1337.dev>
-Date: Wed, 25 Mar 2026 15:17:03 +0100
+Date: Thu, 2 Apr 2026 16:30:56 +0200
 Subject: [PATCH 1/8] amd-isp4
 
 Signed-off-by: Peter Jung <admin@ptr1337.dev>
@@ -4341,9 +4341,9 @@ index 000000000000..c66451e26166
 -- 
 2.53.0
 
-From 29b925adb2643a1af1ae7c275f8d7be0f011dd3d Mon Sep 17 00:00:00 2001
+From 2eddae01e26f8262c6f417bdd720b09bc94ddb6c Mon Sep 17 00:00:00 2001
 From: Peter Jung <admin@ptr1337.dev>
-Date: Wed, 25 Mar 2026 15:17:15 +0100
+Date: Thu, 2 Apr 2026 16:31:09 +0200
 Subject: [PATCH 2/8] bbr3
 
 Signed-off-by: Peter Jung <admin@ptr1337.dev>
@@ -7736,9 +7736,9 @@ index 160080c9021d..06ee74f2c01d 100644
 -- 
 2.53.0
 
-From bd9827d054cc9b5fff0fbae4c12baa4bf7e8bb29 Mon Sep 17 00:00:00 2001
+From 71bf5c64110eeae32d0dfa5345fc771485dd70bb Mon Sep 17 00:00:00 2001
 From: Peter Jung <admin@ptr1337.dev>
-Date: Wed, 25 Mar 2026 15:17:28 +0100
+Date: Thu, 2 Apr 2026 16:31:21 +0200
 Subject: [PATCH 3/8] cachy
 
 Signed-off-by: Peter Jung <admin@ptr1337.dev>
@@ -7847,7 +7847,7 @@ index 3a7241c941f5..c12bdf5a97f9 100644
  /vmlinux-gdb.py
  /vmlinuz
 diff --git a/Documentation/admin-guide/kernel-parameters.txt b/Documentation/admin-guide/kernel-parameters.txt
-index aa0031108bc1..28f14d664aa3 100644
+index f31e9e4c598f..e854a076fc14 100644
 --- a/Documentation/admin-guide/kernel-parameters.txt
 +++ b/Documentation/admin-guide/kernel-parameters.txt
 @@ -2520,6 +2520,9 @@ Kernel parameters
@@ -7974,7 +7974,7 @@ index 06d0ebddeefa..c240a9b6bdbc 100644
  unprivileged_userfaultfd
  ========================
 diff --git a/Makefile b/Makefile
-index 1d3c0858833f..5fa4830680ed 100644
+index 4043ecae1408..ffc69c6b8b60 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -889,11 +889,19 @@ KBUILD_CFLAGS	+= -fno-delete-null-pointer-checks
@@ -8049,7 +8049,7 @@ index 1d3c0858833f..5fa4830680ed 100644
 +	       vmlinux.thinlto-index builtin.order \
  	       compile_commands.json rust/test \
  	       rust-project.json .vmlinux.objs .vmlinux.export.c \
-                .builtin-dtbs-list .builtin-dtb.S
+                .builtin-dtbs-list .builtin-dtbs.S
 @@ -2073,7 +2078,7 @@ clean: $(clean-dirs)
  	$(call cmd,rmfiles)
  	@find . $(RCS_FIND_IGNORE) \
@@ -10523,10 +10523,10 @@ index abd3b6564373..46937e6fa78d 100644
 +
  endmenu
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index 5a54d3f4a3de..905f92e63f89 100644
+index 6c5a1ba4cb00..167ef10e5fff 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-@@ -4941,7 +4941,7 @@ static int amdgpu_dm_mode_config_init(struct amdgpu_device *adev)
+@@ -4942,7 +4942,7 @@ static int amdgpu_dm_mode_config_init(struct amdgpu_device *adev)
  		return r;
  	}
  
@@ -16459,10 +16459,10 @@ index 05dbfdb6dd1e..585c9f690cb2 100644
  extern unsigned long sysctl_admin_reserve_kbytes;
  
 diff --git a/include/linux/pagemap.h b/include/linux/pagemap.h
-index ec442af3f886..9a0364eb5ee1 100644
+index 31a848485ad9..9101402d3844 100644
 --- a/include/linux/pagemap.h
 +++ b/include/linux/pagemap.h
-@@ -1376,7 +1376,7 @@ struct readahead_control {
+@@ -1365,7 +1365,7 @@ struct readahead_control {
  		._index = i,						\
  	}
  
@@ -18605,7 +18605,7 @@ index 000000000000..f2a8e4f6628a
 +#endif /* CONFIG_SYSFS */
 +#endif /* CONFIG_SCHED_POC_SELECTOR */
 diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
-index d3485d48be28..fd47e92b8af0 100644
+index d3485d48be28..b3c32bf4946c 100644
 --- a/kernel/sched/sched.h
 +++ b/kernel/sched/sched.h
 @@ -2965,7 +2965,7 @@ extern void deactivate_task(struct rq *rq, struct task_struct *p, int flags);
@@ -18613,7 +18613,7 @@ index d3485d48be28..fd47e92b8af0 100644
  extern void wakeup_preempt(struct rq *rq, struct task_struct *p, int flags);
  
 -#ifdef CONFIG_PREEMPT_RT
-+#if defined(CONFIG_PREEMPT_RT) || defined(CONFIG_CACHY)
++#if defined(CONFIG_PREEMPT_RT) || defined(CONFIG_CACHY) && !defined(CONFIG_SCHED_BORE)
  # define SCHED_NR_MIGRATE_BREAK 8
  #else
  # define SCHED_NR_MIGRATE_BREAK 32
@@ -19826,9 +19826,9 @@ index 000000000000..98f9c55e3a86
 -- 
 2.53.0
 
-From 3c105c4ff6391a8c13974168095f2a1238743e96 Mon Sep 17 00:00:00 2001
+From 668cf672d1e36aaeab71dbaf9874b163aec9bfca Mon Sep 17 00:00:00 2001
 From: Peter Jung <admin@ptr1337.dev>
-Date: Wed, 25 Mar 2026 15:21:44 +0100
+Date: Thu, 2 Apr 2026 16:40:33 +0200
 Subject: [PATCH 4/8] fixes
 
 Signed-off-by: Peter Jung <admin@ptr1337.dev>
@@ -19845,6 +19845,7 @@ Signed-off-by: Peter Jung <admin@ptr1337.dev>
  drivers/dma-buf/udmabuf.c               | 49 ++++++----------------
  drivers/gpu/drm/i915/gt/intel_rc6.c     | 13 +++++-
  drivers/input/joystick/xpad.c           |  1 +
+ drivers/net/wireless/realtek/rtw88/rx.c |  8 ++++
  include/linux/perf_event.h              |  2 +-
  include/linux/sched/mm.h                | 10 ++---
  include/linux/sched/topology.h          |  3 --
@@ -19858,7 +19859,7 @@ Signed-off-by: Peter Jung <admin@ptr1337.dev>
  kernel/sched/sched.h                    | 31 +++++++-------
  kernel/sched/topology.c                 |  6 ---
  sound/hda/codecs/realtek/alc269.c       | 12 +++---
- 25 files changed, 123 insertions(+), 178 deletions(-)
+ 26 files changed, 131 insertions(+), 178 deletions(-)
 
 diff --git a/arch/arm/include/asm/mmu_context.h b/arch/arm/include/asm/mmu_context.h
 index db2cb06aa8cf..bebde469f81a 100644
@@ -20017,7 +20018,7 @@ index f5b93e01e347..71abaf0bdb91 100644
   * Using a temporary mm allows to set temporary mappings that are not accessible
   * by other CPUs. Such mappings are needed to perform sensitive memory writes
 diff --git a/drivers/bluetooth/btusb.c b/drivers/bluetooth/btusb.c
-index a41bb1e2a279..aad21f7831cc 100644
+index 4e161dcca00d..55c9bf0afac9 100644
 --- a/drivers/bluetooth/btusb.c
 +++ b/drivers/bluetooth/btusb.c
 @@ -563,6 +563,8 @@ static const struct usb_device_id quirks_table[] = {
@@ -20214,6 +20215,25 @@ index 363d50949386..cab76608d508 100644
  	{ 0x24c6, 0x5000, "Razer Atrox Arcade Stick", MAP_TRIGGERS_TO_BUTTONS, XTYPE_XBOX360 },
  	{ 0x24c6, 0x5300, "PowerA MINI PROEX Controller", 0, XTYPE_XBOX360 },
  	{ 0x24c6, 0x5303, "Xbox Airflo wired controller", 0, XTYPE_XBOX360 },
+diff --git a/drivers/net/wireless/realtek/rtw88/rx.c b/drivers/net/wireless/realtek/rtw88/rx.c
+index 8b0afaaffaa0..d9e11343d498 100644
+--- a/drivers/net/wireless/realtek/rtw88/rx.c
++++ b/drivers/net/wireless/realtek/rtw88/rx.c
+@@ -295,6 +295,14 @@ void rtw_rx_query_rx_desc(struct rtw_dev *rtwdev, void *rx_desc8,
+ 
+ 	pkt_stat->tsf_low = le32_get_bits(rx_desc->w5, RTW_RX_DESC_W5_TSFL);
+ 
++	if (unlikely(pkt_stat->rate >= DESC_RATE_MAX)) {
++		rtw_dbg(rtwdev, RTW_DBG_UNEXP,
++			"unexpected RX rate=0x%x\n", pkt_stat->rate);
++
++		pkt_stat->rate = DESC_RATE1M;
++		pkt_stat->bw = RTW_CHANNEL_WIDTH_20;
++	}
++
+ 	/* drv_info_sz is in unit of 8-bytes */
+ 	pkt_stat->drv_info_sz *= 8;
+ 
 diff --git a/include/linux/perf_event.h b/include/linux/perf_event.h
 index 9ded2e582c60..fbe94b65b30a 100644
 --- a/include/linux/perf_event.h
@@ -20471,7 +20491,7 @@ index 011fe1b2ae91..06c9929e9d83 100644
  	 * There's no userspace yet to cause hotplug operations; hence all the
  	 * CPU masks are stable and all blatant races in the below code cannot
 diff --git a/kernel/sched/ext.c b/kernel/sched/ext.c
-index f7eeccbd893a..be8870ca206a 100644
+index 2c32e12af435..66ef0a96ab16 100644
 --- a/kernel/sched/ext.c
 +++ b/kernel/sched/ext.c
 @@ -3487,8 +3487,8 @@ static void destroy_dsq(struct scx_sched *sch, u64 dsq_id)
@@ -20606,7 +20626,7 @@ index 136a6584be79..3c12d9f93331 100644
 - */
 -SCHED_FEAT(NI_RANDOM, true)
 diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
-index fd47e92b8af0..cd46af02b95d 100644
+index b3c32bf4946c..655250954d9a 100644
 --- a/kernel/sched/sched.h
 +++ b/kernel/sched/sched.h
 @@ -5,7 +5,6 @@
@@ -20725,10 +20745,10 @@ index e8cb88801fa9..c8a8122d4114 100644
  		.last_decay_max_lb_cost	= jiffies,
  		.child			= child,
 diff --git a/sound/hda/codecs/realtek/alc269.c b/sound/hda/codecs/realtek/alc269.c
-index 4c49f1195e1b..2144865ff29b 100644
+index 9a00e1d324ce..0463ac20ff55 100644
 --- a/sound/hda/codecs/realtek/alc269.c
 +++ b/sound/hda/codecs/realtek/alc269.c
-@@ -7303,12 +7303,12 @@ static const struct hda_quirk alc269_fixup_tbl[] = {
+@@ -7332,12 +7332,12 @@ static const struct hda_quirk alc269_fixup_tbl[] = {
  	SND_PCI_QUIRK(0x1043, 0x3e00, "ASUS G814FH/FM/FP", ALC287_FIXUP_CS35L41_I2C_2),
  	SND_PCI_QUIRK(0x1043, 0x3e20, "ASUS G814PH/PM/PP", ALC287_FIXUP_CS35L41_I2C_2),
  	SND_PCI_QUIRK(0x1043, 0x3e30, "ASUS TP3607SA", ALC287_FIXUP_TAS2781_I2C),
@@ -20750,9 +20770,9 @@ index 4c49f1195e1b..2144865ff29b 100644
 -- 
 2.53.0
 
-From 949b6d21771f9335e5b1589c33d6086d7c977e73 Mon Sep 17 00:00:00 2001
+From a91db02d96a804f178784c2d07ee6bbc2f77c31b Mon Sep 17 00:00:00 2001
 From: Peter Jung <admin@ptr1337.dev>
-Date: Wed, 25 Mar 2026 15:22:20 +0100
+Date: Thu, 2 Apr 2026 16:41:06 +0200
 Subject: [PATCH 5/8] hdmi
 
 Signed-off-by: Peter Jung <admin@ptr1337.dev>
@@ -20782,7 +20802,7 @@ Signed-off-by: Peter Jung <admin@ptr1337.dev>
  22 files changed, 874 insertions(+), 196 deletions(-)
 
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index 905f92e63f89..6ae3d2d26cb9 100644
+index 167ef10e5fff..074bf5ec94f9 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 @@ -2069,6 +2069,9 @@ static int amdgpu_dm_init(struct amdgpu_device *adev)
@@ -20795,7 +20815,7 @@ index 905f92e63f89..6ae3d2d26cb9 100644
  	adev->dm.dc->debug.visual_confirm = amdgpu_dc_visual_confirm;
  
  	/* TODO: Remove after DP2 receiver gets proper support of Cable ID feature */
-@@ -7380,7 +7383,7 @@ create_stream_for_sink(struct drm_connector *connector,
+@@ -7381,7 +7384,7 @@ create_stream_for_sink(struct drm_connector *connector,
  	update_stream_signal(stream, sink);
  
  	if (stream->signal == SIGNAL_TYPE_HDMI_TYPE_A)
@@ -20804,7 +20824,7 @@ index 905f92e63f89..6ae3d2d26cb9 100644
  
  	if (stream->signal == SIGNAL_TYPE_DISPLAY_PORT ||
  	    stream->signal == SIGNAL_TYPE_DISPLAY_PORT_MST ||
-@@ -7839,6 +7842,8 @@ amdgpu_dm_connector_atomic_duplicate_state(struct drm_connector *connector)
+@@ -7840,6 +7843,8 @@ amdgpu_dm_connector_atomic_duplicate_state(struct drm_connector *connector)
  	__drm_atomic_helper_connector_duplicate_state(connector, &new_state->base);
  
  	new_state->freesync_capable = state->freesync_capable;
@@ -20813,7 +20833,7 @@ index 905f92e63f89..6ae3d2d26cb9 100644
  	new_state->abm_level = state->abm_level;
  	new_state->scaling = state->scaling;
  	new_state->underscan_enable = state->underscan_enable;
-@@ -8955,6 +8960,7 @@ void amdgpu_dm_connector_init_helper(struct amdgpu_display_manager *dm,
+@@ -8956,6 +8961,7 @@ void amdgpu_dm_connector_init_helper(struct amdgpu_display_manager *dm,
  	aconnector->audio_inst = -1;
  	aconnector->pack_sdp_v1_3 = false;
  	aconnector->as_type = ADAPTIVE_SYNC_TYPE_NONE;
@@ -20821,7 +20841,7 @@ index 905f92e63f89..6ae3d2d26cb9 100644
  	memset(&aconnector->vsdb_info, 0, sizeof(aconnector->vsdb_info));
  	mutex_init(&aconnector->hpd_lock);
  	mutex_init(&aconnector->handle_mst_msg_ready);
-@@ -9045,8 +9051,10 @@ void amdgpu_dm_connector_init_helper(struct amdgpu_display_manager *dm,
+@@ -9046,8 +9052,10 @@ void amdgpu_dm_connector_init_helper(struct amdgpu_display_manager *dm,
  	    connector_type == DRM_MODE_CONNECTOR_eDP) {
  		drm_connector_attach_hdr_output_metadata_property(&aconnector->base);
  
@@ -20833,7 +20853,7 @@ index 905f92e63f89..6ae3d2d26cb9 100644
  
  		if (adev->dm.hdcp_workqueue)
  			drm_connector_attach_content_protection_property(&aconnector->base, true);
-@@ -9150,6 +9158,10 @@ int amdgpu_dm_initialize_hdmi_connector(struct amdgpu_dm_connector *aconnector)
+@@ -9151,6 +9159,10 @@ int amdgpu_dm_initialize_hdmi_connector(struct amdgpu_dm_connector *aconnector)
  	struct drm_device *ddev = aconnector->base.dev;
  	struct device *hdmi_dev = ddev->dev;
  
@@ -20844,7 +20864,7 @@ index 905f92e63f89..6ae3d2d26cb9 100644
  	if (amdgpu_dc_debug_mask & DC_DISABLE_HDMI_CEC) {
  		drm_info(ddev, "HDMI-CEC feature masked\n");
  		return -EINVAL;
-@@ -9617,7 +9629,11 @@ static void update_freesync_state_on_stream(
+@@ -9618,7 +9630,11 @@ static void update_freesync_state_on_stream(
  
  	aconn = (struct amdgpu_dm_connector *)new_stream->dm_stream_context;
  
@@ -20857,7 +20877,7 @@ index 905f92e63f89..6ae3d2d26cb9 100644
  		pack_sdp_v1_3 = aconn->pack_sdp_v1_3;
  
  		if (aconn->vsdb_info.amd_vsdb_version == 1)
-@@ -10836,6 +10852,31 @@ static int amdgpu_dm_atomic_setup_commit(struct drm_atomic_state *state)
+@@ -10837,6 +10853,31 @@ static int amdgpu_dm_atomic_setup_commit(struct drm_atomic_state *state)
  	return 0;
  }
  
@@ -20889,7 +20909,7 @@ index 905f92e63f89..6ae3d2d26cb9 100644
  /**
   * amdgpu_dm_atomic_commit_tail() - AMDgpu DM's commit tail implementation.
   * @state: The atomic state to commit
-@@ -10878,12 +10919,14 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state)
+@@ -10879,12 +10920,14 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state)
  	for_each_oldnew_connector_in_state(state, connector, old_con_state, new_con_state, i) {
  		struct dm_connector_state *dm_new_con_state = to_dm_connector_state(new_con_state);
  		struct dm_connector_state *dm_old_con_state = to_dm_connector_state(old_con_state);
@@ -20904,7 +20924,7 @@ index 905f92e63f89..6ae3d2d26cb9 100644
  
  		memset(&stream_update, 0, sizeof(stream_update));
  
-@@ -10913,7 +10956,11 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state)
+@@ -10914,7 +10957,11 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state)
  		hdr_changed =
  			!drm_connector_atomic_hdr_metadata_equal(old_con_state, new_con_state);
  
@@ -20917,7 +20937,7 @@ index 905f92e63f89..6ae3d2d26cb9 100644
  			continue;
  
  		stream_update.stream = dm_new_crtc_state->stream;
-@@ -10943,6 +10990,17 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state)
+@@ -10944,6 +10991,17 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state)
  			stream_update.hdr_static_metadata = &hdr_packet;
  		}
  
@@ -20935,7 +20955,7 @@ index 905f92e63f89..6ae3d2d26cb9 100644
  		status = dc_stream_get_status(dm_new_crtc_state->stream);
  
  		if (WARN_ON(!status))
-@@ -11322,6 +11380,12 @@ static void get_freesync_config_for_crtc(
+@@ -11323,6 +11381,12 @@ static void get_freesync_config_for_crtc(
  		config.vsif_supported = true;
  		config.btr = true;
  
@@ -20948,7 +20968,7 @@ index 905f92e63f89..6ae3d2d26cb9 100644
  		if (fs_vid_mode) {
  			config.state = VRR_STATE_ACTIVE_FIXED;
  			config.fixed_refresh_in_uhz = new_crtc_state->freesync_config.fixed_refresh_in_uhz;
-@@ -11333,6 +11397,7 @@ static void get_freesync_config_for_crtc(
+@@ -11334,6 +11398,7 @@ static void get_freesync_config_for_crtc(
  		}
  	} else {
  		config.state = VRR_STATE_UNSUPPORTED;
@@ -20956,7 +20976,7 @@ index 905f92e63f89..6ae3d2d26cb9 100644
  	}
  out:
  	new_crtc_state->freesync_config = config;
-@@ -13135,8 +13200,8 @@ static void parse_edid_displayid_vrr(struct drm_connector *connector,
+@@ -13141,8 +13206,8 @@ static void parse_edid_displayid_vrr(struct drm_connector *connector,
  	}
  }
  
@@ -20967,7 +20987,7 @@ index 905f92e63f89..6ae3d2d26cb9 100644
  {
  	u8 *edid_ext = NULL;
  	int i;
-@@ -13152,6 +13217,9 @@ static int parse_amd_vsdb(struct amdgpu_dm_connector *aconnector,
+@@ -13158,6 +13223,9 @@ static int parse_amd_vsdb(struct amdgpu_dm_connector *aconnector,
  			break;
  	}
  
@@ -20977,7 +20997,7 @@ index 905f92e63f89..6ae3d2d26cb9 100644
  	while (j < EDID_LENGTH - sizeof(struct amd_vsdb_block)) {
  		struct amd_vsdb_block *amd_vsdb = (struct amd_vsdb_block *)&edid_ext[j];
  		unsigned int ieeeId = (amd_vsdb->ieee_id[2] << 16) | (amd_vsdb->ieee_id[1] << 8) | (amd_vsdb->ieee_id[0]);
-@@ -13170,13 +13238,13 @@ static int parse_amd_vsdb(struct amdgpu_dm_connector *aconnector,
+@@ -13176,13 +13244,13 @@ static int parse_amd_vsdb(struct amdgpu_dm_connector *aconnector,
  	return false;
  }
  
@@ -20993,7 +21013,7 @@ index 905f92e63f89..6ae3d2d26cb9 100644
  
  	/*----- drm_find_cea_extension() -----*/
  	/* No EDID or EDID extensions */
-@@ -13197,9 +13265,100 @@ static int parse_hdmi_amd_vsdb(struct amdgpu_dm_connector *aconnector,
+@@ -13203,9 +13271,100 @@ static int parse_hdmi_amd_vsdb(struct amdgpu_dm_connector *aconnector,
  	if (edid_ext[0] != CEA_EXT)
  		return -ENODEV;
  
@@ -21096,7 +21116,7 @@ index 905f92e63f89..6ae3d2d26cb9 100644
  }
  
  /**
-@@ -13216,16 +13375,20 @@ static int parse_hdmi_amd_vsdb(struct amdgpu_dm_connector *aconnector,
+@@ -13222,16 +13381,20 @@ static int parse_hdmi_amd_vsdb(struct amdgpu_dm_connector *aconnector,
  void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
  				    const struct drm_edid *drm_edid)
  {
@@ -21119,7 +21139,7 @@ index 905f92e63f89..6ae3d2d26cb9 100644
  
  	if (!connector->state) {
  		drm_err(adev_to_drm(adev), "%s - Connector has no state", __func__);
-@@ -13253,68 +13416,78 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
+@@ -13259,68 +13422,78 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
  	if (!adev->dm.freesync_module || !dc_supports_vrr(sink->ctx->dce_version))
  		goto update;
  
@@ -21247,7 +21267,7 @@ index 905f92e63f89..6ae3d2d26cb9 100644
  
  	if (connector->state && amdgpu_dm_connector->dc_link && !freesync_capable &&
  	    amdgpu_dm_connector->dc_link->replay_settings.config.replay_supported) {
-@@ -13323,8 +13496,15 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
+@@ -13329,8 +13502,15 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
  	}
  
  	if (connector->vrr_capable_property)
@@ -21266,7 +21286,7 @@ index 905f92e63f89..6ae3d2d26cb9 100644
  
  void amdgpu_dm_trigger_timing_sync(struct drm_device *dev)
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
-index beb0d04d3e68..6376d12acb72 100644
+index dbc3db0d6829..bd1b95699fa1 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
 @@ -828,6 +828,9 @@ struct amdgpu_dm_connector {
@@ -21279,7 +21299,7 @@ index beb0d04d3e68..6376d12acb72 100644
  };
  
  static inline void amdgpu_dm_set_mst_status(uint8_t *status,
-@@ -1001,6 +1004,7 @@ struct dm_connector_state {
+@@ -1002,6 +1005,7 @@ struct dm_connector_state {
  	uint8_t underscan_hborder;
  	bool underscan_enable;
  	bool freesync_capable;
@@ -22481,9 +22501,9 @@ index 895fb820dba0..23ce744b233b 100644
 -- 
 2.53.0
 
-From 2c58d1b2a35db164fe999353542be004ef47e467 Mon Sep 17 00:00:00 2001
+From 5a98916e3730655998d0e3ee1f20059961b77bb2 Mon Sep 17 00:00:00 2001
 From: Peter Jung <admin@ptr1337.dev>
-Date: Wed, 25 Mar 2026 15:31:44 +0100
+Date: Thu, 2 Apr 2026 16:44:11 +0200
 Subject: [PATCH 6/8] t2
 
 Signed-off-by: Peter Jung <admin@ptr1337.dev>
@@ -22493,7 +22513,7 @@ Signed-off-by: Peter Jung <admin@ptr1337.dev>
  drivers/gpu/drm/i915/display/intel_fbdev.c    |    6 +-
  drivers/gpu/drm/i915/display/intel_quirks.c   |   16 +
  drivers/gpu/drm/i915/display/intel_quirks.h   |    1 +
- drivers/gpu/vga/vga_switcheroo.c              |    7 +-
+ drivers/gpu/vga/vga_switcheroo.c              |   41 +-
  drivers/hid/Kconfig                           |   10 +-
  drivers/hid/Makefile                          |    6 +
  drivers/hid/dockchannel-hid/Kconfig           |   14 +
@@ -22545,7 +22565,7 @@ Signed-off-by: Peter Jung <admin@ptr1337.dev>
  drivers/staging/apple-bce/vhci/vhci.h         |   53 +
  include/linux/hid.h                           |    6 +-
  include/linux/soc/apple/dockchannel.h         |   26 +
- 57 files changed, 10706 insertions(+), 351 deletions(-)
+ 57 files changed, 10740 insertions(+), 351 deletions(-)
  create mode 100644 drivers/hid/dockchannel-hid/Kconfig
  create mode 100644 drivers/hid/dockchannel-hid/Makefile
  create mode 100644 drivers/hid/dockchannel-hid/dockchannel-hid.c
@@ -22677,12 +22697,62 @@ index 06da0e286c67..71b89e52ebe7 100644
  
  void intel_init_quirks(struct intel_display *display);
 diff --git a/drivers/gpu/vga/vga_switcheroo.c b/drivers/gpu/vga/vga_switcheroo.c
-index 68e45a26e85f..7580172daade 100644
+index 68e45a26e85f..7654654dfcc0 100644
 --- a/drivers/gpu/vga/vga_switcheroo.c
 +++ b/drivers/gpu/vga/vga_switcheroo.c
-@@ -438,12 +438,7 @@ find_active_client(struct list_head *head)
+@@ -33,6 +33,7 @@
+ #include <linux/apple-gmux.h>
+ #include <linux/console.h>
+ #include <linux/debugfs.h>
++#include <linux/dmi.h>
+ #include <linux/fb.h>
+ #include <linux/fs.h>
+ #include <linux/fbcon.h>
+@@ -167,6 +168,14 @@ struct vgasr_priv {
+ #define client_is_vga(c)		(!client_is_audio(c))
+ #define client_id(c)		((c)->id & ~ID_BIT_AUDIO)
+ 
++#ifndef T2_MAC
++#define T2_MAC(vendor, product) \
++		 .matches = { \
++			DMI_MATCH(DMI_BOARD_VENDOR, vendor), \
++			DMI_MATCH(DMI_PRODUCT_NAME, product), \
++		},
++#endif
++
+ static void vga_switcheroo_debugfs_init(struct vgasr_priv *priv);
+ static void vga_switcheroo_debugfs_fini(struct vgasr_priv *priv);
+ 
+@@ -435,15 +444,35 @@ find_active_client(struct list_head *head)
+  *
+  * Return: %true if probing should be deferred, otherwise %false.
+  */
++
++static const struct dmi_system_id is_t2_mac[] = {
++	{ T2_MAC("Apple Inc.", "MacBookPro15,1") },
++	{ T2_MAC("Apple Inc.", "MacBookPro15,2") },
++	{ T2_MAC("Apple Inc.", "MacBookPro15,3") },
++	{ T2_MAC("Apple Inc.", "MacBookPro15,4") },
++	{ T2_MAC("Apple Inc.", "MacBookPro16,1") },
++	{ T2_MAC("Apple Inc.", "MacBookPro16,2") },
++	{ T2_MAC("Apple Inc.", "MacBookPro16,3") },
++	{ T2_MAC("Apple Inc.", "MacBookPro16,4") },
++	{ T2_MAC("Apple Inc.", "MacBookAir8,1") },
++	{ T2_MAC("Apple Inc.", "MacBookAir8,2") },
++	{ T2_MAC("Apple Inc.", "MacBookAir9,1") },
++	{ T2_MAC("Apple Inc.", "Macmini8,1") },
++	{ T2_MAC("Apple Inc.", "MacPro7,1") },
++	{ T2_MAC("Apple Inc.", "iMac20,1") },
++	{ T2_MAC("Apple Inc.", "iMac20,2") },
++	{ T2_MAC("Apple Inc.", "iMacPro1,1") },
++	{ }
++};
++
  bool vga_switcheroo_client_probe_defer(struct pci_dev *pdev)
  {
++	const struct dmi_system_id *dmi_id;
++	dmi_id = dmi_first_match(is_t2_mac);
++
  	if (pci_is_display(pdev)) {
 -		/*
 -		 * apple-gmux is needed on pre-retina MacBook Pro
@@ -22690,7 +22760,8 @@ index 68e45a26e85f..7580172daade 100644
 -		 */
 -		if (apple_gmux_present() && pdev != vga_default_device() &&
 -		    !vgasr_priv.handler_flags)
-+		if (apple_gmux_present() && !vgasr_priv.handler_flags)
++		if (apple_gmux_present() && !vgasr_priv.handler_flags &&
++		    (pdev != vga_default_device() || dmi_id))
  			return true;
  	}
  
@@ -24000,7 +24071,7 @@ index 000000000000..a712a724ded3
 +MODULE_AUTHOR("Hector Martin <marcan@marcan.st>");
 +MODULE_LICENSE("Dual MIT/GPL");
 diff --git a/drivers/hid/hid-apple.c b/drivers/hid/hid-apple.c
-index 233e367cce1d..7c424c111f19 100644
+index 9dcb252c5d6c..e1533c8f0f2c 100644
 --- a/drivers/hid/hid-apple.c
 +++ b/drivers/hid/hid-apple.c
 @@ -30,7 +30,7 @@
@@ -24012,7 +24083,7 @@ index 233e367cce1d..7c424c111f19 100644
  #define APPLE_HAS_FN		BIT(2)
  /* BIT(3) reserved, was: APPLE_HIDDEV */
  #define APPLE_ISO_TILDE_QUIRK	BIT(4)
-@@ -519,6 +519,16 @@ static int hidinput_apple_event(struct hid_device *hid, struct input_dev *input,
+@@ -522,6 +522,16 @@ static int hidinput_apple_event(struct hid_device *hid, struct input_dev *input,
  				table = macbookair_fn_keys;
  			else if (hid->product < 0x21d || hid->product >= 0x300)
  				table = powerbook_fn_keys;
@@ -24029,7 +24100,7 @@ index 233e367cce1d..7c424c111f19 100644
  			else
  				table = apple_fn_keys;
  		}
-@@ -939,6 +949,13 @@ static int apple_probe(struct hid_device *hdev,
+@@ -940,6 +950,13 @@ static int apple_probe(struct hid_device *hdev,
  	struct apple_sc *asc;
  	int ret;
  
@@ -24043,7 +24114,7 @@ index 233e367cce1d..7c424c111f19 100644
  	asc = devm_kzalloc(&hdev->dev, sizeof(*asc), GFP_KERNEL);
  	if (asc == NULL) {
  		hid_err(hdev, "can't alloc apple descriptor\n");
-@@ -1161,27 +1178,31 @@ static const struct hid_device_id apple_devices[] = {
+@@ -1162,27 +1179,31 @@ static const struct hid_device_id apple_devices[] = {
  	{ HID_USB_DEVICE(USB_VENDOR_ID_APPLE, USB_DEVICE_ID_APPLE_WELLSPRING9_JIS),
  		.driver_data = APPLE_HAS_FN | APPLE_RDESC_JIS },
  	{ HID_USB_DEVICE(USB_VENDOR_ID_APPLE, USB_DEVICE_ID_APPLE_WELLSPRINGT2_J140K),
@@ -24084,7 +24155,7 @@ index 233e367cce1d..7c424c111f19 100644
  	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_APPLE, USB_DEVICE_ID_APPLE_ALU_WIRELESS_2009_ANSI),
  		.driver_data = APPLE_NUMLOCK_EMULATION | APPLE_HAS_FN },
  	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_APPLE, USB_DEVICE_ID_APPLE_ALU_WIRELESS_2009_ISO),
-@@ -1217,6 +1238,10 @@ static const struct hid_device_id apple_devices[] = {
+@@ -1218,6 +1239,10 @@ static const struct hid_device_id apple_devices[] = {
  		.driver_data = APPLE_HAS_FN | APPLE_ISO_TILDE_QUIRK | APPLE_RDESC_BATTERY },
  	{ HID_BLUETOOTH_DEVICE(BT_VENDOR_ID_APPLE, USB_DEVICE_ID_APPLE_MAGIC_KEYBOARD_NUMPAD_2024),
  		.driver_data = APPLE_HAS_FN | APPLE_ISO_TILDE_QUIRK },
@@ -24125,7 +24196,7 @@ index a5b3a8ca2fcb..b353fd819989 100644
  		bus = "SOUNDWIRE";
  		break;
 diff --git a/drivers/hid/hid-ids.h b/drivers/hid/hid-ids.h
-index 85ab1ac51109..9901686f58c8 100644
+index 7fd67745ee01..4c69e6b2c35b 100644
 --- a/drivers/hid/hid-ids.h
 +++ b/drivers/hid/hid-ids.h
 @@ -93,6 +93,8 @@
@@ -24153,7 +24224,7 @@ index 85ab1ac51109..9901686f58c8 100644
  #define USB_VENDOR_ID_ASETEK			0x2433
  #define USB_DEVICE_ID_ASETEK_INVICTA		0xf300
 diff --git a/drivers/hid/hid-magicmouse.c b/drivers/hid/hid-magicmouse.c
-index 91f621ceb924..8d45862adfed 100644
+index 9eadf3252d0d..cf27a1e50cae 100644
 --- a/drivers/hid/hid-magicmouse.c
 +++ b/drivers/hid/hid-magicmouse.c
 @@ -60,8 +60,14 @@ MODULE_PARM_DESC(report_undeciphered, "Report undeciphered multi-touch state fie
@@ -25036,7 +25107,7 @@ index 91f621ceb924..8d45862adfed 100644
  	}
  
  	return 0;
-@@ -1028,10 +1702,42 @@ static const struct hid_device_id magic_mice[] = {
+@@ -1026,10 +1700,42 @@ static const struct hid_device_id magic_mice[] = {
  		USB_DEVICE_ID_APPLE_MAGICTRACKPAD2_USBC), .driver_data = 0 },
  	{ HID_USB_DEVICE(USB_VENDOR_ID_APPLE,
  		USB_DEVICE_ID_APPLE_MAGICTRACKPAD2_USBC), .driver_data = 0 },
@@ -25079,7 +25150,7 @@ index 91f621ceb924..8d45862adfed 100644
  static struct hid_driver magicmouse_driver = {
  	.name = "magicmouse",
  	.id_table = magic_mice,
-@@ -1042,6 +1748,10 @@ static struct hid_driver magicmouse_driver = {
+@@ -1040,6 +1746,10 @@ static struct hid_driver magicmouse_driver = {
  	.event = magicmouse_event,
  	.input_mapping = magicmouse_input_mapping,
  	.input_configured = magicmouse_input_configured,
@@ -35188,9 +35259,9 @@ index 000000000000..0b7093935ddf
 -- 
 2.53.0
 
-From 5c5497c7b9433ae084a6efd1fae95020c01154b0 Mon Sep 17 00:00:00 2001
+From 0e7319541e423e5c4bc0250d3ae7fc9cae6950cc Mon Sep 17 00:00:00 2001
 From: Peter Jung <admin@ptr1337.dev>
-Date: Wed, 25 Mar 2026 15:32:35 +0100
+Date: Thu, 2 Apr 2026 16:44:24 +0200
 Subject: [PATCH 7/8] vesa-dsc-bpp
 
 Signed-off-by: Peter Jung <admin@ptr1337.dev>
@@ -35205,10 +35276,10 @@ Signed-off-by: Peter Jung <admin@ptr1337.dev>
  7 files changed, 112 insertions(+), 39 deletions(-)
 
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index 6ae3d2d26cb9..f9bfb6836736 100644
+index 074bf5ec94f9..d1d2fd559319 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-@@ -6789,6 +6789,11 @@ static void fill_stream_properties_from_drm_display_mode(
+@@ -6790,6 +6790,11 @@ static void fill_stream_properties_from_drm_display_mode(
  
  	stream->output_color_space = get_output_color_space(timing_out, connector_state);
  	stream->content_type = get_output_content_type(connector_state);
@@ -35220,7 +35291,7 @@ index 6ae3d2d26cb9..f9bfb6836736 100644
  }
  
  static void fill_audio_info(struct audio_info *audio_info,
-@@ -7247,6 +7252,7 @@ create_stream_for_sink(struct drm_connector *connector,
+@@ -7248,6 +7253,7 @@ create_stream_for_sink(struct drm_connector *connector,
  	struct drm_display_mode mode;
  	struct drm_display_mode saved_mode;
  	struct drm_display_mode *freesync_mode = NULL;
@@ -35228,7 +35299,7 @@ index 6ae3d2d26cb9..f9bfb6836736 100644
  	bool native_mode_found = false;
  	bool recalculate_timing = false;
  	bool scale = dm_state->scaling != RMX_OFF;
-@@ -7338,6 +7344,16 @@ create_stream_for_sink(struct drm_connector *connector,
+@@ -7339,6 +7345,16 @@ create_stream_for_sink(struct drm_connector *connector,
  		}
  	}
  
@@ -35580,9 +35651,9 @@ index b9bb92e4b029..312e5c03af9a 100644
 -- 
 2.53.0
 
-From b3b120cbf7ddaf70c9446fc54bfeb78e1d5e4a9c Mon Sep 17 00:00:00 2001
+From 2cf0b41682b63e315028f6df4ba9856bf15073e9 Mon Sep 17 00:00:00 2001
 From: Peter Jung <admin@ptr1337.dev>
-Date: Wed, 25 Mar 2026 15:33:25 +0100
+Date: Thu, 2 Apr 2026 16:44:36 +0200
 Subject: [PATCH 8/8] vmscape
 
 Signed-off-by: Peter Jung <admin@ptr1337.dev>
@@ -35623,10 +35694,10 @@ index d9b9a2b6c114..580f288ae8bf 100644
 +
 +   Choose the mitigation based on the VMSCAPE variant the CPU is affected by.
 diff --git a/Documentation/admin-guide/kernel-parameters.txt b/Documentation/admin-guide/kernel-parameters.txt
-index 28f14d664aa3..a3e9684f63c0 100644
+index e854a076fc14..a16eb5b1d350 100644
 --- a/Documentation/admin-guide/kernel-parameters.txt
 +++ b/Documentation/admin-guide/kernel-parameters.txt
-@@ -8281,9 +8281,11 @@ Kernel parameters
+@@ -8284,9 +8284,11 @@ Kernel parameters
  
  			off		- disable the mitigation
  			ibpb		- use Indirect Branch Prediction Barrier

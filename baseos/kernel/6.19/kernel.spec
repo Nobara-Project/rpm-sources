@@ -43,7 +43,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.19
-%define _stablekver 10
+%define _stablekver 11
 %define _rcver rc7
 %if %{_stablekver} == 0
 %define _tarkver %{_basekver}
@@ -152,7 +152,6 @@ BuildRequires: dwarves
 BuildRequires: gcc, binutils, redhat-rpm-config, hmaccalc, bison, flex, gcc-c++
 BuildRequires: gettext ncurses-devel
 BuildRequires: glibc-static
-BuildRequires: grubby
 BuildRequires: gzip
 BuildRequires: hostname
 BuildRequires: java-devel
@@ -961,23 +960,19 @@ popd
 rm -rf %{buildroot}
 
 %post core
-if [ `uname -i` == "x86_64" -o `uname -i` == "i386" ] &&
-   [ -f /etc/sysconfig/kernel ]; then
-  /bin/sed -r -i -e 's/^DEFAULTKERNEL=kernel-smp$/DEFAULTKERNEL=kernel/' /etc/sysconfig/kernel || exit $?
+if [[ "$(uname -m)" == "x86_64" ]]; then
+    if [ -f /etc/sysconfig/kernel ]; then
+        sed -i 's/^DEFAULTKERNEL=.*/DEFAULTKERNEL=kernel/' /etc/sysconfig/kernel
+    else
+        cat <<EOF > /etc/sysconfig/kernel
+UPDATEDEFAULT=yes
+DEFAULTKERNEL=kernel
+EOF
+    fi
 fi
-
 
 %posttrans core
-# Skip kernel-install during image builds (no systemd running)
-if [ ! -d /run/systemd/system ]; then
-    exit 0
-fi
-
 /bin/kernel-install add %{kverstr} /lib/modules/%{kverstr}/vmlinuz || exit $?
-if [ -x /usr/sbin/grubby ]; then
-    /usr/sbin/grubby --set-default="/boot/vmlinuz-%{kverstr}"
-fi
-
 
 %preun core
 /bin/kernel-install remove %{kverstr} /lib/modules/%{kverstr}/vmlinuz || exit $?
@@ -1162,6 +1157,12 @@ fi
 %files
 
 %changelog
+* Thu Apr 02 2026 LionHeartP <LionHeartP@proton.me> - 6.19.11-200
+- Update to 6.19.11
+
+* Sun Mar 29 2026 LionHeartP <LionHeartP@proton.me> - 6.19.10-202
+- Update %post core to set default kernel without grubby
+
 * Wed Mar 25 2026 LionHeartP <LionHeartP@proton.me> - 6.19.10-200
 - Update to 6.19.10
 - Drop amdgpu-HAINAN-variant-fixup.patch [upstreamed]

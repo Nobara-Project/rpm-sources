@@ -1,10 +1,8 @@
-diff --git a/src/input/target/steam_deck.rs b/src/input/target/steam_deck.rs
-index 6e1674e..d198981 100644
---- a/src/input/target/steam_deck.rs
-+++ b/src/input/target/steam_deck.rs
-@@ -62,27 +62,17 @@ pub enum ProductId {
-     //LenovoLegionGo2 = 0x13__,
- }
+--- a/src/drivers/steam_deck/mod.rs	2026-03-27 04:43:48.618464180 -0600
++++ b/src/drivers/steam_deck/mod.rs	2026-03-27 04:43:59.519060260 -0600
+@@ -19,30 +19,16 @@
+ /// Vendor ID
+ pub const VID: u16 = 0x28de;
  
 +//just a hack for now so we get steam guide button icon for all devices
  impl ProductId {
@@ -12,6 +10,8 @@ index 6e1674e..d198981 100644
          match self {
 -            ProductId::SteamDeck => ProductId::SteamDeck as u16,
 -            ProductId::Generic => ProductId::Generic as u16,
+-            ProductId::MsiClaw => ProductId::MsiClaw as u16,
+-            ProductId::LenovoLegionGo2 => ProductId::LenovoLegionGo2 as u16,
 -            ProductId::ZotacZone => ProductId::ZotacZone as u16,
 -            ProductId::AsusRogAlly => ProductId::AsusRogAlly as u16,
 -            ProductId::LenovoLegionGo => ProductId::LenovoLegionGo as u16,
@@ -25,6 +25,8 @@ index 6e1674e..d198981 100644
 -        match self {
 -            ProductId::SteamDeck => ProductId::SteamDeck as u32,
 -            ProductId::Generic => ProductId::Generic as u32,
+-            ProductId::MsiClaw => ProductId::MsiClaw as u32,
+-            ProductId::LenovoLegionGo2 => ProductId::LenovoLegionGo2 as u32,
 -            ProductId::ZotacZone => ProductId::ZotacZone as u32,
 -            ProductId::AsusRogAlly => ProductId::AsusRogAlly as u32,
 -            ProductId::LenovoLegionGo => ProductId::LenovoLegionGo as u32,
@@ -33,4 +35,3 @@ index 6e1674e..d198981 100644
 +        self.to_u16() as u32
      }
  }
- 

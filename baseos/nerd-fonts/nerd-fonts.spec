@@ -1,95 +1,90 @@
-# Packaging template: basic single-family fonts packaging.
-#
-# SPDX-License-Identifier: MIT
-#
-# This template documents the minimal set of spec declarations, necessary to
-# package a single font family, from a single dedicated source archive.
-#
-# It is part of the following set of packaging templates:
-# “fonts-0-simple”: basic single-family fonts packaging
-# “fonts-1-full”:   less common patterns for single-family fonts packaging
-# “fonts-2-multi”:  multi-family fonts packaging
-# “fonts-3-sub”:    packaging fonts, released as part of something else
-#
-# A font family is composed of font files, that share a single design, and
-# differ ONLY in:
-# — Weight        Bold, Black…
-# – Width∕Stretch Narrow, Condensed, Expanded…
-# — Slope/Slant   Italic, Oblique
-# Optical sizing  Caption…
-#
-# Those parameters correspond to the default axes of OpenType variable fonts:
-# https://docs.microsoft.com/en-us/typography/opentype/spec/dvaraxisreg#registered-axis-tags
-# The variable fonts model is an extension of the WWS model described in the
-# WPF Font Selection Model whitepaper (2007):
-# https://msdnshared.blob.core.windows.net/media/MSDNBlogsFS/prod.evol.blogs.msdn.com/CommunityServer.Components.PostAttachments/00/02/24/90/36/WPF%20Font%20Selection%20Model.pdf
-#
-# Do not rely on the naming upstream chose, to define family boundaries, it
-# will often be wrong.
-#
-# Declaration order is chosen to limit divergence between those templates, and
-# simplify cut and pasting.
-#
-Version: 3.3.0
-Release: 0.2%{?dist}
-URL:     https://github.com/ryanoasis/nerd-fonts
+%global flist 0xProto 3270 Agave AnonymousPro Arimo AurulentSansMono BigBlueTerminal BitstreamVeraSansMono CascadiaCode CascadiaMono CodeNewRoman ComicShannsMono CommitMono Cousine D2Coding DaddyTimeMono DejaVuSansMono DepartureMono DroidSansMono EnvyCodeR FantasqueSansMono FiraCode FiraMono GeistMono Go-Mono Gohu Hack Hasklig HeavyData Hermit iA-Writer IBMPlexMono Inconsolata InconsolataGo InconsolataLGC IntelOneMono Iosevka IosevkaTerm IosevkaTermSlab JetBrainsMono Lekton LiberationMono Lilex MartianMono Meslo Monaspace Monofur Monoid Mononoki MPlus NerdFontsSymbolsOnly Noto OpenDyslexic Overpass ProFont ProggyClean Recursive RobotoMono ShareTechMono SourceCodePro SpaceMono Terminus Tinos Ubuntu UbuntuMono UbuntuSans VictorMono ZedMono
+%global desc %{expand:
+Nerd Fonts is a project that patches developer targeted fonts with a high
+number of glyphs (icons).}
 
-# The identifier of the entity, that released the font family.
-#global foundry           ryanoasis
-# The font family license identifier. Adjust as necessary. The OFL is our
-# recommended font license.
-%global fontlicense       OFL
-#
-# The following directives are lists of space-separated shell globs
-#   â€“ matching files associated with the font family,
-#   â€“ as they exist in the build root,
-#   â€” at the end of the %build stage:
-# â€“ legal files (licensingâ€¦)
-%global fontlicenses      LICENSE
-# â€“ documentation files
-%global fontdocs          *.md
-# â€“ exclusions from the â€fontdocsâ€ list
-%global fontdocsex        %{fontlicenses}
-
-# The human-friendly font family name, whitespace included, restricted to the
-# the Basic Latin Unicode block.
-%global fontfamily        nerd-fonts
-%global fontsummary       nerd fonts symbols
-#
-# More shell glob lists:
-# â€“ font family files
-%global fonts             *.ttf
-# â€“ fontconfig files
-%global fontconfs         %{SOURCE10}
-#
-# A multi-line description block for the generated package.
-%global fontdescription   %{expand:
+Name:		nerd-fonts
+Version:	3.4.0
+Release:	1%?dist
+URL:		https://nerdfonts.com/
+Source0:	https://raw.githubusercontent.com/ryanoasis/nerd-fonts/v%version/readme.md
+Source1:	https://raw.githubusercontent.com/ryanoasis/nerd-fonts/v%version/LICENSE
+License:	OFL-1.1
+Summary:	All packaged Nerd fonts
+BuildArch:	noarch
+Recommends:	%{lua:
+local x = ""
+local ver = rpm.expand("%version-%release")
+for font in (rpm.expand("%flist")):gmatch("[^ ]+") do
+	x = x .. font:lower().."-nerd-fonts = "..ver.." "
+end
+print(x)
+}
+BuildRequires:	unzip
+%{lua:
+local url = rpm.expand(": https://github.com/ryanoasis/nerd-fonts/releases/download/v%{version}/");
+local n = 2;
+for font in (rpm.expand("%flist")):gmatch("[^ ]+") do
+	print("Source"..n..url..font..".zip\n")
+	n = n + 1
+end
 }
 
-Source0:  NerdFontsSymbolsOnly-%{version}.tar.xz
-# Adjust as necessary. Keeping the filename in sync with the package name is a good idea.
-# See the fontconfig templates in fonts-rpm-templates for information on how to
-# write good fontconfig files and choose the correct priority [number].
+%description
+%{desc} Specifically to add a high number of extra glyphs from popular
+'iconic fonts' such as Font Awesome, Devicons, Octicons, and others.
 
-Source10: https://raw.githubusercontent.com/ryanoasis/nerd-fonts/v%{version}/10-nerd-font-symbols.conf
+%{lua:
+local desc = rpm.expand("%desc")
+for font in (rpm.expand("%flist")):gmatch("[^ ]+") do
+	print("%package -n "..font:lower().."-nerd-fonts\n")
+	print("Summary:\tPatched Nerd fonts: "..font)
+	print("\n%description -n "..font:lower().."-nerd-fonts\n")
+	print(desc..". The package contains the patched version of "..font..".\n")
+end
+}
 
-%fontpkg
+%global debug_package %nil
 
 %prep
-%setup -c %{name}-%{version}
-#sed -i 's|<!DOCTYPE fontconfig SYSTEM "fonts.dtd">|<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">|g' 10-nerd-font-symbols.conf
+cp %SOURCE0 .
+cp %SOURCE1 .
 
 %build
-%fontbuild
 
 %install
-%fontinstall
+mkdir -p %buildroot/usr/share/fonts/nerd-fonts/
+%{lua:
+local dest = rpm.expand("%buildroot/usr/share/fonts/nerd-fonts/");
+local n = 2;
+for font in (rpm.expand("%flist")):gmatch("[^ ]+") do
+	local src = rpm.expand("%SOURCE"..n)
+	print("unzip "..src.." -d "..dest..font.." &\n")
+	n = n + 1
+end
+}
+wait
 
-%check
-%fontcheck
+find %buildroot/usr/share/fonts/nerd-fonts/ -name "* Windows Compatible.*" -delete &
+find %buildroot/usr/share/fonts/nerd-fonts/ -name "*.txt" -delete &
+find %buildroot/usr/share/fonts/nerd-fonts/ -name "readme.md" -delete &
+wait
 
-%fontfiles
+
+%files
+%doc readme.md
+%license LICENSE
+
+%{lua:
+for font in (rpm.expand("%flist")):gmatch("[^ ]+") do
+	print("%files -n "..font:lower().."-nerd-fonts\n")
+	print("%doc readme.md\n")
+	print("%license LICENSE\n")
+	print("/usr/share/fonts/nerd-fonts/"..font.."\n")
+end
+}
+
 
 %changelog
-* Fri Jul 14 2023 - Rudolf Kastl <rkastl@redhat.com>
-- Initial RPM release
+* Wed Jan 4 2023 madonuko <mado@fyralabs.com> - 2.2.2-1
+- Initial package

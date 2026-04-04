@@ -1,9 +1,8 @@
-# Use Custom godot for now. 4.6 is broken and opengamepadui still uses 4.5
-%global godot_version 4.5
+%global godot_version 4.6.1
 
 Name:           opengamepadui
-Version:        0.44.1
-Release:        9%{?dist}
+Version:        0.44.3
+Release:        8%{?dist}
 Summary:        A free and open source game launcher and overlay written using the Godot Game Engine 4 designed with a gamepad native experience in mind
 
 License:        GPL-3.0-only
@@ -26,8 +25,6 @@ BuildRequires:  git
 BuildRequires:  wget
 BuildRequires:  systemd-rpm-macros
 
-# Use Custom godot for now. 4.6 is broken and opengamepadui still uses 4.5
-#BuildRequires:  godot
 BuildRequires:  unzip
 
 

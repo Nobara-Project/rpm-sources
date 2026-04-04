@@ -3,7 +3,7 @@
 
 Name: starship
 Version: 1.24.2
-Release: 1%{?dist}
+Release: 2%{?dist}
 Summary: â˜„ðŸŒŒï¸� The minimal, blazing-fast, and infinitely customizable prompt for any shell!
 
 License: ISC
@@ -19,7 +19,7 @@ BuildRequires: rust >= 1.74
 
 BuildRequires: pkgconfig(openssl)
 BuildRequires: pkgconfig(zlib)
-Requires:      nerd-fonts
+Requires:      jetbrainsmono-nerd-fonts
 
 %description
 The minimal, blazing-fast, and infinitely customizable prompt for any shell!
