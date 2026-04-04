@@ -4,7 +4,7 @@
 
 Name:     xone
 Version:  0.5.8
-Release:  2%{?dist}
+Release:  3%{?dist}
 Summary:  Linux kernel driver for Xbox One and Xbox Series X|S accessories
 License:  GPLv2
 URL:      https://github.com/dlundqvist/xone
@@ -24,6 +24,7 @@ Requires:       dkms
 Requires:       bash
 Requires:       lpf-xone-firmware
 Requires:       gcc, make, kernel-devel
+Requires:       xpad-noone
 
 Conflicts:      xow <= 0.5
 Obsoletes:      xow <= 0.5
@@ -61,6 +62,9 @@ dkms remove -m %{name} -v %{version} --all --rpm_safe_upgrade || :
 %{_modulesloaddir}/%{name}.conf
 
 %changelog
+* Tue Feb 10 2026 LionHeartP <LionHeartP@proton.me> - 0.5.8-3
+- Add xpad-noone as a dependency
+
 * Tue Feb 10 2026 LionHeartP <LionHeartP@proton.me> - 0.5.5-1
 - Update to 0.5.5
 - Convert to dkms
