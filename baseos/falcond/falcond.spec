@@ -47,6 +47,7 @@ zig build \
     -Dcpu=x86_64_v2
 %else
 zig build \
+    --global-cache-dir ../.zig-cache-local \
     -Doptimize=ReleaseFast
 %endif
     
