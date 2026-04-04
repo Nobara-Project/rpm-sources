@@ -9,9 +9,9 @@ License:        GPL-3.0-only
 URL:            https://github.com/ShadowBlip/OpenGamepadUI
 
 %ifarch x86_64
-Source0:        https://godot-releases.nbg1.your-objectstorage.com/%{godot_version}-stable/Godot_v%{godot_version}-stable_linux.x86_64.zip
+Source0:        https://github.com/godotengine/godot/releases/download/%{godot_version}-stable/Godot_v%{godot_version}-stable_linux.x86_64.zip
 %else
-Source0:        https://godot-releases.nbg1.your-objectstorage.com/%{godot_version}-stable/Godot_v%{godot_version}-stable_linux.arm64.zip
+Source0:        https://github.com/godotengine/godot/releases/download/%{godot_version}-stable/Godot_v%{godot_version}-stable_linux.arm64.zip
 %endif
 
 Patch0:         fedora.patch
