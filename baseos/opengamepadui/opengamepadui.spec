@@ -1,7 +1,7 @@
 %global godot_version 4.6.1
 
 Name:           opengamepadui
-Version:        0.44.3
+Version:        0.45.0
 Release:        8%{?dist}
 Summary:        A free and open source game launcher and overlay written using the Godot Game Engine 4 designed with a gamepad native experience in mind
 
@@ -15,6 +15,7 @@ Source0:        https://godot-releases.nbg1.your-objectstorage.com/%{godot_versi
 %endif
 
 Patch0:         fedora.patch
+Patch1:         https://github.com/ShadowBlip/OpenGamepadUI/pull/519.patch
 ExclusiveArch: x86_64 aarch64
 
 Requires:       gamescope
@@ -39,6 +40,7 @@ git clone %{URL}
 cd OpenGamepadUI
 git checkout v%{version}
 patch -Np1 < %{PATCH0}
+patch -Np1 < %{PATCH1}
 
 %build
 cd OpenGamepadUI
@@ -60,14 +62,14 @@ chmod +x "$GODOT_BIN"
 export GODOT="$GODOT_BIN"
 
 # Build/install using the custom Godot
-make install PREFIX=%{buildroot}%{_prefix} INSTALL_PREFIX=%{_prefix}
+make install PREFIX=%{buildroot}%{_prefix} INSTALL_PREFIX=%{_prefix} ARCH=%{_arch}
 
 %files
 %{_bindir}/%{name}
 %{_datadir}/%{name}/*.so
 %{_datadir}/%{name}/reaper
 %{_datadir}/%{name}/scripts/*
-%{_datadir}/%{name}/opengamepad-ui.x86_64
+%{_datadir}/%{name}/opengamepad-ui.%{_arch}
 %{_datadir}/%{name}/opengamepad-ui.pck
 %{_datadir}/applications/%{name}.desktop
 %{_datadir}/polkit-1/actions/*
