@@ -1,6 +1,6 @@
 Name:          nobara-welcome
 Version:       5.0.2
-Release:       33%{?dist}
+Release:       34%{?dist}
 License:       GPLv2
 Group:         System Environment/Libraries
 Summary:       Nobara's Welcome App
@@ -8,6 +8,10 @@ Summary:       Nobara's Welcome App
 
 URL:            https://github.com/nobara-project/nobara-core-packages
 Source0:        %{URL}/releases/download/1.0/nobara-welcome-gtk4.tar.gz
+
+%ifarch aarch64
+Patch0: aarch64.patch
+%endif
 
 BuildRequires:	wget
 BuildRequires:	cargo
@@ -30,7 +34,11 @@ Requires:	python3-gobject
 Requires:	nobara-controller-config
 Requires:	webapp-manager
 Requires:	papirus-icon-theme
+%ifarch x86_64
 Requires: 	gperftools-libs(x86-32)
+%else
+Requires: gperftools-libs
+%endif
 Requires: 	xterm-resize
 Requires: 	colorized-logs
 Requires: 	util-linux
@@ -43,8 +51,10 @@ Requires: 	python-cairosvg
 Requires: 	python-pillow
 Requires: 	python3-dbus
 Requires: 	nobara-updater
+%ifarch x86_64
 Requires: 	nobara-resolve-wizard
 Requires: 	nobara-resolve-runtime
+%endif
 
 # Gnome Deps
 Suggests:	gnome-tweaks

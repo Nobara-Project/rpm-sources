@@ -6,7 +6,7 @@ License:        MIT
 URL:            https://github.com/nobara-project/steamdeck-edition-packages
 Source0:        %{URL}/releases/download/1.0/jupiter-hw-support.tar.gz
 
-ExcludeArch:    %{ix86}
+ExclusiveArch: x86_64
 
 Patch0:         fedora.patch
 Patch1:         selinux.patch

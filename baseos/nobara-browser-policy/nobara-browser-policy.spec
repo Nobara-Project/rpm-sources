@@ -5,7 +5,7 @@ Summary: Web browser that lets you take control of your personal data
 License: MPLv2.0
 Group: Applications/Internet
 URL: https://brave.com
-BuildArch: x86_64
+BuildArch: noarch
 Requires: brave-browser
 Provides: nobara-browser-policy
 Obsoletes: brave

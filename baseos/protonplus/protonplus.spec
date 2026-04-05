@@ -3,10 +3,10 @@
 
 Name:           protonplus
 Version:        0.5.17
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Simple and powerful manager for Wine, Proton, DXVK and VKD3D
 
-ExclusiveArch:  x86_64
+ExclusiveArch:  x86_64 aarch64
 License:        GPL-3.0-or-later
 URL:            https://github.com/vysp3r/ProtonPlus
 Source0:        %{url}/archive/refs/tags/v%{version}.tar.gz
@@ -74,6 +74,9 @@ appstream-util validate-relax --nonet \
 
 
 %changelog
+* Mon Mar 09 2026 Radical <radical@radical.fun> - 0.5.17-2
+- Change ExclusiveArch to allow building for aarch64
+
 * Sun Feb 22 2026 LionHeartP <LionHeartP@proton.me> - 0.5.17-1
 - new upstream version v0.5.17
 

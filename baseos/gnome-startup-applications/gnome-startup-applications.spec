@@ -2,13 +2,18 @@
 
 Name: gnome-startup-applications
 Version: 47.0.1
-Release: 1%{?dist}
+Release: 2%{?dist}
 Summary: GNOME startup applications manager
+
+ExclusiveArch: x86_64 aarch64
 
 License: GPLv2+
 URL: https://gitlab.gnome.org/GNOME/gnome-session
+%ifarch x86_64
 Source0: http://archive.ubuntu.com/ubuntu/pool/main/g/gnome-session/%{name}_%{version}-%{tarball_version}_amd64.deb
-
+%else
+Source0: http://ports.ubuntu.com/ubuntu-ports/pool/main/g/gnome-session/%{name}_%{version}-%{tarball_version}_arm64.deb
+%endif
 
 Requires: gnome-session
 

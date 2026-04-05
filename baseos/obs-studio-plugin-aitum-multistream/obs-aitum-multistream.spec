@@ -50,7 +50,8 @@ A multistreaming plugin for OBS Studio by Aitum
 # Build phase calls cmake to build our file
 %build
 %cmake \
-    -DBUILD_OUT_OF_TREE=On
+    -DBUILD_OUT_OF_TREE=On \
+    -DCMAKE_CXX_FLAGS="-Wno-error=deprecated-declarations"
 %cmake_build
 
 %install

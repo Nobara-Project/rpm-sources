@@ -4,6 +4,7 @@ Version: 1.1
 Release: 10%{?dist}
 License: Public Domain
 Group: System Environment/Base
+URL: https://github.com/nobara-project/nobara-core-packages
 Source0: %{URL}/releases/download/1.0/nobara-automount.tar.gz
 
 BuildArch: noarch

@@ -7,7 +7,7 @@
 %global _default_patch_fuzz 2
 %global build_timestamp %(date +"%Y%m%d")
 
-%global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 2.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           gamescope
 Version:        3.16.19
@@ -101,7 +101,9 @@ BuildRequires:  pkgconfig(xwayland)
 Requires:       libliftoff%{?_isa} >= %{libliftoff_minver}
 Requires:       xorg-x11-server-Xwayland
 Requires:       gamescope-libs = %{version}-%{release}
+%ifarch x86_64
 Requires:       gamescope-libs(x86-32) = %{version}-%{release}
+%endif
 Recommends:     mesa-dri-drivers
 Recommends:     mesa-vulkan-drivers
 

@@ -1,11 +1,12 @@
 %global _default_patch_fuzz 2
-%global baserelease 7
+%global baserelease 8
 
 
 Name:           custom-device-pollrates
 Version:        1.0.0
 Release:        %{baserelease}%{?dist}
 Summary:        Allows setting custom polling rates for USB devices, requires kernel patch.
+BuildArch:      noarch
 
 License:        GPLv2+
 URL:            https://github.com/GloriousEggroll/Linux-Pollrate-Patch
@@ -43,3 +44,5 @@ install -Dm644 %{SOURCE3} %{buildroot}%{_sysconfdir}/custom-device-pollrates/cus
 %{_sysconfdir}/custom-device-pollrates/custom-device-pollrates.conf
 
 %changelog
+* Sat Mar 07 2026 Radical <radical@radical.fun> - 1.0.0-8
+- Add BuildArch: noarch to spec file

@@ -3,7 +3,7 @@ pbcli is a command line client which allows to upload and download pastes from p
 
 Name:           pbcli
 Version:        2.8.0
-Release:        2%?dist
+Release:        3%?dist
 Summary:        A PrivateBin commandline upload and download utility
 SourceLicense:  Unlicense OR MIT
 License:        ((Apache-2.0 OR MIT) AND BSD-3-Clause) AND (0BSD OR MIT OR Apache-2.0) AND (Apache-2.0 AND ISC) AND (Apache-2.0 OR BSL-1.0) AND (Apache-2.0 OR ISC OR MIT) AND (Apache-2.0 OR MIT) AND (Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT) AND Apache-2.0 AND (BSD-2-Clause OR Apache-2.0 OR MIT) AND BSD-3-Clause AND ISC AND (MIT OR Apache-2.0 OR Zlib) AND (MIT OR Apache-2.0) AND (MIT OR Zlib OR Apache-2.0) AND MIT AND MPL-2.0 AND (Unlicense OR MIT) AND (Zlib OR Apache-2.0 OR MIT)
@@ -11,7 +11,7 @@ URL:            https://github.com/Mydayyy/%{name}
 Source0:        %{url}/archive/refs/tags/v%{version}.tar.gz
 Source1:	config
 Patch0:     0001-add-url-shortener-support.patch
-ExclusiveArch:	x86_64
+ExclusiveArch:	x86_64 aarch64
 
 BuildRequires:  cargo-rpm-macros >= 24
 BuildRequires:  mold
@@ -120,6 +120,9 @@ ln -sf %_bindir/pbcli %{buildroot}%{_bindir}/npaste
 %_bindir/npaste
 
 %changelog
+* Mon Mar 09 2026 Radical <radical@radical.fun>
+- Change ExclusiveArch to allow building for aarch64
+
 * Sat Mar 15 2025 Gilver E. <rockgrub@disroot.org>
 - Enable uniffi support
 - Package development files
