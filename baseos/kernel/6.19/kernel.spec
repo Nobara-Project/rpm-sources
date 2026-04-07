@@ -59,7 +59,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 200
+%define customver 201
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -493,11 +493,11 @@ scripts/config -e NO_HZ
 scripts/config -e NO_HZ_COMMON
 scripts/config -e CONTEXT_TRACKING
 
-# Enable full preempt
-scripts/config -e PREEMPT_BUILD
+# Enable lazy preempt
+scripts/config -e PREEMPT_LAZY
 scripts/config -d PREEMPT_NONE
 scripts/config -d PREEMPT_VOLUNTARY
-scripts/config -e PREEMPT
+scripts/config -d PREEMPT
 scripts/config -e PREEMPT_COUNT
 scripts/config -e PREEMPTION
 scripts/config -e PREEMPT_DYNAMIC
@@ -1157,6 +1157,9 @@ fi
 %files
 
 %changelog
+* Tue Apr 07 2026 LionHeartP <LionHeartP@proton.me> - 6.19.11-201
+- Switch to lazy preempt
+
 * Thu Apr 02 2026 LionHeartP <LionHeartP@proton.me> - 6.19.11-200
 - Update to 6.19.11
 
