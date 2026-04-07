@@ -1,7 +1,7 @@
 Summary: A set of scripts to run upon first user login
 Name: nobara-controller-config
 Version: 1.0
-Release: 22%{?dist}
+Release: 23%{?dist}
 License: Public Domain
 Source0: 50-razer-wolverine-v2-pro.rules
 Source1: 60-xbox-pads.rules
@@ -16,8 +16,6 @@ Source7: 99-steelseries.rules
 
 BuildArch: noarch
 BuildRequires: filesystem
-Requires: lpf
-Requires: dkms
 
 %description
 This package contains the Nobara Xbox Controller configurator.

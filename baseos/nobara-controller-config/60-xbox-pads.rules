@@ -4,10 +4,10 @@ ATTRS{idVendor}=="2e24", ATTRS{idProduct}=="0652", RUN+="/sbin/modprobe xpad" RU
 # OneXPlayer Gamepad
 ATTRS{idVendor}=="2563", ATTRS{idProduct}=="058d", RUN+="/sbin/modprobe xpad" RUN+="/bin/sh -c 'echo 2563 058d > /sys/bus/usb/drivers/xpad/new_id'"
 
-# 8BitDo Ultimate Controller (Bluetooth)
+# 8BitDo Ultimate Controller
 ATTRS{idVendor}=="2dc8", ATTRS{idProduct}=="3106", RUN+="/sbin/modprobe xpad" RUN+="/bin/sh -c 'echo 2dc8 3106 > /sys/bus/usb/drivers/xpad/new_id'"
 
-# Gulikit KingKong 2 Pro (Bluetooth)
+# Gulikit KingKong 2 Pro
 ATTRS{idVendor}=="045e", ATTRS{idProduct}=="02e0", RUN+="/sbin/modprobe xpad" RUN+="/bin/sh -c 'echo 045e 02e0 > /sys/bus/usb/drivers/xpad/new_id'"
 
 # Lenovo Legion Go
@@ -15,14 +15,3 @@ ATTRS{idVendor}=="17ef", ATTRS{idProduct}=="6182", RUN+="/sbin/modprobe xpad" RU
 
 # MSI Claw
 ATTRS{idVendor}=="0db0", ATTRS{idProduct}=="1901", RUN+="/sbin/modprobe xpad" RUN+="/bin/sh -c 'echo 0db0 1901 > /sys/bus/usb/drivers/xpad/new_id'"
-
-# xpadneo - Xbox Wireless Controller driver udev rules
-# Rebind driver to xpadneo
-ACTION=="bind", SUBSYSTEM=="hid", DRIVER!="xpadneo", KERNEL=="0005:045E:*", KERNEL=="*:02FD.*|*:02E0.*|*:0B05.*|*:0B13.*|*:0B20.*|*:0B22.*", ATTR{driver/unbind}="%k", ATTR{[drivers/hid:xpadneo]bind}="%k"
-# Tag xpadneo devices for access in the user session
-# MODE="0664" allows user read/write access for proper Steam Input detection
-# LIBINPUT_IGNORE_DEVICE prevents desktop environments from using controller as mouse
-ACTION!="remove", DRIVERS=="xpadneo", SUBSYSTEM=="input", ENV{ID_INPUT_JOYSTICK}=="1", TAG+="uaccess", MODE="0664", ENV{LIBINPUT_IGNORE_DEVICE}="1"
-# Allow hidraw access for Steam Input to properly detect controller models and features
-# This is needed with PID spoofing disabled (default) for Elite paddle detection
-ACTION!="remove", DRIVERS=="xpadneo", SUBSYSTEM=="hidraw", TAG+="uaccess", MODE="0660"
