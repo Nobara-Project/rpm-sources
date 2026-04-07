@@ -9,8 +9,8 @@ Signed-off-by: GloriousEggroll <gloriouseggroll@gmail.com>
 ---
 
 diff -Naur linux-clean/drivers/hid/hid-microsoft.c linux-patched/drivers/hid/hid-microsoft.c
---- linux-clean/drivers/hid/hid-microsoft.c	2026-03-25 04:13:32.000000000 -0600
-+++ linux-patched/drivers/hid/hid-microsoft.c	2026-03-31 00:44:43.877863013 -0600
+--- linux-clean/drivers/hid/hid-microsoft.c	2026-04-02 05:25:57.000000000 -0600
++++ linux-patched/drivers/hid/hid-microsoft.c	2026-04-07 15:20:21.812068165 -0600
 @@ -447,18 +447,8 @@
  	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x091B),
  		.driver_data = MS_SURFACE_DIAL },
@@ -33,8 +33,8 @@ diff -Naur linux-clean/drivers/hid/hid-microsoft.c linux-patched/drivers/hid/hid
  };
  MODULE_DEVICE_TABLE(hid, ms_devices);
 diff -Naur linux-clean/drivers/hid/Kconfig linux-patched/drivers/hid/Kconfig
---- linux-clean/drivers/hid/Kconfig	2026-03-25 04:13:32.000000000 -0600
-+++ linux-patched/drivers/hid/Kconfig	2026-03-31 00:44:43.877156999 -0600
+--- linux-clean/drivers/hid/Kconfig	2026-04-02 05:25:57.000000000 -0600
++++ linux-patched/drivers/hid/Kconfig	2026-04-07 15:20:21.811423181 -0600
 @@ -1443,6 +1443,9 @@
  
  source "drivers/hid/intel-thc-hid/Kconfig"
@@ -46,8 +46,8 @@ diff -Naur linux-clean/drivers/hid/Kconfig linux-patched/drivers/hid/Kconfig
  
  # USB support may be used with HID disabled
 diff -Naur linux-clean/drivers/hid/Makefile linux-patched/drivers/hid/Makefile
---- linux-clean/drivers/hid/Makefile	2026-03-25 04:13:32.000000000 -0600
-+++ linux-patched/drivers/hid/Makefile	2026-03-31 00:44:43.877598312 -0600
+--- linux-clean/drivers/hid/Makefile	2026-04-02 05:25:57.000000000 -0600
++++ linux-patched/drivers/hid/Makefile	2026-04-07 15:20:21.811803083 -0600
 @@ -180,6 +180,8 @@ obj-$(CONFIG_SURFACE_HID_CORE)  += surface-hid/
  
  obj-$(CONFIG_INTEL_THC_HID)     += intel-thc-hid/
@@ -154,8 +154,8 @@ diff -Naur linux-clean/drivers/hid/xpadneo/consumer.c linux-patched/drivers/hid/
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/core.c linux-patched/drivers/hid/xpadneo/core.c
 --- linux-clean/drivers/hid/xpadneo/core.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/core.c	2026-03-31 00:34:41.354022774 -0600
-@@ -0,0 +1,332 @@
++++ linux-patched/drivers/hid/xpadneo/core.c	2026-04-06 16:00:13.112000160 -0600
+@@ -0,0 +1,333 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
 +/*
@@ -189,6 +189,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/core.c linux-patched/drivers/hid/xpad
 +MODULE_AUTHOR("Kai Krakow <kai@kaishome.de>");
 +MODULE_DESCRIPTION("Linux kernel driver for Xbox ONE S+ gamepads (Bluetooth), including rumble");
 +MODULE_VERSION(XPADNEO_VERSION);
++MODULE_SOFTDEP("pre: uhid");
 +
 +static DEFINE_IDA(xpadneo_core_device_id_allocator);
 +
@@ -219,11 +220,11 @@ diff -Naur linux-clean/drivers/hid/xpadneo/core.c linux-patched/drivers/hid/xpad
 +	/* XBOX ONE Elite Series 2 */
 +	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x0B05) },
 +	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x0B22),
-+	 .driver_data = XPADNEO_QUIRK_SHARE_BUTTON },
++	 .driver_data = XPADNEO_QUIRK_SHARE_BUTTON | XPADNEO_QUIRK_MENU_GHOST | XPADNEO_QUIRK_RAW_RUMBLE },
 +
 +	/* XBOX Series X|S / Xbox Wireless Controller (BLE) */
 +	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x0B13),
-+	 .driver_data = XPADNEO_QUIRK_SHARE_BUTTON },
++	 .driver_data = XPADNEO_QUIRK_SHARE_BUTTON | XPADNEO_QUIRK_MENU_GHOST },
 +
 +	/* SENTINEL VALUE, indicates the end */
 +	{ }
@@ -661,8 +662,8 @@ diff -Naur linux-clean/drivers/hid/xpadneo/debug.c linux-patched/drivers/hid/xpa
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/device.c linux-patched/drivers/hid/xpadneo/device.c
 --- linux-clean/drivers/hid/xpadneo/device.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/device.c	2026-03-31 00:34:31.714932510 -0600
-@@ -0,0 +1,133 @@
++++ linux-patched/drivers/hid/xpadneo/device.c	2026-04-07 15:13:09.016539141 -0600
+@@ -0,0 +1,201 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
 +/*
@@ -677,9 +678,20 @@ diff -Naur linux-clean/drivers/hid/xpadneo/device.c linux-patched/drivers/hid/xp
 +
 +int xpadneo_device_output_report(struct hid_device *hdev, __u8 *buf, size_t len)
 +{
++	struct xpadneo_devdata *xdata = hid_get_drvdata(hdev);
 +	struct xpadneo_rumble_report *r = (struct xpadneo_rumble_report *)buf;
 +
 +	xpadneo_debug_hid_report(hdev, r, len);
++
++	/*
++	 * Some BLE controllers (e.g. XBE2 0x0B22) require a GATT Write Request
++	 * (acknowledged) rather than the unacknowledged GATT Write Command that
++	 * hid_hw_output_report sends. Use hid_hw_raw_request with HID_OUTPUT_REPORT
++	 * and HID_REQ_SET_REPORT to force the acknowledged path for these devices.
++	 */
++	if (xdata->quirks & XPADNEO_QUIRK_RAW_RUMBLE)
++		return hid_hw_raw_request(hdev, buf[0], buf, len,
++					  HID_OUTPUT_REPORT, HID_REQ_SET_REPORT);
 +
 +	return hid_hw_output_report(hdev, buf, len);
 +}
@@ -767,39 +779,96 @@ diff -Naur linux-clean/drivers/hid/xpadneo/device.c linux-patched/drivers/hid/xp
 +
 +	/* fixup reported button count for Xbox controllers in Linux mode */
 +	if (*rsize >= 164) {
-+		/*
-+		 * Button count modifications + LINUX_BUTTONS quirk create Linux
-+		 * gamepad spec compliance, but break Wine/Proton/Steam Input when
-+		 * using real PIDs (default).
-+		 *
-+		 * ONLY apply these modifications when PID spoofing is enabled
-+		 * (enable_pid_spoof=1). In spoof mode, we're pretending to be an
-+		 * Xbox 360 controller for legacy SDL2 compatibility, so strict
-+		 * Linux gamepad spec compliance is desired.
-+		 *
-+		 * With real PIDs (default), leave descriptor unmodified like
-+		 * hid_microsoft does, which works for both Steam Input AND
-+		 * Wine/Proton with the firmware's native button order.
-+		 */
-+		if (xpadneo_param_enable_pid_spoof() &&
-+		    rdesc[140] == 0x05 && rdesc[141] == 0x09 &&
++		if (rdesc[140] == 0x05 && rdesc[141] == 0x09 &&
 +		    rdesc[144] == 0x29 && rdesc[145] == 0x0F &&
 +		    rdesc[152] == 0x95 && rdesc[153] == 0x0F &&
 +		    rdesc[162] == 0x95 && rdesc[163] == 0x01) {
-+			hid_notice(hdev, "fixing up button mapping (PID spoof mode)\n");
-+			xdata->quirks |= XPADNEO_QUIRK_LINUX_BUTTONS;
-+			rdesc[145] = 0x0C;	/* 15 buttons -> 12 buttons */
-+			rdesc[153] = 0x0C;	/* 15 bits -> 12 bits buttons */
-+			rdesc[163] = 0x04;	/* 1 bit -> 4 bits constants */
++			/*
++			 * Xbox Elite Series 2 BLE (0x0B22): Steam Input has no database
++			 * entry for this controller's BLE firmware layout, so it falls back
++			 * to generic sequential mapping which misreads the non-sequential
++			 * firmware button order. Enable LINUX_BUTTONS remapping so raw_event
++			 * reorders the button bits sequentially for both Steam Input and
++			 * native Linux.
++			 *
++			 * Do NOT modify the descriptor bytes here. The XBE2 has a larger
++			 * descriptor than the Series X|S (extra paddle/profile fields), so
++			 * the byte offsets 145/153/163 land in different places and would
++			 * corrupt the rumble output report definition. The 15-button
++			 * descriptor with 12 real sequential bits + 3 always-zero trailing
++			 * bits is harmless.
++			 */
++			if (hdev->product == 0x0B22) {
++				hid_notice(hdev, "fixing up XBE2 button mapping\n");
++				xdata->quirks |= XPADNEO_QUIRK_LINUX_BUTTONS;
++			}
++
++			/*
++			 * All controllers: apply button remapping + descriptor fixup when
++			 * PID spoofing is enabled (enable_pid_spoof=1) for legacy SDL2
++			 * (<2.28) compatibility via the Xbox 360 protocol.
++			 */
++			if (xpadneo_param_enable_pid_spoof()) {
++				hid_notice(hdev, "fixing up button mapping (PID spoof mode)\n");
++				xdata->quirks |= XPADNEO_QUIRK_LINUX_BUTTONS;
++				rdesc[145] = 0x0C;	/* 15 buttons -> 12 buttons */
++				rdesc[153] = 0x0C;	/* 15 bits -> 12 bits buttons */
++				rdesc[163] = 0x04;	/* 1 bit -> 4 bits constants */
++			}
 +		}
++	}
++
++	/*
++	 * Xbox Series X|S BLE (0x0B13): same button hole at HID usage 0x90003
++	 * (bit 2 of the raw report) as XBE2 BLE (0x0B22). The physical X button
++	 * sends usage 0x90004 and physical Y sends 0x90005, shifting all buttons
++	 * from X onward by one slot. Without LINUX_BUTTONS reordering, evdev
++	 * applications see X→BTN_Y, Y→BTN_TL, LB→BTN_TR, etc.
++	 *
++	 * Steam Input reads hidraw directly (before raw_event processing), so
++	 * enabling LINUX_BUTTONS fixes evdev without affecting Steam HIDAPI.
++	 * MENU_GHOST handling is automatically bypassed when LINUX_BUTTONS is set.
++	 *
++	 * This check is outside the descriptor byte-check block above because
++	 * Series X|S has 12 buttons (0x0C) and that block matches 15 (0x0F).
++	 */
++	if (hdev->product == 0x0B13) {
++		hid_notice(hdev, "fixing up Xbox Series X|S button mapping\n");
++		xdata->quirks |= XPADNEO_QUIRK_LINUX_BUTTONS;
++	}
++
++	/*
++	 * 8BitDo Pro 2 (PID 0x02E0, shared with Xbox One S Windows mode):
++	 * SDL3's HIDAPI Xbox One driver claims any 045E:02E0 device connected via
++	 * Bluetooth and applies a built-in mapping with guide:b10,leftstick:b8,
++	 * rightstick:b9 — designed for the real Xbox One S which exposes no Guide
++	 * on the gamepad device. The 8BitDo's Guide (0x10085, inside the Gamepad
++	 * Application Collection) maps naturally to BTN_MODE (316), which sorts
++	 * before BTN_THUMBL (317) and BTN_THUMBR (318), making the real layout
++	 * guide:b8,leftstick:b9,rightstick:b10. HIDAPI cannot be tricked by
++	 * descriptor changes since it reads hidraw directly.
++	 *
++	 * Spoof as Xbox One model 1697 (0x02DD): this was a USB-only controller
++	 * with no wireless capability, so SDL3 HIDAPI has no Xbox One BT driver
++	 * path that would claim 045E:02DD via Bluetooth. SDL3 falls back to evdev
++	 * and auto-detects by key code: BTN_MODE→guide, BTN_THUMBL→leftstick,
++	 * BTN_THUMBR→rightstick — correct for our layout. Steam and other apps
++	 * still identify it as an Xbox One controller.
++	 */
++	if (hdev->product == 0x02E0 && *rsize >= 0xac &&
++	    rdesc[0xa6] == 0x05 && rdesc[0xa7] == 0x01 &&
++	    rdesc[0xa8] == 0x09 && rdesc[0xa9] == 0x80) {
++		hid_notice(hdev, "8BitDo Pro 2 detected, spoofing as Xbox One 1697 (0x02DD) to bypass SDL3 HIDAPI\n");
++		xdata->quirks |= XPADNEO_QUIRK_NO_GUIDE_BTN;
++		hdev->product = 0x02DD;
 +	}
 +
 +	return rdesc;
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/events.c linux-patched/drivers/hid/xpadneo/events.c
 --- linux-clean/drivers/hid/xpadneo/events.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/events.c	2026-03-29 04:44:54.776527122 -0600
-@@ -0,0 +1,376 @@
++++ linux-patched/drivers/hid/xpadneo/events.c	2026-04-07 01:32:32.282854300 -0600
+@@ -0,0 +1,412 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
 +/*
@@ -901,6 +970,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/events.c linux-patched/drivers/hid/xp
 +		return -1;
 +	}
 +
++
 +	/* correct button mapping of Xbox controllers in Linux mode */
 +	if ((xdata->quirks & XPADNEO_QUIRK_LINUX_BUTTONS) && report->id == 1 && reportsize >= 17) {
 +		u16 bits = 0;
@@ -921,6 +991,24 @@ diff -Naur linux-clean/drivers/hid/xpadneo/events.c linux-patched/drivers/hid/xp
 +		data[14] = (u8)((bits >> 0) & 0xFF);
 +		data[15] = (u8)((bits >> 8) & 0xFF);
 +		data[16] = 0;
++	}
++
++	/*
++	 * Handle Share button for Xbox Series X|S (0x0B13) in native (non-remapped)
++	 * mode. The firmware's button-12 slot (data[15] bit 3) carries Menu/Start as
++	 * a ghost signal; the physical Share button is at data[16] bit 0, outside the
++	 * 15-button HID descriptor and ignored by HID core. Inject it directly to the
++	 * keyboard device for native Linux consumers. Steam reads from hidraw (post
++	 * raw_event) and handles both data[15] bit 3 (Menu) and data[16] bit 0
++	 * (Share) itself. NOTE: do NOT modify data[15] here — Steam needs it intact.
++	 */
++	if ((xdata->quirks & XPADNEO_QUIRK_MENU_GHOST) &&
++	    !(xdata->quirks & XPADNEO_QUIRK_LINUX_BUTTONS) &&
++	    report->id == 1 && reportsize >= 17) {
++		if (xdata->keyboard.idev) {
++			input_report_key(xdata->keyboard.idev, BTN_SHARE, data[16] & BIT(0));
++			xdata->keyboard.sync = true;
++		}
 +	}
 +
 +	/* swap button A with B and X with Y for Nintendo style controllers */
@@ -1024,6 +1112,22 @@ diff -Naur linux-clean/drivers/hid/xpadneo/events.c linux-patched/drivers/hid/xp
 +		}
 +		goto stop_processing;
 +	} else if ((usage->type == EV_KEY) && (usage->code == BTN_SHARE)) {
++		if ((xdata->quirks & XPADNEO_QUIRK_MENU_GHOST) &&
++		    !(xdata->quirks & XPADNEO_QUIRK_LINUX_BUTTONS)) {
++			/*
++			 * For Xbox Series X|S (0x0B13) in native mode, HID usage 0x09000C
++			 * (button-12 slot, data[15] bit 3) carries Menu/Start, not Share.
++			 * The real Share button is injected directly from data[16] in
++			 * raw_event. Redirect this event to BTN_START on the gamepad so
++			 * native Linux apps see the correct button, while Steam continues
++			 * to read the unmodified hidraw data and handle Menu itself.
++			 */
++			if (!gamepad)
++				goto stop_processing;
++			input_report_key(gamepad, BTN_START, value);
++			xdata->gamepad.sync = true;
++			goto stop_processing;
++		}
 +		/* move the Share button to the keyboard device */
 +		if (!keyboard)
 +			goto keyboard_missing;
@@ -1162,6 +1266,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/events.c linux-patched/drivers/hid/xp
 +		__clear_bit(KEY_RECORD, gamepad->keybit);
 +		__clear_bit(KEY_UNKNOWN, gamepad->keybit);
 +
++
 +		/* ensure all four paddles exist as part of the gamepad */
 +		if (test_bit(BTN_GRIPL, gamepad->keybit)) {
 +			__set_bit(BTN_GRIPR, gamepad->keybit);
@@ -1220,7 +1325,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/helpers.h linux-patched/drivers/hid/x
 +#endif
 diff -Naur linux-clean/drivers/hid/xpadneo/Kconfig linux-patched/drivers/hid/xpadneo/Kconfig
 --- linux-clean/drivers/hid/xpadneo/Kconfig	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/Kconfig	2026-03-31 00:44:43.876563495 -0600
++++ linux-patched/drivers/hid/xpadneo/Kconfig	2026-04-07 15:20:21.805329941 -0600
 @@ -0,0 +1,20 @@
 +# SPDX-License-Identifier: GPL-2.0-only
 +config HID_XPADNEO
@@ -1244,7 +1349,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/Kconfig linux-patched/drivers/hid/xpa
 +	  will be called hid-xpadneo.
 diff -Naur linux-clean/drivers/hid/xpadneo/keyboard.c linux-patched/drivers/hid/xpadneo/keyboard.c
 --- linux-clean/drivers/hid/xpadneo/keyboard.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/keyboard.c	2026-03-29 02:39:57.434535052 -0600
++++ linux-patched/drivers/hid/xpadneo/keyboard.c	2026-04-06 21:16:44.283808746 -0600
 @@ -0,0 +1,46 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
@@ -1294,7 +1399,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/keyboard.c linux-patched/drivers/hid/
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/Makefile linux-patched/drivers/hid/xpadneo/Makefile
 --- linux-clean/drivers/hid/xpadneo/Makefile	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/Makefile	2026-03-31 00:44:43.876587475 -0600
++++ linux-patched/drivers/hid/xpadneo/Makefile	2026-04-07 15:20:21.805352961 -0600
 @@ -0,0 +1,19 @@
 +# SPDX-License-Identifier: GPL-2.0-only
 +
@@ -1317,8 +1422,8 @@ diff -Naur linux-clean/drivers/hid/xpadneo/Makefile linux-patched/drivers/hid/xp
 +	synthetic.o
 diff -Naur linux-clean/drivers/hid/xpadneo/mappings.c linux-patched/drivers/hid/xpadneo/mappings.c
 --- linux-clean/drivers/hid/xpadneo/mappings.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/mappings.c	2026-03-30 21:53:36.337698370 -0600
-@@ -0,0 +1,127 @@
++++ linux-patched/drivers/hid/xpadneo/mappings.c	2026-04-06 21:03:40.955325858 -0600
+@@ -0,0 +1,126 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
 +/*
@@ -1422,11 +1527,10 @@ diff -Naur linux-clean/drivers/hid/xpadneo/mappings.c linux-patched/drivers/hid/
 +			   struct hid_field *field,
 +			   struct hid_usage *usage, unsigned long **bit, int *max)
 +{
++	struct xpadneo_devdata *xdata = hid_get_drvdata(hdev);
 +	int i = 0;
 +
 +	if (usage->hid == HID_DC_BATTERYSTRENGTH) {
-+		struct xpadneo_devdata *xdata = hid_get_drvdata(hdev);
-+
 +		xdata->battery.report_id = field->report->id;
 +		hid_info(hdev, "battery detected\n");
 +
@@ -2596,8 +2700,8 @@ diff -Naur linux-clean/drivers/hid/xpadneo/synthetic.c linux-patched/drivers/hid
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/xpadneo.h linux-patched/drivers/hid/xpadneo/xpadneo.h
 --- linux-clean/drivers/hid/xpadneo/xpadneo.h	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/xpadneo.h	2026-03-31 00:34:04.781680296 -0600
-@@ -0,0 +1,248 @@
++++ linux-patched/drivers/hid/xpadneo/xpadneo.h	2026-04-06 18:39:49.730205697 -0600
+@@ -0,0 +1,251 @@
 +/* SPDX-License-Identifier: GPL-2.0-only */
 +
 +/*
@@ -2639,6 +2743,9 @@ diff -Naur linux-clean/drivers/hid/xpadneo/xpadneo.h linux-patched/drivers/hid/x
 +#define XPADNEO_QUIRK_REVERSE_MASK      128
 +#define XPADNEO_QUIRK_SWAPPED_MASK      256
 +#define XPADNEO_QUIRK_NO_HEURISTICS     512
++#define XPADNEO_QUIRK_MENU_GHOST        1024
++#define XPADNEO_QUIRK_RAW_RUMBLE        2048
++#define XPADNEO_QUIRK_NO_GUIDE_BTN      4096
 +
 +/* common quirk combinations */
 +#define XPADNEO_QUIRK_NO_HAPTICS        (XPADNEO_QUIRK_NO_PULSE|XPADNEO_QUIRK_NO_MOTOR_MASK)
