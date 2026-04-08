@@ -28,27 +28,32 @@ def parse_config_file(filepath):
     return config
 
 if __name__ == '__main__':
-    path = os.path.dirname(os.path.abspath(__file__)) + '/'
+    try:
+        path = os.path.dirname(os.path.abspath(__file__)) + '/'
 
-    config = parse_config_file(path + 'config')
+        config = parse_config_file(path + 'config')
 
-    config.update(parse_config_file(path + 'config.generic'))
+        config.update(parse_config_file(path + 'config.generic'))
 
-    config.update(parse_config_file(path + 'config.' + platform.machine()))
+        config.update(parse_config_file(path + 'config.' + platform.machine()))
 
-    if len(sys.argv) > 1 and sys.argv[1] == "lto":
-        config.update(parse_config_file(path + 'config.ltobuild'))
+        if len(sys.argv) > 1 and sys.argv[1] == "lto":
+            config.update(parse_config_file(path + 'config.ltobuild'))
 
-    output = ""
+        output = ""
 
-    for k,v in config.items():
-        if v == "unset":
-            output += f"# {k} is not set\n"
-            continue
+        for k,v in config.items():
+            if v == "unset":
+                output += f"# {k} is not set\n"
+                continue
+            
+            output += f"{k}={v}\n"
         
-        output += f"{k}={v}\n"
-    
-    with open('.config', 'w', encoding='utf-8') as f:
-        f.write(output)
+        with open('.config', 'w', encoding='utf-8') as f:
+            f.write(output)
 
-    
+        print("successfully merged configs")
+    except Exception as e:
+        print(e)
+        print("unable to merge configs")
+        exit(1)
