@@ -413,6 +413,13 @@ analysing the logical and timing behavior of Linux.
 
 
 %prep
+# Enable thin lto
+%if %{llvm_kbuild}
+./genconfig.py lto
+%else
+./genconfig.py
+%endif
+
 %setup -q -n linux-%{_tarkver}
 
 # Apply CachyOS patch
@@ -441,82 +448,10 @@ patch -p1 -i %{PATCH23}
 %endif
 
 # Fetch the config and move it to the proper directory
-cp %{SOURCE1} .config
+cp %{BUILDROOT}/full_config .config
 
 # Remove CachyOS's localversion
 find . -name "localversion*" -delete
-scripts/config -u LOCALVERSION
-
-# Enable CachyOS tweaks
-scripts/config -e CACHY
-
-# Enable BORE Scheduler
-scripts/config -e SCHED_BORE
-
-# Enable sched-ext
-scripts/config -e SCHED_CLASS_EXT
-scripts/config -e BPF
-scripts/config -e BPF_EVENTS
-scripts/config -e BPF_JIT
-scripts/config -e BPF_SYSCALL
-scripts/config -e DEBUG_INFO
-scripts/config -e DEBUG_INFO_BTF
-scripts/config -e DEBUG_INFO_BTF_MODULES
-scripts/config -e FTRACE
-scripts/config -e PAHOLE_HAS_SPLIT_BTF
-scripts/config -e DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT
-scripts/config -e SCHED_DEBUG
-
-# Setting tick rate
-scripts/config -d HZ_300
-scripts/config -e HZ_1000
-scripts/config --set-val HZ 1000
-
-# Enable x86_64_v3
-# Just to be sure, check:
-# /lib/ld-linux-x86-64.so.2 --help | grep supported
-# and make sure if your processor supports it:
-# x86-64-v3 (supported, searched)
-#scripts/config --set-val X86_64_VERSION 3
-
-# Set O3
-scripts/config -d CC_OPTIMIZE_FOR_PERFORMANCE
-scripts/config -e CC_OPTIMIZE_FOR_PERFORMANCE_O3
-
-# Enable full ticks
-scripts/config -d HZ_PERIODIC
-scripts/config -d NO_HZ_IDLE
-scripts/config -d CONTEXT_TRACKING_FORCE
-scripts/config -e NO_HZ_FULL_NODEF
-scripts/config -e NO_HZ_FULL
-scripts/config -e NO_HZ
-scripts/config -e NO_HZ_COMMON
-scripts/config -e CONTEXT_TRACKING
-
-# Enable lazy preempt
-scripts/config -e PREEMPT_LAZY
-scripts/config -d PREEMPT_NONE
-scripts/config -d PREEMPT_VOLUNTARY
-scripts/config -d PREEMPT
-scripts/config -e PREEMPT_COUNT
-scripts/config -e PREEMPTION
-scripts/config -e PREEMPT_DYNAMIC
-
-# Enable thin lto
-%if %{llvm_kbuild}
-scripts/config -e LTO
-scripts/config -e LTO_CLANG
-scripts/config -e ARCH_SUPPORTS_LTO_CLANG
-scripts/config -e ARCH_SUPPORTS_LTO_CLANG_THIN
-scripts/config -d LTO_NONE
-scripts/config -e HAS_LTO_CLANG
-scripts/config -d LTO_CLANG_FULL
-scripts/config -e LTO_CLANG_THIN
-scripts/config -e HAVE_GCC_PLUGINS
-%endif
-
-# Unset hostname
-scripts/config -u DEFAULT_HOSTNAME
 
 # Set kernel version string as build salt
 scripts/config --set-str BUILD_SALT "%{kverstr}"
