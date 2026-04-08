@@ -77,14 +77,23 @@ Group: System Environment/Kernel
 Vendor: The Linux Community and CachyOS maintainer(s)
 URL: https://cachyos.org
 Source0: https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-%{_tarkver}.tar.xz
+
+%define config_commit b91624f68ceaf5394ef1571f60290dca6ba22b45
+
 %if 0%{?_is_rc}
-Source1: https://raw.githubusercontent.com/CachyOS/linux-cachyos/master/linux-cachyos-rc/config
+Source1: https://raw.githubusercontent.com/CachyOS/linux-cachyos/%{config_commit}/linux-cachyos-rc/config
 %else
-Source1: https://raw.githubusercontent.com/CachyOS/linux-cachyos/master/linux-cachyos/config
+Source1: https://raw.githubusercontent.com/CachyOS/linux-cachyos/%{config_commit}/linux-cachyos/config
 %endif
 
 # needed for kernel-tools
 Source2: kvm_stat.logrotate
+
+Source3: genconfig.py
+Source4: config.generic
+Source5: config.x86_64
+Source6: config.aarch64
+Source7: config.ltobuild
 
 # https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
 ExcludeArch:    %{ix86}
@@ -413,13 +422,6 @@ analysing the logical and timing behavior of Linux.
 
 
 %prep
-# Enable thin lto
-%if %{llvm_kbuild}
-./genconfig.py lto
-%else
-./genconfig.py
-%endif
-
 %setup -q -n linux-%{_tarkver}
 
 # Apply CachyOS patch
@@ -448,7 +450,14 @@ patch -p1 -i %{PATCH23}
 %endif
 
 # Fetch the config and move it to the proper directory
-cp %{BUILDROOT}/full_config .config
+
+# Enable thin lto
+%if %{llvm_kbuild}
+%{SOURCE3} lto
+%else
+%{SOURCE3}
+%endif
+
 
 # Remove CachyOS's localversion
 find . -name "localversion*" -delete

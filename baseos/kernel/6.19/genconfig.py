@@ -2,6 +2,7 @@
 import re
 import sys
 import platform
+import os
 
 def parse_config_file(filepath):
     config = {}
@@ -27,15 +28,16 @@ def parse_config_file(filepath):
     return config
 
 if __name__ == '__main__':
+    path = os.path.dirname(os.path.abspath(__file__)) + '/'
 
-    config = parse_config_file('config')
+    config = parse_config_file(path + 'config')
 
-    config.update(parse_config_file('config.generic'))
+    config.update(parse_config_file(path + 'config.generic'))
 
-    config.update(parse_config_file(f'config.{platform.machine()}'))
+    config.update(parse_config_file(path + 'config.' + platform.machine()))
 
     if len(sys.argv) > 1 and sys.argv[1] == "lto":
-        config.update(parse_config_file('config.ltobuild'))
+        config.update(parse_config_file(path + 'config.ltobuild'))
 
     output = ""
 
@@ -46,7 +48,7 @@ if __name__ == '__main__':
         
         output += f"{k}={v}\n"
     
-    with open('full_config', 'w', encoding='utf-8') as f:
+    with open('.config', 'w', encoding='utf-8') as f:
         f.write(output)
 
     
