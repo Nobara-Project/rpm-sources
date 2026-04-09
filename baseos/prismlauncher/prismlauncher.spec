@@ -31,7 +31,7 @@
 %endif
 
 Name:             prismlauncher
-Version:          10.0.5
+Version:          11.0.0
 Release:          %autorelease
 # See COPYING.md for more information
 # Each file in the source tree also contains a SPDX-License-Identifier header
@@ -174,7 +174,7 @@ appstream-util validate-relax --nonet \
 %{_datadir}/applications/org.prismlauncher.PrismLauncher.desktop
 %{_datadir}/icons/hicolor/scalable/apps/org.prismlauncher.PrismLauncher.svg
 %{_datadir}/icons/hicolor/256x256/apps/org.prismlauncher.PrismLauncher.png
-%{_datadir}/mime/packages/modrinth-mrpack-mime.xml
+%{_datadir}/mime/packages/org.prismlauncher.PrismLauncher.xml
 %{_datadir}/qlogging-categories?/prismlauncher.categories
 %{_mandir}/man?/prismlauncher.*
 %{_metainfodir}/org.prismlauncher.PrismLauncher.metainfo.xml
