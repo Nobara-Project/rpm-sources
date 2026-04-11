@@ -1,7 +1,7 @@
 Name:          nobara-driver-manager
 Epoch:	       2
-Version:       0.1.3
-Release:       7%{?dist}
+Version:       0.1.4
+Release:       1%{?dist}
 License:       MPLv2
 Group:         System Environment/Libraries
 Summary:       Nobara Driver Manager - Device and Driver control adw gui
