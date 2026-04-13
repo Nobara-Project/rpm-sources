@@ -1,7 +1,7 @@
 %bcond_with tests
 
 Name:       protontricks
-Version:    1.14.0
+Version:    1.14.1
 Release:    %autorelease
 Summary:    Simple wrapper that does winetricks things for Proton enabled games
 BuildArch:  noarch
@@ -71,6 +71,9 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/*.desktop
 
 
 %changelog
+* Mon Apr 13 2026 LionHeartP <LionHeartP@proton.me> - 1.14.1-1
+- Update to 1.14.1
+
 * Fri Mar 06 2026 LionHeartP <LionHeartP@proton.me> - 1.14.0-1
 - Update to 1.14.0
 - Modernize python macros
