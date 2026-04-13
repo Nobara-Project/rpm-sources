@@ -44,12 +44,9 @@ Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 7.0
 %define _stablekver 0
+%define _PKGBUILD 2
 %define _rcver rc7
-%if %{_stablekver} == 0
-%define _tarkver %{_basekver}
-%else
 %define _tarkver %{_basekver}.%{_stablekver}
-%endif
 %if 0%{?_is_rc}
 %define _tarkver %{_basekver}-%{_rcver}
 %endif
@@ -75,8 +72,8 @@ Release:%{customver}.nobara%{?dist}
 License: GPLv2 and Redistributable, no modifications permitted
 Group: System Environment/Kernel
 Vendor: The Linux Community and CachyOS maintainer(s)
-URL: https://cachyos.org
-Source0: https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-%{_tarkver}.tar.xz
+URL: https://github.com/CachyOS/linux/
+Source0: %{url}/archive/refs/tags/cachyos-%{_tarkver}-%{_PKGBUILD}.tar.gz
 
 %define config_commit b91624f68ceaf5394ef1571f60290dca6ba22b45
 
@@ -99,7 +96,6 @@ Source7: config.ltobuild
 ExcludeArch:    %{ix86}
 
 # Stable patches
-Patch0: https://raw.githubusercontent.com/CachyOS/kernel-patches/master/%{_basekver}/all/0001-cachyos-base-all.patch
 Patch1: https://raw.githubusercontent.com/CachyOS/kernel-patches/master/%{_basekver}/sched/0001-bore-cachy.patch
 # For handhelds
 Patch2: https://raw.githubusercontent.com/CachyOS/kernel-patches/master/%{_basekver}/misc/0001-handheld.patch
@@ -422,17 +418,13 @@ analysing the logical and timing behavior of Linux.
 
 
 %prep
-%setup -q -n linux-%{_tarkver}
-
-# Apply CachyOS patch
-patch -p1 -i %{PATCH0}
-
-# Apply EEVDF and BORE patches
+%setup -q -n linux-cachyos-%{_tarkver}-%{_PKGBUILD}
+# BORE patch
 patch -p1 -i %{PATCH1}
-
-# Apply Nobara patches:
+# CachyOS Handheld patch
 patch -p1 -i %{PATCH2}
-#patch -p1 -i %{PATCH3}
+# Nobara patches
+patch -p1 -i %{PATCH3}
 patch -p1 -i %{PATCH4}
 patch -p1 -i %{PATCH5}
 patch -p1 -i %{PATCH6}
@@ -582,7 +574,7 @@ make %{?_smp_mflags} %{?llvm_build_env_vars} INSTALL_HDR_PATH=%{buildroot}/usr h
 ### all of the things here are derived from the Fedora kernel.spec
 ### see
 ##### https://src.fedoraproject.org/rpms/kernel/blob/rawhide/f/kernel.spec
-cd %{_builddir}/linux-%{_tarkver}
+cd %{_builddir}/linux-cachyos-%{_tarkver}-%{_PKGBUILD}
 rm -f %{buildroot}/lib/modules/%{kverstr}/build
 rm -f %{buildroot}/lib/modules/%{kverstr}/source
 mkdir -p %{buildroot}/lib/modules/%{kverstr}/build
