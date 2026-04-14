@@ -72,10 +72,10 @@ Release:%{customver}.nobara%{?dist}
 License: GPLv2 and Redistributable, no modifications permitted
 Group: System Environment/Kernel
 Vendor: The Linux Community and CachyOS maintainer(s)
-URL: https://github.com/CachyOS/linux/
+URL: https://github.com/CachyOS/linux
 Source0: %{url}/archive/refs/tags/cachyos-%{_tarkver}-%{_PKGBUILD}.tar.gz
 
-%define config_commit b91624f68ceaf5394ef1571f60290dca6ba22b45
+%define config_commit c64cf2312ff1f2bcd81320b9c9ef8c4af0296ee5
 
 %if 0%{?_is_rc}
 Source1: https://raw.githubusercontent.com/CachyOS/linux-cachyos/%{config_commit}/linux-cachyos-rc/config
@@ -129,7 +129,10 @@ Patch11: 0857-hwmon-nct6775-Add-ROG-STRIX-X870-I-GAMING-WIFI.patch
 
 # aarch64 patches
 Patch21: 0001-arm64-mm-Handle-alignment-faults.patch
-Patch22: 0002-ampere-arm64-Work-around-Ampere-Altra-erratum-82288-.patch
+# Needs rebase? Is it no longer needed?
+#Patch22: 0002-ampere-arm64-Work-around-Ampere-Altra-erratum-82288-.patch
+# Temp patch until next tag
+Patch22: https://github.com/CachyOS/linux/commit/6febf5851693729fd926a0d49e32433952ee04a5.patch
 #Patch23: 0002-arm64-mm-Force-Device-mappings-for-PCIe-MMIO.patch
 Patch23: xe-nonx86.patch
 
