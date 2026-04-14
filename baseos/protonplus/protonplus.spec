@@ -1,8 +1,8 @@
-%global 	SHA256SUM0 d7bf1fa9b389b68329bf96e6bd64c32e0b88459502a9929ff010a7bd5bcd02cf
+%global 	SHA256SUM0 46d196aa0fc59dffd29dd1391ae4f7a308a57d9690e0d0df7d68102bc505789c
 %define         appid com.vysp3r.ProtonPlus
 
 Name:           protonplus
-Version:        0.5.18
+Version:        0.5.19
 Release:        1%{?dist}
 Summary:        Simple and powerful manager for Wine, Proton, DXVK and VKD3D
 
