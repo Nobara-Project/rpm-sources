@@ -169,7 +169,7 @@ BuildRequires:  xtensor-devel
 %if 0%{?with_opencl} || 0%{?with_nvk}
 BuildRequires:  rust-packaging
 %endif
-%ifarch %{ix86} x86_64
+%ifarch %{ix86} x86_64 aarch64
 BuildRequires:  clang-devel
 BuildRequires:  bindgen
 BuildRequires:  pkgconfig(libclc)

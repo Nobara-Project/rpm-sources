@@ -44,6 +44,7 @@
 %global with_panfrost  1
 %global with_tegra     1
 %global platform_vulkan ,broadcom,freedreno,panfrost,intel,intel_hasvk
+%global extra_platform_vulkan %{?with_vulkan_hw:,broadcom,freedreno,panfrost,imagination}%{!?with_vulkan_hw:%{nil}}
 %endif
 
 %ifnarch s390x
@@ -471,6 +472,8 @@ install -Dpm0644 cargo-vendor.txt \
 %{_datadir}/vulkan/icd.d/freedreno_icd.*.json
 %{_libdir}/libvulkan_panfrost.so
 %{_datadir}/vulkan/icd.d/panfrost_icd.*.json
+%{_libdir}/libvulkan_powervr_mesa.so
+%{_datadir}/vulkan/icd.d/powervr_mesa_icd.*.json
 %endif
 %endif
 
