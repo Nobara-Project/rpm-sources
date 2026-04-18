@@ -7,6 +7,7 @@ URL:            https://gitlab.steamos.cloud/holo/%{name}
 Source0:        %{url}/-/archive/%{version}/%{name}-%{version}.tar.gz
 Source1:        90-%{name}.system.preset
 Source2:        90-%{name}.user.preset
+Source3:	%{url}/-/raw/main/LICENSE
 
 BuildRequires:  anda-srpm-macros
 BuildRequires:  cargo-rpm-macros
@@ -27,6 +28,7 @@ Requires:       systemd-libs
 
 %build
 %{cargo_license_online -a} > LICENSE.dependencies
+cp %{SOURCE3} .
 
 %install
 %cargo_install
@@ -48,6 +50,8 @@ install -Dpm644 %{SOURCE2} %{buildroot}%{_userpresetdir}/90-%{name}.preset
 %systemd_user_postun_with_restart %{name}-user.service
 
 %files
+%license LICENSE
+%license LICENSE.dependencies
 %{_bindir}/%{name}
 %{_presetdir}/90-dmemcg-booster.preset
 %{_userpresetdir}/90-dmemcg-booster.preset
