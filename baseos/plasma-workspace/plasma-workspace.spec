@@ -4,8 +4,8 @@
 
 Name:    plasma-workspace
 Summary: Plasma workspace, applications and applets
-Version: 6.6.2
-Release: 3%{?dist}
+Version: 6.6.4
+Release: 1%{?dist}
 
 # Automatically converted from old format: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only) AND MIT - review is highly recommended.
 License: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only) AND MIT
@@ -22,11 +22,6 @@ Source102:      kde-smartcard
 ## (debating whether these be owned here or somewhere better...
 ## in the repective pkgs themselves? -- rdieter)
 Source40:       ssh-agent.conf
-
-## upstream patches
-# Fix for build failure regarding the plasma-shell wayland interface
-# https://invent.kde.org/plasma/plasma-workspace/-/commit/9114115f5af2594de64477e38e8762ff8dddbbd7
-Source200:      9114115f5af2594de64477e38e8762ff8dddbbd7.patch
 
 ## upstreamable Patches
 
