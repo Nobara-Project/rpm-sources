@@ -11,8 +11,8 @@
 %bcond malcontent %[!0%{?rhel}]
 
 Name:           flatpak
-Version:        1.16.1
-Release:        2%{?dist}
+Version:        1.16.6
+Release:        1%{?dist}
 Summary:        Application deployment framework for desktop apps
 
 License:        LGPL-2.1-or-later
@@ -89,15 +89,15 @@ Requires:       ostree-libs%{?_isa} >= %{ostree_version}
 Requires:       /usr/bin/fusermount3
 Requires:       /usr/bin/xdg-dbus-proxy
 # https://fedoraproject.org/wiki/SELinux/IndependentPolicy
-Requires:       flatpak-selinux
+Requires:       (flatpak-selinux = %{?epoch:%{epoch}:}%{version}-%{release} if selinux-policy-targeted)
 Requires:       %{name}-session-helper%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
 Recommends:     p11-kit-server
 
 # Make sure the document portal is installed
 %if 0%{?fedora} || 0%{?rhel} > 7
-Recommends:     xdg-desktop-portal > 0.10
+Recommends:     xdg-desktop-portal > 1.5.3
 %else
-Requires:       xdg-desktop-portal > 0.10
+Requires:       xdg-desktop-portal > 1.5.3
 %endif
 
 %description
@@ -179,7 +179,9 @@ This package contains installed tests for %{name}.
 %meson_install
 install -pm 644 NEWS README.md %{buildroot}/%{_pkgdocdir}
 # The system repo is not installed by the flatpak build system.
+install -d %{buildroot}%{_datadir}/%{name}/remotes.d
 install -d %{buildroot}%{_localstatedir}/lib/flatpak
+install -d %{buildroot}%{_sysconfdir}/%{name}/installations.d
 install -d %{buildroot}%{_sysconfdir}/flatpak/remotes.d
 
 %if 0%{?fedora}
@@ -262,6 +264,7 @@ fi
 %{_mandir}/man5/flatpakrepo.5*
 %{_sysconfdir}/dbus-1/system.d/org.freedesktop.Flatpak.SystemHelper.conf
 %dir %{_sysconfdir}/flatpak
+%{_sysconfdir}/%{name}/installations.d
 %{_sysconfdir}/flatpak/remotes.d
 %{_sysconfdir}/profile.d/flatpak.csh
 %{_sysconfdir}/profile.d/flatpak.sh
@@ -306,6 +309,39 @@ fi
 
 
 %changelog
+* Fri Apr 10 2026 Michael Catanzaro <mcatanzaro@redhat.com> - 1.16.6-1
+- Update to 1.16.6
+
+* Wed Apr 08 2026 David King <amigadave@amigadave.com> - 1.16.4-1
+- Update to 1.16.4
+
+* Wed Jan 21 2026 David King <amigadave@amigadave.com> - 1.16.3-1
+- Update to 1.16.3
+
+* Thu Dec 18 2025 David King <amigadave@amigadave.com> - 1.16.2-1
+- Update to 1.16.2
+
+* Wed Nov 12 2025 Debarshi Ray <rishi@fedoraproject.org> - 1.16.1-5
+- Add empty /etc/flatpak/installations.d
+
+* Wed Nov 12 2025 Debarshi Ray <rishi@fedoraproject.org> - 1.16.1-4
+- Add empty /usr/share/flatpak/remotes.d
+
+* Wed Nov 12 2025 Debarshi Ray <rishi@fedoraproject.org> - 1.16.1-3
+- Recommend version 2 of the permission store
+
+* Wed Jul 23 2025 Fedora Release Engineering <releng@fedoraproject.org> - 1.16.1-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_43_Mass_Rebuild
+
+* Mon May 12 2025 David King <amigadave@amigadave.com> - 1.16.1-1
+- Update to 1.16.1 (#2365496)
+
+* Tue Feb 11 2025 Zbigniew Jędrzejewski-Szmek <zbyszek@in.waw.pl> - 1.16.0-3
+- Drop call to %%sysusers_create_compat
+
+* Thu Jan 16 2025 Fedora Release Engineering <releng@fedoraproject.org> - 1.16.0-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_42_Mass_Rebuild
+
 * Mon Jan 13 2025 David King <amigadave@amigadave.com> - 1.16.0-1
 - Update to 1.16.0 (#2336719)
 
