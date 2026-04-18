@@ -11,6 +11,8 @@ Source:         https://dec05eba.com/snapshot/%{name}.git.%{version}.tar.gz
 BuildRequires:  gcc
 BuildRequires:  (gcc-g++ or gcc-c++)
 BuildRequires:  meson
+BuildRequires:  pkgconfig(pango)
+BuildRequires:  pkgconfig(pangocairo)
 BuildRequires:  pkgconfig(x11)
 BuildRequires:  pkgconfig(xext)
 BuildRequires:  pkgconfig(xrandr)
@@ -19,7 +21,7 @@ BuildRequires:  pkgconfig(libglvnd)
 BuildRequires:  pkgconfig(wayland-client)
 BuildRequires:  pkgconfig(wayland-egl)
 BuildRequires:  pkgconfig(wayland-scanner)
-Requires:       (google-noto-sans-fonts or noto-sans)
+Requires:       pango
 
 %description
 A fullscreen overlay UI for GPU Screen Recorder in the style of ShadowPlay.
@@ -49,6 +51,9 @@ rm -rf %{_buildroot}%{_datadir}/gsr-notify/fonts
 %{_datadir}/gsr-notify
 
 %changelog
+* Sat Apr 18 2026 LionHeartP <LionHeartP@proton.me> - 1.2.1-1
+- Update to 1.2.1
+
 * Thu Feb 12 2026 LionHeartP <LionHeartP@proton.me> - 1.1.1-1
 - Update to 1.1.1
 
