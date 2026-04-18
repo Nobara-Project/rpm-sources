@@ -1,8 +1,8 @@
-%global 	SHA256SUM0 46d196aa0fc59dffd29dd1391ae4f7a308a57d9690e0d0df7d68102bc505789c
+%global 	SHA256SUM0 824c7918636f2ba97b68f004cea3bf1da876dab6b39a80c049fc66e51621b660
 %define         appid com.vysp3r.ProtonPlus
 
 Name:           protonplus
-Version:        0.5.19
+Version:        0.5.20
 Release:        1%{?dist}
 Summary:        Simple and powerful manager for Wine, Proton, DXVK and VKD3D
 
@@ -74,6 +74,9 @@ appstream-util validate-relax --nonet \
 
 
 %changelog
+* Sat Apr 18 2026 LionHeartP <LionHeartP@proton.me> - 0.5.20-1
+- new upstream version v0.5.20
+
 * Mon Mar 09 2026 Radical <radical@radical.fun> - 0.5.17-2
 - Change ExclusiveArch to allow building for aarch64
 
