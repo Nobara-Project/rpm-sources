@@ -2,7 +2,7 @@ Name:           dmemcg-booster
 Version:        0.1.2
 Release:        1%{?dist}
 Summary:        Userspace utility for controling VRAM utilization
-License:        Apache-2.0 OR MIT
+License:        MIT
 URL:            https://gitlab.steamos.cloud/holo/%{name}
 Source0:        %{url}/-/archive/%{version}/%{name}-%{version}.tar.gz
 Source1:        90-%{name}.system.preset
