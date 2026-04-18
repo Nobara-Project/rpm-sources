@@ -1,15 +1,15 @@
-%global commit 4d7e6c1d8c54ec10fdb29daca679307ac5194825
+%global commit e0ab31454b1c55468af14d08740b51f11581a324
 %if 0%{?rhel} && 0%{?rhel} < 10
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %else
 %global shortcommit %{sub %{commit} 1 7}
 %endif
-%global commitdate 20240522
+%global commitdate 20260123
 
 
 Name:           steam-devices
 Version:        1.0.0.101^git%{commitdate}.%{shortcommit}
-Release:        4%{?dist}
+Release:        7%{?dist}
 License:        MIT
 Summary:        Device support for Steam-related hardware
 Url:            https://github.com/ValveSoftware/steam-devices/
@@ -26,6 +26,11 @@ BuildRequires:  systemd-rpm-macros
 # so we don't break current installs. Can be removed after a while.
 Obsoletes:      steam-devices < %{version}-%{release}
 Provides:       steam-devices = %{version}-%{release}
+
+# Fix conflict with Terra's udev-joystick-blacklist-rm package
+Provides:       udev-joystick-blacklist-rm = %{version}-%{release}
+Obsoletes:      udev-joystick-blacklist-rm
+Conflicts:      udev-joystick-blacklist-rm
 
 %description
 This package contains the necessary permissions for gaming devices (such as
@@ -47,6 +52,10 @@ install -Dpm0644 %{SOURCE1} %{buildroot}%{_udevrulesdir}/51-these-are-not-joysti
 %{_udevrulesdir}/51-these-are-not-joysticks-rm.rules
 
 %changelog
+* Wed Apr 15 2026 LionHeartP <LionHeartP@proton.me> - 1.0.0.101^git20260123.e0ab314-7
+- Update to 1.0.0.101^git20260123.e0ab314-7
+- Fix conflicts with Terra's udev-joystick-blacklist-rm package
+
 * Tue Mar 18 2025 Shawn W. Dunn <sfalken@cloverleaf-linux.org> - 1.0.0.101^git20240522.e2971e4-2
 - Added Conditional to fix FTBFS on epel8 and epel9
 
