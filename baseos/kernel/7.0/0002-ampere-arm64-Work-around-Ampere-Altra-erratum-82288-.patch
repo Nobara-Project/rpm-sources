@@ -11,19 +11,9 @@ Non-cacheable maps for PCIe memory areas.
 
 Signed-off-by: D Scott Phillips <scott@os.amperecomputing.com>
 ---
- Documentation/arch/arm64/silicon-errata.rst |  2 ++
- arch/arm64/Kconfig                          | 21 +++++++++++++++
- arch/arm64/include/asm/pci.h                |  6 +++++
- arch/arm64/include/asm/pgtable.h            | 26 ++++++++++++++----
- arch/arm64/mm/ioremap.c                     | 30 +++++++++++++++++++++
- drivers/pci/quirks.c                        | 11 ++++++++
- 6 files changed, 91 insertions(+), 5 deletions(-)
-
-diff --git a/Documentation/arch/arm64/silicon-errata.rst b/Documentation/arch/arm64/silicon-errata.rst
-index b18ef4064bc04..e2f603ec14745 100644
---- a/Documentation/arch/arm64/silicon-errata.rst
-+++ b/Documentation/arch/arm64/silicon-errata.rst
-@@ -53,6 +53,8 @@ stable kernels.
+--- a/Documentation/arch/arm64/silicon-errata.rst	2026-04-08 23:30:34.448110762 -0600
++++ b/Documentation/arch/arm64/silicon-errata.rst	2026-04-08 23:30:38.993808290 -0600
+@@ -53,6 +53,8 @@
  | Allwinner      | A64/R18         | UNKNOWN1        | SUN50I_ERRATUM_UNKNOWN1     |
  +----------------+-----------------+-----------------+-----------------------------+
  +----------------+-----------------+-----------------+-----------------------------+
@@ -32,11 +22,9 @@ index b18ef4064bc04..e2f603ec14745 100644
  | Ampere         | AmpereOne       | AC03_CPU_38     | AMPERE_ERRATUM_AC03_CPU_38  |
  +----------------+-----------------+-----------------+-----------------------------+
  | Ampere         | AmpereOne AC04  | AC04_CPU_10     | AMPERE_ERRATUM_AC03_CPU_38  |
-diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
-index e9bbfacc35a64..0e59a5f199098 100644
---- a/arch/arm64/Kconfig
-+++ b/arch/arm64/Kconfig
-@@ -486,6 +486,27 @@ config AMPERE_ERRATUM_AC04_CPU_23
+--- a/arch/arm64/Kconfig	2026-04-08 23:30:34.448667035 -0600
++++ b/arch/arm64/Kconfig	2026-04-08 23:30:38.994096402 -0600
+@@ -489,6 +489,27 @@
  config ARM64_WORKAROUND_CLEAN_CACHE
  	bool
  
@@ -64,10 +52,8 @@ index e9bbfacc35a64..0e59a5f199098 100644
  config ARM64_ERRATUM_826319
  	bool "Cortex-A53: 826319: System might deadlock if a write cannot complete until read data is accepted"
  	default y
-diff --git a/arch/arm64/include/asm/pci.h b/arch/arm64/include/asm/pci.h
-index 016eb6b46dc07..edf663ec9f721 100644
---- a/arch/arm64/include/asm/pci.h
-+++ b/arch/arm64/include/asm/pci.h
+--- a/arch/arm64/include/asm/pci.h	2026-04-08 23:30:34.449105838 -0600
++++ b/arch/arm64/include/asm/pci.h	2026-04-08 23:30:38.994168292 -0600
 @@ -18,6 +18,12 @@
  
  #define arch_can_pci_mmap_wc() 1
@@ -81,11 +67,9 @@ index 016eb6b46dc07..edf663ec9f721 100644
  /* Generic PCI */
  #include <asm-generic/pci.h>
  
-diff --git a/arch/arm64/include/asm/pgtable.h b/arch/arm64/include/asm/pgtable.h
-index abd2dee416b3b..735494b1404eb 100644
---- a/arch/arm64/include/asm/pgtable.h
-+++ b/arch/arm64/include/asm/pgtable.h
-@@ -339,11 +339,6 @@ static inline pte_t pte_mkyoung(pte_t pte)
+--- a/arch/arm64/include/asm/pgtable.h	2026-04-08 23:30:34.449636651 -0600
++++ b/arch/arm64/include/asm/pgtable.h	2026-04-08 23:30:38.994217943 -0600
+@@ -342,11 +342,6 @@
  	return set_pte_bit(pte, __pgprot(PTE_AF));
  }
  
@@ -97,7 +81,7 @@ index abd2dee416b3b..735494b1404eb 100644
  static inline pte_t pte_mkcont(pte_t pte)
  {
  	return set_pte_bit(pte, __pgprot(PTE_CONT));
-@@ -798,6 +793,27 @@ static inline void __set_puds(struct mm_struct *mm,
+@@ -806,6 +801,27 @@
  	__pgprot_modify(prot, PTE_ATTRINDX_MASK, \
  			PTE_ATTRINDX(MT_NORMAL_NC) | PTE_PXN | PTE_UXN)
  
@@ -125,10 +109,8 @@ index abd2dee416b3b..735494b1404eb 100644
  #define __HAVE_PHYS_MEM_ACCESS_PROT
  struct file;
  extern pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
-diff --git a/arch/arm64/mm/ioremap.c b/arch/arm64/mm/ioremap.c
-index 10e246f112710..647e8f58236e0 100644
---- a/arch/arm64/mm/ioremap.c
-+++ b/arch/arm64/mm/ioremap.c
+--- a/arch/arm64/mm/ioremap.c	2026-04-08 23:30:34.450144804 -0600
++++ b/arch/arm64/mm/ioremap.c	2026-04-08 23:30:38.994282503 -0600
 @@ -2,6 +2,7 @@
  
  #include <linux/mm.h>
@@ -137,7 +119,7 @@ index 10e246f112710..647e8f58236e0 100644
  
  static ioremap_prot_hook_t ioremap_prot_hook;
  
-@@ -14,6 +15,29 @@ int arm64_ioremap_prot_hook_register(ioremap_prot_hook_t hook)
+@@ -14,6 +15,29 @@
  	return 0;
  }
  
@@ -164,10 +146,10 @@ index 10e246f112710..647e8f58236e0 100644
 +}
 +#endif
 +
- void __iomem *ioremap_prot(phys_addr_t phys_addr, size_t size,
- 			   pgprot_t pgprot)
+ void __iomem *__ioremap_prot(phys_addr_t phys_addr, size_t size,
+ 			     pgprot_t pgprot)
  {
-@@ -36,6 +60,12 @@ void __iomem *ioremap_prot(phys_addr_t phys_addr, size_t size,
+@@ -36,6 +60,12 @@
  		return NULL;
  	}
  
@@ -179,14 +161,12 @@ index 10e246f112710..647e8f58236e0 100644
 +
  	return generic_ioremap_prot(phys_addr, size, pgprot);
  }
- EXPORT_SYMBOL(ioremap_prot);
-diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-index d97335a401930..62c4a404cdcf6 100644
---- a/drivers/pci/quirks.c
-+++ b/drivers/pci/quirks.c
-@@ -6307,6 +6307,17 @@ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_REDHAT, 0x0005, of_pci_make_dev_node);
+ EXPORT_SYMBOL(__ioremap_prot);
+--- a/drivers/pci/quirks.c	2026-04-08 23:30:34.450620907 -0600
++++ b/drivers/pci/quirks.c	2026-04-08 23:31:34.826329503 -0600
+@@ -6346,6 +6346,17 @@
+ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_REDHAT, 0x0005, of_pci_make_dev_node);
  DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_EFAR, 0x9660, of_pci_make_dev_node);
- DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_RPI, PCI_DEVICE_ID_RPI_RP1_C0, of_pci_make_dev_node);
  
 +#ifdef CONFIG_ALTRA_ERRATUM_82288
 +static void quirk_altra_erratum_82288(struct pci_dev *dev)
@@ -202,5 +182,6 @@ index d97335a401930..62c4a404cdcf6 100644
  /*
   * Devices known to require a longer delay before first config space access
   * after reset recovery or resume from D3cold:
+
 -- 
 2.52.0

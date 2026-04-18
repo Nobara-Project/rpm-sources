@@ -1,6 +1,6 @@
 Add xpadneo Xbox Wireless Controller driver for Bluetooth support
 
-This patch integrates the xpadneo driver (v0.10.1) into the kernel tree.
+This patch integrates the xpadneo driver (v0.11-pre-50-ge7d3273) into the kernel tree.
 xpadneo provides advanced support for Xbox One S/X, Series X|S, and Elite
 controllers connected via Bluetooth, including force feedback, battery
 reporting, and profile switching.
@@ -9,8 +9,8 @@ Signed-off-by: GloriousEggroll <gloriouseggroll@gmail.com>
 ---
 
 diff -Naur linux-clean/drivers/hid/hid-microsoft.c linux-patched/drivers/hid/hid-microsoft.c
---- linux-clean/drivers/hid/hid-microsoft.c	2026-04-02 05:25:57.000000000 -0600
-+++ linux-patched/drivers/hid/hid-microsoft.c	2026-04-07 15:20:21.812068165 -0600
+--- linux-clean/drivers/hid/hid-microsoft.c	2026-04-13 07:34:18.000000000 -0600
++++ linux-patched/drivers/hid/hid-microsoft.c	2026-04-18 08:10:26.975726745 -0600
 @@ -447,18 +447,8 @@
  	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x091B),
  		.driver_data = MS_SURFACE_DIAL },
@@ -33,9 +33,9 @@ diff -Naur linux-clean/drivers/hid/hid-microsoft.c linux-patched/drivers/hid/hid
  };
  MODULE_DEVICE_TABLE(hid, ms_devices);
 diff -Naur linux-clean/drivers/hid/Kconfig linux-patched/drivers/hid/Kconfig
---- linux-clean/drivers/hid/Kconfig	2026-04-02 05:25:57.000000000 -0600
-+++ linux-patched/drivers/hid/Kconfig	2026-04-07 15:20:21.811423181 -0600
-@@ -1443,6 +1443,9 @@
+--- linux-clean/drivers/hid/Kconfig	2026-04-13 07:34:18.000000000 -0600
++++ linux-patched/drivers/hid/Kconfig	2026-04-18 08:10:26.975550424 -0600
+@@ -1451,6 +1451,9 @@
  
  source "drivers/hid/intel-thc-hid/Kconfig"
  
@@ -46,8 +46,8 @@ diff -Naur linux-clean/drivers/hid/Kconfig linux-patched/drivers/hid/Kconfig
  
  # USB support may be used with HID disabled
 diff -Naur linux-clean/drivers/hid/Makefile linux-patched/drivers/hid/Makefile
---- linux-clean/drivers/hid/Makefile	2026-04-02 05:25:57.000000000 -0600
-+++ linux-patched/drivers/hid/Makefile	2026-04-07 15:20:21.811803083 -0600
+--- linux-clean/drivers/hid/Makefile	2026-04-13 07:34:18.000000000 -0600
++++ linux-patched/drivers/hid/Makefile	2026-04-18 08:10:26.975633264 -0600
 @@ -180,6 +180,8 @@ obj-$(CONFIG_SURFACE_HID_CORE)  += surface-hid/
  
  obj-$(CONFIG_INTEL_THC_HID)     += intel-thc-hid/
@@ -59,7 +59,7 @@ diff -Naur linux-clean/drivers/hid/Makefile linux-patched/drivers/hid/Makefile
  obj-$(CONFIG_HID_DOCKCHANNEL)   += dockchannel-hid/
 diff -Naur linux-clean/drivers/hid/xpadneo/compat.h linux-patched/drivers/hid/xpadneo/compat.h
 --- linux-clean/drivers/hid/xpadneo/compat.h	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/compat.h	2026-03-29 02:39:57.434502362 -0600
++++ linux-patched/drivers/hid/xpadneo/compat.h	2026-03-29 05:57:37.020417343 -0600
 @@ -0,0 +1,53 @@
 +/* SPDX-License-Identifier: GPL-2.0-only */
 +
@@ -116,7 +116,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/compat.h linux-patched/drivers/hid/xp
 +#endif
 diff -Naur linux-clean/drivers/hid/xpadneo/consumer.c linux-patched/drivers/hid/xpadneo/consumer.c
 --- linux-clean/drivers/hid/xpadneo/consumer.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/consumer.c	2026-03-29 02:39:57.434535052 -0600
++++ linux-patched/drivers/hid/xpadneo/consumer.c	2026-03-29 05:57:37.020438333 -0600
 @@ -0,0 +1,34 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
@@ -154,8 +154,8 @@ diff -Naur linux-clean/drivers/hid/xpadneo/consumer.c linux-patched/drivers/hid/
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/core.c linux-patched/drivers/hid/xpadneo/core.c
 --- linux-clean/drivers/hid/xpadneo/core.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/core.c	2026-04-06 16:00:13.112000160 -0600
-@@ -0,0 +1,333 @@
++++ linux-patched/drivers/hid/xpadneo/core.c	2026-04-17 12:23:32.807252675 -0600
+@@ -0,0 +1,354 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
 +/*
@@ -211,16 +211,21 @@ diff -Naur linux-clean/drivers/hid/xpadneo/core.c linux-patched/drivers/hid/xpad
 +#endif
 +
 +static const struct hid_device_id core_devices[] = {
-+	/* XBOX ONE S / X */
++	/* XBOX ONE S (1708) gen 1: Windows BT mode; also used by third-party controllers */
 +	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x02E0) },
-+	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x02FD) },
++	/* XBOX ONE S (1708) gen 2: Linux/Android BT mode */
++	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x02FD),
++	 .driver_data = XPADNEO_QUIRK_LINUX_BUTTONS },
++	/* XBOX ONE S (1708) gen 3: BLE mode */
 +	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x0B20),
-+	 .driver_data = XPADNEO_QUIRK_SHARE_BUTTON },
++	 .driver_data = XPADNEO_QUIRK_LINUX_BUTTONS | XPADNEO_QUIRK_SHARE_BUTTON },
 +
 +	/* XBOX ONE Elite Series 2 */
-+	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x0B05) },
++	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x0B05),
++	 .driver_data = XPADNEO_QUIRK_LINUX_BUTTONS },
 +	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x0B22),
-+	 .driver_data = XPADNEO_QUIRK_SHARE_BUTTON | XPADNEO_QUIRK_MENU_GHOST | XPADNEO_QUIRK_RAW_RUMBLE },
++	 .driver_data = XPADNEO_QUIRK_SHARE_BUTTON | XPADNEO_QUIRK_MENU_GHOST |
++			XPADNEO_QUIRK_RAW_RUMBLE },
 +
 +	/* XBOX Series X|S / Xbox Wireless Controller (BLE) */
 +	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x0B13),
@@ -325,19 +330,29 @@ diff -Naur linux-clean/drivers/hid/xpadneo/core.c linux-patched/drivers/hid/xpad
 +	hdev->quirks |= HID_QUIRK_NO_INPUT_SYNC;
 +	hid_set_drvdata(hdev, xdata);
 +
++	xdata->uses_hogp = false;
 +	if (hdev->version == 0x00000903)
 +		hid_warn(hdev, "buggy firmware detected, please upgrade to the latest version\n");
 +	else if (hdev->version < 0x00000500)
 +		hid_warn(hdev,
 +			 "classic Bluetooth firmware version %x.%02x, please upgrade for better stability\n",
 +			 hdev->version >> 8, (u8)hdev->version);
-+	else if (hdev->version < 0x00000512)
++	else if (hdev->version < 0x00000512) {
++		xdata->uses_hogp = (hdev->bus == BUS_BLUETOOTH);
 +		hid_warn(hdev,
 +			 "BLE firmware version %x.%02x, please upgrade for better stability\n",
 +			 hdev->version >> 8, (u8)hdev->version);
-+	else
++	} else {
++		xdata->uses_hogp = (hdev->bus == BUS_BLUETOOTH);
 +		hid_info(hdev, "BLE firmware version %x.%02x\n",
 +			 hdev->version >> 8, (u8)hdev->version);
++	}
++
++	/* log if we are using the HOGP protocol */
++	if (xdata->uses_hogp) {
++		hid_info(hdev,
++			 "expecting HOGP protocol, this will cause rumble issues if the controller does not use BLE\n");
++	}
 +
 +	/*
 +	 * Optionally pretend that we are in Windows pairing mode to work around
@@ -347,10 +362,11 @@ diff -Naur linux-clean/drivers/hid/xpadneo/core.c linux-patched/drivers/hid/xpad
 +	 * Steam Input) to properly detect controller models and enable features
 +	 * like Xbox Elite paddle support.
 +	 *
-+	 * Xbox One S:
-+	 * 0x2E0 wireless Windows mode (non-Android mode)
++	 * Xbox One S (1708):
++	 * 0x2E0 gen 1: wireless Windows mode (also used by third-party controllers)
 +	 * 0x2EA USB Windows and Linux mode
-+	 * 0x2FD wireless Linux mode (Android mode)
++	 * 0x2FD gen 2: wireless Linux/Android mode
++	 * 0xB20 gen 3: wireless BLE mode
 +	 *
 +	 * Xbox Elite 2:
 +	 * 0xB00 USB Windows and Linux mode
@@ -360,8 +376,6 @@ diff -Naur linux-clean/drivers/hid/xpadneo/core.c linux-patched/drivers/hid/xpad
 +	 * 0xB12 Dongle, USB Windows and USB Linux mode
 +	 * 0xB13 wireless Linux mode (Android mode)
 +	 *
-+	 * Xbox Controller BLE mode:
-+	 * 0xB20 wireless BLE mode
 +	 */
 +	xdata->original_product = hdev->product;
 +	xdata->original_version = hdev->version;
@@ -393,7 +407,14 @@ diff -Naur linux-clean/drivers/hid/xpadneo/core.c linux-patched/drivers/hid/xpad
 +		goto err_release_id;
 +	}
 +
-+	ret = hid_hw_start(hdev, HID_CONNECT_DEFAULT);
++	/*
++	 * Expose Xbox controllers through the translated input devices only.
++	 * This suppresses /dev/hidraw nodes so user space is forced onto the
++	 * evdev path instead of bypassing xpadneo via HIDAPI/raw HID.
++	 */
++	ret = hid_hw_start(hdev, HID_CONNECT_HIDINPUT |
++				HID_CONNECT_HIDDEV |
++				HID_CONNECT_FF);
 +	if (ret) {
 +		hid_err(hdev, "hw start failed\n");
 +		goto err_release_id;
@@ -419,7 +440,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/core.c linux-patched/drivers/hid/xpad
 +
 +	ret = xpadneo_rumble_init(hdev);
 +	if (ret)
-+		hid_err(hdev, "could not initialize ff, continuing anyway\n");
++		hid_err(hdev, "could not initialize rumble, continuing anyway\n");
 +
 +	xpadneo_mouse_init_timer(xdata);
 +
@@ -491,8 +512,8 @@ diff -Naur linux-clean/drivers/hid/xpadneo/core.c linux-patched/drivers/hid/xpad
 +module_exit(core_exit);
 diff -Naur linux-clean/drivers/hid/xpadneo/debug.c linux-patched/drivers/hid/xpadneo/debug.c
 --- linux-clean/drivers/hid/xpadneo/debug.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/debug.c	2026-03-29 02:39:57.434535052 -0600
-@@ -0,0 +1,167 @@
++++ linux-patched/drivers/hid/xpadneo/debug.c	2026-04-16 06:48:29.813283179 -0600
+@@ -0,0 +1,170 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
 +/*
@@ -530,7 +551,10 @@ diff -Naur linux-clean/drivers/hid/xpadneo/debug.c linux-patched/drivers/hid/xpa
 +};
 +
 +const struct crc_name known_checksums[] = {
-+	{ .crc16 = 0x6500, .name = "Xbox One Elite Series 2" },
++	{ .crc16 = 0x28FA, .name = "Xbox One Elite Series 2 (Legacy)" },
++	{ .crc16 = 0x534B, .name = "GuliKit ES PRO E-Sports Controller" },
++	{ .crc16 = 0x6500, .name = "Xbox One Elite Series 2 BLE" },
++	{ .crc16 = 0x6BA1, .name = "Xbox One S 1708 (fw 0x0903, truncated rumble descriptor)" },
 +	{ .crc16 = 0x8BC5, .name = "Xbox Wireless Controller (legacy)" },
 +	{ .crc16 = 0x931D, .name = "Xbox Wireless Controller (modern)" },
 +};
@@ -662,8 +686,8 @@ diff -Naur linux-clean/drivers/hid/xpadneo/debug.c linux-patched/drivers/hid/xpa
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/device.c linux-patched/drivers/hid/xpadneo/device.c
 --- linux-clean/drivers/hid/xpadneo/device.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/device.c	2026-04-07 15:13:09.016539141 -0600
-@@ -0,0 +1,201 @@
++++ linux-patched/drivers/hid/xpadneo/device.c	2026-04-17 12:23:32.808252685 -0600
+@@ -0,0 +1,359 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
 +/*
@@ -672,11 +696,12 @@ diff -Naur linux-clean/drivers/hid/xpadneo/device.c linux-patched/drivers/hid/xp
 + * Copyright (c) 2021 Kai Krakow <kai@kaishome.de>
 + */
 +
++#include <linux/delay.h>
 +#include <linux/module.h>
 +
 +#include "xpadneo.h"
 +
-+int xpadneo_device_output_report(struct hid_device *hdev, __u8 *buf, size_t len)
++int xpadneo_device_output_report(struct hid_device *hdev, __u8 *buf, size_t len, bool uses_hogp)
 +{
 +	struct xpadneo_devdata *xdata = hid_get_drvdata(hdev);
 +	struct xpadneo_rumble_report *r = (struct xpadneo_rumble_report *)buf;
@@ -688,12 +713,19 @@ diff -Naur linux-clean/drivers/hid/xpadneo/device.c linux-patched/drivers/hid/xp
 +	 * (acknowledged) rather than the unacknowledged GATT Write Command that
 +	 * hid_hw_output_report sends. Use hid_hw_raw_request with HID_OUTPUT_REPORT
 +	 * and HID_REQ_SET_REPORT to force the acknowledged path for these devices.
++	 *
++	 * For non-HOGP devices, add a 20ms delay after the report is sent to
++	 * give the device time to process the report before the next one is sent.
 +	 */
-+	if (xdata->quirks & XPADNEO_QUIRK_RAW_RUMBLE)
-+		return hid_hw_raw_request(hdev, buf[0], buf, len,
++	if (uses_hogp) {
++		return hid_hw_raw_request(hdev, r->report_id, buf, len,
 +					  HID_OUTPUT_REPORT, HID_REQ_SET_REPORT);
++	} else {
++		int ret = hid_hw_output_report(hdev, buf, len);
 +
-+	return hid_hw_output_report(hdev, buf, len);
++		msleep(20);
++		return ret;
++	}
 +}
 +
 +void xpadneo_device_missing(struct xpadneo_devdata *xdata, u32 flag)
@@ -737,6 +769,23 @@ diff -Naur linux-clean/drivers/hid/xpadneo/device.c linux-patched/drivers/hid/xp
 +	sync_device(&xdata->mouse);
 +}
 +
++/*
++ * Third-party controllers that connect in Xbox BT mode, spoofing as 045E:02E0
++ * (Xbox One S). Identified by device name since descriptor layout varies
++ * between models and cannot be used as a reliable fingerprint.
++ * The real Xbox One S reports "Xbox Wireless Controller" and is not listed.
++ */
++static const char * const xpadneo_02e0_spoof_names[] = {
++	"8BitDo Pro 2",
++	"8BitDo SN30 Pro+",
++	"8Bitdo SN30 Pro",
++	"8Bitdo SF30 Pro",
++	"8BitDo Zero 2 gamepad",
++	"8BitDo M30 gamepad",
++	"GuliKit Controller XW",
++	NULL,
++};
++
 +const __u8 *xpadneo_device_report_fixup(struct hid_device *hdev, __u8 *rdesc, unsigned int *rsize)
 +{
 +	struct xpadneo_devdata *xdata = hid_get_drvdata(hdev);
@@ -751,6 +800,41 @@ diff -Naur linux-clean/drivers/hid/xpadneo/device.c linux-patched/drivers/hid/xp
 +	if (rdesc[*rsize - 2] == 0xC0 && rdesc[*rsize - 1] == 0x00) {
 +		hid_notice(hdev, "fixing up report descriptor size\n");
 +		*rsize -= 1;
++	} else if (rdesc[*rsize - 2] == 0x00 && rdesc[*rsize - 1] == 0xC0) {
++		/*
++		 * The firmware wrote 0x00 where End Collection (0xC0) was needed,
++		 * then followed with a correct 0xC0.  Replace the 0x00 with 0xC0
++		 * so the descriptor ends with two End Collections.  Do NOT shrink
++		 * the descriptor: both bytes are valid End Collection items and are
++		 * needed to close the two open collections.
++		 */
++		hid_notice(hdev, "fixing up report descriptor NUL before end collection\n");
++		rdesc[*rsize - 2] = 0xC0;
++	}
++
++	/*
++	 * Xbox One S 1708 (PID 0x02FD, fw 0x0903): the firmware sends a
++	 * truncated 307-byte descriptor.  The rumble report (ID 3) definition
++	 * is cut off mid-item after "Usage(Loop Count) / Logical Minimum(0)";
++	 * the last three bytes are 15 00 00 instead of the expected output
++	 * item and two End Collections.  The HID parser hits the trailing 0x00,
++	 * treats it as an unknown Main item (tag 0x0), aborts, then reports
++	 * "unbalanced collection" because the two open collections (Application
++	 * and Logical) were never closed.
++	 *
++	 * Replace the dead "Logical Minimum(0)" item and trailing NUL with two
++	 * End Collections and shrink the descriptor by one byte.  The incomplete
++	 * Loop Count Output field is dropped, but xpadneo sends the rumble report
++	 * as a fixed raw struct so the HID descriptor definition of that field
++	 * is not required for correct operation.
++	 */
++	if (*rsize == 307 &&
++	    rdesc[302] == 0x09 && rdesc[303] == 0x7C &&
++	    rdesc[304] == 0x15 && rdesc[305] == 0x00 && rdesc[306] == 0x00) {
++		hid_notice(hdev, "fixing up truncated report descriptor\n");
++		rdesc[304] = 0xC0;	/* End Collection (closes Logical collection) */
++		rdesc[305] = 0xC0;	/* End Collection (closes Application collection) */
++		*rsize = 306;
 +	}
 +
 +	/* fixup reported axes for Xbox One S */
@@ -784,19 +868,32 @@ diff -Naur linux-clean/drivers/hid/xpadneo/device.c linux-patched/drivers/hid/xp
 +		    rdesc[152] == 0x95 && rdesc[153] == 0x0F &&
 +		    rdesc[162] == 0x95 && rdesc[163] == 0x01) {
 +			/*
-+			 * Xbox Elite Series 2 BLE (0x0B22): Steam Input has no database
-+			 * entry for this controller's BLE firmware layout, so it falls back
-+			 * to generic sequential mapping which misreads the non-sequential
-+			 * firmware button order. Enable LINUX_BUTTONS remapping so raw_event
-+			 * reorders the button bits sequentially for both Steam Input and
-+			 * native Linux.
++			 * Xbox controllers in Linux/Android BT mode expose a
++			 * non-sequential button layout: HID usage 0x90003 is an
++			 * empty hole (never asserted by the firmware); the physical
++			 * X button lives at usage 0x90004, Y at 0x90005, and so on.
++			 * This shifts every button from X onward by one slot relative
++			 * to what software expects from a sequential 1-N mapping.
 +			 *
-+			 * Do NOT modify the descriptor bytes here. The XBE2 has a larger
-+			 * descriptor than the Series X|S (extra paddle/profile fields), so
-+			 * the byte offsets 145/153/163 land in different places and would
-+			 * corrupt the rumble output report definition. The 15-button
-+			 * descriptor with 12 real sequential bits + 3 always-zero trailing
-+			 * bits is harmless.
++			 * Enable LINUX_BUTTONS so raw_event reorders the bits into a
++			 * clean sequential layout for both Steam Input (which reads
++			 * hidraw directly) and native Linux evdev consumers.
++			 *
++			 * 0x0B05 also sets LINUX_BUTTONS unconditionally via driver_data
++			 * in case its classic-BT descriptor does not hit this byte
++			 * pattern (the BT and BLE descriptors have different layouts).
++			 *
++			 * 0x0B22 (Elite Series 2 BLE) sets LINUX_BUTTONS here when its
++			 * 15-button descriptor pattern is detected. It also carries
++			 * SHARE_BUTTON in driver_data so raw_event reads Back from the
++			 * correct byte position alongside the Share button.
++			 *
++			 * 0x02FD and 0x0B20 are handled explicitly via driver_data in
++			 * core.c because they both use the sparse Linux/Android button
++			 * bitmap, but they differ in where the extra buttons live.
++			 * 0x02FD keeps Back at data[16] bit 0 and Guide on report 0x02,
++			 * while 0x0B20 carries Back in the remapped button byte and
++			 * exposes Share separately.
 +			 */
 +			if (hdev->product == 0x0B22) {
 +				hid_notice(hdev, "fixing up XBE2 button mapping\n");
@@ -819,34 +916,31 @@ diff -Naur linux-clean/drivers/hid/xpadneo/device.c linux-patched/drivers/hid/xp
 +	}
 +
 +	/*
-+	 * Xbox Series X|S BLE (0x0B13): same button hole at HID usage 0x90003
-+	 * (bit 2 of the raw report) as XBE2 BLE (0x0B22). The physical X button
-+	 * sends usage 0x90004 and physical Y sends 0x90005, shifting all buttons
-+	 * from X onward by one slot. Without LINUX_BUTTONS reordering, evdev
-+	 * applications see X→BTN_Y, Y→BTN_TL, LB→BTN_TR, etc.
++	 * Xbox Series X|S BLE (0x0B13) uses a 12-button descriptor that does
++	 * not match the 15-button byte pattern checked above, so it needs an
++	 * unconditional check here.  Like other Xbox Linux-mode controllers it
++	 * has the non-sequential button layout with holes at usages 0x90003,
++	 * 0x90006, 0x90009, 0x9000A.
 +	 *
-+	 * Steam Input reads hidraw directly (before raw_event processing), so
-+	 * enabling LINUX_BUTTONS fixes evdev without affecting Steam HIDAPI.
-+	 * MENU_GHOST handling is automatically bypassed when LINUX_BUTTONS is set.
-+	 *
-+	 * This check is outside the descriptor byte-check block above because
-+	 * Series X|S has 12 buttons (0x0C) and that block matches 15 (0x0F).
++	 * 0x0B22 (Elite Series 2 BLE) is handled above by the 15-button
++	 * byte-pattern check.  0x02FD and 0x0B20 instead opt into the shared
++	 * raw_event remapper through explicit driver_data quirks in core.c.
 +	 */
 +	if (hdev->product == 0x0B13) {
-+		hid_notice(hdev, "fixing up Xbox Series X|S button mapping\n");
++		hid_notice(hdev, "fixing up button mapping\n");
 +		xdata->quirks |= XPADNEO_QUIRK_LINUX_BUTTONS;
 +	}
 +
 +	/*
-+	 * 8BitDo Pro 2 (PID 0x02E0, shared with Xbox One S Windows mode):
-+	 * SDL3's HIDAPI Xbox One driver claims any 045E:02E0 device connected via
-+	 * Bluetooth and applies a built-in mapping with guide:b10,leftstick:b8,
++	 * 8BitDo controllers in Xbox BT mode (PID 0x02E0, shared with the real
++	 * Xbox One S): SDL3's HIDAPI Xbox One driver claims any 045E:02E0 device
++	 * via Bluetooth and applies a built-in mapping with guide:b10,leftstick:b8,
 +	 * rightstick:b9 — designed for the real Xbox One S which exposes no Guide
-+	 * on the gamepad device. The 8BitDo's Guide (0x10085, inside the Gamepad
-+	 * Application Collection) maps naturally to BTN_MODE (316), which sorts
-+	 * before BTN_THUMBL (317) and BTN_THUMBR (318), making the real layout
-+	 * guide:b8,leftstick:b9,rightstick:b10. HIDAPI cannot be tricked by
-+	 * descriptor changes since it reads hidraw directly.
++	 * on the gamepad device. These 8BitDo controllers' Guide button (0x10085,
++	 * inside the Gamepad Application Collection) maps naturally to BTN_MODE
++	 * (316), which sorts before BTN_THUMBL (317) and BTN_THUMBR (318), making
++	 * the real layout guide:b8,leftstick:b9,rightstick:b10. HIDAPI cannot be
++	 * tricked by descriptor changes since it reads hidraw directly.
 +	 *
 +	 * Spoof as Xbox One model 1697 (0x02DD): this was a USB-only controller
 +	 * with no wireless capability, so SDL3 HIDAPI has no Xbox One BT driver
@@ -854,12 +948,100 @@ diff -Naur linux-clean/drivers/hid/xpadneo/device.c linux-patched/drivers/hid/xp
 +	 * and auto-detects by key code: BTN_MODE→guide, BTN_THUMBL→leftstick,
 +	 * BTN_THUMBR→rightstick — correct for our layout. Steam and other apps
 +	 * still identify it as an Xbox One controller.
++	 *
++	 * Detection is name- or OUI-based so the real Xbox One S
++	 * ("Xbox Wireless Controller", Microsoft OUI) is never affected.
++	 *
++	 * This spoof path is architecturally separate from enable_pid_spoof=1:
++	 * ┌────────────┬──────────────────────────┬───────────────────────────┐
++	 * │            │    enable_pid_spoof=1    │   3rd party 02E0 → 02DD   │
++	 * ├────────────┼──────────────────────────┼───────────────────────────┤
++	 * │ PID target │ 028E (Xbox 360)          │ 02DD (Xbox One 1697)      │
++	 * ├────────────┼──────────────────────────┼───────────────────────────┤
++	 * │ Descriptor │ Modified (15→12 buttons) │ Native (untouched)        │
++	 * ├────────────┼──────────────────────────┼───────────────────────────┤
++	 * │ Goal       │ Legacy SDL2 <2.28 compat │ SDL3 HIDAPI bypass        │
++	 * ├────────────┼──────────────────────────┼───────────────────────────┤
++	 * │ Scope      │ All controllers          │ Named/OUI 3rd party only  │
++	 * └────────────┴──────────────────────────┴───────────────────────────┘
 +	 */
-+	if (hdev->product == 0x02E0 && *rsize >= 0xac &&
-+	    rdesc[0xa6] == 0x05 && rdesc[0xa7] == 0x01 &&
-+	    rdesc[0xa8] == 0x09 && rdesc[0xa9] == 0x80) {
-+		hid_notice(hdev, "8BitDo Pro 2 detected, spoofing as Xbox One 1697 (0x02DD) to bypass SDL3 HIDAPI\n");
-+		xdata->quirks |= XPADNEO_QUIRK_NO_GUIDE_BTN;
++	if (hdev->product == 0x02E0) {
++		/*
++		 * GameSir controllers register themselves as "Xbox Wireless Controller"
++		 * with PID 02E0, making them indistinguishable from the real Xbox One S
++		 * by name. Use OUI to identify them and apply the 02DD spoof.
++		 */
++		if (strncasecmp("A0:5A:5D", hdev->uniq, 8) == 0) {
++			hid_notice(hdev, "GameSir (OUI A0:5A:5D) detected, spoofing as Xbox One 1697 (0x02DD)\n");
++			xdata->quirks |= XPADNEO_QUIRK_NO_HAPTICS;
++			hdev->product = 0x02DD;
++		} else if (strncasecmp("E4:17:D8", hdev->uniq, 8) == 0) {
++			hid_notice(hdev, "GameSir (OUI E4:17:D8) detected, spoofing as Xbox One 1697 (0x02DD)\n");
++			xdata->quirks |= XPADNEO_QUIRK_SIMPLE_CLONE;
++			hdev->product = 0x02DD;
++		}
++
++		/* The rest we can identify by name then fine-tune by device mac */
++		int i;
++		for (i = 0; xpadneo_02e0_spoof_names[i]; i++) {
++			if (!strcmp(hdev->name, xpadneo_02e0_spoof_names[i]))
++				break;
++		}
++		if (xpadneo_02e0_spoof_names[i]) {
++			hid_notice(hdev, "%s detected, spoofing as Xbox One 1697 (0x02DD) to bypass SDL3 HIDAPI\n",
++				   hdev->name);
++			xdata->quirks |= XPADNEO_QUIRK_NO_GUIDE_BTN;
++
++			/*
++			 * 8BitDo M30: X and Y face buttons are physically swapped
++			 * relative to the standard Xbox layout. Swap bits 2 and 3
++			 * of data[14] in raw_event to correct BTN_NORTH ↔ BTN_WEST.
++			 */
++			if (!strcmp(hdev->name, "8BitDo M30 gamepad"))
++				xdata->quirks |= XPADNEO_QUIRK_SWAP_XY;
++
++			/*
++			 * GuliKit Controller XW: all share the same device name but
++			 * have different hardware revisions requiring different quirks,
++			 * identified by MAC address OUI.
++			 */
++			if (!strcmp(hdev->name, "GuliKit Controller XW")) {
++				if (strncasecmp("98:B6:EA", hdev->uniq, 8) == 0)
++					xdata->quirks |= XPADNEO_QUIRK_NO_PULSE |
++							 XPADNEO_QUIRK_NO_TRIGGER_RUMBLE |
++							 XPADNEO_QUIRK_REVERSE_MASK;
++				else if (strncasecmp("98:B6:EC", hdev->uniq, 8) == 0)
++					xdata->quirks |= XPADNEO_QUIRK_SIMPLE_CLONE |
++							 XPADNEO_QUIRK_SWAPPED_MASK;
++				else
++					/*
++					 * Unknown GuliKit hardware revision: apply a safe
++					 * default.  Without NO_PULSE the welcome sequence
++					 * sends pulse timing params the controller ignores,
++					 * leaving all motors running indefinitely.
++					 * SIMPLE_CLONE (NO_PULSE + NO_MOTOR_MASK +
++					 * NO_TRIGGER_RUMBLE) sends a zero-magnitude stop
++					 * packet and avoids trigger-motor commands that
++					 * clone hardware typically does not support.
++					 */
++					xdata->quirks |= XPADNEO_QUIRK_SIMPLE_CLONE;
++			}
++
++			/* Force all devices to be recognized as "Xbox Wireless Controller" */
++			strscpy(hdev->name, "Xbox Wireless Controller", sizeof(hdev->name));
++			hdev->product = 0x02DD;
++		}
++	}
++
++	/*
++	 * Treat all real Xbox One S 1708 Bluetooth variants like the 02E0
++	 * third-party SDL3 bypass path by spoofing them as Xbox One 1697
++	 * (0x02DD) after the descriptor-specific fixups above have already run.
++	 * This keeps higher-level controller consumers on the same identity
++	 * across 02E0, 02FD, and 0B20.
++	 */
++	if ((hdev->product == 0x02E0) || (hdev->product == 0x02FD) || (hdev->product == 0x0B20)) {
++		hid_notice(hdev, "spoofing Xbox One S variant as Xbox One 1697 (0x02DD)\n");
 +		hdev->product = 0x02DD;
 +	}
 +
@@ -867,8 +1049,8 @@ diff -Naur linux-clean/drivers/hid/xpadneo/device.c linux-patched/drivers/hid/xp
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/events.c linux-patched/drivers/hid/xpadneo/events.c
 --- linux-clean/drivers/hid/xpadneo/events.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/events.c	2026-04-07 01:32:32.282854300 -0600
-@@ -0,0 +1,412 @@
++++ linux-patched/drivers/hid/xpadneo/events.c	2026-04-17 08:25:27.499037323 -0600
+@@ -0,0 +1,392 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
 +/*
@@ -899,12 +1081,6 @@ diff -Naur linux-clean/drivers/hid/xpadneo/events.c linux-patched/drivers/hid/xp
 +module_param_named(disable_deadzones, param_disable_deadzones, bool, 0444);
 +MODULE_PARM_DESC(disable_deadzones,
 +		 "(bool) Disable dead zone handling for raw processing by Wine/Proton, confuses joydev. "
-+		 "0: disable, 1: enable.");
-+
-+static bool param_enable_rolling_axis;
-+module_param_named(enable_rolling_axis, param_enable_rolling_axis, bool, 0444);
-+MODULE_PARM_DESC(enable_rolling_axis,
-+		 "(bool) Enable rolling axis by combining both triggers, out of spec for many games. (deprecated) "
 +		 "0: disable, 1: enable.");
 +
 +static bool param_disable_shift_mode;
@@ -961,18 +1137,15 @@ diff -Naur linux-clean/drivers/hid/xpadneo/events.c linux-patched/drivers/hid/xp
 +		memcpy(&xdata->input_report_0x01, data, size);
 +	}
 +
-+	/* reset the count at the beginning of the frame */
-+	xdata->count_abs_z_rz = 0;
-+
 +	/* we are taking care of the battery report ourselves */
 +	if (xdata->battery.report_id && report->id == xdata->battery.report_id && reportsize == 2) {
 +		xpadneo_power_update(xdata, data[1]);
 +		return -1;
 +	}
 +
-+
 +	/* correct button mapping of Xbox controllers in Linux mode */
-+	if ((xdata->quirks & XPADNEO_QUIRK_LINUX_BUTTONS) && report->id == 1 && reportsize >= 17) {
++	if ((xdata->quirks & XPADNEO_QUIRK_LINUX_BUTTONS) &&
++	    report->id == 1 && reportsize >= 17) {
 +		u16 bits = 0;
 +
 +		bits |= (data[14] & (BIT(0) | BIT(1))) >> 0;	/* A, B */
@@ -1014,6 +1187,11 @@ diff -Naur linux-clean/drivers/hid/xpadneo/events.c linux-patched/drivers/hid/xp
 +	/* swap button A with B and X with Y for Nintendo style controllers */
 +	if ((xdata->quirks & XPADNEO_QUIRK_NINTENDO) && report->id == 1 && reportsize >= 15) {
 +		data[14] = SWAP_BITS(data[14], 0, 1);
++		data[14] = SWAP_BITS(data[14], 2, 3);
++	}
++
++	/* swap X (BTN_NORTH) with Y (BTN_WEST) for controllers with non-standard XY layout */
++	if ((xdata->quirks & XPADNEO_QUIRK_SWAP_XY) && report->id == 1 && reportsize >= 15) {
 +		data[14] = SWAP_BITS(data[14], 2, 3);
 +	}
 +
@@ -1080,10 +1258,10 @@ diff -Naur linux-clean/drivers/hid/xpadneo/events.c linux-patched/drivers/hid/xp
 +			break;
 +		case ABS_Z:
 +			xdata->last_abs_z = value;
-+			goto combine_z_axes;
++			break;
 +		case ABS_RZ:
 +			xdata->last_abs_rz = value;
-+			goto combine_z_axes;
++			break;
 +		}
 +	} else if (!param_disable_shift_mode && (usage->type == EV_KEY)
 +		   && (usage->code == BTN_XBOX)) {
@@ -1169,16 +1347,6 @@ diff -Naur linux-clean/drivers/hid/xpadneo/events.c linux-patched/drivers/hid/xp
 +	xdata->gamepad.sync = true;
 +	return 0;
 +
-+combine_z_axes:
-+	if (++xdata->count_abs_z_rz == 2) {
-+		xdata->count_abs_z_rz = 0;
-+		if (param_enable_rolling_axis) {
-+			input_report_abs(gamepad, ABS_MISC, xdata->last_abs_rz - xdata->last_abs_z);
-+			xdata->gamepad.sync = true;
-+		}
-+	}
-+	return 0;
-+
 +keyboard_missing:
 +	xpadneo_device_missing(xdata, XPADNEO_MISSING_KEYBOARD);
 +
@@ -1255,12 +1423,6 @@ diff -Naur linux-clean/drivers/hid/xpadneo/events.c linux-patched/drivers/hid/xp
 +		input_set_abs_params(gamepad, ABS_Z, 0, 1023, 4, 0);
 +		input_set_abs_params(gamepad, ABS_RZ, 0, 1023, 4, 0);
 +
-+		/* combine triggers to form a rudder, use ABS_MISC to order after dpad */
-+		if (param_enable_rolling_axis) {
-+			hid_info(hdev, "enabling rolling axis is deprecated\n");
-+			input_set_abs_params(gamepad, ABS_MISC, -1023, 1023, 3, 63);
-+		}
-+
 +		/* do not report the keyboard buttons as part of the gamepad */
 +		__clear_bit(BTN_SHARE, gamepad->keybit);
 +		__clear_bit(KEY_RECORD, gamepad->keybit);
@@ -1283,7 +1445,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/events.c linux-patched/drivers/hid/xp
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/helpers.h linux-patched/drivers/hid/xpadneo/helpers.h
 --- linux-clean/drivers/hid/xpadneo/helpers.h	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/helpers.h	2026-03-29 02:39:57.434535052 -0600
++++ linux-patched/drivers/hid/xpadneo/helpers.h	2026-03-29 05:57:37.020438333 -0600
 @@ -0,0 +1,38 @@
 +/* SPDX-License-Identifier: GPL-2.0-only */
 +
@@ -1325,7 +1487,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/helpers.h linux-patched/drivers/hid/x
 +#endif
 diff -Naur linux-clean/drivers/hid/xpadneo/Kconfig linux-patched/drivers/hid/xpadneo/Kconfig
 --- linux-clean/drivers/hid/xpadneo/Kconfig	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/Kconfig	2026-04-07 15:20:21.805329941 -0600
++++ linux-patched/drivers/hid/xpadneo/Kconfig	2026-04-18 08:10:26.975329513 -0600
 @@ -0,0 +1,20 @@
 +# SPDX-License-Identifier: GPL-2.0-only
 +config HID_XPADNEO
@@ -1349,7 +1511,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/Kconfig linux-patched/drivers/hid/xpa
 +	  will be called hid-xpadneo.
 diff -Naur linux-clean/drivers/hid/xpadneo/keyboard.c linux-patched/drivers/hid/xpadneo/keyboard.c
 --- linux-clean/drivers/hid/xpadneo/keyboard.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/keyboard.c	2026-04-06 21:16:44.283808746 -0600
++++ linux-patched/drivers/hid/xpadneo/keyboard.c	2026-03-29 05:57:37.020438333 -0600
 @@ -0,0 +1,46 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
@@ -1399,11 +1561,11 @@ diff -Naur linux-clean/drivers/hid/xpadneo/keyboard.c linux-patched/drivers/hid/
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/Makefile linux-patched/drivers/hid/xpadneo/Makefile
 --- linux-clean/drivers/hid/xpadneo/Makefile	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/Makefile	2026-04-07 15:20:21.805352961 -0600
++++ linux-patched/drivers/hid/xpadneo/Makefile	2026-04-18 08:10:26.975348163 -0600
 @@ -0,0 +1,19 @@
 +# SPDX-License-Identifier: GPL-2.0-only
 +
-+ccflags-y += -DVERSION=v0.10.1
++ccflags-y += -DVERSION=v0.11-pre-50-ge7d3273
 +
 +obj-$(CONFIG_HID_XPADNEO) += hid-xpadneo.o
 +
@@ -1422,7 +1584,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/Makefile linux-patched/drivers/hid/xp
 +	synthetic.o
 diff -Naur linux-clean/drivers/hid/xpadneo/mappings.c linux-patched/drivers/hid/xpadneo/mappings.c
 --- linux-clean/drivers/hid/xpadneo/mappings.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/mappings.c	2026-04-06 21:03:40.955325858 -0600
++++ linux-patched/drivers/hid/xpadneo/mappings.c	2026-04-16 15:37:16.566116707 -0600
 @@ -0,0 +1,126 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
@@ -1552,7 +1714,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/mappings.c linux-patched/drivers/hid/
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/mouse.c linux-patched/drivers/hid/xpadneo/mouse.c
 --- linux-clean/drivers/hid/xpadneo/mouse.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/mouse.c	2026-03-29 02:39:57.434535052 -0600
++++ linux-patched/drivers/hid/xpadneo/mouse.c	2026-03-29 05:57:37.020438333 -0600
 @@ -0,0 +1,278 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
@@ -1834,7 +1996,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/mouse.c linux-patched/drivers/hid/xpa
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/power.c linux-patched/drivers/hid/xpadneo/power.c
 --- linux-clean/drivers/hid/xpadneo/power.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/power.c	2026-03-29 02:39:57.434535052 -0600
++++ linux-patched/drivers/hid/xpadneo/power.c	2026-03-29 05:57:37.020438333 -0600
 @@ -0,0 +1,184 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
@@ -2022,7 +2184,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/power.c linux-patched/drivers/hid/xpa
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/quirks.c linux-patched/drivers/hid/xpadneo/quirks.c
 --- linux-clean/drivers/hid/xpadneo/quirks.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/quirks.c	2026-03-29 02:39:57.434535052 -0600
++++ linux-patched/drivers/hid/xpadneo/quirks.c	2026-03-29 05:57:37.020438333 -0600
 @@ -0,0 +1,172 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
@@ -2198,8 +2360,8 @@ diff -Naur linux-clean/drivers/hid/xpadneo/quirks.c linux-patched/drivers/hid/xp
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/rumble.c linux-patched/drivers/hid/xpadneo/rumble.c
 --- linux-clean/drivers/hid/xpadneo/rumble.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/rumble.c	2026-03-29 04:44:54.776527122 -0600
-@@ -0,0 +1,413 @@
++++ linux-patched/drivers/hid/xpadneo/rumble.c	2026-04-12 01:41:43.241974934 -0600
+@@ -0,0 +1,479 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
 +/*
@@ -2209,16 +2371,13 @@ diff -Naur linux-clean/drivers/hid/xpadneo/rumble.c linux-patched/drivers/hid/xp
 + * Copyright (c) 2026 Kai Krakow <kai@kaishome.de>
 + */
 +
++#include <linux/atomic.h>
 +#include <linux/delay.h>
 +#include <linux/module.h>
 +#include <linux/smp.h>
 +
 +#include "xpadneo.h"
 +#include "helpers.h"
-+
-+/* timing of rumble commands to work around firmware crashes */
-+#define RUMBLE_THROTTLE_DELAY   (msecs_to_jiffies(10)+1)
-+#define RUMBLE_THROTTLE_JIFFIES (jiffies + RUMBLE_THROTTLE_DELAY)
 +
 +/* module parameter "trigger_rumble_mode" */
 +#define PARAM_TRIGGER_RUMBLE_PRESSURE 0
@@ -2242,57 +2401,49 @@ diff -Naur linux-clean/drivers/hid/xpadneo/rumble.c linux-patched/drivers/hid/xp
 +
 +static struct workqueue_struct *rumble_wq;
 +
-+static inline unsigned long calculate_throttling_delay(struct xpadneo_devdata *xdata)
++inline void xpadneo_rumble_streaming_set(struct xpadneo_devdata *xdata, const bool enabled)
 +{
-+	unsigned long rumble_run_at = jiffies, rumble_throttle_until = xdata->rumble.throttle_until;
++	if (likely(cmpxchg(&xdata->rumble.enabled, !enabled, enabled) == !enabled))
++		hid_info(xdata->hdev, "rumble streaming %s\n", enabled ? "enabled" : "disabled");
++}
 +
-+	if (time_before(rumble_run_at, rumble_throttle_until)) {
-+		/* last rumble was recently executed */
-+		long delay_work = (long)(rumble_throttle_until - rumble_run_at);
-+
-+		return clamp(delay_work, 0L, (long)RUMBLE_THROTTLE_DELAY);
-+	}
-+
-+	/* the firmware is ready */
-+	return 0;
++inline bool xpadneo_rumble_streaming_get(const struct xpadneo_devdata *xdata)
++{
++	/* get globally visible state if rumble streaming is enabled */
++	return smp_load_acquire(&xdata->rumble.enabled);
 +}
 +
 +static void rumble_worker(struct work_struct *work)
 +{
-+	struct xpadneo_devdata *xdata =
-+	    container_of(to_delayed_work(work), struct xpadneo_devdata, rumble.worker);
++	struct xpadneo_devdata *xdata = container_of(work, struct xpadneo_devdata, rumble.worker);
 +	struct hid_device *hdev = xdata->hdev;
 +	struct xpadneo_rumble_report *r = xdata->rumble.output_report_dmabuf;
 +	int ret;
 +
 +	memset(r, 0, sizeof(*r));
 +	r->report_id = XPADNEO_XBOX_RUMBLE_REPORT;
-+	r->data.enable = XBOX_RUMBLE_ALL;
 +
 +	/*
-+	 * if pulse is not supported, we do not have to care about explicitly
-+	 * stopping the effect, the kernel will do this for us as part of its
-+	 * ff-memless emulation
++	 * if pulse is not supported, we do not care about explicitly stopping
++	 * the effect, the game (or another client) is expected to do this
 +	 */
 +	if (likely((xdata->quirks & XPADNEO_QUIRK_NO_PULSE) == 0)) {
 +		/*
-+		 * ff-memless has a time resolution of 50ms but we pulse the
-+		 * motors for 60 minutes as the Windows driver does. To work
-+		 * around a potential firmware crash, we filter out repeated
-+		 * motor programming further below.
++		 * We pulse the motors for 60 minutes as the Windows driver
++		 * does. To work around a potential firmware crash, we filter
++		 * out repeated motor programming further below.
 +		 */
 +		r->data.pulse_sustain_10ms = 0xFF;
 +		r->data.loop_count = 0xEB;
 +	}
 +
++reschedule:
++	r->data.enable = XBOX_RUMBLE_ALL;
++
 +	scoped_guard(spinlock_irqsave, &xdata->rumble.lock) {
-+
-+		/* let our scheduler know we've been called */
-+		xdata->rumble.scheduled = false;
-+
 +		/* only proceed once initialization data is globally visible */
-+		if (unlikely(!smp_load_acquire(&xdata->rumble.enabled)))
-+			return;
++		if (unlikely(!xpadneo_rumble_streaming_get(xdata)))
++			goto check_pending;
 +
 +		if (unlikely(xdata->quirks & XPADNEO_QUIRK_NO_TRIGGER_RUMBLE)) {
 +			/* do not send these bits if not supported */
@@ -2319,7 +2470,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/rumble.c linux-patched/drivers/hid/xp
 +
 +		/* do not send a report if nothing changed */
 +		if (unlikely(r->data.enable == XBOX_RUMBLE_NONE))
-+			return;
++			goto check_pending;
 +
 +		/* shadow our current rumble values for the next cycle */
 +		memcpy(&xdata->rumble.shadow, &xdata->rumble.data, sizeof(xdata->rumble.data));
@@ -2337,21 +2488,15 @@ diff -Naur linux-clean/drivers/hid/xpadneo/rumble.c linux-patched/drivers/hid/xp
 +			r->data.enable = SWAP_BITS(SWAP_BITS(r->data.enable, 0, 2), 1, 3);
 +	}
 +
-+	ret = xpadneo_device_output_report(hdev, (__u8 *) r, sizeof(*r));
++	ret = xpadneo_device_output_report(hdev, (__u8 *) r, sizeof(*r), xdata->uses_hogp);
 +	if (ret < 0)
-+		hid_warn(hdev, "failed to send FF report: %d\n", ret);
++		hid_warn(hdev, "failed to send rumble report: %d\n", ret);
 +
-+	/*
-+	 * throttle next command submission, the firmware doesn't like us to
-+	 * send rumble data any faster
-+	 */
-+	scoped_guard(spinlock_irqsave, &xdata->rumble.lock) {
-+		xdata->rumble.throttle_until = RUMBLE_THROTTLE_JIFFIES;
-+		if (xdata->rumble.scheduled) {
-+			unsigned long delay_work = calculate_throttling_delay(xdata);
-+
-+			mod_delayed_work(rumble_wq, &xdata->rumble.worker, delay_work);
-+		}
++check_pending:
++	/* pairs with smp_store_release() in rumble_playback() so we see fresh pending state */
++	if (unlikely(cmpxchg(&xdata->rumble.pending, true, false))) {
++		/* rumble data was still pending */
++		goto reschedule;
 +	}
 +}
 +
@@ -2360,24 +2505,36 @@ diff -Naur linux-clean/drivers/hid/xpadneo/rumble.c linux-patched/drivers/hid/xp
 +	return (u8)((magnitude * fraction + S16_MAX) / U16_MAX);
 +}
 +
-+static int rumble_play(struct input_dev *dev, void *data, struct ff_effect *effect)
++static int rumble_playback(struct input_dev *dev, int effect_id, int value)
 +{
 +	int fraction_TL, fraction_TR, fraction_MAIN, percent_TRIGGERS, percent_MAIN;
 +	s32 weak, strong, max_main;
 +
 +	struct hid_device *hdev = input_get_drvdata(dev);
 +	struct xpadneo_devdata *xdata = hid_get_drvdata(hdev);
++	struct ff_effect *effect = &xdata->gamepad.idev->ff->effects[effect_id];
 +
 +	/* do not let FF clients run before rumble state is ready */
 +	if (unlikely(!smp_load_acquire(&xdata->rumble.enabled)))
 +		return 0;
 +
-+	if (unlikely(effect->type != FF_RUMBLE))
++	if (unlikely(effect->type != FF_RUMBLE)) {
++		hid_info(hdev, "%s unexpected effect_id %d value %d\n", __func__, effect_id, value);
 +		return 0;
++	}
 +
-+	/* copy data from effect structure at the very beginning */
-+	weak = effect->u.rumble.weak_magnitude;
-+	strong = effect->u.rumble.strong_magnitude;
++	if (value == 0) {
++		/* explicitly stop the effect */
++		weak = 0;
++		strong = 0;
++	} else {
++		if (value > 1)
++			hid_warn_once(hdev, "%s unexpected value %d > 1\n", __func__, value);
++
++		/* copy data from effect structure at the very beginning */
++		weak = effect->u.rumble.weak_magnitude;
++		strong = effect->u.rumble.strong_magnitude;
++	}
 +
 +	/* calculate the rumble attenuation */
 +	percent_MAIN = 100 - param_rumble_attenuation[0];
@@ -2408,8 +2565,6 @@ diff -Naur linux-clean/drivers/hid/xpadneo/rumble.c linux-patched/drivers/hid/xp
 +	max_main = max(weak, strong);
 +
 +	scoped_guard(spinlock_irqsave, &xdata->rumble.lock) {
-+		unsigned long delay_work;
-+
 +		/* calculate the physical magnitudes, scale from 16 bit to 0..100 */
 +		xdata->rumble.data.magnitude_strong = calculate_magnitude(strong, fraction_MAIN);
 +		xdata->rumble.data.magnitude_weak = calculate_magnitude(weak, fraction_MAIN);
@@ -2418,28 +2573,18 @@ diff -Naur linux-clean/drivers/hid/xpadneo/rumble.c linux-patched/drivers/hid/xp
 +		xdata->rumble.data.magnitude_left = calculate_magnitude(max_main, fraction_TL);
 +		xdata->rumble.data.magnitude_right = calculate_magnitude(max_main, fraction_TR);
 +
-+		/* synchronize: is our worker still scheduled? */
-+		if (xdata->rumble.scheduled) {
-+			/* the worker is still guarding rumble programming */
-+			hid_notice_once(hdev, "throttling rumble reprogramming\n");
-+			break;
-+		}
-+
-+		/* we want to run now but may be throttled */
-+		delay_work = calculate_throttling_delay(xdata);
-+
 +		/* schedule writing a rumble report to the controller */
-+		if (mod_delayed_work(rumble_wq, &xdata->rumble.worker, delay_work)) {
-+			/* this should never happen */
-+			hid_err(hdev, "rumble_playback: unexpected scheduling state\n");
++		if (!queue_work(rumble_wq, &xdata->rumble.worker)) {
++			/* the worker is still waiting on the hardware */
++			smp_store_release(&xdata->rumble.pending, true);
++			hid_notice_once(hdev, "throttled rumble reprogramming\n");
 +		}
-+		xdata->rumble.scheduled = true;
 +	}
 +
 +	return 0;
 +}
 +
-+static void rumble_test(char *which, struct xpadneo_devdata *xdata,
++static void rumble_test(char *which, const struct xpadneo_devdata *xdata,
 +			struct xpadneo_rumble_report pck)
 +{
 +	enum xpadneo_rumble_motors enabled = pck.data.enable;
@@ -2489,31 +2634,36 @@ diff -Naur linux-clean/drivers/hid/xpadneo/rumble.c linux-patched/drivers/hid/xp
 +	if (xdata->quirks & XPADNEO_QUIRK_SWAPPED_MASK)
 +		pck.data.enable = SWAP_BITS(SWAP_BITS(pck.data.enable, 0, 2), 1, 3);
 +
-+	xpadneo_device_output_report(xdata->hdev, (u8 *)&pck, sizeof(pck));
-+	mdelay(300);
++	xpadneo_device_output_report(xdata->hdev, (u8 *)&pck, sizeof(pck), xdata->uses_hogp);
++	msleep(300);
 +
 +	/*
 +	 * XPADNEO_QUIRK_NO_PULSE:
 +	 * The controller doesn't support timing parameters of the rumble command, so we manually
-+	 * stop the motors.
++	 * stop the motors by sending a zero-magnitude report.
++	 *
++	 * Zero ALL magnitudes, not just the ones for the motor(s) under test.  The
++	 * pck struct retains the full set of magnitudes initialised in rumble_welcome
++	 * (weak=40, strong=20, right=10, left=10); if only the tested motor's field
++	 * is zeroed the others remain non-zero in the packet.  Controllers that do
++	 * not honour the enable mask (many clone devices) treat every non-zero
++	 * magnitude field as active and keep rumbling.  Zeroing everything is safe
++	 * for controllers that do honour the mask: they only update the motor(s)
++	 * indicated by pck.data.enable and ignore the rest.
 +	 */
 +	if (xdata->quirks & XPADNEO_QUIRK_NO_PULSE) {
-+		if (enabled & XBOX_RUMBLE_WEAK)
-+			pck.data.magnitude_weak = 0;
-+		if (enabled & XBOX_RUMBLE_STRONG)
-+			pck.data.magnitude_strong = 0;
-+		if (enabled & XBOX_RUMBLE_RIGHT)
-+			pck.data.magnitude_right = 0;
-+		if (enabled & XBOX_RUMBLE_LEFT)
-+			pck.data.magnitude_left = 0;
-+		xpadneo_device_output_report(xdata->hdev, (u8 *)&pck, sizeof(pck));
++		pck.data.magnitude_weak = 0;
++		pck.data.magnitude_strong = 0;
++		pck.data.magnitude_right = 0;
++		pck.data.magnitude_left = 0;
++		xpadneo_device_output_report(xdata->hdev, (u8 *)&pck, sizeof(pck),
++					     xdata->uses_hogp);
 +	}
-+	mdelay(30);
++	msleep(30);
 +}
 +
-+static void rumble_welcome(struct hid_device *hdev)
++static void rumble_welcome(const struct xpadneo_devdata *xdata)
 +{
-+	struct xpadneo_devdata *xdata = hid_get_drvdata(hdev);
 +	struct xpadneo_rumble_report pck = { };
 +
 +	pck.report_id = XPADNEO_XBOX_RUMBLE_REPORT;
@@ -2550,6 +2700,77 @@ diff -Naur linux-clean/drivers/hid/xpadneo/rumble.c linux-patched/drivers/hid/xp
 +	}
 +}
 +
++static void rumble_welcome_worker(struct work_struct *work)
++{
++	struct xpadneo_devdata *xdata =
++	    container_of(work, struct xpadneo_devdata, rumble.init_worker);
++
++	xpadneo_benchmark(rumble_welcome, xdata);
++
++	hid_info(xdata->hdev,
++		 "please report a bug if your controller did not rumble: uses_hogp %d\n",
++		 xdata->uses_hogp);
++
++	xpadneo_rumble_streaming_set(xdata, true);
++}
++
++static int ff_upload_effect(struct input_dev *dev, struct ff_effect *effect, struct ff_effect *old)
++{
++	struct hid_device *hdev = input_get_drvdata(dev);
++	const char *type_name = "UNKNOWN";
++
++	/* only log what effect type is being uploaded */
++
++	switch (effect->type) {
++	case FF_PERIODIC:
++		type_name = "FF_PERIODIC";
++		break;
++	case FF_CONSTANT:
++		type_name = "FF_CONSTANT";
++		break;
++	case FF_SPRING:
++		type_name = "FF_SPRING";
++		break;
++	case FF_DAMPER:
++		type_name = "FF_DAMPER";
++		break;
++	case FF_RUMBLE:
++		/* only force effects should have a direction */
++		if (unlikely(effect->direction))
++			hid_warn_once(hdev, "%s unexpected direction %d for non-force effect\n",
++				      __func__, effect->direction);
++
++		/* games are expected to trigger rumble effects autonomously */
++		if (unlikely(effect->trigger.button || effect->trigger.interval))
++			hid_warn_once(hdev,
++				      "%s unexpected triggering condition %d:%d for rumble effect\n",
++				      __func__, effect->trigger.button, effect->trigger.interval);
++
++		/* replay should not be used when streaming rumble effects */
++		if (unlikely(((effect->replay.length != U16_MAX) && (effect->replay.length != 0))
++			     || effect->replay.delay))
++			hid_warn_once(hdev,
++				      "%s unexpected replay parameters %u:%u while streaming rumble\n",
++				      __func__, effect->replay.length, effect->replay.delay);
++
++		/* do not log, effect is known */
++		return 0;
++	}
++
++	hid_info(hdev, "ff: effect upload requested (id %d, type %s), rejecting.\n",
++		 effect->id, type_name);
++
++	return -EOPNOTSUPP;
++}
++
++static int ff_erase_effect(struct input_dev *dev, int effect_id)
++{
++	struct hid_device *hdev = input_get_drvdata(dev);
++
++	hid_info(hdev, "ff: effect %d erased\n", effect_id);
++	return 0;
++}
++
 +int xpadneo_rumble_init(struct hid_device *hdev)
 +{
 +	struct xpadneo_devdata *xdata = hid_get_drvdata(hdev);
@@ -2559,8 +2780,12 @@ diff -Naur linux-clean/drivers/hid/xpadneo/rumble.c linux-patched/drivers/hid/xp
 +	/* publish that rumble is not ready until init finishes */
 +	smp_store_release(&xdata->rumble.enabled, false);
 +
++	/* clear any pending rumble data */
++	smp_store_release(&xdata->rumble.pending, false);
++
 +	spin_lock_init(&xdata->rumble.lock);
-+	INIT_DELAYED_WORK(&xdata->rumble.worker, rumble_worker);
++	INIT_WORK(&xdata->rumble.worker, rumble_worker);
++	INIT_WORK(&xdata->rumble.init_worker, rumble_welcome_worker);
 +	xdata->rumble.output_report_dmabuf = devm_kzalloc(&hdev->dev,
 +							  sizeof(struct xpadneo_rumble_report),
 +							  GFP_KERNEL);
@@ -2570,20 +2795,22 @@ diff -Naur linux-clean/drivers/hid/xpadneo/rumble.c linux-patched/drivers/hid/xp
 +	if (param_trigger_rumble_mode == PARAM_TRIGGER_RUMBLE_DISABLE)
 +		xdata->quirks |= XPADNEO_QUIRK_NO_TRIGGER_RUMBLE;
 +
-+	/* initialize our rumble command throttle */
-+	xdata->rumble.throttle_until = RUMBLE_THROTTLE_JIFFIES;
-+
 +	/* set capabilities */
 +	input_set_capability(gamepad, EV_FF, FF_RUMBLE);
-+	ret = input_ff_create_memless(gamepad, NULL, rumble_play);
++	ret = input_ff_create(gamepad, FF_MAX_EFFECTS);
 +	if (ret)
 +		return ret;
 +
-+	if (param_ff_connect_notify)
-+		xpadneo_benchmark(rumble_welcome, hdev);
++	/* initialize rumble callbacks */
++	gamepad->ff->upload = ff_upload_effect;
++	gamepad->ff->erase = ff_erase_effect;
++	gamepad->ff->playback = rumble_playback;
 +
-+	/* publish readiness once all rumble state is initialized */
-+	smp_store_release(&xdata->rumble.enabled, true);
++	if (param_ff_connect_notify)
++		queue_work(rumble_wq, &xdata->rumble.init_worker);
++	else
++		/* publish readiness once all rumble state is initialized */
++		xpadneo_rumble_streaming_set(xdata, true);
 +
 +	return 0;
 +}
@@ -2609,13 +2836,14 @@ diff -Naur linux-clean/drivers/hid/xpadneo/rumble.c linux-patched/drivers/hid/xp
 +void xpadneo_rumble_remove(struct xpadneo_devdata *xdata)
 +{
 +	/* disable rumble before removable to prevent queueing new data */
-+	smp_store_release(&xdata->rumble.enabled, false);
++	xpadneo_rumble_streaming_set(xdata, false);
 +
-+	cancel_delayed_work_sync(&xdata->rumble.worker);
++	cancel_work_sync(&xdata->rumble.init_worker);
++	cancel_work_sync(&xdata->rumble.worker);
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/synthetic.c linux-patched/drivers/hid/xpadneo/synthetic.c
 --- linux-clean/drivers/hid/xpadneo/synthetic.c	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/synthetic.c	2026-03-29 02:39:57.434535052 -0600
++++ linux-patched/drivers/hid/xpadneo/synthetic.c	2026-03-29 05:57:37.020438333 -0600
 @@ -0,0 +1,81 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +
@@ -2700,8 +2928,8 @@ diff -Naur linux-clean/drivers/hid/xpadneo/synthetic.c linux-patched/drivers/hid
 +}
 diff -Naur linux-clean/drivers/hid/xpadneo/xpadneo.h linux-patched/drivers/hid/xpadneo/xpadneo.h
 --- linux-clean/drivers/hid/xpadneo/xpadneo.h	1969-12-31 17:00:00.000000000 -0700
-+++ linux-patched/drivers/hid/xpadneo/xpadneo.h	2026-04-06 18:39:49.730205697 -0600
-@@ -0,0 +1,251 @@
++++ linux-patched/drivers/hid/xpadneo/xpadneo.h	2026-04-17 08:25:42.393180279 -0600
+@@ -0,0 +1,256 @@
 +/* SPDX-License-Identifier: GPL-2.0-only */
 +
 +/*
@@ -2746,6 +2974,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/xpadneo.h linux-patched/drivers/hid/x
 +#define XPADNEO_QUIRK_MENU_GHOST        1024
 +#define XPADNEO_QUIRK_RAW_RUMBLE        2048
 +#define XPADNEO_QUIRK_NO_GUIDE_BTN      4096
++#define XPADNEO_QUIRK_SWAP_XY           8192
 +
 +/* common quirk combinations */
 +#define XPADNEO_QUIRK_NO_HAPTICS        (XPADNEO_QUIRK_NO_PULSE|XPADNEO_QUIRK_NO_MOTOR_MASK)
@@ -2840,6 +3069,9 @@ diff -Naur linux-clean/drivers/hid/xpadneo/xpadneo.h linux-patched/drivers/hid/x
 +	bool shift_mode, profile_switched;
 +	u8 last_profile, profile;
 +
++	/* HOGP protocol */
++	bool uses_hogp;
++
 +	/* mouse mode */
 +	bool mouse_mode;
 +	struct timer_list mouse_timer;
@@ -2871,16 +3103,15 @@ diff -Naur linux-clean/drivers/hid/xpadneo/xpadneo.h linux-patched/drivers/hid/x
 +	u8 input_report_0x01[XPADNEO_REPORT_0x01_LENGTH];
 +
 +	/* axis states */
-+	u8 count_abs_z_rz;
 +	s32 last_abs_z;
 +	s32 last_abs_rz;
 +
 +	/* buffer for rumble_worker */
 +	struct {
 +		spinlock_t lock;
-+		struct delayed_work worker;
-+		unsigned long throttle_until;
-+		bool scheduled, enabled;
++		struct work_struct worker;
++		struct work_struct init_worker;
++		bool enabled, pending;
 +		struct xpadneo_rumble_data data;
 +		struct xpadneo_rumble_data shadow;
 +		void *output_report_dmabuf;
@@ -2903,7 +3134,7 @@ diff -Naur linux-clean/drivers/hid/xpadneo/xpadneo.h linux-patched/drivers/hid/x
 +/* xpadneo core device functions */
 +extern void xpadneo_device_report(struct hid_device *, struct hid_report *);
 +extern void xpadneo_device_missing(struct xpadneo_devdata *, u32);
-+extern int xpadneo_device_output_report(struct hid_device *, __u8 *, size_t);
++extern int xpadneo_device_output_report(struct hid_device *, __u8 *, size_t, bool);
 +extern const __u8 *xpadneo_device_report_fixup(struct hid_device *hdev, __u8 *rdesc,
 +					       unsigned int *rsize);
 +
@@ -2919,6 +3150,8 @@ diff -Naur linux-clean/drivers/hid/xpadneo/xpadneo.h linux-patched/drivers/hid/x
 +extern int xpadneo_rumble_init(struct hid_device *);
 +extern int xpadneo_rumble_init_workqueue(void);
 +extern void xpadneo_rumble_destroy_workqueue(void);
++extern inline void xpadneo_rumble_streaming_set(struct xpadneo_devdata *, const bool);
++extern inline bool xpadneo_rumble_streaming_get(const struct xpadneo_devdata *);
 +extern void xpadneo_rumble_remove(struct xpadneo_devdata *);
 +
 +/* xpadneo mouse driver */
