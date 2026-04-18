@@ -44,6 +44,7 @@
 %global with_panfrost  1
 %global with_tegra     1
 %global platform_vulkan ,broadcom,freedreno,panfrost,intel,intel_hasvk
+%global extra_platform_vulkan %{?with_vulkan_hw:,broadcom,freedreno,panfrost,imagination}%{!?with_vulkan_hw:%{nil}}
 %endif
 
 %ifnarch s390x
@@ -67,7 +68,7 @@
 
 Name:           mesa-vulkan-drivers-freeworld
 Summary:        The mesa graphics vulkan driver stack.
-Version:        26.0.4
+Version:        26.0.5
 Release:        %autorelease
 License:        MIT
 URL:            http://www.mesa3d.org
@@ -421,11 +422,6 @@ rm -Rf %{buildroot}%{_libdir}/libgallium-25.2.2.so
 rm -Rf %{buildroot}%{_libdir}/libRusticlOpenCL*
 rm -Rf %{buildroot}%{_sysconfdir}/OpenCL/vendors/rusticl.icd
 rm -Rf %{buildroot}%{_libdir}/gbm/dri_gbm.so
-rm -Rf %{buildroot}%{_libdir}/libgbm.so.1
-rm -Rf %{buildroot}%{_libdir}/libgbm.so.1.*
-rm -Rf %{buildroot}%{_libdir}/libgbm.so
-rm -Rf %{buildroot}%{_includedir}/gbm.h
-rm -Rf %{buildroot}%{_libdir}/pkgconfig/gbm.pc
 %ifarch %{ix86}
 rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
@@ -476,10 +472,15 @@ install -Dpm0644 cargo-vendor.txt \
 %{_datadir}/vulkan/icd.d/freedreno_icd.*.json
 %{_libdir}/libvulkan_panfrost.so
 %{_datadir}/vulkan/icd.d/panfrost_icd.*.json
+%{_libdir}/libvulkan_powervr_mesa.so
+%{_datadir}/vulkan/icd.d/powervr_mesa_icd.*.json
 %endif
 %endif
 
 %changelog
+* Wed Apr 15 2026 LionHeartP <LionHeartP@proton.me> - 26.0.5-1
+- Update to 26.0.5
+
 * Thu Apr 02 2026 LionHeartP <LionHeartP@proton.me> - 26.0.4-1
 - Update to 26.0.4
 - Adjust libGLX symlink to avoid warning (Fedora change)

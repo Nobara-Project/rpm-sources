@@ -73,7 +73,7 @@
 
 Name:           mesa
 Summary:        Mesa graphics libraries
-Version:        26.0.4
+Version:        26.0.5
 Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
 URL:            http://www.mesa3d.org
@@ -258,12 +258,12 @@ Provides:       libEGL-devel%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
 %package dri-drivers
 Summary:        Mesa-based DRI drivers
 Requires:       %{name}-filesystem%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
+Requires:       %{name}-libgbm%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
 Requires:       (%{name}-libgallium%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release} or %{name}-libgallium-freeworld%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release})
 %if 0%{?with_va}
 Recommends:     %{name}-va-drivers%{?_isa}
 %endif
 Obsoletes:      %{name}-libglapi < 25.0.0~rc2-1
-Provides:       %{name}-libglapi >= 25.0.0~rc2-1
 
 %description dri-drivers
 %{summary}.
@@ -715,6 +715,10 @@ ln -s libGLX_mesa.so.0 %{buildroot}%{_libdir}/libGLX_system.so.0
 %endif
 
 %changelog
+* Wed Apr 15 2026 LionHeartP <LionHeartP@proton.me> - 26.0.5-1
+- Update to 26.0.5
+- Sync spec changes from Fedora
+
 * Thu Apr 02 2026 LionHeartP <LionHeartP@proton.me> - 26.0.4-1
 - Update to 26.0.4
 - Adjust libGLX symlink to avoid warning (Fedora change)
