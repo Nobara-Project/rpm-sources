@@ -2,7 +2,7 @@
 %global debug_package %{nil}
 
 Name:           falcond
-Version:        2.0.3
+Version:        2.0.4
 Release:        %autorelease
 Summary:        Advanced Linux Gaming Performance Daemon
 
@@ -72,8 +72,8 @@ usermod -aG 'falcond' root || :
 %{_unitdir}/%{name}.service
 
 %changelog
-* Sun Apr 19 2026 LionHeartP <LionHeartP@proton.me> - 2.0.3-1
-- Update to 2.0.3
+* Sun Apr 19 2026 LionHeartP <LionHeartP@proton.me> - 2.0.4-1
+- Update to 2.0.4
 
 * Sun Apr 05 2026 LionHeartP <LionHeartP@proton.me> - 2.0.2-1
 - Update to 2.0.2
