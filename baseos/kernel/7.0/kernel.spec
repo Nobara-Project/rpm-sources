@@ -43,7 +43,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 7.0
-%define _stablekver 0
+%define _stablekver 1
 %define _PKGBUILD 2
 %define _rcver rc7
 %define _tarkver %{_basekver}.%{_stablekver}
@@ -129,11 +129,7 @@ Patch11: 0857-hwmon-nct6775-Add-ROG-STRIX-X870-I-GAMING-WIFI.patch
 
 # aarch64 patches
 Patch21: 0001-arm64-mm-Handle-alignment-faults.patch
-# Needs rebase? Is it no longer needed?
-#Patch22: 0002-ampere-arm64-Work-around-Ampere-Altra-erratum-82288-.patch
-# Temp patch until next tag
-Patch22: https://github.com/CachyOS/linux/commit/6febf5851693729fd926a0d49e32433952ee04a5.patch
-#Patch23: 0002-arm64-mm-Force-Device-mappings-for-PCIe-MMIO.patch
+Patch22: 0002-ampere-arm64-Work-around-Ampere-Altra-erratum-82288-.patch
 Patch23: xe-nonx86.patch
 
 %define __spec_install_post /usr/lib/rpm/brp-compress || :
@@ -1096,6 +1092,9 @@ fi
 %files
 
 %changelog
+* Wed Apr 22 2026 LionHeartP <LionHeartP@proton.me> - 7.0.1-200
+- Update to 7.0.1
+
 * Mon Apr 13 2026 LionHeartP <LionHeartP@proton.me> - 7.0.0-200
 - Update to 7.0
 
