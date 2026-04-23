@@ -1,5 +1,5 @@
 Name:           gpu-screen-recorder-ui
-Version:        1.11.4
+Version:        1.11.5
 Release:        1%{dist}
 Summary:        A shadowplay-like screen recorder for Linux. The fastest screen recorder for Linux.
 License:        GPL-3.0-or-later
@@ -40,7 +40,7 @@ A fullscreen overlay UI for GPU Screen Recorder in the style of ShadowPlay.
 
 
 %build
-%meson
+%meson -Dcapabilities=false
 %meson_build
 
 %install
@@ -52,19 +52,24 @@ rm -rf %{_buildroot}%{_datadir}/gsr-ui/fonts
 %check
 %meson_test
 
-%post
-setcap cap_setuid+ep %{_bindir}/gsr-global-hotkeys
+%preun
+%systemd_user_preun %{name}.service
 
 %files
 %license LICENSE
 %doc README.md
+%caps(cap_setuid=ep) %{_bindir}/gsr-global-hotkeys
 %{_bindir}/gsr*
 %{_datadir}/applications/gpu-screen-recorder.desktop
 %{_datadir}/icons/hicolor/*/apps/gpu-screen-recorder.png
 %{_datadir}/gsr-ui
-%{_exec_prefix}/lib/systemd/user/%{name}.service
 
 %changelog
+* Thu Apr 23 2026 LionHeartP <LionHeartP@proton.me> - 1.11.5-1
+- Update to 1.11.5
+- Correctly setcap for global keybinds
+- Add temporary %preun macto to get rid of deprecated systemd service 
+
 * Sun Apr 19 2026 LionHeartP <LionHeartP@proton.me> - 1.11.4-1
 - Update to 1.11.4
 
