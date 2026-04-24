@@ -56,7 +56,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 201
+%define customver 202
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -1092,6 +1092,9 @@ fi
 %files
 
 %changelog
+* Fri Apr 24 2026 LionHeartP <LionHeartP@proton.me> - 7.0.1-202
+- Pull new handheld patch to fix SD OLED audio
+
 * Thu Apr 23 2026 LionHeartP <LionHeartP@proton.me> - 7.0.1-201
 - New CachyOS tag
 
