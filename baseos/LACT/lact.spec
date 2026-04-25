@@ -1,5 +1,5 @@
 Name:           lact
-Version:        0.8.4
+Version:        0.9.0
 Release:        1
 Summary:        GPU control utility
 License:        MIT
@@ -9,8 +9,8 @@ Source0:        %{url}/archive/refs/tags/v%{version}.tar.gz
 ExcludeArch:    %{ix86}
 
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-BuildRequires:  rust cargo gtk4-devel gcc libdrm-devel dbus ocl-icd-devel curl make clang git vulkan-tools systemd-rpm-macros
-Requires:       gtk4 libdrm ocl-icd-devel hwdata vulkan-tools
+BuildRequires:  rust cargo gtk4-devel gcc libdrm-devel dbus ocl-icd-devel curl make clang git vulkan-tools systemd-rpm-macros libadwaita-devel
+Requires:       gtk4 libdrm ocl-icd-devel hwdata vulkan-tools libadwaita
 
 %description
 GPU control utility
@@ -19,7 +19,7 @@ GPU control utility
 %setup -q -n LACT-%{version}
 
 %build
-VERGEN_GIT_SHA=b65ae69 make build-release %{?_smp_mflags}
+VERGEN_GIT_SHA=454a6e2 make build-release %{?_smp_mflags}
 
 %install
 rm -rf %{buildroot}
@@ -37,6 +37,9 @@ make install PREFIX=/usr DESTDIR=%{buildroot}
 %{_metainfodir}/io.github.ilya_zlobintsev.LACT.metainfo.xml
 
 %changelog
+* Sat Apr 25 2026 LionHeartP <LionHeartP@proton.me> - 0.9.0-1
+- Update to 0.9.0
+
 * Sun Jan 25 2026 LionHeartP <LionHeartP@proton.me> - 0.8.4-1
 - Update to 0.8.4
 
