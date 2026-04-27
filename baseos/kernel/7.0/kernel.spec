@@ -43,8 +43,8 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 7.0
-%define _stablekver 1
-%define _PKGBUILD 3
+%define _stablekver 2
+%define _PKGBUILD 1
 %define _rcver rc7
 %define _tarkver %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
@@ -56,7 +56,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 202
+%define customver 200
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -75,7 +75,7 @@ Vendor: The Linux Community and CachyOS maintainer(s)
 URL: https://github.com/CachyOS/linux
 Source0: %{url}/archive/refs/tags/cachyos-%{_tarkver}-%{_PKGBUILD}.tar.gz
 
-%define config_commit c64cf2312ff1f2bcd81320b9c9ef8c4af0296ee5
+%define config_commit 8d016151fa47272075ba46febbc9d30212c8b2fb
 
 %if 0%{?_is_rc}
 Source1: https://raw.githubusercontent.com/CachyOS/linux-cachyos/%{config_commit}/linux-cachyos-rc/config
@@ -1092,6 +1092,9 @@ fi
 %files
 
 %changelog
+* Mon Apr 27 2026 LionHeartP <LionHeartP@proton.me> - 7.0.2-200
+- Update to 7.0.2
+
 * Fri Apr 24 2026 LionHeartP <LionHeartP@proton.me> - 7.0.1-202
 - Pull new handheld patch to fix SD OLED audio
 
