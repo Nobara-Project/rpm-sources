@@ -73,8 +73,8 @@
 
 Name:           mesa
 Summary:        Mesa graphics libraries
-Version:        26.0.5
-Release:        %autorelease -b2
+Version:        26.0.6
+Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
 URL:            http://www.mesa3d.org
 
@@ -105,9 +105,6 @@ Source12:       https://crates.io/api/v1/crates/quote/%{rust_quote_ver}/download
 Source13:       https://crates.io/api/v1/crates/syn/%{rust_syn_ver}/download#/syn-%{rust_syn_ver}.tar.gz
 Source14:       https://crates.io/api/v1/crates/unicode-ident/%{rust_unicode_ident_ver}/download#/unicode-ident-%{rust_unicode_ident_ver}.tar.gz
 Source15:       https://crates.io/api/v1/crates/rustc-hash/%{rustc_hash_ver}/download#/rustc-hash-%{rustc_hash_ver}.tar.gz
-
-# rusticl: link the C++ runtime statically
-Patch10:        https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/41037.patch
 
 # https://gitlab.com/evlaV/mesa/
 Patch30:        valve.patch
@@ -172,7 +169,6 @@ BuildRequires:  xtensor-devel
 %endif
 %if 0%{?with_opencl} || 0%{?with_nvk} || 0%{?with_asahi} || 0%{?with_panfrost}
 BuildRequires:  clang-devel
-BuildRequires:  libstdc++-static
 BuildRequires:  pkgconfig(libclc)
 BuildRequires:  pkgconfig(SPIRV-Tools)
 BuildRequires:  pkgconfig(LLVMSPIRVLib)
@@ -719,6 +715,10 @@ ln -s libGLX_mesa.so.0 %{buildroot}%{_libdir}/libGLX_system.so.0
 %endif
 
 %changelog
+* Thu Apr 30 2026 LionHeartP <LionHeartP@proton.me> - 26.0.6-1
+- Update to 26.0.6
+- Drop rusticl workaround
+
 * Tue Apr 21 2026 LionHeartP <LionHeartP@proton.me> - 26.0.5-2
 - Import #41037 to fix rusticl Resolve
 
