@@ -1,6 +1,6 @@
 %global _default_patch_fuzz 2
 
-%global commit 3359de824729de3ca8a0efa6c442e7682313441d
+%global commit 3d16845e9a3bcaf9ef460eb15ca8a9c06b6d69e3
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
@@ -170,6 +170,7 @@ BuildRequires:  xtensor-devel
 %endif
 %if 0%{?with_opencl} || 0%{?with_nvk} || 0%{?with_asahi} || 0%{?with_panfrost}
 BuildRequires:  clang-devel
+BuildRequires:  libstdc++-static
 BuildRequires:  pkgconfig(libclc)
 BuildRequires:  pkgconfig(SPIRV-Tools)
 BuildRequires:  pkgconfig(LLVMSPIRVLib)
