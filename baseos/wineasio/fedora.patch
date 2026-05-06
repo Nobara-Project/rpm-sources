@@ -15,3 +15,26 @@ index a8e32e8..7c586e4 100755
  else
      status64="is not applicable (no wine64 was found)"
      >&2 echo "[$me] 64-bit dll.so $status64"
+@@ -74,7 +72,7 @@ for u in ${u64[@]}; do
+     w=$(echo ${u} | sed -e 's|/x86_64-unix/wineasio64.dll.so|/x86_64-windows/wineasio64.dll|g')
+     if [ -e "${u}" ] && [ -e "${w}" ]; then
+         cp -v "${w}" "${WINEPREFIX}/drive_c/windows/system32"
+-        ${WINE64} regsvr32 "${u}"
++        WINEDLLPATH="%{staging_dir}/wine/x86_64-unix" ${WINE64} regsvr32 "C:\windows\system32\wineasio64.dll"
+         code=$?
+         if [ $code -eq 0 ]; then
+             status64="registered"
+diff --git a/Makefile.mk b/Makefile.mk
+index 7c075f5..a5b440e 100644
+--- a/Makefile.mk	
++++ b/Makefile.mk
+@@ -97,7 +97,8 @@ build$(M)/%.c.o: %.c
+ ### Target specific build rules
+ 
+ build$(M)/$(wineasio_dll_MODULE): $(wineasio_dll_OBJS)
+-	$(WINEBUILD) -m$(M) --dll --fake-module -E wineasio.dll.spec $^ -o $@
++	$(WINEBUILD) -m$(M) --dll --fake-module -E wineasio.dll.spec $^ -o $@ \
++		-F wineasio$(M).dll -N wineasio$(M).dll
+ 
+ build$(M)/$(wineasio_dll_MODULE).so: $(wineasio_dll_OBJS)
+ 	$(WINECC) $^ $(wineasio_dll_LDFLAGS) \
