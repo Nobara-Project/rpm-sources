@@ -1,5 +1,5 @@
 Name:           goverlay
-Version:        1.7.5
+Version:        1.8.0
 Release:        %autorelease
 Epoch:          2
 Summary:        Project that aims to create a Graphical UI to help manage Linux overlays
@@ -72,6 +72,9 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/*.desktop
 
 
 %changelog
+* Thu May 07 2026 LionHeartP <LionHeartP@proton.me> - 1.8.0-1
+- Update to 1.8.0
+
 * Tue Mar 10 2026 LionHeartP <LionHeartP@proton.me> - 1.7.5-1
 - Update to 1.7.5
 - Switch to release tarballs
