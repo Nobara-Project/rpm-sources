@@ -43,7 +43,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 7.0
-%define _stablekver 3
+%define _stablekver 4
 %define _PKGBUILD 1
 %define _rcver rc7
 %define _tarkver %{_basekver}.%{_stablekver}
@@ -126,6 +126,9 @@ Patch10: capture-device-nv12-fixup.patch
 
 # Add "ROG STRIX X870-I GAMING WIFI"
 Patch11: 0857-hwmon-nct6775-Add-ROG-STRIX-X870-I-GAMING-WIFI.patch
+
+# AMD vfio passthrough
+Patch12: vfio-amd-passthrough.patch
 
 # aarch64 patches
 Patch21: 0001-arm64-mm-Handle-alignment-faults.patch
@@ -432,6 +435,7 @@ patch -p1 -i %{PATCH8}
 patch -p1 -i %{PATCH9}
 patch -p1 -i %{PATCH10}
 patch -p1 -i %{PATCH11}
+patch -p1 -i %{PATCH12}
 
 # Apply aarch64 patches
 %ifarch aarch64
@@ -1092,6 +1096,10 @@ fi
 %files
 
 %changelog
+* Thu May 07 2026 LionHeartP <LionHeartP@proton.me> - 7.0.4-200
+- Update to 7.0.4
+- Add opt-in vfio fix for amd gpus
+
 * Fri May 01 2026 LionHeartP <LionHeartP@proton.me> - 7.0.3-200
 - Update to 7.0.3
 
