@@ -75,7 +75,7 @@ algorithms and decoding only VC1 algorithm.
 
 Name:           %{srcname}-freeworld
 Summary:        Mesa graphics libraries
-Version:        26.0.6
+Version:        26.1.0
 Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
 URL:            http://www.mesa3d.org
@@ -119,7 +119,7 @@ BuildRequires:  kernel-headers
 # We only check for the minimum version of pkgconfig(libdrm) needed so that the
 # SRPMs for each arch still have the same build dependencies. See:
 # https://bugzilla.redhat.com/show_bug.cgi?id=1859515
-BuildRequires:  pkgconfig(libdrm) >= 2.4.122
+BuildRequires:  pkgconfig(libdrm) >= 2.4.133
 %if 0%{?with_libunwind}
 BuildRequires:  pkgconfig(libunwind)
 %endif
@@ -402,6 +402,9 @@ rm -fr %{buildroot}%{_libdir}/libteflon*
 %endif
 
 %changelog
+* Thu May 07 2026 LionHeartP <LionHeartP@proton.me> - 26.1.0-1
+- Update to 26.1.0
+
 * Thu Apr 30 2026 LionHeartP <LionHeartP@proton.me> - 26.0.6-1
 - Update to 26.0.6
 

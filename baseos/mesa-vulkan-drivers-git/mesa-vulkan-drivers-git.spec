@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit 3d16845e9a3bcaf9ef460eb15ca8a9c06b6d69e3
+%global commit 593e3b3916da68e510e96678c678085db9846b07
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 2.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -123,7 +123,7 @@ BuildRequires:  systemd-devel
 # We only check for the minimum version of pkgconfig(libdrm) needed so that the
 # SRPMs for each arch still have the same build dependencies. See:
 # https://bugzilla.redhat.com/show_bug.cgi?id=1859515
-BuildRequires:  pkgconfig(libdrm) >= 2.4.122
+BuildRequires:  pkgconfig(libdrm) >= 2.4.133
 %if 0%{?with_libunwind}
 BuildRequires:  pkgconfig(libunwind)
 %endif
@@ -527,6 +527,9 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Thu May 07 2026 LionHeartP <LionHeartP@proton.me> - 26.2.0-2
+- Update to latest commit
+
 * Thu Apr 30 2026 LionHeartP <LionHeartP@proton.me> - 26.2.0-1
 - Update to latest commit
 

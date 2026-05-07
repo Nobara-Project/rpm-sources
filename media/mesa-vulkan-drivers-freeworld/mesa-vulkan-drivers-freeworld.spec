@@ -68,7 +68,7 @@
 
 Name:           mesa-vulkan-drivers-freeworld
 Summary:        The mesa graphics vulkan driver stack.
-Version:        26.0.6
+Version:        26.1.0
 Release:        %autorelease
 License:        MIT
 URL:            http://www.mesa3d.org
@@ -111,7 +111,7 @@ BuildRequires:  kernel-headers
 # We only check for the minimum version of pkgconfig(libdrm) needed so that the
 # SRPMs for each arch still have the same build dependencies. See:
 # https://bugzilla.redhat.com/show_bug.cgi?id=1859515
-BuildRequires:  pkgconfig(libdrm) >= 2.4.122
+BuildRequires:  pkgconfig(libdrm) >= 2.4.133
 BuildRequires:  pkgconfig(libunwind)
 BuildRequires:  pkgconfig(expat)
 BuildRequires:  pkgconfig(zlib) >= 1.2.3
@@ -154,6 +154,7 @@ BuildRequires:  pkgconfig(libglvnd) >= 1.3.2
 BuildRequires:  llvm-devel >= 7.0.0
 %if 0%{?with_opencl} || 0%{?with_nvk}
 BuildRequires:  clang-devel
+BuildRequires:  libstdc++-static
 BuildRequires:  bindgen
 BuildRequires:  rust-packaging
 BuildRequires:  pkgconfig(libclc)
@@ -478,6 +479,9 @@ install -Dpm0644 cargo-vendor.txt \
 %endif
 
 %changelog
+* Thu May 07 2026 LionHeartP <LionHeartP@proton.me> - 26.1.0-1
+- Update to 26.1.0
+
 * Thu Apr 30 2026 LionHeartP <LionHeartP@proton.me> - 26.0.6-1
 - Update to 26.0.6
 
