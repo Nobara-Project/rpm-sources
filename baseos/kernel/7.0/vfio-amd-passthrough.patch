@@ -11,7 +11,7 @@
 #   amd_vfio_pass_fix=1
 # Without that parameter the kernel behaves as stock.
 diff --git a/drivers/iommu/iommu.c b/drivers/iommu/iommu.c
-index ee83850c7060..cc63ee614c9c 100644
+index ee83850c7060..ef881af757d8 100644
 --- a/drivers/iommu/iommu.c
 +++ b/drivers/iommu/iommu.c
 @@ -38,6 +38,20 @@
@@ -35,6 +35,46 @@ index ee83850c7060..cc63ee614c9c 100644
  static struct kset *iommu_group_kset;
  static DEFINE_IDA(iommu_group_ida);
  static DEFINE_IDA(iommu_global_pasid_ida);
+@@ -1197,13 +1211,19 @@ static int iommu_create_device_direct_mappings(struct iommu_domain *domain,
+ 		size_t map_size = 0;
+ 
+ 		if (entry->type == IOMMU_RESV_DIRECT)
+-			dev->iommu->require_direct = 1;
++			/* patched: don't force require_direct when amd_vfio_pass_fix=1 */
++			dev->iommu->require_direct = amd_vfio_pass_fix ? 0 : 1;
+ 
+ 		if ((entry->type != IOMMU_RESV_DIRECT &&
+ 		     entry->type != IOMMU_RESV_DIRECT_RELAXABLE) ||
+ 		    !iommu_is_dma_domain(domain))
+ 			continue;
+ 
++		/* patched: skip identity mapping of address 0 when amd_vfio_pass_fix=1;
++		 * VFIO handles this region separately. */
++		if (amd_vfio_pass_fix && entry->start == 0)
++			continue;
++
+ 		start = ALIGN(entry->start, pg_size);
+ 		end   = ALIGN(entry->start + entry->length, pg_size);
+ 
+@@ -1915,7 +1935,8 @@ static int iommu_get_default_domain_type(struct iommu_group *group,
+ 	}
+ 
+ 	if (target_type) {
+-		if (driver_type && target_type != driver_type)
++		if (driver_type && target_type != driver_type &&
++		    !(amd_vfio_pass_fix && driver_type == IOMMU_DOMAIN_IDENTITY))
+ 			return -1;
+ 		return target_type;
+ 	}
+@@ -2376,7 +2397,7 @@ static int __iommu_device_set_domain(struct iommu_group *group,
+ 	 * being used with iommu_group_claim_dma_owner() which will block
+ 	 * vfio and iommufd as well.
+ 	 */
+-	if (dev->iommu->require_direct &&
++	if (!amd_vfio_pass_fix && dev->iommu->require_direct &&
+ 	    (new_domain->type == IOMMU_DOMAIN_BLOCKED ||
+ 	     new_domain == group->blocking_domain)) {
+ 		dev_warn(dev,
 diff --git a/drivers/vfio/vfio_iommu_type1.c b/drivers/vfio/vfio_iommu_type1.c
 index 03cefdf99a4a..4913afc01fb3 100644
 --- a/drivers/vfio/vfio_iommu_type1.c
