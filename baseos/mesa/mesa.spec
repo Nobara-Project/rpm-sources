@@ -73,7 +73,7 @@
 
 Name:           mesa
 Summary:        Mesa graphics libraries
-Version:        26.0.5
+Version:        26.1.0
 Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
 URL:            http://www.mesa3d.org
@@ -107,7 +107,7 @@ Source14:       https://crates.io/api/v1/crates/unicode-ident/%{rust_unicode_ide
 Source15:       https://crates.io/api/v1/crates/rustc-hash/%{rustc_hash_ver}/download#/rustc-hash-%{rustc_hash_ver}.tar.gz
 
 # https://gitlab.com/evlaV/mesa/
-Patch30:         valve.patch
+Patch30:        valve.patch
 
 BuildRequires:  meson >= 1.3.0
 BuildRequires:  gcc
@@ -120,7 +120,7 @@ BuildRequires:  systemd-devel
 # We only check for the minimum version of pkgconfig(libdrm) needed so that the
 # SRPMs for each arch still have the same build dependencies. See:
 # https://bugzilla.redhat.com/show_bug.cgi?id=1859515
-BuildRequires:  pkgconfig(libdrm) >= 2.4.122
+BuildRequires:  pkgconfig(libdrm) >= 2.4.133
 %if 0%{?with_libunwind}
 BuildRequires:  pkgconfig(libunwind)
 %endif
@@ -169,6 +169,7 @@ BuildRequires:  xtensor-devel
 %endif
 %if 0%{?with_opencl} || 0%{?with_nvk} || 0%{?with_asahi} || 0%{?with_panfrost}
 BuildRequires:  clang-devel
+BuildRequires:  libstdc++-static
 BuildRequires:  pkgconfig(libclc)
 BuildRequires:  pkgconfig(SPIRV-Tools)
 BuildRequires:  pkgconfig(LLVMSPIRVLib)
@@ -715,6 +716,16 @@ ln -s libGLX_mesa.so.0 %{buildroot}%{_libdir}/libGLX_system.so.0
 %endif
 
 %changelog
+* Thu May 07 2026 LionHeartP <LionHeartP@proton.me> - 26.1.0-1
+- Update to 26.1.0
+
+* Thu Apr 30 2026 LionHeartP <LionHeartP@proton.me> - 26.0.6-1
+- Update to 26.0.6
+- Drop rusticl workaround
+
+* Tue Apr 21 2026 LionHeartP <LionHeartP@proton.me> - 26.0.5-2
+- Import #41037 to fix rusticl Resolve
+
 * Wed Apr 15 2026 LionHeartP <LionHeartP@proton.me> - 26.0.5-1
 - Update to 26.0.5
 - Sync spec changes from Fedora
