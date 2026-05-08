@@ -1,5 +1,5 @@
 Name:           lact
-Version:        0.8.4
+Version:        0.9.0
 Release:        1
 Summary:        GPU control utility
 License:        MIT
