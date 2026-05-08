@@ -4,7 +4,7 @@
 
 Name:           wineasio
 Version:        1.3.0
-Release:        %autorelease -b5
+Release:        %autorelease -b6
 Summary:        ASIO to Pipewire's JACK driver for WINE
 License:        LGPLv2.1 and GPL-2.0
 URL:            https://github.com/wineasio/wineasio
@@ -70,6 +70,9 @@ popd
 /sbin/ldconfig
 
 %changelog
+* Wed May 06 2026 LionHeartP <LionHeartP@proton.me> - 1.3.0-6
+- /opt/wine-staging specific fix
+
 * Sat Nov 08 2025 LionHeartP <LionHeartP@proton.me> - 1.3.0-5
 - remove Conflicts with itself (oops)
 
