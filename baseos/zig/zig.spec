@@ -1,21 +1,38 @@
+%if 0%{?rhel}
+# Zig depends on a C compiler (gcc) during bootstraping
+# older versions of gcc fail to compile the transpiled source so we limit it to x86_64
+%global         zig_arches x86_64
+%else
 # https://ziglang.org/download/VERSION/release-notes.html#Support-Table
 %global         zig_arches x86_64 aarch64 riscv64 %{mips64}
+%endif
 # Signing key from https://ziglang.org/download/
 %global         public_key RWSGOq2NVecA2UPNdBUZykf1CCb147pkmdtYxgb3Ti+JO/wCYvhbAb/U
 
 # note here at which Fedora or EL release we need to use compat LLVM packages
-%if 0%{?fedora} >= 43 || 0%{?rhel} >= 9
-%define         llvm_compat 20
+%if 0%{?fedora} >= 44 || 0%{?rhel} >= 11
+%global         llvm_compat 21
 %endif
 
-%global         llvm_version 21.1.4
+%global         llvm_version 21.1.8
 
-%bcond bootstrap 1
+%bcond bootstrap 0
 %bcond docs      %{without bootstrap}
 %bcond macro     %{without bootstrap}
 %bcond test      1
 
-%global zig_cache_dir %{builddir}/zig-cache
+# GCC < 16.0 miscompiles on RISC-V 
+%ifarch riscv64
+%if 0%{?fedora} < 44
+%bcond toolchain_clang 1
+%endif
+%endif
+
+%if %{with toolchain_clang}
+%global toolchain clang
+%endif
+
+%global zig_cache_dir %{_vpath_builddir}/zig-cache
 
 %global zig_build_options %{shrink: \
     --verbose \
@@ -43,27 +60,31 @@
 }
 
 Name:           zig
-Version:        0.15.2
+Version:        0.16.0
 Release:        1%{?dist}
 Summary:        Programming language for maintaining robust, optimal, and reusable software
+# The minisign file references a specific archive name so we store for ease of use
+%global         archive_name %{name}-%{version}.tar.xz
 
 License:        MIT AND NCSA AND LGPL-2.1-or-later AND LGPL-2.1-or-later WITH GCC-exception-2.0 AND GPL-2.0-or-later AND GPL-2.0-or-later WITH GCC-exception-2.0 AND BSD-3-Clause AND Inner-Net-2.0 AND ISC AND LicenseRef-Fedora-Public-Domain AND GFDL-1.1-or-later AND ZPL-2.1
 URL:            https://ziglang.org
-Source0:        %{url}/download/%{version}/%{name}-%{version}.tar.xz
-Source1:        %{url}/download/%{version}/%{name}-%{version}.tar.xz.minisig
+Source0:        %{url}/download/%{version}/%{archive_name}
+Source1:        %{url}/download/%{version}/%{archive_name}.minisig
 Source2:        macros.%{name}
 # Remove native lib directories from rpath
 # this is unlikely to be upstreamed in its current state because upstream
 # wants to work around the shortcomings of NixOS
-Patch:          0001-remove-native-lib-directories-from-rpath.patch
-# Adds a build option for setting the build-id
-# some projects are not programmed to handle a build-id's
-# by having it as a flag we can make sure no developer runs into
-# any trouble because of packaging demands
-# https://github.com/ziglang/zig/pull/22516
+Patch0:         0001-remove-native-lib-directories-from-rpath.patch
+# LLVM on RHEL/EPEL only provides fewer targets so we patch the required targets down
+# Targets come from https://src.fedoraproject.org/rpms/llvm/blob/rawhide/f/llvm.spec
+Patch1:         0002-Remove-unsupported-LLVM-targets-for-EPEL.patch
 
+%if %{without toolchain_clang}
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
+%else
+BuildRequires:  clang
+%endif
 BuildRequires:  cmake
 BuildRequires:  llvm%{?llvm_compat}-devel
 BuildRequires:  clang%{?llvm_compat}-devel
@@ -76,7 +97,7 @@ BuildRequires:  help2man
 BuildRequires:  minisign
 
 %if %{without bootstrap}
-BuildRequires:  (zig >= 0.14 with zig < 0.15)
+BuildRequires:  (zig >= 0.16 with zig < 0.17)
 %endif
 
 %if %{with test}
@@ -92,7 +113,7 @@ Requires:       %{name}-libs = %{version}
 # Apache-2.0 WITH LLVM-exception OR NCSA OR MIT
 Provides: bundled(compiler-rt) = %{llvm_version}
 # LGPL-2.1-or-later AND SunPro AND LGPL-2.1-or-later WITH GCC-exception-2.0 AND BSD-3-Clause AND GPL-2.0-or-later AND LGPL-2.1-or-later WITH GNU-compiler-exception AND GPL-2.0-only AND ISC AND LicenseRef-Fedora-Public-Domain AND HPND AND CMU-Mach AND LGPL-2.0-or-later AND Unicode-3.0 AND GFDL-1.1-or-later AND GPL-1.0-or-later AND FSFUL AND MIT AND Inner-Net-2.0 AND X11 AND GPL-2.0-or-later WITH GCC-exception-2.0 AND GFDL-1.3-only AND GFDL-1.1-only
-Provides: bundled(glibc) = 2.41
+Provides: bundled(glibc) = 2.43
 # Apache-2.0 WITH LLVM-exception OR MIT OR NCSA
 Provides: bundled(libcxx) = %{llvm_version}
 # Apache-2.0 WITH LLVM-exception OR MIT OR NCSA
@@ -141,15 +162,25 @@ This package contains common RPM macros for %{name}.
 %endif
 
 %prep
-/usr/bin/minisign -V -m %{SOURCE0} -x %{SOURCE1} -P %{public_key}
+/usr/bin/minisign -V -m %{SOURCE0} -x %{SOURCE1} -P %{public_key} -Q | grep -F "file:%{archive_name}"
 
-%autosetup -p1
+%autosetup -N
+%patch 0 -p1
+%if 0%{?rhel}
+%patch 1 -p1
+%endif
+
 %if %{without bootstrap}
 # Ensure that the pre-build stage1 binary is not used
 rm -f stage1/zig1.wasm
 %endif
 
 %build
+
+# Fedora supports using ccache systemwide
+# Zig generates a large C file for bootstrapping which does not
+# behave well with ccache so we explicitly disable it.
+export CCACHE_DISABLE=1
 
 # zig doesn't know how to dynamically link llvm on its own so we need cmake to generate a header ahead of time
 # if we provide the header we need to also build zigcpp
@@ -230,6 +261,18 @@ install -D -pv -m 0644 %{SOURCE2} %{buildroot}%{_rpmmacrodir}/macros.%{name}
 %endif
 
 %changelog
+* Wed Apr 15 2026 Jan200101 <sentrycraft123@gmail.com> - 0.16.0-1
+- Update to 0.16.0
+
+* Sat Jan 17 2026 Fedora Release Engineering <releng@fedoraproject.org> - 0.15.2-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_44_Mass_Rebuild
+
+* Sun Jan 04 2026 Jan200101 <sentrycraft123@gmail.com> - 0.15.2-2
+- Rebuilt for EPEL
+
+* Sun Oct 12 2025 Jan200101 <sentrycraft123@gmail.com> - 0.15.2-1
+- Update to 0.15.2
+
 * Fri Jul 25 2025 Fedora Release Engineering <releng@fedoraproject.org> - 0.14.1-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_43_Mass_Rebuild
 
@@ -318,7 +361,6 @@ install -D -pv -m 0644 %{SOURCE2} %{buildroot}%{_rpmmacrodir}/macros.%{name}
 
 * Sat Jan 22 2022 Fedora Release Engineering <releng@fedoraproject.org> - 0.9.0-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_36_Mass_Rebuild
-
 
 * Mon Dec 20 2021 Jan Drögehoff <sentrycraft123@gmail.com> - 0.9.0-1
 - Update to 0.9.0

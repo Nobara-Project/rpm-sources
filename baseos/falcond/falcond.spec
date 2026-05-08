@@ -2,7 +2,7 @@
 %global debug_package %{nil}
 
 Name:           falcond
-Version:        2.0.2
+Version:        2.0.5
 Release:        %autorelease
 Summary:        Advanced Linux Gaming Performance Daemon
 
@@ -13,7 +13,7 @@ Source1:	falcond-vendor.tar.gz
 
 ExclusiveArch:	x86_64 aarch64
 
-BuildRequires:  zig >= 0.15.2
+BuildRequires:  zig >= 0.16
 BuildRequires:  systemd-rpm-macros
 
 Recommends:	%{name}-profiles
@@ -31,7 +31,7 @@ falcond is a powerful system daemon designed to automatically optimize your Linu
 
 %autosetup -n %{name}
 mkdir -p .zig-cache-local
-tar -xzf %{SOURCE1} -C .zig-cache-local
+tar -xzf %{SOURCE1} -C %{name}/
 
 %build
 
@@ -42,12 +42,10 @@ install -Dm644 debian/%{name}.service %{buildroot}%{_unitdir}
 DESTDIR="%{buildroot}" \
 %ifarch x86_64
 zig build \
-    --global-cache-dir ../.zig-cache-local \
     -Doptimize=ReleaseFast \
     -Dcpu=x86_64_v2
 %else
 zig build \
-    --global-cache-dir ../.zig-cache-local \
     -Doptimize=ReleaseFast
 %endif
     
@@ -74,6 +72,12 @@ usermod -aG 'falcond' root || :
 %{_unitdir}/%{name}.service
 
 %changelog
+* Wed Apr 22 2026 LionHeartP <LionHeartP@proton.me> - 2.0.5-1
+- Update to 2.0.5
+
+* Sun Apr 19 2026 LionHeartP <LionHeartP@proton.me> - 2.0.4-1
+- Update to 2.0.4
+
 * Sun Apr 05 2026 LionHeartP <LionHeartP@proton.me> - 2.0.2-1
 - Update to 2.0.2
 
