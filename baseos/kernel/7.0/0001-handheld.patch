@@ -1,6 +1,6 @@
-From 0fd8847c9bc4f043667441d67e0699889032a32f Mon Sep 17 00:00:00 2001
+From 2b17b95268cf8c05d49361ddec097118b0b9cb1b Mon Sep 17 00:00:00 2001
 From: Eric Naim <dnaim@cachyos.org>
-Date: Mon, 13 Apr 2026 13:09:03 +0800
+Date: Fri, 24 Apr 2026 11:41:03 +0800
 Subject: [PATCH] handheld
 
 Signed-off-by: Eric Naim <dnaim@cachyos.org>
@@ -37,7 +37,7 @@ Signed-off-by: Eric Naim <dnaim@cachyos.org>
  drivers/hid/hid-asus.h                        |   13 +
  drivers/hid/hid-core.c                        |    5 +
  drivers/hid/hid-ids.h                         |   12 +
- drivers/hid/hid-lenovo-go-s.c                 | 1504 +++++
+ drivers/hid/hid-lenovo-go-s.c                 | 1548 +++++
  drivers/hid/hid-lenovo-go.c                   | 2500 ++++++++
  drivers/hid/hid-msi-claw.c                    |  842 +++
  drivers/hid/zotac-zone-hid/Kconfig            |    8 +
@@ -86,7 +86,10 @@ Signed-off-by: Eric Naim <dnaim@cachyos.org>
  net/bluetooth/hci_sync.c                      |   12 +-
  net/bluetooth/mgmt.c                          |    4 +-
  sound/hda/codecs/realtek/alc269.c             |   59 +
- sound/soc/amd/acp/acp-mach.h                  |    2 +-
+ sound/soc/amd/acp/acp-legacy-mach.c           |    2 +-
+ sound/soc/amd/acp/acp-mach-common.c           |   20 +-
+ sound/soc/amd/acp/acp-mach.h                  |    4 +
+ sound/soc/amd/acp/acp-sof-mach.c              |    2 +-
  sound/soc/codecs/Kconfig                      |    2 +
  sound/soc/codecs/Makefile                     |    1 +
  sound/soc/codecs/aw87xxx/Kconfig              |    5 +
@@ -113,7 +116,7 @@ Signed-off-by: Eric Naim <dnaim@cachyos.org>
  sound/soc/codecs/aw87xxx/aw87xxx_pid_76_reg.h | 1205 ++++
  sound/soc/codecs/aw87xxx/aw87xxx_pid_9b_reg.h |   81 +
  sound/soc/codecs/max98388.c                   |   24 +-
- 108 files changed, 37133 insertions(+), 154 deletions(-)
+ 111 files changed, 37200 insertions(+), 157 deletions(-)
  create mode 100644 Documentation/ABI/testing/sysfs-driver-hid-lenovo-go
  create mode 100644 Documentation/ABI/testing/sysfs-driver-hid-lenovo-go-s
  create mode 100644 drivers/extcon/extcon-steamdeck.c
@@ -4979,10 +4982,10 @@ index 000000000000..f67dd5a3a1bc
 +
 +#endif	/* __HID_ASUS_H */
 diff --git a/drivers/hid/hid-core.c b/drivers/hid/hid-core.c
-index b8f066bf944f..eacd98dd2d36 100644
+index 905d46f52fa0..2e6ab63bda29 100644
 --- a/drivers/hid/hid-core.c
 +++ b/drivers/hid/hid-core.c
-@@ -2897,6 +2897,11 @@ static int hid_uevent(const struct device *dev, struct kobj_uevent_env *env)
+@@ -2900,6 +2900,11 @@ static int hid_uevent(const struct device *dev, struct kobj_uevent_env *env)
  	if (add_uevent_var(env, "MODALIAS=hid:b%04Xg%04Xv%08Xp%08X",
  			   hdev->bus, hdev->group, hdev->vendor, hdev->product))
  		return -ENOMEM;
@@ -5041,10 +5044,10 @@ index 405d32fc827a..9983fe5dd663 100644
  #define USB_DEVICE_ID_PRIMAX_MOUSE_4E2A	0x4e2a
 diff --git a/drivers/hid/hid-lenovo-go-s.c b/drivers/hid/hid-lenovo-go-s.c
 new file mode 100644
-index 000000000000..01c7bdd4fbe0
+index 000000000000..ff1782a75191
 --- /dev/null
 +++ b/drivers/hid/hid-lenovo-go-s.c
-@@ -0,0 +1,1504 @@
+@@ -0,0 +1,1548 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + *  HID driver for Lenovo Legion Go S devices.
@@ -6416,6 +6419,14 @@ index 000000000000..01c7bdd4fbe0
 +			"Failed to retrieve IMU Manufacturer: %i\n", ret);
 +		return;
 +	}
++
++	ret = mcu_property_out(drvdata.hdev, GET_GAMEPAD_CFG, FEATURE_OS_MODE,
++			       NULL, 0);
++	if (ret) {
++		dev_err(&drvdata.hdev->dev,
++			"Failed to retrieve OS Mode: %i\n", ret);
++		return;
++	}
 +}
 +
 +static int hid_gos_cfg_probe(struct hid_device *hdev,
@@ -6474,6 +6485,27 @@ index 000000000000..01c7bdd4fbe0
 +	hid_set_drvdata(hdev, NULL);
 +}
 +
++static int hid_gos_cfg_reset_resume(struct hid_device *hdev)
++{
++	u8 os_mode = drvdata.os_mode;
++	int ret;
++
++	ret = mcu_property_out(drvdata.hdev, SET_GAMEPAD_CFG,
++			       FEATURE_OS_MODE, &os_mode, 1);
++	if (ret < 0)
++		return ret;
++
++	ret = mcu_property_out(drvdata.hdev, GET_GAMEPAD_CFG,
++			       FEATURE_OS_MODE, NULL, 0);
++	if (ret < 0)
++		return ret;
++
++	if (drvdata.os_mode != os_mode)
++		return -ENODEV;
++
++	return 0;
++}
++
 +static int hid_gos_probe(struct hid_device *hdev,
 +			 const struct hid_device_id *id)
 +{
@@ -6528,6 +6560,20 @@ index 000000000000..01c7bdd4fbe0
 +	}
 +}
 +
++static int hid_gos_reset_resume(struct hid_device *hdev)
++{
++	int ep = get_endpoint_address(hdev);
++
++	switch (ep) {
++	case GO_S_CFG_INTF_IN:
++		return hid_gos_cfg_reset_resume(hdev);
++	default:
++		break;
++	}
++
++	return 0;
++}
++
 +static const struct hid_device_id hid_gos_devices[] = {
 +	{ HID_USB_DEVICE(USB_VENDOR_ID_QHE,
 +			 USB_DEVICE_ID_LENOVO_LEGION_GO_S_XINPUT) },
@@ -6543,6 +6589,7 @@ index 000000000000..01c7bdd4fbe0
 +	.probe = hid_gos_probe,
 +	.remove = hid_gos_remove,
 +	.raw_event = hid_gos_raw_event,
++	.reset_resume = hid_gos_reset_resume,
 +};
 +module_hid_driver(hid_lenovo_go_s);
 +
@@ -18716,20 +18763,113 @@ index 0e318b5006f2..1b5083bf3d61 100644
  	{.id = ALC282_FIXUP_ASUS_TX300, .name = "asus-tx300"},
  	{.id = ALC283_FIXUP_INT_MIC, .name = "alc283-int-mic"},
  	{.id = ALC290_FIXUP_MONO_SPEAKERS_HSJACK, .name = "mono-speakers"},
+diff --git a/sound/soc/amd/acp/acp-legacy-mach.c b/sound/soc/amd/acp/acp-legacy-mach.c
+index a7a551366a40..fccaae99e150 100644
+--- a/sound/soc/amd/acp/acp-legacy-mach.c
++++ b/sound/soc/amd/acp/acp-legacy-mach.c
+@@ -174,7 +174,7 @@ static int acp_asoc_probe(struct platform_device *pdev)
+ 		acp_card_drvdata->acp_rev = mach->mach_params.subsystem_rev;
+ 
+ 	dmi_id = dmi_first_match(acp_quirk_table);
+-	if (dmi_id && dmi_id->driver_data)
++	if (dmi_id && dmi_id->driver_data == (void *)TDM_MODE_ENABLE)
+ 		acp_card_drvdata->tdm_mode = dmi_id->driver_data;
+ 
+ 	ret = acp_legacy_dai_links_create(card);
+diff --git a/sound/soc/amd/acp/acp-mach-common.c b/sound/soc/amd/acp/acp-mach-common.c
+index 09f6c9a2c041..f42c07249af4 100644
+--- a/sound/soc/amd/acp/acp-mach-common.c
++++ b/sound/soc/amd/acp/acp-mach-common.c
+@@ -20,6 +20,7 @@
+ #include <sound/soc.h>
+ #include <linux/input.h>
+ #include <linux/module.h>
++#include <linux/dmi.h>
+ 
+ #include "../../codecs/rt5682.h"
+ #include "../../codecs/rt1019.h"
+@@ -37,8 +38,6 @@
+ #define NAU8821_FREQ_OUT	12288000
+ #define MAX98388_CODEC_DAI	"max98388-aif1"
+ 
+-#define TDM_MODE_ENABLE 1
+-
+ const struct dmi_system_id acp_quirk_table[] = {
+ 	{
+ 		/* Google skyrim proto-0 */
+@@ -47,6 +46,14 @@ const struct dmi_system_id acp_quirk_table[] = {
+ 		},
+ 		.driver_data = (void *)TDM_MODE_ENABLE,
+ 	},
++	{
++		/* Valve Steam Deck OLED */
++		.matches = {
++			DMI_MATCH(DMI_SYS_VENDOR, "Valve"),
++			DMI_MATCH(DMI_PRODUCT_NAME, "Galileo"),
++		},
++		.driver_data = (void *)REMAP_DMIC_BT,
++	},
+ 	{}
+ };
+ EXPORT_SYMBOL_GPL(acp_quirk_table);
+@@ -1401,6 +1408,7 @@ int acp_sofdsp_dai_links_create(struct snd_soc_card *card)
+ 	struct snd_soc_dai_link *links;
+ 	struct device *dev = card->dev;
+ 	struct acp_card_drvdata *drv_data = card->drvdata;
++	const struct dmi_system_id *dmi_id = dmi_first_match(acp_quirk_table);
+ 	int i = 0, num_links = 0;
+ 
+ 	if (drv_data->hs_cpu_id)
+@@ -1572,6 +1580,9 @@ int acp_sofdsp_dai_links_create(struct snd_soc_card *card)
+ 			links[i].codecs = &snd_soc_dummy_dlc;
+ 			links[i].num_codecs = 1;
+ 		}
++
++		if (dmi_id && dmi_id->driver_data == (void *)REMAP_DMIC_BT)
++			links[i].id = DMIC_BE_ID;
+ 		i++;
+ 	}
+ 
+@@ -1587,6 +1598,11 @@ int acp_sofdsp_dai_links_create(struct snd_soc_card *card)
+ 		links[i].capture_only = 1;
+ 		links[i].nonatomic = true;
+ 		links[i].no_pcm = 1;
++
++		if (dmi_id && dmi_id->driver_data == (void *)REMAP_DMIC_BT) {
++			links[i].id = BT_BE_ID;
++			dev_dbg(dev, "quirk REMAP_DMIC_BT enabled\n");
++		}
+ 	}
+ 
+ 	card->dai_link = links;
 diff --git a/sound/soc/amd/acp/acp-mach.h b/sound/soc/amd/acp/acp-mach.h
-index f94c30c20f20..c3b3f047969c 100644
+index f94c30c20f20..edf5e479afd4 100644
 --- a/sound/soc/amd/acp/acp-mach.h
 +++ b/sound/soc/amd/acp/acp-mach.h
-@@ -29,8 +29,8 @@
+@@ -26,6 +26,10 @@
+ 
+ #define acp_get_drvdata(card) ((struct acp_card_drvdata *)(card)->drvdata)
+ 
++/* List of DMI quirks - check acp-mach-common.c for usage. */
++#define TDM_MODE_ENABLE 1
++#define REMAP_DMIC_BT 2
++
  enum be_id {
  	HEADSET_BE_ID = 0,
  	AMP_BE_ID,
--	DMIC_BE_ID,
- 	BT_BE_ID,
-+	DMIC_BE_ID,
- };
+diff --git a/sound/soc/amd/acp/acp-sof-mach.c b/sound/soc/amd/acp/acp-sof-mach.c
+index 6215e31ecedd..018e4f28a02b 100644
+--- a/sound/soc/amd/acp/acp-sof-mach.c
++++ b/sound/soc/amd/acp/acp-sof-mach.c
+@@ -110,7 +110,7 @@ static int acp_sof_probe(struct platform_device *pdev)
  
- enum cpu_endpoints {
+ 	acp_card_drvdata = card->drvdata;
+ 	dmi_id = dmi_first_match(acp_quirk_table);
+-	if (dmi_id && dmi_id->driver_data)
++	if (dmi_id && dmi_id->driver_data == (void *)TDM_MODE_ENABLE)
+ 		acp_card_drvdata->tdm_mode = dmi_id->driver_data;
+ 
+ 	acp_card_drvdata->acp_rev = mach->mach_params.subsystem_rev;
 diff --git a/sound/soc/codecs/Kconfig b/sound/soc/codecs/Kconfig
 index adb3fb923be3..3648f44f50f7 100644
 --- a/sound/soc/codecs/Kconfig
@@ -39163,5 +39303,5 @@ index 076f15a9867e..42f1e0b7f38a 100644
  
  	return 0;
 -- 
-2.53.0
+2.54.0
 

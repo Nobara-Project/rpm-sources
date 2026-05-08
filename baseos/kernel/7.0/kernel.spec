@@ -43,8 +43,8 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 7.0
-%define _stablekver 1
-%define _PKGBUILD 2
+%define _stablekver 5
+%define _PKGBUILD 1
 %define _rcver rc7
 %define _tarkver %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
@@ -75,7 +75,7 @@ Vendor: The Linux Community and CachyOS maintainer(s)
 URL: https://github.com/CachyOS/linux
 Source0: %{url}/archive/refs/tags/cachyos-%{_tarkver}-%{_PKGBUILD}.tar.gz
 
-%define config_commit c64cf2312ff1f2bcd81320b9c9ef8c4af0296ee5
+%define config_commit 1c6414dbda46c13abcb951ef6c5a790cb9e157ea
 
 %if 0%{?_is_rc}
 Source1: https://raw.githubusercontent.com/CachyOS/linux-cachyos/%{config_commit}/linux-cachyos-rc/config
@@ -126,6 +126,9 @@ Patch10: capture-device-nv12-fixup.patch
 
 # Add "ROG STRIX X870-I GAMING WIFI"
 Patch11: 0857-hwmon-nct6775-Add-ROG-STRIX-X870-I-GAMING-WIFI.patch
+
+# AMD vfio passthrough
+Patch12: vfio-amd-passthrough.patch
 
 # aarch64 patches
 Patch21: 0001-arm64-mm-Handle-alignment-faults.patch
@@ -432,6 +435,7 @@ patch -p1 -i %{PATCH8}
 patch -p1 -i %{PATCH9}
 patch -p1 -i %{PATCH10}
 patch -p1 -i %{PATCH11}
+patch -p1 -i %{PATCH12}
 
 # Apply aarch64 patches
 %ifarch aarch64
@@ -1092,6 +1096,25 @@ fi
 %files
 
 %changelog
+* Fri May 08 2026 LionHeartP <LionHeartP@proton.me> - 7.0.5-200
+- Update to 7.0.5
+
+* Thu May 07 2026 LionHeartP <LionHeartP@proton.me> - 7.0.4-200
+- Update to 7.0.4
+- Add opt-in vfio fix for amd gpus
+
+* Fri May 01 2026 LionHeartP <LionHeartP@proton.me> - 7.0.3-200
+- Update to 7.0.3
+
+* Mon Apr 27 2026 LionHeartP <LionHeartP@proton.me> - 7.0.2-200
+- Update to 7.0.2
+
+* Fri Apr 24 2026 LionHeartP <LionHeartP@proton.me> - 7.0.1-202
+- Pull new handheld patch to fix SD OLED audio
+
+* Thu Apr 23 2026 LionHeartP <LionHeartP@proton.me> - 7.0.1-201
+- New CachyOS tag
+
 * Wed Apr 22 2026 LionHeartP <LionHeartP@proton.me> - 7.0.1-200
 - Update to 7.0.1
 
