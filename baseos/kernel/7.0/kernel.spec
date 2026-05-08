@@ -43,8 +43,8 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 7.0
-%define _stablekver 4
-%define _PKGBUILD 2
+%define _stablekver 5
+%define _PKGBUILD 1
 %define _rcver rc7
 %define _tarkver %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
@@ -56,7 +56,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 201
+%define customver 200
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -1096,8 +1096,8 @@ fi
 %files
 
 %changelog
-* Fri May 08 2026 LionHeartP <LionHeartP@proton.me> - 7.0.4-201
-- Dirty frag fix
+* Fri May 08 2026 LionHeartP <LionHeartP@proton.me> - 7.0.5-200
+- Update to 7.0.5
 
 * Thu May 07 2026 LionHeartP <LionHeartP@proton.me> - 7.0.4-200
 - Update to 7.0.4
