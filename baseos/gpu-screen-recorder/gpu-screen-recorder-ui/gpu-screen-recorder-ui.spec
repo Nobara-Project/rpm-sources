@@ -1,5 +1,5 @@
 Name:           gpu-screen-recorder-ui
-Version:        1.10.9
+Version:        1.11.7
 Release:        1%{dist}
 Summary:        A shadowplay-like screen recorder for Linux. The fastest screen recorder for Linux.
 License:        GPL-3.0-or-later
@@ -23,10 +23,12 @@ BuildRequires:  pkgconfig(wayland-scanner)
 BuildRequires:  pkgconfig(wayland-client)
 BuildRequires:  pkgconfig(libdrm)
 BuildRequires:  pkgconfig(dbus-1)
+BuildRequires:  pkgconfig(pango)
+BuildRequires:  pkgconfig(pangocairo)
 BuildRequires:  kernel-headers
 Requires:       gpu-screen-recorder
 Requires:       gpu-screen-recorder-notification
-Requires:       (google-noto-sans-fonts or noto-sans)
+Requires:	pango
 Requires(post): libcap
 
 %description
@@ -38,7 +40,7 @@ A fullscreen overlay UI for GPU Screen Recorder in the style of ShadowPlay.
 
 
 %build
-%meson
+%meson -Dcapabilities=false
 %meson_build
 
 %install
@@ -50,19 +52,33 @@ rm -rf %{_buildroot}%{_datadir}/gsr-ui/fonts
 %check
 %meson_test
 
-%post
-setcap cap_setuid+ep %{_bindir}/gsr-global-hotkeys
+%preun
+%systemd_user_preun %{name}.service
 
 %files
 %license LICENSE
 %doc README.md
+%caps(cap_setuid=ep) %{_bindir}/gsr-global-hotkeys
 %{_bindir}/gsr*
 %{_datadir}/applications/gpu-screen-recorder.desktop
 %{_datadir}/icons/hicolor/*/apps/gpu-screen-recorder.png
 %{_datadir}/gsr-ui
-%{_exec_prefix}/lib/systemd/user/%{name}.service
 
 %changelog
+* Sat May 02 2026 LionHeartP <LionHeartP@proton.me> - 1.11.7-1
+- Update to 1.11.7
+
+* Thu Apr 23 2026 LionHeartP <LionHeartP@proton.me> - 1.11.5-1
+- Update to 1.11.5
+- Correctly setcap for global keybinds
+- Add temporary %preun macto to get rid of deprecated systemd service 
+
+* Sun Apr 19 2026 LionHeartP <LionHeartP@proton.me> - 1.11.4-1
+- Update to 1.11.4
+
+* Sat Apr 18 2026 LionHeartP <LionHeartP@proton.me> - 1.11.2-1
+- Update to 1.11.2
+
 * Wed Mar 25 2026 LionHeartP <LionHeartP@proton.me> - 1.10.9-1
 - Update to 1.10.9
 

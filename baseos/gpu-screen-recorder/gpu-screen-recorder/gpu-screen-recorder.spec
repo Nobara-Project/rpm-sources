@@ -1,6 +1,6 @@
 Name:           gpu-screen-recorder
-Version:        5.13.0
-Release:        1%{dist}
+Version:        5.13.3
+Release:        2%{dist}
 Summary:        A shadowplay-like screen recorder for Linux. The fastest screen recorder for Linux.
 
 License:        GPL-3.0-or-later
@@ -8,6 +8,8 @@ License:        GPL-3.0-or-later
 URL:            https://git.dec05eba.com/%{name}/about
 
 Source:         https://dec05eba.com/snapshot/%{name}.git.%{version}.tar.gz
+# Revert commit that breaks on old ffmpeg
+Patch:   	revert-4ae78f6b6a980150147278df0229a40ab9fedc20.patch
 
 BuildRequires:  gcc
 BuildRequires:  (gcc-g++ or gcc-c++)
@@ -38,7 +40,7 @@ Shadowplay like screen recorder for Linux. It is the fastest screen recorder for
 
 
 %prep
-%autosetup -c
+%autosetup -c -p1
 
 %build
 %meson -Dcapabilities=false
@@ -67,6 +69,12 @@ setcap cap_sys_admin+ep %{_bindir}/gsr-kms-server
 %{_mandir}/man1/gsr-kms-server.1*
 
 %changelog
+* Thu Apr 23 2026 LionHeartP <LionHeartP@proton.me> - 5.13.3-1
+- Update to 5.13.3
+
+* Sun Apr 19 2026 LionHeartP <LionHeartP@proton.me> - 5.13.1-1
+- Update to 5.13.1
+
 * Fri Apr 17 2026 LionHeartP <LionHeartP@proton.me> - 5.13.0-1
 - Update to 5.13.0
 
