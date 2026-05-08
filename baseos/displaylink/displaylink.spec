@@ -1,5 +1,5 @@
 %{!?_daemon_version:%global _daemon_version 6.2.0-30}
-%{!?_version:%global _version 1.14.15}
+%{!?_version:%global _version 1.14.16}
 %{!?_release:%global _release 1}
 
 # Disable RPATH since DisplayLinkManager contains this.
