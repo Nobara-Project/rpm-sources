@@ -66,6 +66,8 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/*.desktop
 %{_bindir}/%{name}
 %{_datadir}/applications/*.desktop
 %{_datadir}/icons/hicolor/*/*/*.png
+%{_datadir}/%{name}/assets/
+%{_datadir}/%{name}/data/
 %{_libexecdir}/%{name}
 %{_mandir}/man1/*.1*
 %{_metainfodir}/*.xml
