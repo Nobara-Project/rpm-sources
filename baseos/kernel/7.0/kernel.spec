@@ -44,7 +44,7 @@ Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 7.0
 %define _stablekver 6
-%define _PKGBUILD 1
+%define _PKGBUILD 2
 %define _rcver rc7
 %define _tarkver %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
