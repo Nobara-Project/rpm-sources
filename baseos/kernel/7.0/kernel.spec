@@ -130,6 +130,9 @@ Patch11: 0857-hwmon-nct6775-Add-ROG-STRIX-X870-I-GAMING-WIFI.patch
 # AMD vfio passthrough
 Patch12: vfio-amd-passthrough.patch
 
+# ALC287 fixup
+Patch13: https://github.com/CachyOS/linux/commit/656cea542a060065eb6fb506e7de946038af30b5.patch
+
 # aarch64 patches
 Patch21: 0001-arm64-mm-Handle-alignment-faults.patch
 Patch22: 0002-ampere-arm64-Work-around-Ampere-Altra-erratum-82288-.patch
@@ -436,6 +439,7 @@ patch -p1 -i %{PATCH9}
 patch -p1 -i %{PATCH10}
 patch -p1 -i %{PATCH11}
 patch -p1 -i %{PATCH12}
+patch -p1 -i %{PATCH13}
 
 # Apply aarch64 patches
 %ifarch aarch64
