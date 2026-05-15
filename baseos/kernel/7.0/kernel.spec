@@ -43,8 +43,8 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 7.0
-%define _stablekver 7
-%define _PKGBUILD 2
+%define _stablekver 8
+%define _PKGBUILD 1
 %define _rcver rc7
 %define _tarkver %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
@@ -129,9 +129,6 @@ Patch11: 0857-hwmon-nct6775-Add-ROG-STRIX-X870-I-GAMING-WIFI.patch
 
 # AMD vfio passthrough
 Patch12: vfio-amd-passthrough.patch
-
-# ALC287 fixup
-Patch13: https://github.com/CachyOS/linux/commit/656cea542a060065eb6fb506e7de946038af30b5.patch
 
 # aarch64 patches
 Patch21: 0001-arm64-mm-Handle-alignment-faults.patch
@@ -439,7 +436,6 @@ patch -p1 -i %{PATCH9}
 patch -p1 -i %{PATCH10}
 patch -p1 -i %{PATCH11}
 patch -p1 -i %{PATCH12}
-patch -p1 -i %{PATCH13}
 
 # Apply aarch64 patches
 %ifarch aarch64
@@ -1100,8 +1096,8 @@ fi
 %files
 
 %changelog
-* Fri May 15 2026 LionHeartP <LionHeartP@proton.me> - 7.0.7-200
-- Update to 7.0.7
+* Fri May 15 2026 LionHeartP <LionHeartP@proton.me> - 7.0.8-200
+- Update to 7.0.8
 
 * Mon May 11 2026 LionHeartP <LionHeartP@proton.me> - 7.0.6-200
 - Update to 7.0.6
