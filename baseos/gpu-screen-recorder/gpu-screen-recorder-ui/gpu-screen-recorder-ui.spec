@@ -1,5 +1,5 @@
 Name:           gpu-screen-recorder-ui
-Version:        1.12.1
+Version:        1.12.2
 Release:        1%{dist}
 Summary:        A shadowplay-like screen recorder for Linux. The fastest screen recorder for Linux.
 License:        GPL-3.0-or-later
@@ -66,6 +66,9 @@ rm -rf %{_buildroot}%{_datadir}/gsr-ui/fonts
 %{_datadir}/gsr-ui
 
 %changelog
+* Sun May 17 2026 LionHeartP <LionHeartP@proton.me> - 1.12.2-1
+- Update to 1.12.2
+
 * Sat May 16 2026 LionHeartP <LionHeartP@proton.me> - 1.12.1-1
 - Update to 1.12.1
 
