@@ -1,48 +1,50 @@
-Name: python-transformers
-Version: 4.57.1
-Release: 1%{?dist}
-Summary: State-of-the-art Machine Learning for JAX, PyTorch and TensorFlow
+%global pypi_name transformers
+%global _desc The model-definition framework for state-of-the-art machine learning models.
 
-Group: Development/Libraries
-License: MIT
-URL: https://github.com/huggingface/transformers
-Source0: https://files.pythonhosted.org/packages/source/t/transformers/transformers-%{version}.tar.gz
-BuildArch: noarch
+Name:			python-%{pypi_name}
+Version:		5.8.0
+Release:		1%{?dist}
+Summary:		The model-definition framework for state-of-the-art machine learning models
+License:		Apache-2.0
+URL:			https://huggingface.co/docs/transformers/index
+Source0:		%{pypi_source}
+Patch0:			versions.patch
+BuildArch:      noarch
 
-BuildRequires: python3-build
-BuildRequires: python3-setuptools
-BuildRequires: python3-wheel
-BuildRequires: python3-pip
-BuildRequires: python3-pdm-backend
-BuildRequires: python3-devel
+BuildRequires:  python3-devel
+BuildRequires:  python3-setuptools
+BuildRequires:  python3-pip
 
-Requires: python3-aiohttp
-Requires: python3-numpy
-Requires: python3-pydantic
-Requires: python3-pyyaml
-Requires: python3-requests
-Requires: python3-sqlalchemy
-Requires: python3-tenacity
-Provides: python-transformers
-Provides: python3-transformers
-
+Packager:	    Owen Zimmerman <owen@fyralabs.com>
 
 %description
-State-of-the-art Machine Learning for JAX, PyTorch and TensorFlow
+%_desc
+
+%package -n     python3-%{pypi_name}
+Summary:        %{summary}
+%{?python_provide:%python_provide python3-%{pypi_name}}
+
+%description -n python3-%{pypi_name}
+%_desc
 
 %prep
-%autosetup -n transformers-%{version}
+%autosetup -n %{pypi_name}-%{version} -p1
 
 %build
-python3 -m build --wheel --no-isolation
+%pyproject_wheel
 
 %install
-python3 -m pip install --no-deps --prefix=%{_prefix} --root=%{buildroot} dist/*.whl
+%pyproject_install
+%pyproject_save_files transformers
 
-%files
+%files -n python3-%{pypi_name} -f %{pyproject_files}
 %doc README.md
 %license LICENSE
-%{_bindir}/*
-%{python3_sitelib}/transformers*
+%{_bindir}/transformers
 
 %changelog
+* Mon May 04 2026 Owen Zimmerman <owen@fyralabs.com>
+- Update spec for version 5.7.0
+
+* Sat Jan 10 2026 Owen Zimmerman <owen@fyralabs.com>
+- Initial commit
