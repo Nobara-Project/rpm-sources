@@ -43,7 +43,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 7.0
-%define _stablekver 5
+%define _stablekver 9
 %define _PKGBUILD 1
 %define _rcver rc7
 %define _tarkver %{_basekver}.%{_stablekver}
@@ -75,7 +75,7 @@ Vendor: The Linux Community and CachyOS maintainer(s)
 URL: https://github.com/CachyOS/linux
 Source0: %{url}/archive/refs/tags/cachyos-%{_tarkver}-%{_PKGBUILD}.tar.gz
 
-%define config_commit 1c6414dbda46c13abcb951ef6c5a790cb9e157ea
+%define config_commit 3cd5f63b3685788a63a85a803cb9715c872a08d2
 
 %if 0%{?_is_rc}
 Source1: https://raw.githubusercontent.com/CachyOS/linux-cachyos/%{config_commit}/linux-cachyos-rc/config
@@ -1096,6 +1096,16 @@ fi
 %files
 
 %changelog
+* Sun May 17 2026 LionHeartP <LionHeartP@proton.me> - 7.0.9-200
+- Update to 7.0.9
+
+* Fri May 15 2026 LionHeartP <LionHeartP@proton.me> - 7.0.8-200
+- Update to 7.0.8
+
+* Mon May 11 2026 LionHeartP <LionHeartP@proton.me> - 7.0.6-200
+- Update to 7.0.6
+- Update linux-surface.patch
+
 * Fri May 08 2026 LionHeartP <LionHeartP@proton.me> - 7.0.5-200
 - Update to 7.0.5
 
