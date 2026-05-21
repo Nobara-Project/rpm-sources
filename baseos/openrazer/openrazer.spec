@@ -9,7 +9,7 @@
 
 Name: 		openrazer-meta
 Version: 	3.12.2
-Release: 	%autorelease
+Release: 	%autorelease -b2
 Summary: 	Open source driver and user-space daemon for managing Razer devices
 
 License: 	GPL-2.0
@@ -20,6 +20,9 @@ Source0: 	https://github.com/crstmkt/openrazer/archive/%{gitcommit}.tar.gz
 %else
 Source0: 	https://github.com/openrazer/openrazer/releases/download/v%{version}/openrazer-%{version}.tar.xz
 %endif
+
+# Kernel 7.0.9+ fix
+Patch:          https://github.com/openrazer/openrazer/commit/ff3062498c6b3fc6fcb703627034598a3a5fbb59.patch
 
 # https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
 ExcludeArch:    %{ix86}

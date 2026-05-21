@@ -1,8 +1,8 @@
-%global commit 67aa960e71bf4cdd140b47d42c0c62c4cded68d1
-%global shortcommit 67aa960
+%global commit ea71739b4a3e1a0a624dfd1c9c268a31cb2a4182
+%global shortcommit ea71739
 
 Name:           ryzenadj
-Version:        0.17.0
+Version:        0.19.0
 Release:        1.%{shortcommit}%{?dist}
 Summary:        Power management settings for Ryzen APU
 

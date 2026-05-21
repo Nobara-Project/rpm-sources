@@ -9,9 +9,9 @@
 # check buildresult after a while
 
 %define _lto_cflags %{nil}
-%define realver     11.8
-%define stagingver  11.8
-%define packagever  11.8
+%define realver     11.9
+%define stagingver  11.9
+%define packagever  11.9
 
 %global flavor %nil
 %global build_type_safety_c 0

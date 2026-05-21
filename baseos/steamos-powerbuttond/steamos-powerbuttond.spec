@@ -1,6 +1,6 @@
 Name:           steamos-powerbuttond
-Version:        4.0
-Release:        %autorelease -b1
+Version:        4.2
+Release:        %autorelease
 Summary:        Steam Deck power button daemon
 
 License:        BSD

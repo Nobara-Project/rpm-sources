@@ -3,7 +3,7 @@
 %define         pkgname             scrcpy
 %global         forgeurl            https://github.com/Genymobile/%{pkgname}
 %global         _default_patch_fuzz 2
-Version:        3.3.3
+Version:        4.0
 
 %forgemeta -i
 
@@ -22,7 +22,7 @@ BuildRequires:  meson gcc
 BuildRequires:  java-devel >= 11
 BuildRequires:  desktop-file-utils
 
-BuildRequires:  pkgconfig(sdl2)
+BuildRequires:  pkgconfig(sdl3)
 BuildRequires:  pkgconfig(ffms2)
 BuildRequires:  pkgconfig(libusb-1.0)
 BuildRequires:  pkgconfig(libavdevice)
@@ -57,6 +57,7 @@ desktop-file-validate %{buildroot}/%{_datadir}/applications/%{pkgname}{,-console
 %{_datadir}/%{pkgname}
 %{_mandir}/man1/%{pkgname}.1*
 %{_datadir}/icons/hicolor/*/apps/%{pkgname}.png
+%{_datadir}/icons/hicolor/*/apps/disconnected.png
 %{_datadir}/applications/*.desktop
 %{_datadir}/bash-completion/completions/%{pkgname}
 %{_datadir}/zsh/site-functions/_%{pkgname}
