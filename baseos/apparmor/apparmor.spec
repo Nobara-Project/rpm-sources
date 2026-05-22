@@ -3,10 +3,10 @@
 %bcond_with tests
 
 %global _custom_sbin /usr/sbin
-%global commit d6ea0dc35c04b6dcf175bc1a870267d6dad13ec9
+%global commit 9676b7aa934408748de2aaebad8680e69d7c3912
 
 Name:           apparmor
-Version:        4.1.2
+Version:        4.1.7
 Release:        1%{?dist}
 Summary:        AppArmor userspace components
 
@@ -247,38 +247,14 @@ make -C utils check
 
 
 %files -n python3-LibAppArmor
-%{python3_sitearch}/LibAppArmor
-%{python3_sitearch}/LibAppArmor-*.egg-info
+%{python3_sitearch}/LibAppArmor*
+%{python3_sitearch}/_LibAppArmor*.so
+%{python3_sitearch}/__pycache__/LibAppArmor*
 
 
 %files profiles
-%dir %{_sysconfdir}/apparmor.d/
-%{_sysconfdir}/apparmor.d/*
-%dir %{_sysconfdir}/apparmor.d/abi
-%config(noreplace) %{_sysconfdir}/apparmor.d/abi/3.0
-%config(noreplace) %{_sysconfdir}/apparmor.d/abi/kernel-5.4-outoftree-network
-%config(noreplace) %{_sysconfdir}/apparmor.d/abi/kernel-5.4-vanilla
-%config(noreplace) %{_sysconfdir}/apparmor.d/php-fpm
-%config(noreplace) %{_sysconfdir}/apparmor.d/samba-bgqd
-%config(noreplace) %{_sysconfdir}/apparmor.d/samba-dcerpcd
-%config(noreplace) %{_sysconfdir}/apparmor.d/samba-rpcd
-%config(noreplace) %{_sysconfdir}/apparmor.d/samba-rpcd-classic
-%config(noreplace) %{_sysconfdir}/apparmor.d/samba-rpcd-spoolss
-%config(noreplace) %{_sysconfdir}/apparmor.d/zgrep
-%dir %{_sysconfdir}/apparmor.d/abstractions
-%config(noreplace) %{_sysconfdir}/apparmor.d/abstractions/*
-%dir %{_sysconfdir}/apparmor.d/disable
-%dir %{_sysconfdir}/apparmor.d/local
-%dir %{_sysconfdir}/apparmor.d/tunables
-%config(noreplace) %{_sysconfdir}/apparmor.d/tunables/*
-%dir %{_sysconfdir}/apparmor.d/apache2.d
-%config(noreplace) %{_sysconfdir}/apparmor.d/apache2.d/phpsysinfo
-%config(noreplace) %{_sysconfdir}/apparmor.d/bin.*
-%config(noreplace) %{_sysconfdir}/apparmor.d/sbin.*
-%config(noreplace) %{_sysconfdir}/apparmor.d/usr.*
-%config(noreplace) %{_sysconfdir}/apparmor.d/lsb_release
-%config(noreplace) %{_sysconfdir}/apparmor.d/nvidia_modprobe
-%config(noreplace) %{_sysconfdir}/apparmor.d/local/*
+%dir %{_sysconfdir}/apparmor.d
+%config(noreplace) %{_sysconfdir}/apparmor.d/*
 %dir %{_datadir}/apparmor/
 %{_datadir}/apparmor/extra-profiles
 %dir %{_sysconfdir}/apparmor
