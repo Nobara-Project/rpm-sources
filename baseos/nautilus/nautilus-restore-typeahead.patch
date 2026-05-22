@@ -21,12 +21,15 @@ index 1f009b2649..4e4cbc3b54 100644
      ADD_SHORTCUT_FOR_ACTION (self->shortcuts, "slot.bookmark-current-directory", "<control>d|AddFavorite");
  
 -- 
-GitLab
-From a44f240ee2402e8b57e8294704d21d945de61a2e Mon Sep 17 00:00:00 2001
-From: Kevin MacMartin <prurigro@gmail.com>
-Date: Wed, 8 Oct 2025 13:21:57 +0200
-Subject: [PATCH] Typeahead support for Nautilus 49
+From a05a54825446a6caa0e17600538bc7583564bcd7 Mon Sep 17 00:00:00 2001
+From: Xavier Claessens <xavier.claessens@collabora.com>
+Date: Tue, 7 Apr 2026 22:16:56 +0200
+Subject: [PATCH 2/2] Restore typeahead support for keyboard navigation
 
+Co-Authored-By: Bryan Lai <bryanlais@gmail.com>
+Co-Authored-By: DragoonAethis <dragoon@dragonic.eu>
+Co-Authored-By: Kevin MacMartin <prurigro@gmail.com>
+Co-Authored-By: Daniel Rudolf <gnome.org@daniel-rudolf.de>
 ---
  data/org.gnome.nautilus.gschema.xml           |   5 +
  src/nautilus-files-view.c                     |  14 ++
@@ -35,11 +38,11 @@ Subject: [PATCH] Typeahead support for Nautilus 49
  src/nautilus-preferences-dialog.c             |   5 +
  src/nautilus-query-editor.c                   |   6 +
  src/nautilus-window-slot.c                    | 139 ++++++++++++++----
- .../ui/nautilus-preferences-dialog.ui         |  15 ++
- 8 files changed, 161 insertions(+), 29 deletions(-)
+ .../ui/nautilus-preferences-dialog.blp        |  12 ++
+ 8 files changed, 158 insertions(+), 29 deletions(-)
 
 diff --git a/data/org.gnome.nautilus.gschema.xml b/data/org.gnome.nautilus.gschema.xml
-index 2c0f45638b..45d793ac37 100644
+index 3c14aa4d5..0af9e1d3a 100644
 --- a/data/org.gnome.nautilus.gschema.xml
 +++ b/data/org.gnome.nautilus.gschema.xml
 @@ -82,6 +82,11 @@
@@ -55,12 +58,12 @@ index 2c0f45638b..45d793ac37 100644
        <default>'local-only'</default>
        <summary>Where to perform recursive search</summary>
 diff --git a/src/nautilus-files-view.c b/src/nautilus-files-view.c
-index 038eae5110..d5d5918673 100644
+index 236d00a1f..f81790920 100644
 --- a/src/nautilus-files-view.c
 +++ b/src/nautilus-files-view.c
-@@ -9739,3 +9739,17 @@ nautilus_files_view_get_private_model (NautilusFilesView *self)
+@@ -9787,3 +9787,17 @@ nautilus_files_view_get_private_list_base (NautilusFilesView *self)
  {
-     return self->model;
+     return self->list_base;
  }
 +
 +void
@@ -77,12 +80,12 @@ index 038eae5110..d5d5918673 100644
 +                                                NAUTILUS_PREFERENCES_SORT_DIRECTORIES_FIRST);
 +}
 diff --git a/src/nautilus-files-view.h b/src/nautilus-files-view.h
-index afd527860c..7fa9d605d0 100644
+index a020ed808..b9b19102c 100644
 --- a/src/nautilus-files-view.h
 +++ b/src/nautilus-files-view.h
-@@ -124,4 +124,9 @@ void              nautilus_files_view_update_actions_state       (NautilusFilesV
- NautilusViewModel *
- nautilus_files_view_get_private_model (NautilusFilesView *self);
+@@ -131,4 +131,9 @@ nautilus_files_view_get_private_action_group (NautilusFilesView *self);
+ NautilusListBase *
+ nautilus_files_view_get_private_list_base (NautilusFilesView *self);
  
 +void              nautilus_files_view_get_sort_state             (NautilusFilesView      *view,
 +                                                                  GQuark                 *sort_attribute,
@@ -91,10 +94,10 @@ index afd527860c..7fa9d605d0 100644
 +
  G_END_DECLS
 diff --git a/src/nautilus-global-preferences.h b/src/nautilus-global-preferences.h
-index 22e8cdcb7e..6413937543 100644
+index ca08bfaa6..05a5c7f36 100644
 --- a/src/nautilus-global-preferences.h
 +++ b/src/nautilus-global-preferences.h
-@@ -117,6 +117,7 @@ typedef enum
+@@ -114,6 +114,7 @@ typedef enum
  
  /* Search behaviour */
  #define NAUTILUS_PREFERENCES_RECURSIVE_SEARCH "recursive-search"
@@ -103,7 +106,7 @@ index 22e8cdcb7e..6413937543 100644
  /* Context menu options */
  #define NAUTILUS_PREFERENCES_SHOW_DELETE_PERMANENTLY "show-delete-permanently"
 diff --git a/src/nautilus-preferences-dialog.c b/src/nautilus-preferences-dialog.c
-index 993a897557..96dd1ba248 100644
+index de009fa39..1e9e98a28 100644
 --- a/src/nautilus-preferences-dialog.c
 +++ b/src/nautilus-preferences-dialog.c
 @@ -42,6 +42,8 @@
@@ -115,7 +118,7 @@ index 993a897557..96dd1ba248 100644
  
  /* combo preferences */
  #define NAUTILUS_PREFERENCES_DIALOG_OPEN_ACTION_COMBO                          \
-@@ -361,6 +363,9 @@ nautilus_preferences_dialog_setup (GtkBuilder *builder)
+@@ -184,6 +186,9 @@ nautilus_preferences_dialog_setup (GtkBuilder *builder)
      bind_builder_bool (builder, nautilus_preferences,
                         NAUTILUS_PREFERENCES_DIALOG_DELETE_PERMANENTLY_WIDGET,
                         NAUTILUS_PREFERENCES_SHOW_DELETE_PERMANENTLY);
@@ -126,10 +129,10 @@ index 993a897557..96dd1ba248 100644
      setup_detailed_date (builder);
  
 diff --git a/src/nautilus-query-editor.c b/src/nautilus-query-editor.c
-index aaa68bfa90..51b5459dcf 100644
+index 30514fb45..9e80287c0 100644
 --- a/src/nautilus-query-editor.c
 +++ b/src/nautilus-query-editor.c
-@@ -767,6 +767,12 @@ nautilus_query_editor_set_query (NautilusQueryEditor *self,
+@@ -816,6 +816,12 @@ nautilus_query_editor_set_query (NautilusQueryEditor *self,
  
      g_return_if_fail (NAUTILUS_IS_QUERY_EDITOR (self));
  
@@ -143,7 +146,7 @@ index aaa68bfa90..51b5459dcf 100644
      {
          text = nautilus_query_get_text (query);
 diff --git a/src/nautilus-window-slot.c b/src/nautilus-window-slot.c
-index 4e4cbc3b54..05838b108c 100644
+index 2e2c7bcfb..4fa7619b5 100644
 --- a/src/nautilus-window-slot.c
 +++ b/src/nautilus-window-slot.c
 @@ -81,6 +81,9 @@ enum
@@ -266,7 +269,7 @@ index 4e4cbc3b54..05838b108c 100644
 +            nautilus_files_view_get_sort_state (NAUTILUS_FILES_VIEW (self->content_view), &ctx.sort_attribute, &ctx.reversed, &ctx.directories_first);
 +            matches = g_list_sort_with_data (matches, file_compare_for_type_ahead, &ctx);
 +            g_autolist(NautilusFile) selection = g_list_prepend (NULL, g_object_ref (matches->data));
-+            nautilus_files_view_set_selection (self->content_view, selection);
++            nautilus_files_view_set_selection (self->content_view, selection, TRUE);
 +        }
 +
 +        /* Reset timeout that clears type ahead query */
@@ -287,7 +290,7 @@ index 4e4cbc3b54..05838b108c 100644
      nautilus_query_editor_set_query (self->query_editor, NULL);
  
      if (nautilus_files_view_is_searching (view))
-@@ -437,17 +526,6 @@ hide_query_editor (NautilusWindowSlot *self)
+@@ -436,17 +525,6 @@ hide_query_editor (NautilusWindowSlot *self)
      }
  }
  
@@ -305,7 +308,7 @@ index 4e4cbc3b54..05838b108c 100644
  static void
  show_query_editor (NautilusWindowSlot *self)
  {
-@@ -467,15 +545,6 @@ show_query_editor (NautilusWindowSlot *self)
+@@ -466,15 +544,6 @@ show_query_editor (NautilusWindowSlot *self)
      }
  
      gtk_widget_grab_focus (GTK_WIDGET (self->query_editor));
@@ -321,7 +324,7 @@ index 4e4cbc3b54..05838b108c 100644
  }
  
  static void
-@@ -607,7 +676,7 @@ nautilus_window_slot_handle_event (NautilusWindowSlot    *self,
+@@ -606,7 +675,7 @@ nautilus_window_slot_handle_event (NautilusWindowSlot    *self,
                                                       state);
      }
  
@@ -330,7 +333,7 @@ index 4e4cbc3b54..05838b108c 100644
      {
          nautilus_window_slot_set_search_visible (self, TRUE);
      }
-@@ -880,6 +949,15 @@ nautilus_window_slot_constructed (GObject *object)
+@@ -885,6 +954,15 @@ nautilus_window_slot_constructed (GObject *object)
      gtk_box_append (GTK_BOX (self->vbox), extras_vbox);
  
      self->query_editor = NAUTILUS_QUERY_EDITOR (nautilus_query_editor_new ());
@@ -346,7 +349,7 @@ index 4e4cbc3b54..05838b108c 100644
      /* We want to keep alive the query editor betwen additions and removals on the
       * UI, specifically when the toolbar adds or removes it */
      g_object_ref_sink (self->query_editor);
-@@ -2153,6 +2231,9 @@ apply_pending_location_and_selection_on_view (NautilusWindowSlot *self)
+@@ -2144,6 +2222,9 @@ apply_pending_location_and_selection_on_view (NautilusWindowSlot *self)
      nautilus_file_list_free (self->pending_selection);
      self->pending_selection = NULL;
  
@@ -356,31 +359,29 @@ index 4e4cbc3b54..05838b108c 100644
      if (self->pending_file_to_activate != NULL)
      {
          g_autoptr (GAppInfo) app_info = NULL;
-diff --git a/src/resources/ui/nautilus-preferences-dialog.ui b/src/resources/ui/nautilus-preferences-dialog.ui
-index fffaa6803f..4e0bb0f796 100644
---- a/src/resources/ui/nautilus-preferences-dialog.ui
-+++ b/src/resources/ui/nautilus-preferences-dialog.ui
-@@ -27,6 +27,21 @@
-                 <property name="use_underline">True</property>
-               </object>
-             </child>
-+            <child>
-+              <object class="AdwActionRow">
-+                <property name="activatable_widget">type_ahead_search</property>
-+                <property name="subtitle_lines">0</property>
-+                <property name="title" translatable="yes">Search on type ahead</property>
-+                <property name="title_lines">0</property>
-+                <property name="use_underline">True</property>
-+                <property name="visible">True</property>
-+                <child>
-+                  <object class="GtkSwitch" id="type_ahead_search">
-+                    <property name="valign">center</property>
-+                  </object>
-+                </child>
-+              </object>
-+            </child>
-           </object>
-         </child>
-         <child>
+diff --git a/src/resources/ui/nautilus-preferences-dialog.blp b/src/resources/ui/nautilus-preferences-dialog.blp
+index 259ac1a2e..f6bb17c68 100644
+--- a/src/resources/ui/nautilus-preferences-dialog.blp
++++ b/src/resources/ui/nautilus-preferences-dialog.blp
+@@ -24,6 +24,18 @@ Adw.PreferencesDialog preferences_dialog {
+         title: _("_Action to Open Items");
+         use-underline: true;
+       }
++
++      Adw.ActionRow type_ahead_search_row {
++        title: _("_Search on type ahead");
++        use-underline: true;
++
++        [prefix]
++        Switch type_ahead_search {
++          valign: center;
++        }
++
++        activatable-widget: type_ahead_search;
++      }
+     }
+ 
+     Adw.PreferencesGroup {
 -- 
-GitLab
+2.53.0
+

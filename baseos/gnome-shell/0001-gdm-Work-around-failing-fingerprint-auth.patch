@@ -16,7 +16,7 @@ diff --git a/js/gdm/util.js b/js/gdm/util.js
 index c45579a22b2b..387a468b64b6 100644
 --- a/js/gdm/util.js
 +++ b/js/gdm/util.js
-@@ -110,6 +110,7 @@ export class ShellUserVerifier extends Signals.EventEmitter {
+@@ -113,6 +113,7 @@ export class ShellUserVerifier extends Signals.EventEmitter {
          this._defaultService = null;
          this._preemptingService = null;
          this._fingerprintReaderType = FingerprintReaderType.NONE;
@@ -24,7 +24,7 @@ index c45579a22b2b..387a468b64b6 100644
  
          this._messageQueue = [];
          this._messageQueueTimeoutId = 0;
-@@ -670,6 +671,10 @@ export class ShellUserVerifier extends Signals.EventEmitter {
+@@ -672,6 +673,10 @@ export class ShellUserVerifier extends Signals.EventEmitter {
          this._hold.acquire();
          try {
              this._activeServices.add(serviceName);
@@ -35,15 +35,15 @@ index c45579a22b2b..387a468b64b6 100644
              if (this._userName) {
                  await this._userVerifier.call_begin_verification_for_user(
                      serviceName, this._userName, this._cancellable);
-@@ -764,6 +769,7 @@ export class ShellUserVerifier extends Signals.EventEmitter {
+@@ -766,6 +771,7 @@ export class ShellUserVerifier extends Signals.EventEmitter {
                  const cancellable = this._cancellable;
-                 this._fingerprintFailedId = GLib.timeout_add(GLib.PRIORITY_DEFAULT,
+                 this._fingerprintFailedId = GLib.timeout_add_once(GLib.PRIORITY_DEFAULT,
                      FINGERPRINT_ERROR_TIMEOUT_WAIT, () => {
 +                        log("Generating _verificationFailed!");
                          this._fingerprintFailedId = 0;
                          if (!cancellable.is_cancelled())
                              this._verificationFailed(serviceName, false);
-@@ -837,6 +843,18 @@ export class ShellUserVerifier extends Signals.EventEmitter {
+@@ -838,6 +844,18 @@ export class ShellUserVerifier extends Signals.EventEmitter {
          if (serviceName === FINGERPRINT_SERVICE_NAME) {
              if (this._fingerprintFailedId)
                  GLib.source_remove(this._fingerprintFailedId);
@@ -62,6 +62,3 @@ index c45579a22b2b..387a468b64b6 100644
          }
  
          // For Not Listed / enterprise logins, immediately reset
--- 
-2.51.1
-
