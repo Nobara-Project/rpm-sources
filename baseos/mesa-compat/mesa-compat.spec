@@ -1,5 +1,10 @@
 %global origname mesa
 
+# We've gotten a report that enabling LTO for mesa breaks some games. See
+# https://bugzilla.redhat.com/show_bug.cgi?id=1862771 for details.
+# Disable LTO for now
+%global _lto_cflags %nil
+
 Name:           %{origname}-compat
 Summary:        Mesa graphics libraries - legacy compatibility libraries
 %global ver 25.0.7
@@ -13,6 +18,12 @@ Source0:        https://archive.mesa3d.org/mesa-%{ver}.tar.xz
 # Source1 contains email correspondence clarifying the license terms.
 # Fedora opts to ignore the optional part of clause 2 and treat that code as 2 clause BSD.
 Source1:        Mesa-MLAA-License-Clarification-Email.txt
+
+# fix c11/threads builds problem on f44
+Patch01:        0001-c11-threads-fix-build-on-fedora-44.patch
+
+# Support LLVM 21
+Patch02:        cd129dbf8af2d16b1243f2ce287ff69c6a5dc557.patch
 
 BuildRequires:  meson >= 1.3.0
 BuildRequires:  gcc
@@ -42,6 +53,8 @@ Summary:        Mesa XA state tracker
 Provides:       libxatracker%{?_isa}
 Provides:       mesa-libxatracker%{?_isa}
 Obsoletes:      mesa-libxatracker < 25.3
+# New things should not rely on this as this library is dead upstream
+Provides:       deprecated()
 
 %description libxatracker
 %{summary}.
@@ -50,6 +63,8 @@ Obsoletes:      mesa-libxatracker < 25.3
 Summary:        Mesa XA state tracker development package
 Requires: %{name}-libxatracker%{?_isa} = %{?epoch:%{epoch}:}%{version}-%{release}
 Obsoletes:      mesa-libxatracker-devel < 25.3
+# New things should not rely on this as this library is dead upstream
+Provides:       deprecated()
 
 %description libxatracker-devel
 %{summary}.
@@ -78,11 +93,6 @@ Provides:       deprecated()
 cp %{SOURCE1} docs/
 
 %build
-# We've gotten a report that enabling LTO for mesa breaks some games. See
-# https://bugzilla.redhat.com/show_bug.cgi?id=1862771 for details.
-# Disable LTO for now
-%define _lto_cflags %{nil}
-
 %meson \
   -Dplatforms= \
   -Dosmesa=true \
