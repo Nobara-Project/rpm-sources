@@ -5,7 +5,8 @@
 %global geoclue_version 2.6.0
 %global gnome_desktop_version 44.0-7
 
-%global tarball_version %%(echo %{version} | tr '~' '.')
+%global tarball_version %%(echo %%{version} | tr '~' '.')
+%global major_version %%(echo %%{tarball_version} | cut -d "." -f 1)
 
 %if 0%{?rhel}
 %bcond_with webkitgtk
@@ -14,17 +15,20 @@
 %endif
 
 Name:           gnome-initial-setup
-Version:        49.0
+Version:        50.0
 Release:        %autorelease
 Summary:        Bootstrapping your OS
 
 License:        GPL-2.0-or-later
 URL:            https://wiki.gnome.org/Design/OS/InitialSetup
-Source0:        https://download.gnome.org/sources/%{name}/49/%{name}-%{tarball_version}.tar.xz
+Source0:        https://download.gnome.org/sources/%{name}/%{major_version}/%{name}-%{tarball_version}.tar.xz
 Source1:        vendor.conf
+Source2:        gnome-initial-setup.sysusers.conf
+Source3:        gnome-initial-setup.tmpfiles.conf
 
-Patch1:         gnome-initial-setup-toggles.patch
-
+# https://gitlab.gnome.org/GNOME/gnome-initial-setup/-/issues/242
+Patch:          no-run0.patch
+Patch:          gnome-initial-setup-toggles.patch
 
 BuildRequires:  desktop-file-utils
 BuildRequires:  gcc
@@ -54,6 +58,7 @@ BuildRequires:  pkgconfig(pango)
 BuildRequires:  pkgconfig(polkit-gobject-1)
 BuildRequires:  pkgconfig(pwquality)
 BuildRequires:  pkgconfig(rest-1.0)
+BuildRequires:  systemd-rpm-macros
 %if %{with webkitgtk}
 BuildRequires:  pkgconfig(webkitgtk-6.0)
 %endif
@@ -67,7 +72,7 @@ Requires: gnome-desktop4%{?_isa} >= %{gnome_desktop_version}
 Requires: polkit-js-engine
 Requires: /usr/bin/tecla
 
-Requires(pre): shadow-utils
+%{?sysusers_requires_compat}
 
 Provides: user(%name)
 
@@ -80,6 +85,9 @@ a good setup experience to welcome you to your system, and walks
 you through configuring it. It is integrated with gdm.
 
 %prep
+# check for human errors
+if [ `echo "%{version}" | grep -cE "\.alpha|\.beta|\.rc"` = "1" ]; then echo "Error: Use tilde in Version field in front of alpha/beta/rc; checked '%{version}'" 1>&2; exit 1; fi
+
 %autosetup -p1 -n %{name}-%{tarball_version}
 
 %build
@@ -96,14 +104,15 @@ you through configuring it. It is integrated with gdm.
 
 mkdir -p %{buildroot}%{_datadir}/gnome-initial-setup
 cp %{SOURCE1} %{buildroot}%{_datadir}/gnome-initial-setup/
+mkdir -p %{buildroot}%{_tmpfilesdir}
+install -m 0644 %{SOURCE3} %{buildroot}%{_tmpfilesdir}/%{name}.conf
+
 
 %find_lang %{name}
 
 %pre
-# we do not use sysusers yet because we need /var/lib/gnome-initial-setup
-# to be owned by the gnome-initial-setup user. please do not convert
-# to sysusers without making sure this is handled, maybe by tmpfiles
-useradd -rM -d /run/gnome-initial-setup/ -s /sbin/nologin %{name} &>/dev/null || :
+%sysusers_create_compat %{SOURCE2}
+
 
 %files -f %{name}.lang
 %license COPYING
@@ -119,6 +128,8 @@ useradd -rM -d /run/gnome-initial-setup/ -s /sbin/nologin %{name} &>/dev/null ||
 %{_datadir}/gnome-shell/modes/initial-setup.json
 %{_datadir}/polkit-1/rules.d/20-gnome-initial-setup.rules
 %{_sysusersdir}/gnome-initial-setup.conf
+%{_tmpfilesdir}/%{name}.conf
 %{_userunitdir}/*
 
 %changelog
+%autochangelog
