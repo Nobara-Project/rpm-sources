@@ -1,9 +1,9 @@
 %global build_timestamp %(date +"%Y%m%d")
 
 # use sed to replace these values
-%global build_version 2025.924.154138
+%global build_version 2026.516.143833
 %global branch master
-%global commit 86188d47a7463b0f73b35de18a628353adeaa20e
+%global commit 14ffa6fdaa53f7b51512be2b3d24f3939695403c
 
 %undefine _hardened_build
 
@@ -16,13 +16,11 @@
 
 Name: sunshine
 Version: %{build_version}
-Release: 4%{?dist}
+Release: 1%{?dist}
 Summary: Self-hosted game stream host for Moonlight.
 License: GPLv3-only
 URL: https://github.com/LizardByte/Sunshine
 Source0: tarball.tar.gz
-Patch0:  f43_fixup.patch
-Patch1:  sunshine_gamescope_service_fixup.patch
 
 # Common BuildRequires
 BuildRequires: cmake >= 3.25.0
@@ -42,8 +40,8 @@ BuildRequires: libXi-devel
 BuildRequires: libXinerama-devel
 BuildRequires: libXrandr-devel
 BuildRequires: libXtst-devel
-BuildRequires: npm
 BuildRequires: openssl-devel
+BuildRequires: pipewire-devel
 BuildRequires: rpm-build
 BuildRequires: systemd-rpm-macros
 BuildRequires: wget
@@ -53,15 +51,26 @@ BuildRequires: which
 # Fedora-specific BuildRequires
 BuildRequires: appstream
 # BuildRequires: boost-devel >= 1.86.0
+BuildRequires: glslc
 BuildRequires: libappstream-glib
+BuildRequires: vulkan-loader-devel
+%if 0%{fedora} > 43
+# needed for npm from nvm
+BuildRequires: libatomic
+%endif
 BuildRequires: libayatana-appindicator3-devel
 BuildRequires: libgudev
 BuildRequires: mesa-libGL-devel
 BuildRequires: mesa-libgbm-devel
 BuildRequires: miniupnpc-devel
+%if 0%{?fedora} < 44
+BuildRequires: nodejs-npm
+%endif
 BuildRequires: numactl-devel
 BuildRequires: opus-devel
 BuildRequires: pulseaudio-libs-devel
+BuildRequires: python3-jinja2
+BuildRequires: python3-setuptools
 BuildRequires: systemd-udev
 %{?sysusers_requires_compat}
 # for unit tests
@@ -80,7 +89,17 @@ BuildRequires: libminiupnpc-devel
 BuildRequires: libnuma-devel
 BuildRequires: libopus-devel
 BuildRequires: libpulse-devel
+BuildRequires: npm
+BuildRequires: python311
+BuildRequires: python311-Jinja2
+BuildRequires: python311-setuptools
+%if !0%{?sle_version}
+BuildRequires: shaderc
+%endif
 BuildRequires: udev
+%if !0%{?sle_version}
+BuildRequires: vulkan-devel
+%endif
 # for unit tests
 BuildRequires: xvfb-run
 %endif
@@ -93,21 +112,27 @@ BuildRequires: gcc13-c++
 %global gcc_version 13
 %global cuda_version 12.9.1
 %global cuda_build 575.57.08
-%elif %{?fedora} >= 42
+%elif 0%{?fedora} >= 42 && 0%{?fedora} <= 43
 BuildRequires: gcc14
 BuildRequires: gcc14-c++
 %global gcc_version 14
 %global cuda_version 12.9.1
 %global cuda_build 575.57.08
+%elif 0%{?fedora} >= 44
+BuildRequires: gcc15
+BuildRequires: gcc15-c++
+%global gcc_version 15
+%global cuda_version 13.1.1
+%global cuda_build 590.48.01
 %endif
 %endif
 
 %if 0%{?suse_version}
 %if 0%{?suse_version} <= 1699
 # OpenSUSE Leap 15.x
-BuildRequires: gcc13
-BuildRequires: gcc13-c++
-%global gcc_version 13
+BuildRequires: gcc14
+BuildRequires: gcc14-c++
+%global gcc_version 14
 %global cuda_version 12.9.1
 %global cuda_build 575.57.08
 %else
@@ -140,6 +165,7 @@ Requires: libX11 >= 1.7.3.1
 Requires: numactl-libs >= 2.0.14
 Requires: openssl >= 3.0.2
 Requires: pulseaudio-libs >= 10.0
+Requires: vulkan-loader
 %endif
 
 %if 0%{?suse_version}
@@ -156,6 +182,9 @@ Requires: libX11-6
 Requires: libnuma1
 Requires: libopenssl3
 Requires: libpulse0
+%if !0%{?sle_version}
+Requires: libvulkan1
+%endif
 %endif
 
 Provides: sunshine
@@ -171,11 +200,6 @@ tar -xzf %{SOURCE0} -C %{_builddir}/Sunshine
 
 # list directory
 ls -a %{_builddir}/Sunshine
-
-# patches
-cd %{_builddir}/Sunshine
-patch -Np1 < %{PATCH0}
-patch -Np1 < %{PATCH1}
 
 %build
 # exit on error
@@ -197,9 +221,11 @@ cmake_args=(
   "-DCMAKE_INSTALL_PREFIX=%{_prefix}"
   "-DSUNSHINE_ASSETS_DIR=%{_datadir}/sunshine"
   "-DSUNSHINE_EXECUTABLE_PATH=%{_bindir}/sunshine"
+  "-DSUNSHINE_ENABLE_DRM=ON"
+  "-DSUNSHINE_ENABLE_KWIN=ON"
+  "-DSUNSHINE_ENABLE_PORTAL=ON"
   "-DSUNSHINE_ENABLE_WAYLAND=ON"
   "-DSUNSHINE_ENABLE_X11=ON"
-  "-DSUNSHINE_ENABLE_DRM=ON"
   "-DSUNSHINE_PUBLISHER_NAME=LizardByte"
   "-DSUNSHINE_PUBLISHER_WEBSITE=https://app.lizardbyte.dev"
   "-DSUNSHINE_PUBLISHER_ISSUE_URL=https://app.lizardbyte.dev/support"
@@ -240,18 +266,29 @@ function install_cuda() {
     --toolkitpath="%{cuda_dir}"
   rm "%{_builddir}/cuda.run"
 
-  # we need to patch math_functions.h on fedora 42+
+  # we need to patch math_functions.h depending on the CUDA major version
   # see https://forums.developer.nvidia.com/t/error-exception-specification-is-incompatible-for-cospi-sinpi-cospif-sinpif-with-glibc-2-41/323591/3
-  if [ "%{?fedora}" -ge 42 ]; then
-    echo "Original math_functions.h:"
-    find "%{cuda_dir}" -name math_functions.h -exec cat {} \;
+  local cuda_major
+  cuda_major=$(echo "%{cuda_version}" | cut -d. -f1)
+  local patch_file=""
+  if [ "${cuda_major}" -eq 12 ]; then
+    # CUDA 12.x: the extern declarations lack noexcept(true); add it to match glibc 2.41.
+    patch_file="cuda-12-math_functions.patch"
+  elif [ "${cuda_major}" -eq 13 ]; then
+    # CUDA 13.x: the extern declarations already have noexcept(true), but the __func__()
+    # macro invocations at the bottom still lack it, causing a redeclaration conflict.
+    patch_file="cuda-13-math_functions.patch"
+  else
+    echo "Warning: no math_functions.h patch available for CUDA ${cuda_major}.x, skipping."
+  fi
 
-    # Apply the patch
+  if [ -n "${patch_file}" ]; then
+    echo "Applying CUDA patch: ${patch_file}"
     patch -p2 \
       --backup \
       --directory="%{cuda_dir}" \
       --verbose \
-      < "%{_builddir}/Sunshine/packaging/linux/patches/${architecture}/01-math_functions.patch"
+      < "%{_builddir}/Sunshine/packaging/linux/patches/${architecture}/${patch_file}"
   fi
 }
 
@@ -264,10 +301,48 @@ else
   cmake_args+=("-DSUNSHINE_ENABLE_CUDA=OFF")
 fi
 
+# Install and setup NVM for Fedora 44+
+%if 0%{?fedora} > 43
+echo "Installing NVM for Fedora 44+..."
+export HOME=${HOME:-/builddir}
+export NVM_DIR="$HOME/.nvm"
+
+# Install NVM
+if [ ! -d "$NVM_DIR" ]; then
+  wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
+fi
+
+# Load NVM
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+# Install and use Node.js
+nvm install node
+nvm use node
+
+echo "Node.js version: $(node --version)"
+echo "npm version: $(npm --version)"
+echo "npm location: $(which npm)"
+echo "node location: $(which node)"
+
+# Add npm and node path to cmake args
+NPM_PATH=$(which npm)
+NODE_PATH=$(which node)
+cmake_args+=("-DNPM=${NPM_PATH}")
+
+# Add node bin directory to PATH for make
+export PATH="$(dirname ${NODE_PATH}):${PATH}"
+%endif
+
 # setup the version
 export BRANCH=%{branch}
 export BUILD_VERSION=v%{build_version}
 export COMMIT=%{commit}
+
+# Disable Vulkan on openSUSE Leap (shaderc/glslang not in official repos)
+%if 0%{?sle_version}
+cmake_args+=("-DSUNSHINE_ENABLE_VULKAN=OFF")
+%endif
 
 # cmake
 cd %{_builddir}/Sunshine
@@ -287,6 +362,21 @@ cd %{_builddir}/Sunshine/build
 xvfb-run ./tests/test_sunshine
 
 %install
+# Load NVM for Fedora 44+ so npm is available during make install
+%if 0%{?fedora} > 43
+export HOME=${HOME:-/builddir}
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+nvm use node
+
+# Add node bin directory to PATH for make install
+NODE_PATH=$(which node)
+export PATH="$(dirname ${NODE_PATH}):${PATH}"
+
+echo "Node.js version: $(node --version)"
+echo "npm version: $(npm --version)"
+%endif
+
 cd %{_builddir}/Sunshine/build
 %make_install
 
@@ -318,11 +408,10 @@ fi
 
 %files
 # Executables
-%caps(cap_sys_admin+p) %{_bindir}/sunshine
-%caps(cap_sys_admin+p) %{_bindir}/sunshine-*
+%caps(cap_sys_admin,cap_sys_nice+p) %{_bindir}/sunshine
 
-# Systemd unit file for user services
-%{_userunitdir}/sunshine.service
+# Systemd unit files for user services
+%{_userunitdir}/*.service
 
 # Udev rules
 %{_udevrulesdir}/*-sunshine.rules
@@ -334,8 +423,8 @@ fi
 %{_datadir}/applications/*.desktop
 
 # Icons
-%{_datadir}/icons/hicolor/scalable/apps/sunshine.svg
-%{_datadir}/icons/hicolor/scalable/status/sunshine*.svg
+%{_datadir}/icons/hicolor/scalable/apps/*.Sunshine.svg
+%{_datadir}/icons/hicolor/scalable/status/*.Sunshine-*.svg
 
 # Metainfo
 %{_datadir}/metainfo/*.metainfo.xml

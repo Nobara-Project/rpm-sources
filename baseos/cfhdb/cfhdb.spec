@@ -1,27 +1,29 @@
-Name:          cfhdb
-Version:       0.2.0
-Release:       1%{?dist}
-License:       MPLv2
-Group:         System Environment/Libraries
-Summary:       CosmicFusion Hardware Database - Nobara Edition
+Name:           cfhdb
+Version:        0.2.0
+Release:        2%{?dist}
+License:        MPLv2
+Group:          System Environment/Libraries
+Summary:        CosmicFusion Hardware Database - Nobara Edition
 
 URL:            https://github.com/Nobara-Project/cfhdb
 Source0:        %{URL}/archive/refs/tags/%{version}.tar.gz
 
+Patch:          newer-libpci.patch
+
 # https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
 ExcludeArch:    %{ix86}
 
-BuildRequires:    cargo
-BuildRequires:    clang-devel
-BuildRequires:    kernel-devel
-BuildRequires:    llvm-devel
-BuildRequires:    openssl-devel
-BuildRequires:    pkgconfig(dbus-1)
-BuildRequires:    pkgconfig(libusb-1.0)
-BuildRequires:    pkgconfig(libpci)
+BuildRequires:  cargo
+BuildRequires:  clang-devel
+BuildRequires:  kernel-devel
+BuildRequires:  llvm-devel
+BuildRequires:  openssl-devel
+BuildRequires:  pkgconfig(dbus-1)
+BuildRequires:  pkgconfig(libusb-1.0)
+BuildRequires:  pkgconfig(libpci)
 
-Requires:      /usr/bin/bash
-Requires:      usbutils
+Requires:       /usr/bin/bash
+Requires:       usbutils
 
 %prep
 %autosetup -p1 -n %{name}-%{version}
