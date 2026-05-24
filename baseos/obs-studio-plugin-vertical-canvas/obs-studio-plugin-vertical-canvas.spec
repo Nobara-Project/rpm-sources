@@ -3,7 +3,7 @@
 %define debug_package %{nil}
 
 Name:       obs-studio-plugin-vertical-canvas
-Version:    1.6.1
+Version:    1.6.4
 Release:    1%{?dist}
 Summary:    Vertical canvas plugin for OBS
 
@@ -11,7 +11,7 @@ License:    GPL=2.0
 URL:        https://github.com/Aitum/obs-vertical-canvas
 Source0:    %{URL}/archive/refs/tags/%{version}.tar.gz
 
-Patch0:     0001-cmake-fixup.patch
+#Patch0:     0001-cmake-fixup.patch
 ExcludeArch:    %{ix86}
 
 BuildRequires:  cmake
