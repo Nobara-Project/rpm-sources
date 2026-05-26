@@ -85,7 +85,6 @@ Source1:        pipewire.sysusers
 #Source2:        99-force-clock.conf [TEST WITHOUT IT FOR NOW. CREATES ISSUES WITH OTHER USERS]
 
 ## upstream patches
-Patch0:         0001-filter-graph-sync_volume-initializes-the-control-por.patch
 
 ## Valve patches
 # Patch0010:	0001-pipeware-bluez5-backend-native-Enable-SCO-offload.patch [UPSTREAMED]
