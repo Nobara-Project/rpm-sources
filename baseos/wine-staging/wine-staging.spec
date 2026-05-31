@@ -9,9 +9,9 @@
 # check buildresult after a while
 
 %define _lto_cflags %{nil}
-%define realver     11.9
-%define stagingver  11.9
-%define packagever  11.9
+%define realver     11.10
+%define stagingver  11.10
+%define packagever  11.10
 
 %global flavor %nil
 %global build_type_safety_c 0
@@ -51,8 +51,7 @@ Source100:	https://github.com/wine-staging/wine-staging/archive/v%{realver}.tar.
 # Alexandres key
 Source99:	wine.keyring
 
-# https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
-ExcludeArch:    %{ix86}
+ExcludeArch:    %{ix86} %{aarch64} 
 
 BuildRequires:  mingw32-gcc
 BuildRequires:  mingw32-gcc-c++
