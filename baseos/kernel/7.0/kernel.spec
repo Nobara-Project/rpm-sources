@@ -43,8 +43,8 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 7.0
-%define _stablekver 10
-%define _PKGBUILD 2
+%define _stablekver 11
+%define _PKGBUILD 1
 %define _rcver rc7
 %define _tarkver %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
@@ -421,8 +421,8 @@ analysing the logical and timing behavior of Linux.
 
 %prep
 %setup -q -n linux-cachyos-%{_tarkver}-%{_PKGBUILD}
-# BORE patch
-patch -p1 -i %{PATCH1}
+# BORE patch [TEST WITHOUT BORE FOR NOW SINCE EEVDF+POC MIGHT BE ENOUGH]
+# patch -p1 -i %{PATCH1}
 # CachyOS Handheld patch
 patch -p1 -i %{PATCH2}
 # Nobara patches
@@ -1096,6 +1096,10 @@ fi
 %files
 
 %changelog
+* Mon Jun 01 2026 LionHeartP <LionHeartP@proton.me> - 7.0.11-200
+- Update to 7.0.11
+- Disable BORE for now
+
 * Sat May 23 2026 LionHeartP <LionHeartP@proton.me> - 7.0.10-200
 - Update to 7.0.10
 
