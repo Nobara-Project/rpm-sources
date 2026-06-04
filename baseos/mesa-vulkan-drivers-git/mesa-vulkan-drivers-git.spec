@@ -1,6 +1,6 @@
 %global _default_patch_fuzz 2
 
-%global commit 10c914693d32d693f661e532fd0b4464b3e3400b
+%global commit bea1212ee710d36bddb08b720734cc2eefc871b1
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build 4.git.%{build_timestamp}.%{shortcommit}%{?dist}
@@ -384,6 +384,17 @@ rm -Rf %{buildroot}%{_libdir}/pkgconfig/d3d.pc
 rm -Rf %{buildroot}%{_includedir}/d3dadapter/
 rm -Rf %{buildroot}%{_libdir}/d3d/*.so
 rm -Rf %{buildroot}%{_datadir}/drirc.d/00-mesa-defaults.conf
+rm -Rf %{buildroot}%{_datadir}/drirc.d/00-crocus-defaults.conf
+rm -Rf %{buildroot}%{_datadir}/drirc.d/00-iris-defaults.conf
+rm -Rf %{buildroot}%{_datadir}/drirc.d/00-msm-defaults.conf
+rm -Rf %{buildroot}%{_datadir}/drirc.d/00-panfrost-defaults.conf
+rm -Rf %{buildroot}%{_datadir}/drirc.d/00-r300-defaults.conf
+rm -Rf %{buildroot}%{_datadir}/drirc.d/00-r600-defaults.conf
+rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radeonsi-defaults.conf
+rm -Rf %{buildroot}%{_datadir}/drirc.d/00-v3d-defaults.conf
+rm -Rf %{buildroot}%{_datadir}/drirc.d/00-virtio_gpu-defaults.conf
+rm -Rf %{buildroot}%{_datadir}/drirc.d/00-vmwgfx-defaults.conf
+rm -Rf %{buildroot}%{_datadir}/drirc.d/00-zink-defaults.conf
 rm -Rf %{buildroot}%{_libdir}/dri/radeon_dri.so
 rm -Rf %{buildroot}%{_libdir}/dri/r200_dri.so
 rm -Rf %{buildroot}%{_libdir}/dri/nouveau_vieux_dri.so
@@ -494,16 +505,21 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %if 0%{?with_nvk}
 %{_libdir}/libvulkan_nouveau.so
 %{_datadir}/vulkan/icd.d/nouveau_icd.*.json
+%{_datadir}/drirc.d/00-nvk-defaults.conf
+%{_datadir}/drirc.d/00-hk-defaults.conf
 %endif
 %if 0%{?with_d3d12}
 %{_libdir}/libvulkan_dzn.so
 %{_datadir}/vulkan/icd.d/dzn_icd.*.json
+%{_datadir}/drirc.d/00-dzn-defaults.conf
 %endif
 %ifarch %{ix86} aarch64 x86_64
 %{_libdir}/libvulkan_intel.so
 %{_datadir}/vulkan/icd.d/intel_icd.*.json
+%{_datadir}/drirc.d/00-anv-defaults.conf
 %{_libdir}/libvulkan_intel_hasvk.so
 %{_datadir}/vulkan/icd.d/intel_hasvk_icd.*.json
+%{_datadir}/drirc.d/00-hasvk-defaults.conf
 %endif
 %ifarch aarch64 x86_64 %{ix86}
 %if 0%{?with_asahi}
@@ -514,8 +530,10 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %{_datadir}/vulkan/icd.d/broadcom_icd.*.json
 %{_libdir}/libvulkan_freedreno.so
 %{_datadir}/vulkan/icd.d/freedreno_icd.*.json
+%{_datadir}/drirc.d/00-turnip-defaults.conf
 %{_libdir}/libvulkan_panfrost.so
 %{_datadir}/vulkan/icd.d/panfrost_icd.*.json
+%{_datadir}/drirc.d/00-panvk-defaults.conf
 %{_libdir}/libvulkan_powervr_mesa.so
 %{_datadir}/vulkan/icd.d/powervr_mesa_icd.*.json
 %endif
