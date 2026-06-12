@@ -1,7 +1,7 @@
 %global _firmwarepath   /usr/lib/firmware
 %define __os_install_post %{nil}
 %global _upstreamtag 1
-%global valvever 20251111.1
+%global valvever 20260504.1
 
 Summary: Steam Deck OLED firmware for wifi and bluetooth
 Name: steamdeck-firmware

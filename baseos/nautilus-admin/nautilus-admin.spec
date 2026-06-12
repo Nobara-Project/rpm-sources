@@ -2,12 +2,14 @@
 
 Name:           nautilus-admin
 Version:        1.2.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Extension for Nautilus to do administrative operations
 
 License:        GPL-3.0
 URL:            https://github.com/MacTavishAO/nautilus-admin-gtk4 
 Source0:        https://github.com/MacTavishAO/nautilus-admin-gtk4/archive/%{git_commit_hash}.zip
+
+Patch0:         https://github.com/MacTavishAO/nautilus-admin-gtk4/pull/9.patch
 
 BuildRequires:  cmake
 BuildRequires:  gettext
@@ -30,7 +32,7 @@ You can use `nautilus -q` command.
 
 
 %prep
-%autosetup -n %{name}-gtk4-%{git_commit_hash}
+%autosetup -n %{name}-gtk4-%{git_commit_hash} -p1
 
 
 %build

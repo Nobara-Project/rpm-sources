@@ -1,0 +1,54 @@
+From ff3062498c6b3fc6fcb703627034598a3a5fbb59 Mon Sep 17 00:00:00 2001
+From: Luca Weiss <luca@z3ntu.xyz>
+Date: Sat, 16 May 2026 23:32:03 +0200
+Subject: [PATCH] razerkbd: Adjust to hid_report_raw_event() signature change
+
+With the Linux release 7.1-rc4
+
+(and backported to future 7.0.9 and
+6.18.32), the signature of hid_report_raw_event() adding a bufsize
+argument. Also pass the size of xdata to it.
+
+Note, that Arch Linux has backported this patch to their 7.0.8 kernel,
+but I haven't found any way to account for that with a preprocessor
+macro.
+---
+ driver/razerkbd_driver.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/driver/razerkbd_driver.c b/driver/razerkbd_driver.c
+index 557c3ab7b..5bdadcf8d 100644
+--- a/driver/razerkbd_driver.c
++++ b/driver/razerkbd_driver.c
+@@ -11,6 +11,7 @@
+ #include <linux/hid.h>
+ #include <linux/dmi.h>
+ #include <linux/input-event-codes.h>
++#include <linux/version.h>
+ 
+ #include "usb_hid_keys.h"
+ 
+@@ -4835,11 +4836,23 @@ static int razer_raw_event_bitfield(struct hid_device *hdev, struct razer_kbd_us
+ 
+                             // report key down
+                             xdata[1] = cur_value;
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(7, 1, 0) || \
++        (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 0, 9) && LINUX_VERSION_CODE < KERNEL_VERSION(7, 1, 0)) || \
++        (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 32) && LINUX_VERSION_CODE < KERNEL_VERSION(6, 19, 0))
++                            hid_report_raw_event(hdev, HID_INPUT_REPORT, xdata, sizeof(xdata), sizeof(xdata), 0);
++#else
+                             hid_report_raw_event(hdev, HID_INPUT_REPORT, xdata, sizeof(xdata), 0);
++#endif
+ 
+                             // report key up
+                             xdata[1] = 0x00;
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(7, 1, 0) || \
++        (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 0, 9) && LINUX_VERSION_CODE < KERNEL_VERSION(7, 1, 0)) || \
++        (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 32) && LINUX_VERSION_CODE < KERNEL_VERSION(6, 19, 0))
++                            hid_report_raw_event(hdev, HID_INPUT_REPORT, xdata, sizeof(xdata), sizeof(xdata), 0);
++#else
+                             hid_report_raw_event(hdev, HID_INPUT_REPORT, xdata, sizeof(xdata), 0);
++#endif
+                         }
+                     }
+                 }

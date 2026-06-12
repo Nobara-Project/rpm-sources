@@ -1,5 +1,5 @@
-%global tarball_version %%(echo %{version} | tr '~' '.')
-%define major_version %(c=%{version}; echo $c | cut -d. -f1 | cut -d~ -f1)
+%global tarball_version %%(echo %%{version} | tr '~' '.')
+%global major_version %%(echo %%{tarball_version} | cut -d "." -f 1)
 
 %if 0%{?rhel}
 %global portal_helper 0
@@ -8,7 +8,7 @@
 %endif
 
 Name:           gnome-shell
-Version:        49.5
+Version:        50.1
 Release:        %autorelease
 Summary:        Window management and application launching for GNOME
 
@@ -29,9 +29,9 @@ Patch: 0001-gdm-Work-around-failing-fingerprint-auth.patch
 %define gjs_version 1.85.90
 %define gtk4_version 4.0.0
 %define adwaita_version 1.5.0
-%define mutter_version 49.0
+%define mutter_version 50~alpha
 %define polkit_version 0.100
-%define gsettings_desktop_schemas_version 49~alpha
+%define gsettings_desktop_schemas_version 50~alpha
 %define ibus_version 1.5.2
 %define gnome_bluetooth_version 1:42.3
 %define gstreamer_version 1.4.5
@@ -41,7 +41,7 @@ Patch: 0001-gdm-Work-around-failing-fingerprint-auth.patch
 BuildRequires:  pkgconfig(bash-completion)
 BuildRequires:  gcc
 BuildRequires:  meson
-BuildRequires:  git
+BuildRequires:  git-core
 BuildRequires:  desktop-file-utils
 BuildRequires:  pkgconfig(libedataserver-1.2) >= %{eds_version}
 BuildRequires:  pkgconfig(gcr-4)
@@ -178,6 +178,9 @@ BuildArch: noarch
 %{summary}
 
 %prep
+# check for human errors
+if [ `echo "%{version}" | grep -cE "\.alpha|\.beta|\.rc"` = "1" ]; then echo "Error: Use tilde in Version field in front of alpha/beta/rc; checked '%{version}'" 1>&2; exit 1; fi
+
 %autosetup -S git -n %{name}-%{tarball_version}
 
 %build
@@ -241,8 +244,8 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/org.gnome.Shell.Porta
 %{_datadir}/icons/hicolor/scalable/apps/org.gnome.Shell.Extensions.svg
 %{_datadir}/icons/hicolor/symbolic/apps/org.gnome.Shell.Extensions-symbolic.svg
 %{_userunitdir}/org.gnome.Shell-disable-extensions.service
-%{_userunitdir}/org.gnome.Shell.target
-%{_userunitdir}/org.gnome.Shell@wayland.service
+#{_userunitdir}/org.gnome.Shell.target
+%{_userunitdir}/org.gnome.Shell@.service
 %{_libdir}/gnome-shell/
 %{_libexecdir}/gnome-shell-calendar-server
 %{_libexecdir}/gnome-shell-perf-helper

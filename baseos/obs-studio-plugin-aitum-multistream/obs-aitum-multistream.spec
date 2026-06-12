@@ -6,9 +6,9 @@
 
 # Establish the name and source
 
-%global commit 9e679516e0c88ade8273466ce27f2c030e3ede91
+%global commit c48b4bf182f8b354255df7329c9afe3dee4f9820
 Name:       obs-studio-plugin-aitum-multistream
-Version:    1.0.7
+Version:    1.0.8
 Release:    1%{?dist}
 Summary:    Multistream plugin for OBS
 License:    GPL=2.0
@@ -16,7 +16,7 @@ URL:        https://github.com/Aitum/obs-aitum-multistream
 #Source0:    %{URL}/archive/refs/tags/%{version}.tar.gz
 Source0:    %{URL}/archive/refs/heads/main.tar.gz
 
-Patch0:     0001-cmake-fixup.patch
+#Patch0:     0001-cmake-fixup.patch
 ExcludeArch:%{ix86}
 
 
@@ -51,6 +51,7 @@ A multistreaming plugin for OBS Studio by Aitum
 %build
 %cmake \
     -DBUILD_OUT_OF_TREE=On \
+    -DCMAKE_NO_SYSTEM_FROM_IMPORTED=ON \
     -DCMAKE_CXX_FLAGS="-Wno-error=deprecated-declarations"
 %cmake_build
 

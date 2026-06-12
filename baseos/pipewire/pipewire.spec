@@ -1,6 +1,6 @@
 %global majorversion 1
-%global minorversion 4
-%global microversion 11
+%global minorversion 6
+%global microversion 6
 
 %global apiversion   0.3
 %global spaversion   0.2
@@ -13,7 +13,7 @@
 
 #global snapdate   20210107
 #global gitcommit  b17db2cebc1a5ab2c01851d29c05f79cd2f262bb
-#global shortcommit %%(c=%{gitcommit}; echo ${c:0:7})
+#global shortcommit %(c=%{gitcommit}; echo ${c:0:7})
 
 # https://bugzilla.redhat.com/983606
 %global _hardened_build 1
@@ -40,17 +40,23 @@
 %bcond_with libmysofa
 %bcond_with lv2
 %bcond_with roc
+%bcond_with ffado
+%bcond_with onnx
 %else
 %bcond_without jackserver_plugin
 %bcond_without libmysofa
 %bcond_without lv2
 %bcond_without roc
-%endif
-
-%if 0%{?rhel} || ("%{_arch}" == "s390x")
+%ifarch s390x
 %bcond_with ffado
+%bcond_with onnx
+%elifarch %{ix86}
+%bcond_without ffado
+%bcond_with onnx
 %else
 %bcond_without ffado
+%bcond_without onnx
+%endif
 %endif
 
 # Disabled for RHEL < 11 and Fedora < 36
@@ -66,6 +72,8 @@ Name:           pipewire
 Summary:        Media Sharing Server
 Version:        %{majorversion}.%{minorversion}.%{microversion}
 Release:        %{baserelease}%{?snapdate:.%{snapdate}git%{shortcommit}}%{?dist}
+# PipeWire is generally MIT but includes plugins using libraries under other licenses.
+# See the module specific License for details.
 License:        MIT
 URL:            https://pipewire.org/
 %if 0%{?snapdate}
@@ -74,12 +82,12 @@ Source0:        https://gitlab.freedesktop.org/pipewire/pipewire/-/archive/%{git
 Source0:        https://gitlab.freedesktop.org/pipewire/pipewire/-/archive/%{version}/pipewire-%{version}.tar.gz
 %endif
 Source1:        pipewire.sysusers
-Source2:        99-force-clock.conf
+#Source2:        99-force-clock.conf [TEST WITHOUT IT FOR NOW. CREATES ISSUES WITH OTHER USERS]
 
 ## upstream patches
 
 ## Valve patches
-Patch0010:	0001-pipeware-bluez5-backend-native-Enable-SCO-offload.patch
+# Patch0010:	0001-pipeware-bluez5-backend-native-Enable-SCO-offload.patch [UPSTREAMED]
 
 ## upstreamable patches
 
@@ -119,10 +127,10 @@ BuildRequires:  libsndfile-devel
 BuildRequires:  ncurses-devel
 BuildRequires:  pulseaudio-libs-devel
 BuildRequires:  avahi-devel
-%if 0%{?fedora} >= 40 || 0%{?rhel} >= 10
+%if (0%{?fedora} && 0%{?fedora} < 44) || (0%{?rhel} && 0%{?rhel} < 11)
 BuildRequires:  pkgconfig(webrtc-audio-processing-1)
 %else
-BuildRequires:  pkgconfig(webrtc-audio-processing) >= 0.2
+BuildRequires:  pkgconfig(webrtc-audio-processing-2)
 %endif
 BuildRequires:  libusb1-devel
 BuildRequires:  readline-devel
@@ -133,6 +141,7 @@ BuildRequires:  speexdsp-devel
 BuildRequires:  systemd-rpm-macros
 BuildRequires:  libebur128-devel
 BuildRequires:  fftw-devel
+BuildRequires:  spandsp-devel
 
 Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
 Requires:       systemd
@@ -150,7 +159,8 @@ systems.
 
 %package libs
 Summary:        Libraries for PipeWire clients
-License:        MIT
+# fftw is GPL-2.0-or later, ladpsa is LGPL-2.0-or-later and used in filter-graph.
+License:        MIT AND GPL-2.0-or-later AND BSD-2-Clause AND LGPL-2.0-or-later
 Recommends:     %{name}%{?_isa} = %{version}-%{release}
 Obsoletes:      %{name}-libpulse < %{version}-%{release}
 
@@ -234,10 +244,6 @@ Summary:        PipeWire JACK implementation
 License:        MIT
 Recommends:     %{name}%{?_isa} = %{version}-%{release}
 Requires:       %{name}-jack-audio-connection-kit-libs%{?_isa} = %{version}-%{release}
-# We don't conflict with JACK, we just override the JACK libjack.so
-# and JACK can only be used as a backend with module-jack-tunnel.
-#Conflicts:      jack-audio-connection-kit
-#Conflicts:      jack-audio-connection-kit-dbus
 # Replaces libjack subpackage
 %if ! (0%{?fedora} && 0%{?fedora} < 34)
 # Ensure this is provided by default to route all audio
@@ -366,7 +372,7 @@ This package contains X11 bell support for PipeWire.
 %if %{with ffado}
 %package module-ffado
 Summary:        PipeWire media server ffado support
-License:        MIT
+License:        MIT AND GPL-2.0-only OR GPL-3.0-only
 BuildRequires:  libffado-devel
 Recommends:     %{name}%{?_isa} = %{version}-%{release}
 Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
@@ -378,7 +384,7 @@ This package contains the FFADO support for PipeWire.
 %if %{with roc}
 %package module-roc
 Summary:        PipeWire media server ROC support
-License:        MIT
+License:        MIT AND MPL-2.0 AND LGPL-2.1-or-later AND CECILL-C
 BuildRequires:  roc-toolkit-devel
 BuildRequires:  libunwind-devel
 BuildRequires:  openfec-devel
@@ -393,7 +399,7 @@ This package contains the ROC support for PipeWire.
 %if %{with libmysofa}
 %package module-filter-chain-sofa
 Summary:        PipeWire media server sofa filter-chain support
-License:        MIT
+License:        MIT AND BSD-3-Clause
 BuildRequires:  libmysofa-devel
 Recommends:     %{name}%{?_isa} = %{version}-%{release}
 Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
@@ -412,6 +418,18 @@ Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
 
 %description module-filter-chain-lv2
 This package contains the mysofa support for PipeWire filter-chain.
+%endif
+
+%if %{with onnx}
+%package module-filter-chain-onnx
+Summary:        PipeWire media server ONNX filter-chain support
+License:        MIT AND Apache-2.0 AND BSL-1.0 AND BSD-3-Clause
+BuildRequires:  onnxruntime-devel
+Recommends:     %{name}%{?_isa} = %{version}-%{release}
+Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
+
+%description module-filter-chain-onnx
+This package contains the ONNX support for PipeWire filter-chain.
 %endif
 
 %package config-rates
@@ -453,11 +471,13 @@ cp %{SOURCE1} subprojects/packagefiles/
 
 %build
 %meson \
-    -D docs=enabled -D man=enabled -D gstreamer=enabled -D systemd=enabled	\
+    -D docs=enabled -D man=enabled -D gstreamer=enabled -D libsystemd=enabled	\
+    -D systemd-user-service=enabled 						\
     -D sdl2=disabled 								\
     -D audiotestsrc=disabled -D videotestsrc=disabled				\
     -D volume=disabled -D bluez5-codec-aptx=disabled 		  		\
     -D bluez5-codec-lc3plus=disabled -D bluez5-codec-lc3=enabled		\
+    -D bluez5-codec-ldac-dec=disabled 						\
 %ifarch s390x
     -D bluez5-codec-ldac=disabled						\
 %endif
@@ -472,6 +492,7 @@ cp %{SOURCE1} subprojects/packagefiles/
     %{?with_vulkan:-D vulkan=enabled}						\
     %{!?with_libmysofa:-D libmysofa=disabled}					\
     %{!?with_lv2:-D lv2=disabled}						\
+    %{!?with_onnx:-D onnxruntime=disabled}					\
     %{!?with_roc:-D roc=disabled}						\
     %{!?with_ffado:-D libffado=disabled}					\
     %{nil}
@@ -528,9 +549,6 @@ ln -s ../pipewire.conf.avail/20-upmix.conf \
 ln -s ../client.conf.avail/20-upmix.conf \
 		%{buildroot}%{_datadir}/pipewire/client.conf.d/20-upmix.conf
 
-# https://www.reddit.com/r/linux_gaming/comments/1htxdig/audio_crackles_nobara_41/
-install -p -D -m 0644 %{SOURCE2} %{buildroot}%{_datadir}/pipewire/pipewire.conf.d/99-force-clock.conf
-
 # raop config
 ln -s ../pipewire.conf.avail/50-raop.conf \
 		%{buildroot}%{_datadir}/pipewire/pipewire.conf.d/50-raop.conf
@@ -586,7 +604,6 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 %{_mandir}/man5/pipewire.conf.5*
 %{_mandir}/man5/pipewire-filter-chain.conf.5*
 %config(noreplace) %{_sysconfdir}/security/limits.d/*.conf
-%{_datadir}/pipewire/pipewire.conf.d/99-force-clock.conf
 %{_sysusersdir}/pipewire.conf
 
 %files libs -f %{name}.lang
@@ -738,11 +755,14 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 %{_bindir}/pw-mididump
 %{_bindir}/pw-midiplay
 %{_bindir}/pw-midirecord
+%{_bindir}/pw-midi2play
+%{_bindir}/pw-midi2record
 %{_bindir}/pw-mon
 %{_bindir}/pw-play
 %{_bindir}/pw-profiler
 %{_bindir}/pw-record
 %{_bindir}/pw-reserve
+%{_bindir}/pw-sysex
 %{_bindir}/pw-top
 %{_mandir}/man1/pw-cat.1*
 %{_mandir}/man1/pw-cli.1*
@@ -898,6 +918,11 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 %{_libdir}/spa-%{spaversion}/filter-graph/libspa-filter-graph-plugin-lv2.so
 %endif
 
+%if %{with onnx}
+%files module-filter-chain-onnx
+%{_libdir}/spa-%{spaversion}/filter-graph/libspa-filter-graph-plugin-onnx.so
+%endif
+
 %files config-rates
 %{_datadir}/pipewire/pipewire.conf.d/10-rates.conf
 
@@ -912,11 +937,73 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 %{_datadir}/pipewire/pipewire.conf.d/50-raop.conf
 
 %changelog
-* Thu Mar 19 2026 LionHeartP <LionHeartP@proton.me> - 1.4.11-1
-- Update version to 1.4.11
+* Tue May 26 2026 LionHeartP <LionHeartP@proton.me> - 1.6.6-1
+- Update version to 1.6.6
+- Disable patches as a test to see if the crackling audio issues are resolved
 
-* Fri Jan 16 2026 Wim Taymans <wtaymans@redhat.com> - 1.4.10-1
-- Update version to 1.4.10
+* Wed May 20 2026 Janne Grunau <j@jannau.net> - 1.6.5-2
+- Add patch for filter-graph sync_volume control port init
+
+* Wed May 13 2026 Wim Taymans <wtaymans@redhat.com> - 1.6.5-1
+- Update version to 1.6.5
+
+* Wed Apr 22 2026 Wim Taymans <wtaymans@redhat.com> - 1.6.4-1
+- Update version to 1.6.4
+
+* Thu Apr 09 2026 Wim Taymans <wtaymans@redhat.com> - 1.6.3-1
+- Update version to 1.6.3
+
+* Mon Mar 16 2026 Wim Taymans <wtaymans@redhat.com> - 1.6.2-1
+- Update version to 1.6.2
+- Add patch to fix compilation
+
+* Fri Mar 13 2026 Adam Williamson <awilliam@redhat.com> - 1.6.1-3
+- Backport crash fix to fix issues with GNOME remote desktop
+
+* Mon Mar 09 2026 Wim Taymans <wtaymans@redhat.com> - 1.6.1-2
+- Add patch for shared mem fix
+
+* Mon Mar 09 2026 Wim Taymans <wtaymans@redhat.com> - 1.6.1-1
+- Update version to 1.6.1
+
+* Thu Feb 19 2026 Wim Taymans <wtaymans@redhat.com> - 1.6.0-1
+- Update version to 1.6.0
+
+* Mon Feb 02 2026 Wim Taymans <wtaymans@redhat.com> - 1.5.85-3
+- Rebuild for libcamera.
+
+* Wed Jan 28 2026 Wim Taymans <wtaymans@redhat.com> - 1.5.85-2
+- Rebuild for onnxruntime.
+
+* Mon Jan 19 2026 Wim Taymans <wtaymans@redhat.com> - 1.5.85-1
+- Update version to 1.5.85
+
+* Sat Jan 17 2026 Fedora Release Engineering <releng@fedoraproject.org> - 1.5.84-6
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_44_Mass_Rebuild
+
+* Mon Dec 15 2025 Wim Taymans <wtaymans@redhat.com> - 1.5.84-5
+- Bump for libcamera ABI change
+
+* Tue Dec 9 2025 Wim Taymans <wtaymans@redhat.com> - 1.5.84-4
+- Bump for libcamera ABI change
+
+* Thu Nov 27 2025 Wim Taymans <wtaymans@redhat.com> - 1.5.84-1
+- Update version to 1.5.84
+
+* Thu Nov 27 2025 Than Ngo <than@redhat.com> - 1.5.83-3
+- Rebuilt with new binutils in rawhide due to rhbz#2415824
+
+* Wed Nov 19 2025 Neal Gompa <ngompa@fedoraproject.org> - 1.5.83-2
+- Use webrtc-audio-processing-2 with Fedora 44+ and RHEL 11+
+
+* Thu Nov 06 2025 Wim Taymans <wtaymans@redhat.com> - 1.5.83-1
+- Update version to 1.5.83
+
+* Fri Oct 17 2025 Fabio Valentini <decathorpe@gmail.com> - 1.5.81-2
+- Revert: audio: bump max channels to 128
+
+* Thu Oct 16 2025 Wim Taymans <wtaymans@redhat.com> - 1.5.81-1
+- Update version to 1.5.81
 
 * Thu Oct 9 2025 Wim Taymans <wtaymans@redhat.com> - 1.4.9-1
 - Update version to 1.4.9
@@ -925,7 +1012,7 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 - Add patch for xrun regression when stopping nodes.
 - Add patch for libcamera IPA spawn problem.
 - Add patch to fix UMP event sorting.
-                    
+
 * Thu Sep 11 2025 Wim Taymans <wtaymans@redhat.com> - 1.4.8-1
 - Update version to 1.4.8
 
@@ -938,11 +1025,17 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 * Wed Jun 04 2025 Wim Taymans <wtaymans@redhat.com> - 1.4.5-1
 - Update version to 1.4.5
 
-* Fri May 30 2025 Christian Glombek <lorbus@fedoraproject.org> - 1.4.4-2
-- Add config-raop package with config enabling module-raop
-
 * Thu May 29 2025 Wim Taymans <wtaymans@redhat.com> - 1.4.4-1
 - Update version to 1.4.4
+
+* Thu May 22 2025 Christian Glombek <lorbus@fedoraproject.org> - 1.4.3-2
+- Add config-raop package with config enabling module-raop
+
+* Thu May 22 2025 Wim Taymans <wtaymans@redhat.com> - 1.4.3-1
+- Update version to 1.4.3
+
+* Thu Apr 24 2025 Wim Taymans <wtaymans@redhat.com> - 1.4.2-2
+- Rebuild for libcamera
 
 * Mon Apr 14 2025 Wim Taymans <wtaymans@redhat.com> - 1.4.2-1
 - Update version to 1.4.2
@@ -952,15 +1045,26 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 - Remove the Conflicts: with JACK, we can install both but if the
   pipewire version is installed, all goes to pipewire.
 
-* Fri Mar 07 2025 Wim Taymans <wtaymans@redhat.com> - 1.4.0-1
+* Fri Mar 07 2025 Wim Taymans <wtaymans@redhat.com> - 1.4.0-3
+- Always require jack-audio-connection-kit from jack-audio-connection-kit-libs
+  because the ld.so.conf is needed to build dependent packages
+  Resolves: rhbz#2345985
+
+* Fri Mar 07 2025 Wim Taymans <wtaymans@redhat.com> - 1.4.0-2
+- Move the libjack.so ld.so.conf file to -libs.
+  Resolves: rhbz#2345985
+
+* Thu Mar 06 2025 Wim Taymans <wtaymans@redhat.com> - 1.4.0-1
 - Update version to 1.4.0
 
-* Fri Mar 07 2025 Wim Taymans <wtaymans@redhat.com> - 1.2.7-5
-- Recommend jack-audio-connection-kit from jack-audio-connection-kit-libs
-  because the ld.so.conf is wanted to build dependent packages.
+* Mon Feb 24 2025 Wim Taymans <wtaymans@redhat.com> - 1.3.83-1
+- Update version to 1.3.83
 
-* Thu Feb 06 2025 Wim Taymans <wtaymans@redhat.com> - 1.2.7-4
-- Add some libcamera patches
+* Tue Feb 11 2025 Zbigniew Jędrzejewski-Szmek <zbyszek@in.waw.pl> - 1.3.82-2
+- Drop call to %sysusers_create_compat
+
+* Thu Feb 06 2025 Wim Taymans <wtaymans@redhat.com> - 1.3.82-1
+- Update version to 1.3.82
 
 * Sat Jan 18 2025 Fedora Release Engineering <releng@fedoraproject.org> - 1.2.7-3
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_42_Mass_Rebuild

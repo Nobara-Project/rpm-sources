@@ -1,5 +1,5 @@
 Name:       wireplumber
-Version:    0.5.13
+Version:    0.5.14
 Release:    1%{?dist}
 Summary:    A modular session/policy manager for PipeWire
 

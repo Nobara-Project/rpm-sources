@@ -7,7 +7,7 @@
 %endif
 
 Name:    bluez
-Version: 5.84
+Version: 5.86
 Release: 1%{?dist}
 Summary: Bluetooth utilities
 License: GPL-2.0-or-later
@@ -31,9 +31,14 @@ Patch6: 0021-valve-bluetooth-ll-privacy.patch
 # https://lore.kernel.org/all/CABBYNZKFEBuW2OeU4uOSfku=-jCnn3oXJENDMBGmkqP-4rybDA@mail.gmail.com/t/#u
 Patch7: 0001-BlueZ-adapter-Fix-execute-LE-Add-Device-To-Resolving.patch
 
+# Fedora patches
+Patch10: big-endian-5.86.patch
+Patch11: 0001-a2dp-connect-source-profile-after-sink.patch
+Patch12: bluetoothctl-no-output.patch
+
 BuildRequires: dbus-devel >= 1.6
 BuildRequires: glib2-devel
-BuildRequires: libell-devel >= 0.37
+BuildRequires: libell-devel >= 0.39
 BuildRequires: libical-devel
 BuildRequires: make
 BuildRequires: readline-devel
@@ -197,6 +202,7 @@ install -m0755 tools/avinfo $RPM_BUILD_ROOT%{_bindir}
 # some issues and to set the MAC address on HCIs which don't have their
 # MAC address configured
 install -m0755 tools/btmgmt $RPM_BUILD_ROOT%{_bindir}
+install -m0644 doc/btmgmt.1 $RPM_BUILD_ROOT%{_mandir}/man1/
 
 # Remove libtool archive
 find $RPM_BUILD_ROOT -name '*.la' -delete
@@ -365,6 +371,37 @@ install emulator/btvirt ${RPM_BUILD_ROOT}/%{_libexecdir}/bluetooth/
 %{_userunitdir}/obex.service
 
 %changelog
+* Fri Feb 27 2026 Bastien Nocera <bnocera@redhat.com> - 5.86-4
+- Re-add btmgmt as it does not require bluetoothd to be running,
+  unlike bluetoothctl mgmt
+- Update audio output patch to be upstream version
+- Fix "bluetoothctl list" empty output (Closes: #2440346)
+
+* Mon Feb 16 2026 Bastien Nocera <bnocera@redhat.com> - 5.86-3
+- Fix audio output not working in some circumstances
+
+* Tue Feb 10 2026 Bastien Nocera <bnocera@redhat.com> - 5.86-2
+- Use simpler big endian bug fix
+
+* Mon Feb 09 2026 Bastien Nocera <bnocera@redhat.com> - 5.86-1
+- Update to 5.86
+
+* Thu Jan 29 2026 Bastien Nocera <bnocera@redhat.com> - 5.85-4
+- Don't install btmgmt, bluetoothctl's mgmt sub-menu can do the same things
+
+* Fri Jan 16 2026 Fedora Release Engineering <releng@fedoraproject.org> - 5.85-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_44_Mass_Rebuild
+
+* Fri Jan 16 2026 Fedora Release Engineering <releng@fedoraproject.org> - 5.85-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_44_Mass_Rebuild
+
+* Fri Nov 21 2025 Peter Robinson <pbrobinson@fedoraproject.org> - 5.85-1
+- Update to 5.85
+
+* Wed Sep 24 2025 Bastien Nocera <bnocera@redhat.com> - 5.84-2
++ bluez-5.84-2
+- Fix Bluetooth LE audio
+
 * Fri Sep 19 2025 Bastien Nocera <bnocera@redhat.com> - 5.84-1
 - Update to 5.84
 

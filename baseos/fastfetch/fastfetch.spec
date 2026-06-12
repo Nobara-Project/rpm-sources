@@ -1,5 +1,5 @@
 Name:           fastfetch
-Version:        2.60.0
+Version:        2.63.1
 Release:        1%{?dist}
 Summary:        Fast neofetch-like system information tool
 
@@ -98,6 +98,9 @@ ln -s %{_bindir}/%{name} %{buildroot}%{_bindir}/neofetch
 
 
 %changelog
+* Fri May 22 2026 LionHeartP <LionHeartP@proton.me> - 2.63.1-1
+- update to 2.63.1
+
 * Sun Mar 15 2026 LionHeartP <LionHeartP@proton.me> - 2.60.0-1
 - update to 2.60.0
 

@@ -7,7 +7,7 @@
 # Establish the name and source
 
 Name:       obs-studio-plugin-source-record
-Version:    0.4.6
+Version:    0.4.8
 Release:    1%{?dist}
 Summary:    Multistream plugin for OBS
 License:    GPL=2.0

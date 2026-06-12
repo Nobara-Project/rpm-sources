@@ -2,9 +2,9 @@
 %undefine _package_note_file
 
 Name: starship
-Version: 1.24.2
-Release: 2%{?dist}
-Summary: â˜„ðŸŒŒï¸� The minimal, blazing-fast, and infinitely customizable prompt for any shell!
+Version: 1.25.1
+Release: 1%{?dist}
+Summary: The minimal, blazing-fast, and infinitely customizable prompt for any shell!
 
 License: ISC
 URL: https://github.com/starship/starship
@@ -56,6 +56,9 @@ cp %{SOURCE2} %{buildroot}/etc/profile.d/
 %config(noreplace) /etc/profile.d/nobara_profile_starship.sh
 
 %changelog
+* Thu May 21 2026 LionHeartP <LionHeartP@proton.me> - 1.25.1-1
+- chore: Update to latest release
+
 * Sat Mar 21 2026 LionHeartP <LionHeartP@proton.me> - 1.24.2-1
 - chore: Update to latest release
 - build: Change cmake3 to cmake for f44+ compatibility

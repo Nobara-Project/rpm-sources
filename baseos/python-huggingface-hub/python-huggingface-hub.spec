@@ -1,5 +1,5 @@
 Name: python-huggingface-hub
-Version: 1.1.5
+Version: 1.16.0
 Release: 1%{?dist}
 Summary: The official Python client for the Huggingface Hub.
 

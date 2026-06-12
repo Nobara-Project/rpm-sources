@@ -1,6 +1,6 @@
 Name:           obs-studio-plugin-backgroundremoval
-Version:        1.3.4
-Release:        2%{?dist}
+Version:        1.3.7
+Release:        1%{?dist}
 Summary:        A plugin for OBS Studio that allows you to replace the background in portrait images and video, as well as enhance low-light scenes.
 
 License:        GPL-2.0-or-later

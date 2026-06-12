@@ -1,0 +1,86 @@
+From d27611287f9836ea2c99c0e29fd8a62235f069fd Mon Sep 17 00:00:00 2001
+Date: Tue, 3 Feb 2026 13:07:56 +0100
+Subject: [PATCH] gs-plugin-job-list-apps: Respect DISABLE_FILTERING query flag
+
+The caller may require to disable filtering for the list-apps job,
+to expect to get any apps, like plain packages, not only GUI apps.
+
+This stroke when getting historical updates. The call from update monitor
+is almost the same as in case of `--mode=updated`, both are disabling
+filtering, but the list-apps for the updated mode also includes flags
+which the generic-updates plugin uses to determine whether package
+updates should be grouped into the "System Updates" proxy app or not.
+When the last update was only for a package, which has no AppStream data,
+the filtering drops the package, because it is of kind "generic", thus
+the user is not notified about made updates. The package is in the updates
+dialog, because it's moved into the System Updates proxy app. By respecting
+the "disable filtering" flag in the list-apps job both of the calls get
+the same apps (only update monitor without grouping of the package updates,
+which is expected and intended).
+---
+ lib/gs-plugin-job-list-apps.c | 40 +++++++++++++++++++----------------
+ 1 file changed, 22 insertions(+), 18 deletions(-)
+
+diff --git a/lib/gs-plugin-job-list-apps.c b/lib/gs-plugin-job-list-apps.c
+index c9edf33e5..16b740304 100644
+--- a/lib/gs-plugin-job-list-apps.c
++++ b/lib/gs-plugin-job-list-apps.c
+@@ -454,6 +454,7 @@ finish_task (GTask     *task,
+ {
+ 	GsPluginJobListApps *self = g_task_get_source_object (task);
+ 	GsPluginLoader *plugin_loader = g_task_get_task_data (task);
++	GsPluginRefineFlags refine_flags = GS_PLUGIN_REFINE_FLAGS_NONE;
+ 	GsAppListFilterFlags dedupe_flags = GS_APP_LIST_FILTER_FLAG_NONE;
+ 	GsAppListSortFunc sort_func = NULL;
+ 	gpointer sort_func_data = NULL;
+@@ -471,26 +472,29 @@ finish_task (GTask     *task,
+ 		developer_verified_type = gs_app_query_get_developer_verified_type (self->query);
+ 		is_for_update = gs_app_query_get_is_for_update (self->query);
+ 		component_kinds = gs_app_query_get_component_kinds (self->query);
++		refine_flags = gs_app_query_get_refine_flags (self->query);
+ 	}
+ 
+-	if (gs_component_kind_array_contains (component_kinds, AS_COMPONENT_KIND_REPOSITORY)) {
+-		/* Filtering for sources/repositories. */
+-		gs_app_list_filter (merged_list, filter_sources, self);
+-	} else {
+-		/* Standard filtering for apps.
+-		 *
+-		 * FIXME: It feels like this filter should be done in a different layer. */
+-		gs_app_list_filter (merged_list, filter_valid_apps, self);
+-		gs_app_list_filter (merged_list, app_filter_qt_for_gtk_and_compatible, plugin_loader);
+-
+-		if (license_type == GS_APP_QUERY_LICENSE_FOSS)
+-			gs_app_list_filter (merged_list, filter_freely_licensed_apps, self);
+-		if (developer_verified_type == GS_APP_QUERY_DEVELOPER_VERIFIED_ONLY)
+-			gs_app_list_filter (merged_list, filter_developer_verified_apps, self);
+-		if (is_for_update == GS_APP_QUERY_TRISTATE_TRUE)
+-			gs_app_list_filter (merged_list, filter_updatable_apps, self);
+-		else if (is_for_update == GS_APP_QUERY_TRISTATE_FALSE)
+-			gs_app_list_filter (merged_list, filter_nonupdatable_apps, self);
++	if (!(refine_flags & GS_PLUGIN_REFINE_FLAGS_DISABLE_FILTERING)) {
++		if (gs_component_kind_array_contains (component_kinds, AS_COMPONENT_KIND_REPOSITORY)) {
++			/* Filtering for sources/repositories. */
++			gs_app_list_filter (merged_list, filter_sources, self);
++		} else {
++			/* Standard filtering for apps.
++			 *
++			 * FIXME: It feels like this filter should be done in a different layer. */
++			gs_app_list_filter (merged_list, filter_valid_apps, self);
++			gs_app_list_filter (merged_list, app_filter_qt_for_gtk_and_compatible, plugin_loader);
++
++			if (license_type == GS_APP_QUERY_LICENSE_FOSS)
++				gs_app_list_filter (merged_list, filter_freely_licensed_apps, self);
++			if (developer_verified_type == GS_APP_QUERY_DEVELOPER_VERIFIED_ONLY)
++				gs_app_list_filter (merged_list, filter_developer_verified_apps, self);
++			if (is_for_update == GS_APP_QUERY_TRISTATE_TRUE)
++				gs_app_list_filter (merged_list, filter_updatable_apps, self);
++			else if (is_for_update == GS_APP_QUERY_TRISTATE_FALSE)
++				gs_app_list_filter (merged_list, filter_nonupdatable_apps, self);
++		}
+ 	}
+ 
+ 	/* Caller-specified filtering. */
+-- 
+GitLab
+

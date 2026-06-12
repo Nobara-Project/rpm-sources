@@ -127,6 +127,8 @@ multiple installations of Minecraft at once (Fork of MultiMC)
 
 
 %build
+# Export CXXFLAGS to override the strict SFINAE check
+export CXXFLAGS="%{optflags} -Wno-error=sfinae-incomplete"
 %cmake \
   -G Ninja \
   %if "%{toolchain}" == "clang"

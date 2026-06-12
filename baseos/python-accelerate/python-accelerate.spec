@@ -1,5 +1,5 @@
 Name:           python-accelerate
-Version:        1.11.0
+Version:        1.13.0
 Release:        1%{?dist}
 # Fill in the actual package summary to submit package to Fedora
 Summary:        Accelerate

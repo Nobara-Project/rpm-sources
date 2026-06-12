@@ -210,44 +210,33 @@ index e77a064..bb99667 100644
  
  gboolean nautilus_window_slot_get_search_global            (NautilusWindowSlot *self);
  
-+gboolean nautilus_window_slot_get_editing                (NautilusWindowSlot *slot);
++gboolean nautilus_window_slot_get_editing                  (NautilusWindowSlot *slot);
 +
  GList* nautilus_window_slot_get_selection                  (NautilusWindowSlot *slot);
  
- void     nautilus_window_slot_search                       (NautilusWindowSlot *slot,
-diff --git a/src/resources/ui/nautilus-toolbar.ui b/src/resources/ui/nautilus-toolbar.ui
-index 7468503..ea8f0f9 100644
---- a/src/resources/ui/nautilus-toolbar.ui
-+++ b/src/resources/ui/nautilus-toolbar.ui
-@@ -58,6 +58,28 @@
-                 </child>
-               </object>
-             </child>
-+            <child>
-+             <object class="GtkToggleButton" id="edit_button">
-+               <property name="visible">True</property>
-+               <property name="can_focus">True</property>
-+               <property name="receives_default">False</property>
-+               <property name="tooltip_text" translatable="yes">Edit</property>
-+               <property name="halign">center</property>
-+               <property name="valign">center</property>
-+               <property name="action_name">slot.edit-visible</property>
-+               <child>
-+                 <object class="GtkImage" id="edit_icon">
-+                   <property name="visible">True</property>
-+                   <property name="can_focus">False</property>
-+                   <property name="icon_name">find-location-symbolic</property>
-+                   <property name="icon_size">1</property>
-+                 </object>
-+               </child>
-+               <style>
-+                 <class name="image-button"/>
-+               </style>
-+             </object>
-+            </child>
-             <child>
-               <object class="GtkStack" id="search_button_stack">
-                 <property name="hhomogeneous">true</property>
+ gboolean nautilus_window_slot_is_selection_auto            (NautilusWindowSlot *self);
+diff --git a/src/resources/ui/nautilus-toolbar.blp b/src/resources/ui/nautilus-toolbar.blp
+index e69f5ef..93aefde 100644
+--- a/src/resources/ui/nautilus-toolbar.blp	
++++ b/src/resources/ui/nautilus-toolbar.blp
+@@ -47,6 +47,17 @@ template $NautilusToolbar: Adw.Bin {
+           };
+         }
+       }
++      
++      ToggleButton edit_button {
++        tooltip-text: _("Edit");
++        halign: center;
++        valign: center;
++        action-name: "slot.edit-visible";
++        icon-name: "find-location-symbolic";
++        styles [
++          "image-button",
++        ]
++      }
+ 
+       Stack search_button_stack {
+         hhomogeneous: true;
 -- 
 2.47.0
 

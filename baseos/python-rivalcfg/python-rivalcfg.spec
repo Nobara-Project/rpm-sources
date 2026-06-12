@@ -1,5 +1,5 @@
 Name:           python-rivalcfg
-Version:        4.15.0
+Version:        4.17.0
 Release:        1%{?dist}
 Summary:        Configure SteelSeries gaming mice
 
