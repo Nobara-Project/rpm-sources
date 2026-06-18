@@ -1,6 +1,6 @@
 %global majorversion 1
 %global minorversion 6
-%global microversion 6
+%global microversion 7
 
 %global apiversion   0.3
 %global spaversion   0.2
@@ -937,6 +937,9 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 %{_datadir}/pipewire/pipewire.conf.d/50-raop.conf
 
 %changelog
+* Thu Jun 18 2026 LionHeartP <LionHeartP@proton.me> - 1.6.7-1
+- Update version to 1.6.7
+
 * Tue May 26 2026 LionHeartP <LionHeartP@proton.me> - 1.6.6-1
 - Update version to 1.6.6
 - Disable patches as a test to see if the crackling audio issues are resolved
