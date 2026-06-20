@@ -466,9 +466,9 @@ cat .config > config-linux-bore
 %build
 make %{?_smp_mflags} %{?llvm_build_env_vars} EXTRAVERSION=-%{krelstr}
 %if %{llvm_kbuild}
-clang ./scripts/sign-file.c -o ./scripts/sign-file -lssl -lcrypto
+clang -Itools/include/uapi ./scripts/sign-file.c -o ./scripts/sign-file -lssl -lcrypto
 %else
-gcc ./scripts/sign-file.c -o ./scripts/sign-file -lssl -lcrypto
+gcc -Itools/include/uapi ./scripts/sign-file.c -o ./scripts/sign-file -lssl -lcrypto
 %endif
 
 # non-kernel userspace packages -- disable LTO
@@ -953,12 +953,8 @@ fi
 /lib/modules/%{kverstr}/System.map
 /lib/modules/%{kverstr}/symvers.gz
 %ifarch aarch64
-%dir /boot/dtb-%{kverstr}
-%dir /lib/modules/%{kverstr}/dtb
-/boot/dtb-%{kverstr}/*
-/boot/dtb-%{kverstr}/*/*
-/lib/modules/%{kverstr}/dtb/*
-/lib/modules/%{kverstr}/dtb/*/*
+/boot/dtb-%{kverstr}
+/lib/modules/%{kverstr}/dtb
 %endif
 
 %files modules
@@ -970,6 +966,9 @@ fi
 %exclude /lib/modules/%{kverstr}/symvers.gz
 %exclude /lib/modules/%{kverstr}/build
 %exclude /lib/modules/%{kverstr}/source
+%ifarch aarch64
+%exclude /lib/modules/%{kverstr}/dtb
+%endif
 
 %files headers
 %defattr (-, root, root)
@@ -1088,6 +1087,7 @@ fi
 %{_mandir}/man1/rv-mon-wwnr.1.gz
 %{_mandir}/man1/rv-mon.1.gz
 %{_mandir}/man1/rv-mon-sched.1.gz
+%{_mandir}/man1/rv-mon-stall.1.gz
 %{_mandir}/man1/rv.1.gz
 
 %files
