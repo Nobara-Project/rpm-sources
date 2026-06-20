@@ -18,7 +18,7 @@
 %global major_version %%(echo %%{tarball_version} | cut -d "." -f 1)
 
 Name:          mutter
-Version:       50.1
+Version:       50.2
 Release:       %autorelease
 Summary:       Window and compositing manager based on Clutter
 
