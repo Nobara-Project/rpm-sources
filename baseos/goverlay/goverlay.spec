@@ -4,6 +4,7 @@ Release:        %autorelease
 Epoch:          2
 Summary:        Project that aims to create a Graphical UI to help manage Linux overlays
 ExclusiveArch:  %{fpc_arches}
+ExcludeArch:    %{ix86}
 #%%global commit 85476e05bb768dc4e9e0b0f02afbd6bcbf394e5a
 
 License:        GPLv3+
