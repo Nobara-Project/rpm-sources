@@ -1,8 +1,8 @@
-%global 	SHA256SUM0 824c7918636f2ba97b68f004cea3bf1da876dab6b39a80c049fc66e51621b660
+%global 	SHA256SUM0 0ade36d494034c7112b9ff5379eade94798dcdcb56847bb8c988a595bc408b26
 %define         appid com.vysp3r.ProtonPlus
 
 Name:           protonplus
-Version:        0.5.20
+Version:        0.5.21
 Release:        1%{?dist}
 Summary:        Simple and powerful manager for Wine, Proton, DXVK and VKD3D
 
@@ -74,6 +74,9 @@ appstream-util validate-relax --nonet \
 
 
 %changelog
+* Wed Jun 24 2026 LionHeartP <LionHeartP@proton.me> - 0.5.21-1
+- new upstream version v0.5.21
+
 * Sat Apr 18 2026 LionHeartP <LionHeartP@proton.me> - 0.5.20-1
 - new upstream version v0.5.20
 
