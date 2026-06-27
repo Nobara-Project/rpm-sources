@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit bea1212ee710d36bddb08b720734cc2eefc871b1
+%global commit 88bc7f1afd125512e2188c561fc373d2872efed8
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 4.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 6.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -495,6 +495,7 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %if 0%{?with_virtio}
 %{_libdir}/libvulkan_virtio.so
 %{_datadir}/vulkan/icd.d/virtio_icd.*.json
+%{_datadir}/drirc.d/00-venus-defaults.conf
 %endif
 %if 0%{?with_vulkan_hw}
 %{_libdir}/libvulkan_radeon.so
@@ -528,6 +529,7 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 %{_libdir}/libvulkan_broadcom.so
 %{_datadir}/vulkan/icd.d/broadcom_icd.*.json
+%{_datadir}/drirc.d/00-v3dv-defaults.conf
 %{_libdir}/libvulkan_freedreno.so
 %{_datadir}/vulkan/icd.d/freedreno_icd.*.json
 %{_datadir}/drirc.d/00-turnip-defaults.conf
@@ -536,6 +538,7 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %{_datadir}/drirc.d/00-panvk-defaults.conf
 %{_libdir}/libvulkan_powervr_mesa.so
 %{_datadir}/vulkan/icd.d/powervr_mesa_icd.*.json
+%{_datadir}/drirc.d/00-pvr-defaults.conf
 %endif
 %if 0%{?with_vulkan_overlay}
 %{_bindir}/mesa-overlay-control.py
@@ -545,6 +548,12 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Sat Jun 27 2026 LionHeartP <LionHeartP@proton.me> - 26.2.0-6
+- Update to latest commit
+
+* Thu Jun 18 2026 LionHeartP <LionHeartP@proton.me> - 26.2.0-5
+- Update to latest commit
+
 * Thu Jun 04 2026 LionHeartP <LionHeartP@proton.me> - 26.2.0-4
 - Update to latest commit
 
