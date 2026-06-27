@@ -42,9 +42,9 @@
 Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
-%define _basekver 7.0
-%define _stablekver 12
-%define _PKGBUILD 2
+%define _basekver 7.1
+%define _stablekver 2
+%define _PKGBUILD 1
 %define _rcver rc7
 %define _tarkver %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
@@ -56,7 +56,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 201
+%define customver 200
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -75,7 +75,7 @@ Vendor: The Linux Community and CachyOS maintainer(s)
 URL: https://github.com/CachyOS/linux
 Source0: %{url}/archive/refs/tags/cachyos-%{_tarkver}-%{_PKGBUILD}.tar.gz
 
-%define config_commit 3cd5f63b3685788a63a85a803cb9715c872a08d2
+%define config_commit d9b3cd77b1aa6fd4dc4baa3d876a598f884f5472
 
 %if 0%{?_is_rc}
 Source1: https://raw.githubusercontent.com/CachyOS/linux-cachyos/%{config_commit}/linux-cachyos-rc/config
@@ -124,16 +124,14 @@ Patch9: MA350.patch
 # Capture device quirks
 Patch10: capture-device-nv12-fixup.patch
 
-# Add "ROG STRIX X870-I GAMING WIFI"
-Patch11: 0857-hwmon-nct6775-Add-ROG-STRIX-X870-I-GAMING-WIFI.patch
-
 # AMD vfio passthrough
-Patch12: vfio-amd-passthrough.patch
+Patch11: vfio-amd-passthrough.patch
 
 # aarch64 patches
 Patch21: 0001-arm64-mm-Handle-alignment-faults.patch
 Patch22: 0002-ampere-arm64-Work-around-Ampere-Altra-erratum-82288-.patch
-Patch23: xe-nonx86.patch
+# Needs rebase or not needed anymore??
+#Patch23: xe-nonx86.patch
 
 %define __spec_install_post /usr/lib/rpm/brp-compress || :
 %define debug_package %{nil}
@@ -435,13 +433,12 @@ patch -p1 -i %{PATCH8}
 patch -p1 -i %{PATCH9}
 patch -p1 -i %{PATCH10}
 patch -p1 -i %{PATCH11}
-patch -p1 -i %{PATCH12}
 
 # Apply aarch64 patches
 %ifarch aarch64
 patch -p1 -i %{PATCH21}
 patch -p1 -i %{PATCH22}
-patch -p1 -i %{PATCH23}
+#patch -p1 -i %%{PATCH23}
 %endif
 
 # Fetch the config and move it to the proper directory
@@ -469,9 +466,9 @@ cat .config > config-linux-bore
 %build
 make %{?_smp_mflags} %{?llvm_build_env_vars} EXTRAVERSION=-%{krelstr}
 %if %{llvm_kbuild}
-clang ./scripts/sign-file.c -o ./scripts/sign-file -lssl -lcrypto
+clang -Itools/include/uapi ./scripts/sign-file.c -o ./scripts/sign-file -lssl -lcrypto
 %else
-gcc ./scripts/sign-file.c -o ./scripts/sign-file -lssl -lcrypto
+gcc -Itools/include/uapi ./scripts/sign-file.c -o ./scripts/sign-file -lssl -lcrypto
 %endif
 
 # non-kernel userspace packages -- disable LTO
@@ -956,12 +953,8 @@ fi
 /lib/modules/%{kverstr}/System.map
 /lib/modules/%{kverstr}/symvers.gz
 %ifarch aarch64
-%dir /boot/dtb-%{kverstr}
-%dir /lib/modules/%{kverstr}/dtb
-/boot/dtb-%{kverstr}/*
-/boot/dtb-%{kverstr}/*/*
-/lib/modules/%{kverstr}/dtb/*
-/lib/modules/%{kverstr}/dtb/*/*
+/boot/dtb-%{kverstr}
+/lib/modules/%{kverstr}/dtb
 %endif
 
 %files modules
@@ -973,6 +966,9 @@ fi
 %exclude /lib/modules/%{kverstr}/symvers.gz
 %exclude /lib/modules/%{kverstr}/build
 %exclude /lib/modules/%{kverstr}/source
+%ifarch aarch64
+%exclude /lib/modules/%{kverstr}/dtb
+%endif
 
 %files headers
 %defattr (-, root, root)
@@ -1091,11 +1087,15 @@ fi
 %{_mandir}/man1/rv-mon-wwnr.1.gz
 %{_mandir}/man1/rv-mon.1.gz
 %{_mandir}/man1/rv-mon-sched.1.gz
+%{_mandir}/man1/rv-mon-stall.1.gz
 %{_mandir}/man1/rv.1.gz
 
 %files
 
 %changelog
+* Sat Jun 27 2026 LionHeartP <LionHeartP@proton.me> - 7.1.2-200
+- Update to 7.1.2
+
 * Sat Jun 13 2026 LionHeartP <LionHeartP@proton.me> - 7.0.12-201
 - Update to new cachyos tag
 
