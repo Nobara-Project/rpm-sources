@@ -3,7 +3,7 @@
 %global commit 88bc7f1afd125512e2188c561fc373d2872efed8
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 5.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 6.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
