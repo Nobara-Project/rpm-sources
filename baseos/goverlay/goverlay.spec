@@ -1,9 +1,10 @@
 Name:           goverlay
-Version:        1.8.2
+Version:        1.8.4
 Release:        %autorelease
 Epoch:          2
 Summary:        Project that aims to create a Graphical UI to help manage Linux overlays
 ExclusiveArch:  %{fpc_arches}
+ExcludeArch:    %{ix86}
 #%%global commit 85476e05bb768dc4e9e0b0f02afbd6bcbf394e5a
 
 License:        GPLv3+
@@ -18,6 +19,7 @@ BuildRequires:  lazarus-lcl-qt6
 BuildRequires:  libappstream-glib
 BuildRequires:  libglvnd-devel
 BuildRequires:  make
+BuildRequires:  SDL2-devel
 
 Requires:       hicolor-icon-theme
 Requires:       mangohud%{?_isa}
@@ -67,13 +69,18 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/*.desktop
 %{_datadir}/applications/*.desktop
 %{_datadir}/icons/hicolor/*/*/*.png
 %{_datadir}/%{name}/assets/
+%{_datadir}/%{name}/bgmod/
 %{_datadir}/%{name}/data/
 %{_libexecdir}/%{name}
+%{_libexecdir}/pascube
 %{_mandir}/man1/*.1*
 %{_metainfodir}/*.xml
 
 
 %changelog
+* Sat Jun 20 2026 LionHeartP <LionHeartP@proton.me> - 1.8.4-1
+- Update to 1.8.4
+
 * Tue Jun 09 2026 LionHeartP <LionHeartP@proton.me> - 1.8.2-1
 - Update to 1.8.2
 
