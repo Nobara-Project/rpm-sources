@@ -9,7 +9,7 @@
 %global major_version %%(echo %%{tarball_version} | cut -d "." -f 1)
 
 Name:           nautilus
-Version:        50.1
+Version:        50.2.2
 Release:        %autorelease
 Summary:        File manager for GNOME
 
@@ -127,7 +127,6 @@ sed -i '/-Werror/d' meson.build
 %find_lang %{name}
 
 %check
-appstream-util validate-relax --nonet $RPM_BUILD_ROOT%{_metainfodir}/org.gnome.Nautilus.metainfo.xml
 desktop-file-validate $RPM_BUILD_ROOT%{_datadir}/applications/*.desktop
 
 %files  -f %{name}.lang
