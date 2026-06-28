@@ -1,7 +1,7 @@
 %global libliftoff_minver 0.5.0
 
 # latest git
-%define commit c3cc9b8414d4afa8c53217112a71f17a95b939f8
+%define commit 5cdb5b00ca186a5c14e6411d399429c8ce6bc724
 
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global _default_patch_fuzz 2
@@ -10,7 +10,7 @@
 %global rel_build 2.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 Name:           gamescope
-Version:        3.16.19
+Version:        3.16.23.2
 Release:        %{rel_build}
 Summary:        Micro-compositor for video games on Wayland
 
@@ -25,6 +25,10 @@ Patch1:         gamescope-ba.patch
 
 # https://github.com/ValveSoftware/gamescope/pull/1846
 Patch2:		1846.patch
+
+# Fedora 44 libinput adds LIBINPUT_SWITCH_KEYPAD_SLIDE; bundled wlroots builds
+# with -Werror=switch and must ignore unknown switch types explicitly.
+Patch3:         wlroots-libinput-switch-default.patch
 
 BuildRequires:  meson >= 0.54.0
 BuildRequires:  ninja-build
@@ -158,6 +162,7 @@ cd gamescope
 %{_bindir}/gamescopectl
 %{_bindir}/gamescopestream
 %{_bindir}/gamescopereaper
+%{_bindir}/gamescope-type
 %{_datadir}/gamescope
 
 %files libs

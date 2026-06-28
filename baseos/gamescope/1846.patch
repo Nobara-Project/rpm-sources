@@ -5,15 +5,15 @@ Subject: [PATCH] build: add options to override subproject paths
 
 this allows downstream builds to specify custom GLM and stb header paths.
 ---
- meson.build       | 21 +++++++++++++++++----
+ meson.build       | 17 +++++++++++++++--
  meson_options.txt |  2 ++
- 2 files changed, 19 insertions(+), 4 deletions(-)
+ 2 files changed, 17 insertions(+), 2 deletions(-)
 
 diff --git a/meson.build b/meson.build
-index 802e4a0..2c3d426 100644
+index 2ab8390..53183e0 100644
 --- a/meson.build
 +++ b/meson.build
-@@ -50,8 +50,23 @@ dep_x11 = dependency('x11')
+@@ -50,8 +50,21 @@ dep_x11 = dependency('x11')
  dep_wayland = dependency('wayland-client')
  vulkan_dep = dependency('vulkan')
  
@@ -24,8 +24,7 @@ index 802e4a0..2c3d426 100644
 +  glm_inc = include_directories(glm_include_dir)
 +  glm_dep = declare_dependency(include_directories : glm_inc)
 +else
-+  glm_proj = subproject('glm')
-+  glm_dep = glm_proj.get_variable('glm_dep')
++  glm_dep = dependency('glm')
 +endif
 +
 +stb_include_dir = get_option('stb_include_dir')
@@ -33,14 +32,13 @@ index 802e4a0..2c3d426 100644
 +  stb_inc = include_directories(stb_include_dir)
 +  stb_dep = declare_dependency(include_directories : stb_inc)
 +else
-+  stb_proj = subproject('stb')
-+  stb_dep = stb_proj.get_variable('stb_dep')
++  stb_dep = dependency('stb')
 +endif
  
  if get_option('enable_openvr_support')
    openvr_dep = dependency('openvr', version: '>= 2.7', required : false)
 diff --git a/meson_options.txt b/meson_options.txt
-index 27302d65b..acb716b09 100644
+index 27302d6..3b8dd9a 100644
 --- a/meson_options.txt
 +++ b/meson_options.txt
 @@ -8,3 +8,5 @@ option('enable_gamescope',           type : 'boolean', value : true, description
@@ -49,4 +47,3 @@ index 27302d65b..acb716b09 100644
  option('benchmark', type: 'feature', description: 'Benchmark tools')
 +option('glm_include_dir',            type : 'string',  value : '', description: 'Custom path to override GLM headers')
 +option('stb_include_dir',            type : 'string',  value : '', description: 'Custom path to override STB headers')
-\ No newline at end of file
