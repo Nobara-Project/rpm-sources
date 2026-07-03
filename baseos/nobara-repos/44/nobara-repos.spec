@@ -2,8 +2,8 @@
 
 Summary:        Nobara package repositories
 Name:           nobara-repos
-Version:        43
-Release:        9%{?eln:.eln%{eln}}
+Version:        44
+Release:        1%{?eln:.eln%{eln}}
 License:        MIT
 URL:            https://fedoraproject.org/
 
@@ -28,14 +28,13 @@ Source7:       brave-browser.repo
 Source8:       terra.repo
 
 Source9:       RPM-GPG-KEY-nobara-pubkey
-Source10:       RPM-GPG-KEY-nobara-baseos-pubkey-41
-Source11:       RPM-GPG-KEY-nobara-baseos-pubkey-42
-Source12:       RPM-GPG-KEY-nobara-baseos-pubkey-43
-Source13:       RPM-GPG-KEY-nobara-baseos-pubkey-44
-Source14:       brave-core.asc
-Source15:       RPM-GPG-KEY-nobara-rolling-pubkey
-Source16:       RPM-GPG-KEY-nobara-rocm-pubkey
-Source17:       RPM-GPG-KEY-terra43
+Source10:       RPM-GPG-KEY-nobara-baseos-pubkey-42
+Source11:       RPM-GPG-KEY-nobara-baseos-pubkey-43
+Source12:       RPM-GPG-KEY-nobara-baseos-pubkey-44
+Source13:       brave-core.asc
+Source14:       RPM-GPG-KEY-nobara-rolling-pubkey
+Source15:       RPM-GPG-KEY-nobara-rocm-pubkey
+Source16:       RPM-GPG-KEY-terra44
 
 %description
 Nobara package repository files for yum and dnf along with gpg public keys.
