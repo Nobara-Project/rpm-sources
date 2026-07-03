@@ -60,10 +60,12 @@ rm -rf %{_buildroot}%{_datadir}/gsr-ui/fonts
 %license LICENSE
 %doc README.md
 %caps(cap_setuid=ep) %{_bindir}/gsr-global-hotkeys
-%{_bindir}/gsr*
+%{_bindir}/gsr-ui
+%{_bindir}/gsr-ui-cli
 %{_datadir}/applications/gpu-screen-recorder.desktop
 %{_datadir}/icons/hicolor/*/apps/gpu-screen-recorder.png
 %{_datadir}/gsr-ui
+%{_mandir}/man1/gsr-ui*.1*
 
 %changelog
 * Fri Jul 03 2026 LionHeartP <LionHeartP@proton.me> - 1.12.6-1
