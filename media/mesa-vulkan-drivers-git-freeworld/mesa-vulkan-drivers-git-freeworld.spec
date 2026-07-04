@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit 88bc7f1afd125512e2188c561fc373d2872efed8
+%global commit bf5e221666e83723d950b874cb251415226a7ba7
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 6.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 7.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -106,9 +106,6 @@ Source12:       https://crates.io/api/v1/crates/quote/%{rust_quote_ver}/download
 Source13:       https://crates.io/api/v1/crates/syn/%{rust_syn_ver}/download#/syn-%{rust_syn_ver}.tar.gz
 Source14:       https://crates.io/api/v1/crates/unicode-ident/%{rust_unicode_ident_ver}/download#/unicode-ident-%{rust_unicode_ident_ver}.tar.gz
 Source15:       https://crates.io/api/v1/crates/rustc-hash/%{rustc_hash_ver}/download#/rustc-hash-%{rustc_hash_ver}.tar.gz
-
-# https://gitlab.com/evlaV/mesa/
-Patch10:        valve.patch
 
 BuildRequires:  meson >= 1.3.0
 BuildRequires:  gcc
@@ -548,6 +545,10 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Fri Jul 03 2026 LionHeartP <LionHeartP@proton.me> - 26.2.0-7
+- Update to latest commit
+- Drop valve.patch
+
 * Sat Jun 27 2026 LionHeartP <LionHeartP@proton.me> - 26.2.0-6
 - Update to latest commit
 
