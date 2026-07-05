@@ -6,7 +6,7 @@
 
 Name:    plasma-discover
 Summary: KDE and Plasma resources management GUI
-Version: 6.6.4
+Version: 6.7.1
 Release: 1%{?dist}
 
 License: BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-3.0-only AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only)
@@ -32,6 +32,7 @@ BuildRequires: flatpak-devel >= %{flatpak_version}
 BuildRequires: libstemmer-devel
 BuildRequires: libyaml-devel
 BuildRequires: desktop-file-utils
+BuildRequires: libappstream-glib
 BuildRequires: gettext
 BuildRequires: libxml2-devel
 BuildRequires: pkgconfig(libmarkdown)
@@ -103,16 +104,15 @@ Recommends: fedora-appstream-metadata
 %endif
 
 # handle upgrade path
-Provides: plasma-discover-offline-updates
 Obsoletes: plasma-discover-offline-updates
-Provides: plasma-discover-packagekit
 Obsoletes: plasma-discover-packagekit
-Provides: plasma-discover-snap
 Obsoletes: plasma-discover-snap
-
+Obsoletes: fedora-appstream-metadata
+Provides: plasma-discover-offline-updates
+Provides: plasma-discover-packagekit
+Provides: plasma-discover-snap
 Provides: fedora-appstream-metadata
 
-Obsoletes: fedora-appstream-metadata
 
 %description
 KDE and Plasma resources management GUI.
@@ -253,6 +253,97 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/org.kde.discover.desk
 %{_kf6_qtplugindir}/discover/kns-backend.so
 
 %changelog
+* Tue Jun 23 2026 Steve Cossette <farchord@gmail.com> - 6.7.1-1
+- 6.7.1
+
+* Thu Jun 11 2026 Steve Cossette <farchord@gmail.com> - 6.7.0-1
+- 6.7.0
+
+* Fri May 29 2026 Steve Cossette <farchord@gmail.com> - 6.6.91-1
+- 6.6.91
+
+* Sat May 16 2026 Steve Cossette <farchord@gmail.com> - 6.6.90-1
+- 6.6.90
+
+* Thu May 14 2026 Steve Cossette <farchord@gmail.com> - 6.6.5-1
+- 6.6.5
+
+* Fri Apr 10 2026 Steve Cossette <farchord@gmail.com> - 6.6.4-1
+- 6.6.4
+
+* Tue Mar 17 2026 Steve Cossette <farchord@gmail.com> - 6.6.3-1
+- 6.6.3
+
+* Tue Mar 03 2026 Steve Cossette <farchord@gmail.com> - 6.6.2-1
+- 6.6.2
+
+* Tue Feb 24 2026 Steve Cossette <farchord@gmail.com> - 6.6.1-1
+- 6.6.1
+
+* Tue Feb 24 2026 Neal Gompa <ngompa@fedoraproject.org> - 6.6.0-2
+- Enable offline-updates by default everywhere
+
+* Thu Feb 12 2026 Steve Cossette <farchord@gmail.com> - 6.6.0-1
+- 6.6.0
+
+* Tue Jan 27 2026 Steve Cossette <farchord@gmail.com> - 6.5.91-1
+- 6.5.91
+
+* Sat Jan 17 2026 Fedora Release Engineering <releng@fedoraproject.org> - 6.5.90-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_44_Mass_Rebuild
+
+* Tue Jan 13 2026 farchord@gmail.com - 6.5.90-1
+- 6.5.90
+
+* Tue Jan 13 2026 farchord@gmail.com - 6.5.5-1
+- 6.5.5
+
+* Tue Dec 09 2025 Steve Cossette <farchord@gmail.com> - 6.5.4-1
+- 6.5.4
+
+* Tue Nov 18 2025 Steve Cossette <farchord@gmail.com> - 6.5.3-1
+- 6.5.3
+
+* Tue Nov 04 2025 Steve Cossette <farchord@gmail.com> - 6.5.2-1
+- 6.5.2
+
+* Tue Oct 28 2025 Steve Cossette <farchord@gmail.com> - 6.5.1-1
+- 6.5.1
+
+* Fri Oct 17 2025 Steve Cossette <farchord@gmail.com> - 6.5.0-1
+- 6.5.0
+
+* Sat Oct 04 2025 Steve Cossette <farchord@gmail.com> - 6.4.91-2
+- Another rebuild for PackageKit-Qt Update
+
+* Thu Oct 02 2025 Steve Cossette <farchord@gmail.com> - 6.4.91-1
+- 6.4.91
+
+* Fri Sep 26 2025 Timothée Ravier <tim@siosm.fr> - 6.4.5-2
+- Move dependency on fedora-third-party, fedora-flathub-remote &
+  fedora-workstation-repositories to comps groups.
+
+* Thu Sep 25 2025 Steve Cossette <farchord@gmail.com> - 6.4.90-1
+- 6.4.90
+
+* Tue Sep 16 2025 farchord@gmail.com - 6.4.5-1
+- 6.4.5
+
+* Wed Aug 06 2025 Steve Cossette <farchord@gmail.com> - 6.4.4-1
+- 6.4.4
+
+* Fri Aug 01 2025 Timothée Ravier <tim@siosm.fr> - 6.4.3-3
+- Fix flatpak+https support
+
+* Fri Jul 25 2025 Fedora Release Engineering <releng@fedoraproject.org> - 6.4.3-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_43_Mass_Rebuild
+
+* Tue Jul 15 2025 Steve Cossette <farchord@gmail.com> - 6.4.3-1
+- 6.4.3
+
+* Mon Jul 14 2025 Yaakov Selkowitz <yselkowi@redhat.com> - 6.4.2-2
+- Drop obsolete qt5 dependency
+
 * Thu Jul 03 2025 Steve Cossette <farchord@gmail.com> - 6.4.2-1
 - 6.4.2
 

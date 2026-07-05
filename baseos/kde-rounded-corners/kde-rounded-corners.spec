@@ -4,8 +4,8 @@ License:        GPL-3.0
 URL:            https://github.com/matinlotfali/KDE-Rounded-Corners
 Source0:        %{URL}/archive/refs/heads/master.tar.gz
 Patch0:         0001-use-some-sane-default-shadows-and-outlines.patch
-Version: 0.8.5.9
-Release: 6.5.3%{?dist}
+Version: 0.9.0
+Release: 6.7.1%{?dist}
 
 %if %{defined suse_version}
 BuildRequires:  qt6-core-private-devel

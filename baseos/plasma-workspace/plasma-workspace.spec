@@ -1,10 +1,8 @@
-# X11 session is not shipped anymore
-%bcond x11 0
 %bcond kf6_pim 1
 
 Name:    plasma-workspace
 Summary: Plasma workspace, applications and applets
-Version: 6.6.4
+Version: 6.7.1
 Release: 1%{?dist}
 
 # Automatically converted from old format: BSD-2-Clause AND BSD-3-Clause AND CC0-1.0 AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-only AND LGPL-2.0-only AND LGPL-2.0-or-later AND LGPL-2.1-only AND LGPL-2.1-or-later AND LGPL-3.0-only AND LGPL-3.0-or-later AND (GPL-2.0-only OR GPL-3.0-only) AND (LGPL-2.1-only OR LGPL-3.0-only) AND MIT - review is highly recommended.
@@ -22,6 +20,8 @@ Source102:      kde-smartcard
 ## (debating whether these be owned here or somewhere better...
 ## in the repective pkgs themselves? -- rdieter)
 Source40:       ssh-agent.conf
+
+## upstream patches
 
 ## upstreamable Patches
 
@@ -290,15 +290,6 @@ Conflicts:  %{name}-wayland < 6.4.1-2
 Provides:   %{name}-wayland = %{version}-%{release}
 Provides:   %{name}-wayland%{?_isa} = %{version}-%{release}
 
-%if ! %{with x11}
-%if 0%{?fedora}
-Obsoletes:      %{name}-x11 < 5.92.0
-%else
-Obsoletes:      %{name}-x11 < %{version}-%{release}
-Conflicts:      %{name}-x11 < %{version}-%{release}
-%endif
-%endif
-
 %description
 Plasma 6 libraries and runtime components
 
@@ -368,24 +359,7 @@ BuildArch:      noarch
 This package contains configuration and dependencies for SDDM
 to use KWin for the Wayland compositor for the greeter.
 
-%if %{with x11}
-%package x11
-Summary:        Xorg support for Plasma
-# Rename this package to match upstream
-Obsoletes:      %{name}-xorg < 5.20.90-2
-Provides:       %{name}-xorg = %{version}-%{release}
-Provides:       %{name}-xorg%{?_isa} = %{version}-%{release}
-# Split of Xorg session into subpackage
-Obsoletes:      %{name} < 5.19.5-2
-Requires:       %{name} = %{version}-%{release}
-Requires:       kwin-x11
-Requires:       xorg-x11-server-Xorg
-Requires:       xsetroot
-# Plasma X11 is deprecated and will be removed with Plasma 6.0
-Provides:       deprecated()
-%description x11
-%{summary}.
-%endif
+
 
 %prep
 %autosetup -p1
@@ -393,7 +367,7 @@ Provides:       deprecated()
 %build
 %cmake_kf6 \
   -DINSTALL_SDDM_WAYLAND_SESSION:BOOL=ON \
-  -DPLASMA_X11_DEFAULT_SESSION:BOOL=OFF \
+  -DWITH_X11_SESSION:BOOL=OFF \
   -DGLIBC_LOCALE_GEN:BOOL=OFF \
   -DGLIBC_LOCALE_PREGENERATED:BOOL=ON
 %cmake_build
@@ -401,12 +375,6 @@ Provides:       deprecated()
 
 %install
 %cmake_install
-
-%if ! %{with x11}
-# Delete x11 session stuff
-rm -v %{buildroot}%{_kf6_bindir}/startplasma-x11 %{buildroot}%{_datadir}/xsessions/plasmax11.desktop
-%endif
-
 
 #chrpath --delete %{buildroot}%{_kf6_qtplugindir}/phonon_platform/kde.so
 
@@ -416,9 +384,6 @@ ln -sr %{buildroot}%{_kf6_bindir}/startplasma-wayland %{buildroot}%{_kf6_bindir}
 # Drop (Wayland) qualifier from plasma.desktop
 sed -E 's| \(.*\)||g' -i %{buildroot}%{_datadir}/wayland-sessions/plasma.desktop
 
-# move sddm configuration snippet to the right place
-mkdir -p %{buildroot}%{_prefix}/lib/sddm
-mv %{buildroot}%{_sysconfdir}/sddm.conf.d %{buildroot}%{_prefix}/lib/sddm
 
 # PAM
 # https://invent.kde.org/plasma/kscreenlocker/-/merge_requests/163#less-simple-method-for-redhat-and-redhat-adjacent-fedora-opensuse-etc-systems
@@ -456,6 +421,8 @@ fi
 
 %files -f %{name}.lang
 %{_libexecdir}/ksecretprompter
+%{_libexecdir}/plasma-startup-sound
+%{_kf6_datadir}/xdg-desktop-portal/portals/plasmanotify.portal
 %{_kf6_datadir}/applications/org.kde.baloorunner.desktop
 %{_kf6_datadir}/applications/org.kde.secretprompter.desktop
 %{_kf6_datadir}/xdg-desktop-portal/kde-portals.conf

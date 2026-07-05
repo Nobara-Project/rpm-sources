@@ -1,10 +1,10 @@
-%global rawhide_release 44
+%global rawhide_release 45
 %global updates_testing_enabled 0
 
 Summary:        Fedora package repositories
 Name:           fedora-repos
-Version:        43
-Release:        2%{?eln:.eln%{eln}}
+Version:        44
+Release:        1%{?eln:.eln%{eln}}
 License:        MIT
 URL:            https://fedoraproject.org/
 
@@ -85,6 +85,7 @@ Source62:       RPM-GPG-KEY-fedora-42-primary
 Source63:       RPM-GPG-KEY-fedora-43-primary
 Source64:       RPM-GPG-KEY-fedora-44-primary
 Source65:       RPM-GPG-KEY-fedora-45-primary
+Source66:       RPM-GPG-KEY-fedora-46-primary
 
 # When bumping Rawhide to fN, create N+1 key (and update archmap). (This
 # ensures users have the next future key installed and referenced, even if they
@@ -103,6 +104,7 @@ Source504:      fedora-42-ima.der
 Source505:      fedora-43-ima.der
 Source506:      fedora-44-ima.der
 Source507:      fedora-45-ima.der
+Source508:      fedora-46-ima.der
 
 %description
 Fedora package repository files for yum and dnf along with gpg public keys.
@@ -414,12 +416,29 @@ rm -Rf /etc/yum.repos.d/fedora.repo.rpmsave
 
 
 %changelog
-* Tue Apr 01 2025 Adam Williamson <awilliam@redhat.com> - 42-1
-- Disable updates-testing for F42 release
+* Wed Apr 01 2026 Stephen Gallagher <sgallagh@redhat.com> - 44-1
+- Disable updates-testing for F44 final release
 
-* Fri Jan 31 2025 Patrik Polakovic <patrik@alphamail.org> - 42-0.5
+* Wed Feb 04 2026 Patrik Polakovic <patrik@alphamail.org> - 44-0.3
+- Rawhide is now F45
+- `updates-testing` repository for F44 enabled
+
+* Tue Feb 03 2026 Patrik Polakovic <patrik@alphamail.org> 44-0.2
+- Add RPM-GPG-KEY-fedora-46-primary
+- Add fedora-46-ima.der for IMA signing
+
+* Mon Aug 11 2025 Samyak Jain <samyak.jn11@gmail.com> - 44-0.1
+- Rawhide is now F44
+
+* Mon Aug 04 2025 Samyak Jain <samyak.jn11@gmail.com> - 43-0.3
+- Add RPM-GPG-KEY-fedora-45-primary
+- Add fedora-45-ima.der for ima signing.
+
+* Thu Mar 13 2025 Kevin Fenzi <kevin@scrye.com> - 43-0.2
+- Add fedora-43-ima.der and fedora-44-ima.der for ima signing.
+
+* Fri Jan 31 2025 Patrik Polakovic <patrik@alphamail.org> - 43-0.1
 - Rawhide is now F43
-- Update testing repository for F42 enabled
 
 * Wed Jan 10 2025 Samyak Jain <samyak.jn11@gmail.com> - 42-0.4
 - Add RPM-GPG-KEY-fedora-44-primary

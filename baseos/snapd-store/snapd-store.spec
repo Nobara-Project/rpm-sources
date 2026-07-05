@@ -1,5 +1,5 @@
 Name:           snapd-store
-Version:        2.72
+Version:        2.76
 Release:        1%{?dist}
 Summary:        Installs the Snap Store via Snapd
 License:        GPL

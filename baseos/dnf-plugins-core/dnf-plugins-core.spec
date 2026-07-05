@@ -42,14 +42,15 @@
 
 Name:           dnf-plugins-core
 Version:        4.10.1
-Release:        6%{?dist}
+Release:        9%{?dist}
 Summary:        Core Plugins for DNF
 License:        GPL-2.0-or-later
 URL:            https://github.com/rpm-software-management/dnf-plugins-core
 Source0:        %{url}/archive/%{version}/%{name}-%{version}.tar.gz
 Patch1:         0001-Fix-building-with-CMake-4.patch
+Patch2:         0002-spec-Use-cmake-macros-for-invoking-a-build-script.patch
 BuildArch:      noarch
-BuildRequires:  cmake >= 3.5.0
+BuildRequires:  cmake >= 3.18.0
 BuildRequires:  gettext
 # Documentation
 %if %{with python3}
@@ -489,8 +490,8 @@ pushd build-py2
   %cmake ../ -DPYTHON_DESIRED:FILEPATH=%{__python2} \
     -DWITHOUT_DEBUG:str=0%{!?with_debug_plugin:1} \
     -DWITHOUT_LOCAL:str=0%{?rhel}
-  %make_build
-  make doc-man
+  %cmake_build
+  %cmake_build --target doc-man
 popd
 %endif
 %if %{with python3}
@@ -498,20 +499,20 @@ pushd build-py3
   %cmake ../ -DPYTHON_DESIRED:FILEPATH=%{__python3} \
     -DWITHOUT_DEBUG:str=0%{!?with_debug_plugin:1} \
     -DWITHOUT_LOCAL:str=0%{?rhel}
-  %make_build
-  make doc-man
+  %cmake_build
+  %cmake_build --target doc-man
 popd
 %endif
 
 %install
 %if %{with python2}
 pushd build-py2
-  %make_install
+  %cmake_install
 popd
 %endif
 %if %{with python3}
 pushd build-py3
-  %make_install
+  %cmake_install
 popd
 %endif
 
@@ -574,7 +575,7 @@ ln -sf %{yum_utils_subpackage_name}.1.gz %{buildroot}%{_mandir}/man1/repotrack.1
 cat << EOF | tee -a %{buildroot}%{_sysconfdir}/dnf/plugins/copr.conf
 [main]
 distribution = fedora
-releasever = 43
+releasever = 44
 EOF
 
 %check
@@ -885,6 +886,15 @@ EOF
 %endif
 
 %changelog
+* Wed Feb 25 2026 Petr Pisar <ppisar@redhat.com> - 4.10.1-9
+- Use cmake macros for invoking a build script (bug #2380990)
+
+* Fri Jan 16 2026 Fedora Release Engineering <releng@fedoraproject.org> - 4.10.1-8
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_44_Mass_Rebuild
+
+* Fri Jan 16 2026 Fedora Release Engineering <releng@fedoraproject.org> - 4.10.1-7
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_44_Mass_Rebuild
+
 * Fri Sep 19 2025 Python Maint <python-maint@redhat.com> - 4.10.1-6
 - Rebuilt for Python 3.14.0rc3 bytecode
 

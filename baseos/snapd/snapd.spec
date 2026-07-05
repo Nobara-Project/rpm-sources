@@ -1,5 +1,5 @@
 Name:           snapd
-Version:        2.72
+Version:        2.76
 Release:        1%{?dist}
 Summary:        Meta package that installs snapd and the snap store.
 License:        GPL
