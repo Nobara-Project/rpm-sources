@@ -2,9 +2,9 @@
 %global __strip /bin/true
 
 Name:           ndi-sdk
-Version:        6.2.0
-Release:        2%{?dist}
-Summary:        NDI SDK
+Version:        6.3.2.1
+Release:        1%{?dist}
+Summary:        NewTek NDI SDK
 
 License:        Proprietary
 URL:            https://ndi.tv/sdk
@@ -52,6 +52,8 @@ ARCHIVE=$(awk '/^__NDI_ARCHIVE_BEGIN__/ { print NR+1; exit 0; }' Install_NDI_SDK
 tail -n+$ARCHIVE Install_NDI_SDK_v6_Linux.sh | tar -xz
 mv 'NDI SDK for Linux'/* .
 
+echo "Version: "
+cat Version.txt
 
 %build
 # Nothing to build
@@ -118,7 +120,16 @@ sed -i -e 's|@LIBDIR@|%{_libdir}|' \
 
 
 %changelog
-* Tue Jun 20 2025 Isaie Simonnet <trouffman@gmail.com> - 6.2.0-1
+* Wed May 27 2026 Nicolas Chauvet <kwizart@gmail.com> - 6.3.2.1-1
+- Update to 6.3.2.1
+
+* Mon Feb 02 2026 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 6.2.0-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_44_Mass_Rebuild
+
+* Sun Jul 27 2025 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 6.2.0-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_43_Mass_Rebuild
+
+* Mon Jun 23 2025 Nicolas Chauvet <kwizart@gmail.com> - 6.2.0-1
 - Update to 6.2.0
 
 * Tue May 13 2025 Nicolas Chauvet <kwizart@gmail.com> - 6.1.1-1

@@ -33,25 +33,25 @@
 %global libvlc_soversion 5
 
 
-%global obswebsocket_version 5.6.3
-%global obsbrowser_commit a776dd6a1a0ded4a8a723f2f572f3f8a9707f5a8
+%global obswebsocket_version 5.7.3
+%global obsbrowser_commit ea04212e4bbadd077f9e6038758c4e4779c24fa3
 
 # Upstream does not declare this yet. Arbitrarily pick 137.0 since it works
 # and it works around a CEF versioning teething issue:
 # https://github.com/chromiumembedded/cef/issues/3959
 %global cef_api_version 13700
 
-%define version_string 32.0.4
+%define version_string 32.1.2
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build %{build_timestamp}.%{shortcommit}%{?dist}
 %global _default_patch_fuzz 2
 # obs version and commit
-%global commit dcdbd2e9048ae66237fdab32dbba72b745b1b9c5
+%global commit fb4d98bf88fae5fc85cb11fc57f7c5e309282194
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 Name:           obs-studio
 Version:        %{version_string}
-Release:        4.%{rel_build}
+Release:        2.%{rel_build}
 Summary:        Open Broadcaster Software Studio
 
 # OBS itself is GPL-2.0-or-later, while various plugin dependencies are of various other licenses
@@ -72,8 +72,6 @@ Patch0102:      0102-frontend-Allow-invalid-recording-encoder-if-quality-.patch
 Patch0103:      0103-UI-Add-support-for-OpenH264-as-the-worst-case-fallba.patch
 ## From: https://github.com/obsproject/obs-studio/pull/12507
 Patch0105:      0105-libobs-opengl-Reject-external-only-modifiers.patch
-## From: https://github.com/obsproject/obs-studio/pull/12951
-Patch0106:      0106-fix-shutdown-crash.patch
 
 # WIP code to improve new CEF support (based on upstream dev tree)
 ## From: https://github.com/asahilina/obs-browser/tree/lockdown
@@ -83,14 +81,14 @@ Patch0203:      0203-WIP-Lock-down-Chrome-Runtime-Lock-down-URLs-and-comm.patch
 Patch0204:      0204-WIP-Enable-Chrome-Runtime.patch
 Patch0205:      0205-WIP-Chrome-Runtime-Data-migration.patch
 Patch0206:      0206-WIP-Lock-down-Chrome-Runtime-Misc-changes.patch
+## From: https://github.com/obsproject/obs-browser/pull/517
+Patch0250:      0250-Update-to-C-20.patch
 
 # Downstream Fedora patches
 ## Use fdk-aac by default
 Patch1001:      obs-studio-UI-use-fdk-aac-by-default.patch
-## Fix error: passing argument 4 of ‘query_dmabuf_modifiers’ from
-##            incompatible pointer type [-Wincompatible-pointer-types]
-Patch1003:      obs-studio-fix-incompatible-pointer-type.patch
-Patch1004:      obs-studio-fix-build-against-qt-6-10.patch
+
+ExcludeArch:    %{ix86}
 
 BuildRequires:  gcc
 BuildRequires:  cmake >= 3.22
@@ -164,7 +162,7 @@ Recommends:	mesa-va-drivers
 Recommends:	mesa-vdpau-drivers
 
 Recommends:	obs-studio-plugin-vkcapture
-Recommends:	obs-studio-plugin-vkcapture(x86-32)
+Recommends:	obs-studio-plugin-vkcapture-hook-libs(x86-32)
 
 # Ensure QtWayland is installed when libwayland-client is installed
 Requires:      (qt6-qtwayland%{?_isa} if libwayland-client%{?_isa})
@@ -385,7 +383,7 @@ cp plugins/decklink/LICENSE.decklink-sdk .fedora-rpm/licenses/deps
 cp plugins/obs-qsv11/obs-qsv11-LICENSE.txt .fedora-rpm/licenses/plugins/
 
 
-%build
+%conf
 # libcef_wrapper needs to be built static
 %undefine _cmake_shared_libs
 %cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo \
@@ -405,6 +403,9 @@ cp plugins/obs-qsv11/obs-qsv11-LICENSE.txt .fedora-rpm/licenses/plugins/
        -DENABLE_SCRIPTING_LUA=OFF \
 %endif
        -DOpenGL_GL_PREFERENCE=GLVND
+
+
+%build
 %cmake_build
 
 
@@ -429,6 +430,33 @@ appstream-util validate-relax --nonet %{buildroot}%{_datadir}/metainfo/*.metainf
 
 
 %changelog
+* Sat Jul 04 2026 Nobara Project <nobara@protonmail.com> - 32.1.2-4
+- Add transitional package to retire i686 obs-studio-libs
+- Recommend 32-bit vkcapture hook libs instead of the full plugin
+
+* Thu Jun 04 2026 Python Maint <python-maint@redhat.com> - 32.1.1-4
+- Rebuilt for Python 3.15
+
+* Thu May 14 2026 Jan Grulich <jgrulich@redhat.com> - 32.1.1-3
+- Rebuild (qt6)
+
+* Thu Apr 16 2026 Jan Grulich <jgrulich@redhat.com> - 32.1.1-2
+- Rebuild (qt6)
+
+* Fri Apr 03 2026 Hoshino Lina <lina@lina.yt> - 32.1.1-2
+- Update to 32.1.1
+- Drop i686 build
+
+* Wed Mar 25 2026 Hoshino Lina <lina@lina.yt> - 32.1.0-1
+- Update to 32.1.0
+
+* Sat Mar 07 2026 Hoshino Lina <lina@lina.yt> - 32.0.4-4
+- Fix crashes due to spurious fd closing with v4l2loopback
+- Fix build with CEF-145
+
+* Fri Jan 16 2026 Fedora Release Engineering <releng@fedoraproject.org> - 32.0.4-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_44_Mass_Rebuild
+
 * Thu Jan 01 2026 Hoshino Lina <lina@lina.yt> - 32.0.4-2
 - Fix crash when shutting down
 

@@ -1,7 +1,7 @@
 #global pre .pre8
 
 Name:       intel-media-driver
-Version:    25.3.4
+Version:    26.1.5
 Release:    1%{?dist}
 Summary:    The Intel Media Driver for VAAPI
 License:    MIT and BSD
@@ -66,6 +66,7 @@ sed -e "/-Werror/d" -i media_driver/media_top_cmake.cmake
 export CXXFLAGS="%{optflags} -D_FILE_OFFSET_BITS=64"
 %endif
 %cmake \
+   -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
 %ifarch %{ix86}
   -DARCH:STRING=32 \
 %endif
@@ -111,6 +112,18 @@ mv %{buildroot}%{_libdir}/dri{,-nonfree}
 
 
 %changelog
+* Wed Apr 22 2026 Nicolas Chauvet <kwizart@gmail.com> - 26.1.5-1
+- Update to 26.1.5
+
+* Fri Feb 27 2026 Nicolas Chauvet <kwizart@gmail.com> - 25.4.6-1
+- Update to 25.4.6
+
+* Mon Feb 02 2026 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 25.4.5-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_44_Mass_Rebuild
+
+* Wed Dec 10 2025 Nicolas Chauvet <kwizart@gmail.com> - 25.4.5-1
+- Update to 25.4.5
+
 * Thu Sep 25 2025 Nicolas Chauvet <kwizart@gmail.com> - 25.3.4-1
 - Update to 25.3.4
 
