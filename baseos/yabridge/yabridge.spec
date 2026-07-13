@@ -22,7 +22,7 @@
 %global shortcommit      %(c=%{commit}; echo ${c:0:7})
 
 %global version          5.1.2
-%global release          8
+%global release          9
 
 # set this to "1" if building a git/beta/rc release
 %global beta_or_rc       1
@@ -81,7 +81,6 @@ BuildArch:      x86_64
 
 Requires:       boost
 Requires:       boost-filesystem
-Requires:       boost-system
 Requires:       libxcb
 Requires:       libXau
 Requires:       python3
