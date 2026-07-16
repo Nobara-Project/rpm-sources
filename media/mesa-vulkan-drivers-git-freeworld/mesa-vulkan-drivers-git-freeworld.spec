@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit bf5e221666e83723d950b874cb251415226a7ba7
+%global commit 87afa3193eee4c6dbdef4306a7c6ead6a5a4d825
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 7.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -78,7 +78,7 @@
 
 Name:           mesa-vulkan-drivers-git-freeworld
 Summary:        The mesa graphics vulkan driver stack.
-%global ver 26.2.0
+%global ver 26.3.0
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %{rel_build}
 License:        MIT
@@ -485,6 +485,7 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 %{_libdir}/libvulkan_lvp.so
 %{_datadir}/vulkan/icd.d/lvp_icd.*.json
+%{_datadir}/drirc.d/00-lavapipe-defaults.conf
 %{_libdir}/libVkLayer_MESA_anti_lag.so
 %{_libdir}/libVkLayer_MESA_device_select.so
 %{_datadir}/vulkan/implicit_layer.d/VkLayer_MESA_anti_lag.json
@@ -545,6 +546,9 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Thu Jul 16 2026 LionHeartP <LionHeartP@proton.me> - 26.3.0-1
+- Update to latest commit
+
 * Fri Jul 03 2026 LionHeartP <LionHeartP@proton.me> - 26.2.0-7
 - Update to latest commit
 - Drop valve.patch

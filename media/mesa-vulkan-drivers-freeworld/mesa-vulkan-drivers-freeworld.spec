@@ -68,7 +68,7 @@
 
 Name:           mesa-vulkan-drivers-freeworld
 Summary:        The mesa graphics vulkan driver stack.
-Version:        26.1.4
+Version:        26.1.5
 Release:        %autorelease
 License:        MIT
 URL:            http://www.mesa3d.org
@@ -479,6 +479,9 @@ install -Dpm0644 cargo-vendor.txt \
 %endif
 
 %changelog
+* Thu Jul 16 2026 LionHeartP <LionHeartP@proton.me> - 26.1.5-1
+- Update to 26.1.5
+
 * Fri Jul 03 2026 LionHeartP <LionHeartP@proton.me> - 26.1.4-1
 - Update to 26.1.4
 
