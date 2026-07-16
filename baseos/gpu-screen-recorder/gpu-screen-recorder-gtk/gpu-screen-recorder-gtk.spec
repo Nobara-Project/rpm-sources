@@ -1,7 +1,7 @@
-%global appdatacommit r24.9ec474f
+%global appdatacommit r41.7b3dc75
 
 Name:           gpu-screen-recorder-gtk
-Version:        5.7.9
+Version:        5.8.0
 Release:        1%{dist}
 Summary:        A shadowplay-like screen recorder for Linux. The fastest screen recorder for Linux.
 
@@ -48,6 +48,9 @@ install -Dm644 %{SOURCE1} %{buildroot}%{_datadir}/metainfo/com.dec05eba.gpu_scre
 %{_datadir}/icons/hicolor/
 
 %changelog
+* Thu Jul 16 2026 LionHeartP <LionHeartP@proton.me> - 5.8.0-1
+- Update to 5.8.0
+
 * Tue Dec 23 2025 LionHeartP <LionHeartP@proton.me> - 5.7.9-1
 - Update to 5.7.9
 
