@@ -1,23 +1,23 @@
 %global _lto_cflags %{nil}
 
 %global         codecdir %{_libdir}/codecs
-%global         pre 20250127svn
+%global         pre 20251106svn
 %global         svn 1
-%global         svnbuild 2025-01-27
+%global         svnbuild 2026-07-06
 
 Name:           mplayer
 Version:        1.5.1
 %if 0%{?svn}
-Release:        0.19%{?pre:.%{pre}}%{?dist}
+Release:        0.23%{?pre:.%{pre}}%{?dist}
 %else
-Release:        19%{?dist}
+Release:        23%{?dist}
 %endif
 Summary:        Movie player playing most video formats and DVDs
 
 %if 0%{!?_without_amr:1}
-License:        GPLv3+
+License:        GPL-3.0-or-later
 %else
-License:        GPLv2+
+License:        GPL-2.0-or-later
 %endif
 URL:            https://www.mplayerhq.hu/
 %if 0%{?svn}
@@ -34,13 +34,13 @@ Patch1:         %{name}-manlinks.patch
 # use system FFmpeg libraries
 Patch2:         %{name}-ffmpeg.patch
 Patch3:         0204_fix-ftbfs-jack-ffmpeg7.patch
+# https://lists.mplayerhq.hu/pipermail/mplayer-dev-eng/2025-May/074270.html
+Patch4:         fix-ffmpeg8.patch
 
 BuildRequires:  SDL-devel
-BuildRequires:  a52dec-devel
 BuildRequires:  aalib-devel
 BuildRequires:  alsa-lib-devel
 BuildRequires:  bzip2-devel
-BuildRequires:  gdk-pixbuf2-devel
 %if ! 0%{?rhel} >= 10
 BuildRequires:  enca-devel
 %endif
@@ -70,7 +70,6 @@ BuildRequires:  libdvdnav-devel >= 4.1.3-1
 BuildRequires:  libjpeg-devel
 BuildRequires:  librtmp-devel
 BuildRequires:  libtheora-devel
-BuildRequires:  libvdpau-devel
 BuildRequires:  libvorbis-devel
 BuildRequires:  lirc-devel
 BuildRequires:  lzo-devel >= 2
@@ -223,6 +222,7 @@ rm -rf ffmpeg
 %patch -P 1 -p1 -b .manlinks
 %patch -P 2 -p1 -b .ffmpeg
 %patch -P 3 -p1 -b .ffmpeg7
+%patch -P 4 -p1 -b .ffmpeg8
 
 sed -i '1s=^#! */usr/bin/\(python\|env python\)[23]\?=#!%{__python3}=' TOOLS/{mphelp_check,vobshift}.py
 
@@ -234,7 +234,7 @@ export CXX=g++
 %make_build V=1
 
 %if 0%{?svn}
-# build HTML documentation from XML files
+# build HTML documentation from XML files 
 %make_build V=1 html-chunked
 %endif
 
@@ -321,6 +321,19 @@ sed -i '1s:#!/usr/bin/env python:#!/usr/bin/env python2:' %{buildroot}%{_bindir}
 %{_datadir}/mplayer/*.fp
 
 %changelog
+* Mon Feb 02 2026 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 1.5.1-0.23.20251106svn
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_44_Mass_Rebuild
+
+* Fri Dec 12 2025 Nicolas Chauvet <kwizart@gmail.com> - 1.5.1-0.22.20251106svn
+- Rebuilt for libbluray
+
+* Thu Nov 06 2025 Leigh Scott <leigh123linux@gmail.com> - 1.5.1-0.21.20251106svn
+- Update snapshot
+- Remove vdpau build requires
+
+* Wed Nov 05 2025 Leigh Scott <leigh123linux@gmail.com> - 1.5.1-0.20.20250127svn
+- Rebuild for ffmpeg-8.0
+
 * Thu Sep 04 2025 Sérgio Basto <sergio@serjux.com> - 1.5.1-0.19.20250127svn
 - Rebuild for x264
 
@@ -672,7 +685,7 @@ sed -i '1s:#!/usr/bin/env python:#!/usr/bin/env python2:' %{buildroot}%{_bindir}
 - Internal tremor copy is no more
 - Dropped the included gmplayer subtitles patch
 
-* Wed Sep 05 2012 Nicolas Chauvet <kwizart@gmail.com>
+* Wed Sep 05 2012 Nicolas Chauvet <kwizart@gmail.com> - 1.1-2
 - Rebuilt for x264 ABI 125
 - Use --cpu-runtime-detection only on supported arches - rfbz#2467
 
@@ -1177,7 +1190,7 @@ sed -i '1s:#!/usr/bin/env python:#!/usr/bin/env python2:' %{buildroot}%{_bindir}
 
 * Tue May 03 2005 Thorsten Leemhuis <fedora[AT]leemhuis[DOT]info> - 0:1.0-0.lvn.0.20.pre7
 - fix build issues on x86_64:
- - move target= to a ix86 section -- on x86_64 it passes the option x86-64
+ - move target= to a ix86 section -- on x86_64 it passes the option x86-64 
    and not x86_64
  - use explicit --with-xmmslibdir
  - {_libdir}/libdha.so.* and {_libdir}/mplayer are missing on x86_64

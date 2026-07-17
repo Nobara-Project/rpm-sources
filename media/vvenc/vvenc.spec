@@ -5,12 +5,13 @@ Version: 1.13.1
 %forgemeta
 
 Name:           vvenc
-Release:        %autorelease -b3
+Release:        %autorelease -b4
 Summary:        The Fraunhofer Versatile Video Encoder
 
 License:        BSD-3-Clause-Clear
 URL:            %{forgeurl}
 Source:         %{forgesource}
+Patch0:         vvenc-1.13.1-detect-i686-as-x86.patch
 
 BuildRequires: cmake
 BuildRequires: ninja-build
@@ -47,6 +48,7 @@ The vvenc-libs package contains the library files
 
 %prep
 %forgesetup
+%patch -P 0 -p1
 #sanitize thirdparty
 rm -rf ./thirdparty
 

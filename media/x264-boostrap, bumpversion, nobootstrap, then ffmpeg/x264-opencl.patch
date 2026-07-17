@@ -1,0 +1,11 @@
+--- a/common/opencl.c	2019-03-12 00:41:42.000000000 +0000
++++ b/common/opencl.c	2019-04-28 22:39:02.672147762 +0100
+@@ -36,7 +36,7 @@
+ #if SYS_MACOSX
+ #define ocl_open dlopen( "/System/Library/Frameworks/OpenCL.framework/OpenCL", RTLD_NOW )
+ #else
+-#define ocl_open dlopen( "libOpenCL.so", RTLD_NOW )
++#define ocl_open dlopen( "libOpenCL.so.1", RTLD_NOW )
+ #endif
+ #define ocl_close dlclose
+ #define ocl_address dlsym

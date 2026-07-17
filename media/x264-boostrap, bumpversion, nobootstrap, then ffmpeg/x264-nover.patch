@@ -1,0 +1,11 @@
+--- ./configure.orig	2019-12-17 02:19:30.000000000 +0000
++++ ./configure	2019-12-17 02:31:06.483935577 +0000
+@@ -1390,7 +1390,7 @@ cat > x264_config.h << EOF
+ #define X264_CHROMA_FORMAT $config_chroma_format
+ EOF
+ 
+-${SRCPATH}/version.sh >> x264_config.h
++cat ${SRCPATH}/version.h >> ${SRCPATH}/x264_config.h
+ 
+ if [ "$shared" = "yes" ]; then
+     CFLAGSSO="$CFLAGSSO -DX264_API_EXPORTS"

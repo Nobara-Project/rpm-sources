@@ -1,6 +1,6 @@
 Name:           libheif-freeworld
-Version:        1.20.2
-Release:        2%{?dist}
+Version:        1.21.2
+Release:        3%{?dist}
 Summary:        HEVC support for HEIF and AVIF file format decoder and encoder
 
 License:        LGPL-3.0-or-later and MIT
@@ -8,6 +8,7 @@ URL:            https://github.com/strukturag/libheif
 Source0:        %{url}/archive/v%{version}/libheif-%{version}.tar.gz
 
 BuildRequires:  cmake
+BuildRequires:  cmake(vvenc)
 BuildRequires:  gcc-c++
 BuildRequires:  ninja-build
 BuildRequires:  pkgconfig(libavcodec)
@@ -42,6 +43,8 @@ rm -rf third-party/
  -DWITH_FFMPEG_DECODER_PLUGIN=ON \
  -DWITH_LIBDE265_PLUGIN:BOOL=ON \
  -DWITH_UNCOMPRESSED_CODEC=ON \
+ -DWITH_VVENC:BOOL=ON \
+ -DWITH_VVENC_PLUGIN:BOOL=ON \
  -DWITH_X265_PLUGIN:BOOL=ON \
  -Wno-dev
 
@@ -64,9 +67,28 @@ popd
 %doc README.md
 %{_libdir}/libheif/libheif-ffmpegdec.so
 %{_libdir}/libheif/libheif-libde265.so
+%{_libdir}/libheif/libheif-vvenc.so
 %{_libdir}/libheif/libheif-x265.so
 
 %changelog
+* Thu Mar 19 2026 Leigh Scott <leigh123linux@gmail.com> - 1.21.2-3
+- Rebuild for new libde265
+
+* Wed Mar 18 2026 Leigh Scott <leigh123linux@gmail.com> - 1.21.2-2
+- Rebuild for new libde265
+
+* Fri Jan 16 2026 Dominik Mierzejewski <dominik@greysector.net> - 1.21.2-1
+- update to 1.21.2
+
+* Fri Jan 09 2026 Dominik Mierzejewski <dominik@greysector.net> - 1.21.1-2
+- enable vvenc support
+
+* Tue Jan 06 2026 Sérgio Basto <sergio@serjux.com> - 1.21.1-1
+- Update libheif-freeworld to 1.21.1
+
+* Wed Nov 05 2025 Leigh Scott <leigh123linux@gmail.com> - 1.20.2-3
+- Rebuild for ffmpeg-8.0
+
 * Tue Oct 07 2025 Leigh Scott <leigh123linux@gmail.com> - 1.20.2-2
 - Rebuild for svt-av1 soname bump
 

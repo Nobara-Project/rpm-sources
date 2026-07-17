@@ -1,0 +1,15 @@
+diff --git a/test/module.defs b/test/module.defs
+index 0642a60..91c762e 100644
+--- a/test/module.defs
++++ b/test/module.defs
+@@ -22,10 +22,6 @@ TEST.pkgconfig_libs = libass libavformat libavfilter libavcodec libavutil libswr
+ 
+ TEST.pkgconfig_libs += $(foreach m,$(MODULES.NAMES),$($m.OSL.libs))
+ 
+-ifeq (1,$(FEATURE.vaapi))
+-    TEST.GCC.l += X11 va va-drm va-x11
+-endif
+-
+ ifeq (1,$(FEATURE.flatpak))
+     TEST.pkgconfig_libs += glib-2.0
+ endif
