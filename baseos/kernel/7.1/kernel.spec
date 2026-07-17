@@ -43,8 +43,8 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 7.1
-%define _stablekver 2
-%define _PKGBUILD 3
+%define _stablekver 3
+%define _PKGBUILD 1
 %define _rcver rc7
 %define _tarkver %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
@@ -56,7 +56,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 202
+%define customver 200
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -1093,6 +1093,9 @@ fi
 %files
 
 %changelog
+* Sat Jul 04 2026 LionHeartP <LionHeartP@proton.me> - 7.1.3-200
+- Update to 7.1.3
+
 * Mon Jun 29 2026 LionHeartP <LionHeartP@proton.me> - 7.1.2-202
 - New CachyOS kernel tag with T2 patch
 
