@@ -9,9 +9,9 @@
 # check buildresult after a while
 
 %define _lto_cflags %{nil}
-%define realver     11.10
-%define stagingver  11.10
-%define packagever  11.10
+%define realver     11.13
+%define stagingver  11.13
+%define packagever  11.13
 
 %global flavor %nil
 %global build_type_safety_c 0
@@ -51,7 +51,7 @@ Source100:	https://github.com/wine-staging/wine-staging/archive/v%{realver}.tar.
 # Alexandres key
 Source99:	wine.keyring
 
-ExcludeArch:    %{ix86} %{aarch64} 
+ExclusiveArch:  x86_64
 
 BuildRequires:  mingw32-gcc
 BuildRequires:  mingw32-gcc-c++
