@@ -1,14 +1,14 @@
 # Tag is auto-inserted by workflow
-%global tag 1.4.0
+%global tag 1.4.1
 
 # Manual commit is auto-inserted by workflow
-%global commit e17b257d4e6c06295e2ff607a6e9865d2033db43
+%global commit 346cab89c19a3525718be8c5c65d700ab47b432e
 
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 %global build_timestamp %(date +"%Y%m%d")
 
-%global rel_build 1.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 2.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %if 0%{?fedora} <= 42
 # F41 doesn't ship urllib3 >= 2.0 needed
@@ -100,10 +100,12 @@ make
 %install
 make DESTDIR=%{buildroot} PYTHONDIR=%{python3_sitelib} install
 
+# Fix Python shebangs in installed scripts (ensures /usr/bin/python3 is used)
+%py3_shebang_fix %{buildroot}%{_bindir}/umu-run
+
 %files
 %{_bindir}/umu-run
 %{_datadir}/man/*
 %{python3_sitelib}/umu*
 
 %changelog
-

@@ -3,7 +3,7 @@
 Summary:        Nobara package repositories
 Name:           nobara-repos
 Version:        44
-Release:        1%{?eln:.eln%{eln}}
+Release:        3%{?eln:.eln%{eln}}
 License:        MIT
 URL:            https://fedoraproject.org/
 
@@ -21,7 +21,6 @@ BuildRequires:  gnupg sed
 
 Source2:       nobara.repo
 Source3:       nv-nvp.repo
-Source4:       nv-nvb.repo
 Source5:       nv-nvnf.repo
 Source6:       nobara-pikaos-additional.repo
 Source7:       brave-browser.repo
@@ -77,7 +76,6 @@ mkdir -p "$dest_dir" || :
 
 for repo in \
     "%{_sysconfdir}/yum.repos.d/nv-nvp.repo" \
-    "%{_sysconfdir}/yum.repos.d/nv-nvb.repo" \
     "%{_sysconfdir}/yum.repos.d/nv-nvnf.repo"
 do
     [ -f "$repo" ] || continue
@@ -91,9 +89,8 @@ done
 %files
 %dir /etc/yum.repos.d
 /etc/yum.repos.d/nobara.repo
-%config(noreplace) /etc/yum.repos.d/nobara-pikaos-additional.repo
+/etc/yum.repos.d/nobara-pikaos-additional.repo
 %config(noreplace) /etc/yum.repos.d/nv-nvp.repo
-%config(noreplace) /etc/yum.repos.d/nv-nvb.repo
 %config(noreplace) /etc/yum.repos.d/nv-nvnf.repo
 %config(noreplace) /etc/yum.repos.d/brave-browser.repo
 %config(noreplace) /etc/yum.repos.d/terra.repo

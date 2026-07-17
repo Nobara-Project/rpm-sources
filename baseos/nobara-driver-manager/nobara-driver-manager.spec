@@ -1,5 +1,5 @@
 Name:          nobara-driver-manager
-Epoch:	       2
+Epoch:	       3
 Version:       0.1.4
 Release:       1%{?dist}
 License:       MPLv2

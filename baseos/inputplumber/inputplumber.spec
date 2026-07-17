@@ -2,12 +2,16 @@
 
 Name:           inputplumber
 Version:        0.77.7
-Release:        1%{?dist}
+Release:        4%{?dist}
 Summary:        InputPlumber is an open source input routing and control daemon for Linux. It can be used to combine any number of input devices (like gamepads, mice, and keyboards) and translate their input to a variety of virtual device formats.
 
 License:        GPLv3+
 URL:            https://github.com/ShadowBlip/InputPlumber
 Patch0:         icon_workaround.patch
+
+# https://github.com/ShadowBlip/InputPlumber/pull/618
+# https://github.com/ShadowBlip/InputPlumber/issues/616
+Patch1:         618.patch
 ExcludeArch:    %{ix86}
 
 BuildRequires:  libevdev-devel libiio-devel git make cargo libudev-devel llvm-devel clang-devel
@@ -28,6 +32,7 @@ git clone --branch v%{version} --depth 1 %{url}
 %build
 cd %{_builddir}/InputPlumber
 patch -Np1 < %{PATCH0}
+patch -Np1 < %{PATCH1}
 make build
 
 %install
@@ -50,7 +55,7 @@ install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/share/dbus-1/system-servi
 install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/lib/systemd/system/* %{buildroot}/usr/lib/systemd/system/
 install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/lib/udev/hwdb.d/59-inputplumber.hwdb %{buildroot}/usr/lib/udev/hwdb.d/59-inputplumber.hwdb
 install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/lib/udev/hwdb.d/60-inputplumber-autostart.hwdb %{buildroot}/usr/lib/udev/hwdb.d/60-inputplumber-autostart.hwdb
-install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/lib/udev/rules.d/90-inputplumber-autostart.rules %{buildroot}/usr/lib/udev/rules.d/90-inputplumber-autostart.rules
+install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/lib/udev/rules.d/* %{buildroot}/usr/lib/udev/rules.d/
 install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/share/inputplumber/capability_maps/* %{buildroot}/usr/share/inputplumber/capability_maps/
 install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/share/inputplumber/devices/* %{buildroot}/usr/share/inputplumber/devices/
 install -D -m 644 %{_builddir}/InputPlumber/rootfs/usr/share/inputplumber/profiles/* %{buildroot}/usr/share/inputplumber/profiles/
@@ -64,9 +69,46 @@ sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/device
 sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-rog_ally_x.yaml
 sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-legion_go.yaml
 sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-legion_go_s.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-legion_go_2.yaml
 sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-msi_claw7_a2vm.yaml
 sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-msi_claw8_a2vm.yaml
 sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-msi_claw_a1m.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-msi_claw_a8_bz2e.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-zotac-zone.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-orangepi_neo.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-onexplayer_x1.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-onexplayer_onexfly.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-onexplayer_mini_pro.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-onexplayer_mini_a07.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-onexplayer_intel.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-onexplayer_g1.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-onexplayer_apex.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-onexplayer_amd.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-onexplayer_2.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-gpd_winmini.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-gpd_winmax2.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-gpd_win5.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-gpd_win4.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-gpd_win3.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-anbernic_win600.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-aokzoe_a1.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-ayaneo_2021.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-ayaneo_2s.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-ayaneo_2.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-ayaneo_3.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-ayaneo_air_1s.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-ayaneo_air_plus_mendo.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-ayaneo_air_plus.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-ayaneo_air.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-ayaneo_flip_1s.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-ayaneo_flip.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-ayaneo_kun.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-ayaneo_next.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-ayaneo_slide.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-ayn_loki_max.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-ayn_loki_mini_pro.yaml
+sed -i 's/- xbox-elite/- deck-uhid/g' %{buildroot}/usr/share/inputplumber/devices/50-ayn_loki_zero.yaml
+
 
 # Fixup for elite v2 not being detected
 sed -i 's/02e3,0b00/02e3,0b00,0b22,0b05/g' %{buildroot}/usr/share/inputplumber/devices/60-xbox_one_elite_gamepad.yaml
