@@ -1,5 +1,5 @@
 Name:       wireplumber
-Version:    0.5.14
+Version:    0.5.15
 Release:    1%{?dist}
 Summary:    A modular session/policy manager for PipeWire
 
@@ -134,6 +134,9 @@ fi
 %{_datadir}/doc/wireplumber/
 
 %changelog
+* Thu Jul 09 2026 LionHeartP <LionHeartP@proton.me> - 0.5.15-1
+- wireplumber 0.5.15
+
 * Mon Jan 19 2026 Wim Taymans <wtaymans@redhat.com> - 0.5.13-1
 - wireplumber 0.5.13
 

@@ -1,6 +1,6 @@
 %global majorversion 1
 %global minorversion 6
-%global microversion 7
+%global microversion 8
 
 %global apiversion   0.3
 %global spaversion   0.2
@@ -87,7 +87,6 @@ Source1:        pipewire.sysusers
 ## upstream patches
 
 ## Valve patches
-# Patch0010:	0001-pipeware-bluez5-backend-native-Enable-SCO-offload.patch [UPSTREAMED]
 
 ## upstreamable patches
 
@@ -937,6 +936,9 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 %{_datadir}/pipewire/pipewire.conf.d/50-raop.conf
 
 %changelog
+* Thu Jul 09 2026 LionHeartP <LionHeartP@proton.me> - 1.6.8-1
+- Update version to 1.6.8
+
 * Thu Jun 18 2026 LionHeartP <LionHeartP@proton.me> - 1.6.7-1
 - Update version to 1.6.7
 

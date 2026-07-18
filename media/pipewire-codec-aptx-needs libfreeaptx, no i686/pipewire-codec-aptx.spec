@@ -2,11 +2,13 @@
 
 Name:           pipewire-codec-aptx
 Summary:        PipeWire Bluetooth aptX codec plugin
-Version:        1.6.7
+Version:        1.6.8
 Release:        1%{?dist}
 License:        MIT
 URL:            https://pipewire.org/
 Source0:        https://gitlab.freedesktop.org/pipewire/pipewire/-/archive/%{version}/pipewire-%{version}.tar.gz
+
+ExcludeArch:    %{ix86}
 
 BuildRequires:  meson >= 0.59.0
 BuildRequires:  gcc-c++
@@ -40,23 +42,32 @@ install -pm 0755 %{_vpath_builddir}/spa/plugins/bluez5/libspa-codec-bluez5-aptx.
 %{_libdir}/spa-%{spaversion}/bluez5/libspa-codec-bluez5-aptx.so
 
 %changelog
-* Sat Jul 04 2026 Leigh Scott <leigh123linux@gmail.com> - 1.6.7-1
-- Update to 1.6.7
+* Thu Jul 09 2026 LionHeartP <LionHeartP@proton.me> - 1.6.8-1
+- Update version to 1.6.8
 
-* Mon Feb 02 2026 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 1.5.84-2
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_44_Mass_Rebuild
+* Thu Jun 18 2026 LionHeartP <LionHeartP@proton.me> - 1.6.7-1
+- Update version to 1.6.7
 
-* Fri Jan 09 2026 Dominik Mierzejewski <dominik@greysector.net> - 1.5.84-1
-- update to 1.5.84
+* Tue May 26 2026 LionHeartP <LionHeartP@proton.me> - 1.6.6-1
+- Update to 1.6.6
 
-* Thu Oct 09 2025 Dominik Mierzejewski <dominik@greysector.net> - 1.4.9-1
+* Sat May 23 2026 LionHeartP <LionHeartP@proton.me> - 1.6.5-1
+- Update to 1.6.5
+
+* Thu Mar 19 2026 LionHeartP <LionHeartP@proton.me> - 1.4.11-1
+- Update to 1.4.11
+
+* Tue Feb 03 2026 LionHeartP <LionHeartP@proton.me> - 1.4.10-1
+- Update to 1.4.10
+
+* Sun Oct 26 2025 LionHeartP <LionHeartP@proton.me> - 1.4.9-1
 - Update to 1.4.9
 
-* Wed Sep 17 2025 Leigh Scott <leigh123linux@gmail.com> - 1.4.8-1
+* Thu Sep 25 2025 LionHeartP <LionHeartP@proton.me> - 1.4.8-1
 - Update to 1.4.8
 
-* Sun Jul 27 2025 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 1.4.2-2
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_43_Mass_Rebuild
+* Fri Aug 15 2025 LionHeartP <LionHeartP@proton.me> - 1.4.7-1
+- Update to 1.4.7
 
 * Mon Apr 14 2025 Leigh Scott <leigh123linux@gmail.com> - 1.4.2-1
 - Update to 1.4.2
