@@ -1,0 +1,2793 @@
+diff --git a/drivers/hid/Kconfig b/drivers/hid/Kconfig
+index c1ebc5e5e..d42c1d3ba 100644
+--- a/drivers/hid/Kconfig
++++ b/drivers/hid/Kconfig
+@@ -1491,6 +1491,8 @@ source "drivers/hid/ipts/Kconfig"
+ 
+ source "drivers/hid/ithc/Kconfig"
+ 
++source "drivers/hid/xpadneo/Kconfig"
++
+ endif # HID
+ 
+ # USB support may be used with HID disabled
+diff --git a/drivers/hid/Makefile b/drivers/hid/Makefile
+index 9b721773f..dbb17411f 100644
+--- a/drivers/hid/Makefile
++++ b/drivers/hid/Makefile
+@@ -186,6 +186,7 @@ obj-$(CONFIG_INTEL_THC_HID)     += intel-thc-hid/
+ 
+ obj-$(CONFIG_HID_IPTS)          += ipts/
+ obj-$(CONFIG_HID_ITHC)          += ithc/
++obj-$(CONFIG_HID_XPADNEO)	+= xpadneo/
+ 
+ obj-$(CONFIG_SPI_HID_APPLE_CORE)	+= spi-hid/
+ 
+diff --git a/drivers/hid/hid-microsoft.c b/drivers/hid/hid-microsoft.c
+index 18ac21c0b..b8537d0a1 100644
+--- a/drivers/hid/hid-microsoft.c
++++ b/drivers/hid/hid-microsoft.c
+@@ -447,18 +447,8 @@ static const struct hid_device_id ms_devices[] = {
+ 	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x091B),
+ 		.driver_data = MS_SURFACE_DIAL },
+ 
+-	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_XBOX_CONTROLLER_MODEL_1708),
+-		.driver_data = MS_QUIRK_FF },
+-	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_XBOX_CONTROLLER_MODEL_1708_BLE),
+-		.driver_data = MS_QUIRK_FF },
+-	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_XBOX_CONTROLLER_MODEL_1914),
+-		.driver_data = MS_QUIRK_FF },
+-	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_XBOX_CONTROLLER_MODEL_1797),
+-		.driver_data = MS_QUIRK_FF },
+-	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_XBOX_CONTROLLER_MODEL_1797_BLE),
+-		.driver_data = MS_QUIRK_FF },
+-	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_8BITDO_SN30_PRO_PLUS),
+-		.driver_data = MS_QUIRK_FF },
++
++	/* Xbox controller entries removed - handled by hid-xpadneo driver */
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(hid, ms_devices);
+diff --git a/drivers/hid/xpadneo/Kconfig b/drivers/hid/xpadneo/Kconfig
+new file mode 100644
+index 000000000..03060123e
+--- /dev/null
++++ b/drivers/hid/xpadneo/Kconfig
+@@ -0,0 +1,20 @@
++# SPDX-License-Identifier: GPL-2.0-only
++config HID_XPADNEO
++	tristate "Xbox Wireless Controller Bluetooth support (xpadneo)"
++	depends on HID && BT_HIDP
++	help
++	  Support for Xbox One S/X, Xbox Series X|S, and Xbox Elite Series 2
++	  controllers connected via Bluetooth.
++
++	  This driver provides advanced features including:
++	  - Force feedback (rumble) support for main and trigger motors
++	  - Battery level reporting
++	  - Profile switching (Elite controllers)
++	  - Mouse mode emulation
++	  - Improved button mappings
++
++	  This driver will be preferred over the generic HID driver for
++	  Xbox controllers connected via Bluetooth.
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called hid-xpadneo.
+diff --git a/drivers/hid/xpadneo/Makefile b/drivers/hid/xpadneo/Makefile
+new file mode 100644
+index 000000000..7461cde51
+--- /dev/null
++++ b/drivers/hid/xpadneo/Makefile
+@@ -0,0 +1,19 @@
++# SPDX-License-Identifier: GPL-2.0-only
++
++ccflags-y += -DVERSION=5311e2e
++
++obj-$(CONFIG_HID_XPADNEO) += hid-xpadneo.o
++
++hid-xpadneo-y := \
++	consumer.o \
++	core.o \
++	debug.o \
++	device.o \
++	events.o \
++	keyboard.o \
++	mappings.o \
++	mouse.o \
++	power.o \
++	quirks.o \
++	rumble.o \
++	synthetic.o
+diff --git a/drivers/hid/xpadneo/compat.h b/drivers/hid/xpadneo/compat.h
+new file mode 100644
+index 000000000..58a9d3db4
+--- /dev/null
++++ b/drivers/hid/xpadneo/compat.h
+@@ -0,0 +1,53 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++
++/*
++ * xpadneo kernel compatibility helpers
++ *
++ * Copyright (c) 2020 Kai Krakow <kai@kaishome.de>
++ */
++
++#ifndef COMPAT_H
++#define COMPAT_H
++
++#include <linux/version.h>
++
++/* v4.19: ida_simple_{get,remove}() have been replaced */
++#if KERNEL_VERSION(4, 19, 0) >= LINUX_VERSION_CODE
++#define ida_alloc(a, f) ida_simple_get((a), 0, 0, (f))
++#define ida_free(a, f) ida_simple_remove((a), (f))
++#endif
++
++/* v6.15: del_timer_sync() renamed to timer_delete_sync() */
++#if KERNEL_VERSION(6, 15, 0) > LINUX_VERSION_CODE
++#define timer_delete_sync(t) del_timer_sync(t)
++#endif
++
++/* v6.16: from_timer() renamed to timer_container_of() */
++#ifndef timer_container_of
++#define timer_container_of(v, c, t) from_timer(v, c, t)
++#endif
++
++/* Profile usage code for kernel < 6.0-rc1 */
++#ifndef ABS_PROFILE
++#define ABS_PROFILE 0x21
++#endif
++
++/* Paddle usage codes for kernel < 6.17 */
++#ifndef BTN_GRIPL
++#define BTN_GRIPL  0x224
++#define BTN_GRIPR  0x225
++#define BTN_GRIPL2 0x226
++#define BTN_GRIPR2 0x227
++#endif
++
++#if KERNEL_VERSION(6, 12, 0) > LINUX_VERSION_CODE
++static inline u8 *xpadneo_device_report_fixup_compat(struct hid_device *hdev, u8 *rdesc,
++						     unsigned int *rsize)
++{
++	return (u8 *)xpadneo_device_report_fixup(hdev, rdesc, rsize);
++}
++#else
++#define xpadneo_device_report_fixup_compat xpadneo_device_report_fixup
++#endif
++
++#endif
+diff --git a/drivers/hid/xpadneo/consumer.c b/drivers/hid/xpadneo/consumer.c
+new file mode 100644
+index 000000000..0fcfb4b39
+--- /dev/null
++++ b/drivers/hid/xpadneo/consumer.c
+@@ -0,0 +1,34 @@
++// SPDX-License-Identifier: GPL-2.0-only
++
++/*
++ * xpadneo consumer control driver
++ *
++ * Copyright (c) 2021 Kai Krakow <kai@kaishome.de>
++ */
++
++#include "xpadneo.h"
++
++int xpadneo_consumer_init(struct xpadneo_devdata *xdata)
++{
++	int ret;
++
++	if (!xdata->consumer.idev) {
++		ret = xpadneo_synthetic_init(xdata, "Consumer Control", &xdata->consumer);
++		if (ret || !xdata->consumer.idev)
++			return ret;
++	}
++
++	/* enable consumer events for mouse mode */
++	input_set_capability(xdata->consumer.idev, EV_KEY, KEY_ONSCREEN_KEYBOARD);
++
++	ret = xpadneo_synthetic_register(xdata, "consumer control", &xdata->consumer);
++	if (ret)
++		return ret;
++
++	return 0;
++}
++
++void xpadneo_consumer_remove(struct xpadneo_devdata *xdata)
++{
++	xpadneo_synthetic_remove(xdata, "consumer control", &xdata->consumer);
++}
+diff --git a/drivers/hid/xpadneo/core.c b/drivers/hid/xpadneo/core.c
+new file mode 100644
+index 000000000..5f1e62935
+--- /dev/null
++++ b/drivers/hid/xpadneo/core.c
+@@ -0,0 +1,315 @@
++// SPDX-License-Identifier: GPL-2.0-only
++
++/*
++ * xpadneo driver core
++ *
++ * This driver was developed for a student project at fortiss GmbH in Munich by
++ * Florian Dollinger.
++ *
++ * Copyright (c) 2021 Kai Krakow <kai@kaishome.de>
++ * Copyright (c) 2017 Florian Dollinger <dollinger.florian@gmx.de>
++ */
++
++#include <linux/hid.h>
++#include <linux/idr.h>
++#include <linux/input.h>
++#include <linux/module.h>
++
++#include "xpadneo.h"
++
++/* always include last */
++#include "compat.h"
++
++#ifndef VERSION
++#error "xpadneo version not defined"
++#endif
++
++#define XPADNEO_VERSION __stringify(VERSION)
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Florian Dollinger <dollinger.florian@gmx.de>");
++MODULE_AUTHOR("Kai Krakow <kai@kaishome.de>");
++MODULE_DESCRIPTION("Linux kernel driver for Xbox ONE S+ gamepads (Bluetooth), including rumble");
++MODULE_VERSION(XPADNEO_VERSION);
++
++static DEFINE_IDA(xpadneo_core_device_id_allocator);
++
++#ifndef USB_VENDOR_ID_MICROSOFT
++#define USB_VENDOR_ID_MICROSOFT 0x045e
++#endif
++
++static const struct hid_device_id core_devices[] = {
++	/* XBOX ONE S / X */
++	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x02E0) },
++	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x02FD) },
++	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x0B20),
++	 .driver_data = XPADNEO_QUIRK_SHARE_BUTTON },
++
++	/* XBOX ONE Elite Series 2 */
++	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x0B05) },
++	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x0B22),
++	 .driver_data = XPADNEO_QUIRK_SHARE_BUTTON },
++
++	/* XBOX Series X|S / Xbox Wireless Controller (BLE) */
++	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, 0x0B13),
++	 .driver_data = XPADNEO_QUIRK_SHARE_BUTTON },
++
++	/* SENTINEL VALUE, indicates the end */
++	{ }
++};
++
++MODULE_DEVICE_TABLE(hid, core_devices);
++
++static int core_init_base_device(struct hid_device *hdev)
++{
++	int ret;
++	struct xpadneo_devdata *xdata = hid_get_drvdata(hdev);
++
++	if (!xdata->gamepad.idev) {
++		xpadneo_device_missing(xdata, XPADNEO_MISSING_GAMEPAD);
++		return -EINVAL;
++	}
++
++	ret = xpadneo_power_init(xdata);
++	if (ret)
++		goto err_free_name;
++
++	ret = xpadneo_quirks_init(xdata);
++	if (ret)
++		goto err_uninit_power;
++
++	return 0;
++
++err_uninit_power:
++	xpadneo_power_remove(xdata);
++
++err_free_name:
++	return ret;
++}
++
++static void core_release_device_id(struct xpadneo_devdata *xdata)
++{
++	if (xdata->id >= 0) {
++		ida_free(&xpadneo_core_device_id_allocator, xdata->id);
++		xdata->id = -1;
++	}
++}
++
++static void core_remove(struct hid_device *hdev)
++{
++	struct xpadneo_devdata *xdata = hid_get_drvdata(hdev);
++
++	hid_hw_close(hdev);
++
++	if (hdev->version != xdata->original_version) {
++		hid_info(hdev,
++			 "reverting to original version "
++			 "(changed version from 0x%08X to 0x%08X)\n",
++			 hdev->version, xdata->original_version);
++		hdev->version = xdata->original_version;
++	}
++
++	if (hdev->product != xdata->original_product) {
++		hid_info(hdev,
++			 "reverting to original product "
++			 "(changed PID from 0x%04X to 0x%04X)\n",
++			 hdev->product, xdata->original_product);
++		hdev->product = xdata->original_product;
++	}
++
++	xpadneo_mouse_remove_timer(xdata);
++	xpadneo_rumble_remove(xdata);
++	xpadneo_quirks_remove(xdata);
++	xpadneo_power_remove(xdata);
++	xpadneo_mouse_remove(xdata);
++	xpadneo_keyboard_remove(xdata);
++	xpadneo_consumer_remove(xdata);
++
++	core_release_device_id(xdata);
++	hid_hw_stop(hdev);
++}
++
++#if KERNEL_VERSION(4, 18, 0) > LINUX_VERSION_CODE
++#error "kernel version 4.18.0+ required for HID_QUIRK_INPUT_PER_APP"
++#endif
++static int core_probe(struct hid_device *hdev, const struct hid_device_id *id)
++{
++	int ret, index;
++	struct xpadneo_devdata *xdata;
++
++	xdata = devm_kzalloc(&hdev->dev, sizeof(*xdata), GFP_KERNEL);
++	if (xdata == NULL)
++		return -ENOMEM;
++
++	index = ida_alloc(&xpadneo_core_device_id_allocator, GFP_KERNEL);
++	if (index < 0)
++		return index;
++	xdata->id = index;
++
++	xdata->quirks = id->driver_data;
++
++	xdata->hdev = hdev;
++	hdev->quirks |= HID_QUIRK_INPUT_PER_APP;
++	hdev->quirks |= HID_QUIRK_NO_INPUT_SYNC;
++	hid_set_drvdata(hdev, xdata);
++
++	if (hdev->version == 0x00000903)
++		hid_warn(hdev, "buggy firmware detected, please upgrade to the latest version\n");
++	else if (hdev->version < 0x00000500)
++		hid_warn(hdev,
++			 "classic Bluetooth firmware version %x.%02x, please upgrade for better stability\n",
++			 hdev->version >> 8, (u8)hdev->version);
++	else if (hdev->version < 0x00000512)
++		hid_warn(hdev,
++			 "BLE firmware version %x.%02x, please upgrade for better stability\n",
++			 hdev->version >> 8, (u8)hdev->version);
++	else
++		hid_info(hdev, "BLE firmware version %x.%02x\n",
++			 hdev->version >> 8, (u8)hdev->version);
++
++	/*
++	 * Pretend that we are in Windows pairing mode as we are actually
++	 * exposing the Windows mapping. This prevents SDL and other layers
++	 * (probably browser game controller APIs) from treating our driver
++	 * unnecessarily with button and axis mapping fixups, and it seems
++	 * this is actually a firmware mode meant for Android usage only:
++	 *
++	 * Xbox One S:
++	 * 0x2E0 wireless Windows mode (non-Android mode)
++	 * 0x2EA USB Windows and Linux mode
++	 * 0x2FD wireless Linux mode (Android mode)
++	 *
++	 * Xbox Elite 2:
++	 * 0xB00 USB Windows and Linux mode
++	 * 0xB05 wireless Linux mode (Android mode)
++	 *
++	 * Xbox Series X|S:
++	 * 0xB12 Dongle, USB Windows and USB Linux mode
++	 * 0xB13 wireless Linux mode (Android mode)
++	 *
++	 * Xbox Controller BLE mode:
++	 * 0xB20 wireless BLE mode
++	 *
++	 * TODO: We should find a better way of doing this so SDL2 could
++	 * still detect our driver as the correct model. Currently this
++	 * maps all controllers to the same model.
++	 */
++	xdata->original_product = hdev->product;
++	xdata->original_version = hdev->version;
++	hdev->product = 0x028E;
++	hdev->version = 0x00001130;
++
++	if (hdev->product != xdata->original_product)
++		hid_info(hdev,
++			 "pretending XB1S Windows wireless mode "
++			 "(changed PID from 0x%04X to 0x%04X)\n", xdata->original_product,
++			 hdev->product);
++
++	if (hdev->version != xdata->original_version)
++		hid_info(hdev,
++			 "working around wrong SDL2 mappings "
++			 "(changed version from 0x%08X to 0x%08X)\n", xdata->original_version,
++			 hdev->version);
++
++	ret = hid_parse(hdev);
++	if (ret) {
++		hid_err(hdev, "parse failed\n");
++		goto err_release_id;
++	}
++
++	ret = hid_hw_start(hdev, HID_CONNECT_DEFAULT);
++	if (ret) {
++		hid_err(hdev, "hw start failed\n");
++		goto err_release_id;
++	}
++
++	ret = xpadneo_consumer_init(xdata);
++	if (ret)
++		goto err_stop_hw;
++
++	ret = xpadneo_keyboard_init(xdata);
++	if (ret)
++		goto err_uninit_consumer;
++
++	ret = xpadneo_mouse_init(xdata);
++	if (ret)
++		goto err_uninit_keyboard;
++
++	ret = core_init_base_device(hdev);
++	if (ret) {
++		hid_err(hdev, "hw init failed: %d\n", ret);
++		goto err_uninit_mouse;
++	}
++
++	ret = xpadneo_rumble_init(hdev);
++	if (ret)
++		hid_err(hdev, "could not initialize ff, continuing anyway\n");
++
++	xpadneo_mouse_init_timer(xdata);
++
++	hid_info(hdev, "%s connected\n", xdata->battery.name);
++
++	return 0;
++
++	/* error paths in reverse initialization order */
++err_uninit_mouse:
++	xpadneo_mouse_remove(xdata);
++
++err_uninit_keyboard:
++	xpadneo_keyboard_remove(xdata);
++
++err_uninit_consumer:
++	xpadneo_consumer_remove(xdata);
++
++err_stop_hw:
++	hid_hw_stop(hdev);
++
++err_release_id:
++	/* restore the original device IDs first */
++	hdev->product = xdata->original_product;
++	hdev->version = xdata->original_version;
++
++	core_release_device_id(xdata);
++	return ret;
++}
++
++static struct hid_driver core_driver = {
++	.name = "xpadneo",
++	.event = xpadneo_events_event,
++	.id_table = core_devices,
++	.input_configured = xpadneo_events_input_configured,
++	.input_mapping = xpadneo_mappings_input,
++	.probe = core_probe,
++	.remove = core_remove,
++	.report = xpadneo_device_report,
++	.report_fixup = xpadneo_device_report_fixup_compat,
++	.raw_event = xpadneo_events_raw_event,
++};
++
++static int __init core_init(void)
++{
++	int ret;
++
++	pr_info("loaded hid-xpadneo %s\n", XPADNEO_VERSION);
++	dbg_hid("xpadneo:%s\n", __func__);
++
++	ret = xpadneo_rumble_init_workqueue();
++	if (!ret) {
++		ret = hid_register_driver(&core_driver);
++		if (ret)
++			xpadneo_rumble_destroy_workqueue();
++	}
++
++	return ret;
++}
++
++static void __exit core_exit(void)
++{
++	dbg_hid("xpadneo:%s\n", __func__);
++	hid_unregister_driver(&core_driver);
++	ida_destroy(&xpadneo_core_device_id_allocator);
++	xpadneo_rumble_destroy_workqueue();
++}
++
++module_init(core_init);
++module_exit(core_exit);
+diff --git a/drivers/hid/xpadneo/debug.c b/drivers/hid/xpadneo/debug.c
+new file mode 100644
+index 000000000..12733c7c2
+--- /dev/null
++++ b/drivers/hid/xpadneo/debug.c
+@@ -0,0 +1,167 @@
++// SPDX-License-Identifier: GPL-2.0-only
++
++/*
++ * xpadneo HID descriptor debug helpers
++ *
++ * Logs descriptor size and CRC-16 checksum unconditionally, and dumps the
++ * full unpatched HID descriptor (including OUI flags) automatically for
++ * locally-administered (LAA) addresses or when the debug_descriptor module
++ * parameter is set.
++ *
++ * Copyright (c) 2026 Kai Krakow <kai@kaishome.de>
++ */
++
++#include <linux/crc16.h>
++#include <linux/hid.h>
++#include <linux/module.h>
++#include <linux/printk.h>
++#include <linux/string.h>
++#include <linux/types.h>
++
++#include "xpadneo.h"
++
++static bool param_debug_descriptor;
++module_param_named(debug_descriptor, param_debug_descriptor, bool, 0644);
++MODULE_PARM_DESC(debug_descriptor,
++		 "(bool) Dump unpatched HID descriptor to dmesg. 0: auto, 1: always.");
++
++static bool param_debug_hid;
++module_param_named(debug_hid, param_debug_hid, bool, 0644);
++MODULE_PARM_DESC(debug_hid, "(bool) Debug HID reports. 0: disable, 1: enable.");
++
++struct crc_name {
++	u16 crc16;
++	char *name;
++};
++
++const struct crc_name known_checksums[] = {
++	{ .crc16 = 0x6500, .name = "Xbox One Elite Series 2" },
++	{ .crc16 = 0x8BC5, .name = "Xbox Wireless Controller (legacy)" },
++	{ .crc16 = 0x931D, .name = "Xbox Wireless Controller (modern)" },
++};
++
++/*
++ * Parse the first three OUI bytes from a Bluetooth MAC address string of
++ * the form "aa:bb:cc:dd:ee:ff".  Returns 0 on success, -EINVAL otherwise.
++ */
++static int parse_oui(const char *uniq, u8 *b0, u8 *b1, u8 *b2)
++{
++	char tmp[3] = { };
++
++	/* need at least "XX:XX:XX" (8 chars) with ':' separators */
++	if (strnlen(uniq, 9) < 8 || uniq[2] != ':' || uniq[5] != ':')
++		return -EINVAL;
++
++	memcpy(tmp, uniq + 0, 2);
++	if (kstrtou8(tmp, 16, b0))
++		return -EINVAL;
++
++	memcpy(tmp, uniq + 3, 2);
++	if (kstrtou8(tmp, 16, b1))
++		return -EINVAL;
++
++	memcpy(tmp, uniq + 6, 2);
++	if (kstrtou8(tmp, 16, b2))
++		return -EINVAL;
++
++	return 0;
++}
++
++void xpadneo_debug_hid_report(struct hid_device *hdev, const struct xpadneo_rumble_report *r,
++			      const size_t len)
++{
++	if (likely(!param_debug_hid))
++		return;
++
++	if (unlikely(len == 0)) {
++		hid_err(hdev, "HID debug: invalid length %zu\n", len);
++		return;
++	}
++
++	switch (r->report_id) {
++	case 0x03:
++		if (unlikely(len != sizeof(*r))) {
++			hid_info(hdev, "HID debug: len %zu malformed cmd 0x%02x\n", len,
++				 r->report_id);
++		} else {
++			hid_info(hdev,
++				 "HID debug: rumble cmd 0x%02x "
++				 "motors left %d right %d strong %d weak %d "
++				 "magnitude left %d right %d strong %d weak %d "
++				 "pulse sustain %dms release %dms loop %d\n",
++				 r->report_id,
++				 !!(r->data.enable & XBOX_RUMBLE_LEFT),
++				 !!(r->data.enable & XBOX_RUMBLE_RIGHT),
++				 !!(r->data.enable & XBOX_RUMBLE_STRONG),
++				 !!(r->data.enable & XBOX_RUMBLE_WEAK),
++				 r->data.magnitude_left, r->data.magnitude_right,
++				 r->data.magnitude_strong, r->data.magnitude_weak,
++				 r->data.pulse_sustain_10ms * 10,
++				 r->data.pulse_release_10ms * 10, r->data.loop_count);
++		}
++		break;
++	default:
++		hid_info(hdev, "HID debug: unhandled cmd 0x%02x\n", r->report_id);
++	}
++}
++
++/*
++ * xpadneo_debug_descriptor - log descriptor metadata and optionally hex-dump
++ * @hdev:   HID device whose descriptor is being examined
++ * @rdesc:  pointer to the *unpatched* report descriptor bytes
++ * @rsize:  length of the descriptor in bytes
++ *
++ * Must be called at the very start of report_fixup, before any in-place
++ * modifications, so that the logged data reflects the device's original
++ * descriptor.
++ *
++ * Unconditionally emits one line containing the descriptor byte-length and
++ * CRC-16 checksum (CRC-16/IBM, poly 0x8005, init 0), plus one line
++ * describing the OUI flags.
++ *
++ * Additionally performs a full hex-dump when:
++ *   - the module parameter debug_descriptor=1 is set, OR
++ *   - the device's Bluetooth OUI is locally administered (LAA).
++ */
++void xpadneo_debug_descriptor(struct hid_device *hdev, const __u8 *rdesc, unsigned int rsize)
++{
++	u8 oui0 = 0, oui1 = 0, oui2 = 0;
++	u16 crc = crc16(0, rdesc, rsize);
++	bool oui_valid = (parse_oui(hdev->uniq, &oui0, &oui1, &oui2) == 0);
++	bool is_laa = !!(oui0 & XPADNEO_OUI_IS_LAA);
++	bool is_multicast = !!(oui0 & XPADNEO_OUI_IS_MULTICAST);
++	bool do_dump;
++
++	hid_info(hdev, "report descriptor: length %u crc16 0x%04x\n", rsize, crc);
++
++	if (oui_valid) {
++		hid_info(hdev,
++			 "report descriptor: OUI %02X:%02X:%02X (0x%02X) - %s, %s\n",
++			 oui0, oui1, oui2, oui0,
++			 is_laa ? "locally-administered (LAA)" : "globally-assigned",
++			 is_multicast ? "multicast" : "unicast");
++	} else {
++		hid_info(hdev, "report descriptor: OUI unavailable (uniq='%.17s')\n", hdev->uniq);
++	}
++
++	do_dump = param_debug_descriptor;
++	if (!do_dump) {
++		for (int i = 0; i < ARRAY_SIZE(known_checksums); i++) {
++			if (crc == known_checksums[i].crc16) {
++				hid_info(hdev,
++					 "report descriptor: known checksum crc16 0x%04x name '%s'\n",
++					 crc, known_checksums[i].name);
++				break;
++			}
++		}
++	}
++
++	do_dump = param_debug_descriptor || (oui_valid && is_laa);
++	if (do_dump) {
++		hid_info(hdev,
++			 "report descriptor: dumping %u unpatched bytes crc16 0x%04x%s\n", rsize,
++			 crc, param_debug_descriptor ? " [forced]" : " [LAA OUI]");
++		print_hex_dump(KERN_INFO, "xpadneo hid-desc: ", DUMP_PREFIX_OFFSET, 16, 1, rdesc,
++			       rsize, false);
++	}
++}
+diff --git a/drivers/hid/xpadneo/device.c b/drivers/hid/xpadneo/device.c
+new file mode 100644
+index 000000000..f916fcc85
+--- /dev/null
++++ b/drivers/hid/xpadneo/device.c
+@@ -0,0 +1,123 @@
++// SPDX-License-Identifier: GPL-2.0-only
++
++/*
++ * xpadneo core device helpers
++ *
++ * Copyright (c) 2021 Kai Krakow <kai@kaishome.de>
++ */
++
++#include <linux/module.h>
++
++#include "xpadneo.h"
++
++int xpadneo_device_output_report(struct hid_device *hdev, __u8 *buf, size_t len)
++{
++	struct xpadneo_rumble_report *r = (struct xpadneo_rumble_report *)buf;
++
++	xpadneo_debug_hid_report(hdev, r, len);
++
++	return hid_hw_output_report(hdev, buf, len);
++}
++
++void xpadneo_device_missing(struct xpadneo_devdata *xdata, u32 flag)
++{
++	struct hid_device *hdev = xdata->hdev;
++
++	if ((xdata->missing_reported & flag) == 0) {
++		xdata->missing_reported |= flag;
++		switch (flag) {
++		case XPADNEO_MISSING_CONSUMER:
++			hid_err(hdev, "consumer control not detected\n");
++			break;
++		case XPADNEO_MISSING_GAMEPAD:
++			hid_err(hdev, "gamepad not detected\n");
++			break;
++		case XPADNEO_MISSING_KEYBOARD:
++			hid_err(hdev, "keyboard not detected\n");
++			break;
++		default:
++			hid_err(hdev, "unexpected subdevice missing: %d\n", flag);
++		}
++	}
++
++}
++
++static inline void sync_device(struct xpadneo_subdevice *subdev)
++{
++	if (subdev->idev && subdev->sync) {
++		subdev->sync = false;
++		input_sync(subdev->idev);
++	}
++}
++
++void xpadneo_device_report(struct hid_device *hdev, struct hid_report *report)
++{
++	struct xpadneo_devdata *xdata = hid_get_drvdata(hdev);
++
++	sync_device(&xdata->consumer);
++	sync_device(&xdata->gamepad);
++	sync_device(&xdata->keyboard);
++	sync_device(&xdata->mouse);
++}
++
++const __u8 *xpadneo_device_report_fixup(struct hid_device *hdev, __u8 *rdesc, unsigned int *rsize)
++{
++	struct xpadneo_devdata *xdata = hid_get_drvdata(hdev);
++
++	/* preserve the original descriptor size for post-parse quirk heuristics */
++	xdata->original_rsize = *rsize;
++
++	/* log size/CRC and optionally hex-dump before any in-place patches */
++	xpadneo_debug_descriptor(hdev, rdesc, *rsize);
++
++	/* fixup trailing NUL byte */
++	if (rdesc[*rsize - 2] == 0xC0 && rdesc[*rsize - 1] == 0x00) {
++		hid_notice(hdev, "fixing up report descriptor size\n");
++		*rsize -= 1;
++	}
++
++	/* fixup reported axes for Xbox One S */
++	if (*rsize >= 81) {
++		if (rdesc[34] == 0x09 && rdesc[35] == 0x32) {
++			hid_notice(hdev, "fixing up Rx axis\n");
++			rdesc[35] = 0x33;	/* Z --> Rx */
++		}
++		if (rdesc[36] == 0x09 && rdesc[37] == 0x35) {
++			hid_notice(hdev, "fixing up Ry axis\n");
++			rdesc[37] = 0x34;	/* Rz --> Ry */
++		}
++		if (rdesc[52] == 0x05 && rdesc[53] == 0x02 &&
++		    rdesc[54] == 0x09 && rdesc[55] == 0xC5) {
++			hid_notice(hdev, "fixing up Z axis\n");
++			rdesc[53] = 0x01;	/* Simulation -> Gendesk */
++			rdesc[55] = 0x32;	/* Brake -> Z */
++		}
++		if (rdesc[77] == 0x05 && rdesc[78] == 0x02 &&
++		    rdesc[79] == 0x09 && rdesc[80] == 0xC4) {
++			hid_notice(hdev, "fixing up Rz axis\n");
++			rdesc[78] = 0x01;	/* Simulation -> Gendesk */
++			rdesc[80] = 0x35;	/* Accelerator -> Rz */
++		}
++	}
++
++	/* fixup reported button count for Xbox controllers in Linux mode */
++	if (*rsize >= 164) {
++		/*
++		 * 12 buttons instead of 10: properly remap the
++		 * Xbox button (button 11)
++		 * Share button (button 12)
++		 */
++		if (rdesc[140] == 0x05 && rdesc[141] == 0x09 &&
++		    rdesc[144] == 0x29 && rdesc[145] == 0x0F &&
++		    rdesc[152] == 0x95 && rdesc[153] == 0x0F &&
++		    rdesc[162] == 0x95 && rdesc[163] == 0x01) {
++			hid_notice(hdev, "fixing up button mapping\n");
++			xdata->quirks |= XPADNEO_QUIRK_LINUX_BUTTONS;
++			rdesc[145] = 0x0C;	/* 15 buttons -> 12 buttons */
++			rdesc[153] = 0x0C;	/* 15 bits -> 12 bits buttons */
++			rdesc[163] = 0x04;	/* 1 bit -> 4 bits constants */
++		}
++	}
++
++	return rdesc;
++}
+diff --git a/drivers/hid/xpadneo/events.c b/drivers/hid/xpadneo/events.c
+new file mode 100644
+index 000000000..c85e9c756
+--- /dev/null
++++ b/drivers/hid/xpadneo/events.c
+@@ -0,0 +1,351 @@
++// SPDX-License-Identifier: GPL-2.0-only
++
++/*
++ * xpadneo driver events and profiles handling
++ *
++ * Copyright (c) 2017 Florian Dollinger <dollinger.florian@gmx.de>
++ * Copyright (c) 2026 Kai Krakow <kai@kaishome.de>
++ */
++
++#include <linux/module.h>
++
++#include "xpadneo.h"
++#include "helpers.h"
++
++/* always include last */
++#include "compat.h"
++
++/* XBE2 controllers support four profiles */
++#define XPADNEO_XBE2_PROFILES_MAX 4
++
++static bool param_gamepad_compliance = 1;
++module_param_named(gamepad_compliance, param_gamepad_compliance, bool, 0444);
++MODULE_PARM_DESC(gamepad_compliance,
++		 "(bool) Adhere to Linux Gamepad Specification by using signed axis values. "
++		 "1: enable, 0: disable.");
++
++static bool param_disable_deadzones;
++module_param_named(disable_deadzones, param_disable_deadzones, bool, 0444);
++MODULE_PARM_DESC(disable_deadzones,
++		 "(bool) Disable dead zone handling for raw processing by Wine/Proton, confuses joydev. "
++		 "0: disable, 1: enable.");
++
++static bool param_disable_shift_mode;
++module_param_named(disable_shift_mode, param_disable_shift_mode, bool, 0644);
++MODULE_PARM_DESC(disable_shift_mode,
++		 "(bool) Disable use Xbox logo button as shift. Will prohibit profile switching when enabled. "
++		 "0: disable, 1: enable.");
++
++static void switch_profile(struct xpadneo_devdata *xdata, const u8 profile, const bool emulated)
++{
++	if (xdata->profile != profile) {
++		hid_info(xdata->hdev, "switching profile to %d\n", profile);
++		xdata->profile = profile;
++	}
++
++	/* Indicate to profile emulation that a request was made */
++	if (emulated)
++		xdata->profile_switched = true;
++}
++
++static void switch_triggers(struct xpadneo_devdata *xdata, const u8 mode)
++{
++	char *name[XBOX_TRIGGER_SCALE_NUM] = {
++		[XBOX_TRIGGER_SCALE_FULL] = "full range",
++		[XBOX_TRIGGER_SCALE_HALF] = "half range",
++		[XBOX_TRIGGER_SCALE_DIGITAL] = "digital",
++	};
++
++	enum xpadneo_trigger_scale left = (mode >> 0) & 0x03;
++	enum xpadneo_trigger_scale right = (mode >> 2) & 0x03;
++
++	if ((xdata->trigger_scale.left != left) && (left < XBOX_TRIGGER_SCALE_NUM)) {
++		hid_info(xdata->hdev, "switching left trigger to %s mode\n", name[left]);
++		xdata->trigger_scale.left = left;
++	}
++
++	if ((xdata->trigger_scale.right != right) && (right < XBOX_TRIGGER_SCALE_NUM)) {
++		hid_info(xdata->hdev, "switching right trigger to %s mode\n", name[right]);
++		xdata->trigger_scale.right = right;
++	}
++}
++
++int xpadneo_events_raw_event(struct hid_device *hdev, struct hid_report *report,
++			     u8 *data, int reportsize)
++{
++	struct xpadneo_devdata *xdata = hid_get_drvdata(hdev);
++
++	/* the controller spams reports multiple times */
++	if (likely(report->id == 0x01)) {
++		int size = min_t(int, reportsize, XPADNEO_REPORT_0x01_LENGTH);
++
++		if (likely(memcmp(&xdata->input_report_0x01, data, size) == 0))
++			return -1;
++		memcpy(&xdata->input_report_0x01, data, size);
++	}
++
++	/* we are taking care of the battery report ourselves */
++	if (xdata->battery.report_id && report->id == xdata->battery.report_id && reportsize == 2) {
++		xpadneo_power_update(xdata, data[1]);
++		return -1;
++	}
++
++	/* correct button mapping of Xbox controllers in Linux mode */
++	if ((xdata->quirks & XPADNEO_QUIRK_LINUX_BUTTONS) && report->id == 1 && reportsize >= 17) {
++		u16 bits = 0;
++
++		bits |= (data[14] & (BIT(0) | BIT(1))) >> 0;	/* A, B */
++		bits |= (data[14] & (BIT(3) | BIT(4))) >> 1;	/* X, Y */
++		bits |= (data[14] & (BIT(6) | BIT(7))) >> 2;	/* LB, RB */
++		if (xdata->quirks & XPADNEO_QUIRK_SHARE_BUTTON)
++			bits |= (data[15] & BIT(2)) << 4;	/* Back */
++		else
++			bits |= (data[16] & BIT(0)) << 6;	/* Back */
++		bits |= (data[15] & BIT(3)) << 4;	/* Menu */
++		bits |= (data[15] & BIT(5)) << 3;	/* LS */
++		bits |= (data[15] & BIT(6)) << 3;	/* RS */
++		bits |= (data[15] & BIT(4)) << 6;	/* Xbox */
++		if (xdata->quirks & XPADNEO_QUIRK_SHARE_BUTTON)
++			bits |= (data[16] & BIT(0)) << 11;	/* Share */
++		data[14] = (u8)((bits >> 0) & 0xFF);
++		data[15] = (u8)((bits >> 8) & 0xFF);
++		data[16] = 0;
++	}
++
++	/* swap button A with B and X with Y for Nintendo style controllers */
++	if ((xdata->quirks & XPADNEO_QUIRK_NINTENDO) && report->id == 1 && reportsize >= 15) {
++		data[14] = SWAP_BITS(data[14], 0, 1);
++		data[14] = SWAP_BITS(data[14], 2, 3);
++	}
++
++	/* XBE2: track the current controller settings */
++	if (report->id == 1 && reportsize >= 20) {
++		if (!(xdata->quirks & XPADNEO_QUIRK_USE_HW_PROFILES)) {
++			hid_info(hdev, "mapping profiles detected\n");
++			xdata->quirks |= XPADNEO_QUIRK_USE_HW_PROFILES;
++		}
++		if (reportsize == 55) {
++			hid_notice_once(hdev,
++					"detected broken XBE2 v1 packet format, please update the firmware\n");
++			switch_profile(xdata, data[35] & 0x03, false);
++			switch_triggers(xdata, data[36] & 0x0F);
++		} else if (reportsize >= 21) {
++			/* firmware 4.x style packet */
++			switch_profile(xdata, data[19] & 0x03, false);
++			switch_triggers(xdata, data[20] & 0x0F);
++		} else {
++			/* firmware 5.x style packet */
++			switch_profile(xdata, data[17] & 0x03, false);
++			switch_triggers(xdata, data[18] & 0x0F);
++		}
++	}
++
++	if (xpadneo_mouse_raw_event(xdata, report, data, reportsize))
++		return -1;
++
++	return 0;
++}
++
++int xpadneo_events_event(struct hid_device *hdev, struct hid_field *field,
++			 struct hid_usage *usage, __s32 value)
++{
++	struct xpadneo_devdata *xdata = hid_get_drvdata(hdev);
++	struct input_dev *gamepad = xdata->gamepad.idev;
++	struct input_dev *keyboard = xdata->keyboard.idev;
++
++	if (xpadneo_mouse_event(xdata, usage, value))
++		goto stop_processing;
++
++	if ((usage->type == EV_KEY) && (usage->code == BTN_GRIPL)) {
++		if (gamepad && xdata->profile == 0) {
++			/* report the paddles individually */
++			input_report_key(gamepad, BTN_GRIPR, (value & 1) ? 1 : 0);
++			input_report_key(gamepad, BTN_GRIPR2, (value & 2) ? 1 : 0);
++			input_report_key(gamepad, BTN_GRIPL, (value & 4) ? 1 : 0);
++			input_report_key(gamepad, BTN_GRIPL2, (value & 8) ? 1 : 0);
++			xdata->gamepad.sync = true;
++		}
++		goto stop_processing;
++	} else if (usage->type == EV_ABS) {
++		switch (usage->code) {
++		case ABS_X:
++		case ABS_Y:
++		case ABS_RX:
++		case ABS_RY:
++			/* Linux Gamepad Specification */
++			if (param_gamepad_compliance) {
++				input_report_abs(gamepad, usage->code, value - 32768);
++				xdata->gamepad.sync = true;
++				goto stop_processing;
++			}
++			break;
++		case ABS_Z:
++			xdata->last_abs_z = value;
++			break;
++		case ABS_RZ:
++			xdata->last_abs_rz = value;
++			break;
++		}
++	} else if (!param_disable_shift_mode && (usage->type == EV_KEY)
++		   && (usage->code == BTN_XBOX)) {
++		/*
++		 * Handle the Xbox logo button: We want to cache the button
++		 * down event to allow for profile switching. The button will
++		 * act as a shift key and only send the input events when
++		 * released without pressing an additional button.
++		 */
++
++		if (!xdata->shift_mode && (value == 1)) {
++			/* cache this event */
++			xdata->shift_mode = true;
++		} else if (xdata->shift_mode && (value == 0)) {
++			xdata->shift_mode = false;
++			if (xdata->profile_switched) {
++				xdata->profile_switched = false;
++			} else {
++				/* replay cached event */
++				input_report_key(gamepad, BTN_XBOX, 1);
++				input_sync(gamepad);
++				/* synthesize the release to remove the scan code */
++				input_report_key(gamepad, BTN_XBOX, 0);
++				input_sync(gamepad);
++			}
++		}
++		goto stop_processing;
++	} else if ((usage->type == EV_KEY) && (usage->code == BTN_SHARE)) {
++		/* move the Share button to the keyboard device */
++		if (!keyboard)
++			goto keyboard_missing;
++		input_report_key(keyboard, BTN_SHARE, value);
++		xdata->keyboard.sync = true;
++		goto stop_processing;
++	} else if (xdata->shift_mode && (usage->type == EV_KEY)) {
++		hid_notice_once(hdev,
++				"shift mode active: operation of the Xbox button may be limited in Steam Input\n");
++		if (!(xdata->quirks & XPADNEO_QUIRK_USE_HW_PROFILES)) {
++			switch (usage->code) {
++			case BTN_A:
++				if (value == 1)
++					switch_profile(xdata, 0, true);
++				goto stop_processing;
++			case BTN_B:
++				if (value == 1)
++					switch_profile(xdata, 1, true);
++				goto stop_processing;
++			case BTN_X:
++				if (value == 1)
++					switch_profile(xdata, 2, true);
++				goto stop_processing;
++			case BTN_Y:
++				if (value == 1)
++					switch_profile(xdata, 3, true);
++				goto stop_processing;
++			}
++		}
++		switch (usage->code) {
++		case BTN_SELECT:
++			if ((value == 1) && xpadneo_mouse_toggle(xdata))
++				xdata->profile_switched = true;
++			goto stop_processing;
++		}
++	}
++
++	/* Let hid-core handle the event */
++	xdata->gamepad.sync = true;
++	return 0;
++
++keyboard_missing:
++	xpadneo_device_missing(xdata, XPADNEO_MISSING_KEYBOARD);
++
++stop_processing:
++	/* report the profile change */
++	if (xdata->profile >= XPADNEO_XBE2_PROFILES_MAX) {
++		hid_notice_once(hdev, "unexpected profile value %d\n", xdata->profile);
++	} else if (xdata->last_profile != xdata->profile) {
++		/*
++		 * Profile axis mirrors LED state; originating physical event already
++		 * forces sync.
++		 */
++		input_report_abs(gamepad, ABS_PROFILE, xdata->profile);
++		xdata->last_profile = xdata->profile;
++	}
++
++	return 1;
++}
++
++int xpadneo_events_input_configured(struct hid_device *hdev, struct hid_input *hi)
++{
++	struct xpadneo_devdata *xdata = hid_get_drvdata(hdev);
++	int deadzone = 3072, abs_min = 0, abs_max = 65535;
++
++	switch (hi->application) {
++	case HID_GD_GAMEPAD:
++		hid_info(hdev, "gamepad detected\n");
++		xdata->gamepad.idev = hi->input;
++		break;
++	case HID_GD_KEYBOARD:
++		hid_info(hdev, "keyboard detected\n");
++		xdata->keyboard.idev = hi->input;
++
++		/* do not report bogus keys as part of the keyboard */
++		__clear_bit(KEY_UNKNOWN, xdata->keyboard.idev->keybit);
++
++		return 0;
++	case HID_CP_CONSUMER_CONTROL:
++		hid_info(hdev, "consumer control detected\n");
++		xdata->consumer.idev = hi->input;
++		return 0;
++	case 0xFF000005:
++		/* FIXME: this is no longer in the current firmware */
++		hid_info(hdev, "mapping profiles detected\n");
++		xdata->quirks |= XPADNEO_QUIRK_USE_HW_PROFILES;
++		return 0;
++	default:
++		hid_warn(hdev, "unhandled input application 0x%x\n", hi->application);
++		return 0;
++	}
++
++	if (param_disable_deadzones) {
++		hid_warn(hdev, "disabling dead zones\n");
++		deadzone = 0;
++	}
++
++	if (param_gamepad_compliance) {
++		hid_info(hdev, "enabling compliance with Linux Gamepad Specification\n");
++		abs_min = -32768;
++		abs_max = 32767;
++	}
++
++	/* setup gamepad */
++	do {
++		struct input_dev *gamepad = xdata->gamepad.idev;
++
++		/* set thumb stick parameters */
++		input_set_abs_params(gamepad, ABS_X, abs_min, abs_max, 32, deadzone);
++		input_set_abs_params(gamepad, ABS_Y, abs_min, abs_max, 32, deadzone);
++		input_set_abs_params(gamepad, ABS_RX, abs_min, abs_max, 32, deadzone);
++		input_set_abs_params(gamepad, ABS_RY, abs_min, abs_max, 32, deadzone);
++
++		/* set trigger parameters */
++		input_set_abs_params(gamepad, ABS_Z, 0, 1023, 4, 0);
++		input_set_abs_params(gamepad, ABS_RZ, 0, 1023, 4, 0);
++
++		/* do not report the keyboard buttons as part of the gamepad */
++		__clear_bit(BTN_SHARE, gamepad->keybit);
++		__clear_bit(KEY_RECORD, gamepad->keybit);
++		__clear_bit(KEY_UNKNOWN, gamepad->keybit);
++
++		/* ensure all four paddles exist as part of the gamepad */
++		if (test_bit(BTN_GRIPL, gamepad->keybit)) {
++			__set_bit(BTN_GRIPR, gamepad->keybit);
++			__set_bit(BTN_GRIPL2, gamepad->keybit);
++			__set_bit(BTN_GRIPR2, gamepad->keybit);
++		}
++
++		/* expose current profile as axis */
++		input_set_abs_params(gamepad, ABS_PROFILE, 0, XPADNEO_XBE2_PROFILES_MAX - 1, 0, 0);
++		input_report_abs(gamepad, ABS_PROFILE, 0);
++	} while (0);
++
++	return 0;
++}
+diff --git a/drivers/hid/xpadneo/helpers.h b/drivers/hid/xpadneo/helpers.h
+new file mode 100644
+index 000000000..61bc6810b
+--- /dev/null
++++ b/drivers/hid/xpadneo/helpers.h
+@@ -0,0 +1,38 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++
++/*
++ * xpadneo helper functions and macros
++ *
++ * Copyright (c) 2026 Kai Krakow <kai@kaishome.de>
++ */
++
++#ifndef HELPERS_H
++#define HELPERS_H
++
++/* helper for printing a notice only once */
++#ifndef hid_notice_once
++#define hid_notice_once(hid, fmt, ...)			\
++do {							\
++	static bool __print_once __read_mostly;		\
++	if (!__print_once) {				\
++		__print_once = true;			\
++		hid_notice(hid, fmt, ##__VA_ARGS__);	\
++	}						\
++} while (0)
++#endif
++
++/* benchmark helper */
++#define xpadneo_benchmark(name, ...)					\
++do {									\
++	unsigned long __##name##_jiffies = jiffies;			\
++	pr_info("xpadneo " #name " start\n");				\
++	name(__VA_ARGS__);						\
++	pr_info("xpadneo " #name " took %ums\n",			\
++		jiffies_to_msecs(jiffies - __##name##_jiffies));	\
++} while (0)
++
++/* generic helpers */
++#define SWAP_BITS(v, b1, b2) \
++	(((v)>>(b1)&1) == ((v)>>(b2)&1)?(v):(v^(1ULL<<(b1))^(1ULL<<(b2))))
++
++#endif
+diff --git a/drivers/hid/xpadneo/keyboard.c b/drivers/hid/xpadneo/keyboard.c
+new file mode 100644
+index 000000000..0fb354984
+--- /dev/null
++++ b/drivers/hid/xpadneo/keyboard.c
+@@ -0,0 +1,46 @@
++// SPDX-License-Identifier: GPL-2.0-only
++
++/*
++ * xpadneo keyboard driver
++ *
++ * Copyright (c) 2021 Kai Krakow <kai@kaishome.de>
++ */
++
++#include "xpadneo.h"
++
++int xpadneo_keyboard_init(struct xpadneo_devdata *xdata)
++{
++	int ret;
++
++	if (!xdata->keyboard.idev) {
++		ret = xpadneo_synthetic_init(xdata, "Keyboard", &xdata->keyboard);
++		if (ret || !xdata->keyboard.idev)
++			return ret;
++	}
++
++	do {
++		struct input_dev *keyboard = xdata->keyboard.idev;
++
++		/* enable key events for keyboard */
++		input_set_capability(keyboard, EV_KEY, BTN_SHARE);
++
++		/* enable key events for mouse mode */
++		input_set_capability(keyboard, EV_KEY, KEY_ESC);
++		input_set_capability(keyboard, EV_KEY, KEY_ENTER);
++		input_set_capability(keyboard, EV_KEY, KEY_UP);
++		input_set_capability(keyboard, EV_KEY, KEY_LEFT);
++		input_set_capability(keyboard, EV_KEY, KEY_RIGHT);
++		input_set_capability(keyboard, EV_KEY, KEY_DOWN);
++	} while (0);
++
++	ret = xpadneo_synthetic_register(xdata, "keyboard", &xdata->keyboard);
++	if (ret)
++		return ret;
++
++	return 0;
++}
++
++void xpadneo_keyboard_remove(struct xpadneo_devdata *xdata)
++{
++	xpadneo_synthetic_remove(xdata, "keyboard", &xdata->keyboard);
++}
+diff --git a/drivers/hid/xpadneo/mappings.c b/drivers/hid/xpadneo/mappings.c
+new file mode 100644
+index 000000000..187fc83db
+--- /dev/null
++++ b/drivers/hid/xpadneo/mappings.c
+@@ -0,0 +1,127 @@
++// SPDX-License-Identifier: GPL-2.0-only
++
++/*
++ * xpadneo driver usage mappings
++ *
++ * Copyright (c) 2017 Florian Dollinger <dollinger.florian@gmx.de>
++ * Copyright (c) 2026 Kai Krakow <kai@kaishome.de>
++ */
++
++#include "xpadneo.h"
++
++/* always include last */
++#include "compat.h"
++
++struct usage_map {
++	u32 usage;
++	enum {
++		MAP_IGNORE = -1,	/* Completely ignore this field */
++		MAP_AUTO,	/* Do not really map it, let hid-core decide */
++		MAP_STATIC	/* Map to the values given */
++	} behaviour;
++	struct {
++		u8 event_type;	/* input event (EV_KEY, EV_ABS, ...) */
++		u16 input_code;	/* input code (BTN_A, ABS_X, ...) */
++	} ev;
++};
++
++#define USAGE_MAP(u, b, e, i) \
++	{ .usage = (u), .behaviour = (b), .ev = { .event_type = (e), .input_code = (i) } }
++#define USAGE_IGN(u) USAGE_MAP(u, MAP_IGNORE, 0, 0)
++
++static const struct usage_map usage_maps[] = {
++	/* fixup buttons to Linux codes */
++	USAGE_MAP(0x90001, MAP_STATIC, EV_KEY, BTN_A),	/* A */
++	USAGE_MAP(0x90002, MAP_STATIC, EV_KEY, BTN_B),	/* B */
++	USAGE_MAP(0x90003, MAP_STATIC, EV_KEY, BTN_X),	/* X */
++	USAGE_MAP(0x90004, MAP_STATIC, EV_KEY, BTN_Y),	/* Y */
++	USAGE_MAP(0x90005, MAP_STATIC, EV_KEY, BTN_TL),	/* LB */
++	USAGE_MAP(0x90006, MAP_STATIC, EV_KEY, BTN_TR),	/* RB */
++	USAGE_MAP(0x90007, MAP_STATIC, EV_KEY, BTN_SELECT),	/* Back */
++	USAGE_MAP(0x90008, MAP_STATIC, EV_KEY, BTN_START),	/* Menu */
++	USAGE_MAP(0x90009, MAP_STATIC, EV_KEY, BTN_THUMBL),	/* LS */
++	USAGE_MAP(0x9000A, MAP_STATIC, EV_KEY, BTN_THUMBR),	/* RS */
++
++	/* fixup the Xbox logo button */
++	USAGE_MAP(0x9000B, MAP_STATIC, EV_KEY, BTN_XBOX),	/* Xbox */
++
++	/* fixup the Share button */
++	USAGE_MAP(0x9000C, MAP_STATIC, EV_KEY, BTN_SHARE),	/* Share */
++
++	/* fixup code "Sys Main Menu" from Windows report descriptor */
++	USAGE_MAP(0x10085, MAP_STATIC, EV_KEY, BTN_XBOX),
++
++	/* fixup code "AC Home" from Linux report descriptor */
++	USAGE_MAP(0xC0223, MAP_STATIC, EV_KEY, BTN_XBOX),
++
++	/* fixup code "AC Back" from Linux report descriptor */
++	USAGE_MAP(0xC0224, MAP_STATIC, EV_KEY, BTN_SELECT),
++
++	/* map special buttons without HID bitmaps, corrected in event handler */
++	USAGE_MAP(0xC0081, MAP_STATIC, EV_KEY, BTN_GRIPL),	/* Four paddles */
++
++	/* hardware features handled at the raw report level */
++	USAGE_IGN(0xC0085),	/* Profile switcher */
++	USAGE_IGN(0xC0099),	/* Trigger scale switches */
++
++	/* XBE2: Disable "dial", which is a redundant representation of the D-Pad */
++	USAGE_IGN(0x10037),
++
++	/* XBE2: Disable duplicate report fields of broken v1 packet format */
++	USAGE_IGN(0x10040),	/* Vx, copy of X axis */
++	USAGE_IGN(0x10041),	/* Vy, copy of Y axis */
++	USAGE_IGN(0x10042),	/* Vz, copy of Z axis */
++	USAGE_IGN(0x10043),	/* Vbrx, copy of Rx */
++	USAGE_IGN(0x10044),	/* Vbry, copy of Ry */
++	USAGE_IGN(0x10045),	/* Vbrz, copy of Rz */
++	USAGE_IGN(0x90010),	/* copy of A */
++	USAGE_IGN(0x90011),	/* copy of B */
++	USAGE_IGN(0x90013),	/* copy of X */
++	USAGE_IGN(0x90014),	/* copy of Y */
++	USAGE_IGN(0x90016),	/* copy of LB */
++	USAGE_IGN(0x90017),	/* copy of RB */
++	USAGE_IGN(0x9001B),	/* copy of Start */
++	USAGE_IGN(0x9001D),	/* copy of LS */
++	USAGE_IGN(0x9001E),	/* copy of RS */
++	USAGE_IGN(0xC0082),	/* copy of Select button */
++
++	/* XBE2: Disable unused buttons */
++	USAGE_IGN(0x90012),	/* 6 "TRIGGER_HAPPY" buttons */
++	USAGE_IGN(0x90015),
++	USAGE_IGN(0x90018),
++	USAGE_IGN(0x90019),
++	USAGE_IGN(0x9001A),
++	USAGE_IGN(0x9001C),
++	USAGE_IGN(0xC00B9),	/* KEY_SHUFFLE button */
++};
++
++#define map_usage_clear(ev) \
++	hid_map_usage_clear(hi, usage, bit, max, (ev).event_type, (ev).input_code)
++int xpadneo_mappings_input(struct hid_device *hdev, struct hid_input *hi,
++			   struct hid_field *field,
++			   struct hid_usage *usage, unsigned long **bit, int *max)
++{
++	int i = 0;
++
++	if (usage->hid == HID_DC_BATTERYSTRENGTH) {
++		struct xpadneo_devdata *xdata = hid_get_drvdata(hdev);
++
++		xdata->battery.report_id = field->report->id;
++		hid_info(hdev, "battery detected\n");
++
++		return MAP_IGNORE;
++	}
++
++	for (i = 0; i < ARRAY_SIZE(usage_maps); i++) {
++		const struct usage_map *entry = &usage_maps[i];
++
++		if (entry->usage == usage->hid) {
++			if (entry->behaviour == MAP_STATIC)
++				map_usage_clear(entry->ev);
++			return entry->behaviour;
++		}
++	}
++
++	/* let HID handle this */
++	return MAP_AUTO;
++}
+diff --git a/drivers/hid/xpadneo/mouse.c b/drivers/hid/xpadneo/mouse.c
+new file mode 100644
+index 000000000..3f9c67e35
+--- /dev/null
++++ b/drivers/hid/xpadneo/mouse.c
+@@ -0,0 +1,278 @@
++// SPDX-License-Identifier: GPL-2.0-only
++
++/*
++ * xpadneo mouse driver
++ *
++ * Copyright (c) 2021 Kai Krakow <kai@kaishome.de>
++ */
++
++#include <linux/module.h>
++
++#include "xpadneo.h"
++
++/* always include last */
++#include "compat.h"
++
++static bool param_disable_mouse;
++module_param_named(disable_mouse, param_disable_mouse, bool, 0444);
++MODULE_PARM_DESC(disable_mouse,
++		 "(bool) Disable mouse device permanently. 0: allow mouse, 1: disallow mouse.");
++
++/* Mouse movement deadzone and trigger thresholds (raw values) */
++#define XPADNEO_MOUSE_MOVEMENT_DEADZONE   3072
++#define XPADNEO_TRIGGER_RELEASE_THRESHOLD 384
++#define XPADNEO_TRIGGER_PRESS_THRESHOLD   640
++
++bool xpadneo_mouse_toggle(struct xpadneo_devdata *xdata)
++{
++	if (!xdata->mouse.idev) {
++		xdata->mouse_mode = false;
++		hid_info(xdata->hdev, "mouse not available\n");
++		return false;
++	} else if (xdata->mouse_mode) {
++		xdata->mouse_mode = false;
++		hid_info(xdata->hdev, "mouse mode disabled\n");
++	} else {
++		xdata->mouse_mode = true;
++		hid_info(xdata->hdev, "mouse mode enabled\n");
++	}
++
++	/* Indicate that a request was made */
++	return true;
++}
++
++#define mouse_report_rel(a,v) if((v)!=0)input_report_rel(mouse,(a),(v))
++void xpadneo_mouse_report(struct timer_list *t)
++{
++	__s32 value;
++
++	struct xpadneo_devdata *xdata = timer_container_of(xdata, t, mouse_timer);
++	struct input_dev *mouse = xdata->mouse.idev;
++
++	mod_timer(&xdata->mouse_timer, jiffies + msecs_to_jiffies(10));
++
++	if (xdata->mouse_mode) {
++		value = xdata->mouse_state.rel_x + xdata->mouse_state.rel_x_err;
++		xdata->mouse_state.rel_x_err = value % 1024;
++		mouse_report_rel(REL_X, value / 1024);
++
++		value = xdata->mouse_state.rel_y + xdata->mouse_state.rel_y_err;
++		xdata->mouse_state.rel_y_err = value % 1024;
++		mouse_report_rel(REL_Y, value / 1024);
++
++		value = xdata->mouse_state.wheel_x + xdata->mouse_state.wheel_x_err;
++		xdata->mouse_state.wheel_x_err = value % 16384;
++		mouse_report_rel(REL_HWHEEL, value / 16384);
++
++		value = xdata->mouse_state.wheel_y + xdata->mouse_state.wheel_y_err;
++		xdata->mouse_state.wheel_y_err = value % 16384;
++		mouse_report_rel(REL_WHEEL, value / 16384);
++
++		input_sync(xdata->mouse.idev);
++	}
++
++}
++
++int xpadneo_mouse_raw_event(struct xpadneo_devdata *xdata, struct hid_report *report,
++			    u8 *data, int reportsize)
++{
++	if (!xdata->mouse_mode)
++		return 0;
++
++	/* do nothing for now */
++	return 0;
++}
++
++static inline void report_key_and_sync(struct xpadneo_subdevice *subdev, unsigned int code,
++				       int value)
++{
++	if (subdev->idev) {
++		input_report_key(subdev->idev, code, value);
++		subdev->sync = true;
++	}
++}
++
++#define rescale_axis(v,d) (((v)<(d)&&(v)>-(d))?0:(32768*((v)>0?(v)-(d):(v)+(d))/(32768-(d))))
++#define digipad(v,v1,v2,v3) (((v==(v1))||(v==(v2))||(v==(v3)))?1:0)
++int xpadneo_mouse_event(struct xpadneo_devdata *xdata, struct hid_usage *usage, __s32 value)
++{
++	struct input_dev *consumer = xdata->consumer.idev;
++	struct input_dev *keyboard = xdata->keyboard.idev;
++
++	if (!xdata->mouse_mode || !xdata->mouse.idev)
++		return 0;
++
++	if (usage->type == EV_ABS) {
++		switch (usage->code) {
++		case ABS_X:
++			xdata->mouse_state.rel_x =
++			    rescale_axis(value - 32768, XPADNEO_MOUSE_MOVEMENT_DEADZONE);
++			return 1;
++		case ABS_Y:
++			xdata->mouse_state.rel_y =
++			    rescale_axis(value - 32768, XPADNEO_MOUSE_MOVEMENT_DEADZONE);
++			return 1;
++		case ABS_RX:
++			xdata->mouse_state.wheel_x =
++			    rescale_axis(value - 32768, XPADNEO_MOUSE_MOVEMENT_DEADZONE);
++			return 1;
++		case ABS_RY:
++			xdata->mouse_state.wheel_y =
++			    rescale_axis(value - 32768, XPADNEO_MOUSE_MOVEMENT_DEADZONE);
++			return 1;
++		case ABS_RZ:
++			/* TODO: Implement haptic feedback */
++			if (xdata->mouse_state.analog_button.left
++			    && value < XPADNEO_TRIGGER_RELEASE_THRESHOLD) {
++				xdata->mouse_state.analog_button.left = false;
++				report_key_and_sync(&xdata->mouse, BTN_LEFT, 0);
++			} else if (!xdata->mouse_state.analog_button.left
++				   && value > XPADNEO_TRIGGER_PRESS_THRESHOLD) {
++				xdata->mouse_state.analog_button.left = true;
++				report_key_and_sync(&xdata->mouse, BTN_LEFT, 1);
++			}
++			return 1;
++		case ABS_Z:
++			/* TODO: Implement haptic feedback */
++			if (xdata->mouse_state.analog_button.right
++			    && value < XPADNEO_TRIGGER_RELEASE_THRESHOLD) {
++				xdata->mouse_state.analog_button.right = false;
++				report_key_and_sync(&xdata->mouse, BTN_RIGHT, 0);
++			} else if (!xdata->mouse_state.analog_button.right
++				   && value > XPADNEO_TRIGGER_PRESS_THRESHOLD) {
++				xdata->mouse_state.analog_button.right = true;
++				report_key_and_sync(&xdata->mouse, BTN_RIGHT, 1);
++			}
++			return 1;
++		case ABS_HAT0X:
++			/* reports 8 directions: 1 = up, 3 = right, down = 5, left = 7 */
++			report_key_and_sync(&xdata->keyboard, KEY_UP, digipad(value, 8, 1, 2));
++			report_key_and_sync(&xdata->keyboard, KEY_RIGHT, digipad(value, 2, 3, 4));
++			report_key_and_sync(&xdata->keyboard, KEY_DOWN, digipad(value, 4, 5, 6));
++			report_key_and_sync(&xdata->keyboard, KEY_LEFT, digipad(value, 6, 7, 8));
++			return 1;
++		}
++	} else if (usage->type == EV_KEY) {
++		switch (usage->code) {
++		case BTN_A:
++			if (!keyboard)
++				goto keyboard_missing;
++			report_key_and_sync(&xdata->keyboard, KEY_ENTER, value);
++			return 1;
++		case BTN_B:
++			if (!keyboard)
++				goto keyboard_missing;
++			report_key_and_sync(&xdata->keyboard, KEY_ESC, value);
++			return 1;
++		case BTN_X:
++			if (!consumer)
++				goto consumer_missing;
++			report_key_and_sync(&xdata->consumer, KEY_ONSCREEN_KEYBOARD, value);
++			return 1;
++		case BTN_Y:
++			report_key_and_sync(&xdata->mouse, BTN_MIDDLE, value);
++			return 1;
++		case BTN_TL:
++			report_key_and_sync(&xdata->mouse, BTN_SIDE, value);
++			return 1;
++		case BTN_TR:
++			report_key_and_sync(&xdata->mouse, BTN_EXTRA, value);
++			return 1;
++		case BTN_SELECT:
++			/*
++			 * if the Xbox button is pressed, ignore this event to allow turning
++			 * mouse mode off
++			 */
++			if (xdata->shift_mode)
++				break;
++			report_key_and_sync(&xdata->mouse, BTN_BACK, value);
++			return 1;
++		case BTN_START:
++			report_key_and_sync(&xdata->mouse, BTN_FORWARD, value);
++			return 1;
++		case BTN_SHARE:
++			report_key_and_sync(&xdata->mouse, BTN_TASK, value);
++			return 1;
++		}
++	}
++
++	return 0;
++
++keyboard_missing:
++	xpadneo_device_missing(xdata, XPADNEO_MISSING_KEYBOARD);
++	return 1;
++
++consumer_missing:
++	xpadneo_device_missing(xdata, XPADNEO_MISSING_CONSUMER);
++	return 1;
++}
++
++int xpadneo_mouse_init(struct xpadneo_devdata *xdata)
++{
++	int ret;
++
++	if (param_disable_mouse) {
++		xdata->mouse.idev = NULL;
++		hid_info(xdata->hdev, "Mouse device disabled permanently.\n");
++		return 0;
++	}
++
++	if (!xdata->mouse.idev) {
++		ret = xpadneo_synthetic_init(xdata, "Mouse", &xdata->mouse);
++		if (ret || !xdata->mouse.idev)
++			return ret;
++	}
++
++	do {
++		struct input_dev *mouse = xdata->mouse.idev;
++
++		/* enable relative events for mouse emulation */
++		__set_bit(EV_REL, mouse->evbit);
++		__set_bit(REL_X, mouse->relbit);
++		__set_bit(REL_Y, mouse->relbit);
++		__set_bit(REL_HWHEEL, mouse->relbit);
++		__set_bit(REL_WHEEL, mouse->relbit);
++
++		/* enable button events for mouse emulation */
++		__set_bit(EV_KEY, mouse->evbit);
++		__set_bit(BTN_LEFT, mouse->keybit);
++		__set_bit(BTN_RIGHT, mouse->keybit);
++		__set_bit(BTN_MIDDLE, mouse->keybit);
++		__set_bit(BTN_SIDE, mouse->keybit);
++		__set_bit(BTN_EXTRA, mouse->keybit);
++		__set_bit(BTN_FORWARD, mouse->keybit);
++		__set_bit(BTN_BACK, mouse->keybit);
++		__set_bit(BTN_TASK, mouse->keybit);
++	} while (0);
++
++	ret = xpadneo_synthetic_register(xdata, "mouse", &xdata->mouse);
++	if (ret)
++		return ret;
++
++	return 0;
++}
++
++void xpadneo_mouse_init_timer(struct xpadneo_devdata *xdata)
++{
++	if (param_disable_mouse)
++		return;
++
++	timer_setup(&xdata->mouse_timer, xpadneo_mouse_report, 0);
++	mod_timer(&xdata->mouse_timer, jiffies);
++}
++
++void xpadneo_mouse_remove_timer(struct xpadneo_devdata *xdata)
++{
++	if (param_disable_mouse)
++		return;
++
++	timer_delete_sync(&xdata->mouse_timer);
++}
++
++void xpadneo_mouse_remove(struct xpadneo_devdata *xdata)
++{
++	if (param_disable_mouse)
++		return;
++
++	xpadneo_synthetic_remove(xdata, "mouse", &xdata->mouse);
++}
+diff --git a/drivers/hid/xpadneo/power.c b/drivers/hid/xpadneo/power.c
+new file mode 100644
+index 000000000..12777aa47
+--- /dev/null
++++ b/drivers/hid/xpadneo/power.c
+@@ -0,0 +1,184 @@
++// SPDX-License-Identifier: GPL-2.0-only
++
++/*
++ * xpadneo power driver
++ *
++ * Copyright (c) 2017 Florian Dollinger <dollinger.florian@gmx.de>
++ * Copyright (c) 2026 Kai Krakow <kai@kaishome.de>
++ */
++
++#include <linux/power_supply.h>
++
++#include "xpadneo.h"
++
++static enum power_supply_property xpadneo_battery_props[] = {
++	POWER_SUPPLY_PROP_CAPACITY_LEVEL,
++	POWER_SUPPLY_PROP_MODEL_NAME,
++	POWER_SUPPLY_PROP_ONLINE,
++	POWER_SUPPLY_PROP_PRESENT,
++	POWER_SUPPLY_PROP_SCOPE,
++	POWER_SUPPLY_PROP_STATUS,
++};
++
++#define XPADNEO_PSY_ONLINE(data)     ((data&0x80) > 0)
++#define XPADNEO_PSY_MODE(data)       ((data&0x0C)>>2)
++
++#define XPADNEO_POWER_USB(data)      (XPADNEO_PSY_MODE(data) == 0)
++#define XPADNEO_POWER_BATTERY(data)  (XPADNEO_PSY_MODE(data) == 1)
++#define XPADNEO_POWER_PNC(data)      (XPADNEO_PSY_MODE(data) == 2)
++
++#define XPADNEO_BATTERY_ONLINE(data)         ((data&0x0C) > 0)
++#define XPADNEO_BATTERY_CHARGING(data)       ((data&0x10) > 0)
++#define XPADNEO_BATTERY_CAPACITY_LEVEL(data) (data&0x03)
++
++static int get_psy_property(struct power_supply *psy,
++			    enum power_supply_property property, union power_supply_propval *val)
++{
++	struct xpadneo_devdata *xdata = power_supply_get_drvdata(psy);
++	int ret = 0;
++
++	static int capacity_level_map[] = {
++		[0] = POWER_SUPPLY_CAPACITY_LEVEL_LOW,
++		[1] = POWER_SUPPLY_CAPACITY_LEVEL_NORMAL,
++		[2] = POWER_SUPPLY_CAPACITY_LEVEL_HIGH,
++		[3] = POWER_SUPPLY_CAPACITY_LEVEL_FULL,
++	};
++
++	u8 flags = xdata->battery.flags;
++	u8 level = min(3, XPADNEO_BATTERY_CAPACITY_LEVEL(flags));
++	bool online = XPADNEO_PSY_ONLINE(flags);
++	bool charging = XPADNEO_BATTERY_CHARGING(flags);
++
++	switch (property) {
++	case POWER_SUPPLY_PROP_CAPACITY_LEVEL:
++		if (online && XPADNEO_BATTERY_ONLINE(flags))
++			val->intval = capacity_level_map[level];
++		else
++			val->intval = POWER_SUPPLY_CAPACITY_LEVEL_UNKNOWN;
++		break;
++
++	case POWER_SUPPLY_PROP_MODEL_NAME:
++		if (online && XPADNEO_POWER_PNC(flags))
++			val->strval = xdata->battery.name_pnc;
++		else
++			val->strval = xdata->battery.name;
++		break;
++
++	case POWER_SUPPLY_PROP_ONLINE:
++		val->intval = online && XPADNEO_BATTERY_ONLINE(flags);
++		break;
++
++	case POWER_SUPPLY_PROP_PRESENT:
++		val->intval = online && (XPADNEO_BATTERY_ONLINE(flags) || charging);
++		break;
++
++	case POWER_SUPPLY_PROP_SCOPE:
++		val->intval = POWER_SUPPLY_SCOPE_DEVICE;
++		break;
++
++	case POWER_SUPPLY_PROP_STATUS:
++		if (online && charging)
++			val->intval = POWER_SUPPLY_STATUS_CHARGING;
++		else if (online && !charging && XPADNEO_POWER_USB(flags))
++			val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
++		else if (online && XPADNEO_BATTERY_ONLINE(flags))
++			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
++		else
++			val->intval = POWER_SUPPLY_STATUS_UNKNOWN;
++		break;
++
++	default:
++		ret = -EINVAL;
++		break;
++	}
++
++	return ret;
++}
++
++static int setup_psy(struct hid_device *hdev)
++{
++	struct xpadneo_devdata *xdata = hid_get_drvdata(hdev);
++	struct power_supply *psy;
++	struct power_supply_config ps_config = {
++		.drv_data = xdata
++	};
++	char *name;
++
++	/* already registered */
++	if (xdata->battery.psy)
++		return 0;
++
++	name = devm_kasprintf(&hdev->dev, GFP_KERNEL, "xpadneo_battery_%i", xdata->id);
++	if (!name)
++		return -ENOMEM;
++
++	xdata->battery.desc.name = name;
++	xdata->battery.desc.properties = xpadneo_battery_props;
++	xdata->battery.desc.num_properties = ARRAY_SIZE(xpadneo_battery_props);
++	xdata->battery.desc.use_for_apm = 0;
++	xdata->battery.desc.get_property = get_psy_property;
++	xdata->battery.desc.type = POWER_SUPPLY_TYPE_BATTERY;
++
++	/* register battery via device manager */
++	psy = devm_power_supply_register(&hdev->dev, &xdata->battery.desc, &ps_config);
++	if (IS_ERR(psy)) {
++		hid_err(hdev, "battery registration failed\n");
++		return PTR_ERR(psy);
++	}
++
++	xdata->battery.psy = psy;
++	hid_info(hdev, "battery registered\n");
++
++	power_supply_powers(xdata->battery.psy, &xdata->hdev->dev);
++
++	return 0;
++}
++
++void xpadneo_power_update(struct xpadneo_devdata *xdata, u8 value)
++{
++	int old_value = xdata->battery.flags;
++
++	if (!xdata->battery.initialized && XPADNEO_PSY_ONLINE(value)) {
++		xdata->battery.initialized = true;
++		setup_psy(xdata->hdev);
++	}
++
++	if (!xdata->battery.psy)
++		return;
++
++	xdata->battery.flags = value;
++	if (old_value != value) {
++		if (!XPADNEO_PSY_ONLINE(value))
++			hid_info(xdata->hdev, "shutting down\n");
++		power_supply_changed(xdata->battery.psy);
++	}
++}
++
++int xpadneo_power_init(struct xpadneo_devdata *xdata)
++{
++	struct device *dev = &xdata->hdev->dev;
++
++	xdata->battery.name =
++	    devm_kasprintf(dev, GFP_KERNEL, "%s [%s]", xdata->gamepad.idev->name,
++			   xdata->gamepad.idev->uniq);
++	if (!xdata->battery.name)
++		return -ENOMEM;
++
++	xdata->battery.name_pnc =
++	    devm_kasprintf(dev, GFP_KERNEL, "%s [%s] Play'n Charge Kit", xdata->gamepad.idev->name,
++			   xdata->gamepad.idev->uniq);
++	if (!xdata->battery.name_pnc)
++		return -ENOMEM;
++
++	return 0;
++}
++
++void xpadneo_power_remove(struct xpadneo_devdata *xdata)
++{
++	struct hid_device *hdev = xdata->hdev;
++
++	xdata->battery.name = NULL;
++	xdata->battery.name_pnc = NULL;
++
++	hid_info(hdev, "battery removed\n");
++}
+diff --git a/drivers/hid/xpadneo/quirks.c b/drivers/hid/xpadneo/quirks.c
+new file mode 100644
+index 000000000..d18eb40ee
+--- /dev/null
++++ b/drivers/hid/xpadneo/quirks.c
+@@ -0,0 +1,172 @@
++// SPDX-License-Identifier: GPL-2.0-only
++
++/*
++ * xpadneo driver quirks handling
++ *
++ * Copyright (c) 2026 Kai Krakow <kai@kaishome.de>
++ */
++
++#include <linux/module.h>
++
++#include "xpadneo.h"
++
++static struct {
++	char *args[17];
++	unsigned int nargs;
++} param_quirks;
++module_param_array_named(quirks, param_quirks.args, charp, &param_quirks.nargs, 0644);
++MODULE_PARM_DESC(quirks,
++		 "(string) Override or change device quirks, specify as: \"MAC1{:,+,-}quirks1[,...16]\""
++		 ", MAC format = 11:22:33:44:55:66"
++		 ", no pulse parameters = " __stringify(XPADNEO_QUIRK_NO_PULSE)
++		 ", no trigger rumble = " __stringify(XPADNEO_QUIRK_NO_TRIGGER_RUMBLE)
++		 ", no motor masking = " __stringify(XPADNEO_QUIRK_NO_MOTOR_MASK)
++		 ", use Linux button mappings = " __stringify(XPADNEO_QUIRK_LINUX_BUTTONS)
++		 ", use Nintendo mappings = " __stringify(XPADNEO_QUIRK_NINTENDO)
++		 ", use Share button mappings = " __stringify(XPADNEO_QUIRK_SHARE_BUTTON)
++		 ", reversed motor masking = " __stringify(XPADNEO_QUIRK_REVERSE_MASK)
++		 ", swapped motor masking = " __stringify(XPADNEO_QUIRK_SWAPPED_MASK)
++		 ", apply no heuristics = " __stringify(XPADNEO_QUIRK_NO_HEURISTICS));
++
++#define DEVICE_NAME_QUIRK(n, f) \
++	{ .name_match = (n), .name_len = sizeof(n) - 1, .flags = (f) }
++#define DEVICE_OUI_QUIRK(o, f) \
++	{ .oui_match = (o), .flags = (f) }
++
++struct quirk {
++	char *name_match;
++	char *oui_match;
++	u16 name_len;
++	u32 flags;
++};
++
++/* MAC OUI masks */
++#define XPADNEO_OUI_MASK_LAA_MULTICAST (XPADNEO_OUI_IS_MULTICAST | XPADNEO_OUI_IS_LAA)
++
++static const struct quirk quirks[] = {
++	DEVICE_OUI_QUIRK("98:B6:EA",
++			 XPADNEO_QUIRK_NO_PULSE | XPADNEO_QUIRK_NO_TRIGGER_RUMBLE |
++			 XPADNEO_QUIRK_REVERSE_MASK),
++	DEVICE_OUI_QUIRK("98:B6:EC",
++			 XPADNEO_QUIRK_SIMPLE_CLONE | XPADNEO_QUIRK_SWAPPED_MASK),
++	DEVICE_OUI_QUIRK("A0:5A:5D", XPADNEO_QUIRK_NO_HAPTICS),
++	DEVICE_OUI_QUIRK("E4:17:D8", XPADNEO_QUIRK_SIMPLE_CLONE),
++};
++
++int xpadneo_quirks_init(struct xpadneo_devdata *xdata)
++{
++	struct hid_device *hdev = xdata->hdev;
++	struct input_dev *gamepad = xdata->gamepad.idev;
++	u32 quirks_set = 0, quirks_unset = 0, quirks_override = U32_MAX;
++	u8 oui_byte = 0;
++	char oui[3] = { };
++
++	for (int i = 0; i < ARRAY_SIZE(quirks); i++) {
++		const struct quirk *q = &quirks[i];
++
++		if (q->name_match && (strncmp(q->name_match, gamepad->name, q->name_len) == 0))
++			xdata->quirks |= q->flags;
++
++		if (q->oui_match && (strncasecmp(q->oui_match, gamepad->uniq, 8) == 0))
++			xdata->quirks |= q->flags;
++	}
++
++	kernel_param_lock(THIS_MODULE);
++	for (int i = 0; i < param_quirks.nargs; i++) {
++		const char *arg = param_quirks.args[i];
++		size_t uniq_len = strnlen(gamepad->uniq, 18);
++		size_t arg_len = strnlen(arg, 128);
++
++		/* check if the argument is long enough to fetch uniq + a suffix */
++		if (arg_len <= uniq_len) {
++			hid_warn(hdev,
++				 "quirks parameter '%s' ignored: invalid MAC or missing modifier\n",
++				 arg);
++			continue;
++		}
++
++		if (strncasecmp(gamepad->uniq, param_quirks.args[i], uniq_len) != 0)
++			continue;
++
++		if ((arg[uniq_len] != ':') && (arg[uniq_len] != '+') && (arg[uniq_len] != '-')) {
++			hid_warn(hdev,
++				 "quirks parameter '%s' ignored: invalid modifier '%c'\n",
++				 arg, arg[uniq_len]);
++			continue;
++		}
++
++		do {
++			const char *quirks_arg = arg + uniq_len + 1;
++			u32 quirks = 0;
++			int ret = kstrtou32(quirks_arg, 0, &quirks);
++
++			if (ret) {
++				hid_err(hdev, "quirks override invalid: %s\n", quirks_arg);
++				kernel_param_unlock(THIS_MODULE);
++				return -EINVAL;
++			} else if (arg[uniq_len] == ':') {
++				quirks_override = quirks;
++			} else if (arg[uniq_len] == '-') {
++				quirks_unset = quirks;
++			} else {
++				quirks_set = quirks;
++			}
++		} while (0);
++
++		break;
++	}
++	kernel_param_unlock(THIS_MODULE);
++
++	/* handle quirk flags which override a behavior before heuristics */
++	if (quirks_override != U32_MAX) {
++		hid_info(hdev, "quirks override: %s\n", gamepad->uniq);
++		xdata->quirks = quirks_override;
++	}
++
++	/* handle quirk flags which add a behavior before heuristics */
++	if (quirks_set > 0) {
++		hid_info(hdev, "quirks added: %s flags 0x%08X\n", gamepad->uniq, quirks_set);
++		xdata->quirks |= quirks_set;
++	}
++
++	/*
++	 * Check whether we should enable heuristics checks at all, and then
++	 * copy the first two characters from the uniq ID (MAC address) and
++	 * expect it being too big to copy, then `kstrtou8()` converts the
++	 * uniq ID "aa:bb:cc:dd:ee:ff" to u8, so we get the first OUI byte.
++	 */
++	if (((xdata->quirks & XPADNEO_QUIRK_NO_HEURISTICS) == 0)
++	    && ((xdata->quirks & XPADNEO_QUIRK_SIMPLE_CLONE) == 0)
++	    && (strscpy(oui, gamepad->uniq, sizeof(oui)) == -E2BIG)
++	    && (kstrtou8(oui, 16, &oui_byte) == 0)) {
++		/*
++		 * All known GameSir devices at least one of the LAA or
++		 * multicast bits set, and a descriptor length of 283 or 306
++		 * bytes.
++		 */
++		if (((xdata->original_rsize == 283) || (xdata->original_rsize == 306))
++		    && ((oui_byte & XPADNEO_OUI_MASK_LAA_MULTICAST) > 0)) {
++			hid_info(hdev, "enabling heuristic GameSir quirks\n");
++			xdata->quirks |= XPADNEO_QUIRK_SIMPLE_CLONE;
++		}
++	}
++
++	/* handle quirk flags which remove a behavior after heuristics */
++	if (quirks_unset > 0) {
++		hid_info(hdev, "quirks removed: %s flag 0x%08X\n", gamepad->uniq, quirks_unset);
++		xdata->quirks &= ~quirks_unset;
++	}
++
++	if (xdata->quirks > 0)
++		hid_info(hdev, "controller quirks: 0x%08x\n", xdata->quirks);
++
++	return 0;
++}
++
++void xpadneo_quirks_remove(struct xpadneo_devdata *xdata)
++{
++	struct hid_device *hdev = xdata->hdev;
++
++	if (xdata->quirks > 0)
++		hid_info(hdev, "removing controller quirks: 0x%08x\n", xdata->quirks);
++}
+diff --git a/drivers/hid/xpadneo/rumble.c b/drivers/hid/xpadneo/rumble.c
+new file mode 100644
+index 000000000..268ac8b65
+--- /dev/null
++++ b/drivers/hid/xpadneo/rumble.c
+@@ -0,0 +1,389 @@
++// SPDX-License-Identifier: GPL-2.0-only
++
++/*
++ * xpadneo rumble driver
++ *
++ * Copyright (c) 2017 Florian Dollinger <dollinger.florian@gmx.de>
++ * Copyright (c) 2026 Kai Krakow <kai@kaishome.de>
++ */
++
++#include <linux/delay.h>
++#include <linux/module.h>
++
++#include "xpadneo.h"
++#include "helpers.h"
++
++/* timing of rumble commands to work around firmware crashes */
++#define RUMBLE_THROTTLE_DELAY   (msecs_to_jiffies(10)+1)
++#define RUMBLE_THROTTLE_JIFFIES (jiffies + RUMBLE_THROTTLE_DELAY)
++
++/* module parameter "trigger_rumble_mode" */
++#define PARAM_TRIGGER_RUMBLE_PRESSURE 0
++#define PARAM_TRIGGER_RUMBLE_RESERVED 1
++#define PARAM_TRIGGER_RUMBLE_DISABLE  2
++
++static u8 param_trigger_rumble_mode;
++module_param_named(trigger_rumble_mode, param_trigger_rumble_mode, byte, 0644);
++MODULE_PARM_DESC(trigger_rumble_mode, "(u8) Trigger rumble mode. 0: pressure, 2: disable.");
++
++static u8 param_rumble_attenuation[2];
++module_param_array_named(rumble_attenuation, param_rumble_attenuation, byte, NULL, 0644);
++MODULE_PARM_DESC(rumble_attenuation,
++		 "(u8) Attenuate the rumble strength: all[,triggers] "
++		 "0 (none, full rumble) to 100 (max, no rumble).");
++
++static bool param_ff_connect_notify = 1;
++module_param_named(ff_connect_notify, param_ff_connect_notify, bool, 0644);
++MODULE_PARM_DESC(ff_connect_notify,
++		 "(bool) Connection notification using force feedback. 1: enable, 0: disable.");
++
++static struct workqueue_struct *rumble_wq;
++
++static inline unsigned long calculate_throttling_delay(struct xpadneo_devdata *xdata)
++{
++	unsigned long rumble_run_at = jiffies, rumble_throttle_until = xdata->rumble.throttle_until;
++
++	if (time_before(rumble_run_at, rumble_throttle_until)) {
++		/* last rumble was recently executed */
++		long delay_work = (long)(rumble_throttle_until - rumble_run_at);
++
++		return clamp(delay_work, 0L, (long)RUMBLE_THROTTLE_DELAY);
++	}
++
++	/* the firmware is ready */
++	return 0;
++}
++
++static void rumble_worker(struct work_struct *work)
++{
++	struct xpadneo_devdata *xdata =
++	    container_of(to_delayed_work(work), struct xpadneo_devdata, rumble.worker);
++	struct hid_device *hdev = xdata->hdev;
++	struct xpadneo_rumble_report *r = xdata->rumble.output_report_dmabuf;
++	int ret;
++
++	memset(r, 0, sizeof(*r));
++	r->report_id = XPADNEO_XBOX_RUMBLE_REPORT;
++	r->data.enable = XBOX_RUMBLE_ALL;
++
++	/*
++	 * if pulse is not supported, we do not have to care about explicitly
++	 * stopping the effect, the kernel will do this for us as part of its
++	 * ff-memless emulation
++	 */
++	if (likely((xdata->quirks & XPADNEO_QUIRK_NO_PULSE) == 0)) {
++		/*
++		 * ff-memless has a time resolution of 50ms but we pulse the
++		 * motors for 60 minutes as the Windows driver does. To work
++		 * around a potential firmware crash, we filter out repeated
++		 * motor programming further below.
++		 */
++		r->data.pulse_sustain_10ms = 0xFF;
++		r->data.loop_count = 0xEB;
++	}
++
++	scoped_guard(spinlock_irq, &xdata->rumble.lock) {
++
++		/* let our scheduler know we've been called */
++		xdata->rumble.scheduled = false;
++
++		if (unlikely(xdata->quirks & XPADNEO_QUIRK_NO_TRIGGER_RUMBLE)) {
++			/* do not send these bits if not supported */
++			r->data.enable &= ~XBOX_RUMBLE_TRIGGERS;
++		} else {
++			/* trigger motors */
++			r->data.magnitude_left = xdata->rumble.data.magnitude_left;
++			r->data.magnitude_right = xdata->rumble.data.magnitude_right;
++		}
++
++		/* main motors */
++		r->data.magnitude_strong = xdata->rumble.data.magnitude_strong;
++		r->data.magnitude_weak = xdata->rumble.data.magnitude_weak;
++
++		/* do not reprogram motors that have not changed */
++		if (unlikely(xdata->rumble.shadow.magnitude_strong == r->data.magnitude_strong))
++			r->data.enable &= ~XBOX_RUMBLE_STRONG;
++		if (unlikely(xdata->rumble.shadow.magnitude_weak == r->data.magnitude_weak))
++			r->data.enable &= ~XBOX_RUMBLE_WEAK;
++		if (likely(xdata->rumble.shadow.magnitude_left == r->data.magnitude_left))
++			r->data.enable &= ~XBOX_RUMBLE_LEFT;
++		if (likely(xdata->rumble.shadow.magnitude_right == r->data.magnitude_right))
++			r->data.enable &= ~XBOX_RUMBLE_RIGHT;
++
++		/* do not send a report if nothing changed */
++		if (unlikely(r->data.enable == XBOX_RUMBLE_NONE))
++			return;
++
++		/* shadow our current rumble values for the next cycle */
++		memcpy(&xdata->rumble.shadow, &xdata->rumble.data, sizeof(xdata->rumble.data));
++
++		/* set all bits if not supported (some clones require these set) */
++		if (unlikely(xdata->quirks & XPADNEO_QUIRK_NO_MOTOR_MASK))
++			r->data.enable = XBOX_RUMBLE_ALL;
++
++		/* reverse the bits for trigger and main motors */
++		if (unlikely(xdata->quirks & XPADNEO_QUIRK_REVERSE_MASK))
++			r->data.enable = SWAP_BITS(SWAP_BITS(r->data.enable, 1, 2), 0, 3);
++
++		/* swap the bits of trigger and main motors */
++		if (unlikely(xdata->quirks & XPADNEO_QUIRK_SWAPPED_MASK))
++			r->data.enable = SWAP_BITS(SWAP_BITS(r->data.enable, 0, 2), 1, 3);
++	}
++
++	ret = xpadneo_device_output_report(hdev, (__u8 *) r, sizeof(*r));
++	if (ret < 0)
++		hid_warn(hdev, "failed to send FF report: %d\n", ret);
++
++	/*
++	 * throttle next command submission, the firmware doesn't like us to
++	 * send rumble data any faster
++	 */
++	scoped_guard(spinlock_irq, &xdata->rumble.lock) {
++		xdata->rumble.throttle_until = RUMBLE_THROTTLE_JIFFIES;
++		if (xdata->rumble.scheduled) {
++			unsigned long delay_work = calculate_throttling_delay(xdata);
++
++			mod_delayed_work(rumble_wq, &xdata->rumble.worker, delay_work);
++		}
++	}
++}
++
++static inline u8 calculate_magnitude(s32 magnitude, int fraction)
++{
++	return (u8)((magnitude * fraction + S16_MAX) / U16_MAX);
++}
++
++static int rumble_play(struct input_dev *dev, void *data, struct ff_effect *effect)
++{
++	int fraction_TL, fraction_TR, fraction_MAIN, percent_TRIGGERS, percent_MAIN;
++	s32 weak, strong, max_main;
++
++	struct hid_device *hdev = input_get_drvdata(dev);
++	struct xpadneo_devdata *xdata = hid_get_drvdata(hdev);
++
++	if (effect->type != FF_RUMBLE)
++		return 0;
++
++	/* copy data from effect structure at the very beginning */
++	weak = effect->u.rumble.weak_magnitude;
++	strong = effect->u.rumble.strong_magnitude;
++
++	/* calculate the rumble attenuation */
++	percent_MAIN = 100 - param_rumble_attenuation[0];
++	percent_MAIN = clamp(percent_MAIN, 0, 100);
++
++	percent_TRIGGERS = 100 - param_rumble_attenuation[1];
++	percent_TRIGGERS = clamp(percent_TRIGGERS, 0, 100);
++	percent_TRIGGERS = percent_TRIGGERS * percent_MAIN / 100;
++
++	switch (param_trigger_rumble_mode) {
++	case PARAM_TRIGGER_RUMBLE_DISABLE:
++		fraction_MAIN = percent_MAIN;
++		fraction_TL = 0;
++		fraction_TR = 0;
++		break;
++	case PARAM_TRIGGER_RUMBLE_PRESSURE:
++	default:
++		fraction_MAIN = percent_MAIN;
++		fraction_TL = (xdata->last_abs_z * percent_TRIGGERS + 511) / 1023;
++		fraction_TR = (xdata->last_abs_rz * percent_TRIGGERS + 511) / 1023;
++		break;
++	}
++
++	/*
++	 * we want to keep the rumbling at the triggers at the maximum
++	 * of the weak and strong main rumble
++	 */
++	max_main = max(weak, strong);
++
++	scoped_guard(spinlock_irq, &xdata->rumble.lock) {
++		unsigned long delay_work;
++
++		/* calculate the physical magnitudes, scale from 16 bit to 0..100 */
++		xdata->rumble.data.magnitude_strong = calculate_magnitude(strong, fraction_MAIN);
++		xdata->rumble.data.magnitude_weak = calculate_magnitude(weak, fraction_MAIN);
++
++		/* calculate the physical magnitudes, scale from 16 bit to 0..100 */
++		xdata->rumble.data.magnitude_left = calculate_magnitude(max_main, fraction_TL);
++		xdata->rumble.data.magnitude_right = calculate_magnitude(max_main, fraction_TR);
++
++		/* synchronize: is our worker still scheduled? */
++		if (xdata->rumble.scheduled) {
++			/* the worker is still guarding rumble programming */
++			hid_notice_once(hdev, "throttling rumble reprogramming\n");
++			break;
++		}
++
++		/* we want to run now but may be throttled */
++		delay_work = calculate_throttling_delay(xdata);
++
++		/* schedule writing a rumble report to the controller */
++		if (mod_delayed_work(rumble_wq, &xdata->rumble.worker, delay_work)) {
++			/* this should never happen */
++			hid_err(hdev, "rumble_playback: unexpected scheduling state\n");
++		}
++		xdata->rumble.scheduled = true;
++	}
++
++	return 0;
++}
++
++static void rumble_test(char *which, struct xpadneo_devdata *xdata,
++			struct xpadneo_rumble_report pck)
++{
++	enum xpadneo_rumble_motors enabled = pck.data.enable;
++
++	hid_info(xdata->hdev, "testing %s: sustain %dms release %dms loop %d wait 30ms\n", which,
++		 pck.data.pulse_sustain_10ms * 10, pck.data.pulse_release_10ms * 10,
++		 pck.data.loop_count);
++
++	/*
++	 * XPADNEO_QUIRK_NO_MOTOR_MASK:
++	 * The controller does not support motor masking so we set all bits, and set
++	 * the magnitude to 0 instead.
++	 */
++	if (xdata->quirks & XPADNEO_QUIRK_NO_MOTOR_MASK) {
++		pck.data.enable = XBOX_RUMBLE_ALL;
++		if (!(enabled & XBOX_RUMBLE_WEAK))
++			pck.data.magnitude_weak = 0;
++		if (!(enabled & XBOX_RUMBLE_STRONG))
++			pck.data.magnitude_strong = 0;
++		if (!(enabled & XBOX_RUMBLE_RIGHT))
++			pck.data.magnitude_right = 0;
++		if (!(enabled & XBOX_RUMBLE_LEFT))
++			pck.data.magnitude_left = 0;
++	}
++
++	/*
++	 * XPADNEO_QUIRK_NO_TRIGGER_RUMBLE:
++	 * The controller does not support trigger rumble, so filter for the main motors
++	 * only if we enabled all before.
++	 */
++	if (xdata->quirks & XPADNEO_QUIRK_NO_TRIGGER_RUMBLE)
++		pck.data.enable &= XBOX_RUMBLE_MAIN;
++
++	/*
++	 * XPADNEO_QUIRK_REVERSE_MASK:
++	 * The controller firmware reverses the order of the motor masking bits, so we swap
++	 * the bits to reverse it.
++	 */
++	if (xdata->quirks & XPADNEO_QUIRK_REVERSE_MASK)
++		pck.data.enable = SWAP_BITS(SWAP_BITS(pck.data.enable, 1, 2), 0, 3);
++
++	/*
++	 * XPADNEO_QUIRK_SWAPPED_MASK:
++	 * The controller firmware swaps the bit masks for the trigger motors with those for
++	 * the main motors.
++	 */
++	if (xdata->quirks & XPADNEO_QUIRK_SWAPPED_MASK)
++		pck.data.enable = SWAP_BITS(SWAP_BITS(pck.data.enable, 0, 2), 1, 3);
++
++	xpadneo_device_output_report(xdata->hdev, (u8 *)&pck, sizeof(pck));
++	mdelay(300);
++
++	/*
++	 * XPADNEO_QUIRK_NO_PULSE:
++	 * The controller doesn't support timing parameters of the rumble command, so we manually
++	 * stop the motors.
++	 */
++	if (xdata->quirks & XPADNEO_QUIRK_NO_PULSE) {
++		if (enabled & XBOX_RUMBLE_WEAK)
++			pck.data.magnitude_weak = 0;
++		if (enabled & XBOX_RUMBLE_STRONG)
++			pck.data.magnitude_strong = 0;
++		if (enabled & XBOX_RUMBLE_RIGHT)
++			pck.data.magnitude_right = 0;
++		if (enabled & XBOX_RUMBLE_LEFT)
++			pck.data.magnitude_left = 0;
++		xpadneo_device_output_report(xdata->hdev, (u8 *)&pck, sizeof(pck));
++	}
++	mdelay(30);
++}
++
++static void rumble_welcome(struct hid_device *hdev)
++{
++	struct xpadneo_devdata *xdata = hid_get_drvdata(hdev);
++	struct xpadneo_rumble_report pck = { };
++
++	pck.report_id = XPADNEO_XBOX_RUMBLE_REPORT;
++
++	/*
++	 * Initialize the motor magnitudes here, the test command will individually zero masked
++	 * magnitudes if needed.
++	 */
++	pck.data.magnitude_weak = 40;
++	pck.data.magnitude_strong = 20;
++	pck.data.magnitude_right = 10;
++	pck.data.magnitude_left = 10;
++
++	/*
++	 * XPADNEO_QUIRK_NO_PULSE:
++	 * If the controller doesn't support timing parameters of the rumble command, don't set
++	 * them. Otherwise we may miss controllers that actually do support the parameters.
++	 */
++	if (!(xdata->quirks & XPADNEO_QUIRK_NO_PULSE)) {
++		pck.data.pulse_sustain_10ms = 5;
++		pck.data.pulse_release_10ms = 5;
++		pck.data.loop_count = 2;
++	}
++
++	pck.data.enable = XBOX_RUMBLE_WEAK;
++	rumble_test("weak motor", xdata, pck);
++
++	pck.data.enable = XBOX_RUMBLE_STRONG;
++	rumble_test("strong motor", xdata, pck);
++
++	if (!(xdata->quirks & XPADNEO_QUIRK_NO_TRIGGER_RUMBLE)) {
++		pck.data.enable = XBOX_RUMBLE_TRIGGERS;
++		rumble_test("trigger motors", xdata, pck);
++	}
++}
++
++int xpadneo_rumble_init(struct hid_device *hdev)
++{
++	struct xpadneo_devdata *xdata = hid_get_drvdata(hdev);
++	struct input_dev *gamepad = xdata->gamepad.idev;
++
++	spin_lock_init(&xdata->rumble.lock);
++	INIT_DELAYED_WORK(&xdata->rumble.worker, rumble_worker);
++	xdata->rumble.output_report_dmabuf = devm_kzalloc(&hdev->dev,
++							  sizeof(struct xpadneo_rumble_report),
++							  GFP_KERNEL);
++	if (xdata->rumble.output_report_dmabuf == NULL)
++		return -ENOMEM;
++
++	if (param_trigger_rumble_mode == PARAM_TRIGGER_RUMBLE_DISABLE)
++		xdata->quirks |= XPADNEO_QUIRK_NO_TRIGGER_RUMBLE;
++
++	if (param_ff_connect_notify)
++		xpadneo_benchmark(rumble_welcome, hdev);
++
++	/* initialize our rumble command throttle */
++	xdata->rumble.throttle_until = RUMBLE_THROTTLE_JIFFIES;
++
++	input_set_capability(gamepad, EV_FF, FF_RUMBLE);
++	return input_ff_create_memless(gamepad, NULL, rumble_play);
++}
++
++int xpadneo_rumble_init_workqueue(void)
++{
++	if (param_trigger_rumble_mode == 1)
++		pr_warn("hid-xpadneo trigger_rumble_mode=1 is unknown, defaulting to 0\n");
++
++	rumble_wq = alloc_ordered_workqueue("xpadneo/rumbled", WQ_HIGHPRI);
++	if (rumble_wq)
++		return 0;
++
++	return -ENOMEM;
++}
++
++void xpadneo_rumble_destroy_workqueue(void)
++{
++	destroy_workqueue(rumble_wq);
++	rumble_wq = NULL;
++}
++
++void xpadneo_rumble_remove(struct xpadneo_devdata *xdata)
++{
++	cancel_delayed_work_sync(&xdata->rumble.worker);
++}
+diff --git a/drivers/hid/xpadneo/synthetic.c b/drivers/hid/xpadneo/synthetic.c
+new file mode 100644
+index 000000000..c2b6835d0
+--- /dev/null
++++ b/drivers/hid/xpadneo/synthetic.c
+@@ -0,0 +1,81 @@
++// SPDX-License-Identifier: GPL-2.0-only
++
++/*
++ * xpadneo helpers for synthetic drivers
++ *
++ * Copyright (c) 2021 Kai Krakow <kai@kaishome.de>
++ */
++
++#include "xpadneo.h"
++
++int xpadneo_synthetic_init(struct xpadneo_devdata *xdata, const char *suffix,
++			   struct xpadneo_subdevice *subdev)
++{
++	struct hid_device *hdev = xdata->hdev;
++	struct input_dev *input_dev = devm_input_allocate_device(&hdev->dev);
++	size_t suffix_len, name_len;
++
++	if (!input_dev)
++		return -ENOMEM;
++
++	name_len = strlen(hdev->name);
++	suffix_len = strlen(suffix);
++	if ((name_len < suffix_len) || strcmp(hdev->name + name_len - suffix_len, suffix)) {
++		char *name = devm_kasprintf(&hdev->dev, GFP_KERNEL, "%s %s", hdev->name, suffix);
++
++		if (!name)
++			return -ENOMEM;
++		input_dev->name = name;
++	} else {
++		input_dev->name = hdev->name;
++	}
++
++	dev_set_drvdata(&input_dev->dev, xdata);
++	input_dev->phys = hdev->phys;
++	input_dev->uniq = hdev->uniq;
++	input_dev->id.bustype = hdev->bus;
++	input_dev->id.vendor = hdev->vendor;
++	input_dev->id.product = hdev->product;
++	input_dev->id.version = hdev->version;
++
++	subdev->idev = input_dev;
++	subdev->is_synthetic = true;
++	subdev->sync = false;
++
++	return 0;
++}
++
++int xpadneo_synthetic_register(struct xpadneo_devdata *xdata, const char *name,
++			       struct xpadneo_subdevice *subdev)
++{
++	struct hid_device *hdev = xdata->hdev;
++
++	/* register the device on our behalf if synthetic */
++	if (subdev->is_synthetic) {
++		int ret = input_register_device(subdev->idev);
++
++		if (ret) {
++			hid_err(hdev, "failed to register %s\n", name);
++			subdev->idev = NULL;
++			subdev->is_synthetic = false;
++			return ret;
++		}
++
++		hid_info(hdev, "%s added\n", name);
++	}
++	return 0;
++}
++
++void xpadneo_synthetic_remove(struct xpadneo_devdata *xdata, const char *name,
++			      struct xpadneo_subdevice *subdev)
++{
++	struct hid_device *hdev = xdata->hdev;
++
++	/* unregister the device on our behalf if synthetic */
++	if (subdev->idev && subdev->is_synthetic) {
++		input_unregister_device(subdev->idev);
++		subdev->idev = NULL;
++		subdev->is_synthetic = false;
++		hid_info(hdev, "%s removed\n", name);
++	}
++}
+diff --git a/drivers/hid/xpadneo/xpadneo.h b/drivers/hid/xpadneo/xpadneo.h
+new file mode 100644
+index 000000000..550decfd6
+--- /dev/null
++++ b/drivers/hid/xpadneo/xpadneo.h
+@@ -0,0 +1,244 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++
++/*
++ * Force feedback support for XBOX ONE S and X gamepads via Bluetooth
++ *
++ * This driver was developed for a student project at fortiss GmbH in Munich.
++ * Copyright (c) 2017 Florian Dollinger <dollinger.florian@gmx.de>
++ *
++ * Additional features and code redesign
++ * Copyright (c) 2020 Kai Krakow <kai@kaishome.de>
++ */
++
++#ifndef XPADNEO_H
++#define XPADNEO_H
++
++#include <linux/hid.h>
++#include <linux/input.h>
++#include <linux/power_supply.h>
++#include <linux/spinlock.h>
++#include <linux/timer.h>
++#include <linux/workqueue.h>
++
++/* detect locally administered unicast MAC addresses */
++#define XPADNEO_OUI_IS_MULTICAST       (1 << 0)
++#define XPADNEO_OUI_IS_LAA             (1 << 1)
++
++/* button aliases */
++#define BTN_SHARE KEY_F12
++#define BTN_XBOX  BTN_MODE
++
++/* module parameter "quirks" */
++#define XPADNEO_QUIRK_NO_PULSE          1
++#define XPADNEO_QUIRK_NO_TRIGGER_RUMBLE 2
++#define XPADNEO_QUIRK_NO_MOTOR_MASK     4
++#define XPADNEO_QUIRK_USE_HW_PROFILES   8
++#define XPADNEO_QUIRK_LINUX_BUTTONS     16
++#define XPADNEO_QUIRK_NINTENDO          32
++#define XPADNEO_QUIRK_SHARE_BUTTON      64
++#define XPADNEO_QUIRK_REVERSE_MASK      128
++#define XPADNEO_QUIRK_SWAPPED_MASK      256
++#define XPADNEO_QUIRK_NO_HEURISTICS     512
++
++/* common quirk combinations */
++#define XPADNEO_QUIRK_NO_HAPTICS        (XPADNEO_QUIRK_NO_PULSE|XPADNEO_QUIRK_NO_MOTOR_MASK)
++#define XPADNEO_QUIRK_SIMPLE_CLONE      (XPADNEO_QUIRK_NO_HAPTICS|XPADNEO_QUIRK_NO_TRIGGER_RUMBLE)
++
++/* report number for rumble commands */
++#define XPADNEO_XBOX_RUMBLE_REPORT 0x03
++
++/* maximum length of report 0x01 for duplicate packet filtering */
++#define XPADNEO_REPORT_0x01_LENGTH (55+1)
++
++/* trigger range limits implemented in XBE2 controllers */
++enum xpadneo_trigger_scale {
++	XBOX_TRIGGER_SCALE_FULL,
++	XBOX_TRIGGER_SCALE_HALF,
++	XBOX_TRIGGER_SCALE_DIGITAL,
++	XBOX_TRIGGER_SCALE_NUM
++} __packed;
++
++#define XPADNEO_MISSING_CONSUMER 1
++#define XPADNEO_MISSING_GAMEPAD  2
++#define XPADNEO_MISSING_KEYBOARD 4
++
++/* rumble motors enable bits */
++enum xpadneo_rumble_motors {
++	XBOX_RUMBLE_NONE = 0x00,
++	XBOX_RUMBLE_WEAK = 0x01,
++	XBOX_RUMBLE_STRONG = 0x02,
++	XBOX_RUMBLE_MAIN = XBOX_RUMBLE_WEAK | XBOX_RUMBLE_STRONG,
++	XBOX_RUMBLE_RIGHT = 0x04,
++	XBOX_RUMBLE_LEFT = 0x08,
++	XBOX_RUMBLE_TRIGGERS = XBOX_RUMBLE_LEFT | XBOX_RUMBLE_RIGHT,
++	XBOX_RUMBLE_ALL = 0x0F
++} __packed;
++
++/* rumble packet structure */
++struct xpadneo_rumble_data {
++	enum xpadneo_rumble_motors enable;
++	u8 magnitude_left;
++	u8 magnitude_right;
++	u8 magnitude_strong;
++	u8 magnitude_weak;
++	u8 pulse_sustain_10ms;
++	u8 pulse_release_10ms;
++	u8 loop_count;
++} __packed;
++#ifdef static_assert
++static_assert(sizeof(struct xpadneo_rumble_data) == 8);
++#endif
++
++/* HID packet for rumble commands */
++struct xpadneo_rumble_report {
++	u8 report_id;
++	struct xpadneo_rumble_data data;
++} __packed;
++#ifdef static_assert
++static_assert(sizeof(struct xpadneo_rumble_report) == 9);
++#endif
++
++/* sub devices */
++struct xpadneo_subdevice {
++	struct input_dev *idev;
++	bool sync;
++	bool is_synthetic;
++};
++
++/* private driver instance data */
++struct xpadneo_devdata {
++	/* unique physical device id (randomly assigned) */
++	int id;
++
++	/* logical device interfaces */
++	struct hid_device *hdev;
++
++	/* sub devices */
++	struct xpadneo_subdevice consumer;
++	struct xpadneo_subdevice gamepad;
++	struct xpadneo_subdevice keyboard;
++	struct xpadneo_subdevice mouse;
++
++	short int missing_reported;
++
++	/* revert fixups on removal */
++	u16 original_product;
++	u32 original_version;
++
++	/* quirk flags */
++	unsigned int original_rsize;
++	u32 quirks;
++
++	/* profile switching */
++	bool shift_mode, profile_switched;
++	u8 last_profile, profile;
++
++	/* mouse mode */
++	bool mouse_mode;
++	struct timer_list mouse_timer;
++	struct {
++		s32 rel_x, rel_y, wheel_x, wheel_y;
++		s32 rel_x_err, rel_y_err, wheel_x_err, wheel_y_err;
++		struct {
++			bool left, right;
++		} analog_button;
++	} mouse_state;
++
++	/* trigger scale */
++	struct {
++		u8 left, right;
++	} trigger_scale;
++
++	/* battery information */
++	struct {
++		bool initialized;
++		struct power_supply *psy;
++		struct power_supply_desc desc;
++		char *name;
++		char *name_pnc;
++		u8 report_id;
++		u8 flags;
++	} battery;
++
++	/* duplicate report buffers */
++	u8 input_report_0x01[XPADNEO_REPORT_0x01_LENGTH];
++
++	/* axis states */
++	s32 last_abs_z;
++	s32 last_abs_rz;
++
++	/* buffer for rumble_worker */
++	struct {
++		spinlock_t lock;
++		struct delayed_work worker;
++		unsigned long throttle_until;
++		bool scheduled;
++		struct xpadneo_rumble_data data;
++		struct xpadneo_rumble_data shadow;
++		void *output_report_dmabuf;
++	} rumble;
++};
++
++/* xpadneo helpers for synthetic drivers */
++extern int xpadneo_synthetic_init(struct xpadneo_devdata *, const char *,
++				  struct xpadneo_subdevice *);
++extern int xpadneo_synthetic_register(struct xpadneo_devdata *, const char *,
++				      struct xpadneo_subdevice *);
++extern void xpadneo_synthetic_remove(struct xpadneo_devdata *, const char *,
++				     struct xpadneo_subdevice *);
++
++/* xpadneo descriptor debug helpers */
++extern void xpadneo_debug_hid_report(struct hid_device *, const struct xpadneo_rumble_report *,
++				     const size_t);
++extern void xpadneo_debug_descriptor(struct hid_device *, const __u8 *, unsigned int);
++
++/* xpadneo core device functions */
++extern void xpadneo_device_report(struct hid_device *, struct hid_report *);
++extern void xpadneo_device_missing(struct xpadneo_devdata *, u32);
++extern int xpadneo_device_output_report(struct hid_device *, __u8 *, size_t);
++extern const __u8 *xpadneo_device_report_fixup(struct hid_device *hdev, __u8 *rdesc,
++					       unsigned int *rsize);
++
++/* xpadneo consumer driver */
++extern int xpadneo_consumer_init(struct xpadneo_devdata *);
++extern void xpadneo_consumer_remove(struct xpadneo_devdata *);
++
++/* xpadneo keyboard driver */
++extern int xpadneo_keyboard_init(struct xpadneo_devdata *);
++extern void xpadneo_keyboard_remove(struct xpadneo_devdata *);
++
++/* xpadneo rumble driver */
++extern int xpadneo_rumble_init(struct hid_device *);
++extern int xpadneo_rumble_init_workqueue(void);
++extern void xpadneo_rumble_destroy_workqueue(void);
++extern void xpadneo_rumble_remove(struct xpadneo_devdata *);
++
++/* xpadneo mouse driver */
++extern int xpadneo_mouse_init(struct xpadneo_devdata *);
++extern void xpadneo_mouse_init_timer(struct xpadneo_devdata *);
++extern void xpadneo_mouse_report(struct timer_list *);
++extern bool xpadneo_mouse_toggle(struct xpadneo_devdata *);
++extern int xpadneo_mouse_event(struct xpadneo_devdata *, struct hid_usage *, __s32);
++extern int xpadneo_mouse_raw_event(struct xpadneo_devdata *, struct hid_report *, u8 *, int);
++extern void xpadneo_mouse_remove_timer(struct xpadneo_devdata *);
++extern void xpadneo_mouse_remove(struct xpadneo_devdata *);
++
++/* battery and power functions */
++extern int xpadneo_power_init(struct xpadneo_devdata *);
++extern void xpadneo_power_update(struct xpadneo_devdata *, u8);
++extern void xpadneo_power_remove(struct xpadneo_devdata *);
++
++/* driver quirks handling */
++extern int xpadneo_quirks_init(struct xpadneo_devdata *);
++extern void xpadneo_quirks_remove(struct xpadneo_devdata *);
++
++/* driver usage mappings */
++extern int xpadneo_mappings_input(struct hid_device *, struct hid_input *,
++				  struct hid_field *, struct hid_usage *, unsigned long **, int *);
++
++/* driver events and profiles handling */
++extern int xpadneo_events_raw_event(struct hid_device *, struct hid_report *, u8 *, int);
++extern int xpadneo_events_event(struct hid_device *, struct hid_field *, struct hid_usage *, __s32);
++extern int xpadneo_events_input_configured(struct hid_device *, struct hid_input *);
++
++#endif

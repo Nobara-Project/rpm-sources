@@ -1,0 +1,32 @@
+From b77e45d28e70fd7a4e8d2a9183e4bbfa64e8fbcf Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Sun, 20 Jul 2025 02:50:45 -0600
+Subject: [PATCH] intel xe
+
+---
+ drivers/gpu/drm/i915/display/intel_vga.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/i915/display/intel_vga.c b/drivers/gpu/drm/i915/display/intel_vga.c
+index 684b5d1bc..db67177a0 100644
+--- a/drivers/gpu/drm/i915/display/intel_vga.c
++++ b/drivers/gpu/drm/i915/display/intel_vga.c
+@@ -81,6 +81,7 @@ void intel_vga_redisable(struct intel_display *display)
+ 
+ void intel_vga_reset_io_mem(struct intel_display *display)
+ {
++#if defined(CONFIG_VGA_CONSOLE)
+ 	struct pci_dev *pdev = to_pci_dev(display->drm->dev);
+ 
+ 	/*
+@@ -96,6 +97,7 @@ void intel_vga_reset_io_mem(struct intel_display *display)
+ 	vga_get_uninterruptible(pdev, VGA_RSRC_LEGACY_IO);
+ 	outb(inb(VGA_MIS_R), VGA_MIS_W);
+ 	vga_put(pdev, VGA_RSRC_LEGACY_IO);
++#endif
+ }
+ 
+ int intel_vga_register(struct intel_display *display)
+-- 
+2.50.0
+
