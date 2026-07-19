@@ -43,7 +43,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 7.1
-%define _stablekver 3
+%define _stablekver 4
 %define _PKGBUILD 1
 %define _rcver rc7
 %define _tarkver %{_basekver}.%{_stablekver}
@@ -75,7 +75,7 @@ Vendor: The Linux Community and CachyOS maintainer(s)
 URL: https://github.com/CachyOS/linux
 Source0: %{url}/archive/refs/tags/cachyos-%{_tarkver}-%{_PKGBUILD}.tar.gz
 
-%define config_commit d9b3cd77b1aa6fd4dc4baa3d876a598f884f5472
+%define config_commit 4e397a4e5a703fc2f905b73eb60e0a772654317b
 
 %if 0%{?_is_rc}
 Source1: https://raw.githubusercontent.com/CachyOS/linux-cachyos/%{config_commit}/linux-cachyos-rc/config
@@ -126,6 +126,9 @@ Patch10: capture-device-nv12-fixup.patch
 
 # AMD vfio passthrough
 Patch11: vfio-amd-passthrough.patch
+
+# ASUS Laptop keyboard fix
+Patch12: 0001-skip-interrupt-in-polling-for-devices.patch
 
 # aarch64 patches
 Patch21: 0001-arm64-mm-Handle-alignment-faults.patch
@@ -433,6 +436,7 @@ patch -p1 -i %{PATCH8}
 patch -p1 -i %{PATCH9}
 patch -p1 -i %{PATCH10}
 patch -p1 -i %{PATCH11}
+patch -p1 -i %{PATCH12}
 
 # Apply aarch64 patches
 %ifarch aarch64
@@ -1093,6 +1097,9 @@ fi
 %files
 
 %changelog
+* Sun Jul 19 2026 LionHeartP <LionHeartP@proton.me> - 7.1.4-200
+- Update to 7.1.4
+
 * Sat Jul 04 2026 LionHeartP <LionHeartP@proton.me> - 7.1.3-200
 - Update to 7.1.3
 
