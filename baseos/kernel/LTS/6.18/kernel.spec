@@ -62,7 +62,7 @@ Version: %{_basekver}.%{_stablekver}
 Release:%{customver}.lts.nobara%{?dist}
 
 # Define rawhide fedora version
-%define _rawhidever 44
+%define _rawhidever 45
 
 %define rpmver %{version}-%{release}
 %define rpmverobsolete 6.12.9-200.fsync%{?dist}
@@ -95,6 +95,8 @@ Source7: config.ltobuild
 # https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
 ExcludeArch:    %{ix86}
 
+Patch0: resolve-btfids-kfunc-tags-backport.patch
+
 # For handhelds
 Patch2: https://raw.githubusercontent.com/CachyOS/kernel-patches/master/%{_basekver}/misc/0001-handheld.patch
 
@@ -116,10 +118,16 @@ Patch7: suiplay0x1-orientation-quirk.patch
 # useful for setting polling rate of wired PS4/PS5 controller to 1000Hz
 # https://github.com/KarsMulder/Linux-Pollrate-Patch
 # https://gitlab.com/GloriousEggroll/nobara-images/-/issues/64
-Patch9: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
+Patch8: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
 # Add xpadneo as patch instead of using dkms module
-Patch10: xpadneo-kernel-integration.patch
-Patch11: MA350.patch
+Patch9: xpadneo-kernel-integration.patch
+Patch10: MA350.patch
+
+# AMD vfio passthrough
+Patch12: vfio-amd-passthrough.patch
+
+# ASUS Laptop keyboard fix
+Patch13: 0001-skip-interrupt-in-polling-for-devices.patch
 
 # aarch64 patches
 Patch20: 0001-ampere-arm64-Add-a-fixup-handler-for-alignment-fault.patch
@@ -414,17 +422,21 @@ analysing the logical and timing behavior of Linux.
 %prep
 %setup -q -n linux-cachyos-%{_tarkver}-%{_PKGBUILD}
 
+patch -p1 -i %{PATCH0}
+
 # CachyOS Handheld patch
 patch -p1 -i %{PATCH2}
-# Apply Nobara patches:
+# Nobara patches
 patch -p1 -i %{PATCH3}
 patch -p1 -i %{PATCH4}
 patch -p1 -i %{PATCH5}
 patch -p1 -i %{PATCH6}
 patch -p1 -i %{PATCH7}
+patch -p1 -i %{PATCH8}
 patch -p1 -i %{PATCH9}
 patch -p1 -i %{PATCH10}
-patch -p1 -i %{PATCH11}
+patch -p1 -i %{PATCH12}
+patch -p1 -i %{PATCH13}
 
 # Apply aarch64 patches
 %ifarch aarch64
