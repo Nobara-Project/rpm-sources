@@ -16,8 +16,6 @@ BuildArch:      noarch
 
 Source0:        %{name}-%{version}.tar.xz
 Source17:       nvidia-boot-update
-Source18:       kernel.conf
-Source19:       nvidia-modeset.conf
 Source20:       nvidia.conf
 Source21:       60-nvidia.rules
 Source24:       99-nouveau.conf
@@ -41,12 +39,6 @@ package variants.
 # Script for post/preun tasks
 install -p -m 0755 -D %{SOURCE17} %{buildroot}%{_bindir}/nvidia-boot-update
 
-# Choice of kernel module type:
-install -p -m 0644 -D %{SOURCE18} %{buildroot}%{_sysconfdir}/nvidia/kernel.conf
-
-# Nvidia modesetting support:
-install -p -m 0644 -D %{SOURCE19} %{buildroot}%{_sysconfdir}/modprobe.d/nvidia-modeset.conf
-
 # Load nvidia-uvm, enable complete power management:
 install -p -m 0644 -D %{SOURCE20} %{buildroot}%{_modprobedir}/nvidia.conf
 
@@ -63,9 +55,6 @@ install -p -m 644 -D %{SOURCE21} %{buildroot}%{_udevrulesdir}/60-nvidia.rules
 mkdir -p %{buildroot}%{_prefix}/lib/firmware/nvidia/%{version}/
 install -p -m 644 firmware/* %{buildroot}%{_prefix}/lib/firmware/nvidia/%{version}
 
-# Bug report script
-install -p -m 755 -D nvidia-bug-report.sh %{buildroot}%{_bindir}/nvidia-bug-report.sh
-
 %post
 %{_bindir}/nvidia-boot-update post
 
@@ -75,15 +64,12 @@ if [ "$1" -eq "0" ]; then
 fi ||:
 
 %files
-%{_bindir}/nvidia-bug-report.sh
 %{_dracut_conf_d}/99-nouveau.conf
 %{_modprobedir}/nvidia.conf
 %dir %{_prefix}/lib/firmware
 %dir %{_prefix}/lib/firmware/nvidia
 %{_prefix}/lib/firmware/nvidia/%{version}
 %{_bindir}/nvidia-boot-update
-%config(noreplace) %{_sysconfdir}/modprobe.d/nvidia-modeset.conf
-%config(noreplace) %{_sysconfdir}/nvidia/kernel.conf
 %{_udevrulesdir}/60-nvidia.rules
 
 %changelog
