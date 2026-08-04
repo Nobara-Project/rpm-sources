@@ -43,7 +43,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 7.1
-%define _stablekver 4
+%define _stablekver 6
 %define _PKGBUILD 1
 %define _rcver rc7
 %define _tarkver %{_basekver}.%{_stablekver}
@@ -94,10 +94,6 @@ Source7: config.ltobuild
 
 # https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
 ExcludeArch:    %{ix86}
-
-# HOTFIX: Revert selected CachyOS base-dev merges before downstream patches.
-# Currently drm-fair branch merges cause a bad stutter in some games. Revert it for now until it is more mature
-Patch100: revert-d517cb13edef-drm-fair.patch
 
 Patch0: resolve-btfids-kfunc-tags-backport.patch
 
@@ -428,9 +424,6 @@ analysing the logical and timing behavior of Linux.
 
 %prep
 %setup -q -n linux-cachyos-%{_tarkver}-%{_PKGBUILD}
-
-# Revert selected CachyOS base-dev merges before all downstream patches.
-patch -p1 -i %{PATCH100}
 
 patch -p1 -i %{PATCH0}
 
@@ -1109,6 +1102,12 @@ fi
 %files
 
 %changelog
+* Mon Aug 03 2026 LionHeartP <LionHeartP@proton.me> - 7.1.6-200
+- Update to 7.1.6
+
+* Sun Jul 26 2026 LionHeartP <LionHeartP@proton.me> - 7.1.5-200
+- Update to 7.1.5
+
 * Sun Jul 19 2026 LionHeartP <LionHeartP@proton.me> - 7.1.4-200
 - Update to 7.1.4
 
