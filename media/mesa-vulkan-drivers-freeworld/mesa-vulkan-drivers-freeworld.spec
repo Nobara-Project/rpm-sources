@@ -68,7 +68,7 @@
 
 Name:           mesa-vulkan-drivers-freeworld
 Summary:        The mesa graphics vulkan driver stack.
-Version:        26.1.6
+Version:        26.2.0
 Release:        %autorelease
 License:        MIT
 URL:            http://www.mesa3d.org
@@ -423,6 +423,23 @@ rm -Rf %{buildroot}%{_libdir}/libgallium-25.2.2.so
 rm -Rf %{buildroot}%{_libdir}/libRusticlOpenCL*
 rm -Rf %{buildroot}%{_sysconfdir}/OpenCL/vendors/rusticl.icd
 rm -Rf %{buildroot}%{_libdir}/gbm/dri_gbm.so
+rm -Rf %{buildroot}%{_datadir}/drirc.d/00-crocus-defaults.conf
+rm -Rf %{buildroot}%{_datadir}/drirc.d/00-iris-defaults.conf
+rm -Rf %{buildroot}%{_datadir}/drirc.d/00-r300-defaults.conf
+rm -Rf %{buildroot}%{_datadir}/drirc.d/00-r600-defaults.conf
+rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radeonsi-defaults.conf
+rm -Rf %{buildroot}%{_datadir}/drirc.d/00-virtio_gpu-defaults.conf
+rm -Rf %{buildroot}%{_datadir}/drirc.d/00-vmwgfx-defaults.conf
+rm -Rf %{buildroot}%{_datadir}/drirc.d/00-zink-defaults.conf
+%ifarch aarch64
+rm -Rf %{buildroot}%{_datadir}/drirc.d/00-msm-defaults.conf
+rm -Rf %{buildroot}%{_datadir}/drirc.d/00-panfrost-defaults.conf
+rm -Rf %{buildroot}%{_datadir}/drirc.d/00-panvk-defaults.conf
+rm -Rf %{buildroot}%{_datadir}/drirc.d/00-pvr-defaults.conf
+rm -Rf %{buildroot}%{_datadir}/drirc.d/00-turnip-defaults.conf
+rm -Rf %{buildroot}%{_datadir}/drirc.d/00-v3d-defaults.conf
+rm -Rf %{buildroot}%{_datadir}/drirc.d/00-v3dv-defaults.conf
+%endif
 %ifarch %{ix86}
 rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
@@ -446,6 +463,7 @@ install -Dpm0644 cargo-vendor.txt \
 %endif
 %{_libdir}/libvulkan_lvp.so
 %{_datadir}/vulkan/icd.d/lvp_icd.*.json
+%{_datadir}/drirc.d/00-lavapipe-defaults.conf
 %{_libdir}/libVkLayer_MESA_anti_lag.so
 %{_libdir}/libVkLayer_MESA_device_select.so
 %{_datadir}/vulkan/implicit_layer.d/VkLayer_MESA_anti_lag.json
@@ -459,12 +477,15 @@ install -Dpm0644 cargo-vendor.txt \
 %if 0%{?with_nvk}
 %{_libdir}/libvulkan_nouveau.so
 %{_datadir}/vulkan/icd.d/nouveau_icd.*.json
+%{_datadir}/drirc.d/00-nvk-defaults.conf
 %endif
 %ifarch %{ix86} aarch64 x86_64
 %{_libdir}/libvulkan_intel.so
 %{_datadir}/vulkan/icd.d/intel_icd.*.json
+%{_datadir}/drirc.d/00-anv-defaults.conf
 %{_libdir}/libvulkan_intel_hasvk.so
 %{_datadir}/vulkan/icd.d/intel_hasvk_icd.*.json
+%{_datadir}/drirc.d/00-hasvk-defaults.conf
 %endif
 %ifarch aarch64
 %{_libdir}/libvulkan_broadcom.so
@@ -479,6 +500,10 @@ install -Dpm0644 cargo-vendor.txt \
 %endif
 
 %changelog
+* Thu Aug 06 2026 LionHeartP <LionHeartP@proton.me> - 26.2.0-1
+- Update to 26.2.0
+- Rebase valve.patch
+
 * Thu Jul 30 2026 LionHeartP <LionHeartP@proton.me> - 26.1.6-1
 - Update to 26.1.6
 

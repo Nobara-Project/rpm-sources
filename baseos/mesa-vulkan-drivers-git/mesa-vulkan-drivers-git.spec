@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit 318240f418cad33ec63e43e28533782bd62b8fe7
+%global commit 0c006c5624820b75730e77d2dc530d2a84374eb2
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 2.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 3.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -62,7 +62,7 @@
 %if !0%{?rhel}
 %global with_libunwind 1
 %global with_lmsensors 1
-%global with_virtio    1
+%global with_virtio    0
 %endif
 
 %ifarch %{valgrind_arches}
@@ -72,7 +72,7 @@
 %endif
 
 %global with_vulkan_overlay 1
-%global vulkan_drivers swrast%{?base_vulkan}%{?intel_platform_vulkan}%{?asahi_platform_vulkan}%{?extra_platform_vulkan}%{?with_nvk:,nouveau}%{?with_virtio:,virtio}%{?with_d3d12:,microsoft-experimental}
+%global vulkan_drivers swrast%{?base_vulkan}%{?intel_platform_vulkan}%{?asahi_platform_vulkan}%{?extra_platform_vulkan}%{?with_nvk:,nouveau}%{?with_d3d12:,microsoft-experimental}
 
 %if 0%{?with_nvk} && 0%{?rhel}
 %global vendor_nvk_crates 1
@@ -546,6 +546,10 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Thu Aug 06 2026 LionHeartP <LionHeartP@proton.me> - 26.3.0-3
+- Update to latest commit
+- Disable virtio since the Venus library isn't yet packaged by Fedora
+
 * Thu Jul 30 2026 LionHeartP <LionHeartP@proton.me> - 26.3.0-2
 - Update to latest commit
 

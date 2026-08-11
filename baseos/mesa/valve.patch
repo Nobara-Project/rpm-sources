@@ -9,20 +9,18 @@ gamescope the game could get stuck in low power states.
  src/util/00-radv-defaults.conf | 4 ++++
  1 file changed, 4 insertions(+)
 
-diff --git a/src/util/00-radv-defaults.conf b/src/util/00-radv-defaults.conf
-index 1cbb2e087c9..43488ada6bc 100644
---- a/src/util/00-radv-defaults.conf
-+++ b/src/util/00-radv-defaults.conf
-@@ -189,5 +189,9 @@ Application bugs worked around in this file:
-         <application name="Rocket League" executable="RocketLeague">
-             <option name="radv_zero_vram" value="true" />
-         </application>
-+
-+        <application name="Forza Horizon 5" application_name_match="ForzaHorizon5.exe">
+diff --git a/src/amd/vulkan/00-radv-defaults.conf b/src/amd/vulkan/00-radv-defaults.conf
+index 5faeb53..2827906 100644
+--- a/src/amd/vulkan/00-radv-defaults.conf	
++++ b/src/amd/vulkan/00-radv-defaults.conf
+@@ -229,6 +229,7 @@ Application bugs worked around in this file:
+             <!-- Force waiting for VM MAP updates at allocation time to
+                  workaround an use-before-alloc which causes GPU hangs. -->
+             <option name="radv_wait_for_vm_map_updates" value="true" />
 +            <option name="vk_x11_override_min_image_count" value="4" />
-+        </application>
-     </device>
- </driconf>
+         </application>
+ 
+         <application name="Forza Horizon 6" application_name_match="forzahorizon6.exe">
 --
 2.42.0
 
