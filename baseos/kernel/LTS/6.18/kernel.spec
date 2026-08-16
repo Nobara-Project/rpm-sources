@@ -56,7 +56,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 200
+%define customver 201
 %endif
 
 Release:%{customver}.lts.nobara%{?dist}
@@ -96,6 +96,10 @@ Source7: config.ltobuild
 ExcludeArch:    %{ix86}
 
 Patch0: resolve-btfids-kfunc-tags-backport.patch
+
+# Default hardware bus-lock detection to a system-wide 100 locks/sec limit.
+# Explicit split_lock_detect= boot options continue to override this default.
+Patch1: x86-bus-lock-default-ratelimit.patch
 
 # For handhelds
 Patch2: https://raw.githubusercontent.com/CachyOS/kernel-patches/master/%{_basekver}/misc/0001-handheld.patch
@@ -423,6 +427,7 @@ analysing the logical and timing behavior of Linux.
 %setup -q -n linux-cachyos-%{_tarkver}-%{_PKGBUILD}
 
 patch -p1 -i %{PATCH0}
+patch -p1 -i %{PATCH1}
 
 # CachyOS Handheld patch
 patch -p1 -i %{PATCH2}
@@ -1097,6 +1102,9 @@ fi
 %files
 
 %changelog
+* Sun Aug 16 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 6.18.42-201
+- Default hardware bus-lock detection to 100 locks per second
+
 * Wed Aug 12 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 6.18.42-200
 - Update to 6.18.42
 

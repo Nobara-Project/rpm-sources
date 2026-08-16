@@ -1,0 +1,69 @@
+From: Nobara Project <nobara@fedoraproject.org>
+Date: Sun, 16 Aug 2026 00:00:00 -0600
+Subject: [PATCH] x86/split-lock: Default bus-lock detection to 100 locks/sec
+
+Nobara users have encountered complete system hangs while Steam was
+generating a sustained stream of bus-lock traps.  The offending instruction
+was traced to Valve's libtier0_s.so (the Steam "tier0" library), and the
+problem was also observed with Steam's stable, non-beta client.  In one
+captured incident, the ThreadedValidat thread generated roughly 4,800-4,900
+suppressed handle_bus_lock callbacks every five seconds immediately before
+the machine stopped responding -- close to 1,000 bus locks per second.
+
+The upstream warn default reports these events but does not restrict them.
+A bus-locked instruction can stall coherent memory traffic outside the
+originating core, so a sufficiently aggressive offender can degrade the
+whole machine rather than only its own process.  Set a conservative default
+of 100 bus locks per second to throttle the task generating the locks while
+allowing unrelated tasks to continue running.
+
+Apply this default only when the CPU supports hardware bus-lock detection
+and the user did not supply a split_lock_detect= command-line option.  Keep
+the existing warn default on CPUs that only support split-lock #AC detection,
+since ratelimit mode requires hardware bus-lock detection.  Explicit off,
+warn, fatal, and ratelimit:N options retain their existing semantics and take
+precedence over the built-in default; in particular, warn removes the limit.
+
+This is intended as a temporary distribution mitigation for the current
+32-bit Steam Runtime 1.0 client (steamrt1/scout, observed runtime build
+1.0.20260618.246542).  The patch can be removed once Steam's stable channel
+moves to the new 64-bit SteamRT3 client (steamrt3c, based on Steam Runtime 3
+"sniper") using runtime build 3c.0.20260729.253765 or newer, after confirming
+that its libtier0_s.so no longer generates this excessive bus-lock traffic.
+---
+ arch/x86/kernel/cpu/bus_lock.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/arch/x86/kernel/cpu/bus_lock.c b/arch/x86/kernel/cpu/bus_lock.c
+index a75938b..4d37aa1 100644
+--- a/arch/x86/kernel/cpu/bus_lock.c
++++ b/arch/x86/kernel/cpu/bus_lock.c
+@@ -46,6 +46,9 @@ static const struct {
+ 
+ static struct ratelimit_state bld_ratelimit;
+ 
++/* Nobara default; an explicit split_lock_detect= option takes precedence. */
++#define DEFAULT_BUS_LOCK_RATE_LIMIT 100
++
+ #ifdef CONFIG_CACHY
+ static unsigned int sysctl_sld_mitigate = 0;
+ #else
+@@ -131,6 +134,16 @@ static void __init sld_state_setup(void)
+ 				break;
+ 			}
+ 		}
++	} else if (boot_cpu_has(X86_FEATURE_BUS_LOCK_DETECT)) {
++		/*
++		 * Limit bus locks by default without forcing a kernel command line.
++		 * CPUs with only split-lock #AC detection keep the warn default,
++		 * because ratelimit mode requires hardware bus-lock detection.
++		 */
++		ratelimit_state_init(&bld_ratelimit, HZ,
++				     DEFAULT_BUS_LOCK_RATE_LIMIT);
++		ratelimit_set_flags(&bld_ratelimit, RATELIMIT_MSG_ON_RELEASE);
++		state = sld_ratelimit;
+ 	}
+ 	sld_state = state;
+ }
+-- 
+2.51.0

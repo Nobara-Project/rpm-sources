@@ -56,7 +56,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 200
+%define customver 201
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -131,6 +131,10 @@ Patch11: vfio-amd-passthrough.patch
 
 # ASUS Laptop keyboard fix
 Patch12: 0001-skip-interrupt-in-polling-for-devices.patch
+
+# Default hardware bus-lock detection to a system-wide 100 locks/sec limit.
+# Explicit split_lock_detect= boot options continue to override this default.
+Patch13: x86-bus-lock-default-ratelimit.patch
 
 # aarch64 patches
 Patch21: 0001-arm64-mm-Handle-alignment-faults.patch
@@ -442,6 +446,7 @@ patch -p1 -i %{PATCH9}
 patch -p1 -i %{PATCH10}
 patch -p1 -i %{PATCH11}
 patch -p1 -i %{PATCH12}
+patch -p1 -i %{PATCH13}
 
 # Apply aarch64 patches
 %ifarch aarch64
@@ -1102,6 +1107,9 @@ fi
 %files
 
 %changelog
+* Sun Aug 16 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 7.1.8-201
+- Default hardware bus-lock detection to 100 locks per second
+
 * Mon Aug 10 2026 LionHeartP <LionHeartP@proton.me> - 7.1.8-200
 - Update to 7.1.8
 
