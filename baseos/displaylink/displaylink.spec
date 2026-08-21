@@ -1,5 +1,5 @@
-%{!?_daemon_version:%global _daemon_version 6.2.0-30}
-%{!?_version:%global _version 1.14.16}
+%{!?_daemon_version:%global _daemon_version 6.3.0-48}
+%{!?_version:%global _version 1.15.0}
 %{!?_release:%global _release 1}
 
 # Disable RPATH since DisplayLinkManager contains this.
@@ -187,6 +187,7 @@ fi
 
 %dir %{_prefix}/src/evdi-%{version}
 %{_prefix}/src/evdi-%{version}/Kconfig
+%{_prefix}/src/evdi-%{version}/conftest.sh
 %{_prefix}/src/evdi-%{version}/LICENSE
 %{_prefix}/src/evdi-%{version}/Makefile
 %{_prefix}/src/evdi-%{version}/README.md
@@ -247,6 +248,28 @@ fi
 %systemd_postun_with_restart displaylink-driver.service
 
 %changelog
+
+* Thu Jul 03 2026 Crashdummy <crashdummy1337@proton.me> 1.15.0-1
+- Update evdi to 1.15.0 (7.2 Support)
+
+* Sat Jun 13 2026 Crashdummy <crashdummy1337@proton.me> 1.14.16-3
+- Update displaylink to v6.3.0 with changelog:
+- Support for Ubuntu 26.04
+- Fixed an issue where disabling one of the DisplayLink screens using xrandr caused multiple screens to go black. (VIFR-7205)
+- DL-7xxx: Fixed an issue causing blank screens after resuming from sleep. (VIFR-7208, VIFR-7254)
+
+* Thu May 28 2026 Crashdummy <crashdummy1337@proton.me> 1.14.16-2
+- Rerelease to experimentally support aarch64
+
+* Wed Feb 25 2026 Crashdummy <crashdummy1337@proton.me> 1.14.15-1
+- Update evdi to 1.14.15 ( 7.0 support )
+
+* Tue Feb 24 2026 Crashdummy <crashdummy1337@proton.me> 1.14.14-2
+- Add https://github.com/DisplayLink/evdi/pull/558 to enable preliminary support for kernel 7.0
+
+* Wed Feb 12 2026 Crashdummy <crashdummy1337@proton.me> 1.14.14-1
+- Update evdi to 1.14.14 ( Corre Ultra 7 performance )
+
 * Tue Jan 27 2026 Crashdummy <crashdummy1337@proton.me> 1.14.13-1
 - Update evdi to 1.14.13 ( Bugfix on COre Ultra 7 )
 
