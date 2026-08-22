@@ -1,5 +1,5 @@
 Name:           dnf-app-center
-Version:        0.1.4
+Version:        0.1.5
 Release:        1%{?dist}
 Summary:        GTK App Center for DNF/AppStream with updater tray service
 
@@ -103,6 +103,7 @@ desktop-file-validate %{buildroot}%{_sysconfdir}/xdg/autostart/org.dnf.AppCenter
 %lang(it) %{_datadir}/locale/it/LC_MESSAGES/org.dnf.AppCenter.mo
 %lang(pt_BR) %{_datadir}/locale/pt_BR/LC_MESSAGES/org.dnf.AppCenter.mo
 %lang(ru) %{_datadir}/locale/ru/LC_MESSAGES/org.dnf.AppCenter.mo
+%lang(uk) %{_datadir}/locale/uk/LC_MESSAGES/org.dnf.AppCenter.mo
 %lang(ja) %{_datadir}/locale/ja/LC_MESSAGES/org.dnf.AppCenter.mo
 %lang(ko) %{_datadir}/locale/ko/LC_MESSAGES/org.dnf.AppCenter.mo
 %lang(zh_CN) %{_datadir}/locale/zh_CN/LC_MESSAGES/org.dnf.AppCenter.mo

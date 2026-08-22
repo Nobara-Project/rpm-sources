@@ -56,7 +56,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 201
+%define customver 204
 %endif
 
 Release:%{customver}.lts.nobara%{?dist}
@@ -97,10 +97,6 @@ ExcludeArch:    %{ix86}
 
 Patch0: resolve-btfids-kfunc-tags-backport.patch
 
-# Default hardware bus-lock detection to a system-wide 100 locks/sec limit.
-# Explicit split_lock_detect= boot options continue to override this default.
-Patch1: x86-bus-lock-default-ratelimit.patch
-
 # For handhelds
 Patch2: https://raw.githubusercontent.com/CachyOS/kernel-patches/master/%{_basekver}/misc/0001-handheld.patch
 
@@ -134,7 +130,7 @@ Patch12: vfio-amd-passthrough.patch
 Patch13: 0001-skip-interrupt-in-polling-for-devices.patch
 
 # aarch64 patches
-Patch20: 0001-ampere-arm64-Add-a-fixup-handler-for-alignment-fault.patch
+Patch20: 0001-arm64-mm-Handle-alignment-faults.patch
 Patch21: 0002-ampere-arm64-Work-around-Ampere-Altra-erratum-82288-.patch
 Patch22: xe-nonx86.patch
 Patch23: clang_cc_bugfix_amd_aarch64.patch
@@ -427,7 +423,6 @@ analysing the logical and timing behavior of Linux.
 %setup -q -n linux-cachyos-%{_tarkver}-%{_PKGBUILD}
 
 patch -p1 -i %{PATCH0}
-patch -p1 -i %{PATCH1}
 
 # CachyOS Handheld patch
 patch -p1 -i %{PATCH2}
@@ -1102,6 +1097,15 @@ fi
 %files
 
 %changelog
+* Thu Aug 20 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 6.18.42-204
+- Adapt the updated ARM64 alignment fixup to the Linux 6.18 NEON API
+
+* Wed Aug 19 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 6.18.42-203
+- Remove the downstream default bus-lock rate-limit patch
+
+* Wed Aug 19 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 6.18.42-202
+- Replace the ARM64 alignment-fault fixup with the updated implementation
+
 * Sun Aug 16 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 6.18.42-201
 - Default hardware bus-lock detection to 100 locks per second
 

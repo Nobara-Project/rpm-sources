@@ -1,7 +1,7 @@
 Summary: Configure automatic handling of removable storage media
 Name: nobara-automount
 Version: 1.1
-Release: 11%{?dist}
+Release: 12%{?dist}
 License: Public Domain
 Group: System Environment/Base
 URL: https://github.com/nobara-project/nobara-core-packages

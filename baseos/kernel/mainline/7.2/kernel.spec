@@ -56,7 +56,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 200
+%define customver 201
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -123,8 +123,9 @@ Patch7: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
 Patch8: xpadneo-kernel-integration.patch
 Patch9: MA350.patch
 
-# Capture device quirks
-Patch10: capture-device-nv12-fixup.patch
+# Default hardware bus-lock detection to a system-wide 100 locks/sec limit.
+# Explicit split_lock_detect= boot options continue to override this default.
+Patch10: x86-bus-lock-default-ratelimit.patch
 
 # AMD vfio passthrough
 Patch11: vfio-amd-passthrough.patch
@@ -1102,6 +1103,10 @@ fi
 %files
 
 %changelog
+* Wed Aug 19 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 7.2.0-201
+- Restore the default hardware bus-lock limit of 100 locks per second
+- Drop the capture-device quirk patch now that its quirks are upstream
+
 * Mon Aug 17 2026 LionHeartP <LionHeartP@proton.me> - 7.2.0-200
 - Update to 7.2.0
 

@@ -1,6 +1,6 @@
 Name:           kde-nobara
 Version:        6.7.3
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        KDE Presets from NobaraProject Official
 License:    	GPLv2
 URL:            https://github.com/nobara-project/nobara-core-packages
@@ -21,7 +21,8 @@ Provides: plasma-lookandfeel-nobara
 Requires: kde-nobara-sddm
 Requires: kde-nobara-plasmalogin
 Recommends: kde-steamdeck-additions
-Recommends: kde-nobara-extras-wallpapers
+Provides: kde-nobara-extras-wallpapers
+Obsoletes: kde-nobara-extras-wallpapers
 Obsoletes: nobara-kde-presets
 Obsoletes: plasma-lookandfeel-nobara
 # https://bugzilla.redhat.com/show_bug.cgi?id=1356890
@@ -33,18 +34,6 @@ Conflicts: steam-kde-presets
 
 %description
 KDE Presets from Nobara Official
-
-%package extras-wallpapers
-Provides: kde-nobara-extras-wallpapers
-Obsoletes: plasma-lookandfeel-nobara-extras-wallpapers
-
-Summary: Nobara extra wallpapers
-
-License: GPLv2+ or LGPLv3+
-
-%description extras-wallpapers
-
-Nobara extra wallpapers
 
 %package sddm
 Provides: kde-nobara-sddm
@@ -110,8 +99,7 @@ cp -rv etc/* %{buildroot}%{_sysconfdir}
 %{_datadir}/plasma/look-and-feel/org.nobaraproject.desktop/*
 %{_datadir}/plasma/layout-templates/*
 %{_datadir}/plasma/plasmoids/*
-%{_datadir}/wallpapers/nobara-42*
-%{_datadir}/wallpapers/nobara-41*
+%{_datadir}/wallpapers/*
 %{_datadir}/themes/Nobara/assets/*
 %{_datadir}/themes/Nobara/gtk-2.0/*
 %{_datadir}/themes/Nobara/gtk-3.0/*
@@ -123,12 +111,6 @@ cp -rv etc/* %{buildroot}%{_sysconfdir}
 %{_datadir}/aurorae/*
 %{_prefix}/lib/systemd/*
 %{_sysconfdir}/*
-
-%files extras-wallpapers
-%{_datadir}/wallpapers/nobara-mecha-penguins*
-%{_datadir}/wallpapers/nobara-weebara*
-%{_datadir}/wallpapers/nobara-39*
-%{_datadir}/wallpapers/nobara-40*
 
 %files sddm
 %{_datadir}/sddm/*
