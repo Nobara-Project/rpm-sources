@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit 0c006c5624820b75730e77d2dc530d2a84374eb2
+%global commit 00e42c51b10d8e0769489156fa414f111897d515
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 3.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 4.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -546,6 +546,9 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Sat Aug 22 2026 LionHeartP <LionHeartP@proton.me> - 26.3.0-4
+- Update to latest commit
+
 * Thu Aug 06 2026 LionHeartP <LionHeartP@proton.me> - 26.3.0-3
 - Update to latest commit
 - Disable virtio since the Venus library isn't yet packaged by Fedora
