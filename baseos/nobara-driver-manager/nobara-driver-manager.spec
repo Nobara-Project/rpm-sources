@@ -1,7 +1,7 @@
 Name:          nobara-driver-manager
 Epoch:	       3
 Version:       0.1.4
-Release:       1%{?dist}
+Release:       2%{?dist}
 License:       MPLv2
 Group:         System Environment/Libraries
 Summary:       Nobara Driver Manager - Device and Driver control adw gui
@@ -26,6 +26,7 @@ BuildRequires:    pkgconfig(libpci)
 
 Requires:	cfhdb
 Requires:	gum
+Requires:	nobara-kernel-manager
 
 Provides:	nobara-nvidia-wizard
 Obsoletes:	nobara-nvidia-wizard
