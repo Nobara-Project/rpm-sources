@@ -1,15 +1,15 @@
 # This spec file should work on Fedora, openSUSE and Mageia
 
 %define dkms_name openrazer-driver
-%define dkms_version 3.12.2
+%define dkms_version 3.12.4
 
 %global _default_patch_fuzz 2
 
-%define gitcommit ddea89607b86023e88563b8feabc8fa2d5773cdd
+#%%define gitcommit ddea89607b86023e88563b8feabc8fa2d5773cdd
 
 Name: 		openrazer-meta
-Version: 	3.12.2
-Release: 	%autorelease -b2
+Version: 	3.12.4
+Release: 	%autorelease
 Summary: 	Open source driver and user-space daemon for managing Razer devices
 
 License: 	GPL-2.0
@@ -20,9 +20,6 @@ Source0: 	https://github.com/crstmkt/openrazer/archive/%{gitcommit}.tar.gz
 %else
 Source0: 	https://github.com/openrazer/openrazer/releases/download/v%{version}/openrazer-%{version}.tar.xz
 %endif
-
-# Kernel 7.0.9+ fix
-Patch:          https://github.com/openrazer/openrazer/commit/ff3062498c6b3fc6fcb703627034598a3a5fbb59.patch
 
 # https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
 ExcludeArch:    %{ix86}
