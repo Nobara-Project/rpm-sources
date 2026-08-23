@@ -56,7 +56,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 201
+%define customver 202
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -122,10 +122,6 @@ Patch7: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
 # Add xpadneo as patch instead of using dkms module
 Patch8: xpadneo-kernel-integration.patch
 Patch9: MA350.patch
-
-# Default hardware bus-lock detection to a system-wide 100 locks/sec limit.
-# Explicit split_lock_detect= boot options continue to override this default.
-Patch10: x86-bus-lock-default-ratelimit.patch
 
 # AMD vfio passthrough
 Patch11: vfio-amd-passthrough.patch
@@ -440,7 +436,6 @@ patch -p1 -i %{PATCH6}
 patch -p1 -i %{PATCH7}
 patch -p1 -i %{PATCH8}
 patch -p1 -i %{PATCH9}
-patch -p1 -i %{PATCH10}
 patch -p1 -i %{PATCH11}
 patch -p1 -i %{PATCH12}
 
@@ -453,13 +448,17 @@ patch -p1 -i %{PATCH22}
 
 # Fetch the config and move it to the proper directory
 
+# Disable hardware bus-lock detection before merging the kernel configs
+%ifarch x86_64
+sed -i 's/^CONFIG_X86_BUS_LOCK_DETECT=y$/# CONFIG_X86_BUS_LOCK_DETECT is not set/' %{SOURCE1}
+%endif
+
 # Enable thin lto
 %if %{llvm_kbuild}
 %{SOURCE3} lto
 %else
 %{SOURCE3}
 %endif
-
 
 # Remove CachyOS's localversion
 find . -name "localversion*" -delete
@@ -1103,6 +1102,9 @@ fi
 %files
 
 %changelog
+* Sat Aug 22 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 7.2.0-202
+- Disable CONFIG_X86_BUS_LOCK_DETECT in the generated x86_64 kernel config
+
 * Wed Aug 19 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 7.2.0-201
 - Restore the default hardware bus-lock limit of 100 locks per second
 - Drop the capture-device quirk patch now that its quirks are upstream
