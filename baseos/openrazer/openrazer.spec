@@ -9,7 +9,7 @@
 
 Name: 		openrazer-meta
 Version: 	3.12.2
-Release: 	%autorelease -b2
+Release: 	%autorelease -b3
 Summary: 	Open source driver and user-space daemon for managing Razer devices
 
 License: 	GPL-2.0
@@ -33,6 +33,7 @@ BuildRequires: 	make
 Requires: 	openrazer-kernel-modules-dkms
 Requires: 	openrazer-daemon
 Requires: 	python3-openrazer
+Requires:   polychromatic
 
 %description
 Meta package for installing all required openrazer packages.
