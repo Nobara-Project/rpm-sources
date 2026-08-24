@@ -1,12 +1,9 @@
-%define _disable_source_fetch 0
-%global debug_package %{nil}
-
 Name:           mangojuice
-Version:        0.9.0
+Version:        1.0.0
 Release:        1%{?dist}
 Summary:        Graphical UI to manage Mangohud settings
 Group:          Graphics/Utilities
-License:        GPLv3
+License:        GPL-3.0-or-later
 URL:            https://github.com/radiolamp/mangojuice
 Source0:        %{URL}/archive/refs/tags/%{version}.tar.gz
 
@@ -28,24 +25,34 @@ Requires:  gtk4
 This program will be a convenient alternative to Goverlay for setting up Mangohud.
 
 %prep
-%autosetup -n mangojuice-%{version}
+%autosetup -n %{name}-%{version}
+
+%conf
+%meson
 
 %build
-%meson 
 %meson_build
 
 %install
 %meson_install
 
-%files
+%find_lang %{name}
+
+%files -f %{name}.lang
+%doc README.md
+%lang(ru) %doc README.ru.md
+%license LICENSE
 %{_bindir}/mangojuice
 %{_datadir}/applications/io.github.radiolamp.mangojuice.desktop
-%{_datadir}/icons/hicolor/scalable/apps/io.github.radiolamp.mangojuice*
+%{_iconsdir}/hicolor/scalable/apps/io.github.radiolamp.mangojuice*
 %{_datadir}/locale/ru_RU/LC_MESSAGES/mangojuice.mo
 %{_datadir}/locale/pt_BR/LC_MESSAGES/mangojuice.mo
-%{_datadir}/metainfo/io.github.radiolamp.mangojuice.metainfo.xml
+%{_metainfodir}/io.github.radiolamp.mangojuice.metainfo.xml
 
 %changelog
+* Sun Aug 23 2026 Owen Zimmerman <owen@fyralabs.com> - 1.0.0-1 
+- Update to 1.0.0, install license and READMEs, use %%conf and %%find_lang, update path macros, update license identifier
+
 * Sun Apr 05 2026 LionHeartP <LionHeartP@proton.me> - 0.9.0-1
 - Update to 0.9.0
 
