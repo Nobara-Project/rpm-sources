@@ -8,8 +8,8 @@
 
 Summary:   Xwayland
 Name:      xorg-x11-server-Xwayland
-Version:   24.1.11
-Release:   1%{?gitdate:.%{gitdate}git%{shortcommit}}%{?dist}
+Version:   24.1.13
+Release:   2%{?gitdate:.%{gitdate}git%{shortcommit}}%{?dist}
 
 URL:       http://www.x.org
 %if 0%{?gitdate}
@@ -19,6 +19,7 @@ Source0:   https://www.x.org/pub/individual/xserver/%{pkgname}-%{version}.tar.xz
 %endif
 
 Patch1:    xwayland-pointer-warp-fix.patch
+Patch2:    xwayland-cvt-dotclock-overflow.patch
 
 License:   MIT
 
@@ -135,6 +136,46 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/*.desktop
 %{_libdir}/pkgconfig/xwayland.pc
 
 %changelog
+* Wed Aug 26 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 24.1.13-2
+- Prevent RandR dot clock overflow for scaled high-refresh modes
+
+* Wed Jul 08 2026 Peter Hutterer <peter.hutterer@redhat.com> - 24.1.13-1
+- Update to xwayland 24.1.13
+  Security fixes for: CVE-2026-55999, CVE-2026-56000
+
+* Sat Jun 13 2026 Yaakov Selkowitz <yselkowi@redhat.com> - 24.1.12-2
+- Rebuilt for openssl 4.0
+
+* Tue Jun 02 2026 Peter Hutterer <peter.hutterer@redhat.com> - 24.1.12-1
+- Update to xwayland 24.1.12
+  Security fixes for: ZDI-CAN-30136, ZDI-CAN-30159, ZDI-CAN-30160,
+                      ZDI-CAN-30161, ZDI-CAN-30163, ZDI-CAN-30164,
+                      ZDI-CAN-30165, ZDI-CAN-30168
+
+* Mon Apr 27 2026 Olivier Fourdan <ofourdan@redhat.com> - 24.1.11-1
+- Update to xwayland 24.1.11
+
+* Tue Apr 14 2026 Olivier Fourdan <ofourdan@redhat.com> - 24.1.10-1
+- Update to xwayland 24.1.10
+- CVE fix for: CVE-2026-33999, CVE-2026-34000, CVE-2026-34001,
+               CVE-2026-34002, CVE-2026-34003
+
+* Sat Jan 17 2026 Fedora Release Engineering <releng@fedoraproject.org> - 24.1.9-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_44_Mass_Rebuild
+
+* Tue Oct 28 2025 Olivier Fourdan <ofourdan@redhat.com> - 24.1.9-1
+- Update to xwayland 24.1.9 (#2406802)
+- CVE fix for: CVE-2025-62229, CVE-2025-62230, CVE-2025-62231
+
+* Wed Oct 15 2025 Olivier Fourdan <ofourdan@redhat.com> - 24.1.8-4
+- Revert last change, that breaks keyboard modifiers in gamescope
+
+* Tue Sep  9 2025 Fedora Release Engineering <releng@fedoraproject.org> - 24.1.8-3
+- Add fix for keyboard modifiers from upstream
+
+* Fri Jul 25 2025 Fedora Release Engineering <releng@fedoraproject.org> - 24.1.8-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_43_Mass_Rebuild
+
 * Wed Jun 18 2025 Olivier Fourdan <ofourdan@redhat.com> - 24.1.8-1
 - Update to xserver 24.1.8
 - Contains an additional fix for CVE-2025-49176
