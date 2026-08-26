@@ -19,14 +19,22 @@ script:
     - "echo 'nameserver 127.0.0.53' > /etc/resolv.conf"
     - "echo 'options edns0 trust-ad' >> /etc/resolv.conf"
     - "echo 'search Home' >> /etc/resolv.conf"
+    - command: >
+        bash -ce '
+          if [ -n "${gs[nobara.update]}" ]; then
+            nobara-sync cli
+          fi
+        '
+      status: "Installing latest updates…"
+    - command: >
+        bash -ce '
+          if [ -n "${gs[nobara.codecs]}" ]; then
+            nobara-sync install-codecs
+          fi
+        '
+      status: "Installing media codecs…"
     - >
       bash -ce '
-        if [ -n "${gs[nobara.update]}" ]; then
-          nobara-sync cli
-        fi
-        if [ -n "${gs[nobara.codecs]}" ]; then
-          nobara-sync install-codecs
-        fi
         if [ -n "${gs[nobara.codecsrepo]}" ]; then
           dnf config-manager setopt nobara-pikaos-additional.enabled=1
           sed -i "s/enabled=0/enabled=1/g" /etc/yum.repos.d/nobara-pikaos-additional.repo
@@ -88,5 +96,43 @@ script:
       timeout: 3600
     - command: "mv /usr/lib/udev/rules.d/99-steamos-automount.rules.bak /usr/lib/udev/rules.d/99-steamos-automount.rules"
       timeout: 3600
+    - command: >
+        bash -ce '
+          if [ -z "${gs[nobara.nvidia]}" ]; then
+            nvidia_packages=(
+              dkms-nvidia
+              nvidia-driver
+              libnvidia-ml
+              libnvidia-ml.i686
+              libnvidia-fbc
+              nvidia-driver-cuda
+              nvidia-driver-cuda-libs
+              nvidia-driver-cuda-libs.i686
+              nvidia-driver-libs
+              nvidia-driver-libs.i686
+              nvidia-kmod-common
+              nvidia-libXNVCtrl
+              nvidia-modprobe
+              nvidia-persistenced
+              nvidia-settings
+              libnvidia-cfg
+            )
+            installed_packages=()
+            for package in "$${nvidia_packages[@]}"; do
+              if rpm -q "$$package" >/dev/null 2>&1; then
+                installed_packages+=("$$package")
+              fi
+            done
+            if (( $${#installed_packages[@]} )); then
+              dnf --disablerepo="*" -C -y remove --no-autoremove "$${installed_packages[@]}"
+              dracut --regenerate-all --force
+            fi
+          fi
+        '
+      timeout: 3600
+      status: "Removing Nvidia drivers…"
+    - command: "/usr/lib/nobara-kernel-manager/kernel-manager rescue reinstall"
+      timeout: 3600
+      status: "Creating rescue kernel…"
     - command: "rm -Rf /home/liveuser"
       timeout: 3600

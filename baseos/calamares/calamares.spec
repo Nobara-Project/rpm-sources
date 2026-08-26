@@ -1,6 +1,6 @@
 Name:           calamares
 Version:        3.3.14
-Release:        125%{?dist}
+Release:        129%{?dist}
 Summary:        Installer from a live CD/DVD/USB to disk
 
 License:        GPL-3.0-or-later
@@ -35,6 +35,14 @@ Patch1006:       0005-rebase-over-kaos-calamares.patch
 Patch1008:       calamares-3.3.3-kdesu.patch
 # plasmalogin
 Patch1009:       2470.patch
+# Refresh QML translations after changing the installer language
+Patch1010:       0006-retranslate-qml-viewsteps.patch
+# Allow individual shell-process commands to report progress text
+Patch1011:       0007-shellprocess-command-status.patch
+# Build the final rescue image with the Nobara kernel manager backend
+Patch1012:       0008-use-kernel-manager-rescue.patch
+# Select or remove the preloaded NVIDIA driver stack based on detected hardware
+Patch1013:       0009-nvidia-driver-selection.patch
 #Patch1007:       fixup_branding.patch
 
 # Fedora-specific changes
@@ -125,6 +133,7 @@ Requires:       util-linux
 Requires:       upower
 Requires:       NetworkManager
 Requires:       dracut
+Requires:       nobara-kernel-manager >= 0.1.1
 Requires:       grub2
 %ifarch x86_64 aarch64 riscv64
 %ifarch x86_64
@@ -232,6 +241,10 @@ cd ../../
 %patch 1006 -p1
 %patch 1008 -p1
 %patch 1009 -p1
+%patch 1010 -p1
+%patch 1011 -p1
+%patch 1012 -p1
+%patch 1013 -p1
 
 mv %{SOURCE1009} src/branding/nobara_branding/
 mv %{SOURCE1010} src/branding/nobara_branding/
