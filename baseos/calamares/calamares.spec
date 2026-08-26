@@ -1,6 +1,6 @@
 Name:           calamares
 Version:        3.3.14
-Release:        129%{?dist}
+Release:        131%{?dist}
 Summary:        Installer from a live CD/DVD/USB to disk
 
 License:        GPL-3.0-or-later
@@ -43,6 +43,8 @@ Patch1011:       0007-shellprocess-command-status.patch
 Patch1012:       0008-use-kernel-manager-rescue.patch
 # Select or remove the preloaded NVIDIA driver stack based on detected hardware
 Patch1013:       0009-nvidia-driver-selection.patch
+# Correct a typo returned by stale package-module translation catalogs
+Patch1014:       0010-fix-package-status-typo.patch
 #Patch1007:       fixup_branding.patch
 
 # Fedora-specific changes
@@ -245,6 +247,7 @@ cd ../../
 %patch 1011 -p1
 %patch 1012 -p1
 %patch 1013 -p1
+%patch 1014 -p1
 
 mv %{SOURCE1009} src/branding/nobara_branding/
 mv %{SOURCE1010} src/branding/nobara_branding/
