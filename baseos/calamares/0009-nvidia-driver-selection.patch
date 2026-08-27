@@ -49,23 +49,25 @@
  WelcomePage::WelcomePage( Config* config, QWidget* parent )
      : QWidget( parent )
      , ui( new Ui::WelcomePage )
-@@ -91,6 +119,10 @@
+@@ -91,6 +119,12 @@
      m_cbCodecs->setText(tr("Install media codec packages (strongly recommended)."));
      m_cbCodecs->setChecked(false); // hidden
  
++    const bool nvidiaGpuDetected = hasNvidiaGpu();
 +    m_cbNvidia = new QCheckBox(this);
 +    m_cbNvidia->setText(tr("Install Nvidia Drivers"));
-+    m_cbNvidia->setChecked(hasNvidiaGpu());
++    m_cbNvidia->setChecked(nvidiaGpuDetected);
++    m_cbNvidia->setVisible(nvidiaGpuDetected);
 +
      m_cbCodecsRepo = new QCheckBox(this);
      m_cbCodecsRepo->setText(tr("Install media codec packages on next update (strongly recommended)."));
      m_cbCodecsRepo->setChecked(true); // hidden
-@@ -166,6 +198,15 @@
+@@ -166,6 +200,15 @@
                  [setFlag](bool on){ setFlag("nobara.codecsrepo", on); });
      }
  
-+    // This option is independent of network availability. It defaults to
-+    // enabled only when a PCI display controller from NVIDIA is present.
++    // This option is independent of network availability. Show and enable it
++    // only when a PCI display controller from NVIDIA is present.
 +    int langIdx = ui->verticalLayout->indexOf(ui->languageWidget);
 +    if (langIdx < 0) { langIdx = ui->verticalLayout->count(); }
 +    ui->verticalLayout->insertWidget(langIdx, m_cbNvidia);
@@ -76,7 +78,7 @@
      initLanguages();
  
      CALAMARES_RETRANSLATE_SLOT( &WelcomePage::retranslate );
-@@ -306,6 +347,10 @@
+@@ -306,6 +349,10 @@
      ui->retranslateUi( this );
      ui->supportButton->setText(
          tr( "%1 Support", "@action" ).arg( Calamares::Branding::instance()->shortProductName() ) );
