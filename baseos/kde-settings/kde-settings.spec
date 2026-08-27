@@ -165,7 +165,7 @@ rm -Rf %{buildroot}%{_datadir}/plasma/look-and-feel/org.fedoraproject.fedoradark
 rm -Rf %{buildroot}%{_datadir}/plasma/look-and-feel/org.fedoraproject.fedoralight.desktop
 rm -Rf %{buildroot}%{_datadir}/wallpapers/Fedora
 
-sed -i 's/Fedora/Default/g' %{buildroot}/lib/plasmalogin/defaults.conf
+sed -i 's/Fedora/Default/g' %{buildroot}/usr/lib/plasmalogin/defaults.conf
 
 %check
 test -e %{_datadir}/wallpapers/Default || ls -l %{_datadir}/wallpapers
