@@ -51,7 +51,7 @@
 
 Name:           obs-studio
 Version:        %{version_string}
-Release:        3.%{rel_build}
+Release:        4.%{rel_build}
 Summary:        Open Broadcaster Software Studio
 
 # OBS itself is GPL-2.0-or-later, while various plugin dependencies are of various other licenses
@@ -212,6 +212,7 @@ software for video recording and live streaming.
 %{_datadir}/applications/com.obsproject.Studio.desktop
 %{_datadir}/icons/hicolor/*/apps/com.obsproject.Studio.*
 %{_datadir}/obs/
+%exclude %{_datadir}/obs/obs-plugins/obs-x264/
 %exclude %{_datadir}/obs/obs-plugins/vlc-video/
 %if %{with cef}
 %exclude %{_datadir}/obs/obs-plugins/obs-browser*
@@ -430,6 +431,9 @@ appstream-util validate-relax --nonet %{buildroot}%{_datadir}/metainfo/*.metainf
 
 
 %changelog
+* Fri Aug 28 2026 Nobara Project <nobara@protonmail.com> - 32.1.2-3
+- Keep x264 plugin data out of the main package to avoid upgrade file conflicts
+
 * Sat Jul 04 2026 Nobara Project <nobara@protonmail.com> - 32.1.2-4
 - Add transitional package to retire i686 obs-studio-libs
 - Recommend 32-bit vkcapture hook libs instead of the full plugin
