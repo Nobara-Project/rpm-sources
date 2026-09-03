@@ -43,8 +43,8 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 7.2
-%define _stablekver 0
-%define _PKGBUILD 1
+%define _stablekver 3
+%define _PKGBUILD 2
 %define _rcver rc7
 %define _tarkver %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
@@ -56,7 +56,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 202
+%define customver 200
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -75,7 +75,7 @@ Vendor: The Linux Community and CachyOS maintainer(s)
 URL: https://github.com/CachyOS/linux
 Source0: %{url}/archive/refs/tags/cachyos-%{_tarkver}-%{_PKGBUILD}.tar.gz
 
-%define config_commit 4e397a4e5a703fc2f905b73eb60e0a772654317b
+%define config_commit 6676e72b85eb9e30d079a8c3dcdf93aedd1e8226
 
 %if 0%{?_is_rc}
 Source1: https://raw.githubusercontent.com/CachyOS/linux-cachyos/%{config_commit}/linux-cachyos-rc/config
@@ -1102,6 +1102,12 @@ fi
 %files
 
 %changelog
+* Thu Sep 03 2026 LionHeartP <LionHeartP@proton.me> - 7.2.3-200
+- Update to 7.2.3
+
+* Fri Aug 28 2026 LionHeartP <LionHeartP@proton.me> - 7.2.2-200
+- Update to 7.2.2
+
 * Sat Aug 22 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 7.2.0-202
 - Disable CONFIG_X86_BUS_LOCK_DETECT in the generated x86_64 kernel config
 
