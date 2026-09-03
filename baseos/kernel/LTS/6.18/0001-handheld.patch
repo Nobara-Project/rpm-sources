@@ -1,4 +1,4 @@
-From 8ed47d80049d7085c6eb73f299227a7706bd61cd Mon Sep 17 00:00:00 2001
+From 43dc03d0a3e0cb3fd04f1cf8dd32b41bf0d8714b Mon Sep 17 00:00:00 2001
 From: Peter Jung <admin@ptr1337.dev>
 Date: Fri, 6 Feb 2026 20:56:41 +0100
 Subject: [PATCH] handheld
@@ -136,7 +136,7 @@ Signed-off-by: Peter Jung <admin@ptr1337.dev>
  create mode 100644 sound/soc/codecs/aw87xxx/aw87xxx_pid_9b_reg.h
 
 diff --git a/Documentation/ABI/testing/sysfs-class-platform-profile b/Documentation/ABI/testing/sysfs-class-platform-profile
-index dc72adfb8..fcab26894 100644
+index dc72adfb830a..fcab26894ec3 100644
 --- a/Documentation/ABI/testing/sysfs-class-platform-profile
 +++ b/Documentation/ABI/testing/sysfs-class-platform-profile
 @@ -23,6 +23,8 @@ Description:	This file contains a space-separated list of profiles supported
@@ -150,7 +150,7 @@ index dc72adfb8..fcab26894 100644
  
 diff --git a/Documentation/ABI/testing/sysfs-driver-hid-lenovo-go b/Documentation/ABI/testing/sysfs-driver-hid-lenovo-go
 new file mode 100644
-index 000000000..c8221373e
+index 000000000000..c8221373ef76
 --- /dev/null
 +++ b/Documentation/ABI/testing/sysfs-driver-hid-lenovo-go
 @@ -0,0 +1,724 @@
@@ -880,7 +880,7 @@ index 000000000..c8221373e
 +
 diff --git a/Documentation/ABI/testing/sysfs-driver-hid-lenovo-go-s b/Documentation/ABI/testing/sysfs-driver-hid-lenovo-go-s
 new file mode 100644
-index 000000000..4d317074b
+index 000000000000..4d317074bb7e
 --- /dev/null
 +++ b/Documentation/ABI/testing/sysfs-driver-hid-lenovo-go-s
 @@ -0,0 +1,304 @@
@@ -1189,7 +1189,7 @@ index 000000000..4d317074b
 +
 +		Applies to Lenovo Legion Go S line of handheld devices.
 diff --git a/Documentation/wmi/devices/lenovo-wmi-gamezone.rst b/Documentation/wmi/devices/lenovo-wmi-gamezone.rst
-index 997263e51..1769ad3d5 100644
+index 997263e51a7d..1769ad3d57b9 100644
 --- a/Documentation/wmi/devices/lenovo-wmi-gamezone.rst
 +++ b/Documentation/wmi/devices/lenovo-wmi-gamezone.rst
 @@ -19,27 +19,26 @@ WMI GUID ``887B54E3-DDDC-4B2C-8B88-68A26A8835D0``
@@ -1236,7 +1236,7 @@ index 997263e51..1769ad3d5 100644
  Custom Profile
  ~~~~~~~~~~~~~~
 diff --git a/Documentation/wmi/devices/msi-wmi-platform.rst b/Documentation/wmi/devices/msi-wmi-platform.rst
-index 73197b319..704bfdac5 100644
+index 73197b31926a..704bfdac5203 100644
 --- a/Documentation/wmi/devices/msi-wmi-platform.rst
 +++ b/Documentation/wmi/devices/msi-wmi-platform.rst
 @@ -169,6 +169,32 @@ The fan RPM readings can be calculated with the following formula:
@@ -1273,7 +1273,7 @@ index 73197b319..704bfdac5 100644
  --------------------
  
 diff --git a/MAINTAINERS b/MAINTAINERS
-index 554e881b0..eb6b3da68 100644
+index e8f06145fb54..a35c6a48cb80 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
 @@ -14135,6 +14135,17 @@ L:	platform-driver-x86@vger.kernel.org
@@ -1295,7 +1295,7 @@ index 554e881b0..eb6b3da68 100644
  M:	Hans de Goede <hansg@kernel.org>
  L:	linux-input@vger.kernel.org
 diff --git a/drivers/acpi/platform_profile.c b/drivers/acpi/platform_profile.c
-index b43f4459a..ea04a8c69 100644
+index b43f4459a4f6..ea04a8c69215 100644
 --- a/drivers/acpi/platform_profile.c
 +++ b/drivers/acpi/platform_profile.c
 @@ -37,6 +37,7 @@ static const char * const profile_names[] = {
@@ -1327,7 +1327,7 @@ index b43f4459a..ea04a8c69 100644
  
  		next = find_next_bit_wrap(data.aggregate,
 diff --git a/drivers/bus/mhi/host/boot.c b/drivers/bus/mhi/host/boot.c
-index 205d83ac0..b3a85aa3c 100644
+index 205d83ac069f..b3a85aa3c476 100644
 --- a/drivers/bus/mhi/host/boot.c
 +++ b/drivers/bus/mhi/host/boot.c
 @@ -584,10 +584,17 @@ void mhi_fw_load_handler(struct mhi_controller *mhi_cntrl)
@@ -1353,7 +1353,7 @@ index 205d83ac0..b3a85aa3c 100644
  
  		/* Load the firmware into BHIE vec table */
 diff --git a/drivers/bus/mhi/host/init.c b/drivers/bus/mhi/host/init.c
-index 099be8dd1..5a21c8f9b 100644
+index 099be8dd1900..5a21c8f9b105 100644
 --- a/drivers/bus/mhi/host/init.c
 +++ b/drivers/bus/mhi/host/init.c
 @@ -1172,8 +1172,9 @@ int mhi_prepare_for_power_up(struct mhi_controller *mhi_cntrl)
@@ -1396,7 +1396,7 @@ index 099be8dd1..5a21c8f9b 100644
  EXPORT_SYMBOL_GPL(mhi_unprepare_after_power_down);
  
 diff --git a/drivers/bus/mhi/host/internal.h b/drivers/bus/mhi/host/internal.h
-index 7937bb1f7..22251fc3d 100644
+index 7937bb1f742c..22251fc3da37 100644
 --- a/drivers/bus/mhi/host/internal.h
 +++ b/drivers/bus/mhi/host/internal.h
 @@ -423,4 +423,6 @@ void mhi_unmap_single_no_bb(struct mhi_controller *mhi_cntrl,
@@ -1407,7 +1407,7 @@ index 7937bb1f7..22251fc3d 100644
 +
  #endif /* _MHI_INT_H */
 diff --git a/drivers/bus/mhi/host/pm.c b/drivers/bus/mhi/host/pm.c
-index b4ef11518..ae17a7299 100644
+index b4ef115189b5..ae17a7299479 100644
 --- a/drivers/bus/mhi/host/pm.c
 +++ b/drivers/bus/mhi/host/pm.c
 @@ -1271,6 +1271,7 @@ void mhi_power_down_keep_dev(struct mhi_controller *mhi_cntrl,
@@ -1419,7 +1419,7 @@ index b4ef11518..ae17a7299 100644
  EXPORT_SYMBOL_GPL(mhi_power_down_keep_dev);
  
 diff --git a/drivers/extcon/Kconfig b/drivers/extcon/Kconfig
-index aec46bf03..2b26545df 100644
+index aec46bf03302..2b26545df5eb 100644
 --- a/drivers/extcon/Kconfig
 +++ b/drivers/extcon/Kconfig
 @@ -227,4 +227,11 @@ config EXTCON_RTK_TYPE_C
@@ -1435,7 +1435,7 @@ index aec46bf03..2b26545df 100644
 +
  endif
 diff --git a/drivers/extcon/Makefile b/drivers/extcon/Makefile
-index 6482f2bfd..770dceb94 100644
+index 6482f2bfd661..770dceb94c1d 100644
 --- a/drivers/extcon/Makefile
 +++ b/drivers/extcon/Makefile
 @@ -28,3 +28,4 @@ obj-$(CONFIG_EXTCON_USB_GPIO)	+= extcon-usb-gpio.o
@@ -1445,7 +1445,7 @@ index 6482f2bfd..770dceb94 100644
 +obj-$(CONFIG_EXTCON_STEAMDECK)  += extcon-steamdeck.o
 diff --git a/drivers/extcon/extcon-steamdeck.c b/drivers/extcon/extcon-steamdeck.c
 new file mode 100644
-index 000000000..49cb5d30b
+index 000000000000..49cb5d30bf6b
 --- /dev/null
 +++ b/drivers/extcon/extcon-steamdeck.c
 @@ -0,0 +1,180 @@
@@ -1630,7 +1630,7 @@ index 000000000..49cb5d30b
 +MODULE_DESCRIPTION("Steam Deck extcon driver");
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
-index 20460cfd0..32073f822 100644
+index 20460cfd09bc..32073f822c80 100644
 --- a/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
 +++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
 @@ -435,8 +435,6 @@ struct amdgpu_mode_info {
@@ -1643,7 +1643,7 @@ index 20460cfd0..32073f822 100644
  	struct amdgpu_encoder *encoder;
  	uint8_t negative;
 diff --git a/drivers/gpu/drm/amd/amdgpu/atombios_encoders.c b/drivers/gpu/drm/amd/amdgpu/atombios_encoders.c
-index a51f3414b..bc0f9759c 100644
+index a51f3414b65d..bc0f9759c5c5 100644
 --- a/drivers/gpu/drm/amd/amdgpu/atombios_encoders.c
 +++ b/drivers/gpu/drm/amd/amdgpu/atombios_encoders.c
 @@ -39,6 +39,10 @@
@@ -1678,7 +1678,7 @@ index a51f3414b..bc0f9759c 100644
  	snprintf(bl_name, sizeof(bl_name),
  		 "amdgpu_bl%d", dev->primary->index);
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index bbe2abf90..5dce95081 100644
+index 64b147ec8844..6490cc0a8772 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 @@ -158,6 +158,9 @@ MODULE_FIRMWARE(FIRMWARE_DCN_401_DMUB);
@@ -1691,7 +1691,7 @@ index bbe2abf90..5dce95081 100644
  /**
   * DOC: overview
   *
-@@ -9694,7 +9697,7 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_state *state,
+@@ -9663,7 +9666,7 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_state *state,
  	int planes_count = 0, vpos, hpos;
  	unsigned long flags;
  	u32 target_vblank, last_flip_vblank;
@@ -1701,7 +1701,7 @@ index bbe2abf90..5dce95081 100644
  	bool pflip_present = false;
  	bool dirty_rects_changed = false;
 diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
-index 86ed1c783..dc4f659d7 100644
+index 86ed1c783158..dc4f659d70b4 100644
 --- a/drivers/gpu/drm/amd/display/dc/dc.h
 +++ b/drivers/gpu/drm/amd/display/dc/dc.h
 @@ -60,7 +60,7 @@ struct dmub_notification;
@@ -1714,10 +1714,10 @@ index 86ed1c783..dc4f659d7 100644
   * MAX_PLANES - representative of the upper bound of planes that are supported by the HW
   */
 diff --git a/drivers/gpu/drm/amd/display/dc/hwss/dce110/dce110_hwseq.c b/drivers/gpu/drm/amd/display/dc/hwss/dce110/dce110_hwseq.c
-index 8f86177de..3cd9d05db 100644
+index 39be5a58f837..0e4b09f41da1 100644
 --- a/drivers/gpu/drm/amd/display/dc/hwss/dce110/dce110_hwseq.c
 +++ b/drivers/gpu/drm/amd/display/dc/hwss/dce110/dce110_hwseq.c
-@@ -97,6 +97,8 @@
+@@ -96,6 +96,8 @@
  #define FN(reg_name, field_name) \
  	hws->shifts->field_name, hws->masks->field_name
  
@@ -1726,7 +1726,7 @@ index 8f86177de..3cd9d05db 100644
  struct dce110_hw_seq_reg_offsets {
  	uint32_t crtc;
  };
-@@ -3282,6 +3284,13 @@ void dce110_enable_dp_link_output(
+@@ -3270,6 +3272,13 @@ void dce110_enable_dp_link_output(
  			link->dc->res_pool->dp_clock_source;
  	const struct link_hwss *link_hwss = get_link_hwss(link, link_res);
  	unsigned int i;
@@ -1741,7 +1741,7 @@ index 8f86177de..3cd9d05db 100644
  	/*
  	 * Add the logic to extract BOTH power up and power down sequences
 diff --git a/drivers/gpu/drm/amd/display/dc/link/link_validation.c b/drivers/gpu/drm/amd/display/dc/link/link_validation.c
-index acdc162de..53b7ea0da 100644
+index acdc162de535..53b7ea0daba4 100644
 --- a/drivers/gpu/drm/amd/display/dc/link/link_validation.c
 +++ b/drivers/gpu/drm/amd/display/dc/link/link_validation.c
 @@ -35,6 +35,8 @@
@@ -1770,7 +1770,7 @@ index acdc162de..53b7ea0da 100644
  
  	/* TODO: DYNAMIC_VALIDATION needs to be implemented */
 diff --git a/drivers/gpu/drm/amd/display/dc/resource/dcn301/dcn301_resource.c b/drivers/gpu/drm/amd/display/dc/resource/dcn301/dcn301_resource.c
-index 82a205a7c..13e4a0e2e 100644
+index 82a205a7c25c..13e4a0e2e4df 100644
 --- a/drivers/gpu/drm/amd/display/dc/resource/dcn301/dcn301_resource.c
 +++ b/drivers/gpu/drm/amd/display/dc/resource/dcn301/dcn301_resource.c
 @@ -1437,9 +1437,9 @@ static bool dcn301_resource_construct(
@@ -1787,7 +1787,7 @@ index 82a205a7c..13e4a0e2e 100644
  	dc->caps.post_blend_color_processing = true;
  	dc->caps.force_dp_tps4_for_cp2520 = true;
 diff --git a/drivers/gpu/drm/drm_panel_orientation_quirks.c b/drivers/gpu/drm/drm_panel_orientation_quirks.c
-index 3a218fb59..178adc19e 100644
+index 3a218fb592ce..178adc19e670 100644
 --- a/drivers/gpu/drm/drm_panel_orientation_quirks.c
 +++ b/drivers/gpu/drm/drm_panel_orientation_quirks.c
 @@ -203,6 +203,24 @@ static const struct dmi_system_id orientation_data[] = {
@@ -1859,10 +1859,10 @@ index 3a218fb59..178adc19e 100644
  		.matches = {
  		  DMI_EXACT_MATCH(DMI_SYS_VENDOR, "OrangePi"),
 diff --git a/drivers/hid/Kconfig b/drivers/hid/Kconfig
-index 404829c54..db6eb56a0 100644
+index 38adc1c91955..41dee216618a 100644
 --- a/drivers/hid/Kconfig
 +++ b/drivers/hid/Kconfig
-@@ -631,6 +631,30 @@ config HID_LENOVO
+@@ -630,6 +630,30 @@ config HID_LENOVO
  	- ThinkPad Compact Bluetooth Keyboard with TrackPoint (supports Fn keys)
  	- ThinkPad Compact USB Keyboard with TrackPoint (supports Fn keys)
  
@@ -1893,7 +1893,7 @@ index 404829c54..db6eb56a0 100644
  config HID_LETSKETCH
  	tristate "Letsketch WP9620N tablets"
  	depends on USB_HID
-@@ -1437,6 +1461,10 @@ config HID_KUNIT_TEST
+@@ -1436,6 +1460,10 @@ config HID_KUNIT_TEST
  
  	  If in doubt, say "N".
  
@@ -1904,7 +1904,7 @@ index 404829c54..db6eb56a0 100644
  endmenu
  
  source "drivers/hid/bpf/Kconfig"
-@@ -1461,4 +1489,6 @@ source "drivers/hid/spi-hid/Kconfig"
+@@ -1460,4 +1488,6 @@ source "drivers/hid/spi-hid/Kconfig"
  
  source "drivers/hid/dockchannel-hid/Kconfig"
  
@@ -1912,10 +1912,10 @@ index 404829c54..db6eb56a0 100644
 +
  endif # HID_SUPPORT
 diff --git a/drivers/hid/Makefile b/drivers/hid/Makefile
-index b587c64a8..a0a236e06 100644
+index 083677e71993..4c862e4e64d9 100644
 --- a/drivers/hid/Makefile
 +++ b/drivers/hid/Makefile
-@@ -78,6 +78,8 @@ obj-$(CONFIG_HID_KYE)		+= hid-kye.o
+@@ -77,6 +77,8 @@ obj-$(CONFIG_HID_KYE)		+= hid-kye.o
  obj-$(CONFIG_HID_KYSONA)	+= hid-kysona.o
  obj-$(CONFIG_HID_LCPOWER)	+= hid-lcpower.o
  obj-$(CONFIG_HID_LENOVO)	+= hid-lenovo.o
@@ -1924,7 +1924,7 @@ index b587c64a8..a0a236e06 100644
  obj-$(CONFIG_HID_LETSKETCH)	+= hid-letsketch.o
  obj-$(CONFIG_HID_LOGITECH)	+= hid-logitech.o
  obj-$(CONFIG_HID_LOGITECH)	+= hid-lg-g15.o
-@@ -175,6 +177,8 @@ obj-$(CONFIG_INTEL_ISH_HID)	+= intel-ish-hid/
+@@ -174,6 +176,8 @@ obj-$(CONFIG_INTEL_ISH_HID)	+= intel-ish-hid/
  
  obj-$(CONFIG_AMD_SFH_HID)       += amd-sfh-hid/
  
@@ -1933,17 +1933,17 @@ index b587c64a8..a0a236e06 100644
  obj-$(CONFIG_SURFACE_HID_CORE)  += surface-hid/
  
  obj-$(CONFIG_INTEL_THC_HID)     += intel-thc-hid/
-@@ -182,3 +186,5 @@ obj-$(CONFIG_INTEL_THC_HID)     += intel-thc-hid/
+@@ -181,3 +185,5 @@ obj-$(CONFIG_INTEL_THC_HID)     += intel-thc-hid/
  obj-$(CONFIG_SPI_HID_APPLE_CORE)	+= spi-hid/
  
  obj-$(CONFIG_HID_DOCKCHANNEL)   += dockchannel-hid/
 +
 +obj-$(CONFIG_HID_MSI_CLAW)      += hid-msi-claw.o
 diff --git a/drivers/hid/hid-core.c b/drivers/hid/hid-core.c
-index 52720c4e4..b4add56da 100644
+index b353fd819989..7734cc87494c 100644
 --- a/drivers/hid/hid-core.c
 +++ b/drivers/hid/hid-core.c
-@@ -2939,6 +2939,11 @@ static int hid_uevent(const struct device *dev, struct kobj_uevent_env *env)
+@@ -2896,6 +2896,11 @@ static int hid_uevent(const struct device *dev, struct kobj_uevent_env *env)
  	if (add_uevent_var(env, "MODALIAS=hid:b%04Xg%04Xv%08Xp%08X",
  			   hdev->bus, hdev->group, hdev->vendor, hdev->product))
  		return -ENOMEM;
@@ -1956,10 +1956,10 @@ index 52720c4e4..b4add56da 100644
  	return 0;
  }
 diff --git a/drivers/hid/hid-ids.h b/drivers/hid/hid-ids.h
-index f38fddfd3..52b10b6d1 100644
+index d3aa204bd34c..b46d623af276 100644
 --- a/drivers/hid/hid-ids.h
 +++ b/drivers/hid/hid-ids.h
-@@ -747,6 +747,10 @@
+@@ -734,6 +734,10 @@
  #define USB_DEVICE_ID_ITE8595		0x8595
  #define USB_DEVICE_ID_ITE_MEDION_E1239T	0xce50
  
@@ -1970,7 +1970,7 @@ index f38fddfd3..52b10b6d1 100644
  #define USB_VENDOR_ID_JABRA		0x0b0e
  #define USB_DEVICE_ID_JABRA_SPEAK_410	0x0412
  #define USB_DEVICE_ID_JABRA_SPEAK_510	0x0420
-@@ -866,7 +870,10 @@
+@@ -852,7 +856,10 @@
  #define USB_DEVICE_ID_LENOVO_PIXART_USB_MOUSE_602E	0x602e
  #define USB_DEVICE_ID_LENOVO_PIXART_USB_MOUSE_6093	0x6093
  #define USB_DEVICE_ID_LENOVO_LEGION_GO_DUAL_DINPUT	0x6184
@@ -1981,7 +1981,7 @@ index f38fddfd3..52b10b6d1 100644
  
  #define USB_VENDOR_ID_LETSKETCH		0x6161
  #define USB_DEVICE_ID_WP9620N		0x4d15
-@@ -1081,6 +1088,7 @@
+@@ -1067,6 +1074,7 @@
  #define USB_VENDOR_ID_NOVATEK		0x0603
  #define USB_DEVICE_ID_NOVATEK_PCT	0x0600
  #define USB_DEVICE_ID_NOVATEK_MOUSE	0x1602
@@ -1989,7 +1989,7 @@ index f38fddfd3..52b10b6d1 100644
  
  #define USB_VENDOR_ID_NTI               0x0757
  #define USB_DEVICE_ID_USB_SUN           0x0a00
-@@ -1539,6 +1547,10 @@
+@@ -1524,6 +1532,10 @@
  #define USB_VENDOR_ID_ZYTRONIC		0x14c8
  #define USB_DEVICE_ID_ZYTRONIC_ZXY100	0x0005
  
@@ -2001,7 +2001,7 @@ index f38fddfd3..52b10b6d1 100644
  #define USB_DEVICE_ID_PRIMAX_MOUSE_4D22	0x4d22
  #define USB_DEVICE_ID_PRIMAX_MOUSE_4E2A	0x4e2a
 diff --git a/drivers/hid/hid-input.c b/drivers/hid/hid-input.c
-index 32a96ae29..9ac947541 100644
+index 32a96ae2946f..9ac9475413bd 100644
 --- a/drivers/hid/hid-input.c
 +++ b/drivers/hid/hid-input.c
 @@ -403,6 +403,8 @@ static const struct hid_device_id hid_battery_quirks[] = {
@@ -2015,7 +2015,7 @@ index 32a96ae29..9ac947541 100644
  };
 diff --git a/drivers/hid/hid-lenovo-go-s.c b/drivers/hid/hid-lenovo-go-s.c
 new file mode 100644
-index 000000000..d74a37c19
+index 000000000000..d74a37c1980f
 --- /dev/null
 +++ b/drivers/hid/hid-lenovo-go-s.c
 @@ -0,0 +1,1577 @@
@@ -3598,7 +3598,7 @@ index 000000000..d74a37c19
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/hid/hid-lenovo-go.c b/drivers/hid/hid-lenovo-go.c
 new file mode 100644
-index 000000000..a09950874
+index 000000000000..a09950874add
 --- /dev/null
 +++ b/drivers/hid/hid-lenovo-go.c
 @@ -0,0 +1,2399 @@
@@ -6003,7 +6003,7 @@ index 000000000..a09950874
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/hid/hid-msi-claw.c b/drivers/hid/hid-msi-claw.c
 new file mode 100644
-index 000000000..3d95e31c1
+index 000000000000..3d95e31c1ae3
 --- /dev/null
 +++ b/drivers/hid/hid-msi-claw.c
 @@ -0,0 +1,842 @@
@@ -6851,7 +6851,7 @@ index 000000000..3d95e31c1
 +MODULE_DESCRIPTION("Manage MSI Claw gamepad device");
 diff --git a/drivers/hid/zotac-zone-hid/Kconfig b/drivers/hid/zotac-zone-hid/Kconfig
 new file mode 100644
-index 000000000..89fb2ac08
+index 000000000000..89fb2ac080bb
 --- /dev/null
 +++ b/drivers/hid/zotac-zone-hid/Kconfig
 @@ -0,0 +1,8 @@
@@ -6865,7 +6865,7 @@ index 000000000..89fb2ac08
 +	Support for the Zotac Zone handheld gaming console.
 diff --git a/drivers/hid/zotac-zone-hid/Makefile b/drivers/hid/zotac-zone-hid/Makefile
 new file mode 100644
-index 000000000..2f7053b98
+index 000000000000..2f7053b981ac
 --- /dev/null
 +++ b/drivers/hid/zotac-zone-hid/Makefile
 @@ -0,0 +1,6 @@
@@ -6877,7 +6877,7 @@ index 000000000..2f7053b98
 +obj-$(CONFIG_ZOTAC_ZONE_HID) := zotac-zone-hid.o
 diff --git a/drivers/hid/zotac-zone-hid/zotac-zone-hid-config.c b/drivers/hid/zotac-zone-hid/zotac-zone-hid-config.c
 new file mode 100644
-index 000000000..049615194
+index 000000000000..049615194392
 --- /dev/null
 +++ b/drivers/hid/zotac-zone-hid/zotac-zone-hid-config.c
 @@ -0,0 +1,2231 @@
@@ -9114,7 +9114,7 @@ index 000000000..049615194
 +}
 diff --git a/drivers/hid/zotac-zone-hid/zotac-zone-hid-core.c b/drivers/hid/zotac-zone-hid/zotac-zone-hid-core.c
 new file mode 100644
-index 000000000..6f80ea2f9
+index 000000000000..6f80ea2f9aad
 --- /dev/null
 +++ b/drivers/hid/zotac-zone-hid/zotac-zone-hid-core.c
 @@ -0,0 +1,597 @@
@@ -9717,7 +9717,7 @@ index 000000000..6f80ea2f9
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/hid/zotac-zone-hid/zotac-zone-hid-input.c b/drivers/hid/zotac-zone-hid/zotac-zone-hid-input.c
 new file mode 100644
-index 000000000..571eec2df
+index 000000000000..571eec2df446
 --- /dev/null
 +++ b/drivers/hid/zotac-zone-hid/zotac-zone-hid-input.c
 @@ -0,0 +1,522 @@
@@ -10245,7 +10245,7 @@ index 000000000..571eec2df
 +}
 diff --git a/drivers/hid/zotac-zone-hid/zotac-zone-hid-rgb.c b/drivers/hid/zotac-zone-hid/zotac-zone-hid-rgb.c
 new file mode 100644
-index 000000000..0305de2bd
+index 000000000000..0305de2bd549
 --- /dev/null
 +++ b/drivers/hid/zotac-zone-hid/zotac-zone-hid-rgb.c
 @@ -0,0 +1,717 @@
@@ -10968,7 +10968,7 @@ index 000000000..0305de2bd
 +}
 diff --git a/drivers/hid/zotac-zone-hid/zotac-zone.h b/drivers/hid/zotac-zone-hid/zotac-zone.h
 new file mode 100644
-index 000000000..31188cee8
+index 000000000000..31188cee80f8
 --- /dev/null
 +++ b/drivers/hid/zotac-zone-hid/zotac-zone.h
 @@ -0,0 +1,214 @@
@@ -11187,7 +11187,7 @@ index 000000000..31188cee8
 +
 +#endif /* __HID_ZOTAC_ZONE_H */
 diff --git a/drivers/hwmon/Kconfig b/drivers/hwmon/Kconfig
-index 2a71b6e83..184d5a517 100644
+index 2760feb9f83b..589d33226d25 100644
 --- a/drivers/hwmon/Kconfig
 +++ b/drivers/hwmon/Kconfig
 @@ -2158,6 +2158,17 @@ config SENSORS_SCH5636
@@ -11209,7 +11209,7 @@ index 2a71b6e83..184d5a517 100644
  	tristate "ST Microelectronics STTS751"
  	depends on I2C
 diff --git a/drivers/hwmon/Makefile b/drivers/hwmon/Makefile
-index 73b2abdcc..c25828689 100644
+index 73b2abdcc6dd..c25828689110 100644
 --- a/drivers/hwmon/Makefile
 +++ b/drivers/hwmon/Makefile
 @@ -218,6 +218,7 @@ obj-$(CONFIG_SENSORS_SMSC47B397)+= smsc47b397.o
@@ -11222,7 +11222,7 @@ index 73b2abdcc..c25828689 100644
  obj-$(CONFIG_SENSORS_SURFACE_FAN)+= surface_fan.o
 diff --git a/drivers/hwmon/steamdeck-hwmon.c b/drivers/hwmon/steamdeck-hwmon.c
 new file mode 100644
-index 000000000..9d0a5471b
+index 000000000000..9d0a5471b181
 --- /dev/null
 +++ b/drivers/hwmon/steamdeck-hwmon.c
 @@ -0,0 +1,294 @@
@@ -11521,10 +11521,10 @@ index 000000000..9d0a5471b
 +MODULE_DESCRIPTION("Steam Deck EC sensors driver");
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/input/joystick/xpad.c b/drivers/input/joystick/xpad.c
-index ebfb841aa..a71c6500b 100644
+index 363d50949386..0944f058b1e6 100644
 --- a/drivers/input/joystick/xpad.c
 +++ b/drivers/input/joystick/xpad.c
-@@ -365,7 +365,9 @@ static const struct xpad_device {
+@@ -359,9 +359,11 @@ static const struct xpad_device {
  	{ 0x1bad, 0xfa01, "MadCatz GamePad", 0, XTYPE_XBOX360 },
  	{ 0x1bad, 0xfd00, "Razer Onza TE", 0, XTYPE_XBOX360 },
  	{ 0x1bad, 0xfd01, "Razer Onza", 0, XTYPE_XBOX360 },
@@ -11534,7 +11534,9 @@ index ebfb841aa..a71c6500b 100644
  	{ 0x20bc, 0x5134, "BETOP BTP-KP50B Xinput Dongle", 0, XTYPE_XBOX360 },
  	{ 0x20bc, 0x514a, "BETOP BTP-KP50C Xinput Dongle", 0, XTYPE_XBOX360 },
  	{ 0x20d6, 0x2001, "BDA Xbox Series X Wired Controller", 0, XTYPE_XBOXONE },
-@@ -571,7 +573,9 @@ static const struct usb_device_id xpad_table[] = {
+ 	{ 0x20d6, 0x2009, "PowerA Enhanced Wired Controller for Xbox Series X|S", 0, XTYPE_XBOXONE },
+ 	{ 0x20d6, 0x2064, "PowerA Wired Controller for Xbox", MAP_SHARE_BUTTON, XTYPE_XBOXONE },
+@@ -561,8 +563,10 @@ static const struct usb_device_id xpad_table[] = {
  	XPAD_XBOX360_VENDOR(0x1949),		/* Amazon controllers */
  	XPAD_XBOX360_VENDOR(0x1a86),		/* Nanjing Qinheng Microelectronics (WCH) */
  	XPAD_XBOX360_VENDOR(0x1bad),		/* Harmonix Rock Band guitar and drums */
@@ -11544,8 +11546,9 @@ index ebfb841aa..a71c6500b 100644
  	XPAD_XBOX360_VENDOR(0x20bc),		/* BETOP wireless dongles */
  	XPAD_XBOX360_VENDOR(0x20d6),		/* PowerA controllers */
  	XPAD_XBOXONE_VENDOR(0x20d6),		/* PowerA controllers */
+ 	XPAD_XBOX360_VENDOR(0x2345),		/* Machenike Controllers */
 diff --git a/drivers/leds/Kconfig b/drivers/leds/Kconfig
-index 06e6291be..75a2e8bac 100644
+index 06e6291be11b..75a2e8bac4b7 100644
 --- a/drivers/leds/Kconfig
 +++ b/drivers/leds/Kconfig
 @@ -1020,6 +1020,13 @@ config LEDS_ACER_A500
@@ -11563,7 +11566,7 @@ index 06e6291be..75a2e8bac 100644
  
  comment "Flash and Torch LED drivers"
 diff --git a/drivers/leds/Makefile b/drivers/leds/Makefile
-index 9a0333ec1..e93fa6d6d 100644
+index 9a0333ec1a86..e93fa6d6d2b9 100644
 --- a/drivers/leds/Makefile
 +++ b/drivers/leds/Makefile
 @@ -86,6 +86,7 @@ obj-$(CONFIG_LEDS_QNAP_MCU)		+= leds-qnap-mcu.o
@@ -11576,7 +11579,7 @@ index 9a0333ec1..e93fa6d6d 100644
  obj-$(CONFIG_LEDS_SYSCON)		+= leds-syscon.o
 diff --git a/drivers/leds/leds-steamdeck.c b/drivers/leds/leds-steamdeck.c
 new file mode 100644
-index 000000000..3d56ec440
+index 000000000000..3d56ec4403cd
 --- /dev/null
 +++ b/drivers/leds/leds-steamdeck.c
 @@ -0,0 +1,123 @@
@@ -11704,10 +11707,10 @@ index 000000000..3d56ec440
 +MODULE_DESCRIPTION("Steam Deck LEDs driver");
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/mfd/Kconfig b/drivers/mfd/Kconfig
-index 55a9fea95..72a85c437 100644
+index 6cec1858947b..9bfcc6e67962 100644
 --- a/drivers/mfd/Kconfig
 +++ b/drivers/mfd/Kconfig
-@@ -2571,5 +2571,16 @@ config MFD_MAX7360
+@@ -2560,5 +2560,16 @@ config MFD_MAX7360
  	  additional drivers must be enabled in order to use the functionality
  	  of the device.
  
@@ -11725,7 +11728,7 @@ index 55a9fea95..72a85c437 100644
  endmenu
  endif
 diff --git a/drivers/mfd/Makefile b/drivers/mfd/Makefile
-index 865e9f12f..bd8075153 100644
+index 865e9f12faff..bd807515359c 100644
 --- a/drivers/mfd/Makefile
 +++ b/drivers/mfd/Makefile
 @@ -300,6 +300,8 @@ obj-$(CONFIG_MFD_QNAP_MCU)	+= qnap-mcu.o
@@ -11739,7 +11742,7 @@ index 865e9f12f..bd8075153 100644
  obj-$(CONFIG_MFD_LOONGSON_SE)	+= loongson-se.o
 diff --git a/drivers/mfd/steamdeck.c b/drivers/mfd/steamdeck.c
 new file mode 100644
-index 000000000..a60fa7db9
+index 000000000000..a60fa7db9141
 --- /dev/null
 +++ b/drivers/mfd/steamdeck.c
 @@ -0,0 +1,147 @@
@@ -11891,10 +11894,10 @@ index 000000000..a60fa7db9
 +MODULE_DESCRIPTION("Steam Deck EC MFD core driver");
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/net/wireless/ath/ath11k/mhi.c b/drivers/net/wireless/ath/ath11k/mhi.c
-index d2c44f7f9..27640b7c1 100644
+index acd76e9392d3..c5dc776b2364 100644
 --- a/drivers/net/wireless/ath/ath11k/mhi.c
 +++ b/drivers/net/wireless/ath/ath11k/mhi.c
-@@ -456,12 +456,12 @@ void ath11k_mhi_stop(struct ath11k_pci *ab_pci, bool is_suspend)
+@@ -460,12 +460,12 @@ void ath11k_mhi_stop(struct ath11k_pci *ab_pci, bool is_suspend)
  	 * workaround, otherwise ath11k_core_resume() will timeout
  	 * during resume.
  	 */
@@ -11912,10 +11915,10 @@ index d2c44f7f9..27640b7c1 100644
  
  int ath11k_mhi_suspend(struct ath11k_pci *ab_pci)
 diff --git a/drivers/net/wireless/ath/ath12k/mhi.c b/drivers/net/wireless/ath/ath12k/mhi.c
-index 2dbdb95ae..111c8d68c 100644
+index 08f44baf182a..3af524ccf4a5 100644
 --- a/drivers/net/wireless/ath/ath12k/mhi.c
 +++ b/drivers/net/wireless/ath/ath12k/mhi.c
-@@ -597,6 +597,12 @@ static int ath12k_mhi_set_state(struct ath12k_pci *ab_pci,
+@@ -601,6 +601,12 @@ static int ath12k_mhi_set_state(struct ath12k_pci *ab_pci,
  
  	ath12k_mhi_set_state_bit(ab_pci, mhi_state);
  
@@ -11928,7 +11931,7 @@ index 2dbdb95ae..111c8d68c 100644
  	return 0;
  
  out:
-@@ -631,12 +637,12 @@ void ath12k_mhi_stop(struct ath12k_pci *ab_pci, bool is_suspend)
+@@ -635,12 +641,12 @@ void ath12k_mhi_stop(struct ath12k_pci *ab_pci, bool is_suspend)
  	 * workaround, otherwise ath12k_core_resume() will timeout
  	 * during resume.
  	 */
@@ -11946,7 +11949,7 @@ index 2dbdb95ae..111c8d68c 100644
  
  void ath12k_mhi_suspend(struct ath12k_pci *ab_pci)
 diff --git a/drivers/platform/x86/Kconfig b/drivers/platform/x86/Kconfig
-index ea1aff5d8..75b17baee 100644
+index ea1aff5d8a3f..75b17baee8c9 100644
 --- a/drivers/platform/x86/Kconfig
 +++ b/drivers/platform/x86/Kconfig
 @@ -567,9 +567,12 @@ config MSI_WMI
@@ -11980,7 +11983,7 @@ index ea1aff5d8..75b17baee 100644
  
  config P2SB
 diff --git a/drivers/platform/x86/Makefile b/drivers/platform/x86/Makefile
-index 4b1220f9b..010f695de 100644
+index 4b1220f9b194..010f695de80a 100644
 --- a/drivers/platform/x86/Makefile
 +++ b/drivers/platform/x86/Makefile
 @@ -162,5 +162,7 @@ obj-$(CONFIG_WINMATE_FM07_KEYS)		+= winmate-fm07-keys.o
@@ -11992,10 +11995,10 @@ index 4b1220f9b..010f695de 100644
  # OneXPlayer
  obj-$(CONFIG_OXP_EC)			+= oxpec.o
 diff --git a/drivers/platform/x86/lenovo/wmi-gamezone.c b/drivers/platform/x86/lenovo/wmi-gamezone.c
-index 0f11b76af..cb4d931d5 100644
+index b26806b37d96..381836d29a96 100644
 --- a/drivers/platform/x86/lenovo/wmi-gamezone.c
 +++ b/drivers/platform/x86/lenovo/wmi-gamezone.c
-@@ -168,14 +168,10 @@ static int lwmi_gz_profile_get(struct device *dev,
+@@ -171,14 +171,10 @@ static int lwmi_gz_profile_get(struct device *dev,
  		*profile = PLATFORM_PROFILE_BALANCED;
  		break;
  	case LWMI_GZ_THERMAL_MODE_PERFORMANCE:
@@ -12011,7 +12014,7 @@ index 0f11b76af..cb4d931d5 100644
  		break;
  	case LWMI_GZ_THERMAL_MODE_CUSTOM:
  		*profile = PLATFORM_PROFILE_CUSTOM;
-@@ -215,16 +211,12 @@ static int lwmi_gz_profile_set(struct device *dev,
+@@ -218,16 +214,12 @@ static int lwmi_gz_profile_set(struct device *dev,
  	case PLATFORM_PROFILE_BALANCED:
  		mode = LWMI_GZ_THERMAL_MODE_BALANCED;
  		break;
@@ -12031,7 +12034,7 @@ index 0f11b76af..cb4d931d5 100644
  	case PLATFORM_PROFILE_CUSTOM:
  		mode = LWMI_GZ_THERMAL_MODE_CUSTOM;
  		break;
-@@ -350,7 +342,7 @@ static int lwmi_gz_platform_profile_probe(void *drvdata, unsigned long *choices)
+@@ -353,7 +345,7 @@ static int lwmi_gz_platform_profile_probe(void *drvdata, unsigned long *choices)
  
  	priv->extreme_supported = lwmi_gz_extreme_supported(profile_support_ver);
  	if (priv->extreme_supported)
@@ -12041,7 +12044,7 @@ index 0f11b76af..cb4d931d5 100644
  	return 0;
  }
 diff --git a/drivers/platform/x86/msi-wmi-platform.c b/drivers/platform/x86/msi-wmi-platform.c
-index e912fcc12..b40e15ac7 100644
+index e912fcc12d12..b40e15ac71cf 100644
 --- a/drivers/platform/x86/msi-wmi-platform.c
 +++ b/drivers/platform/x86/msi-wmi-platform.c
 @@ -1,8 +1,9 @@
@@ -13451,7 +13454,7 @@ index e912fcc12..b40e15ac7 100644
  
 diff --git a/drivers/platform/x86/zotac-zone-platform.c b/drivers/platform/x86/zotac-zone-platform.c
 new file mode 100644
-index 000000000..d097f7b9c
+index 000000000000..d097f7b9c5a0
 --- /dev/null
 +++ b/drivers/platform/x86/zotac-zone-platform.c
 @@ -0,0 +1,1122 @@
@@ -14578,7 +14581,7 @@ index 000000000..d097f7b9c
 +MODULE_DESCRIPTION("Zotac Handheld Platform Driver");
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/usb/usbip/vhci_hcd.c b/drivers/usb/usbip/vhci_hcd.c
-index f7e405abe..900615c6a 100644
+index f7e405abe608..900615c6a8bc 100644
 --- a/drivers/usb/usbip/vhci_hcd.c
 +++ b/drivers/usb/usbip/vhci_hcd.c
 @@ -1441,11 +1441,6 @@ static void vhci_hcd_remove(struct platform_device *pdev)
@@ -14630,7 +14633,7 @@ index f7e405abe..900615c6a 100644
  
  static int vhci_hcd_resume(struct platform_device *pdev)
 diff --git a/drivers/video/backlight/backlight.c b/drivers/video/backlight/backlight.c
-index 1e9b7e85d..b9af334e3 100644
+index 1e9b7e85d99a..b9af334e306b 100644
 --- a/drivers/video/backlight/backlight.c
 +++ b/drivers/video/backlight/backlight.c
 @@ -116,6 +116,7 @@ EXPORT_SYMBOL(backlight_notify_blank_all);
@@ -14650,7 +14653,7 @@ index 1e9b7e85d..b9af334e3 100644
  }
  
 diff --git a/include/linux/device.h b/include/linux/device.h
-index 84910bffe..d2d17b93e 100644
+index b031ff71a5bd..76f485e6b24c 100644
 --- a/include/linux/device.h
 +++ b/include/linux/device.h
 @@ -189,6 +189,22 @@ ssize_t device_show_string(struct device *dev, struct device_attribute *attr,
@@ -14721,7 +14724,7 @@ index 84910bffe..d2d17b93e 100644
   * DEVICE_ULONG_ATTR - Define a device attribute backed by an unsigned long.
   * @_name: Attribute name.
 diff --git a/include/linux/hid.h b/include/linux/hid.h
-index 0d9f8df66..8c1e04a37 100644
+index 8c6d3124c20c..b5f9d2065fbd 100644
 --- a/include/linux/hid.h
 +++ b/include/linux/hid.h
 @@ -700,6 +700,7 @@ struct hid_device {
@@ -14733,7 +14736,7 @@ index 0d9f8df66..8c1e04a37 100644
  	void *driver_data;
  
 diff --git a/include/linux/mhi.h b/include/linux/mhi.h
-index dd372b012..6fd218a87 100644
+index dd372b0123a6..6fd218a87785 100644
 --- a/include/linux/mhi.h
 +++ b/include/linux/mhi.h
 @@ -306,6 +306,7 @@ struct mhi_controller_config {
@@ -14753,7 +14756,7 @@ index dd372b012..6fd218a87 100644
  	size_t rddm_size;
  	size_t sbl_size;
 diff --git a/include/linux/platform_profile.h b/include/linux/platform_profile.h
-index a299225ab..855b28340 100644
+index a299225ab92e..855b28340e95 100644
 --- a/include/linux/platform_profile.h
 +++ b/include/linux/platform_profile.h
 @@ -24,6 +24,7 @@ enum platform_profile_option {
@@ -14765,10 +14768,10 @@ index a299225ab..855b28340 100644
  	PLATFORM_PROFILE_LAST, /*must always be last */
  };
 diff --git a/sound/hda/codecs/realtek/alc269.c b/sound/hda/codecs/realtek/alc269.c
-index c18c18f9e..c7b5f1932 100644
+index 9097de7d2e3d..6ae4ddef3740 100644
 --- a/sound/hda/codecs/realtek/alc269.c
 +++ b/sound/hda/codecs/realtek/alc269.c
-@@ -2774,6 +2774,20 @@ static void alc294_gx502_toggle_output(struct hda_codec *codec,
+@@ -2543,6 +2543,20 @@ static void alc294_gx502_toggle_output(struct hda_codec *codec,
  		alc_write_coef_idx(codec, 0x10, 0x0a20);
  }
  
@@ -14789,7 +14792,7 @@ index c18c18f9e..c7b5f1932 100644
  static void alc294_fixup_gx502_hp(struct hda_codec *codec,
  					const struct hda_fixup *fix, int action)
  {
-@@ -3713,6 +3727,8 @@ enum {
+@@ -3464,6 +3478,8 @@ enum {
  	ALC269_FIXUP_DELL4_MIC_NO_PRESENCE,
  	ALC269_FIXUP_DELL4_MIC_NO_PRESENCE_QUIET,
  	ALC269_FIXUP_HEADSET_MODE,
@@ -14798,7 +14801,7 @@ index c18c18f9e..c7b5f1932 100644
  	ALC269_FIXUP_HEADSET_MODE_NO_HP_MIC,
  	ALC269_FIXUP_ASPIRE_HEADSET_MIC,
  	ALC269_FIXUP_ASUS_X101_FUNC,
-@@ -3726,6 +3742,7 @@ enum {
+@@ -3477,6 +3493,7 @@ enum {
  	ALC269VB_FIXUP_ASUS_ZENBOOK,
  	ALC269VB_FIXUP_ASUS_ZENBOOK_UX31A,
  	ALC269VB_FIXUP_ASUS_MIC_NO_PRESENCE,
@@ -14806,7 +14809,7 @@ index c18c18f9e..c7b5f1932 100644
  	ALC269_FIXUP_LIMIT_INT_MIC_BOOST_MUTE_LED,
  	ALC269VB_FIXUP_ORDISSIMO_EVE2,
  	ALC283_FIXUP_CHROME_BOOK,
-@@ -3996,6 +4013,30 @@ enum {
+@@ -3740,6 +3757,30 @@ enum {
  	ALC256_FIXUP_VAIO_RPL_MIC_NO_PRESENCE,
  };
  
@@ -14837,7 +14840,7 @@ index c18c18f9e..c7b5f1932 100644
  /* A special fixup for Lenovo C940 and Yoga Duet 7;
   * both have the very same PCI SSID, and we need to apply different fixups
   * depending on the codec ID
-@@ -4480,6 +4521,13 @@ static const struct hda_fixup alc269_fixups[] = {
+@@ -4207,6 +4248,13 @@ static const struct hda_fixup alc269_fixups[] = {
  		.chained = true,
  		.chain_id = ALC269_FIXUP_HEADSET_MIC
  	},
@@ -14851,7 +14854,7 @@ index c18c18f9e..c7b5f1932 100644
  	[ALC269_FIXUP_LIMIT_INT_MIC_BOOST_MUTE_LED] = {
  		.type = HDA_FIXUP_FUNC,
  		.v.func = alc269_fixup_limit_int_mic_boost,
-@@ -5294,6 +5342,14 @@ static const struct hda_fixup alc269_fixups[] = {
+@@ -5012,6 +5060,14 @@ static const struct hda_fixup alc269_fixups[] = {
  			{ 0x1b, 0x90170152 } /* use as internal speaker (back) */
  		}
  	},
@@ -14866,16 +14869,16 @@ index c18c18f9e..c7b5f1932 100644
  	[ALC299_FIXUP_PREDATOR_SPK] = {
  		.type = HDA_FIXUP_PINS,
  		.v.pins = (const struct hda_pintbl[]) {
-@@ -7569,6 +7625,8 @@ static const struct hda_quirk alc269_fixup_tbl[] = {
+@@ -7226,6 +7282,8 @@ static const struct hda_quirk alc269_fixup_tbl[] = {
  	SND_PCI_QUIRK(0x2782, 0x1701, "Infinix Y4 Max", ALC269VC_FIXUP_INFINIX_Y4_MAX),
  	SND_PCI_QUIRK(0x2782, 0x1705, "MEDION E15433", ALC269VC_FIXUP_INFINIX_Y4_MAX),
  	SND_PCI_QUIRK(0x2782, 0x1707, "Vaio VJFE-ADL", ALC298_FIXUP_SPK_VOLUME),
 +	SND_PCI_QUIRK(0x1f66, 0x0101, "AYANEO 2/GEEK/Ayn MiniPro", ALC269_FIXUP_DMI_MATCH),
 +	SND_PCI_QUIRK(0x1f66, 0x0103, "AYANEO AIR 1S", ALC269VB_FIXUP_AYANEO_SPKR_PIN_FIX),
  	SND_PCI_QUIRK(0x2782, 0x4900, "MEDION E15443", ALC233_FIXUP_MEDION_MTL_SPK),
- 	SND_PCI_QUIRK(0x7017, 0x2014, "Star Labs StarFighter", ALC233_FIXUP_STARLABS_STARFIGHTER),
  	SND_PCI_QUIRK(0x8086, 0x2074, "Intel NUC 8", ALC233_FIXUP_INTEL_NUC8_DMIC),
-@@ -7698,6 +7756,7 @@ static const struct hda_model_fixup alc269_fixup_models[] = {
+ 	SND_PCI_QUIRK(0x8086, 0x2080, "Intel NUC 8 Rugged", ALC256_FIXUP_INTEL_NUC8_RUGGED),
+@@ -7352,6 +7410,7 @@ static const struct hda_model_fixup alc269_fixup_models[] = {
  	{.id = ALC269VB_FIXUP_ASUS_ZENBOOK, .name = "asus-zenbook"},
  	{.id = ALC269VB_FIXUP_ASUS_ZENBOOK_UX31A, .name = "asus-zenbook-ux31a"},
  	{.id = ALC269VB_FIXUP_ORDISSIMO_EVE2, .name = "ordissimo"},
@@ -14884,10 +14887,10 @@ index c18c18f9e..c7b5f1932 100644
  	{.id = ALC283_FIXUP_INT_MIC, .name = "alc283-int-mic"},
  	{.id = ALC290_FIXUP_MONO_SPEAKERS_HSJACK, .name = "mono-speakers"},
 diff --git a/sound/soc/amd/acp/acp-mach.h b/sound/soc/amd/acp/acp-mach.h
-index 7177d3fd9..c6779beb7 100644
+index f94c30c20f20..c3b3f047969c 100644
 --- a/sound/soc/amd/acp/acp-mach.h
 +++ b/sound/soc/amd/acp/acp-mach.h
-@@ -33,8 +33,8 @@
+@@ -29,8 +29,8 @@
  enum be_id {
  	HEADSET_BE_ID = 0,
  	AMP_BE_ID,
@@ -14898,7 +14901,7 @@ index 7177d3fd9..c6779beb7 100644
  
  enum cpu_endpoints {
 diff --git a/sound/soc/codecs/Kconfig b/sound/soc/codecs/Kconfig
-index 91ac99bc3..4b7cf9fcf 100644
+index 91ac99bc3edb..4b7cf9fcf4e3 100644
 --- a/sound/soc/codecs/Kconfig
 +++ b/sound/soc/codecs/Kconfig
 @@ -2788,4 +2788,6 @@ config SND_SOC_LPASS_TX_MACRO
@@ -14909,7 +14912,7 @@ index 91ac99bc3..4b7cf9fcf 100644
 +
  endmenu
 diff --git a/sound/soc/codecs/Makefile b/sound/soc/codecs/Makefile
-index da4077463..0d43b92fd 100644
+index da4077463278..0d43b92fd2ab 100644
 --- a/sound/soc/codecs/Makefile
 +++ b/sound/soc/codecs/Makefile
 @@ -862,6 +862,7 @@ obj-$(CONFIG_SND_SOC_WSA884X)	+= snd-soc-wsa884x.o
@@ -14922,7 +14925,7 @@ index da4077463..0d43b92fd 100644
  obj-$(CONFIG_SND_SOC_SIMPLE_AMPLIFIER)	+= snd-soc-simple-amplifier.o
 diff --git a/sound/soc/codecs/aw87xxx/Kconfig b/sound/soc/codecs/aw87xxx/Kconfig
 new file mode 100644
-index 000000000..bd0f208e2
+index 000000000000..bd0f208e2cfe
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/Kconfig
 @@ -0,0 +1,5 @@
@@ -14933,7 +14936,7 @@ index 000000000..bd0f208e2
 +	  This option enables support for AW87XXX Smart K PA.
 diff --git a/sound/soc/codecs/aw87xxx/Makefile b/sound/soc/codecs/aw87xxx/Makefile
 new file mode 100644
-index 000000000..d32f319a5
+index 000000000000..d32f319a5b01
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/Makefile
 @@ -0,0 +1,4 @@
@@ -14943,7 +14946,7 @@ index 000000000..d32f319a5
 +
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx.c b/sound/soc/codecs/aw87xxx/aw87xxx.c
 new file mode 100644
-index 000000000..3d732400e
+index 000000000000..3d732400e449
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx.c
 @@ -0,0 +1,1601 @@
@@ -16550,7 +16553,7 @@ index 000000000..3d732400e
 +MODULE_LICENSE("GPL v2");
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx.h b/sound/soc/codecs/aw87xxx/aw87xxx.h
 new file mode 100644
-index 000000000..9638819cd
+index 000000000000..9638819cdc7e
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx.h
 @@ -0,0 +1,130 @@
@@ -16686,7 +16689,7 @@ index 000000000..9638819cd
 +#endif
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_acf_bin.c b/sound/soc/codecs/aw87xxx/aw87xxx_acf_bin.c
 new file mode 100644
-index 000000000..00c7aedb7
+index 000000000000..00c7aedb7c11
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_acf_bin.c
 @@ -0,0 +1,1558 @@
@@ -18250,7 +18253,7 @@ index 000000000..00c7aedb7
 +
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_acf_bin.h b/sound/soc/codecs/aw87xxx/aw87xxx_acf_bin.h
 new file mode 100644
-index 000000000..ebe0c77f5
+index 000000000000..ebe0c77f5674
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_acf_bin.h
 @@ -0,0 +1,191 @@
@@ -18447,7 +18450,7 @@ index 000000000..ebe0c77f5
 +#endif
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_bin_parse.c b/sound/soc/codecs/aw87xxx/aw87xxx_bin_parse.c
 new file mode 100644
-index 000000000..7eab9efde
+index 000000000000..7eab9efde147
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_bin_parse.c
 @@ -0,0 +1,515 @@
@@ -18968,7 +18971,7 @@ index 000000000..7eab9efde
 +}
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_bin_parse.h b/sound/soc/codecs/aw87xxx/aw87xxx_bin_parse.h
 new file mode 100644
-index 000000000..a99c2409e
+index 000000000000..a99c2409e613
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_bin_parse.h
 @@ -0,0 +1,73 @@
@@ -19047,7 +19050,7 @@ index 000000000..a99c2409e
 +#endif
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_device.c b/sound/soc/codecs/aw87xxx/aw87xxx_device.c
 new file mode 100644
-index 000000000..a4c9ad7d9
+index 000000000000..a4c9ad7d96dc
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_device.c
 @@ -0,0 +1,977 @@
@@ -20030,7 +20033,7 @@ index 000000000..a4c9ad7d9
 +
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_device.h b/sound/soc/codecs/aw87xxx/aw87xxx_device.h
 new file mode 100644
-index 000000000..7c85f80a9
+index 000000000000..7c85f80a958e
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_device.h
 @@ -0,0 +1,149 @@
@@ -20185,7 +20188,7 @@ index 000000000..7c85f80a9
 +#endif
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_dsp.c b/sound/soc/codecs/aw87xxx/aw87xxx_dsp.c
 new file mode 100644
-index 000000000..93b02e301
+index 000000000000..93b02e30122d
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_dsp.c
 @@ -0,0 +1,355 @@
@@ -20546,7 +20549,7 @@ index 000000000..93b02e301
 +
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_dsp.h b/sound/soc/codecs/aw87xxx/aw87xxx_dsp.h
 new file mode 100644
-index 000000000..7acc4dc0d
+index 000000000000..7acc4dc0dfd9
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_dsp.h
 @@ -0,0 +1,65 @@
@@ -20617,7 +20620,7 @@ index 000000000..7acc4dc0d
 +#endif
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_log.h b/sound/soc/codecs/aw87xxx/aw87xxx_log.h
 new file mode 100644
-index 000000000..b3bde38a2
+index 000000000000..b3bde38a23c6
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_log.h
 @@ -0,0 +1,33 @@
@@ -20656,7 +20659,7 @@ index 000000000..b3bde38a2
 +#endif
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_monitor.c b/sound/soc/codecs/aw87xxx/aw87xxx_monitor.c
 new file mode 100644
-index 000000000..f580506b2
+index 000000000000..f580506b2786
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_monitor.c
 @@ -0,0 +1,1208 @@
@@ -21870,7 +21873,7 @@ index 000000000..f580506b2
 +
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_monitor.h b/sound/soc/codecs/aw87xxx/aw87xxx_monitor.h
 new file mode 100644
-index 000000000..daf9f2bfa
+index 000000000000..daf9f2bfa09f
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_monitor.h
 @@ -0,0 +1,96 @@
@@ -21972,7 +21975,7 @@ index 000000000..daf9f2bfa
 +#endif
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_pid_18_reg.h b/sound/soc/codecs/aw87xxx/aw87xxx_pid_18_reg.h
 new file mode 100644
-index 000000000..74d6548db
+index 000000000000..74d6548db91e
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_pid_18_reg.h
 @@ -0,0 +1,2315 @@
@@ -24294,7 +24297,7 @@ index 000000000..74d6548db
 \ No newline at end of file
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_pid_39_reg.h b/sound/soc/codecs/aw87xxx/aw87xxx_pid_39_reg.h
 new file mode 100644
-index 000000000..0dfd9751c
+index 000000000000..0dfd9751c39e
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_pid_39_reg.h
 @@ -0,0 +1,67 @@
@@ -24367,7 +24370,7 @@ index 000000000..0dfd9751c
 +#endif
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_pid_59_3x9_reg.h b/sound/soc/codecs/aw87xxx/aw87xxx_pid_59_3x9_reg.h
 new file mode 100644
-index 000000000..67f73477b
+index 000000000000..67f73477b892
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_pid_59_3x9_reg.h
 @@ -0,0 +1,93 @@
@@ -24466,7 +24469,7 @@ index 000000000..67f73477b
 +#endif
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_pid_59_5x9_reg.h b/sound/soc/codecs/aw87xxx/aw87xxx_pid_59_5x9_reg.h
 new file mode 100644
-index 000000000..6a0cae4c4
+index 000000000000..6a0cae4c49ac
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_pid_59_5x9_reg.h
 @@ -0,0 +1,94 @@
@@ -24566,7 +24569,7 @@ index 000000000..6a0cae4c4
 +#endif
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_pid_5a_reg.h b/sound/soc/codecs/aw87xxx/aw87xxx_pid_5a_reg.h
 new file mode 100644
-index 000000000..020bf5496
+index 000000000000..020bf5496d01
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_pid_5a_reg.h
 @@ -0,0 +1,4124 @@
@@ -28697,7 +28700,7 @@ index 000000000..020bf5496
 \ No newline at end of file
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_pid_60_reg.h b/sound/soc/codecs/aw87xxx/aw87xxx_pid_60_reg.h
 new file mode 100644
-index 000000000..ba47dd1ff
+index 000000000000..ba47dd1ff546
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_pid_60_reg.h
 @@ -0,0 +1,5246 @@
@@ -33950,7 +33953,7 @@ index 000000000..ba47dd1ff
 \ No newline at end of file
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_pid_76_reg.h b/sound/soc/codecs/aw87xxx/aw87xxx_pid_76_reg.h
 new file mode 100644
-index 000000000..13280cdb5
+index 000000000000..13280cdb5b2e
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_pid_76_reg.h
 @@ -0,0 +1,1205 @@
@@ -35162,7 +35165,7 @@ index 000000000..13280cdb5
 \ No newline at end of file
 diff --git a/sound/soc/codecs/aw87xxx/aw87xxx_pid_9b_reg.h b/sound/soc/codecs/aw87xxx/aw87xxx_pid_9b_reg.h
 new file mode 100644
-index 000000000..27baeb96c
+index 000000000000..27baeb96ce7c
 --- /dev/null
 +++ b/sound/soc/codecs/aw87xxx/aw87xxx_pid_9b_reg.h
 @@ -0,0 +1,81 @@
@@ -35248,7 +35251,7 @@ index 000000000..27baeb96c
 +
 +#endif
 diff --git a/sound/soc/codecs/max98388.c b/sound/soc/codecs/max98388.c
-index 076f15a98..42f1e0b7f 100644
+index 076f15a9867e..42f1e0b7f38a 100644
 --- a/sound/soc/codecs/max98388.c
 +++ b/sound/soc/codecs/max98388.c
 @@ -390,27 +390,43 @@ static void max98388_reset(struct max98388_priv *max98388, struct device *dev)
@@ -35330,5 +35333,4 @@ index 076f15a98..42f1e0b7f 100644
  
  	return 0;
 -- 
-2.55.0
-
+2.53.0

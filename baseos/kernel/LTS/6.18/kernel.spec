@@ -43,8 +43,8 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.18
-%define _stablekver 42
-%define _PKGBUILD 1
+%define _stablekver 48
+%define _PKGBUILD 2
 %define _rcver rc7
 %define _tarkver %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
@@ -56,7 +56,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 205
+%define customver 200
 %endif
 
 Release:%{customver}.lts.nobara%{?dist}
@@ -98,7 +98,7 @@ ExcludeArch:    %{ix86}
 Patch0: resolve-btfids-kfunc-tags-backport.patch
 
 # For handhelds
-Patch2: https://raw.githubusercontent.com/CachyOS/kernel-patches/master/%{_basekver}/misc/0001-handheld.patch
+Patch2: 0001-handheld.patch
 
 # Nobara
 #surface
@@ -1101,6 +1101,10 @@ fi
 %files
 
 %changelog
+* Thu Sep 03 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 6.18.48-200
+- Update to CachyOS 6.18.48-2
+- Rebase the handheld patch for the updated xpad device table
+
 * Sat Aug 22 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 6.18.42-205
 - Disable CONFIG_X86_BUS_LOCK_DETECT in the generated x86_64 kernel config
 
