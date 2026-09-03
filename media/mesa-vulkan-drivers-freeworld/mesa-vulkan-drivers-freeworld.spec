@@ -4,18 +4,23 @@
 %global with_hardware 1
 %global with_kmsro 1
 %global with_nvk 1
+%global with_radeonsi 1
+%global with_spirv_tools 1
+%global with_vmware 1
 %global with_vulkan_hw 1
 %global with_va 1
-%global with_spirv_tools 1
 %if !0%{?rhel}
+%global with_r300 1
+%global with_r600 1
 %global with_opencl 1
 %endif
-%global base_vulkan ,amd
+%global base_vulkan %{?with_vulkan_hw:,amd}%{!?with_vulkan_hw:%{nil}}
 %endif
 
-%if 0%{?with_vulkan_hw}
-%global with_nvk 1
-%global vendor_nvk_crates 1
+%ifnarch %{ix86}
+%if !0%{?rhel}
+%global with_teflon 1
+%endif
 %endif
 
 %ifarch %{ix86} aarch64 x86_64
@@ -30,30 +35,28 @@
 %endif
 %endif
 
-%ifarch aarch64
+%ifarch aarch64 x86_64 %{ix86}
 %if !0%{?rhel}
+%global with_asahi     1
+%global with_d3d12     1
 %global with_etnaviv   1
 %global with_lima      1
+%global with_tegra     1
 %global with_vc4       1
 %global with_v3d       1
 %endif
-%global with_crocus 1
-%global with_i915   1
 %global with_freedreno 1
-%global with_kmsro     1
 %global with_panfrost  1
-%global with_tegra     1
-%global platform_vulkan ,broadcom,freedreno,panfrost,intel,intel_hasvk
+%if 0%{?with_asahi}
+%global asahi_platform_vulkan %{?with_vulkan_hw:,asahi}%{!?with_vulkan_hw:%{nil}}
+%endif
 %global extra_platform_vulkan %{?with_vulkan_hw:,broadcom,freedreno,panfrost,imagination}%{!?with_vulkan_hw:%{nil}}
 %endif
 
-%ifnarch s390x
 %if !0%{?rhel}
-%global with_r300 1
-%global with_r600 1
-%endif
-%global with_radeonsi 1
-%global with_vmware 1
+%global with_libunwind 1
+%global with_lmsensors 1
+%global with_virtio    1
 %endif
 
 %ifarch %{valgrind_arches}
@@ -62,13 +65,15 @@
 %bcond_with valgrind
 %endif
 
-%global with_vulkan_overlay 1
-
 %global vulkan_drivers swrast%{?base_vulkan}%{?intel_platform_vulkan}%{?asahi_platform_vulkan}%{?extra_platform_vulkan}%{?with_nvk:,nouveau}%{?with_virtio:,virtio}%{?with_d3d12:,microsoft-experimental}
+
+%if 0%{?with_nvk} && 0%{?rhel}
+%global vendor_nvk_crates 1
+%endif
 
 Name:           mesa-vulkan-drivers-freeworld
 Summary:        The mesa graphics vulkan driver stack.
-Version:        26.2.1
+Version:        26.2.2
 Release:        %autorelease
 License:        MIT
 URL:            http://www.mesa3d.org
@@ -180,9 +185,13 @@ BuildRequires:  glslang
 %if 0%{?with_vulkan_hw}
 BuildRequires:  pkgconfig(vulkan)
 %endif
+%if 0%{?with_d3d12}
+BuildRequires:  pkgconfig(DirectX-Headers) >= 1.614.1
+%endif
+
 Requires:       vulkan%{_isa}
-Obsoletes: mesa-vulkan-drivers-vulkan-devel
-Obsoletes: mesa-vulkan-devel
+Obsoletes:      mesa-vulkan-drivers-vulkan-devel
+Obsoletes:      mesa-vulkan-devel
 Obsoletes:      mesa-omx-drivers < %{?epoch:%{epoch}:}%{version}-%{release}
 Provides:       mesa-vulkan-drivers
 Provides:       mesa-vulkan-drivers%{?_isa}
@@ -425,23 +434,27 @@ rm -Rf %{buildroot}%{_sysconfdir}/OpenCL/vendors/rusticl.icd
 rm -Rf %{buildroot}%{_libdir}/gbm/dri_gbm.so
 rm -Rf %{buildroot}%{_datadir}/drirc.d/00-crocus-defaults.conf
 rm -Rf %{buildroot}%{_datadir}/drirc.d/00-iris-defaults.conf
+rm -Rf %{buildroot}%{_datadir}/drirc.d/00-msm-defaults.conf
 rm -Rf %{buildroot}%{_datadir}/drirc.d/00-r300-defaults.conf
 rm -Rf %{buildroot}%{_datadir}/drirc.d/00-r600-defaults.conf
+rm -Rf %{buildroot}%{_datadir}/drirc.d/00-panfrost-defaults.conf
 rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radeonsi-defaults.conf
+rm -Rf %{buildroot}%{_datadir}/drirc.d/00-v3d-defaults.conf
 rm -Rf %{buildroot}%{_datadir}/drirc.d/00-virtio_gpu-defaults.conf
 rm -Rf %{buildroot}%{_datadir}/drirc.d/00-vmwgfx-defaults.conf
 rm -Rf %{buildroot}%{_datadir}/drirc.d/00-zink-defaults.conf
 %ifarch aarch64
 rm -Rf %{buildroot}%{_datadir}/drirc.d/00-msm-defaults.conf
 rm -Rf %{buildroot}%{_datadir}/drirc.d/00-panfrost-defaults.conf
-rm -Rf %{buildroot}%{_datadir}/drirc.d/00-panvk-defaults.conf
-rm -Rf %{buildroot}%{_datadir}/drirc.d/00-pvr-defaults.conf
-rm -Rf %{buildroot}%{_datadir}/drirc.d/00-turnip-defaults.conf
 rm -Rf %{buildroot}%{_datadir}/drirc.d/00-v3d-defaults.conf
-rm -Rf %{buildroot}%{_datadir}/drirc.d/00-v3dv-defaults.conf
 %endif
 %ifarch %{ix86}
 rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
+%endif
+%if 0%{?with_d3d12}
+rm -Rf %{buildroot}%{_bindir}/spirv2dxil
+rm -Rf %{buildroot}%{_libdir}/libspirv_to_dxil.a
+rm -Rf %{buildroot}%{_libdir}/libspirv_to_dxil.so
 %endif
 
 %if 0%{?with_nvk}
@@ -468,6 +481,11 @@ install -Dpm0644 cargo-vendor.txt \
 %{_libdir}/libVkLayer_MESA_device_select.so
 %{_datadir}/vulkan/implicit_layer.d/VkLayer_MESA_anti_lag.json
 %{_datadir}/vulkan/implicit_layer.d/VkLayer_MESA_device_select.json
+%if 0%{?with_virtio}
+%{_libdir}/libvulkan_virtio.so
+%{_datadir}/vulkan/icd.d/virtio_icd.*.json
+%{_datadir}/drirc.d/00-venus-defaults.conf
+%endif
 %if 0%{?with_vulkan_hw}
 %{_libdir}/libvulkan_radeon.so
 %ifarch aarch64 x86_64
@@ -478,6 +496,12 @@ install -Dpm0644 cargo-vendor.txt \
 %{_libdir}/libvulkan_nouveau.so
 %{_datadir}/vulkan/icd.d/nouveau_icd.*.json
 %{_datadir}/drirc.d/00-nvk-defaults.conf
+%{_datadir}/drirc.d/00-hk-defaults.conf
+%endif
+%if 0%{?with_d3d12}
+%{_libdir}/libvulkan_dzn.so
+%{_datadir}/vulkan/icd.d/dzn_icd.*.json
+%{_datadir}/drirc.d/00-dzn-defaults.conf
 %endif
 %ifarch %{ix86} aarch64 x86_64
 %{_libdir}/libvulkan_intel.so
@@ -487,19 +511,31 @@ install -Dpm0644 cargo-vendor.txt \
 %{_datadir}/vulkan/icd.d/intel_hasvk_icd.*.json
 %{_datadir}/drirc.d/00-hasvk-defaults.conf
 %endif
-%ifarch aarch64
+%ifarch aarch64 x86_64 %{ix86}
+%if 0%{?with_asahi}
+%{_libdir}/libvulkan_asahi.so
+%{_datadir}/vulkan/icd.d/asahi_icd.*.json
+%endif
 %{_libdir}/libvulkan_broadcom.so
 %{_datadir}/vulkan/icd.d/broadcom_icd.*.json
+%{_datadir}/drirc.d/00-v3dv-defaults.conf
 %{_libdir}/libvulkan_freedreno.so
 %{_datadir}/vulkan/icd.d/freedreno_icd.*.json
+%{_datadir}/drirc.d/00-turnip-defaults.conf
 %{_libdir}/libvulkan_panfrost.so
 %{_datadir}/vulkan/icd.d/panfrost_icd.*.json
+%{_datadir}/drirc.d/00-panvk-defaults.conf
 %{_libdir}/libvulkan_powervr_mesa.so
 %{_datadir}/vulkan/icd.d/powervr_mesa_icd.*.json
+%{_datadir}/drirc.d/00-pvr-defaults.conf
 %endif
 %endif
 
 %changelog
+* Thu Sep 03 2026 LionHeartP <LionHeartP@proton.me> - 26.2.2-1
+- Update to 26.2.2
+- Sync packaging from main mesa-vulkan-drivers package to include more icd
+
 * Sat Aug 22 2026 LionHeartP <LionHeartP@proton.me> - 26.2.1-1
 - Update to 26.2.1
 
