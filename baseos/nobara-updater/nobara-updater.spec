@@ -1,6 +1,6 @@
 Name:          nobara-updater
 Version:       2.0.1
-Release:       40%{?dist}
+Release:       43%{?dist}
 License:       GPL-3.0-or-later
 Summary:       Nobara System Updater
 
@@ -79,6 +79,7 @@ update-mime-database /usr/share/mime
 %{_datadir}/applications/nobara-codec-wizard.desktop
 %{_datadir}/icons/hicolor/64x64/apps/nobara-updater.svg
 %{_datadir}/nobara-codec-wizard/
+%{_datadir}/nobara-updater/package-groups.txt
 
 %clean
 rm -rf %{buildroot}

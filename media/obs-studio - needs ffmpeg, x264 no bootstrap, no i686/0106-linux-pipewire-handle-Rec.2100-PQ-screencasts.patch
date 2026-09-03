@@ -1,0 +1,581 @@
+From 54b23dbfbd0d9404b0f01aafc16bd84a06c52bff Mon Sep 17 00:00:00 2001
+From: Nobara Project <noreply@nobaraproject.org>
+Date: Tue, 1 Sep 2026 08:56:02 -0600
+Subject: [PATCH] linux-pipewire: handle Rec. 2100 PQ screencasts
+
+Decode PipeWire Rec.2100 PQ screen-capture textures into OBS linear light, advertise the source color space, and keep KWin/SDR streams on the original rendering path.
+---
+ plugins/linux-pipewire/formats.c           |  20 +++
+ plugins/linux-pipewire/pipewire.c          | 186 ++++++++++++++++-----
+ plugins/linux-pipewire/pipewire.h          |   8 +
+ plugins/linux-pipewire/screencast-portal.c |  64 ++++++-
+ 4 files changed, 237 insertions(+), 41 deletions(-)
+
+diff --git a/plugins/linux-pipewire/formats.c b/plugins/linux-pipewire/formats.c
+index e1d6706..420becc 100644
+--- a/plugins/linux-pipewire/formats.c
++++ b/plugins/linux-pipewire/formats.c
+@@ -80,6 +80,26 @@ static const struct obs_pw_video_format supported_formats[] = {
+ 		"NV12",
+ 	},
+ #if PW_CHECK_VERSION(0, 3, 41)
++	{
++		SPA_VIDEO_FORMAT_ARGB_210LE,
++		DRM_FORMAT_ARGB2101010,
++		GS_R10G10B10A2,
++		VIDEO_FORMAT_NONE,
++		true,
++		10,
++		"ARGB2101010",
++
++	},
++	{
++		SPA_VIDEO_FORMAT_xRGB_210LE,
++		DRM_FORMAT_XRGB2101010,
++		GS_R10G10B10A2,
++		VIDEO_FORMAT_NONE,
++		true,
++		10,
++		"XRGB2101010",
++
++	},
+ 	{
+ 		SPA_VIDEO_FORMAT_ABGR_210LE,
+ 		DRM_FORMAT_ABGR2101010,
+diff --git a/plugins/linux-pipewire/pipewire.c b/plugins/linux-pipewire/pipewire.c
+index d312a18..cb9c463 100644
+--- a/plugins/linux-pipewire/pipewire.c
++++ b/plugins/linux-pipewire/pipewire.c
+@@ -125,6 +125,9 @@ struct _obs_pipewire_stream {
+ 	} cursor;
+ 
+ 	struct obs_video_info video_info;
++	enum obs_pipewire_color_mode color_mode;
++	bool detected_hdr_pq;
++	bool prefer_10bit;
+ 	bool negotiated;
+ 
+ 	DARRAY(struct format_info) format_info;
+@@ -278,14 +281,26 @@ static const uint32_t supported_formats_async[] = {
+ #define N_SUPPORTED_FORMATS_ASYNC (sizeof(supported_formats_async) / sizeof(supported_formats_async[0]))
+ 
+ static const uint32_t supported_formats_sync[] = {
+-	SPA_VIDEO_FORMAT_BGRA,       SPA_VIDEO_FORMAT_RGBA,       SPA_VIDEO_FORMAT_BGRx, SPA_VIDEO_FORMAT_RGBx,
++	SPA_VIDEO_FORMAT_BGRA,       SPA_VIDEO_FORMAT_RGBA,
++	SPA_VIDEO_FORMAT_BGRx,       SPA_VIDEO_FORMAT_RGBx,
+ #if PW_CHECK_VERSION(0, 3, 41)
++	SPA_VIDEO_FORMAT_ARGB_210LE, SPA_VIDEO_FORMAT_xRGB_210LE,
+ 	SPA_VIDEO_FORMAT_ABGR_210LE, SPA_VIDEO_FORMAT_xBGR_210LE,
+ #endif
+ };
+ 
+ #define N_SUPPORTED_FORMATS_SYNC (sizeof(supported_formats_sync) / sizeof(supported_formats_sync[0]))
+ 
++#if PW_CHECK_VERSION(0, 3, 41)
++static const uint32_t supported_formats_sync_hdr[] = {
++	SPA_VIDEO_FORMAT_ARGB_210LE, SPA_VIDEO_FORMAT_xRGB_210LE, SPA_VIDEO_FORMAT_ABGR_210LE,
++	SPA_VIDEO_FORMAT_xBGR_210LE, SPA_VIDEO_FORMAT_BGRA,       SPA_VIDEO_FORMAT_RGBA,
++	SPA_VIDEO_FORMAT_BGRx,       SPA_VIDEO_FORMAT_RGBx,
++};
++
++#define N_SUPPORTED_FORMATS_SYNC_HDR (sizeof(supported_formats_sync_hdr) / sizeof(supported_formats_sync_hdr[0]))
++#endif
++
+ static void swap_texture_red_blue(gs_texture_t *texture)
+ {
+ 	GLuint gl_texure = *(GLuint *)gs_texture_get_obj(texture);
+@@ -296,6 +311,23 @@ static void swap_texture_red_blue(gs_texture_t *texture)
+ 	glBindTexture(GL_TEXTURE_2D, 0);
+ }
+ 
++static bool should_swap_texture_red_blue(const struct obs_pw_video_format *format, uint32_t data_type)
++{
++#if PW_CHECK_VERSION(0, 3, 41)
++	/* EGL applies the DRM component mapping while importing XRGB2101010
++	 * DMA-BUFs. The swizzle is only needed when those packed pixels are
++	 * uploaded as a GS_R10G10B10A2 memory texture. */
++	if (data_type == SPA_DATA_DmaBuf &&
++	    (format->spa_format == SPA_VIDEO_FORMAT_ARGB_210LE ||
++	     format->spa_format == SPA_VIDEO_FORMAT_xRGB_210LE))
++		return false;
++#else
++	UNUSED_PARAMETER(data_type);
++#endif
++
++	return format->swap_red_blue;
++}
++
+ static inline struct spa_pod *build_format(obs_pipewire_stream *obs_pw_stream, struct spa_pod_builder *b,
+ 					   uint32_t format, uint64_t *modifiers, size_t modifier_count)
+ {
+@@ -443,6 +475,15 @@ static void init_format_info_sync(obs_pipewire_stream *obs_pw_stream)
+ {
+ 	da_init(obs_pw_stream->format_info);
+ 
++	const uint32_t *formats = supported_formats_sync;
++	size_t n_formats = N_SUPPORTED_FORMATS_SYNC;
++#if PW_CHECK_VERSION(0, 3, 41)
++	if (obs_pw_stream->prefer_10bit) {
++		formats = supported_formats_sync_hdr;
++		n_formats = N_SUPPORTED_FORMATS_SYNC_HDR;
++	}
++#endif
++
+ 	obs_enter_graphics();
+ 
+ 	enum gs_dmabuf_flags dmabuf_flags;
+@@ -451,10 +492,10 @@ static void init_format_info_sync(obs_pipewire_stream *obs_pw_stream)
+ 
+ 	bool capabilities_queried = gs_query_dmabuf_capabilities(&dmabuf_flags, &drm_formats, &n_drm_formats);
+ 
+-	for (size_t i = 0; i < N_SUPPORTED_FORMATS_SYNC; i++) {
++	for (size_t i = 0; i < n_formats; i++) {
+ 		struct obs_pw_video_format obs_pw_video_format;
+ 		struct format_info *info;
+-		if (!obs_pw_video_format_from_spa_format(supported_formats_sync[i], &obs_pw_video_format) ||
++		if (!obs_pw_video_format_from_spa_format(formats[i], &obs_pw_video_format) ||
+ 		    obs_pw_video_format.gs_format == GS_UNKNOWN)
+ 			continue;
+ 
+@@ -817,10 +858,12 @@ static void process_video_sync(obs_pipewire_stream *obs_pw_stream)
+ 		g_clear_pointer(&obs_pw_stream->texture, gs_texture_destroy);
+ 
+ 		use_modifiers = obs_pw_stream->format.info.raw.modifier != DRM_FORMAT_MOD_INVALID;
++		enum gs_color_format texture_format = obs_pw_video_format.gs_format == GS_R10G10B10A2 ? GS_R10G10B10A2
++												      : GS_BGRX;
+ 		obs_pw_stream->texture = gs_texture_create_from_dmabuf(obs_pw_stream->format.info.raw.size.width,
+ 								       obs_pw_stream->format.info.raw.size.height,
+-								       obs_pw_video_format.drm_format, GS_BGRX, planes,
+-								       fds, strides, offsets,
++								       obs_pw_video_format.drm_format, texture_format,
++								       planes, fds, strides, offsets,
+ 								       use_modifiers ? modifiers : NULL);
+ 
+ 		if (obs_pw_stream->texture == NULL) {
+@@ -856,7 +899,7 @@ static void process_video_sync(obs_pipewire_stream *obs_pw_stream)
+ 							   (const uint8_t **)&buffer->datas[0].data, GS_DYNAMIC);
+ 	}
+ 
+-	if (obs_pw_video_format.swap_red_blue)
++	if (should_swap_texture_red_blue(&obs_pw_video_format, buffer->datas[0].type))
+ 		swap_texture_red_blue(obs_pw_stream->texture);
+ 
+ 	/* Video Crop */
+@@ -969,6 +1012,9 @@ static void on_param_changed_cb(void *user_data, uint32_t id, const struct spa_p
+ 		return;
+ 
+ 	spa_format_video_raw_parse(param, &obs_pw_stream->format.info.raw);
++	obs_pw_stream->detected_hdr_pq =
++		obs_pw_stream->format.info.raw.transfer_function == SPA_VIDEO_TRANSFER_SMPTE2084 &&
++		obs_pw_stream->format.info.raw.color_primaries == SPA_VIDEO_COLOR_PRIMARIES_BT2020;
+ 
+ 	output_flags = obs_source_get_output_flags(obs_pw_stream->source);
+ 
+@@ -999,6 +1045,8 @@ static void on_param_changed_cb(void *user_data, uint32_t id, const struct spa_p
+ 
+ 	blog(LOG_INFO, "[pipewire]     Framerate: %d/%d", obs_pw_stream->format.info.raw.framerate.num,
+ 	     obs_pw_stream->format.info.raw.framerate.denom);
++	if (obs_pw_stream->detected_hdr_pq)
++		blog(LOG_INFO, "[pipewire]     Color space: Rec. 2100 PQ (detected)");
+ 
+ 	/* Video crop */
+ 	pod_builder = SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
+@@ -1204,10 +1252,16 @@ obs_pipewire_stream *obs_pipewire_connect_stream(obs_pipewire *obs_pw, obs_sourc
+ 	obs_pw_stream->obs_pw = obs_pw;
+ 	obs_pw_stream->source = source;
+ 	obs_pw_stream->cursor.visible = connect_info->screencast.cursor_visible;
++	obs_pw_stream->color_mode = connect_info->screencast.color_mode;
+ 	obs_pw_stream->framerate.set = connect_info->video.framerate != NULL;
+ 	obs_pw_stream->resolution.set = connect_info->video.resolution != NULL;
+ 	obs_pw_stream->sync.acquire_syncobj_fd = -1;
+ 	obs_pw_stream->sync.release_syncobj_fd = -1;
++	obs_get_video_info(&obs_pw_stream->video_info);
++	obs_pw_stream->prefer_10bit =
++		obs_pw_stream->color_mode == OBS_PIPEWIRE_COLOR_REC2100_PQ ||
++		obs_pw_stream->video_info.colorspace == VIDEO_CS_2100_PQ ||
++		obs_pw_stream->video_info.colorspace == VIDEO_CS_2100_HLG;
+ 
+ 	if (obs_pw_stream->framerate.set)
+ 		obs_pw_stream->framerate.fraction = *connect_info->video.framerate;
+@@ -1232,8 +1286,6 @@ obs_pipewire_stream *obs_pipewire_connect_stream(obs_pipewire *obs_pw, obs_sourc
+ 	/* Stream parameters */
+ 	pod_builder = SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
+ 
+-	obs_get_video_info(&obs_pw_stream->video_info);
+-
+ 	if (!build_format_params(obs_pw_stream, &pod_builder, &params, &n_params)) {
+ 		pw_thread_loop_unlock(obs_pw->thread_loop);
+ 		bfree(obs_pw_stream);
+@@ -1321,13 +1373,66 @@ uint32_t obs_pipewire_stream_get_height(obs_pipewire_stream *obs_pw_stream)
+ 	}
+ }
+ 
+-void obs_pipewire_stream_video_render(obs_pipewire_stream *obs_pw_stream, gs_effect_t *effect)
++static bool obs_pipewire_stream_is_hdr_pq(const obs_pipewire_stream *obs_pw_stream)
+ {
+-	bool rotated;
+-	int flip = 0;
++	switch (obs_pw_stream->color_mode) {
++	case OBS_PIPEWIRE_COLOR_REC2100_PQ:
++		return true;
++	case OBS_PIPEWIRE_COLOR_SRGB:
++		return false;
++	case OBS_PIPEWIRE_COLOR_AUTO:
++		return obs_pw_stream->detected_hdr_pq;
++	}
++
++	return false;
++}
++
++enum gs_color_space obs_pipewire_stream_get_color_space(obs_pipewire_stream *obs_pw_stream)
++{
++	return obs_pipewire_stream_is_hdr_pq(obs_pw_stream) ? GS_CS_709_EXTENDED : GS_CS_SRGB;
++}
++
++static void draw_video_texture(obs_pipewire_stream *obs_pw_stream, gs_effect_t *effect)
++{
++	gs_eparam_t *image = gs_effect_get_param_by_name(effect, "image");
++	gs_effect_set_texture(image, obs_pw_stream->texture);
+ 
+-	gs_eparam_t *image;
++	bool rotated = push_rotation(obs_pw_stream);
++	int flip = get_buffer_flip(obs_pw_stream);
+ 
++	if (has_effective_crop(obs_pw_stream)) {
++		gs_draw_sprite_subregion(obs_pw_stream->texture, flip, obs_pw_stream->crop.x, obs_pw_stream->crop.y,
++					 obs_pw_stream->crop.width, obs_pw_stream->crop.height);
++	} else {
++		gs_draw_sprite(obs_pw_stream->texture, flip, 0, 0);
++	}
++
++	if (rotated)
++		gs_matrix_pop();
++}
++
++static bool has_visible_cursor(const obs_pipewire_stream *obs_pw_stream)
++{
++	return obs_pw_stream->cursor.visible && obs_pw_stream->cursor.valid && obs_pw_stream->cursor.texture;
++}
++
++static void draw_cursor_texture(obs_pipewire_stream *obs_pw_stream, gs_effect_t *effect)
++{
++	float cursor_x = obs_pw_stream->cursor.x - obs_pw_stream->cursor.hotspot_x;
++	float cursor_y = obs_pw_stream->cursor.y - obs_pw_stream->cursor.hotspot_y;
++	gs_eparam_t *image = gs_effect_get_param_by_name(effect, "image");
++
++	gs_matrix_push();
++	gs_matrix_translate3f(cursor_x, cursor_y, 0.0f);
++
++	gs_effect_set_texture(image, obs_pw_stream->cursor.texture);
++	gs_draw_sprite(obs_pw_stream->cursor.texture, 0, obs_pw_stream->cursor.width, obs_pw_stream->cursor.height);
++
++	gs_matrix_pop();
++}
++
++void obs_pipewire_stream_video_render(obs_pipewire_stream *obs_pw_stream, gs_effect_t *effect)
++{
+ 	if (!obs_pw_stream->texture)
+ 		return;
+ 
+@@ -1338,15 +1443,6 @@ void obs_pipewire_stream_video_render(obs_pipewire_stream *obs_pw_stream, gs_eff
+ 		gs_sync_destroy(acquire_sync);
+ 	}
+ 
+-	/* FIXME: Use obs_pw_stream->format.info.raw colorimetry info to handle
+-	 * textures in their corresponding color space */
+-	image = gs_effect_get_param_by_name(effect, "image");
+-	gs_effect_set_texture(image, obs_pw_stream->texture);
+-
+-	rotated = push_rotation(obs_pw_stream);
+-
+-	flip = get_buffer_flip(obs_pw_stream);
+-
+ 	/* There is a SPA_VIDEO_FLAG_PREMULTIPLIED_ALPHA flag, but it does not
+ 	 * seem to be fully implemented nor ever set. Just assume premultiplied
+ 	 * always, which seems to be the default convention.
+@@ -1358,29 +1454,43 @@ void obs_pipewire_stream_video_render(obs_pipewire_stream *obs_pw_stream, gs_eff
+ 	gs_blend_state_push();
+ 	gs_blend_function(GS_BLEND_ONE, GS_BLEND_INVSRCALPHA);
+ 
+-	if (has_effective_crop(obs_pw_stream)) {
+-		gs_draw_sprite_subregion(obs_pw_stream->texture, flip, obs_pw_stream->crop.x, obs_pw_stream->crop.y,
+-					 obs_pw_stream->crop.width, obs_pw_stream->crop.height);
+-	} else {
+-		gs_draw_sprite(obs_pw_stream->texture, flip, 0, 0);
++	const bool hdr_pq = obs_pipewire_stream_is_hdr_pq(obs_pw_stream);
++	/* Keep the stock texture and framebuffer path for non-PQ streams.
++	 * KWin provides BGRA without colorimetry and relies on that behavior. */
++	bool previous_srgb = false;
++	if (hdr_pq) {
++		previous_srgb = gs_framebuffer_srgb_enabled();
++		gs_enable_framebuffer_srgb(true);
+ 	}
+ 
+-	if (rotated)
+-		gs_matrix_pop();
+-
+-	if (obs_pw_stream->cursor.visible && obs_pw_stream->cursor.valid && obs_pw_stream->cursor.texture) {
+-		float cursor_x = obs_pw_stream->cursor.x - obs_pw_stream->cursor.hotspot_x;
+-		float cursor_y = obs_pw_stream->cursor.y - obs_pw_stream->cursor.hotspot_y;
+-
+-		gs_matrix_push();
+-		gs_matrix_translate3f(cursor_x, cursor_y, 0.0f);
++	if (hdr_pq) {
++		effect = obs_get_base_effect(OBS_EFFECT_DEFAULT);
++		gs_eparam_t *multiplier = gs_effect_get_param_by_name(effect, "multiplier");
++		gs_effect_set_float(multiplier, 10000.0f / obs_get_video_sdr_white_level());
+ 
+-		gs_effect_set_texture(image, obs_pw_stream->cursor.texture);
+-		gs_draw_sprite(obs_pw_stream->texture, 0, obs_pw_stream->cursor.width, obs_pw_stream->cursor.height);
++		while (gs_effect_loop(effect, "DrawPQ"))
++			draw_video_texture(obs_pw_stream, effect);
+ 
+-		gs_matrix_pop();
++		/* Cursor metadata is always sRGB, even when the captured image is PQ. */
++		if (has_visible_cursor(obs_pw_stream)) {
++			while (gs_effect_loop(effect, "DrawSrgbDecompress"))
++				draw_cursor_texture(obs_pw_stream, effect);
++		}
++	} else if (effect) {
++		draw_video_texture(obs_pw_stream, effect);
++		if (has_visible_cursor(obs_pw_stream))
++			draw_cursor_texture(obs_pw_stream, effect);
++	} else {
++		effect = obs_get_base_effect(OBS_EFFECT_DEFAULT);
++		while (gs_effect_loop(effect, "Draw")) {
++			draw_video_texture(obs_pw_stream, effect);
++			if (has_visible_cursor(obs_pw_stream))
++				draw_cursor_texture(obs_pw_stream, effect);
++		}
+ 	}
+ 
++	if (hdr_pq)
++		gs_enable_framebuffer_srgb(previous_srgb);
+ 	gs_blend_state_pop();
+ 
+ 	if (obs_pw_stream->sync.set) {
+diff --git a/plugins/linux-pipewire/pipewire.h b/plugins/linux-pipewire/pipewire.h
+index a4437f4..7da30f8 100644
+--- a/plugins/linux-pipewire/pipewire.h
++++ b/plugins/linux-pipewire/pipewire.h
+@@ -27,11 +27,18 @@
+ typedef struct _obs_pipewire obs_pipewire;
+ typedef struct _obs_pipewire_stream obs_pipewire_stream;
+ 
++enum obs_pipewire_color_mode {
++	OBS_PIPEWIRE_COLOR_AUTO,
++	OBS_PIPEWIRE_COLOR_SRGB,
++	OBS_PIPEWIRE_COLOR_REC2100_PQ,
++};
++
+ struct obs_pipewire_connect_stream_info {
+ 	const char *stream_name;
+ 	struct pw_properties *stream_properties;
+ 	struct {
+ 		bool cursor_visible;
++		enum obs_pipewire_color_mode color_mode;
+ 	} screencast;
+ 	struct {
+ 		const enum spa_media_subtype *subtype;
+@@ -54,6 +61,7 @@ void obs_pipewire_stream_show(obs_pipewire_stream *obs_pw_stream);
+ void obs_pipewire_stream_hide(obs_pipewire_stream *obs_pw_stream);
+ uint32_t obs_pipewire_stream_get_width(obs_pipewire_stream *obs_pw_stream);
+ uint32_t obs_pipewire_stream_get_height(obs_pipewire_stream *obs_pw_stream);
++enum gs_color_space obs_pipewire_stream_get_color_space(obs_pipewire_stream *obs_pw_stream);
+ void obs_pipewire_stream_video_render(obs_pipewire_stream *obs_pw_stream, gs_effect_t *effect);
+ 
+ void obs_pipewire_stream_set_cursor_visible(obs_pipewire_stream *obs_pw_stream, bool cursor_visible);
+diff --git a/plugins/linux-pipewire/screencast-portal.c b/plugins/linux-pipewire/screencast-portal.c
+index d5fe531..11b64bd 100644
+--- a/plugins/linux-pipewire/screencast-portal.c
++++ b/plugins/linux-pipewire/screencast-portal.c
+@@ -54,6 +54,7 @@ struct screencast_portal_capture {
+ 
+ 	uint32_t pipewire_node;
+ 	bool cursor_visible;
++	enum obs_pipewire_color_mode color_mode;
+ 
+ 	obs_pipewire *obs_pw;
+ 	obs_pipewire_stream *obs_pw_stream;
+@@ -149,6 +150,19 @@ static const char *capture_type_to_string(enum obs_portal_capture_type capture_t
+ 	}
+ }
+ 
++static bool capture_uses_hdr_pq(const struct screencast_portal_capture *capture)
++{
++	switch (capture->color_mode) {
++	case OBS_PIPEWIRE_COLOR_REC2100_PQ:
++		return true;
++	case OBS_PIPEWIRE_COLOR_SRGB:
++	case OBS_PIPEWIRE_COLOR_AUTO:
++		return false;
++	}
++
++	return false;
++}
++
+ /* ------------------------------------------------- */
+ 
+ static void on_pipewire_remote_opened_cb(GObject *source, GAsyncResult *res, void *user_data)
+@@ -190,8 +204,11 @@ static void on_pipewire_remote_opened_cb(GObject *source, GAsyncResult *res, voi
+ 		.screencast =
+ 			{
+ 				.cursor_visible = capture->cursor_visible,
++				.color_mode = capture->color_mode,
+ 			},
+ 	};
++	if (capture_uses_hdr_pq(capture))
++		blog(LOG_INFO, "[pipewire] Using Rec. 2100 PQ for screencast capture");
+ 
+ 	capture->obs_pw_stream =
+ 		obs_pipewire_connect_stream(capture->obs_pw, capture->source, capture->pipewire_node, &connect_info);
+@@ -509,6 +526,15 @@ static const char *screencast_portal_window_capture_get_name(void *data)
+ 	return obs_module_text("PipeWireWindowCapture");
+ }
+ 
++static void screencast_portal_capture_load_color_settings(struct screencast_portal_capture *capture,
++							  obs_data_t *settings)
++{
++	long long color_mode = obs_data_get_int(settings, "ColorSpace");
++	if (color_mode < OBS_PIPEWIRE_COLOR_AUTO || color_mode > OBS_PIPEWIRE_COLOR_REC2100_PQ)
++		color_mode = OBS_PIPEWIRE_COLOR_AUTO;
++	capture->color_mode = (enum obs_pipewire_color_mode)color_mode;
++}
++
+ static void *screencast_portal_desktop_capture_create(obs_data_t *settings, obs_source_t *source)
+ {
+ 	struct screencast_portal_capture *capture;
+@@ -516,6 +542,7 @@ static void *screencast_portal_desktop_capture_create(obs_data_t *settings, obs_
+ 	capture = bzalloc(sizeof(struct screencast_portal_capture));
+ 	capture->capture_type = OBS_PORTAL_CAPTURE_TYPE_MONITOR;
+ 	capture->cursor_visible = obs_data_get_bool(settings, "ShowCursor");
++	screencast_portal_capture_load_color_settings(capture, settings);
+ 	capture->restore_token = bstrdup(obs_data_get_string(settings, "RestoreToken"));
+ 	capture->source = source;
+ 
+@@ -530,6 +557,7 @@ static void *screencast_portal_window_capture_create(obs_data_t *settings, obs_s
+ 	capture = bzalloc(sizeof(struct screencast_portal_capture));
+ 	capture->capture_type = OBS_PORTAL_CAPTURE_TYPE_WINDOW;
+ 	capture->cursor_visible = obs_data_get_bool(settings, "ShowCursor");
++	screencast_portal_capture_load_color_settings(capture, settings);
+ 	capture->restore_token = bstrdup(obs_data_get_string(settings, "RestoreToken"));
+ 	capture->source = source;
+ 
+@@ -545,6 +573,7 @@ static void *screencast_portal_capture_create(obs_data_t *settings, obs_source_t
+ 	capture = bzalloc(sizeof(struct screencast_portal_capture));
+ 	capture->capture_type = OBS_PORTAL_CAPTURE_TYPE_UNIFIED;
+ 	capture->cursor_visible = obs_data_get_bool(settings, "ShowCursor");
++	screencast_portal_capture_load_color_settings(capture, settings);
+ 	capture->restore_token = bstrdup(obs_data_get_string(settings, "RestoreToken"));
+ 	capture->source = source;
+ 
+@@ -587,6 +616,7 @@ static void screencast_portal_capture_save(void *data, obs_data_t *settings)
+ static void screencast_portal_capture_get_defaults(obs_data_t *settings)
+ {
+ 	obs_data_set_default_bool(settings, "ShowCursor", true);
++	obs_data_set_default_int(settings, "ColorSpace", OBS_PIPEWIRE_COLOR_AUTO);
+ 	obs_data_set_default_string(settings, "RestoreToken", NULL);
+ }
+ 
+@@ -611,6 +641,14 @@ static obs_properties_t *screencast_portal_capture_get_properties(void *data)
+ 	}
+ 
+ 	properties = obs_properties_create();
++	obs_property_t *color_space = obs_properties_add_list(properties, "ColorSpace", "Color space",
++							      OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
++	obs_property_list_add_int(color_space, "Automatic", OBS_PIPEWIRE_COLOR_AUTO);
++	obs_property_list_add_int(color_space, "Rec. 709 (SDR)", OBS_PIPEWIRE_COLOR_SRGB);
++	obs_property_list_add_int(color_space, "Rec. 2100 PQ (HDR)", OBS_PIPEWIRE_COLOR_REC2100_PQ);
++	obs_property_set_long_description(
++		color_space,
++		"Automatic uses PipeWire color metadata. Select Rec. 709 or Rec. 2100 PQ when the portal does not provide it.");
+ 	obs_properties_add_button2(properties, "Reload", obs_module_text(reload_string_id), reload_session_cb, capture);
+ 	obs_properties_add_bool(properties, "ShowCursor", obs_module_text("ShowCursor"));
+ 
+@@ -620,11 +658,16 @@ static obs_properties_t *screencast_portal_capture_get_properties(void *data)
+ static void screencast_portal_capture_update(void *data, obs_data_t *settings)
+ {
+ 	struct screencast_portal_capture *capture = data;
++	enum obs_pipewire_color_mode previous_color_mode = capture->color_mode;
+ 
+ 	capture->cursor_visible = obs_data_get_bool(settings, "ShowCursor");
++	screencast_portal_capture_load_color_settings(capture, settings);
+ 
+ 	if (capture->obs_pw_stream)
+ 		obs_pipewire_stream_set_cursor_visible(capture->obs_pw_stream, capture->cursor_visible);
++
++	if (capture->color_mode != previous_color_mode)
++		reload_session_cb(NULL, NULL, capture);
+ }
+ 
+ static void screencast_portal_capture_show(void *data)
+@@ -663,6 +706,18 @@ static uint32_t screencast_portal_capture_get_height(void *data)
+ 		return 0;
+ }
+ 
++static enum gs_color_space screencast_portal_capture_get_color_space(void *data, size_t count,
++								     const enum gs_color_space *preferred_spaces)
++{
++	UNUSED_PARAMETER(count);
++	UNUSED_PARAMETER(preferred_spaces);
++
++	struct screencast_portal_capture *capture = data;
++	if (capture->obs_pw_stream)
++		return obs_pipewire_stream_get_color_space(capture->obs_pw_stream);
++	return capture_uses_hdr_pq(capture) ? GS_CS_709_EXTENDED : GS_CS_SRGB;
++}
++
+ static void screencast_portal_capture_video_render(void *data, gs_effect_t *effect)
+ {
+ 	struct screencast_portal_capture *capture = data;
+@@ -692,7 +747,7 @@ void screencast_portal_load(void)
+ 	const struct obs_source_info screencast_portal_desktop_capture_info = {
+ 		.id = "pipewire-desktop-capture-source",
+ 		.type = OBS_SOURCE_TYPE_INPUT,
+-		.output_flags = OBS_SOURCE_VIDEO | OBS_SOURCE_CAP_OBSOLETE,
++		.output_flags = OBS_SOURCE_VIDEO | OBS_SOURCE_CUSTOM_DRAW | OBS_SOURCE_SRGB | OBS_SOURCE_CAP_OBSOLETE,
+ 		.get_name = screencast_portal_desktop_capture_get_name,
+ 		.create = screencast_portal_desktop_capture_create,
+ 		.destroy = screencast_portal_capture_destroy,
+@@ -705,6 +760,7 @@ void screencast_portal_load(void)
+ 		.get_width = screencast_portal_capture_get_width,
+ 		.get_height = screencast_portal_capture_get_height,
+ 		.video_render = screencast_portal_capture_video_render,
++		.video_get_color_space = screencast_portal_capture_get_color_space,
+ 		.icon_type = OBS_ICON_TYPE_DESKTOP_CAPTURE,
+ 	};
+ 	if (desktop_capture_available)
+@@ -714,7 +770,7 @@ void screencast_portal_load(void)
+ 	const struct obs_source_info screencast_portal_window_capture_info = {
+ 		.id = "pipewire-window-capture-source",
+ 		.type = OBS_SOURCE_TYPE_INPUT,
+-		.output_flags = OBS_SOURCE_VIDEO | OBS_SOURCE_CAP_OBSOLETE,
++		.output_flags = OBS_SOURCE_VIDEO | OBS_SOURCE_CUSTOM_DRAW | OBS_SOURCE_SRGB | OBS_SOURCE_CAP_OBSOLETE,
+ 		.get_name = screencast_portal_window_capture_get_name,
+ 		.create = screencast_portal_window_capture_create,
+ 		.destroy = screencast_portal_capture_destroy,
+@@ -727,6 +783,7 @@ void screencast_portal_load(void)
+ 		.get_width = screencast_portal_capture_get_width,
+ 		.get_height = screencast_portal_capture_get_height,
+ 		.video_render = screencast_portal_capture_video_render,
++		.video_get_color_space = screencast_portal_capture_get_color_space,
+ 		.icon_type = OBS_ICON_TYPE_WINDOW_CAPTURE,
+ 	};
+ 	if (window_capture_available)
+@@ -736,7 +793,7 @@ void screencast_portal_load(void)
+ 	const struct obs_source_info screencast_portal_capture_info = {
+ 		.id = "pipewire-screen-capture-source",
+ 		.type = OBS_SOURCE_TYPE_INPUT,
+-		.output_flags = OBS_SOURCE_VIDEO,
++		.output_flags = OBS_SOURCE_VIDEO | OBS_SOURCE_CUSTOM_DRAW | OBS_SOURCE_SRGB,
+ 		.get_name = screencast_portal_desktop_capture_get_name,
+ 		.create = screencast_portal_capture_create,
+ 		.destroy = screencast_portal_capture_destroy,
+@@ -749,6 +806,7 @@ void screencast_portal_load(void)
+ 		.get_width = screencast_portal_capture_get_width,
+ 		.get_height = screencast_portal_capture_get_height,
+ 		.video_render = screencast_portal_capture_video_render,
++		.video_get_color_space = screencast_portal_capture_get_color_space,
+ 		.icon_type = OBS_ICON_TYPE_DESKTOP_CAPTURE,
+ 	};
+ 	obs_register_source(&screencast_portal_capture_info);

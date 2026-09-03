@@ -1,0 +1,36 @@
+From 09b5a69936caffd457592c2e6b18b8b89241a1cb Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Tue, 1 Sep 2026 22:13:34 -0600
+Subject: [PATCH 1/2] output: defer live HDR changes to the next frame
+
+---
+ src/output.c | 13 +++++--------
+ 1 file changed, 5 insertions(+), 8 deletions(-)
+
+diff --git a/src/output.c b/src/output.c
+index 61a33a3..95071fa 100644
+--- a/src/output.c
++++ b/src/output.c
+@@ -238,14 +238,11 @@ output_reconfigure_hdr(void)
+ 		}
+ 
+ 		output_state_setup_hdr(output, false);
+-		if (!output_state_commit(output)) {
+-			wlr_log(WLR_ERROR, "Failed to reconfigure HDR for output %s",
+-				output->wlr_output->name);
+-			continue;
+-		}
+-
+-		/* Queue the image description again so it is committed with a buffer. */
+-		output_state_setup_hdr(output, true);
++		/*
++		 * Render-format and image-description changes must be committed with
++		 * a matching scene buffer. Defer the commit to the output's next frame
++		 * so it also cannot race an in-flight DRM page flip.
++		 */
+ 		wlr_output_schedule_frame(output->wlr_output);
+ 	}
+ }
+-- 
+2.55.0
+

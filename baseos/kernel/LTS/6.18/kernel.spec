@@ -56,7 +56,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 204
+%define customver 205
 %endif
 
 Release:%{customver}.lts.nobara%{?dist}
@@ -448,13 +448,17 @@ patch -p1 -i %{PATCH23}
 
 # Fetch the config and move it to the proper directory
 
+# Disable hardware bus-lock detection before merging the kernel configs
+%ifarch x86_64
+sed -i 's/^CONFIG_X86_BUS_LOCK_DETECT=y$/# CONFIG_X86_BUS_LOCK_DETECT is not set/' %{SOURCE1}
+%endif
+
 # Enable thin lto
 %if %{llvm_kbuild}
 %{SOURCE3} lto
 %else
 %{SOURCE3}
 %endif
-
 
 # Remove CachyOS's localversion
 find . -name "localversion*" -delete
@@ -1097,6 +1101,9 @@ fi
 %files
 
 %changelog
+* Sat Aug 22 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 6.18.42-205
+- Disable CONFIG_X86_BUS_LOCK_DETECT in the generated x86_64 kernel config
+
 * Thu Aug 20 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 6.18.42-204
 - Adapt the updated ARM64 alignment fixup to the Linux 6.18 NEON API
 

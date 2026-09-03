@@ -1,6 +1,6 @@
 Name:           calamares
 Version:        3.3.14
-Release:        133%{?dist}
+Release:        134%{?dist}
 Summary:        Installer from a live CD/DVD/USB to disk
 
 License:        GPL-3.0-or-later
@@ -47,6 +47,8 @@ Patch1013:       0009-nvidia-driver-selection.patch
 Patch1014:       0010-fix-package-status-typo.patch
 # Run installer updates without inherited live-session identity variables
 Patch1015:       0011-run-nobara-sync-as-target-root.patch
+# Align partition boundaries for KPMcore's 4 KiB LUKS2 sector size
+Patch1016:       0012-align-partitions-to-4k.patch
 #Patch1007:       fixup_branding.patch
 
 # Fedora-specific changes
@@ -251,6 +253,7 @@ cd ../../
 %patch 1013 -p1
 %patch 1014 -p1
 %patch 1015 -p1
+%patch 1016 -p1
 
 mv %{SOURCE1009} src/branding/nobara_branding/
 mv %{SOURCE1010} src/branding/nobara_branding/
