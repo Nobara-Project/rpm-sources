@@ -43,8 +43,8 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 7.2
-%define _stablekver 3
-%define _PKGBUILD 2
+%define _stablekver 4
+%define _PKGBUILD 1
 %define _rcver rc7
 %define _tarkver %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
@@ -128,6 +128,9 @@ Patch11: vfio-amd-passthrough.patch
 
 # ASUS Laptop keyboard fix
 Patch12: 0001-skip-interrupt-in-polling-for-devices.patch
+
+# Qualcomm Atheros QCA9377 Bluetooth adapter
+Patch13: add-QCA9377.patch
 
 # aarch64 patches
 Patch21: 0001-arm64-mm-Handle-alignment-faults.patch
@@ -438,6 +441,7 @@ patch -p1 -i %{PATCH8}
 patch -p1 -i %{PATCH9}
 patch -p1 -i %{PATCH11}
 patch -p1 -i %{PATCH12}
+patch -p1 -i %{PATCH13}
 
 # Apply aarch64 patches
 %ifarch aarch64
@@ -1102,6 +1106,10 @@ fi
 %files
 
 %changelog
+* Tue Sep 08 2026 LionHeartP <LionHeartP@proton.me> - 7.2.4-200
+- Update to 7.2.4
+- Add patch for Qualcomm Atheros QCA9377 Bluetooth adapter
+
 * Thu Sep 03 2026 LionHeartP <LionHeartP@proton.me> - 7.2.3-200
 - Update to 7.2.3
 
