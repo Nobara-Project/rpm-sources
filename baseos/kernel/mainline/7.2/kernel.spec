@@ -56,7 +56,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 202
+%define customver 203
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -235,6 +235,7 @@ Requires: bash
 Requires: coreutils
 Requires: linux-firmware
 Requires: /usr/bin/kernel-install
+Requires: drm-awaiter >= 1
 Requires: kernel-modules-%{rpmver} = %{kverstr}
 Supplements: %{name} = %{rpmver}
 Provides: kernel-bore-eevdf-core >= 6.5.7-%{customver}
