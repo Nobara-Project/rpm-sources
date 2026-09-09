@@ -1,0 +1,26 @@
+#!/bin/bash
+# Queue GPU packaging changes and consume them once after the RPM transaction.
+set -euo pipefail
+
+case ${1:-} in
+    request|flush) ;;
+    *) echo 'Usage: drm-awaiter-initramfs request|flush' >&2; exit 2 ;;
+esac
+
+install -d -m 0700 /run/drm-awaiter
+exec 9>/run/drm-awaiter/initramfs.lock
+flock -x 9
+
+if [[ $1 == request ]]; then
+    touch /run/drm-awaiter/initramfs-pending
+    exit 0
+fi
+
+[[ -e /run/drm-awaiter/initramfs-pending ]] || exit 0
+echo 'Rebuilding initramfs once for queued GPU package changes...'
+if /usr/bin/dracut --regenerate-all --force; then
+    rm -f /run/drm-awaiter/initramfs-pending
+else
+    echo 'GPU initramfs rebuild failed. Fix the reported error, then run /usr/libexec/drm-awaiter-initramfs flush to retry.' >&2
+    exit 1
+fi
