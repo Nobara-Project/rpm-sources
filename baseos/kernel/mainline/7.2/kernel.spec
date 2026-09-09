@@ -43,7 +43,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 7.2
-%define _stablekver 0
+%define _stablekver 4
 %define _PKGBUILD 1
 %define _rcver rc7
 %define _tarkver %{_basekver}.%{_stablekver}
@@ -56,7 +56,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 203
+%define customver 201
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -75,7 +75,7 @@ Vendor: The Linux Community and CachyOS maintainer(s)
 URL: https://github.com/CachyOS/linux
 Source0: %{url}/archive/refs/tags/cachyos-%{_tarkver}-%{_PKGBUILD}.tar.gz
 
-%define config_commit 4e397a4e5a703fc2f905b73eb60e0a772654317b
+%define config_commit 6676e72b85eb9e30d079a8c3dcdf93aedd1e8226
 
 %if 0%{?_is_rc}
 Source1: https://raw.githubusercontent.com/CachyOS/linux-cachyos/%{config_commit}/linux-cachyos-rc/config
@@ -128,6 +128,9 @@ Patch11: vfio-amd-passthrough.patch
 
 # ASUS Laptop keyboard fix
 Patch12: 0001-skip-interrupt-in-polling-for-devices.patch
+
+# Qualcomm Atheros QCA9377 Bluetooth adapter
+Patch13: add-QCA9377.patch
 
 # aarch64 patches
 Patch21: 0001-arm64-mm-Handle-alignment-faults.patch
@@ -439,6 +442,7 @@ patch -p1 -i %{PATCH8}
 patch -p1 -i %{PATCH9}
 patch -p1 -i %{PATCH11}
 patch -p1 -i %{PATCH12}
+patch -p1 -i %{PATCH13}
 
 # Apply aarch64 patches
 %ifarch aarch64
@@ -1103,6 +1107,19 @@ fi
 %files
 
 %changelog
+* Wed Sep 09 2026 LionHeartP <LionHeartP@proton.me> - 7.2.4-201
+- Swap xpadneo kernel patch to GE's fork
+
+* Tue Sep 08 2026 LionHeartP <LionHeartP@proton.me> - 7.2.4-200
+- Update to 7.2.4
+- Add patch for Qualcomm Atheros QCA9377 Bluetooth adapter
+
+* Thu Sep 03 2026 LionHeartP <LionHeartP@proton.me> - 7.2.3-200
+- Update to 7.2.3
+
+* Fri Aug 28 2026 LionHeartP <LionHeartP@proton.me> - 7.2.2-200
+- Update to 7.2.2
+
 * Sat Aug 22 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 7.2.0-202
 - Disable CONFIG_X86_BUS_LOCK_DETECT in the generated x86_64 kernel config
 
