@@ -43,8 +43,8 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.18
-%define _stablekver 42
-%define _PKGBUILD 1
+%define _stablekver 48
+%define _PKGBUILD 2
 %define _rcver rc7
 %define _tarkver %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
@@ -56,7 +56,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 204
+%define customver 201
 %endif
 
 Release:%{customver}.lts.nobara%{?dist}
@@ -98,7 +98,7 @@ ExcludeArch:    %{ix86}
 Patch0: resolve-btfids-kfunc-tags-backport.patch
 
 # For handhelds
-Patch2: https://raw.githubusercontent.com/CachyOS/kernel-patches/master/%{_basekver}/misc/0001-handheld.patch
+Patch2: 0001-handheld.patch
 
 # Nobara
 #surface
@@ -235,6 +235,7 @@ Requires: bash
 Requires: coreutils
 Requires: linux-firmware
 Requires: /usr/bin/kernel-install
+Requires: drm-awaiter >= 1
 Requires: kernel-modules-%{rpmver} = %{kverstr}
 Supplements: %{name} = %{rpmver}
 Provides: kernel-bore-eevdf-core >= 6.5.7-%{customver}
@@ -448,13 +449,17 @@ patch -p1 -i %{PATCH23}
 
 # Fetch the config and move it to the proper directory
 
+# Disable hardware bus-lock detection before merging the kernel configs
+%ifarch x86_64
+sed -i 's/^CONFIG_X86_BUS_LOCK_DETECT=y$/# CONFIG_X86_BUS_LOCK_DETECT is not set/' %{SOURCE1}
+%endif
+
 # Enable thin lto
 %if %{llvm_kbuild}
 %{SOURCE3} lto
 %else
 %{SOURCE3}
 %endif
-
 
 # Remove CachyOS's localversion
 find . -name "localversion*" -delete
@@ -1097,6 +1102,13 @@ fi
 %files
 
 %changelog
+* Thu Sep 03 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 6.18.48-200
+- Update to CachyOS 6.18.48-2
+- Rebase the handheld patch for the updated xpad device table
+
+* Sat Aug 22 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 6.18.42-205
+- Disable CONFIG_X86_BUS_LOCK_DETECT in the generated x86_64 kernel config
+
 * Thu Aug 20 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 6.18.42-204
 - Adapt the updated ARM64 alignment fixup to the Linux 6.18 NEON API
 

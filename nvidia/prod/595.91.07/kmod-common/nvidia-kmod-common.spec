@@ -1,12 +1,10 @@
-%global _dracut_conf_d  %{_prefix}/lib/dracut/dracut.conf.d
-
 # gsp_*.bin: ELF 64-bit LSB executable, UCB RISC-V
 %global _binaries_in_noarch_packages_terminate_build 0
 %global __brp_strip %{nil}
 
 Name:           nvidia-kmod-common
 Version:        595.91.07
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Common file for NVIDIA's proprietary driver kernel modules
 Epoch:          3
 License:        NVIDIA License
@@ -20,11 +18,11 @@ Source18:       kernel.conf
 Source19:       nvidia-modeset.conf
 Source20:       nvidia.conf
 Source21:       60-nvidia.rules
-Source24:       99-nouveau.conf
 
 # UDev rule location (_udevrulesdir) and systemd macros:
 BuildRequires:  systemd-rpm-macros
 
+Requires:       drm-awaiter >= 1
 Requires:       nvidia-modprobe
 Requires:       nvidia-kmod = %{?epoch:%{epoch}:}%{version}
 Provides:       nvidia-kmod-common = %{?epoch:%{epoch}:}%{version}
@@ -50,9 +48,6 @@ install -p -m 0644 -D %{SOURCE19} %{buildroot}%{_sysconfdir}/modprobe.d/nvidia-m
 # Load nvidia-uvm, enable complete power management:
 install -p -m 0644 -D %{SOURCE20} %{buildroot}%{_modprobedir}/nvidia.conf
 
-# Avoid nouveau modules getting in the initrd:
-install -p -m 0644 -D %{SOURCE24} %{buildroot}%{_dracut_conf_d}/99-nouveau.conf
-
 # UDev rules
 # https://github.com/NVIDIA/nvidia-modprobe/blob/master/modprobe-utils/nvidia-modprobe-utils.h#L33-L46
 # https://github.com/negativo17/nvidia-kmod-common/issues/11
@@ -76,7 +71,6 @@ fi ||:
 
 %files
 %{_bindir}/nvidia-bug-report.sh
-%{_dracut_conf_d}/99-nouveau.conf
 %{_modprobedir}/nvidia.conf
 %dir %{_prefix}/lib/firmware
 %dir %{_prefix}/lib/firmware/nvidia

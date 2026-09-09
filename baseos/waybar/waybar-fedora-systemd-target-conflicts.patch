@@ -1,0 +1,39 @@
+From f67dcce02d02ef1dc8e78efc565647b6fe8656d4 Mon Sep 17 00:00:00 2001
+From: Aleksei Bavshin <alebastr89@gmail.com>
+Date: Sat, 4 Jul 2026 22:51:31 -0700
+Subject: [PATCH] systemd: declare known incompatible desktop environments
+
+Waybar can be used with many different Wayland compositors. Some of
+those provide distinct user session targets, some aren't. The usual
+recommendation for the latter ones is to allow manual startup of the
+graphical-session.target and run "systemd --user start ..." command on
+init.
+
+To ensure that all of the above is supported, we have to keep the
+service bound to the graphical-session.target. However, this may impact
+unrelated sessions on machines with multiple DEs installed.
+
+Instead of listing dozens of supported Wayland compositors and breaking
+any configs that explicitly use graphical-session.target, keep a list
+of known sessions where Waybar is not wanted.
+---
+ resources/waybar.service.in | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/resources/waybar.service.in b/resources/waybar.service.in
+index 18bac54c..9a54e5ba 100644
+--- a/resources/waybar.service.in
++++ b/resources/waybar.service.in
+@@ -6,6 +6,9 @@ After=graphical-session.target
+ Requisite=graphical-session.target
+ 
+ [Service]
++ExecCondition=sh -c '[ -n "$WAYLAND_DISPLAY" ]'
++# Known incompatible Wayland sessions
++ExecCondition=/usr/lib/systemd/systemd-xdg-autostart-condition "" "GNOME:KDE:COSMIC:X-Cinnamon"
+ ExecStart=@prefix@/bin/waybar
+ ExecReload=kill -SIGUSR2 $MAINPID
+ Restart=on-failure
+-- 
+2.55.0
+

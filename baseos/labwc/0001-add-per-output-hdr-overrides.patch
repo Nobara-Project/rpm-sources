@@ -1,0 +1,281 @@
+From 2e3f3ace6e413a6113b5f61781b1e33e2e630bf4 Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Tue, 1 Sep 2026 18:15:10 -0600
+Subject: [PATCH] output: add per-output HDR overrides
+
+---
+ docs/labwc-config.5.scd | 14 +++++++++++
+ docs/rc.xml.all         |  5 ++++
+ include/config/rcxml.h  | 10 ++++++++
+ include/output.h        |  1 +
+ src/config/rcxml.c      | 54 +++++++++++++++++++++++++++++++++++++++++
+ src/output.c            | 47 ++++++++++++++++++++++++++++++++---
+ src/server.c            |  1 +
+ 7 files changed, 129 insertions(+), 3 deletions(-)
+
+diff --git a/docs/labwc-config.5.scd b/docs/labwc-config.5.scd
+index cf142cf..04db153 100644
+--- a/docs/labwc-config.5.scd
++++ b/docs/labwc-config.5.scd
+@@ -248,6 +248,20 @@ this is for compatibility with Openbox.
+ 	is no. Additionally requires the Vulkan backend. Can be set
+ 	via `WLR_RENDERER=vulkan` in `~/.config/labwc/environment`.
+ 
++*<hdrOutputs><output name="..." enabled="..." />* [yes|no]
++	Override the global HDR setting for an individual output. The output name
++	is the connector name advertised by the compositor, such as "HDMI-A-1" or
++	"DP-1". Later entries for the same output take precedence. Changes are
++	applied to connected outputs on reconfigure.
++
++	For example, keep HDR enabled globally but force one output to SDR:
++
++	```
++	<hdrOutputs>
++	  <output name="DP-1" enabled="no" />
++	</hdrOutputs>
++	```
++
+ *<core><reuseOutputMode>* [yes|no]
+ 	Try to re-use the existing output mode (resolution / refresh rate).
+ 	This may prevent unnecessary screenblank delays when starting labwc
+diff --git a/docs/rc.xml.all b/docs/rc.xml.all
+index 8e08432..866e4f4 100644
+--- a/docs/rc.xml.all
++++ b/docs/rc.xml.all
+@@ -25,6 +25,11 @@
+     -->
+   </core>
+ 
++  <!-- Per-output overrides for the global <core><hdr> setting. -->
++  <hdrOutputs>
++    <!-- <output name="DP-1" enabled="no" /> -->
++  </hdrOutputs>
++
+   <placement>
+     <policy>cascade</policy>
+     <!--
+diff --git a/include/config/rcxml.h b/include/config/rcxml.h
+index 320fbdd..3fd9670 100644
+--- a/include/config/rcxml.h
++++ b/include/config/rcxml.h
+@@ -63,6 +63,12 @@ struct usable_area_override {
+ 	struct wl_list link; /* struct rcxml.usable_area_overrides */
+ };
+ 
++struct output_hdr_override {
++	char *output;
++	enum render_bit_depth target_render_depth;
++	struct wl_list link; /* struct rcxml.output_hdr_overrides */
++};
++
+ struct workspace_config {
+ 	struct wl_list link; /* struct rcxml.workspace_config.workspaces */
+ 	char *name;
+@@ -128,6 +134,9 @@ struct rcxml {
+ 	/* <margin top="" bottom="" left="" right="" output="" /> */
+ 	struct wl_list usable_area_overrides;
+ 
++	/* <hdrOutputs><output name="" enabled="" /></hdrOutputs> */
++	struct wl_list output_hdr_overrides;
++
+ 	/* keyboard */
+ 	int repeat_rate;
+ 	int repeat_delay;
+@@ -228,6 +237,7 @@ extern struct rcxml rc;
+ 
+ void rcxml_read(const char *filename);
+ void rcxml_finish(void);
++enum render_bit_depth rcxml_get_output_render_bit_depth(const char *output_name);
+ 
+ /*
+  * Parse the child <action> nodes and append them to the list.
+diff --git a/include/output.h b/include/output.h
+index c17defa..e88ee10 100644
+--- a/include/output.h
++++ b/include/output.h
+@@ -74,6 +74,7 @@ void output_enable_adaptive_sync(struct output *output, bool enabled);
+ void output_enable_hdr(struct output *output, struct wlr_output_state *os,
+ 	bool enabled, bool silent);
+ void output_state_setup_hdr(struct output *output, bool silent);
++void output_reconfigure_hdr(void);
+ 
+ /**
+  * Notifies whether a fullscreen view is displayed on the given output.
+diff --git a/src/config/rcxml.c b/src/config/rcxml.c
+index b341e8e..39f208b 100644
+--- a/src/config/rcxml.c
++++ b/src/config/rcxml.c
+@@ -266,6 +266,38 @@ fill_usable_area_override(xmlNode *node)
+ 	}
+ }
+ 
++static void
++fill_output_hdr_overrides(xmlNode *node)
++{
++	xmlNode *child;
++	char *key, *content;
++	LAB_XML_FOR_EACH(node, child, key, content) {
++		if (strcasecmp(key, "output")) {
++			wlr_log(WLR_ERROR, "Unexpected element in <hdrOutputs>: %s", key);
++			continue;
++		}
++
++		char output_name[256] = {0};
++		bool enabled;
++		if (!lab_xml_get_string(child, "name", output_name,
++				ARRAY_SIZE(output_name)) || string_null_or_empty(output_name)) {
++			wlr_log(WLR_ERROR, "Ignoring <hdrOutputs><output> without a name");
++			continue;
++		}
++		if (!lab_xml_get_bool(child, "enabled", &enabled)) {
++			wlr_log(WLR_ERROR, "Ignoring HDR override for output %s without "
++				"a valid enabled value", output_name);
++			continue;
++		}
++
++		struct output_hdr_override *override = znew(*override);
++		override->output = xstrdup(output_name);
++		override->target_render_depth = enabled
++			? LAB_RENDER_BIT_DEPTH_10 : LAB_RENDER_BIT_DEPTH_8;
++		wl_list_append(&rc.output_hdr_overrides, &override->link);
++	}
++}
++
+ /* Does a boolean-parse but also allows 'default' */
+ static void
+ set_property(const char *str, enum property *variable)
+@@ -1105,6 +1137,8 @@ entry(xmlNode *node, char *nodename, char *content)
+ 	/* handle nested nodes */
+ 	if (!strcasecmp(nodename, "margin")) {
+ 		fill_usable_area_override(node);
++	} else if (!strcasecmp(nodename, "hdrOutputs")) {
++		fill_output_hdr_overrides(node);
+ 	} else if (!strcasecmp(nodename, "keybind.keyboard")) {
+ 		fill_keybind(node);
+ 	} else if (!strcasecmp(nodename, "context.mouse")) {
+@@ -1506,6 +1540,7 @@ rcxml_init(void)
+ 
+ 	if (!has_run) {
+ 		wl_list_init(&rc.usable_area_overrides);
++		wl_list_init(&rc.output_hdr_overrides);
+ 		wl_list_init(&rc.keybinds);
+ 		wl_list_init(&rc.mousebinds);
+ 		wl_list_init(&rc.libinput_categories);
+@@ -2082,6 +2117,13 @@ rcxml_finish(void)
+ 		zfree(area);
+ 	}
+ 
++	struct output_hdr_override *hdr, *hdr_tmp;
++	wl_list_for_each_safe(hdr, hdr_tmp, &rc.output_hdr_overrides, link) {
++		wl_list_remove(&hdr->link);
++		zfree(hdr->output);
++		zfree(hdr);
++	}
++
+ 	struct keybind *k, *k_tmp;
+ 	wl_list_for_each_safe(k, k_tmp, &rc.keybinds, link) {
+ 		wl_list_remove(&k->link);
+@@ -2130,3 +2172,15 @@ rcxml_finish(void)
+ 	/* Reset state vars for starting fresh when Reload is triggered */
+ 	mouse_scroll_factor = -1;
+ }
++
++enum render_bit_depth
++rcxml_get_output_render_bit_depth(const char *output_name)
++{
++	struct output_hdr_override *override;
++	wl_list_for_each_reverse(override, &rc.output_hdr_overrides, link) {
++		if (!strcmp(override->output, output_name)) {
++			return override->target_render_depth;
++		}
++	}
++	return rc.target_render_depth;
++}
+diff --git a/src/output.c b/src/output.c
+index 1308f56..61a33a3 100644
+--- a/src/output.c
++++ b/src/output.c
+@@ -132,9 +132,9 @@ bit_depth_from_format(uint32_t render_format)
+ }
+ 
+ static enum render_bit_depth
+-get_config_render_bit_depth(void)
++get_config_render_bit_depth(const struct output *output)
+ {
+-	return rc.target_render_depth;
++	return rcxml_get_output_render_bit_depth(output->wlr_output->name);
+ }
+ 
+ static bool
+@@ -164,7 +164,7 @@ output_state_setup_hdr(struct output *output, bool silent)
+ 		&unsupported_reason);
+ 	bool hdr_succeeded = false;
+ 
+-	enum render_bit_depth render_bit_depth = get_config_render_bit_depth();
++	enum render_bit_depth render_bit_depth = get_config_render_bit_depth(output);
+ 	if (render_bit_depth == LAB_RENDER_BIT_DEPTH_DEFAULT) {
+ 		render_bit_depth = bit_depth_from_format(render_format);
+ 	}
+@@ -209,6 +209,47 @@ output_state_setup_hdr(struct output *output, bool silent)
+ 	output_enable_hdr(output, &output->pending, hdr_succeeded, silent);
+ }
+ 
++static bool
++output_hdr_matches_config(const struct output *output)
++{
++	enum render_bit_depth target = get_config_render_bit_depth(output);
++	if (target == LAB_RENDER_BIT_DEPTH_DEFAULT) {
++		return true;
++	}
++
++	bool hdr_enabled = output->wlr_output->image_description
++		&& output->wlr_output->image_description->primaries
++			== WLR_COLOR_NAMED_PRIMARIES_BT2020
++		&& output->wlr_output->image_description->transfer_function
++			== WLR_COLOR_TRANSFER_FUNCTION_ST2084_PQ;
++	bool ten_bit = bit_depth_from_format(output->wlr_output->render_format)
++		== LAB_RENDER_BIT_DEPTH_10;
++	return target == LAB_RENDER_BIT_DEPTH_10
++		? hdr_enabled && ten_bit : !hdr_enabled && !ten_bit;
++}
++
++void
++output_reconfigure_hdr(void)
++{
++	struct output *output;
++	wl_list_for_each(output, &server.outputs, link) {
++		if (!output->wlr_output->enabled || output_hdr_matches_config(output)) {
++			continue;
++		}
++
++		output_state_setup_hdr(output, false);
++		if (!output_state_commit(output)) {
++			wlr_log(WLR_ERROR, "Failed to reconfigure HDR for output %s",
++				output->wlr_output->name);
++			continue;
++		}
++
++		/* Queue the image description again so it is committed with a buffer. */
++		output_state_setup_hdr(output, true);
++		wlr_output_schedule_frame(output->wlr_output);
++	}
++}
++
+ bool
+ output_get_tearing_allowance(struct output *output)
+ {
+diff --git a/src/server.c b/src/server.c
+index e1a91ec..7c4c3c2 100644
+--- a/src/server.c
++++ b/src/server.c
+@@ -121,6 +121,7 @@ reload_config_and_theme(void)
+ 	resize_indicator_reconfigure();
+ 	kde_server_decoration_update_default();
+ 	workspaces_reconfigure();
++	output_reconfigure_hdr();
+ 
+ 	wl_event_loop_add_idle(server.wl_event_loop, nag_show_callback, NULL);
+ }
+-- 
+2.55.0
+

@@ -1,0 +1,177 @@
+From a70360f920e4441315b692891e6f524416559c37 Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Thu, 2 Oct 2025 00:25:28 -0600
+Subject: [PATCH 2/3] don't enable auto-scale by default
+
+---
+ inc/enum.h                           | 2 +-
+ tst/cfg-file/load-invalid-file.log   | 2 +-
+ tst/cfg-file/load-no-file.log        | 2 +-
+ tst/cfg-file/load-valid-file.log     | 2 +-
+ tst/cfg-file/reload-invalid-file.log | 2 +-
+ tst/cfg-file/reload-valid-file.log   | 2 +-
+ tst/info/print-cfg-all.log           | 2 +-
+ tst/info/print-cfg-default.log       | 2 +-
+ tst/yaml/cfg-default.yaml            | 2 +-
+ tst/yaml/cfg-invalid.log             | 2 +-
+ tst/yaml/cfg-mistyped.log            | 2 +-
+ tst/yaml/ipc-request-cfg-invalid.log | 2 +-
+ 12 files changed, 12 insertions(+), 12 deletions(-)
+
+diff --git a/inc/enum.h b/inc/enum.h
+index 8244c87..69d08ef 100644
+--- a/inc/enum.h
++++ b/inc/enum.h
+@@ -59,7 +59,7 @@ enum OnOff {
+ 	ON = 1,
+ 	OFF,
+ 	SCALING_DEFAULT = ON,
+-	AUTO_SCALE_DEFAULT = ON,
++	AUTO_SCALE_DEFAULT = OFF,
+ 	LAPTOP_LID_MONITOR_DEFAULT = ON,
+ };
+ enum OnOff on_off_val(const char *name);
+diff --git a/tst/cfg-file/load-invalid-file.log b/tst/cfg-file/load-invalid-file.log
+index 35168cf..58cfd74 100644
+--- a/tst/cfg-file/load-invalid-file.log
++++ b/tst/cfg-file/load-invalid-file.log
+@@ -6,7 +6,7 @@ Using default configuration:
+ Active configuration:
+   Arrange in a ROW aligned at the TOP
+   Scaling: ON
+-  Auto scale: ON (dpi: 96, min: 1.000)
++  Auto scale: OFF (dpi: 96, min: 1.000)
+   Round scales to: 0.125, NEAREST
+   Disabled:
+     !^eDP-[0-9]
+diff --git a/tst/cfg-file/load-no-file.log b/tst/cfg-file/load-no-file.log
+index c3a0b4e..9fb2c04 100644
+--- a/tst/cfg-file/load-no-file.log
++++ b/tst/cfg-file/load-no-file.log
+@@ -4,7 +4,7 @@ No configuration file found, using defaults:
+ Active configuration:
+   Arrange in a ROW aligned at the TOP
+   Scaling: ON
+-  Auto scale: ON (dpi: 96, min: 1.000)
++  Auto scale: OFF (dpi: 96, min: 1.000)
+   Round scales to: 0.125, NEAREST
+   Disabled:
+     !^eDP-[0-9]
+diff --git a/tst/cfg-file/load-valid-file.log b/tst/cfg-file/load-valid-file.log
+index cc2cf29..50a985d 100644
+--- a/tst/cfg-file/load-valid-file.log
++++ b/tst/cfg-file/load-valid-file.log
+@@ -4,7 +4,7 @@ Found configuration file: canonical-path
+ Active configuration:
+   Arrange in a ROW aligned at the TOP
+   Scaling: ON
+-  Auto scale: ON (dpi: 96, min: 1.000, max: 888.000)
++  Auto scale: OFF (dpi: 96, min: 1.000, max: 888.000)
+   Round scales to: 0.25, NEAREST
+   Disabled:
+     !^eDP-[0-9]
+diff --git a/tst/cfg-file/reload-invalid-file.log b/tst/cfg-file/reload-invalid-file.log
+index af88237..e99c4ea 100644
+--- a/tst/cfg-file/reload-invalid-file.log
++++ b/tst/cfg-file/reload-invalid-file.log
+@@ -4,7 +4,7 @@ Reloading configuration file: file_path
+ Configuration unchanged:
+   Arrange in a ROW aligned at the TOP
+   Scaling: ON
+-  Auto scale: ON (dpi: 96, min: 1.000, max: 111.000)
++  Auto scale: OFF (dpi: 96, min: 1.000, max: 111.000)
+   Round scales to: 0.125, NEAREST
+   Disabled:
+     !^eDP-[0-9]
+diff --git a/tst/cfg-file/reload-valid-file.log b/tst/cfg-file/reload-valid-file.log
+index 2eb46db..a80283a 100644
+--- a/tst/cfg-file/reload-valid-file.log
++++ b/tst/cfg-file/reload-valid-file.log
+@@ -4,7 +4,7 @@ Reloading configuration file: file_path
+ New configuration:
+   Arrange in a ROW aligned at the TOP
+   Scaling: ON
+-  Auto scale: ON (dpi: 96, min: 1.000, max: 888.000)
++  Auto scale: OFF (dpi: 96, min: 1.000, max: 888.000)
+   Round scales to: 0.125, NEAREST
+   Disabled:
+     !^eDP-[0-9]
+diff --git a/tst/info/print-cfg-all.log b/tst/info/print-cfg-all.log
+index 199f664..f8f37bd 100644
+--- a/tst/info/print-cfg-all.log
++++ b/tst/info/print-cfg-all.log
+@@ -3,7 +3,7 @@
+     first
+     last
+   Scaling: ON
+-  Auto scale: ON (dpi: 96, min: 1.000)
++  Auto scale: OFF (dpi: 96, min: 1.000)
+   Round scales to: 0.5, DOWN
+   Scale:
+     three: 3.000
+diff --git a/tst/info/print-cfg-default.log b/tst/info/print-cfg-default.log
+index 94a99c6..ae1d393 100644
+--- a/tst/info/print-cfg-default.log
++++ b/tst/info/print-cfg-default.log
+@@ -1,5 +1,5 @@
+   Arrange in a ROW aligned at the TOP
+   Scaling: ON
+-  Auto scale: ON (min: 1.000)
++  Auto scale: OFF (min: 1.000)
+   Callback command:
+     notify-send "way-displays ${CALLBACK_LEVEL}" "${CALLBACK_MSG}"
+diff --git a/tst/yaml/cfg-default.yaml b/tst/yaml/cfg-default.yaml
+index 7ba6da0..edba92c 100644
+--- a/tst/yaml/cfg-default.yaml
++++ b/tst/yaml/cfg-default.yaml
+@@ -5,7 +5,7 @@ ORDER:
+ SCALING: TRUE
+ SCALE_ROUND_TO: 0.125
+ SCALE_ROUND_STRATEGY: NEAREST
+-AUTO_SCALE: TRUE
++AUTO_SCALE: FALSE
+ AUTO_SCALE_DPI: 96
+ AUTO_SCALE_MIN: 1
+ AUTO_SCALE_MAX: -1
+diff --git a/tst/yaml/cfg-invalid.log b/tst/yaml/cfg-invalid.log
+index 1d56b54..56c6d98 100644
+--- a/tst/yaml/cfg-invalid.log
++++ b/tst/yaml/cfg-invalid.log
+@@ -7,7 +7,7 @@ cfg-invalid.yaml: invalid ALIGN BAD_ALIGN, expected enum TOP|MIDDLE|BOTTOM|LEFT|
+ cfg-invalid.yaml: invalid SCALING BAD_SCALING, expected boolean, using default true
+ cfg-invalid.yaml: invalid SCALE_ROUND_TO BAD_SCALE_ROUND_TO, expected number 0.125|0.25|0.5|1, using default 0.125
+ cfg-invalid.yaml: invalid SCALE_ROUND_STRATEGY BAD_SCALE_ROUND_STRATEGY, expected enum NEAREST|UP|DOWN, using default NEAREST
+-cfg-invalid.yaml: invalid AUTO_SCALE BAD_AUTO_SCALE, expected boolean, using default true
++cfg-invalid.yaml: invalid AUTO_SCALE BAD_AUTO_SCALE, expected boolean, using default false
+ cfg-invalid.yaml: invalid AUTO_SCALE_DPI BAD_AUTO_SCALE_DPI, expected integer, using default 96
+ cfg-invalid.yaml: invalid AUTO_SCALE_MIN BAD_AUTO_SCALE_MIN, expected number, using default 1.0
+ cfg-invalid.yaml: invalid AUTO_SCALE_MAX BAD_AUTO_SCALE_MAX, expected number, using default -1.0
+diff --git a/tst/yaml/cfg-mistyped.log b/tst/yaml/cfg-mistyped.log
+index 1bec182..4220387 100644
+--- a/tst/yaml/cfg-mistyped.log
++++ b/tst/yaml/cfg-mistyped.log
+@@ -2,7 +2,7 @@ cfg-mistyped.yaml: invalid ARRANGE, expected enum ROW|COLUMN, using default ROW
+ cfg-mistyped.yaml: invalid ALIGN, expected enum TOP|MIDDLE|BOTTOM|LEFT|RIGHT, using default TOP
+ cfg-mistyped.yaml: invalid ORDER, expected sequence, got map
+ cfg-mistyped.yaml: invalid SCALING, expected boolean, using default true
+-cfg-mistyped.yaml: invalid AUTO_SCALE, expected boolean, using default true
++cfg-mistyped.yaml: invalid AUTO_SCALE, expected boolean, using default false
+ cfg-mistyped.yaml: invalid AUTO_SCALE_DPI, expected integer, using default 96
+ cfg-mistyped.yaml: invalid AUTO_SCALE_MIN, expected number, using default 1.0
+ cfg-mistyped.yaml: invalid AUTO_SCALE_MAX, expected number, using default -1.0
+diff --git a/tst/yaml/ipc-request-cfg-invalid.log b/tst/yaml/ipc-request-cfg-invalid.log
+index fe33cb7..5c09462 100644
+--- a/tst/yaml/ipc-request-cfg-invalid.log
++++ b/tst/yaml/ipc-request-cfg-invalid.log
+@@ -7,7 +7,7 @@ ipc request: invalid ALIGN BAD_ALIGN, expected enum TOP|MIDDLE|BOTTOM|LEFT|RIGHT
+ ipc request: invalid SCALING BAD_SCALING, expected boolean, using default true
+ ipc request: invalid SCALE_ROUND_TO BAD_SCALE_ROUND_TO, expected number 0.125|0.25|0.5|1, using default 0.125
+ ipc request: invalid SCALE_ROUND_STRATEGY BAD_SCALE_ROUND_STRATEGY, expected enum NEAREST|UP|DOWN, using default NEAREST
+-ipc request: invalid AUTO_SCALE BAD_AUTO_SCALE, expected boolean, using default true
++ipc request: invalid AUTO_SCALE BAD_AUTO_SCALE, expected boolean, using default false
+ ipc request: invalid AUTO_SCALE_DPI BAD_AUTO_SCALE_DPI, expected integer, using default 96
+ ipc request: invalid AUTO_SCALE_MIN BAD_AUTO_SCALE_MIN, expected number, using default 1.0
+ ipc request: invalid AUTO_SCALE_MAX BAD_AUTO_SCALE_MAX, expected number, using default -1.0
+-- 
+2.55.0
+

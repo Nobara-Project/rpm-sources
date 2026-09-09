@@ -7,7 +7,7 @@
 Summary: Config files for KDE
 Name:    kde-settings
 Version: 44.0
-Release: 1%{?dist}
+Release: 3%{?dist}
 
 License: MIT
 URL:     https://forge.fedoraproject.org/kde/kde-settings
@@ -165,7 +165,8 @@ rm -Rf %{buildroot}%{_datadir}/plasma/look-and-feel/org.fedoraproject.fedoradark
 rm -Rf %{buildroot}%{_datadir}/plasma/look-and-feel/org.fedoraproject.fedoralight.desktop
 rm -Rf %{buildroot}%{_datadir}/wallpapers/Fedora
 
-sed -i 's/Fedora/Default/g' %{buildroot}/usr/lib/plasmalogin/defaults.conf
+echo '[Greeter]' > %{buildroot}/usr/lib/plasmalogin/defaults.conf
+echo 'WallpaperPlugin=org.kde.image' >> %{buildroot}/usr/lib/plasmalogin/defaults.conf
 
 %check
 test -e %{_datadir}/wallpapers/Default || ls -l %{_datadir}/wallpapers

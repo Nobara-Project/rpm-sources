@@ -1,0 +1,55 @@
+From 8a80b826607a7b4aa1b4558d8813cd0fdff793cf Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Wed, 2 Sep 2026 10:30:00 -0600
+Subject: [PATCH] Fix va_list portability on aarch64
+
+va_list is an ABI-defined type and is not necessarily a scalar or pointer.
+On aarch64 it cannot be used as a boolean expression, causing compilation
+to fail with "wrong type argument to unary exclamation mark".
+
+Callers provide initialized va_list values, so remove the invalid null
+checks. This follows the approach previously used upstream for issue #23.
+---
+ lib/alex-c/src/str.c | 6 ------
+ src/log.c            | 2 +-
+ 2 files changed, 1 insertion(+), 7 deletions(-)
+
+diff --git a/lib/alex-c/src/str.c b/lib/alex-c/src/str.c
+index 6b89e5c..06067a9 100644
+--- a/lib/alex-c/src/str.c
++++ b/lib/alex-c/src/str.c
+@@ -8,9 +8,6 @@
+ #include "str.h"
+ 
+ char *vsnprintf_alloc(size_t __maxlen, const char *__restrict __format, va_list __args) {
+-	if (!__args)
+-		return NULL;
+-
+ 	va_list args;
+ 	va_copy(args, __args);
+ 	size_t raw = vsnprintf(NULL, 0, __format, args);
+@@ -55,9 +52,6 @@ char *snprintf_alloc(size_t __maxlen, const char *__restrict __format, ...) {
+ }
+ 
+ char *vsnprintf_append(char *__restrict s, size_t __maxlen, const char *__restrict __format, va_list __args) {
+-	if (!__args)
+-		return NULL;
+-
+ 	size_t l_left = MIN(s ? strlen(s) : 0, __maxlen);
+ 	size_t l_right = 0;
+ 
+diff --git a/src/log.c b/src/log.c
+index 5d03257..6bc1c07 100644
+--- a/src/log.c
++++ b/src/log.c
+@@ -121,7 +121,7 @@ static void log_line(const enum LogThreshold threshold, const int eno, const char
+ 	char *l;
+ 
+ 	// allocate the line for output and capture
+-	if (__format && __args)
++	if (__format)
+ 		l = vsnprintf_alloc(MAX_LINE_LEN, __format, __args);
+ 	else
+ 		l = strdup("");
+-- 
+2.51.0

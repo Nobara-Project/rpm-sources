@@ -1,14 +1,15 @@
 Summary: A set of scripts to install and update Davinci Resolve with better compatibility.
 Name: nobara-resolve-wizard
 Version: 1.3
-Release: 6%{?dist}
+Release: 9%{?dist}
 License: Public Domain
 Group: System Environment/Base
 Source0: nobara-resolve-wizard.tar.gz
 
 BuildArch: noarch
 BuildRequires: filesystem
-Requires: nobara-resolve-runtime
+Provides: nobara-resolve-runtime
+Obsoletes: nobara-resolve-runtime
 
 %description
 A set of scripts to install and update Davinci Resolve with better compatibility.

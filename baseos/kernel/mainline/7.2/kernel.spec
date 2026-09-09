@@ -238,6 +238,7 @@ Requires: bash
 Requires: coreutils
 Requires: linux-firmware
 Requires: /usr/bin/kernel-install
+Requires: drm-awaiter >= 1
 Requires: kernel-modules-%{rpmver} = %{kverstr}
 Supplements: %{name} = %{rpmver}
 Provides: kernel-bore-eevdf-core >= 6.5.7-%{customver}
