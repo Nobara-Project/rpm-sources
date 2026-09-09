@@ -56,7 +56,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 201
+%define customver 202
 %endif
 
 Release:%{customver}.lts.nobara%{?dist}
@@ -128,6 +128,10 @@ Patch12: vfio-amd-passthrough.patch
 
 # ASUS Laptop keyboard fix
 Patch13: 0001-skip-interrupt-in-polling-for-devices.patch
+
+# Local Intel Bluetooth suspend candidate
+Patch14: 0001-Bluetooth-btintel_pcie-retry-power-transitions.patch
+Patch15: 0002-Bluetooth-btintel_pcie-refresh-state-on-timeout.patch
 
 # aarch64 patches
 Patch20: 0001-arm64-mm-Handle-alignment-faults.patch
@@ -438,6 +442,8 @@ patch -p1 -i %{PATCH9}
 patch -p1 -i %{PATCH10}
 patch -p1 -i %{PATCH12}
 patch -p1 -i %{PATCH13}
+patch -p1 -i %{PATCH14}
+patch -p1 -i %{PATCH15}
 
 # Apply aarch64 patches
 %ifarch aarch64

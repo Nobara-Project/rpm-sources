@@ -1,0 +1,49 @@
+Subject: [PATCH 2/2] Bluetooth: btintel_pcie: refresh state after missed alive interrupts
+
+The doorbell retry backport checks boot_stage_cache after a timeout, but
+that cache is normally refreshed by the interrupt handler. If the alive
+interrupt was lost, the fallback can therefore test the old D0 state and
+abort suspend with -EBUSY even though the controller reached D3.
+
+Read the controller boot-stage register before the fallback state check.
+Also clear gp0_received once per transition, so retries do not discard a
+late acknowledgment of the same target state. Use long for the result
+of wait_event_timeout(). Keep the existing hibernation reset behavior.
+
+Based on Vladimir V. Kondratyev's stale-cache fix and the retry flag
+handling in Ravindra's September 2 PM-flow proposal. This is a local
+backport candidate, not an upstream submission or hardware-tested fix.
+
+Link: https://lkml.iu.edu/2609.0/07887.html
+Link: https://lore.kernel.org/linux-bluetooth/20260902042840.2432862-1-ravindra@intel.com/
+---
+diff --git a/drivers/bluetooth/btintel_pcie.c b/drivers/bluetooth/btintel_pcie.c
+--- a/drivers/bluetooth/btintel_pcie.c
++++ b/drivers/bluetooth/btintel_pcie.c
+@@ -2513,12 +2513,14 @@
+ 
+ static int btintel_pcie_set_dxstate(struct btintel_pcie_data *data, u32 dxstate)
+ {
+-	int retry = 0, status;
++	int retry = 0;
++	long status;
+ 	u32 dx_intr_timeout_ms = 200;
+ 
++	/* A late interrupt from an earlier retry confirms the same state. */
++	data->gp0_received = false;
++
+ 	do {
+-		data->gp0_received = false;
+-
+ 		btintel_pcie_wr_sleep_cntrl(data, dxstate);
+ 
+ 		status = wait_event_timeout(data->gp0_wait_q, data->gp0_received,
+@@ -2540,6 +2542,8 @@
+ 		 * Check if the controller reached the expected state and retry
+ 		 * the operation only if it hasn't.
+ 		 */
++		data->boot_stage_cache = btintel_pcie_rd_reg32(data,
++					BTINTEL_PCIE_CSR_BOOT_STAGE_REG);
+ 		if (dxstate == BTINTEL_PCIE_STATE_D0) {
+ 			if (btintel_pcie_in_d0(data))
+ 				return 0;
