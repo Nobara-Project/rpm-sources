@@ -56,7 +56,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 200
+%define customver 201
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -1106,6 +1106,9 @@ fi
 %files
 
 %changelog
+* Wed Sep 09 2026 LionHeartP <LionHeartP@proton.me> - 7.2.4-201
+- Swap xpadneo kernel patch to GE's fork
+
 * Tue Sep 08 2026 LionHeartP <LionHeartP@proton.me> - 7.2.4-200
 - Update to 7.2.4
 - Add patch for Qualcomm Atheros QCA9377 Bluetooth adapter
