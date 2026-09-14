@@ -1,0 +1,130 @@
+From: Davis Perchik <davisperchik@gmail.com>
+Subject: [PATCH] Revert "drm/amdgpu: avoid sending csib command when system resumes from S3" from the CachyOS handheld series
+
+The CachyOS 7.2 handheld series (0001-handheld.patch, 2026-08-28 revision)
+picked up Perry Yuan's 2023 amd-gfx submission
+"drm/amdgpu: avoid sending csib command when system resumes from S3"
+(https://lore.kernel.org/all/3e270efa46affe3c52614099575368726eb32793.1698158958.git.perry.yuan@amd.com/).
+That patch was never merged upstream (mainline 7.3-rc3 still submits the
+CSIB on every gfx_v10_0_cp_gfx_start()), and the version carried in the
+handheld series is missing the hunk from the original submission that
+clears adev->csib_initialized in amdgpu_pmops_suspend_noirq().
+
+Result on gfx10 parts (Navi 1x/2x dGPUs such as the RX 6800 XT, plus
+Van Gogh/Rembrandt/Raphael APUs): csib_initialized is set once at boot
+and never cleared, so after a real S3/S2idle power-down (or a BACO
+runtime suspend) the CP is re-enabled without the clear-state IB and the
+first gfx IB test times out:
+
+  amdgpu 0000:09:00.0: [drm:amdgpu_ib_ring_tests [amdgpu]] *ERROR* IB test failed on gfx_0.0.0 (-110).
+  amdgpu 0000:09:00.0: ib ring test failed (-110).
+
+which is exactly the failure users see on Nobara kernels 7.2.2+ (the
+7.2.0 builds used the June revision of the handheld series, which did
+not contain this change).
+
+This reverts only the CSIB hunks (gfx_v10_0.c and the csib_initialized
+member in amdgpu.h), restoring upstream behaviour. Apply after
+0001-handheld.patch.
+
+Link: https://gitlab.freedesktop.org/drm/amd/-/issues/5804
+Link: https://gitlab.freedesktop.org/drm/amd/-/issues/5802
+Link: https://github.com/Nobara-Project/rpm-sources/issues/597
+---
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+@@ -3685,7 +3685,6 @@
+ static void gfx_v10_0_select_se_sh(struct amdgpu_device *adev, u32 se_num,
+ 				   u32 sh_num, u32 instance, int xcc_id);
+ static u32 gfx_v10_0_get_wgp_active_bitmap_per_sh(struct amdgpu_device *adev);
+-static int gfx_v10_0_adev_wait_for_idle(struct amdgpu_device *adev);
+ 
+ static int gfx_v10_0_rlc_backdoor_autoload_buffer_init(struct amdgpu_device *adev);
+ static void gfx_v10_0_rlc_backdoor_autoload_buffer_fini(struct amdgpu_device *adev);
+@@ -6371,7 +6370,7 @@
+ 	return 0;
+ }
+ 
+-static int gfx_v10_csib_submit(struct amdgpu_device *adev)
++static int gfx_v10_0_cp_gfx_start(struct amdgpu_device *adev)
+ {
+ 	struct amdgpu_ring *ring;
+ 	const struct cs_section_def *sect = NULL;
+@@ -6379,6 +6378,13 @@
+ 	int r, i;
+ 	int ctx_reg_offset;
+ 
++	/* init the CP */
++	WREG32_SOC15(GC, 0, mmCP_MAX_CONTEXT,
++		     adev->gfx.config.max_hw_contexts - 1);
++	WREG32_SOC15(GC, 0, mmCP_DEVICE_ID, 1);
++
++	gfx_v10_0_cp_gfx_enable(adev, true);
++
+ 	ring = &adev->gfx.gfx_ring[0];
+ 	r = amdgpu_ring_alloc(ring, gfx_v10_0_get_csb_size(adev) + 4);
+ 	if (r) {
+@@ -6441,25 +6447,6 @@
+ 
+ 		amdgpu_ring_commit(ring);
+ 	}
+-
+-	gfx_v10_0_adev_wait_for_idle(adev);
+-	adev->csib_initialized = true;
+-
+-	return 0;
+-};
+-
+-static int gfx_v10_0_cp_gfx_start(struct amdgpu_device *adev)
+-{
+-	/* init the CP */
+-	WREG32_SOC15(GC, 0, mmCP_MAX_CONTEXT,
+-		     adev->gfx.config.max_hw_contexts - 1);
+-	WREG32_SOC15(GC, 0, mmCP_DEVICE_ID, 1);
+-
+-	gfx_v10_0_cp_gfx_enable(adev, true);
+-
+-	if (!adev->csib_initialized)
+-		gfx_v10_csib_submit(adev);
+-
+ 	return 0;
+ }
+ 
+@@ -7634,10 +7621,11 @@
+ 		return true;
+ }
+ 
+-static int gfx_v10_0_adev_wait_for_idle(struct amdgpu_device *adev)
++static int gfx_v10_0_wait_for_idle(struct amdgpu_ip_block *ip_block)
+ {
+ 	unsigned int i;
+ 	u32 tmp;
++	struct amdgpu_device *adev = ip_block->adev;
+ 
+ 	for (i = 0; i < adev->usec_timeout; i++) {
+ 		/* read MC_STATUS */
+@@ -7651,13 +7639,6 @@
+ 	return -ETIMEDOUT;
+ }
+ 
+-static int gfx_v10_0_wait_for_idle(struct amdgpu_ip_block *ip_block)
+-{
+-	struct amdgpu_device *adev = ip_block->adev;
+-
+-	return gfx_v10_0_adev_wait_for_idle(adev);
+-}
+-
+ static int gfx_v10_0_soft_reset(struct amdgpu_ip_block *ip_block)
+ {
+ 	u32 grbm_soft_reset = 0;
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -1129,8 +1129,6 @@
+ 	/* Mask of active clusters */
+ 	uint32_t			aid_mask;
+ 
+-	bool				csib_initialized;
+-
+ 	/* Debug */
+ 	bool                            debug_vm;
+ 	bool                            debug_largebar;

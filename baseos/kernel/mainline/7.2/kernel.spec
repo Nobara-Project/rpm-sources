@@ -56,7 +56,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 201
+%define customver 202
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -131,6 +131,12 @@ Patch12: 0001-skip-interrupt-in-polling-for-devices.patch
 
 # Qualcomm Atheros QCA9377 Bluetooth adapter
 Patch13: add-QCA9377.patch
+
+# Revert the CSIB-once change carried by the CachyOS handheld series (Patch2, 2026-08-28 revision).
+# It never re-arms after a real S3/BACO power-down, so gfx10 parts (RX 5000/6000, Van Gogh/Rembrandt/Raphael)
+# fail resume with "IB test failed on gfx_0.0.0 (-110)". Drop once CachyOS removes it from the series.
+# https://github.com/Nobara-Project/rpm-sources/issues/597
+Patch14: revert-handheld-csib-once.patch
 
 # aarch64 patches
 Patch21: 0001-arm64-mm-Handle-alignment-faults.patch
@@ -432,6 +438,8 @@ patch -p1 -i %{PATCH0}
 # patch -p1 -i %{PATCH1}
 # CachyOS Handheld patch
 patch -p1 -i %{PATCH2}
+# Revert the CSIB-once change from the handheld series (see Patch14 above)
+patch -p1 -i %{PATCH14}
 # Nobara patches
 patch -p1 -i %{PATCH3}
 patch -p1 -i %{PATCH4}
@@ -1107,6 +1115,11 @@ fi
 %files
 
 %changelog
+* Mon Sep 14 2026 Davis Perchik <davisperchik@gmail.com> - 7.2.4-202
+- Revert the CSIB-once change from the CachyOS handheld series: it never re-arms after a real
+  S3/BACO power-down, so gfx10 parts fail resume with "IB test failed on gfx_0.0.0 (-110)"
+  (rpm-sources #597, drm/amd #5804, #5802)
+
 * Wed Sep 09 2026 LionHeartP <LionHeartP@proton.me> - 7.2.4-201
 - Swap xpadneo kernel patch to GE's fork
 
