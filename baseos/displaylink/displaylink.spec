@@ -1,5 +1,5 @@
 %{!?_daemon_version:%global _daemon_version 6.3.0-48}
-%{!?_version:%global _version 1.15.0}
+%{!?_version:%global _version 1.15.1}
 %{!?_release:%global _release 1}
 
 # Disable RPATH since DisplayLinkManager contains this.
@@ -225,6 +225,7 @@ fi
 %{_prefix}/src/evdi-%{version}/tests/evdi_fake_user_client.h
 %{_prefix}/src/evdi-%{version}/tests/evdi_test.c
 %{_prefix}/src/evdi-%{version}/tests/evdi_test.h
+%{_prefix}/src/evdi-%{version}/tests/test_evdi_hotplug.c
 %{_prefix}/src/evdi-%{version}/tests/test_evdi_vt_switch.c
 
 
@@ -248,6 +249,8 @@ fi
 %systemd_postun_with_restart displaylink-driver.service
 
 %changelog
+* Tue Sep 15 2026 Crashdummy <crashdummy1337@proton.me> 1.15.1-1
+- Update evdi to 1.15.1 (blackscreen fix on ubuntu 26.04 with gnome)
 
 * Thu Jul 03 2026 Crashdummy <crashdummy1337@proton.me> 1.15.0-1
 - Update evdi to 1.15.0 (7.2 Support)
