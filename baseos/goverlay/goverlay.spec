@@ -1,5 +1,5 @@
 Name:           goverlay
-Version:        1.9.0
+Version:        1.9.2
 Release:        %autorelease
 Epoch:          2
 Summary:        Project that aims to create a Graphical UI to help manage Linux overlays
@@ -67,7 +67,7 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/*.desktop
 %doc README.md
 %{_bindir}/%{name}
 %{_datadir}/applications/*.desktop
-%{_datadir}/icons/hicolor/*/*/*.png
+%{_datadir}/icons/hicolor/*/*/*
 %{_datadir}/%{name}/assets/
 %{_datadir}/%{name}/bgmod/
 %{_datadir}/%{name}/data/
@@ -80,6 +80,9 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/*.desktop
 
 
 %changelog
+* Wed Sep 16 2026 LionHeartP <LionHeartP@proton.me> - 1.9.2-1
+- Update to 1.9.2
+
 * Sun Aug 23 2026 LionHeartP <LionHeartP@proton.me> - 1.9.0-1
 - Update to 1.9.0
 
