@@ -56,7 +56,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 201
+%define customver 202
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -131,6 +131,9 @@ Patch12: 0001-skip-interrupt-in-polling-for-devices.patch
 
 # Qualcomm Atheros QCA9377 Bluetooth adapter
 Patch13: add-QCA9377.patch
+
+# AMDGPU GFX10 fix sleep/suspend
+Patch14: drm-amdgpu-restore-csib-submission-on-gfx10-dgpus.patch
 
 # aarch64 patches
 Patch21: 0001-arm64-mm-Handle-alignment-faults.patch
@@ -443,6 +446,7 @@ patch -p1 -i %{PATCH9}
 patch -p1 -i %{PATCH11}
 patch -p1 -i %{PATCH12}
 patch -p1 -i %{PATCH13}
+patch -p1 -i %{PATCH14}
 
 # Apply aarch64 patches
 %ifarch aarch64
@@ -1107,6 +1111,9 @@ fi
 %files
 
 %changelog
+* Wed Sep 16 2026 LionHeartP <LionHeartP@proton.me> - 7.2.4-202
+- Add patch to fix RDNA2 sleep/suspend
+
 * Wed Sep 09 2026 LionHeartP <LionHeartP@proton.me> - 7.2.4-201
 - Swap xpadneo kernel patch to GE's fork
 
