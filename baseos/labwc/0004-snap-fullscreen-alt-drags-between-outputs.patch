@@ -1,0 +1,175 @@
+From 50d5bf8ff0501700c4ec0b9479f87a1d4fa6e20d Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Tue, 1 Sep 2026 22:17:18 -0600
+Subject: [PATCH 2/2] interactive: snap fullscreen Alt-drags between outputs
+
+---
+ include/labwc.h    |  4 ++--
+ src/input/cursor.c |  8 ++++++++
+ src/interactive.c  | 51 ++++++++++++++++------------------------------
+ 3 files changed, 28 insertions(+), 35 deletions(-)
+
+diff --git a/include/labwc.h b/include/labwc.h
+index 2352cde..0ac4aed 100644
+--- a/include/labwc.h
++++ b/include/labwc.h
+@@ -214,8 +214,8 @@ struct server {
+ 	/* cursor interactive */
+ 	enum input_mode input_mode;
+ 	struct view *grabbed_view;
+-	/* Restore a fullscreen view on the output where an interactive move ends */
+-	bool grabbed_view_was_fullscreen;
++	/* Keep fullscreen/maximized views snapped to the output under the cursor */
++	bool grabbed_view_snap_to_output;
+ 	/* Cursor position when interactive move/resize is requested */
+ 	double grab_x, grab_y;
+ 	/* View geometry when interactive move/resize is requested */
+diff --git a/src/input/cursor.c b/src/input/cursor.c
+index e8ac7d9..2fecdf9 100644
+--- a/src/input/cursor.c
++++ b/src/input/cursor.c
+@@ -272,6 +272,14 @@ static void
+ process_cursor_move(uint32_t time)
+ {
+ 	struct view *view = server.grabbed_view;
++	if (server.grabbed_view_snap_to_output) {
++		struct output *output = output_nearest_to_cursor();
++		if (output_is_usable(output) && view->output != output) {
++			view_move_to_output(view, output);
++		}
++		overlay_update(&server.seat);
++		return;
++	}
+ 
+ 	int x = server.grab_box.x + (server.seat.cursor->x - server.grab_x);
+ 	int y = server.grab_box.y + (server.seat.cursor->y - server.grab_y);
+diff --git a/src/interactive.c b/src/interactive.c
+index b80bcf0..9bb0c07 100644
+--- a/src/interactive.c
++++ b/src/interactive.c
+@@ -1,6 +1,7 @@
+ // SPDX-License-Identifier: GPL-2.0-only
+ #include <assert.h>
+ #include <wlr/types/wlr_cursor.h>
++#include <wlr/types/wlr_keyboard.h>
+ #include "config/rcxml.h"
+ #include "edges.h"
+ #include "input/keyboard.h"
+@@ -70,7 +71,7 @@ interactive_set_grab_context(const struct cursor_context *ctx)
+ 	}
+ 
+ 	server.grabbed_view = ctx->view;
+-	server.grabbed_view_was_fullscreen = false;
++	server.grabbed_view_snap_to_output = false;
+ 	server.grab_x = server.seat.cursor->x;
+ 	server.grab_y = server.seat.cursor->y;
+ 	server.grab_box = ctx->view->current;
+@@ -88,7 +89,6 @@ interactive_begin(struct view *view, enum input_mode mode, enum lab_edge edges)
+ 	 * instead consumes them itself, to move or resize windows.
+ 	 */
+ 	struct seat *seat = &server.seat;
+-	bool restore_fullscreen = false;
+ 
+ 	if (server.input_mode != LAB_INPUT_STATE_PASSTHROUGH
+ 			|| view != server.grabbed_view) {
+@@ -104,25 +104,21 @@ interactive_begin(struct view *view, enum input_mode mode, enum lab_edge edges)
+ 	enum lab_cursors cursor_shape = LAB_CURSOR_DEFAULT;
+ 
+ 	switch (mode) {
+-	case LAB_INPUT_STATE_MOVE:
+-		if (view->fullscreen) {
+-			/*
+-			 * Temporarily restore fullscreen views while moving them. The
+-			 * original state is restored on the output where the move ends.
+-			 */
+-			restore_fullscreen = true;
+-			server.grabbed_view_was_fullscreen = true;
+-			view_set_fullscreen(view, false);
+-		}
++	case LAB_INPUT_STATE_MOVE: {
++		uint32_t modifiers = keyboard_get_all_modifiers(seat);
++		server.grabbed_view_snap_to_output = view->fullscreen
++			|| (view->maximized == VIEW_AXIS_BOTH
++				&& (modifiers & WLR_MODIFIER_ALT));
+ 
+ 		/* Store natural geometry at start of move */
+ 		view_store_natural_geometry(view);
+ 
+ 		/* Prevent region snapping when just moving via A-Left mousebind */
+-		seat->region_prevent_snap = keyboard_get_all_modifiers(seat);
++		seat->region_prevent_snap = modifiers;
+ 
+ 		cursor_shape = LAB_CURSOR_GRAB;
+ 		break;
++	}
+ 	case LAB_INPUT_STATE_RESIZE: {
+ 		if (view->shaded || view->fullscreen) {
+ 			/*
+@@ -166,13 +162,6 @@ interactive_begin(struct view *view, enum input_mode mode, enum lab_edge edges)
+ 
+ 	seat_focus_override_begin(seat, mode, cursor_shape);
+ 
+-	/* Keep the pointer anchored at the same relative place in the window. */
+-	if (restore_fullscreen && view_is_floating(view)) {
+-		struct wlr_box natural_geo = view->pending;
+-		interactive_anchor_to_cursor(&natural_geo);
+-		view_move_resize(view, natural_geo);
+-	}
+-
+ 	/*
+ 	 * Un-tile maximized/tiled view immediately if <unSnapThreshold> is
+ 	 * zero. Otherwise, un-tile it later in cursor motion handler.
+@@ -180,7 +169,8 @@ interactive_begin(struct view *view, enum input_mode mode, enum lab_edge edges)
+ 	 * then we set a size of 0x0 here and determine the correct geometry
+ 	 * later. See do_late_positioning() in xdg.c.
+ 	 */
+-	if (mode == LAB_INPUT_STATE_MOVE && !view_is_floating(view)
++	if (mode == LAB_INPUT_STATE_MOVE && !server.grabbed_view_snap_to_output
++			&& !view_is_floating(view)
+ 			&& rc.unsnap_threshold <= 0) {
+ 		struct wlr_box natural_geo = view->natural_geometry;
+ 		interactive_anchor_to_cursor(&natural_geo);
+@@ -333,25 +323,20 @@ interactive_finish(struct view *view)
+ 		return;
+ 	}
+ 
+-	bool restore_fullscreen = server.grabbed_view_was_fullscreen;
+-	struct output *output = NULL;
++	bool snap_to_output = server.grabbed_view_snap_to_output;
+ 
+ 	if (server.input_mode == LAB_INPUT_STATE_MOVE) {
+-		if (restore_fullscreen) {
+-			output = output_nearest_to_cursor();
++		if (snap_to_output) {
++			struct output *output = output_nearest_to_cursor();
++			if (output_is_usable(output) && view->output != output) {
++				view_move_to_output(view, output);
++			}
+ 		} else if (!snap_to_region(view)) {
+ 			snap_to_edge(view);
+ 		}
+ 	}
+ 
+ 	interactive_cancel(view);
+-
+-	if (restore_fullscreen) {
+-		if (output_is_usable(output)) {
+-			view_set_output(view, output);
+-		}
+-		view_set_fullscreen(view, true);
+-	}
+ }
+ 
+ /*
+@@ -369,7 +354,7 @@ interactive_cancel(struct view *view)
+ 	}
+ 
+ 	server.grabbed_view = NULL;
+-	server.grabbed_view_was_fullscreen = false;
++	server.grabbed_view_snap_to_output = false;
+ 
+ 	/*
+ 	 * It's possible that grabbed_view was set but interactive_begin()
+-- 
+2.55.0
+

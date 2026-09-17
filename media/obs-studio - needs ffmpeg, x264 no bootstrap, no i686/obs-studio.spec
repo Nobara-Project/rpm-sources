@@ -51,7 +51,7 @@
 
 Name:           obs-studio
 Version:        %{version_string}
-Release:        3.%{rel_build}
+Release:        7.%{rel_build}
 Summary:        Open Broadcaster Software Studio
 
 # OBS itself is GPL-2.0-or-later, while various plugin dependencies are of various other licenses
@@ -72,6 +72,10 @@ Patch0102:      0102-frontend-Allow-invalid-recording-encoder-if-quality-.patch
 Patch0103:      0103-UI-Add-support-for-OpenH264-as-the-worst-case-fallba.patch
 ## From: https://github.com/obsproject/obs-studio/pull/12507
 Patch0105:      0105-libobs-opengl-Reject-external-only-modifiers.patch
+
+# Downstream Nobara patches
+## Preserve Rec. 2100 PQ from wlroots PipeWire screencasts
+Patch0106:      0106-linux-pipewire-handle-Rec.2100-PQ-screencasts.patch
 
 # WIP code to improve new CEF support (based on upstream dev tree)
 ## From: https://github.com/asahilina/obs-browser/tree/lockdown
@@ -212,6 +216,7 @@ software for video recording and live streaming.
 %{_datadir}/applications/com.obsproject.Studio.desktop
 %{_datadir}/icons/hicolor/*/apps/com.obsproject.Studio.*
 %{_datadir}/obs/
+%exclude %{_datadir}/obs/obs-plugins/obs-x264/
 %exclude %{_datadir}/obs/obs-plugins/vlc-video/
 %if %{with cef}
 %exclude %{_datadir}/obs/obs-plugins/obs-browser*
@@ -430,6 +435,18 @@ appstream-util validate-relax --nonet %{buildroot}%{_datadir}/metainfo/*.metainf
 
 
 %changelog
+* Wed Sep 02 2026 Nobara Project <nobara@protonmail.com> - 32.1.2-7
+- Preserve the stock PipeWire render path for KDE and SDR captures
+
+* Tue Sep 01 2026 Nobara Project <nobara@protonmail.com> - 32.1.2-6
+- Fix red/blue channel order for XRGB2101010 DMA-BUF HDR captures
+
+* Tue Sep 01 2026 Nobara Project <nobara@protonmail.com> - 32.1.2-5
+- Add Rec. 2100 PQ handling and 10-bit RGB negotiation for PipeWire screencasts
+
+* Fri Aug 28 2026 Nobara Project <nobara@protonmail.com> - 32.1.2-3
+- Keep x264 plugin data out of the main package to avoid upgrade file conflicts
+
 * Sat Jul 04 2026 Nobara Project <nobara@protonmail.com> - 32.1.2-4
 - Add transitional package to retire i686 obs-studio-libs
 - Recommend 32-bit vkcapture hook libs instead of the full plugin

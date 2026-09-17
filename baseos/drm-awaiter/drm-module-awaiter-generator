@@ -1,0 +1,108 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Adapted from CachyOS drm-module-awaiter-generator, copyright (C) 2026
+# Vasiliy Stelmachenok. See README.md for upstream provenance and changes.
+
+# Generators only describe dependencies; module insertion happens in a service
+# on the real root, never in PID 1's generator phase or in the initramfs.
+generate() {
+    [[ ! -e /etc/initrd-release && -n ${1:-} ]] || return 0
+    local output=$1 path class alias module bound override word kind rest
+    local -a candidates=() modules=() nvidia=()
+    local -A seen=() blocked=()
+
+    # -c includes modprobe.d and modprobe.blacklist from the kernel command line.
+    while read -r kind module rest; do
+        [[ $kind == blacklist ]] && blocked[${module//-/_}]=1
+    done < <(modprobe -c)
+    # The kernel's own blacklist must also be respected.
+    for word in $(</proc/cmdline); do
+        case $word in
+            nomodeset|drm_awaiter=0) return 0 ;;
+            module_blacklist=*)
+                IFS=, read -ra candidates <<< "${word#*=}"
+                for module in "${candidates[@]}"; do blocked[${module//-/_}]=1; done
+                ;;
+        esac
+    done
+
+    for path in /sys/bus/pci/devices/*; do
+        [[ -r $path/class && -r $path/modalias ]] || continue
+        class=$(<"$path/class")
+        [[ $class == 0x03* ]] || continue
+        # Leave devices reserved for passthrough or a custom driver alone.
+        override=
+        [[ ! -r $path/driver_override ]] || override=$(<"$path/driver_override")
+        [[ -z $override || $override == '(null)' ]] || continue
+        candidates=()
+        if [[ -L $path/driver ]]; then
+            bound=$(readlink "$path/driver")
+            candidates=("${bound##*/}")
+        else
+            alias=$(<"$path/modalias")
+            # Resolve the complete alias with kmod, including wildcard aliases.
+            # Keep both Intel/AMD candidates: their probe routines honor
+            # force_probe and si_support/cik_support, just as with udev probing.
+            mapfile -t candidates < <(modprobe -b -R "$alias" 2>/dev/null)
+        fi
+        for module in "${candidates[@]}"; do
+            module=${module//-/_}
+            [[ -z ${blocked[$module]:-} ]] || continue
+            case $module in
+                nvidia)
+                    [[ -z ${blocked[nvidia_modeset]:-} && -z ${blocked[nvidia_drm]:-} ]] || continue
+                    # Loading nvidia alone does not guarantee DRM registration.
+                    modinfo nvidia_drm &>/dev/null || continue
+                    module=nvidia_drm
+                    ;;
+                amdgpu|radeon|i915|xe|nouveau|nova_core|nova_drm|virtio_gpu|vmwgfx|qxl|bochs|mgag200|ast) ;;
+                *) continue ;;
+            esac
+            [[ -z ${seen[$module]:-} ]] || continue
+            seen[$module]=1
+            case $module in
+                nvidia_drm) nvidia+=("$module") ;;
+                *) modules+=("$module") ;;
+            esac
+        done
+    done
+    modules+=("${nvidia[@]}")
+    ((${#modules[@]})) || return 0
+
+    mkdir -p "$output"
+    cat > "$output/drm-module-load.service" <<'EOF'
+[Unit]
+Description=Load GPU drivers before graphical login
+After=systemd-udev-trigger.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+TimeoutStartSec=30s
+TimeoutStopSec=5s
+EOF
+    for module in "${modules[@]}"; do
+        # A rejected probe must not prevent another GPU or the login fallback.
+        echo "ExecStart=-/usr/sbin/modprobe -b $module" >> "$output/drm-module-load.service"
+    done
+    cat > "$output/drm-module-load.target" <<'EOF'
+[Unit]
+Description=GPU drivers ready for graphical login
+Wants=drm-module-load.service
+After=drm-module-load.service
+EOF
+    # Drop-ins also apply when display-manager.service is an alias (SDDM/GDM).
+    for unit in display-manager.service getty@tty1.service; do
+        mkdir -p "$output/$unit.d"
+        cat > "$output/$unit.d/50-drm-awaiter.conf" <<'EOF'
+[Unit]
+Wants=drm-module-load.target
+After=drm-module-load.target
+EOF
+    done
+}
+
+# Allow the fixture suite to source the function without touching host sysfs.
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
+    generate "$@"
+fi

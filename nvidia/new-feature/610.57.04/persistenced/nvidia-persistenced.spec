@@ -1,7 +1,7 @@
 
 Name:           nvidia-persistenced
 Version:        610.57.04
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        A daemon to maintain persistent software state in the NVIDIA driver
 Epoch:          3
 License:        GPLv2+

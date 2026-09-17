@@ -10,7 +10,7 @@
 
 Name:           nvidia-driver
 Version:        595.91.07
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        NVIDIA's proprietary display driver for NVIDIA graphic cards
 Epoch:          3
 License:        NVIDIA License
@@ -301,6 +301,9 @@ mkdir -p %{buildroot}%{_systemd_util_dir}/system-preset/
 install -p -m 0644 %{SOURCE8} %{SOURCE9} %{buildroot}%{_systemd_util_dir}/system-preset/
 mkdir -p %{buildroot}%{_unitdir}/
 cp -frv systemd/system/systemd-* systemd/system/nvidia-powerd.service %{buildroot}%{_unitdir}/
+install -p -m 0644 systemd/system/nvidia-{hibernate,resume,suspend,suspend-then-hibernate}.service %{buildroot}%{_unitdir}/
+install -p -m 0755 systemd/nvidia-sleep.sh %{buildroot}%{_bindir}/
+install -p -m 0755 -D systemd/system-sleep/nvidia %{buildroot}%{_systemd_util_dir}/system-sleep/nvidia
 install -p -m 0644 -D nvidia-dbus.conf %{buildroot}%{_datadir}/dbus-1/system.d/nvidia-dbus.conf
 
 # Ignore powerd binary exiting if hardware is not present
@@ -337,13 +340,35 @@ appstream-util validate --nonet %{buildroot}%{_metainfodir}/com.nvidia.driver.me
 %ifarch x86_64 aarch64
 
 %post
+%systemd_post nvidia-hibernate.service
 %systemd_post nvidia-powerd.service
+%systemd_post nvidia-resume.service
+%systemd_post nvidia-suspend.service
+%systemd_post nvidia-suspend-then-hibernate.service
+
+# These units were not present in earlier builds, so apply their presets on
+# upgrade as well as on initial installation.
+if [ $1 -gt 1 ] && [ -x "%{_systemd_util_dir}/systemd-update-helper" ]; then
+    %{_systemd_util_dir}/systemd-update-helper install-system-units \
+        nvidia-hibernate.service \
+        nvidia-resume.service \
+        nvidia-suspend.service \
+        nvidia-suspend-then-hibernate.service || :
+fi
 
 %preun
+%systemd_preun nvidia-hibernate.service
 %systemd_preun nvidia-powerd.service
+%systemd_preun nvidia-resume.service
+%systemd_preun nvidia-suspend.service
+%systemd_preun nvidia-suspend-then-hibernate.service
 
 %postun
+%systemd_postun nvidia-hibernate.service
 %systemd_postun nvidia-powerd.service
+%systemd_postun nvidia-resume.service
+%systemd_postun nvidia-suspend.service
+%systemd_postun nvidia-suspend-then-hibernate.service
 
 %endif
 
@@ -358,12 +383,18 @@ appstream-util validate --nonet %{buildroot}%{_metainfodir}/com.nvidia.driver.me
 %{_bindir}/nvidia-pcc
 %endif
 %{_bindir}/nvidia-powerd
+%{_bindir}/nvidia-sleep.sh
 %{_metainfodir}/com.nvidia.driver.metainfo.xml
 %{_datadir}/dbus-1/system.d/nvidia-dbus.conf
 %{_datadir}/nvidia/nvidia-application-profiles*
 %{_datadir}/pixmaps/com.nvidia.driver.png
 %{_systemd_util_dir}/system-preset/70-nvidia-driver.preset
+%{_systemd_util_dir}/system-sleep/nvidia
+%{_unitdir}/nvidia-hibernate.service
 %{_unitdir}/nvidia-powerd.service
+%{_unitdir}/nvidia-resume.service
+%{_unitdir}/nvidia-suspend.service
+%{_unitdir}/nvidia-suspend-then-hibernate.service
 %dir %{_unitdir}/systemd-suspend.service.d
 %{_unitdir}/systemd-suspend.service.d/nvidia-suspend-nofreeze.conf
 %dir %{_unitdir}/systemd-hibernate.service.d

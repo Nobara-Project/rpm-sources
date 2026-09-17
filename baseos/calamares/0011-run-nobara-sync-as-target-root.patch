@@ -1,0 +1,19 @@
+--- a/src/modules/shellprocess/shellprocess.conf
++++ b/src/modules/shellprocess/shellprocess.conf
+@@ -22,14 +22,14 @@ script:
+     - command: >
+         bash -ce '
+           if [ -n "${gs[nobara.update]}" ]; then
+-            nobara-sync cli
++            env -u SUDO_USER -u SUDO_UID -u SUDO_GID -u PKEXEC_UID -u ORIG_USER -u ORIGINAL_USER_HOME -u DISPLAY -u XAUTHORITY HOME=/root USER=root LOGNAME=root nobara-sync cli
+           fi
+         '
+       status: "Installing latest updates…"
+     - command: >
+         bash -ce '
+           if [ -n "${gs[nobara.codecs]}" ]; then
+-            nobara-sync install-codecs
++            env -u SUDO_USER -u SUDO_UID -u SUDO_GID -u PKEXEC_UID -u ORIG_USER -u ORIGINAL_USER_HOME -u DISPLAY -u XAUTHORITY HOME=/root USER=root LOGNAME=root nobara-sync install-codecs
+           fi
+         '
+       status: "Installing media codecs…"

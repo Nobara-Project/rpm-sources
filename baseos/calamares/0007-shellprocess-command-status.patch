@@ -1,0 +1,225 @@
+--- a/src/modules/shellprocess/ShellProcessJob.cpp
++++ b/src/modules/shellprocess/ShellProcessJob.cpp
+@@ -13,6 +13,7 @@
+ #include "GlobalStorage.h"
+ #include "JobQueue.h"
+ 
++#include "compat/Variant.h"
+ #include "utils/CommandList.h"
+ #include "utils/Logger.h"
+ #include "utils/Variant.h"
+@@ -20,9 +21,10 @@
+ #include <QDateTime>
+ #include <QThread>
+ 
++#include <utility>
++
+ ShellProcessJob::ShellProcessJob( QObject* parent )
+     : Calamares::CppJob( parent )
+-    , m_commands( nullptr )
+ {
+ }
+ 
+@@ -38,17 +40,44 @@
+     return tr( "Running shell processes…", "@status" );
+ }
+ 
++QString
++ShellProcessJob::prettyStatusMessage() const
++{
++    const int currentCommand = m_currentCommand.load( std::memory_order_acquire );
++    if ( currentCommand < 0 || static_cast< std::size_t >( currentCommand ) >= m_commands.size() )
++    {
++        return {};
++    }
++
++    const auto& status = m_commands[ static_cast< std::size_t >( currentCommand ) ].status;
++    return status ? status->get() : prettyName();
++}
++
+ Calamares::JobResult
+ ShellProcessJob::exec()
+ {
+-
+-    if ( !m_commands || m_commands->isEmpty() )
++    if ( m_commands.empty() )
+     {
+         cWarning() << "No commands to execute" << moduleInstanceKey();
+         return Calamares::JobResult::ok();
+     }
+ 
+-    return m_commands->run();
++    const qreal commandCount = static_cast< qreal >( m_commands.size() );
++    for ( std::size_t i = 0; i < m_commands.size(); ++i )
++    {
++        m_currentCommand.store( static_cast< int >( i ), std::memory_order_release );
++        emit progress( static_cast< qreal >( i ) / commandCount );
++
++        auto result = m_commands[ i ].commands->run();
++        if ( !result )
++        {
++            m_currentCommand.store( -1, std::memory_order_release );
++            return result;
++        }
++    }
++
++    m_currentCommand.store( -1, std::memory_order_release );
++    return Calamares::JobResult::ok();
+ }
+ 
+ void
+@@ -62,15 +91,51 @@
+     }
+     bool verbose = Calamares::getBool( configurationMap, "verbose", false );
+ 
++    m_commands.clear();
++    m_currentCommand.store( -1, std::memory_order_release );
++
+     if ( configurationMap.contains( "script" ) )
+     {
+-        m_commands = std::make_unique< Calamares::CommandList >(
+-            configurationMap.value( "script" ), !dontChroot, std::chrono::seconds( timeout ) );
+-        if ( m_commands->isEmpty() )
++        auto addCommand = [ this, dontChroot, timeout, verbose ]( const QVariant& commandVariant )
+         {
+-            cDebug() << "ShellProcessJob: \"script\" contains no commands for" << moduleInstanceKey();
+-        }
+-        m_commands->updateVerbose( verbose );
++            auto commands = std::make_unique< Calamares::CommandList >(
++                commandVariant, !dontChroot, std::chrono::seconds( timeout ) );
++            if ( commands->isEmpty() )
++            {
++                return;
++            }
++            commands->updateVerbose( verbose );
++
++            std::unique_ptr< Calamares::Locale::TranslatedString > status;
++            if ( Calamares::typeOf( commandVariant ) == Calamares::MapVariantType )
++            {
++                const auto commandMap = commandVariant.toMap();
++                if ( commandMap.contains( "status" ) )
++                {
++                    status = std::make_unique< Calamares::Locale::TranslatedString >( commandMap, "status" );
++                }
++            }
++
++            m_commands.push_back( { std::move( commands ), std::move( status ) } );
++        };
++
++        const auto script = configurationMap.value( "script" );
++        if ( Calamares::typeOf( script ) == Calamares::ListVariantType )
++        {
++            for ( const auto& commandVariant : script.toList() )
++            {
++                addCommand( commandVariant );
++            }
++        }
++        else
++        {
++            addCommand( script );
++        }
++
++        if ( m_commands.empty() )
++        {
++            cDebug() << "ShellProcessJob: \"script\" contains no commands for" << moduleInstanceKey();
++        }
+     }
+     else
+     {
+--- a/src/modules/shellprocess/ShellProcessJob.h
++++ b/src/modules/shellprocess/ShellProcessJob.h
+@@ -20,7 +20,9 @@
+ #include <QObject>
+ #include <QVariantMap>
+ 
++#include <atomic>
+ #include <memory>
++#include <vector>
+ 
+ class PLUGINDLLEXPORT ShellProcessJob : public Calamares::CppJob
+ {
+@@ -31,13 +33,21 @@
+     ~ShellProcessJob() override;
+ 
+     QString prettyName() const override;
++    QString prettyStatusMessage() const override;
+ 
+     Calamares::JobResult exec() override;
+ 
+     void setConfigurationMap( const QVariantMap& configurationMap ) override;
+ 
+ private:
+-    std::unique_ptr< Calamares::CommandList > m_commands;
++    struct CommandStep
++    {
++        std::unique_ptr< Calamares::CommandList > commands;
++        std::unique_ptr< Calamares::Locale::TranslatedString > status;
++    };
++
++    std::vector< CommandStep > m_commands;
++    std::atomic< int > m_currentCommand { -1 };
+     std::unique_ptr< Calamares::Locale::TranslatedString > m_name;
+ };
+ 
+--- a/src/modules/shellprocess/shellprocess.conf
++++ b/src/modules/shellprocess/shellprocess.conf
+@@ -69,7 +69,9 @@
+ #       command differently from the global setting. An optional
+ #       key *environment* is a list of strings to put into the
+ #       environment of the command. An optional key *verbose*
+-#       overrides the global *verbose* setting in this file.
++#       overrides the global *verbose* setting in this file. An optional
++#       key *status*, with translations as *status[lang]*, changes the
++#       progress text while this specific command runs.
+ #
+ # Using a single object is not generally useful because the same effect
+ # can be obtained with a single string and a global timeout, except
+@@ -132,6 +134,7 @@
+ #      timeout: 3600
+ #    - command: "echo -e '\e[33;2mred\e[33;0m' ; echo second line"
+ #      verbose: true
++#      status: "Writing messages…"
+ 
+ # You can change the description of the job (as it is displayed in the
+ # progress bar during installation) by defining an *i18n* key, which
+@@ -163,14 +166,22 @@
+     - "echo 'nameserver 127.0.0.53' > /etc/resolv.conf"
+     - "echo 'options edns0 trust-ad' >> /etc/resolv.conf"
+     - "echo 'search Home' >> /etc/resolv.conf"
++    - command: >
++        bash -ce '
++          if [ -n "${gs[nobara.update]}" ]; then
++            nobara-sync cli
++          fi
++        '
++      status: "Installing latest updates…"
++    - command: >
++        bash -ce '
++          if [ -n "${gs[nobara.codecs]}" ]; then
++            nobara-sync install-codecs
++          fi
++        '
++      status: "Installing media codecs…"
+     - >
+       bash -ce '
+-        if [ -n "${gs[nobara.update]}" ]; then
+-          nobara-sync cli
+-        fi
+-        if [ -n "${gs[nobara.codecs]}" ]; then
+-          nobara-sync install-codecs
+-        fi
+         if [ -n "${gs[nobara.codecsrepo]}" ]; then
+           dnf config-manager setopt nobara-pikaos-additional.enabled=1
+           sed -i "s/enabled=0/enabled=1/g" /etc/yum.repos.d/nobara-pikaos-additional.repo
+--- a/src/modules/shellprocess/shellprocess.schema.yaml
++++ b/src/modules/shellprocess/shellprocess.schema.yaml
+@@ -23,6 +23,9 @@
+       verbose:
+         type: boolean
+         description: when true, log output from the command to the Calamares log.
++      status:
++        type: string
++        description: the optional progress text displayed while this command runs.
+     required:
+     - command
+ type: object

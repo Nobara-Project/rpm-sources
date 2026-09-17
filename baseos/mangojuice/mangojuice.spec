@@ -1,6 +1,6 @@
 Name:           mangojuice
 Version:        1.0.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Graphical UI to manage Mangohud settings
 Group:          Graphics/Utilities
 License:        GPL-3.0-or-later
@@ -50,8 +50,14 @@ This program will be a convenient alternative to Goverlay for setting up Mangohu
 %{_metainfodir}/io.github.radiolamp.mangojuice.metainfo.xml
 
 %changelog
-* Sun Aug 23 2026 Owen Zimmerman <owen@fyralabs.com> - 1.0.0-1 
-- Update to 1.0.0, install license and READMEs, use %%conf and %%find_lang, update path macros, update license identifier
+* Thu Sep 17 2026 Owen Zimmerman <owen@fyralabs.com> - 1.0.0-2
+- Install license and READMEs
+- use %%conf and %%find_lang
+- update path macros
+- update license identifier
+
+* Mon Sep 14 2026 LionHeartP <LionHeartP@proton.me> - 1.0.0-1
+- Update to 1.0.0
 
 * Sun Apr 05 2026 LionHeartP <LionHeartP@proton.me> - 0.9.0-1
 - Update to 0.9.0

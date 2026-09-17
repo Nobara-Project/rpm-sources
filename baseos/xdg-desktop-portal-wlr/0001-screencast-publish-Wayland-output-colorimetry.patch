@@ -1,0 +1,667 @@
+From cb296421c9f88a3af9cad989c60957945be1634b Mon Sep 17 00:00:00 2001
+From: Nobara Project <noreply@nobaraproject.org>
+Date: Tue, 1 Sep 2026 09:38:03 -0600
+Subject: [PATCH] screencast: publish Wayland output colorimetry
+
+The monitor capture protocols copy the compositor output buffer but do not describe its color encoding. Query the selected wl_output through color-management-v1 and map supported primaries and transfer functions to fixed SPA raw-video format fields.
+
+Refresh active PipeWire stream parameters when the output image description changes. Window captures and compositors without usable color-management metadata continue to advertise unknown colorimetry.
+---
+ include/screencast_common.h          |  20 ++
+ meson.build                          |   2 +-
+ protocols/meson.build                |   1 +
+ src/screencast/pipewire_screencast.c |  46 +++-
+ src/screencast/wlr_screencast.c      | 384 ++++++++++++++++++++++++++-
+ 5 files changed, 437 insertions(+), 16 deletions(-)
+
+diff --git a/include/screencast_common.h b/include/screencast_common.h
+index 113c44f..eda97ad 100644
+--- a/include/screencast_common.h
++++ b/include/screencast_common.h
+@@ -9,6 +9,11 @@
+ 
+ #include "fps_limit.h"
+ 
++struct wp_color_manager_v1;
++struct wp_color_management_output_v1;
++struct wp_image_description_v1;
++struct wp_image_description_info_v1;
++
+ // this seems to be right based on
+ // https://github.com/flatpak/xdg-desktop-portal/blob/309a1fc0cf2fb32cceb91dbc666d20cf0a3202c2/src/screen-cast.c#L955
+ #define XDP_CAST_PROTO_VER 4
+@@ -93,6 +98,14 @@ struct xdpw_dmabuf_feedback_data {
+ 	bool device_used;
+ };
+ 
++struct xdpw_output_colorimetry {
++	bool valid;
++	enum spa_video_color_range range;
++	enum spa_video_color_matrix matrix;
++	enum spa_video_transfer_function transfer_function;
++	enum spa_video_color_primaries color_primaries;
++};
++
+ 
+ struct xdpw_toplevel {
+ 	struct wl_list link;
+@@ -122,6 +135,7 @@ struct xdpw_screencast_context {
+ 	struct zwp_linux_dmabuf_v1 *linux_dmabuf;
+ 	struct zwp_linux_dmabuf_feedback_v1 *linux_dmabuf_feedback;
+ 	struct zxdg_output_manager_v1 *xdg_output_manager;
++	struct wp_color_manager_v1 *color_manager;
+ 	struct xdpw_dmabuf_feedback_data feedback_data;
+ 	struct wl_array format_modifier_pairs;
+ 
+@@ -225,9 +239,15 @@ struct xdpw_screencast_session_data {
+ 
+ struct xdpw_wlr_output {
+ 	struct wl_list link;
++	struct xdpw_screencast_context *ctx;
+ 	uint32_t id;
+ 	struct wl_output *output;
+ 	struct zxdg_output_v1 *xdg_output;
++	struct wp_color_management_output_v1 *color_output;
++	struct wp_image_description_v1 *image_description;
++	struct wp_image_description_info_v1 *image_description_info;
++	struct xdpw_output_colorimetry colorimetry;
++	struct xdpw_output_colorimetry pending_colorimetry;
+ 	char *name;
+ 	char *description;
+ 	int x;
+diff --git a/meson.build b/meson.build
+index 6ff602d..209894c 100644
+--- a/meson.build
++++ b/meson.build
+@@ -27,7 +27,7 @@ inc = include_directories('include')
+ rt = cc.find_library('rt')
+ pipewire = dependency('libpipewire-0.3', version: '>= 0.3.62')
+ wayland_client = dependency('wayland-client')
+-wayland_protos = dependency('wayland-protocols', version: '>=1.24')
++wayland_protos = dependency('wayland-protocols', version: '>=1.47')
+ iniparser = dependency('inih')
+ gbm = dependency('gbm')
+ drm = dependency('libdrm')
+diff --git a/protocols/meson.build b/protocols/meson.build
+index def3809..060b478 100644
+--- a/protocols/meson.build
++++ b/protocols/meson.build
+@@ -12,6 +12,7 @@ client_protocols = [
+ 	wl_protocol_dir / 'staging/ext-image-capture-source/ext-image-capture-source-v1.xml',
+ 	wl_protocol_dir / 'staging/ext-image-copy-capture/ext-image-copy-capture-v1.xml',
+ 	wl_protocol_dir / 'staging/ext-foreign-toplevel-list/ext-foreign-toplevel-list-v1.xml',
++	wl_protocol_dir / 'staging/color-management/color-management-v1.xml',
+ 	'wlr-screencopy-unstable-v1.xml',
+ ]
+ 
+diff --git a/src/screencast/pipewire_screencast.c b/src/screencast/pipewire_screencast.c
+index 1f24760..04f61e8 100644
+--- a/src/screencast/pipewire_screencast.c
++++ b/src/screencast/pipewire_screencast.c
+@@ -19,6 +19,35 @@
+ 
+ #define DAMAGE_REGION_COUNT 16
+ 
++static const struct xdpw_output_colorimetry *get_output_colorimetry(
++		struct xdpw_screencast_instance *cast) {
++	if (cast->target == NULL || cast->target->type != MONITOR ||
++			cast->target->output == NULL ||
++			!cast->target->output->colorimetry.valid) {
++		return NULL;
++	}
++
++	return &cast->target->output->colorimetry;
++}
++
++static void add_colorimetry(struct spa_pod_builder *b,
++		struct xdpw_screencast_instance *cast) {
++	const struct xdpw_output_colorimetry *colorimetry =
++		get_output_colorimetry(cast);
++	if (colorimetry == NULL) {
++		return;
++	}
++
++	spa_pod_builder_add(b, SPA_FORMAT_VIDEO_colorRange,
++		SPA_POD_Id(colorimetry->range), 0);
++	spa_pod_builder_add(b, SPA_FORMAT_VIDEO_colorMatrix,
++		SPA_POD_Id(colorimetry->matrix), 0);
++	spa_pod_builder_add(b, SPA_FORMAT_VIDEO_transferFunction,
++		SPA_POD_Id(colorimetry->transfer_function), 0);
++	spa_pod_builder_add(b, SPA_FORMAT_VIDEO_colorPrimaries,
++		SPA_POD_Id(colorimetry->color_primaries), 0);
++}
++
+ static struct spa_pod *build_buffer(struct spa_pod_builder *b, uint32_t blocks, uint32_t size,
+ 		uint32_t stride, uint32_t datatype) {
+ 	assert(blocks > 0);
+@@ -40,7 +69,8 @@ static struct spa_pod *build_buffer(struct spa_pod_builder *b, uint32_t blocks,
+ 	return spa_pod_builder_pop(b, &f[0]);
+ }
+ 
+-static struct spa_pod *fixate_format(struct spa_pod_builder *b, enum spa_video_format format,
++static struct spa_pod *fixate_format(struct spa_pod_builder *b,
++		struct xdpw_screencast_instance *cast, enum spa_video_format format,
+ 		uint32_t width, uint32_t height, uint32_t framerate, uint64_t *modifier)
+ {
+ 	struct spa_pod_frame f[1];
+@@ -77,10 +107,12 @@ static struct spa_pod *fixate_format(struct spa_pod_builder *b, enum spa_video_f
+ 				&SPA_FRACTION(framerate, 1)),
+ 			0);
+ 	}
++	add_colorimetry(b, cast);
+ 	return spa_pod_builder_pop(b, &f[0]);
+ }
+ 
+-static struct spa_pod *build_format(struct spa_pod_builder *b, enum spa_video_format format,
++static struct spa_pod *build_format(struct spa_pod_builder *b,
++		struct xdpw_screencast_instance *cast, enum spa_video_format format,
+ 		uint32_t width, uint32_t height, uint32_t framerate,
+ 		uint64_t *modifiers, int modifier_count) {
+ 	struct spa_pod_frame f[2];
+@@ -127,6 +159,7 @@ static struct spa_pod *build_format(struct spa_pod_builder *b, enum spa_video_fo
+ 				&SPA_FRACTION(framerate, 1)),
+ 			0);
+ 	}
++	add_colorimetry(b, cast);
+ 	return spa_pod_builder_pop(b, &f[0]);
+ }
+ 
+@@ -171,7 +204,7 @@ static void build_formats(struct spa_pod_builder *builder, struct xdpw_screencas
+ 			uint64_t *modifiers = NULL;
+ 			build_modifierlist(cast, fm_pair->fourcc, &modifiers, &modifier_count);
+ 			if (modifier_count > 0) {
+-				add_pod(params, build_format(builder, pw_format,
++				add_pod(params, build_format(builder, cast, pw_format,
+ 						cast->current_constraints.width, cast->current_constraints.height,
+ 						cast->framerate, modifiers, modifier_count));
+ 			}
+@@ -183,7 +216,7 @@ static void build_formats(struct spa_pod_builder *builder, struct xdpw_screencas
+ 	wl_array_for_each(format, &cast->current_constraints.shm_formats) {
+ 		enum spa_video_format pw_format = xdpw_format_pw_from_drm_fourcc(*format);
+ 		if (pw_format != SPA_VIDEO_FORMAT_UNKNOWN) {
+-			add_pod(params, build_format(builder, pw_format,
++			add_pod(params, build_format(builder, cast, pw_format,
+ 						cast->current_constraints.width, cast->current_constraints.height,
+ 						cast->framerate, NULL, 0));
+ 		}
+@@ -464,7 +497,7 @@ static void pwr_handle_stream_param_changed(void *data, uint32_t id,
+ 
+ fixate_format:
+ 
+-			add_pod(&params, fixate_format(&builder.b, cast->pwr_format.format,
++			add_pod(&params, fixate_format(&builder.b, cast, cast->pwr_format.format,
+ 						cast->current_constraints.width, cast->current_constraints.height, cast->framerate, &modifier));
+ 
+ 			build_formats(&builder.b, cast, &params);
+@@ -493,6 +526,9 @@ fixate_format:
+ 	logprint(DEBUG, "pipewire: modifier: %lu", cast->pwr_format.modifier);
+ 	logprint(DEBUG, "pipewire: size: (%u, %u)", cast->pwr_format.size.width, cast->pwr_format.size.height);
+ 	logprint(DEBUG, "pipewire: max_framerate: (%u / %u)", cast->pwr_format.max_framerate.num, cast->pwr_format.max_framerate.denom);
++	logprint(DEBUG, "pipewire: colorimetry: range=%u matrix=%u transfer=%u primaries=%u",
++		cast->pwr_format.color_range, cast->pwr_format.color_matrix,
++		cast->pwr_format.transfer_function, cast->pwr_format.color_primaries);
+ 
+ 	add_pod(&params, build_buffer(&builder.b, blocks, 0, 0, data_type));
+ 
+diff --git a/src/screencast/wlr_screencast.c b/src/screencast/wlr_screencast.c
+index 0c8aad7..f764c2c 100644
+--- a/src/screencast/wlr_screencast.c
++++ b/src/screencast/wlr_screencast.c
+@@ -1,6 +1,7 @@
+ #include "wlr_screencast.h"
+ 
+ #include "linux-dmabuf-unstable-v1-client-protocol.h"
++#include "color-management-v1-client-protocol.h"
+ #include "wlr-screencopy-unstable-v1-client-protocol.h"
+ #include "xdg-output-unstable-v1-client-protocol.h"
+ #include "ext-image-capture-source-v1-client-protocol.h"
+@@ -25,6 +26,7 @@
+ #include "xdpw.h"
+ #include "logger.h"
+ #include "fps_limit.h"
++#include "pipewire_screencast.h"
+ 
+ static void wlr_frame_capture_start(struct xdpw_screencast_instance *cast) {
+ 	fps_limit_measure_start(&cast->fps_limit, cast->framerate);
+@@ -150,6 +152,336 @@ static const struct zxdg_output_v1_listener xdg_output_listener = {
+ 	.description = xdg_output_handle_description,
+ };
+ 
++static enum spa_video_color_primaries color_primaries_from_wayland(
++		uint32_t primaries) {
++	switch (primaries) {
++	case WP_COLOR_MANAGER_V1_PRIMARIES_SRGB:
++		return SPA_VIDEO_COLOR_PRIMARIES_BT709;
++	case WP_COLOR_MANAGER_V1_PRIMARIES_PAL_M:
++		return SPA_VIDEO_COLOR_PRIMARIES_BT470M;
++	case WP_COLOR_MANAGER_V1_PRIMARIES_PAL:
++		return SPA_VIDEO_COLOR_PRIMARIES_BT470BG;
++	case WP_COLOR_MANAGER_V1_PRIMARIES_NTSC:
++		return SPA_VIDEO_COLOR_PRIMARIES_SMPTE170M;
++	case WP_COLOR_MANAGER_V1_PRIMARIES_GENERIC_FILM:
++		return SPA_VIDEO_COLOR_PRIMARIES_FILM;
++	case WP_COLOR_MANAGER_V1_PRIMARIES_BT2020:
++		return SPA_VIDEO_COLOR_PRIMARIES_BT2020;
++	case WP_COLOR_MANAGER_V1_PRIMARIES_CIE1931_XYZ:
++		return SPA_VIDEO_COLOR_PRIMARIES_SMPTEST428;
++	case WP_COLOR_MANAGER_V1_PRIMARIES_DCI_P3:
++		return SPA_VIDEO_COLOR_PRIMARIES_SMPTERP431;
++	case WP_COLOR_MANAGER_V1_PRIMARIES_DISPLAY_P3:
++		return SPA_VIDEO_COLOR_PRIMARIES_SMPTEEG432;
++	case WP_COLOR_MANAGER_V1_PRIMARIES_ADOBE_RGB:
++		return SPA_VIDEO_COLOR_PRIMARIES_ADOBERGB;
++	default:
++		return SPA_VIDEO_COLOR_PRIMARIES_UNKNOWN;
++	}
++}
++
++static enum spa_video_transfer_function color_transfer_from_wayland(uint32_t tf) {
++	switch (tf) {
++	case WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_GAMMA22:
++		return SPA_VIDEO_TRANSFER_GAMMA22;
++	case WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_GAMMA28:
++		return SPA_VIDEO_TRANSFER_GAMMA28;
++	case WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_ST240:
++		return SPA_VIDEO_TRANSFER_SMPTE240M;
++	case WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_EXT_LINEAR:
++		return SPA_VIDEO_TRANSFER_GAMMA10;
++	case WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_LOG_100:
++		return SPA_VIDEO_TRANSFER_LOG100;
++	case WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_LOG_316:
++		return SPA_VIDEO_TRANSFER_LOG316;
++	case WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_SRGB:
++	case WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_EXT_SRGB:
++	case WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_XVYCC:
++	case WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_COMPOUND_POWER_2_4:
++		return SPA_VIDEO_TRANSFER_SRGB;
++	case WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_ST2084_PQ:
++		return SPA_VIDEO_TRANSFER_SMPTE2084;
++	case WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_HLG:
++		return SPA_VIDEO_TRANSFER_ARIB_STD_B67;
++	default:
++		return SPA_VIDEO_TRANSFER_UNKNOWN;
++	}
++}
++
++static bool colorimetry_equal(const struct xdpw_output_colorimetry *a,
++		const struct xdpw_output_colorimetry *b) {
++	return a->valid == b->valid && a->range == b->range &&
++		a->matrix == b->matrix &&
++		a->transfer_function == b->transfer_function &&
++		a->color_primaries == b->color_primaries;
++}
++
++static void output_colorimetry_commit(struct xdpw_wlr_output *output,
++		const struct xdpw_output_colorimetry *colorimetry) {
++	if (colorimetry_equal(&output->colorimetry, colorimetry)) {
++		return;
++	}
++
++	output->colorimetry = *colorimetry;
++	if (colorimetry->valid) {
++		logprint(INFO, "wayland: output %s colorimetry: range=%u matrix=%u transfer=%u primaries=%u",
++			output->name ? output->name : "(unknown)", colorimetry->range,
++			colorimetry->matrix, colorimetry->transfer_function,
++			colorimetry->color_primaries);
++	} else {
++		logprint(DEBUG, "wayland: output %s colorimetry is unavailable",
++			output->name ? output->name : "(unknown)");
++	}
++
++	struct xdpw_screencast_instance *cast;
++	wl_list_for_each(cast, &output->ctx->screencast_instances, link) {
++		if (cast->target != NULL && cast->target->type == MONITOR &&
++				cast->target->output == output && cast->stream != NULL) {
++			pwr_update_stream_param(cast);
++		}
++	}
++}
++
++static void image_description_info_handle_done(void *data,
++		struct wp_image_description_info_v1 *info) {
++	struct xdpw_wlr_output *output = data;
++	if (output->image_description_info != info) {
++		return;
++	}
++
++	output->image_description_info = NULL;
++	wp_image_description_info_v1_destroy(info);
++	output->pending_colorimetry.valid =
++		output->pending_colorimetry.transfer_function != SPA_VIDEO_TRANSFER_UNKNOWN &&
++		output->pending_colorimetry.color_primaries != SPA_VIDEO_COLOR_PRIMARIES_UNKNOWN;
++	if (output->pending_colorimetry.valid) {
++		output->pending_colorimetry.range = SPA_VIDEO_COLOR_RANGE_0_255;
++		output->pending_colorimetry.matrix = SPA_VIDEO_COLOR_MATRIX_RGB;
++	}
++	output_colorimetry_commit(output, &output->pending_colorimetry);
++
++	if (output->image_description != NULL) {
++		wp_image_description_v1_destroy(output->image_description);
++		output->image_description = NULL;
++	}
++}
++
++static void image_description_info_handle_icc_file(void *data,
++		struct wp_image_description_info_v1 *info, int32_t icc, uint32_t icc_size) {
++	close(icc);
++}
++
++static void image_description_info_handle_primaries(void *data,
++		struct wp_image_description_info_v1 *info, int32_t r_x, int32_t r_y,
++		int32_t g_x, int32_t g_y, int32_t b_x, int32_t b_y,
++		int32_t w_x, int32_t w_y) {
++}
++
++static void image_description_info_handle_primaries_named(void *data,
++		struct wp_image_description_info_v1 *info, uint32_t primaries) {
++	struct xdpw_wlr_output *output = data;
++	output->pending_colorimetry.color_primaries =
++		color_primaries_from_wayland(primaries);
++}
++
++static void image_description_info_handle_tf_power(void *data,
++		struct wp_image_description_info_v1 *info, uint32_t eexp) {
++	struct xdpw_wlr_output *output = data;
++	switch (eexp) {
++	case 10000:
++		output->pending_colorimetry.transfer_function = SPA_VIDEO_TRANSFER_GAMMA10;
++		break;
++	case 18000:
++		output->pending_colorimetry.transfer_function = SPA_VIDEO_TRANSFER_GAMMA18;
++		break;
++	case 20000:
++		output->pending_colorimetry.transfer_function = SPA_VIDEO_TRANSFER_GAMMA20;
++		break;
++	case 22000:
++		output->pending_colorimetry.transfer_function = SPA_VIDEO_TRANSFER_GAMMA22;
++		break;
++	case 28000:
++		output->pending_colorimetry.transfer_function = SPA_VIDEO_TRANSFER_GAMMA28;
++		break;
++	default:
++		output->pending_colorimetry.transfer_function = SPA_VIDEO_TRANSFER_UNKNOWN;
++		break;
++	}
++}
++
++static void image_description_info_handle_tf_named(void *data,
++		struct wp_image_description_info_v1 *info, uint32_t tf) {
++	struct xdpw_wlr_output *output = data;
++	output->pending_colorimetry.transfer_function = color_transfer_from_wayland(tf);
++}
++
++static void image_description_info_handle_luminances(void *data,
++		struct wp_image_description_info_v1 *info, uint32_t min_lum,
++		uint32_t max_lum, uint32_t reference_lum) {
++}
++
++static void image_description_info_handle_target_primaries(void *data,
++		struct wp_image_description_info_v1 *info, int32_t r_x, int32_t r_y,
++		int32_t g_x, int32_t g_y, int32_t b_x, int32_t b_y,
++		int32_t w_x, int32_t w_y) {
++}
++
++static void image_description_info_handle_target_luminance(void *data,
++		struct wp_image_description_info_v1 *info, uint32_t min_lum,
++		uint32_t max_lum) {
++}
++
++static void image_description_info_handle_target_max_cll(void *data,
++		struct wp_image_description_info_v1 *info, uint32_t max_cll) {
++}
++
++static void image_description_info_handle_target_max_fall(void *data,
++		struct wp_image_description_info_v1 *info, uint32_t max_fall) {
++}
++
++static const struct wp_image_description_info_v1_listener image_description_info_listener = {
++	.done = image_description_info_handle_done,
++	.icc_file = image_description_info_handle_icc_file,
++	.primaries = image_description_info_handle_primaries,
++	.primaries_named = image_description_info_handle_primaries_named,
++	.tf_power = image_description_info_handle_tf_power,
++	.tf_named = image_description_info_handle_tf_named,
++	.luminances = image_description_info_handle_luminances,
++	.target_primaries = image_description_info_handle_target_primaries,
++	.target_luminance = image_description_info_handle_target_luminance,
++	.target_max_cll = image_description_info_handle_target_max_cll,
++	.target_max_fall = image_description_info_handle_target_max_fall,
++};
++
++static void image_description_ready(struct xdpw_wlr_output *output,
++		struct wp_image_description_v1 *image_description) {
++	if (output->image_description != image_description) {
++		return;
++	}
++
++	output->image_description_info =
++		wp_image_description_v1_get_information(image_description);
++	if (output->image_description_info == NULL ||
++			wp_image_description_info_v1_add_listener(
++				output->image_description_info,
++				&image_description_info_listener, output) < 0) {
++		logprint(WARN, "wayland: failed to query output colorimetry");
++		if (output->image_description_info != NULL) {
++			wp_image_description_info_v1_destroy(output->image_description_info);
++			output->image_description_info = NULL;
++		}
++		wp_image_description_v1_destroy(output->image_description);
++		output->image_description = NULL;
++		struct xdpw_output_colorimetry unknown = {0};
++		output_colorimetry_commit(output, &unknown);
++	}
++}
++
++static void image_description_handle_failed(void *data,
++		struct wp_image_description_v1 *image_description, uint32_t cause,
++		const char *msg) {
++	struct xdpw_wlr_output *output = data;
++	if (output->image_description != image_description) {
++		return;
++	}
++
++	logprint(WARN, "wayland: output colorimetry query failed: %s (cause %u)",
++		msg, cause);
++	wp_image_description_v1_destroy(image_description);
++	output->image_description = NULL;
++	struct xdpw_output_colorimetry unknown = {0};
++	output_colorimetry_commit(output, &unknown);
++}
++
++static void image_description_handle_ready(void *data,
++		struct wp_image_description_v1 *image_description, uint32_t identity) {
++	image_description_ready(data, image_description);
++}
++
++static void image_description_handle_ready2(void *data,
++		struct wp_image_description_v1 *image_description, uint32_t identity_hi,
++		uint32_t identity_lo) {
++	image_description_ready(data, image_description);
++}
++
++static const struct wp_image_description_v1_listener image_description_listener = {
++	.failed = image_description_handle_failed,
++	.ready = image_description_handle_ready,
++	.ready2 = image_description_handle_ready2,
++};
++
++static void output_request_colorimetry(struct xdpw_wlr_output *output) {
++	if (output->image_description_info != NULL) {
++		wp_image_description_info_v1_destroy(output->image_description_info);
++		output->image_description_info = NULL;
++	}
++	if (output->image_description != NULL) {
++		wp_image_description_v1_destroy(output->image_description);
++		output->image_description = NULL;
++	}
++	memset(&output->pending_colorimetry, 0, sizeof(output->pending_colorimetry));
++
++	output->image_description =
++		wp_color_management_output_v1_get_image_description(output->color_output);
++	if (output->image_description == NULL ||
++			wp_image_description_v1_add_listener(output->image_description,
++				&image_description_listener, output) < 0) {
++		logprint(WARN, "wayland: failed to request output colorimetry");
++		if (output->image_description != NULL) {
++			wp_image_description_v1_destroy(output->image_description);
++			output->image_description = NULL;
++		}
++		struct xdpw_output_colorimetry unknown = {0};
++		output_colorimetry_commit(output, &unknown);
++	}
++}
++
++static void color_output_handle_image_description_changed(void *data,
++		struct wp_color_management_output_v1 *color_output) {
++	struct xdpw_wlr_output *output = data;
++	output_request_colorimetry(output);
++}
++
++static const struct wp_color_management_output_v1_listener color_output_listener = {
++	.image_description_changed = color_output_handle_image_description_changed,
++};
++
++static void output_attach_color_manager(struct xdpw_wlr_output *output) {
++	if (output->ctx->color_manager == NULL || output->color_output != NULL) {
++		return;
++	}
++
++	output->color_output = wp_color_manager_v1_get_output(
++		output->ctx->color_manager, output->output);
++	if (output->color_output == NULL ||
++			wp_color_management_output_v1_add_listener(output->color_output,
++				&color_output_listener, output) < 0) {
++		logprint(WARN, "wayland: failed to attach color management to output");
++		if (output->color_output != NULL) {
++			wp_color_management_output_v1_destroy(output->color_output);
++			output->color_output = NULL;
++		}
++		return;
++	}
++	output_request_colorimetry(output);
++}
++
++static void color_manager_handle_value(void *data,
++		struct wp_color_manager_v1 *color_manager, uint32_t value) {
++}
++
++static void color_manager_handle_done(void *data,
++		struct wp_color_manager_v1 *color_manager) {
++}
++
++static const struct wp_color_manager_v1_listener color_manager_listener = {
++	.supported_intent = color_manager_handle_value,
++	.supported_feature = color_manager_handle_value,
++	.supported_tf_named = color_manager_handle_value,
++	.supported_primaries_named = color_manager_handle_value,
++	.done = color_manager_handle_done,
++};
++
+ struct xdpw_wlr_output *xdpw_wlr_output_find_by_name(struct wl_list *output_list, const char *name) {
+ 	struct xdpw_wlr_output *output, *tmp;
+ 	wl_list_for_each_safe(output, tmp, output_list, link) {
+@@ -185,6 +517,15 @@ bool xdpw_wlr_target_from_data(struct xdpw_screencast_context *ctx, struct xdpw_
+ }
+ 
+ static void wlr_remove_output(struct xdpw_wlr_output *out) {
++	if (out->image_description_info) {
++		wp_image_description_info_v1_destroy(out->image_description_info);
++	}
++	if (out->image_description) {
++		wp_image_description_v1_destroy(out->image_description);
++	}
++	if (out->color_output) {
++		wp_color_management_output_v1_destroy(out->color_output);
++	}
+ 	free(out->name);
+ 	free(out->description);
+ 	if (out->xdg_output) {
+@@ -449,6 +790,7 @@ static void wlr_registry_handle_add(void *data, struct wl_registry *reg,
+ 	if (!strcmp(interface, wl_output_interface.name)) {
+ 		struct xdpw_wlr_output *output = calloc(1, sizeof(*output));
+ 
++		output->ctx = ctx;
+ 		output->id = id;
+ 		logprint(DEBUG, "wlroots: |-- registered to interface %s (Version %u)", interface, WL_OUTPUT_VERSION);
+ 		output->output = wl_registry_bind(reg, id, &wl_output_interface, WL_OUTPUT_VERSION);
+@@ -461,6 +803,21 @@ static void wlr_registry_handle_add(void *data, struct wl_registry *reg,
+ 
+ 		wl_output_add_listener(output->output, &wlr_output_listener, output);
+ 		wl_list_insert(&ctx->output_list, &output->link);
++		output_attach_color_manager(output);
++	}
++
++	if (!strcmp(interface, wp_color_manager_v1_interface.name)) {
++		uint32_t version = ver < 2 ? ver : 2;
++		logprint(DEBUG, "wlroots: |-- registered to interface %s (Version %u)", interface, version);
++		ctx->color_manager = wl_registry_bind(
++			reg, id, &wp_color_manager_v1_interface, version);
++		wp_color_manager_v1_add_listener(ctx->color_manager,
++			&color_manager_listener, ctx);
++
++		struct xdpw_wlr_output *output;
++		wl_list_for_each(output, &ctx->output_list, link) {
++			output_attach_color_manager(output);
++		}
+ 	}
+ 
+ 	if (!strcmp(interface, zwlr_screencopy_manager_v1_interface.name)) {
+@@ -617,19 +974,28 @@ int xdpw_wlr_screencopy_init(struct xdpw_state *state) {
+ 		logprint(DEBUG, "wayland: xdg_output listeners run");
+ 	}
+ 
++	if (ctx->color_manager) {
++		/* One roundtrip receives image-description readiness; the next
++		 * receives the information requested by the ready callback. */
++		wl_display_roundtrip(state->wl_display);
++		wl_display_roundtrip(state->wl_display);
++		logprint(DEBUG, "wayland: output colorimetry listeners run");
++	}
++
+ 	return 0;
+ }
+ 
+ void xdpw_wlr_screencopy_finish(struct xdpw_screencast_context *ctx) {
+ 	wl_array_release(&ctx->format_modifier_pairs);
+ 
++	struct xdpw_screencast_instance *cast, *tmp_c;
++	wl_list_for_each_safe(cast, tmp_c, &ctx->screencast_instances, link) {
++		xdpw_screencast_instance_destroy(cast);
++	}
++
+ 	struct xdpw_wlr_output *output, *tmp_o;
+ 	wl_list_for_each_safe(output, tmp_o, &ctx->output_list, link) {
+-		wl_list_remove(&output->link);
+-		if (output->xdg_output) {
+-			zxdg_output_v1_destroy(output->xdg_output);
+-		}
+-		wl_output_destroy(output->output);
++		wlr_remove_output(output);
+ 	}
+ 
+ 	struct xdpw_toplevel *toplevel, *toplevel_tmp;
+@@ -637,11 +1003,6 @@ void xdpw_wlr_screencopy_finish(struct xdpw_screencast_context *ctx) {
+ 		foreign_toplevel_destroy(toplevel);
+ 	}
+ 
+-	struct xdpw_screencast_instance *cast, *tmp_c;
+-	wl_list_for_each_safe(cast, tmp_c, &ctx->screencast_instances, link) {
+-		xdpw_screencast_instance_destroy(cast);
+-	}
+-
+ 	if (ctx->screencopy_manager) {
+ 		zwlr_screencopy_manager_v1_destroy(ctx->screencopy_manager);
+ 	}
+@@ -674,6 +1035,9 @@ void xdpw_wlr_screencopy_finish(struct xdpw_screencast_context *ctx) {
+ 	if (ctx->xdg_output_manager) {
+ 		zxdg_output_manager_v1_destroy(ctx->xdg_output_manager);
+ 	}
++	if (ctx->color_manager) {
++		wp_color_manager_v1_destroy(ctx->color_manager);
++	}
+ 	if (ctx->registry) {
+ 		wl_registry_destroy(ctx->registry);
+ 	}
+-- 
+2.55.0
+

@@ -1,0 +1,58 @@
+From 4cadf90043fbbe2c5bfc48355e2405b18f337811 Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Mon, 24 Aug 2026 06:04:05 -0600
+Subject: [PATCH] libarchive: Preserve empty directories during partial
+ extraction
+
+Commit 189f1f4e411086d996d4e581c425a380d160b899 normalized libarchive directory entry names by removing trailing slashes. The explicit selected-entry lists retained their trailing slashes, so directory entries no longer matched during partial and drag-and-drop extraction. Non-empty parent directories were recreated while extracting files, but empty directories were silently omitted.
+
+Normalize both selected-entry lists to the same no-trailing-slash representation and add coverage for drag-and-drop extraction of empty directories.
+
+Fixes: 189f1f4e411086d996d4e581c425a380d160b899
+---
+ autotests/kerfuffle/extracttest.cpp     | 13 +++++++++++++
+ plugins/libarchive/libarchiveplugin.cpp |  4 ++--
+ 2 files changed, 15 insertions(+), 2 deletions(-)
+
+diff --git a/autotests/kerfuffle/extracttest.cpp b/autotests/kerfuffle/extracttest.cpp
+index 8f9774fd..10721326 100644
+--- a/autotests/kerfuffle/extracttest.cpp
++++ b/autotests/kerfuffle/extracttest.cpp
+@@ -181,6 +181,19 @@ void ExtractTest::testExtraction_data()
+     archivePath = QFINDTESTDATA("data/empty_folders.tar.gz");
+     setupRow("tar with empty folders", archivePath, QList<Archive::Entry *>(), optionsPreservePaths, 5);
+ 
++    archivePath = QFINDTESTDATA("data/empty_folders.tar.gz");
++    setupRow("extract selected empty folders from a tar.gz, drag-and-drop",
++             archivePath,
++             QList<Archive::Entry *>{
++                 new Archive::Entry(this, QStringLiteral("A/"), QString()),
++                 new Archive::Entry(this, QStringLiteral("A/B/"), QString()),
++                 new Archive::Entry(this, QStringLiteral("A/B/test.txt"), QString()),
++                 new Archive::Entry(this, QStringLiteral("A/B/C/"), QString()),
++                 new Archive::Entry(this, QStringLiteral("A/B1/"), QString()),
++             },
++             dragAndDropOptions,
++             5);
++
+     archivePath = QFINDTESTDATA("data/simplearchive.tar.bz2");
+     setupRow("extract selected entries from a bzip2-compressed tarball without path",
+              archivePath,
+diff --git a/plugins/libarchive/libarchiveplugin.cpp b/plugins/libarchive/libarchiveplugin.cpp
+index d625ea51..26e59bd7 100644
+--- a/plugins/libarchive/libarchiveplugin.cpp
++++ b/plugins/libarchive/libarchiveplugin.cpp
+@@ -293,8 +293,8 @@ bool LibarchivePlugin::extractFiles(const QList<Archive::Entry *> &files, const
+     QString fileBeingRenamed;
+     // To avoid traversing the entire archive when extracting a limited set of
+     // entries, we maintain a list of remaining entries and stop when it's empty.
+-    const QStringList fullPaths = entryFullPaths(files);
+-    QStringList remainingFiles = entryFullPaths(files);
++    const QStringList fullPaths = entryFullPaths(files, NoTrailingSlash);
++    QStringList remainingFiles = entryFullPaths(files, NoTrailingSlash);
+ 
+     // Iterate through all entries in archive.
+     while (!QThread::currentThread()->isInterruptionRequested() && (archive_read_next_header(m_archiveReader.data(), &entry) == ARCHIVE_OK)) {
+-- 
+2.55.0
+

@@ -1,0 +1,142 @@
+From c9a7cbbdb385521f992d60539daa6a94d403d253 Mon Sep 17 00:00:00 2001
+From: Austin Horstman <khaneliman12@gmail.com>
+Date: Mon, 9 Feb 2026 15:26:23 -0600
+Subject: [PATCH 1/2] fix(image): treat missing interval as once
+
+PR #4390 enabled millisecond intervals but changed image interval parsing so a missing interval could resolve to 1ms. That creates a hot update loop and can spike CPU and destabilize rendering in drawer/group setups (issue #4835).
+
+Use explicit semantics: missing, null, non-numeric, or <=0 interval is treated as "once" (max sleep), while positive numeric values still support ms precision with a 1ms floor. This keeps the intended feature (sub-second polling when requested) without defaulting to busy looping.
+
+Also align waybar-image(5) docs with runtime behavior.
+
+Signed-off-by: Austin Horstman <khaneliman12@gmail.com>
+---
+ man/waybar-image.5.scd |  3 ++-
+ src/modules/image.cpp  | 27 ++++++++++++++++-----------
+ 2 files changed, 18 insertions(+), 12 deletions(-)
+
+diff --git a/man/waybar-image.5.scd b/man/waybar-image.5.scd
+index 8c991265e..8be182a6f 100644
+--- a/man/waybar-image.5.scd
++++ b/man/waybar-image.5.scd
+@@ -26,7 +26,8 @@ The *image* module displays an image from a path.
+ *interval*: ++
+ 	typeof: integer or float ++
+ 	The interval (in seconds) to re-render the image. ++
+-	Minimum value is 0.001 (1ms). Values smaller than 1ms will be set to 1ms. ++
++	If set to a positive value, the minimum is 0.001 (1ms). Values smaller than 1ms will be set to 1ms. ++
++	Zero or negative values are treated as "once". ++
+ 	This is useful if the contents of *path* changes. ++
+ 	If no *interval* is defined, the image will only be rendered once.
+ 
+diff --git a/src/modules/image.cpp b/src/modules/image.cpp
+index 189deee6a..98bf3c46f 100644
+--- a/src/modules/image.cpp
++++ b/src/modules/image.cpp
+@@ -14,22 +14,27 @@ waybar::modules::Image::Image(const std::string& id, const Json::Value& config)
+ 
+   size_ = config["size"].asInt();
+ 
+-  interval_ = config_["interval"] == "once"
+-                  ? std::chrono::milliseconds::max()
+-                  : std::chrono::milliseconds(std::max(
+-                        1L,  // Minimum 1ms due to millisecond precision
+-                        static_cast<long>(
+-                            (config_["interval"].isNumeric() ? config_["interval"].asDouble() : 0) *
+-                            1000)));
++  const auto once = std::chrono::milliseconds::max();
++  if (!config_.isMember("interval") || config_["interval"].isNull() ||
++      config_["interval"] == "once") {
++    interval_ = once;
++  } else if (config_["interval"].isNumeric()) {
++    const auto interval_seconds = config_["interval"].asDouble();
++    if (interval_seconds <= 0) {
++      interval_ = once;
++    } else {
++      interval_ =
++          std::chrono::milliseconds(std::max(1L,  // Minimum 1ms due to millisecond precision
++                                             static_cast<long>(interval_seconds * 1000)));
++    }
++  } else {
++    interval_ = once;
++  }
+ 
+   if (size_ == 0) {
+     size_ = 16;
+   }
+ 
+-  if (interval_.count() == 0) {
+-    interval_ = std::chrono::milliseconds::max();
+-  }
+-
+   delayWorker();
+ }
+ 
+
+From 3b478ee6a53f153f35f35729c26bf11b15f692a2 Mon Sep 17 00:00:00 2001
+From: Austin Horstman <khaneliman12@gmail.com>
+Date: Mon, 9 Feb 2026 15:53:44 -0600
+Subject: [PATCH 2/2] chore: format
+
+Some unrelated files failed formatting.
+
+Signed-off-by: Austin Horstman <khaneliman12@gmail.com>
+---
+ include/util/command.hpp             | 4 +---
+ src/modules/hyprland/window.cpp      | 4 +---
+ src/modules/hyprland/windowcount.cpp | 6 ++----
+ 3 files changed, 4 insertions(+), 10 deletions(-)
+
+diff --git a/include/util/command.hpp b/include/util/command.hpp
+index 58c59a965..89d4372a1 100644
+--- a/include/util/command.hpp
++++ b/include/util/command.hpp
+@@ -172,8 +172,6 @@ inline int32_t forkExec(const std::string& cmd, const std::string& output_name)
+   return pid;
+ }
+ 
+-inline int32_t forkExec(const std::string& cmd) {
+-  return forkExec(cmd, "");
+-}
++inline int32_t forkExec(const std::string& cmd) { return forkExec(cmd, ""); }
+ 
+ }  // namespace waybar::util::command
+diff --git a/src/modules/hyprland/window.cpp b/src/modules/hyprland/window.cpp
+index e02a76917..197ed0920 100644
+--- a/src/modules/hyprland/window.cpp
++++ b/src/modules/hyprland/window.cpp
+@@ -237,9 +237,7 @@ void Window::queryActiveWorkspace() {
+   }
+ }
+ 
+-void Window::onEvent(const std::string& ev) {
+-  dp.emit();
+-}
++void Window::onEvent(const std::string& ev) { dp.emit(); }
+ 
+ void Window::setClass(const std::string& classname, bool enable) {
+   if (enable) {
+diff --git a/src/modules/hyprland/windowcount.cpp b/src/modules/hyprland/windowcount.cpp
+index 487b00834..d881a3616 100644
+--- a/src/modules/hyprland/windowcount.cpp
++++ b/src/modules/hyprland/windowcount.cpp
+@@ -38,7 +38,7 @@ WindowCount::~WindowCount() {
+ 
+ auto WindowCount::update() -> void {
+   std::lock_guard<std::mutex> lg(mutex_);
+-  
++
+   queryActiveWorkspace();
+ 
+   std::string format = config_["format"].asString();
+@@ -125,9 +125,7 @@ void WindowCount::queryActiveWorkspace() {
+   }
+ }
+ 
+-void WindowCount::onEvent(const std::string& ev) {
+-  dp.emit();
+-}
++void WindowCount::onEvent(const std::string& ev) { dp.emit(); }
+ 
+ void WindowCount::setClass(const std::string& classname, bool enable) {
+   if (enable) {
