@@ -2,7 +2,7 @@
 %global debug_package %{nil}
 
 Name:           mangojuice
-Version:        0.9.0
+Version:        1.0.0
 Release:        1%{?dist}
 Summary:        Graphical UI to manage Mangohud settings
 Group:          Graphics/Utilities
@@ -46,6 +46,9 @@ This program will be a convenient alternative to Goverlay for setting up Mangohu
 %{_datadir}/metainfo/io.github.radiolamp.mangojuice.metainfo.xml
 
 %changelog
+* Mon Sep 14 2026 LionHeartP <LionHeartP@proton.me> - 1.0.0-1
+- Update to 1.0.0
+
 * Sun Apr 05 2026 LionHeartP <LionHeartP@proton.me> - 0.9.0-1
 - Update to 0.9.0
 
