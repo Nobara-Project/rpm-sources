@@ -34,6 +34,8 @@ export PATH=~/.npm-global/bin:$PATH
 %meson_install
 
 %files
+%doc README.md
+%license LICENSE
 %{_datadir}/themes/adw-gtk3/*
 %{_datadir}/themes/adw-gtk3-dark/*
 
