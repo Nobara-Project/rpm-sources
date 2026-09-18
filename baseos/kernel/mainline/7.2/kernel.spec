@@ -43,7 +43,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 7.2
-%define _stablekver 4
+%define _stablekver 6
 %define _PKGBUILD 1
 %define _rcver rc7
 %define _tarkver %{_basekver}.%{_stablekver}
@@ -56,7 +56,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 202
+%define customver 200
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -1111,6 +1111,9 @@ fi
 %files
 
 %changelog
+* Fri Sep 18 2026 LionHeartP <LionHeartP@proton.me> - 7.2.6-200
+- Update to 7.2.6
+
 * Wed Sep 16 2026 LionHeartP <LionHeartP@proton.me> - 7.2.4-202
 - Add patch to fix RDNA2 sleep/suspend
 
