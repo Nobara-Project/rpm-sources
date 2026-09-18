@@ -179,18 +179,17 @@ index 16704c2a7..5745faca2 100644
  	 * Do not enumerate devices with enumeration_by_parent flag set as
  	 * they will be enumerated by their respective parents.
 diff --git a/drivers/bluetooth/btusb.c b/drivers/bluetooth/btusb.c
-index 4af803486..c5c9e2e91 100644
 --- a/drivers/bluetooth/btusb.c
 +++ b/drivers/bluetooth/btusb.c
-@@ -67,6 +67,7 @@ static struct usb_driver btusb_driver;
- #define BTUSB_INTEL_NO_WBS_SUPPORT	BIT(26)
+@@ -68,6 +68,7 @@
  #define BTUSB_ACTIONS_SEMI		BIT(27)
  #define BTUSB_BARROT			BIT(28)
-+#define BTUSB_LOWER_LESCAN_INTERVAL	BIT(29)
+ #define BTUSB_BROKEN_EXT_SCAN		BIT(29)
++#define BTUSB_LOWER_LESCAN_INTERVAL	BIT(30)
  
  static const struct usb_device_id btusb_table[] = {
  	/* Generic Bluetooth USB device */
-@@ -472,6 +473,7 @@ static const struct usb_device_id quirks_table[] = {
+@@ -473,6 +474,7 @@
  	{ USB_DEVICE(0x1286, 0x2044), .driver_info = BTUSB_MARVELL },
  	{ USB_DEVICE(0x1286, 0x2046), .driver_info = BTUSB_MARVELL },
  	{ USB_DEVICE(0x1286, 0x204e), .driver_info = BTUSB_MARVELL },
@@ -198,7 +197,7 @@ index 4af803486..c5c9e2e91 100644
  
  	/* Intel Bluetooth devices */
  	{ USB_DEVICE(0x8087, 0x0025), .driver_info = BTUSB_INTEL_COMBINED },
-@@ -4212,6 +4214,19 @@ static int btusb_probe(struct usb_interface *intf,
+@@ -4196,6 +4198,19 @@
  	if (id->driver_info & BTUSB_MARVELL)
  		hdev->set_bdaddr = btusb_set_bdaddr_marvell;
  
@@ -249,10 +248,9 @@ index db6eb56a0..c1ebc5e5e 100644
  
  # USB support may be used with HID disabled
 diff --git a/drivers/hid/Makefile b/drivers/hid/Makefile
-index a0a236e06..9b721773f 100644
 --- a/drivers/hid/Makefile
 +++ b/drivers/hid/Makefile
-@@ -180,9 +180,13 @@ obj-$(CONFIG_AMD_SFH_HID)       += amd-sfh-hid/
+@@ -186,7 +186,11 @@
  obj-$(CONFIG_ZOTAC_ZONE_HID)  += zotac-zone-hid/
  
  obj-$(CONFIG_SURFACE_HID_CORE)  += surface-hid/
@@ -263,9 +261,7 @@ index a0a236e06..9b721773f 100644
 +obj-$(CONFIG_HID_IPTS)          += ipts/
 +obj-$(CONFIG_HID_ITHC)          += ithc/
 +
- obj-$(CONFIG_SPI_HID_APPLE_CORE)	+= spi-hid/
- 
- obj-$(CONFIG_HID_DOCKCHANNEL)   += dockchannel-hid/
+ obj-$(CONFIG_HID_MSI_CLAW)      += hid-msi-claw.o
 diff --git a/drivers/hid/hid-multitouch.c b/drivers/hid/hid-multitouch.c
 index a543d4822..99d024f3d 100644
 --- a/drivers/hid/hid-multitouch.c

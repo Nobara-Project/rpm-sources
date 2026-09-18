@@ -162,11 +162,11 @@ Signed-off-by: D Scott Phillips <scott@os.amperecomputing.com>
  	return generic_ioremap_prot(phys_addr, size, pgprot);
  }
  EXPORT_SYMBOL(__ioremap_prot);
---- a/drivers/pci/quirks.c	2026-04-08 23:30:34.450620907 -0600
-+++ b/drivers/pci/quirks.c	2026-04-08 23:31:34.826329503 -0600
-@@ -6346,6 +6346,17 @@
- DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_REDHAT, 0x0005, of_pci_make_dev_node);
+--- a/drivers/pci/quirks.c
++++ b/drivers/pci/quirks.c
+@@ -6440,6 +6440,17 @@
  DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_EFAR, 0x9660, of_pci_make_dev_node);
+ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_RPI, PCI_DEVICE_ID_RPI_RP1_C0, of_pci_make_dev_node);
  
 +#ifdef CONFIG_ALTRA_ERRATUM_82288
 +static void quirk_altra_erratum_82288(struct pci_dev *dev)

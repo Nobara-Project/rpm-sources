@@ -1,0 +1,31 @@
+From 169934ba2b73f07df59c3371acdc26f45eb99c5e Mon Sep 17 00:00:00 2001
+From: Srinivas Pandruvada <srinivas.pandruvada@linux.intel.com>
+Date: Thu, 18 Dec 2025 11:51:50 -0800
+Subject: [PATCH] thermal: intel: intel_tcc_cooling: Add CPU models in the
+ support list
+
+Add Panther Lake, Wildcat Lake and Nova Lake CPU models in the support
+list.
+
+Signed-off-by: Srinivas Pandruvada <srinivas.pandruvada@linux.intel.com>
+Link: https://patch.msgid.link/20251218195150.3872795-1-srinivas.pandruvada@linux.intel.com
+Signed-off-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
+---
+ drivers/thermal/intel/intel_tcc_cooling.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/thermal/intel/intel_tcc_cooling.c b/drivers/thermal/intel/intel_tcc_cooling.c
+index f352ecafbedf07..92de161e359a07 100644
+--- a/drivers/thermal/intel/intel_tcc_cooling.c
++++ b/drivers/thermal/intel/intel_tcc_cooling.c
+@@ -65,6 +65,10 @@ static const struct x86_cpu_id tcc_ids[] __initconst = {
+ 	X86_MATCH_VFM(INTEL_RAPTORLAKE, NULL),
+ 	X86_MATCH_VFM(INTEL_RAPTORLAKE_P, NULL),
+ 	X86_MATCH_VFM(INTEL_RAPTORLAKE_S, NULL),
++	X86_MATCH_VFM(INTEL_PANTHERLAKE_L, NULL),
++	X86_MATCH_VFM(INTEL_WILDCATLAKE_L, NULL),
++	X86_MATCH_VFM(INTEL_NOVALAKE, NULL),
++	X86_MATCH_VFM(INTEL_NOVALAKE_L, NULL),
+ 	{}
+ };
+ 

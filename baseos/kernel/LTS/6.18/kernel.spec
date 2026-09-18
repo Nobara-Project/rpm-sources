@@ -43,8 +43,8 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.18
-%define _stablekver 48
-%define _PKGBUILD 2
+%define _stablekver 52
+%define _PKGBUILD 1
 %define _rcver rc7
 %define _tarkver %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
@@ -56,7 +56,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 202
+%define customver 201
 %endif
 
 Release:%{customver}.lts.nobara%{?dist}
@@ -91,6 +91,7 @@ Source4: config.generic
 Source5: config.x86_64
 Source6: config.aarch64
 Source7: config.ltobuild
+Source8: framework-ptl-backports.md
 
 # https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
 ExcludeArch:    %{ix86}
@@ -132,6 +133,58 @@ Patch13: 0001-skip-interrupt-in-polling-for-devices.patch
 # Local Intel Bluetooth suspend candidate
 Patch14: 0001-Bluetooth-btintel_pcie-retry-power-transitions.patch
 Patch15: 0002-Bluetooth-btintel_pcie-refresh-state-on-timeout.patch
+
+# ASUS I226-V rev 06 (8086:125c, subsystem 1043:8867) PCIe detach workaround.
+# Seen locally on X870-A with NIC firmware 2023:889d and kernel 7.2.4:
+# "PCIe link lost, device now detached" / "Failed to read reg 0xc030!".
+# Matching upstream reports predate 7.2; a new kernel regression is unproven.
+# Disable L1 and its substates only on matching NICs, including resume and
+# PCI recovery. Other I226 devices retain the existing L1.2-only workaround.
+# Downstream mitigation pending extended hardware validation, not an upstream fix.
+# Original report, follow-up correction, and Intel response:
+# https://lists.openwall.net/netdev/2025/09/01/324
+# https://lists.openwall.net/netdev/2025/09/05/17
+# https://www.spinics.net/lists/netdev/msg1121863.html
+Patch16: igc-disable-aspm-l1-asus-i226-v.patch
+
+# Framework Laptop 13 Pro / Intel Panther Lake backports for 6.18.52.
+# Framework currently specifies 6.19 minimum and recommends 7.0+; these are
+# targeted backports, not a claim of full 7.1 feature parity or certification.
+# https://frame.work/laptop13pro?tab=linux
+# Hardware: BE211, ALC285 HDA, ordinary I2C HID touchpad/touchscreen, S0ix.
+# https://doc.coreboot.org/mainboard/framework/sakura.html
+# Details, included fixes and hardware validation checklist:
+# framework-ptl-backports.md
+# Prevent internal-microphone clipping above 50% input volume on Framework
+# PTL (Pro subsystem f111:000f and classic-chassis subsystem f111:010f).
+# https://github.com/torvalds/linux/commit/67c73815220784074ff13ec07df955911caf1b73
+Patch30: framework-ptl-limit-internal-mic-boost.patch
+# Use Intel's PTL C-state latencies/residencies instead of firmware defaults.
+# https://github.com/torvalds/linux/commit/d51de21b4c3a34a2cc592319df63864e14b18b29
+Patch31: intel-idle-panther-lake-cstates.patch
+# Expose PTL C-state residency counters for power diagnostics.
+# https://github.com/torvalds/linux/commit/34976eaf5f83d2bda76eeb54c5bbcafe87245e82
+Patch32: perf-intel-cstate-panther-lake.patch
+# Enable the existing TCC cooling driver on PTL and the other upstream IDs.
+# https://github.com/torvalds/linux/commit/169934ba2b73f07df59c3371acdc26f45eb99c5e
+Patch33: intel-tcc-cooling-panther-lake.patch
+# Hybrid energy model: distinguish LP-E/E/P cores by CPU type and L3 cache.
+# The CPU-type helper prerequisite is already present in CachyOS 6.18.52.
+# https://github.com/torvalds/linux/commit/c17add73498245bd94cb8a05345c73366606e671
+# https://github.com/torvalds/linux/commit/d852b6f67b71dd22cd2af8ee29306eccbd6c06bf
+Patch34: intel-pstate-hybrid-l3-helper.patch
+Patch35: intel-pstate-hybrid-energy-model.patch
+# Do not reject Panel Replay selective updates when the panel reports the
+# full-line (0xffff) X-granularity sentinel. Rebased onto 6.18's capability
+# storage; shared display code is also used by Panther Lake's Xe driver.
+# https://gitlab.freedesktop.org/drm/xe/kernel/-/issues/7284
+# https://github.com/torvalds/linux/commit/ace7dcc8181373a0338efa1686c5e36eb121dff2
+# https://github.com/torvalds/linux/commit/a99cac460ddeb3705cb54a8421339f351586b25d
+Patch36: drm-dp-panel-replay-full-line-granularity.patch
+Patch37: drm-psr-panel-replay-full-line-granularity.patch
+# Respect Xe3_LPD CDCLK register changes: no CD2X pipe-select programming.
+# https://github.com/torvalds/linux/commit/0f8d0d764cc936cb834f39f0279c7776e0c1209d
+Patch38: drm-cdclk-xe3-divider.patch
 
 # aarch64 patches
 Patch20: 0001-arm64-mm-Handle-alignment-faults.patch
@@ -444,6 +497,18 @@ patch -p1 -i %{PATCH12}
 patch -p1 -i %{PATCH13}
 patch -p1 -i %{PATCH14}
 patch -p1 -i %{PATCH15}
+patch -p1 -i %{PATCH16}
+
+# Framework Panther Lake: keep dependency order (34 -> 35, 36 -> 37).
+patch -p1 -i %{PATCH30}
+patch -p1 -i %{PATCH31}
+patch -p1 -i %{PATCH32}
+patch -p1 -i %{PATCH33}
+patch -p1 -i %{PATCH34}
+patch -p1 -i %{PATCH35}
+patch -p1 -i %{PATCH36}
+patch -p1 -i %{PATCH37}
+patch -p1 -i %{PATCH38}
 
 # Apply aarch64 patches
 %ifarch aarch64
@@ -1108,6 +1173,21 @@ fi
 %files
 
 %changelog
+* Fri Sep 18 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 6.18.52-201
+- Backport Framework Panther Lake microphone gain and Intel idle/power support
+- Backport Panel Replay full-line granularity and Xe3 display clock fixes
+- Document upstream references, existing fixes and pending hardware validation
+
+* Fri Sep 18 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 6.18.52-200
+- Update to CachyOS 6.18.52-1 and rebase the downstream patch set
+- Move the Surface Bluetooth scan quirk to bit 30 to avoid an upstream flag collision
+- Enable the replacement T2BCE modules to preserve Apple T2 support
+- Retain Intel Bluetooth sleep and ASUS I226-V ASPM workarounds
+
+* Thu Sep 17 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 6.18.48-203
+- Backport scoped ASPM L1 workaround for ASUS I226-V rev 06 PCIe disconnects
+- Document matching upstream reports and pending hardware validation
+
 * Thu Sep 03 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 6.18.48-200
 - Update to CachyOS 6.18.48-2
 - Rebase the handheld patch for the updated xpad device table

@@ -1678,7 +1678,7 @@ index a51f3414b65d..bc0f9759c5c5 100644
  	snprintf(bl_name, sizeof(bl_name),
  		 "amdgpu_bl%d", dev->primary->index);
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index 64b147ec8844..6490cc0a8772 100644
+index 258d4a4..7b4a4ad 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 @@ -158,6 +158,9 @@ MODULE_FIRMWARE(FIRMWARE_DCN_401_DMUB);
@@ -1691,7 +1691,7 @@ index 64b147ec8844..6490cc0a8772 100644
  /**
   * DOC: overview
   *
-@@ -9663,7 +9666,7 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_state *state,
+@@ -9849,7 +9852,7 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_state *state,
  	int planes_count = 0, vpos, hpos;
  	unsigned long flags;
  	u32 target_vblank, last_flip_vblank;
@@ -1699,7 +1699,7 @@ index 64b147ec8844..6490cc0a8772 100644
 +	bool vrr_active = true;//amdgpu_dm_crtc_vrr_active(acrtc_state);
  	bool cursor_update = false;
  	bool pflip_present = false;
- 	bool dirty_rects_changed = false;
+ 	bool immediate_flip = false;
 diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
 index 86ed1c783158..dc4f659d70b4 100644
 --- a/drivers/gpu/drm/amd/display/dc/dc.h
@@ -1912,10 +1912,10 @@ index 38adc1c91955..41dee216618a 100644
 +
  endif # HID_SUPPORT
 diff --git a/drivers/hid/Makefile b/drivers/hid/Makefile
-index 083677e71993..4c862e4e64d9 100644
+index b12afc9..62959c6 100644
 --- a/drivers/hid/Makefile
 +++ b/drivers/hid/Makefile
-@@ -77,6 +77,8 @@ obj-$(CONFIG_HID_KYE)		+= hid-kye.o
+@@ -78,6 +78,8 @@ obj-$(CONFIG_HID_KYE)		+= hid-kye.o
  obj-$(CONFIG_HID_KYSONA)	+= hid-kysona.o
  obj-$(CONFIG_HID_LCPOWER)	+= hid-lcpower.o
  obj-$(CONFIG_HID_LENOVO)	+= hid-lenovo.o
@@ -1924,19 +1924,15 @@ index 083677e71993..4c862e4e64d9 100644
  obj-$(CONFIG_HID_LETSKETCH)	+= hid-letsketch.o
  obj-$(CONFIG_HID_LOGITECH)	+= hid-logitech.o
  obj-$(CONFIG_HID_LOGITECH)	+= hid-lg-g15.o
-@@ -174,6 +176,8 @@ obj-$(CONFIG_INTEL_ISH_HID)	+= intel-ish-hid/
+@@ -181,6 +183,10 @@ obj-$(CONFIG_SPI_HID_APPLE_CORE)	+= spi-hid/
  
- obj-$(CONFIG_AMD_SFH_HID)       += amd-sfh-hid/
+ obj-$(CONFIG_HID_DOCKCHANNEL)   += dockchannel-hid/
  
 +obj-$(CONFIG_ZOTAC_ZONE_HID)  += zotac-zone-hid/
 +
  obj-$(CONFIG_SURFACE_HID_CORE)  += surface-hid/
  
  obj-$(CONFIG_INTEL_THC_HID)     += intel-thc-hid/
-@@ -181,3 +185,5 @@ obj-$(CONFIG_INTEL_THC_HID)     += intel-thc-hid/
- obj-$(CONFIG_SPI_HID_APPLE_CORE)	+= spi-hid/
- 
- obj-$(CONFIG_HID_DOCKCHANNEL)   += dockchannel-hid/
 +
 +obj-$(CONFIG_HID_MSI_CLAW)      += hid-msi-claw.o
 diff --git a/drivers/hid/hid-core.c b/drivers/hid/hid-core.c
@@ -14768,10 +14764,10 @@ index a299225ab92e..855b28340e95 100644
  	PLATFORM_PROFILE_LAST, /*must always be last */
  };
 diff --git a/sound/hda/codecs/realtek/alc269.c b/sound/hda/codecs/realtek/alc269.c
-index 9097de7d2e3d..6ae4ddef3740 100644
+index 2e2e90d..c17d6ec 100644
 --- a/sound/hda/codecs/realtek/alc269.c
 +++ b/sound/hda/codecs/realtek/alc269.c
-@@ -2543,6 +2543,20 @@ static void alc294_gx502_toggle_output(struct hda_codec *codec,
+@@ -2774,6 +2774,20 @@ static void alc294_gx502_toggle_output(struct hda_codec *codec,
  		alc_write_coef_idx(codec, 0x10, 0x0a20);
  }
  
@@ -14792,7 +14788,7 @@ index 9097de7d2e3d..6ae4ddef3740 100644
  static void alc294_fixup_gx502_hp(struct hda_codec *codec,
  					const struct hda_fixup *fix, int action)
  {
-@@ -3464,6 +3478,8 @@ enum {
+@@ -3713,6 +3727,8 @@ enum {
  	ALC269_FIXUP_DELL4_MIC_NO_PRESENCE,
  	ALC269_FIXUP_DELL4_MIC_NO_PRESENCE_QUIET,
  	ALC269_FIXUP_HEADSET_MODE,
@@ -14801,7 +14797,7 @@ index 9097de7d2e3d..6ae4ddef3740 100644
  	ALC269_FIXUP_HEADSET_MODE_NO_HP_MIC,
  	ALC269_FIXUP_ASPIRE_HEADSET_MIC,
  	ALC269_FIXUP_ASUS_X101_FUNC,
-@@ -3477,6 +3493,7 @@ enum {
+@@ -3726,6 +3742,7 @@ enum {
  	ALC269VB_FIXUP_ASUS_ZENBOOK,
  	ALC269VB_FIXUP_ASUS_ZENBOOK_UX31A,
  	ALC269VB_FIXUP_ASUS_MIC_NO_PRESENCE,
@@ -14809,7 +14805,7 @@ index 9097de7d2e3d..6ae4ddef3740 100644
  	ALC269_FIXUP_LIMIT_INT_MIC_BOOST_MUTE_LED,
  	ALC269VB_FIXUP_ORDISSIMO_EVE2,
  	ALC283_FIXUP_CHROME_BOOK,
-@@ -3740,6 +3757,30 @@ enum {
+@@ -3997,6 +4014,30 @@ enum {
  	ALC256_FIXUP_VAIO_RPL_MIC_NO_PRESENCE,
  };
  
@@ -14840,7 +14836,7 @@ index 9097de7d2e3d..6ae4ddef3740 100644
  /* A special fixup for Lenovo C940 and Yoga Duet 7;
   * both have the very same PCI SSID, and we need to apply different fixups
   * depending on the codec ID
-@@ -4207,6 +4248,13 @@ static const struct hda_fixup alc269_fixups[] = {
+@@ -4488,6 +4529,13 @@ static const struct hda_fixup alc269_fixups[] = {
  		.chained = true,
  		.chain_id = ALC269_FIXUP_HEADSET_MIC
  	},
@@ -14854,7 +14850,7 @@ index 9097de7d2e3d..6ae4ddef3740 100644
  	[ALC269_FIXUP_LIMIT_INT_MIC_BOOST_MUTE_LED] = {
  		.type = HDA_FIXUP_FUNC,
  		.v.func = alc269_fixup_limit_int_mic_boost,
-@@ -5012,6 +5060,14 @@ static const struct hda_fixup alc269_fixups[] = {
+@@ -5302,6 +5350,14 @@ static const struct hda_fixup alc269_fixups[] = {
  			{ 0x1b, 0x90170152 } /* use as internal speaker (back) */
  		}
  	},
@@ -14869,16 +14865,16 @@ index 9097de7d2e3d..6ae4ddef3740 100644
  	[ALC299_FIXUP_PREDATOR_SPK] = {
  		.type = HDA_FIXUP_PINS,
  		.v.pins = (const struct hda_pintbl[]) {
-@@ -7226,6 +7282,8 @@ static const struct hda_quirk alc269_fixup_tbl[] = {
+@@ -7588,6 +7644,8 @@ static const struct hda_quirk alc269_fixup_tbl[] = {
  	SND_PCI_QUIRK(0x2782, 0x1701, "Infinix Y4 Max", ALC269VC_FIXUP_INFINIX_Y4_MAX),
  	SND_PCI_QUIRK(0x2782, 0x1705, "MEDION E15433", ALC269VC_FIXUP_INFINIX_Y4_MAX),
  	SND_PCI_QUIRK(0x2782, 0x1707, "Vaio VJFE-ADL", ALC298_FIXUP_SPK_VOLUME),
 +	SND_PCI_QUIRK(0x1f66, 0x0101, "AYANEO 2/GEEK/Ayn MiniPro", ALC269_FIXUP_DMI_MATCH),
 +	SND_PCI_QUIRK(0x1f66, 0x0103, "AYANEO AIR 1S", ALC269VB_FIXUP_AYANEO_SPKR_PIN_FIX),
  	SND_PCI_QUIRK(0x2782, 0x4900, "MEDION E15443", ALC233_FIXUP_MEDION_MTL_SPK),
- 	SND_PCI_QUIRK(0x8086, 0x2074, "Intel NUC 8", ALC233_FIXUP_INTEL_NUC8_DMIC),
- 	SND_PCI_QUIRK(0x8086, 0x2080, "Intel NUC 8 Rugged", ALC256_FIXUP_INTEL_NUC8_RUGGED),
-@@ -7352,6 +7410,7 @@ static const struct hda_model_fixup alc269_fixup_models[] = {
+ 	SND_PCI_QUIRK(0x2782, 0xa212, "Lunnen Ground 14", ALC269VC_FIXUP_LUNNEN_GROUND_14),
+ 	SND_PCI_QUIRK(0x7017, 0x2014, "Star Labs StarFighter", ALC233_FIXUP_STARLABS_STARFIGHTER),
+@@ -7718,6 +7776,7 @@ static const struct hda_model_fixup alc269_fixup_models[] = {
  	{.id = ALC269VB_FIXUP_ASUS_ZENBOOK, .name = "asus-zenbook"},
  	{.id = ALC269VB_FIXUP_ASUS_ZENBOOK_UX31A, .name = "asus-zenbook-ux31a"},
  	{.id = ALC269VB_FIXUP_ORDISSIMO_EVE2, .name = "ordissimo"},
