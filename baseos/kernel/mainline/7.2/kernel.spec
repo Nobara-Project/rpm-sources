@@ -56,7 +56,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 200
+%define customver 201
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -134,6 +134,21 @@ Patch13: add-QCA9377.patch
 
 # AMDGPU GFX10 fix sleep/suspend
 Patch14: drm-amdgpu-restore-csib-submission-on-gfx10-dgpus.patch
+
+# ASUS I226-V rev 06 (8086:125c, subsystem 1043:8867) PCIe detach workaround.
+# Seen locally on X870-A with NIC firmware 2023:889d and kernel 7.2.4:
+# "PCIe link lost, device now detached" / "Failed to read reg 0xc030!".
+# Matching upstream reports predate 7.2; a new kernel regression is unproven.
+# Disable L1 and its substates only on matching NICs, including resume and
+# PCI recovery. Other I226 devices retain the existing L1.2-only workaround.
+# Rechecked against CachyOS 7.2.6-1: igc still disables only L1.2. The new
+# generic ASPM initialization fixes do not replace this scoped L1 mitigation.
+# Downstream mitigation pending extended hardware validation, not an upstream fix.
+# Original report, follow-up correction, and Intel response:
+# https://lists.openwall.net/netdev/2025/09/01/324
+# https://lists.openwall.net/netdev/2025/09/05/17
+# https://www.spinics.net/lists/netdev/msg1121863.html
+Patch15: igc-disable-aspm-l1-asus-i226-v.patch
 
 # aarch64 patches
 Patch21: 0001-arm64-mm-Handle-alignment-faults.patch
@@ -447,6 +462,7 @@ patch -p1 -i %{PATCH11}
 patch -p1 -i %{PATCH12}
 patch -p1 -i %{PATCH13}
 patch -p1 -i %{PATCH14}
+patch -p1 -i %{PATCH15}
 
 # Apply aarch64 patches
 %ifarch aarch64
@@ -1111,6 +1127,10 @@ fi
 %files
 
 %changelog
+* Fri Sep 18 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 7.2.6-201
+- Restore the scoped ASUS I226-V rev 06 ASPM L1 workaround from 7.2.4
+- Verify that CachyOS 7.2.6-1 does not contain an equivalent NIC fix
+
 * Fri Sep 18 2026 LionHeartP <LionHeartP@proton.me> - 7.2.6-200
 - Update to 7.2.6
 
