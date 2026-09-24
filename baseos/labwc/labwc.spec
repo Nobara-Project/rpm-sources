@@ -4,17 +4,20 @@
 Name:           labwc
 Version:        0.20.2
 %forgemeta
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        A Wayland window-stacking compositor
 
-License:        GPL-2.0-only
+License:        GPL-2.0-only AND MIT
 URL:            %{forgeurl}
-Source:         %{forgesource}
+Source0:        %{forgesource}
+Source1:        https://gitlab.freedesktop.org/wlroots/wlroots/-/archive/0.20.2/wlroots-0.20.2.tar.gz
+Source2:        wlroots-0.20.2-background-blur.patch
 Patch:          0001-add-per-output-hdr-overrides.patch
 Patch:          0002-allow-moving-fullscreen-views-between-outputs.patch
 Patch:          0003-defer-live-hdr-changes-to-next-frame.patch
 Patch:          0004-snap-fullscreen-alt-drags-between-outputs.patch
 Patch:          0005-modeset-and-roll-back-live-hdr-changes.patch
+Patch:          0006-add-opt-in-background-blur.patch
 
 BuildRequires:  gcc
 BuildRequires:  meson >= 0.59.0
@@ -22,7 +25,7 @@ BuildRequires:  cmake
 
 BuildRequires:  pkgconfig(cairo)
 BuildRequires:  pkgconfig(glib-2.0)
-BuildRequires:  pkgconfig(libdrm)
+BuildRequires:  pkgconfig(libdrm) >= 2.4.129
 BuildRequires:  pkgconfig(libinput) >= 1.26
 BuildRequires:  pkgconfig(libpng)
 BuildRequires:  pkgconfig(librsvg-2.0) >= 2.46
@@ -31,17 +34,42 @@ BuildRequires:  pkgconfig(libsfdo-desktop) >= 0.1.3
 BuildRequires:  pkgconfig(libsfdo-icon) >= 0.1.3
 BuildRequires:  pkgconfig(libxml-2.0)
 BuildRequires:  pkgconfig(pangocairo)
-BuildRequires:  pkgconfig(pixman-1)
+BuildRequires:  pkgconfig(pixman-1) >= 0.43.0
 BuildRequires:  pkgconfig(scdoc)
 BuildRequires:  pkgconfig(systemd)
-BuildRequires:  pkgconfig(wayland-protocols) >= 1.39
-BuildRequires:  pkgconfig(wayland-server) >= 1.22.90
-BuildRequires:  pkgconfig(wlroots-0.20) >= 0.20.1
+BuildRequires:  pkgconfig(wayland-protocols) >= 1.47
+BuildRequires:  pkgconfig(wayland-server) >= 1.24.0
+# Private static wlroots: scene blur needs render hooks unavailable in the ABI.
+# Keep the system wlroots package and all its headers/libraries untouched.
+BuildRequires:  glslang
+BuildRequires:  hwdata-devel
+BuildRequires:  pkgconfig(egl)
+BuildRequires:  pkgconfig(gbm)
+BuildRequires:  pkgconfig(glesv2)
+BuildRequires:  pkgconfig(vulkan) >= 1.2.182
+BuildRequires:  pkgconfig(lcms2)
+BuildRequires:  pkgconfig(libudev)
+BuildRequires:  pkgconfig(libseat) >= 0.2.0
+BuildRequires:  pkgconfig(libdisplay-info) >= 0.2.0
+BuildRequires:  pkgconfig(libliftoff) >= 0.4.0
+BuildRequires:  pkgconfig(wayland-client) >= 1.24.0
+BuildRequires:  pkgconfig(xcb-composite)
+BuildRequires:  pkgconfig(xcb-dri3)
+BuildRequires:  pkgconfig(xcb-errors)
+BuildRequires:  pkgconfig(xcb-present)
+BuildRequires:  pkgconfig(xcb-render)
+BuildRequires:  pkgconfig(xcb-renderutil)
+BuildRequires:  pkgconfig(xcb-res)
+BuildRequires:  pkgconfig(xcb-shm)
+BuildRequires:  pkgconfig(xcb-xfixes)
+BuildRequires:  pkgconfig(xcb-xinput)
 BuildRequires:  pkgconfig(xcb)
 BuildRequires:  pkgconfig(xcb-ewmh)
 BuildRequires:  pkgconfig(xcb-icccm)
-BuildRequires:  pkgconfig(xkbcommon)
+BuildRequires:  pkgconfig(xkbcommon) >= 1.8.0
 BuildRequires:  pkgconfig(xwayland) >= 21.1.9
+
+Provides:       bundled(wlroots) = 0.20.2
 
 Requires:       mesa-dri-drivers
 Requires:       xdg-desktop-portal-wlr
@@ -105,13 +133,31 @@ standalone environment.
 
 %prep
 %forgeautosetup -p1
+%{__tar} -xf %{SOURCE1} -C subprojects
+mv subprojects/wlroots-0.20.2 subprojects/wlroots
+%{__patch} -d subprojects/wlroots -p1 < %{SOURCE2}
+cp subprojects/wlroots/LICENSE WLROOTS-LICENSE
 
 
 %build
 %meson \
+    --wrap-mode=nodownload \
+    --force-fallback-for=wlroots-0.20 \
     -Dxwayland=enabled \
+    -Dwlroots:default_library=static \
+    -Dwlroots:install=false \
+    -Dwlroots:examples=false \
+    -Dwlroots:background-blur-tests=true \
+    -Dwlroots:renderers=gles2,vulkan \
+    -Dwlroots:backends=drm,libinput,x11 \
+    -Dwlroots:allocators=gbm,udmabuf \
+    -Dwlroots:color-management=enabled \
     %{nil}
 %meson_build
+
+
+%check
+%meson_test
 
 
 %install
@@ -120,7 +166,7 @@ standalone environment.
 
 
 %files -f %{name}.lang
-%license LICENSE
+%license LICENSE WLROOTS-LICENSE
 %doc NEWS.md
 %{_bindir}/%{name}
 %{_bindir}/lab-sensible-terminal
@@ -136,6 +182,12 @@ standalone environment.
 %{_userunitdir}/labwc-session.target
 
 %changelog
+* Thu Sep 24 2026 Nobara Project - 0.20.2-6
+- Add opt-in live background blur for Wayland surfaces, preserving HDR rendering
+- Support standard background-effect regions and independent shell blur strength
+- Link a private patched wlroots statically without installing wlroots files
+- Verify backdrop clipping, sharp foregrounds, occlusion, damage, and idle rendering
+
 * Tue Sep 01 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 0.20.2-5
 - Use modeset-capable atomic commits for dynamic HDR transitions
 - Restore the previous output state if an HDR transition is rejected

@@ -1,0 +1,754 @@
+--- /dev/null
++++ b/include/background-blur.h
+@@ -0,0 +1,10 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++#ifndef LABWC_BACKGROUND_BLUR_H
++#define LABWC_BACKGROUND_BLUR_H
++
++/* Opt-in ext-background-effect-v1 blur, never inferred from application IDs. */
++void background_blur_init(void);
++void background_blur_update_capabilities(void);
++void background_blur_finish(void);
++
++#endif
+--- /dev/null
++++ b/protocols/ext-background-effect-v1.xml
+@@ -0,0 +1,129 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<protocol name="ext_background_effect_v1">
++  <copyright>
++    Copyright (C) 2015 Martin Gräßlin
++    Copyright (C) 2015 Marco Martin
++    Copyright (C) 2020 Vlad Zahorodnii
++    Copyright (C) 2024 Xaver Hugl
++
++    Permission is hereby granted, free of charge, to any person obtaining a
++    copy of this software and associated documentation files (the "Software"),
++    to deal in the Software without restriction, including without limitation
++    the rights to use, copy, modify, merge, publish, distribute, sublicense,
++    and/or sell copies of the Software, and to permit persons to whom the
++    Software is furnished to do so, subject to the following conditions:
++
++    The above copyright notice and this permission notice (including the next
++    paragraph) shall be included in all copies or substantial portions of the
++    Software.
++
++    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++    THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
++    DEALINGS IN THE SOFTWARE.
++  </copyright>
++
++  <interface name="ext_background_effect_manager_v1" version="1">
++    <description summary="background effect factory">
++      This protocol provides a way to improve visuals of translucent surfaces
++      by applying effects like blur to the background behind them.
++
++      The capabilities are send when the global is bound, and every time they
++      change. Note that when the capability goes away, the corresponding effect
++      is no longer applied by the compositor, even if it was set before.
++
++      Warning! The protocol described in this file is currently in the testing
++      phase. Backward compatible changes may be added together with the
++      corresponding interface version bump. Backward incompatible changes can
++      only be done by creating a new major version of the extension.
++    </description>
++
++    <request name="destroy" type="destructor">
++      <description summary="destroy the background effect manager">
++        Informs the server that the client will no longer be using this
++        protocol object. Existing objects created by this object are not
++        affected.
++      </description>
++    </request>
++
++    <enum name="error">
++      <entry name="background_effect_exists" value="0"
++             summary="the surface already has a background effect object"/>
++    </enum>
++
++    <enum name="capability" bitfield="true">
++      <entry name="blur" value="1"
++             summary="the compositor supports applying blur"/>
++    </enum>
++
++    <event name="capabilities">
++      <description summary="capabilities of the compositor"/>
++      <arg name="flags" type="uint" enum="capability"/>
++    </event>
++
++    <request name="get_background_effect">
++      <description summary="get a background effects object">
++        Instantiate an interface extension for the given wl_surface to add
++        effects like blur for the background behind it.
++
++        If the given wl_surface already has a ext_background_effect_surface_v1
++        object associated, the background_effect_exists protocol error will be
++        raised.
++      </description>
++      <arg name="id" type="new_id" interface="ext_background_effect_surface_v1"
++           summary="the new ext_background_effect_surface_v1 object"/>
++      <arg name="surface" type="object" interface="wl_surface"
++           summary="the surface"/>
++    </request>
++  </interface>
++
++  <interface name="ext_background_effect_surface_v1" version="1">
++    <description summary="background effects for a surface">
++      The background effect object provides a way to specify a region behind
++      a surface that should have background effects like blur applied.
++
++      If the wl_surface associated with the ext_background_effect_surface_v1
++      object has been destroyed, this object becomes inert.
++    </description>
++
++    <request name="destroy" type="destructor">
++      <description summary="release the blur object">
++        Informs the server that the client will no longer be using this protocol
++        object. The effect regions will be removed on the next commit.
++      </description>
++    </request>
++
++    <enum name="error">
++      <entry name="surface_destroyed" value="0"
++             summary="the associated surface has been destroyed"/>
++    </enum>
++
++    <request name="set_blur_region">
++      <description summary="set blur region">
++        This request sets the region of the surface that will have its
++        background blurred.
++
++        The blur region is specified in the surface-local coordinates, and
++        clipped by the compositor to the surface size.
++
++        The initial value for the blur region is empty. Setting the pending
++        blur region has copy semantics, and the wl_region object can be
++        destroyed immediately. A NULL wl_region removes the effect.
++
++        The blur region is double-buffered state, and will be applied on
++        the next wl_surface.commit.
++
++        The blur algorithm is subject to compositor policies.
++
++        If the associated surface has been destroyed, the surface_destroyed
++        error will be raised.
++      </description>
++      <arg name="region" type="object" interface="wl_region" allow-null="true"
++           summary="blur region of the surface"/>
++    </request>
++
++  </interface>
++</protocol>
+--- a/protocols/meson.build
++++ b/protocols/meson.build
+@@ -14,6 +14,8 @@
+ )
+ 
+ server_protocols = [
++	'ext-background-effect-v1.xml',
++	'waydock-blur-v1.xml',
+ 	'wlr-layer-shell-unstable-v1.xml',
+ 	'wlr-output-power-management-unstable-v1.xml',
+ ]
+--- /dev/null
++++ b/protocols/waydock-blur-v1.xml
+@@ -0,0 +1,67 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<protocol name="waydock_blur_v1">
++  <copyright>
++    Copyright (C) 2026 Waydock contributors
++
++    Permission is hereby granted, free of charge, to any person obtaining a
++    copy of this software and associated documentation files (the "Software"),
++    to deal in the Software without restriction, including without limitation
++    the rights to use, copy, modify, merge, publish, distribute, sublicense,
++    and/or sell copies of the Software, and to permit persons to whom the
++    Software is furnished to do so, subject to the following conditions:
++
++    The above copyright notice and this permission notice shall be included
++    in all copies or substantial portions of the Software.
++
++    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
++    THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
++    DEALINGS IN THE SOFTWARE.
++  </copyright>
++  <interface name="waydock_blur_manager_v1" version="1">
++    <description summary="optional blur radius policy for desktop clients">
++      This extension selects a per-surface blur radius for the standard
++      ext-background-effect-v1 protocol. It does not enable blur or define
++      a blur region by itself. The standard manager's blur capability still
++      determines whether the compositor can apply background blur.
++    </description>
++    <request name="destroy" type="destructor"/>
++    <enum name="error">
++      <entry name="surface_exists" value="0" summary="surface already has a blur radius object"/>
++    </enum>
++    <request name="get_surface">
++      <arg name="id" type="new_id" interface="waydock_blur_surface_v1"/>
++      <arg name="surface" type="object" interface="wl_surface"/>
++    </request>
++  </interface>
++  <interface name="waydock_blur_surface_v1" version="1">
++    <description summary="double-buffered blur radius for a surface">
++      The initial radius is 10 logical surface pixels. State takes effect on
++      wl_surface.commit, including synchronization of subsurfaces. This object
++      may be created before or after the standard background effect object.
++      Without a non-empty standard blur region it has no visual effect.
++    </description>
++    <request name="destroy" type="destructor">
++      <description summary="restore the default radius on the next commit">
++        This request restores radius 10 on the next wl_surface.commit.
++        It does not change the standard background effect object's region.
++      </description>
++    </request>
++    <enum name="error">
++      <entry name="surface_destroyed" value="0" summary="the associated surface has been destroyed"/>
++      <entry name="invalid_radius" value="1" summary="radius exceeds 40 logical pixels"/>
++    </enum>
++    <request name="set_radius">
++      <description summary="set pending radius in logical pixels">
++        Valid values are 0 through 40, inclusive. Zero suppresses blur without
++        changing the standard background effect region. The region and radius
++        are applied together at the next surface commit. Requests after the
++        associated surface has been destroyed raise surface_destroyed.
++      </description>
++      <arg name="radius" type="uint"/>
++    </request>
++  </interface>
++</protocol>
+--- /dev/null
++++ b/src/background-blur.c
+@@ -0,0 +1,482 @@
++// SPDX-License-Identifier: GPL-2.0-only
++
++#include <assert.h>
++#include <stdlib.h>
++#include <wayland-server-core.h>
++#include <wlr/types/wlr_compositor.h>
++#include <wlr/types/wlr_scene.h>
++#include <wlr/util/addon.h>
++#include "background-blur.h"
++#include "ext-background-effect-v1-protocol.h"
++#include "waydock-blur-v1-protocol.h"
++#include "labwc.h"
++
++/* Compositor policy, measured in logical surface pixels. */
++#define BACKGROUND_BLUR_RADIUS 10
++
++struct blur_manager {
++	struct wl_global *global;
++	struct wl_global *radius_global;
++	struct wl_list resources; /* wl_resource links */
++	struct wl_list radius_resources; /* wl_resource links */
++	struct wl_list effects; /* struct blur_effect.link */
++	struct wl_event_source *apply_idle;
++	bool supported;
++};
++
++struct blur_state {
++	pixman_region32_t region;
++	int radius;
++};
++
++struct blur_effect {
++	struct blur_manager *manager;
++	struct wl_resource *resource; /* NULL after effect.destroy */
++	struct wl_resource *radius_resource;
++	struct wlr_surface *surface;
++	struct wlr_surface_synced synced;
++	struct wlr_addon addon;
++	struct blur_state pending;
++	struct blur_state current;
++	struct wl_list link;
++};
++
++static struct blur_manager *manager;
++static const struct ext_background_effect_surface_v1_interface effect_impl;
++static const struct wlr_addon_interface effect_addon_impl;
++
++static void
++effect_finish(struct blur_effect *effect)
++{
++	if (effect->resource) {
++		/* Requests on a surviving protocol object report surface_destroyed. */
++		wl_resource_set_user_data(effect->resource, NULL);
++	}
++	if (effect->radius_resource) {
++		wl_resource_set_user_data(effect->radius_resource, NULL);
++	}
++	wlr_addon_finish(&effect->addon);
++	wlr_surface_synced_finish(&effect->synced);
++	wl_list_remove(&effect->link);
++	free(effect);
++}
++
++static void
++effect_addon_destroy(struct wlr_addon *addon)
++{
++	struct blur_effect *effect = wl_container_of(addon, effect, addon);
++	effect_finish(effect);
++}
++
++static const struct wlr_addon_interface effect_addon_impl = {
++	.name = "labwc_ext_background_effect_v1",
++	.destroy = effect_addon_destroy,
++};
++
++static void
++apply_to_buffer(struct wlr_scene_buffer *buffer)
++{
++	struct wlr_scene_surface *scene_surface =
++		wlr_scene_surface_try_from_buffer(buffer);
++	if (!scene_surface) {
++		return;
++	}
++	struct wlr_addon *addon = wlr_addon_find(&scene_surface->surface->addons,
++		manager, &effect_addon_impl);
++	if (!addon) {
++		return;
++	}
++	struct blur_effect *effect = wl_container_of(addon, effect, addon);
++	pixman_region32_t region;
++	pixman_region32_init(&region);
++	if (manager->supported) {
++		struct wlr_surface_state *state = &effect->surface->current;
++		/* The protocol is in surface coordinates, independently of buffer
++		 * scale, output scale or transform. Scene buffers use logical sizes.
++		 * A clipped scene surface starts at clip.x/clip.y, not surface (0,0).
++		 */
++		pixman_region32_intersect_rect(&region, &effect->current.region,
++			0, 0, state->width, state->height);
++		struct wlr_box *clip = &scene_surface->WLR_PRIVATE.clip;
++		if (!wlr_box_empty(clip)) {
++			pixman_region32_intersect_rect(&region, &region,
++				clip->x, clip->y, clip->width, clip->height);
++			pixman_region32_translate(&region, -clip->x, -clip->y);
++		}
++	}
++	wlr_scene_buffer_set_background_blur(buffer, &region,
++		manager->supported ? effect->current.radius : 0);
++	pixman_region32_fini(&region);
++}
++
++static void
++apply_to_tree(struct wlr_scene_node *node)
++{
++	/* Include disabled trees so switching workspaces cannot reveal stale
++	 * regions. The renderer still skips disabled and fully occluded nodes.
++	 */
++	if (node->type == WLR_SCENE_NODE_BUFFER) {
++		apply_to_buffer(wlr_scene_buffer_from_node(node));
++	} else if (node->type == WLR_SCENE_NODE_TREE) {
++		struct wlr_scene_tree *tree = wlr_scene_tree_from_node(node);
++		struct wlr_scene_node *child;
++		wl_list_for_each(child, &tree->children, link) {
++			apply_to_tree(child);
++		}
++	}
++}
++
++static void
++apply_pending(void *data)
++{
++	struct blur_manager *blur = data;
++	blur->apply_idle = NULL;
++	/* Run after the commit/map listeners have created/reconfigured the scene
++	 * nodes, including xdg, layer-shell and synchronized subsurface nodes.
++	 */
++	apply_to_tree(&server.scene->tree.node);
++	/* Retain the small synced addon until wl_surface destruction. A hidden
++	 * synchronized subsurface can still have older cached commits even when
++	 * its current region is empty and its protocol objects were destroyed.
++	 * Freeing based only on current state would discard those commits early.
++	 */
++}
++
++static void
++queue_apply(struct blur_manager *blur)
++{
++	if (!blur->apply_idle) {
++		blur->apply_idle = wl_event_loop_add_idle(server.wl_event_loop,
++			apply_pending, blur);
++	}
++}
++
++static void
++state_init(void *data)
++{
++	struct blur_state *state = data;
++	pixman_region32_init(&state->region);
++	state->radius = BACKGROUND_BLUR_RADIUS;
++}
++
++static void
++state_finish(void *data)
++{
++	struct blur_state *state = data;
++	pixman_region32_fini(&state->region);
++}
++
++static void
++state_move(void *destination, void *source)
++{
++	struct blur_state *dst = destination, *src = source;
++	/* Preserve pending state between commits, as wl_surface regions do. */
++	pixman_region32_copy(&dst->region, &src->region);
++	dst->radius = src->radius;
++}
++
++static void
++state_commit(struct wlr_surface_synced *synced)
++{
++	struct blur_effect *effect = wl_container_of(synced, effect, synced);
++	queue_apply(effect->manager);
++}
++
++static const struct wlr_surface_synced_impl state_impl = {
++	.state_size = sizeof(struct blur_state),
++	.init_state = state_init,
++	.finish_state = state_finish,
++	.move_state = state_move,
++	.commit = state_commit,
++};
++
++static void
++resource_destroy(struct wl_client *client, struct wl_resource *resource)
++{
++	wl_resource_destroy(resource);
++}
++
++static void
++effect_resource_destroy(struct wl_resource *resource)
++{
++	struct blur_effect *effect = wl_resource_get_user_data(resource);
++	if (!effect) {
++		return;
++	}
++	effect->resource = NULL;
++	/* The current region deliberately remains until the next commit. */
++	pixman_region32_clear(&effect->pending.region);
++}
++
++static void
++effect_set_blur_region(struct wl_client *client, struct wl_resource *resource,
++		struct wl_resource *region_resource)
++{
++	struct blur_effect *effect = wl_resource_get_user_data(resource);
++	if (!effect) {
++		wl_resource_post_error(resource,
++			EXT_BACKGROUND_EFFECT_SURFACE_V1_ERROR_SURFACE_DESTROYED,
++			"The associated wl_surface has been destroyed");
++		return;
++	}
++	if (region_resource) {
++		if (!pixman_region32_copy(&effect->pending.region,
++				wlr_region_from_resource(region_resource))) {
++			wl_resource_post_no_memory(resource);
++		}
++	} else {
++		pixman_region32_clear(&effect->pending.region);
++	}
++}
++
++static const struct ext_background_effect_surface_v1_interface effect_impl = {
++	.destroy = resource_destroy,
++	.set_blur_region = effect_set_blur_region,
++};
++
++static struct blur_effect *
++effect_get(struct blur_manager *blur, struct wlr_surface *surface)
++{
++	struct wlr_addon *addon = wlr_addon_find(&surface->addons,
++		blur, &effect_addon_impl);
++	if (addon) {
++		struct blur_effect *effect = wl_container_of(addon, effect, addon);
++		return effect;
++	}
++	struct blur_effect *effect = calloc(1, sizeof(*effect));
++	if (!effect || !wlr_surface_synced_init(&effect->synced, surface,
++			&state_impl, &effect->pending, &effect->current)) {
++		free(effect);
++		return NULL;
++	}
++	effect->manager = blur;
++	effect->surface = surface;
++	wlr_addon_init(&effect->addon, &surface->addons, blur,
++		&effect_addon_impl);
++	wl_list_insert(&blur->effects, &effect->link);
++	return effect;
++}
++
++static void
++manager_get_effect(struct wl_client *client, struct wl_resource *resource,
++		uint32_t id, struct wl_resource *surface_resource)
++{
++	struct blur_manager *blur = wl_resource_get_user_data(resource);
++	struct wlr_surface *surface = wlr_surface_from_resource(surface_resource);
++	struct wlr_addon *addon = wlr_addon_find(&surface->addons,
++		blur, &effect_addon_impl);
++	struct blur_effect *effect = NULL;
++	if (addon) {
++		effect = wl_container_of(addon, effect, addon);
++		if (effect->resource) {
++			wl_resource_post_error(resource,
++				EXT_BACKGROUND_EFFECT_MANAGER_V1_ERROR_BACKGROUND_EFFECT_EXISTS,
++				"The wl_surface already has a background effect object");
++			return;
++		}
++	}
++
++	struct wl_resource *effect_resource = wl_resource_create(client,
++		&ext_background_effect_surface_v1_interface,
++		wl_resource_get_version(resource), id);
++	if (!effect_resource) {
++		wl_client_post_no_memory(client);
++		return;
++	}
++	if (!effect) {
++		effect = effect_get(blur, surface);
++		if (!effect) {
++			wl_resource_destroy(effect_resource);
++			wl_client_post_no_memory(client);
++			return;
++		}
++	}
++	effect->resource = effect_resource;
++	wl_resource_set_implementation(effect_resource, &effect_impl, effect,
++		effect_resource_destroy);
++}
++
++static const struct ext_background_effect_manager_v1_interface manager_impl = {
++	.destroy = resource_destroy,
++	.get_background_effect = manager_get_effect,
++};
++
++static void
++radius_resource_destroy(struct wl_resource *resource)
++{
++	struct blur_effect *effect = wl_resource_get_user_data(resource);
++	if (effect) {
++		effect->radius_resource = NULL;
++		effect->pending.radius = BACKGROUND_BLUR_RADIUS;
++	}
++}
++
++static void
++radius_set(struct wl_client *client, struct wl_resource *resource, uint32_t radius)
++{
++	struct blur_effect *effect = wl_resource_get_user_data(resource);
++	if (!effect) {
++		wl_resource_post_error(resource,
++			WAYDOCK_BLUR_SURFACE_V1_ERROR_SURFACE_DESTROYED,
++			"The associated wl_surface has been destroyed");
++	} else if (radius > 40) {
++		wl_resource_post_error(resource,
++			WAYDOCK_BLUR_SURFACE_V1_ERROR_INVALID_RADIUS,
++			"Blur radius must be between 0 and 40 logical pixels");
++	} else {
++		effect->pending.radius = radius;
++	}
++}
++
++static const struct waydock_blur_surface_v1_interface radius_impl = {
++	.destroy = resource_destroy,
++	.set_radius = radius_set,
++};
++
++static void
++radius_manager_get_surface(struct wl_client *client, struct wl_resource *resource,
++		uint32_t id, struct wl_resource *surface_resource)
++{
++	struct blur_manager *blur = wl_resource_get_user_data(resource);
++	struct wlr_surface *surface = wlr_surface_from_resource(surface_resource);
++	struct blur_effect *effect = effect_get(blur, surface);
++	if (!effect) {
++		wl_client_post_no_memory(client);
++		return;
++	}
++	if (effect->radius_resource) {
++		wl_resource_post_error(resource,
++			WAYDOCK_BLUR_MANAGER_V1_ERROR_SURFACE_EXISTS,
++			"The wl_surface already has a blur radius object");
++		return;
++	}
++	struct wl_resource *radius_resource = wl_resource_create(client,
++		&waydock_blur_surface_v1_interface, wl_resource_get_version(resource), id);
++	if (!radius_resource) {
++		wl_client_post_no_memory(client);
++		return;
++	}
++	effect->radius_resource = radius_resource;
++	wl_resource_set_implementation(radius_resource, &radius_impl, effect,
++		radius_resource_destroy);
++}
++
++static const struct waydock_blur_manager_v1_interface radius_manager_impl = {
++	.destroy = resource_destroy,
++	.get_surface = radius_manager_get_surface,
++};
++
++static void
++manager_resource_destroy(struct wl_resource *resource)
++{
++	wl_list_remove(wl_resource_get_link(resource));
++}
++
++static void
++manager_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id)
++{
++	struct blur_manager *blur = data;
++	struct wl_resource *resource = wl_resource_create(client,
++		&ext_background_effect_manager_v1_interface, version, id);
++	if (!resource) {
++		wl_client_post_no_memory(client);
++		return;
++	}
++	wl_resource_set_implementation(resource, &manager_impl, blur,
++		manager_resource_destroy);
++	wl_list_insert(&blur->resources, wl_resource_get_link(resource));
++	ext_background_effect_manager_v1_send_capabilities(resource,
++		blur->supported ? EXT_BACKGROUND_EFFECT_MANAGER_V1_CAPABILITY_BLUR : 0);
++}
++
++static void
++radius_manager_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id)
++{
++	struct blur_manager *blur = data;
++	struct wl_resource *resource = wl_resource_create(client,
++		&waydock_blur_manager_v1_interface, version, id);
++	if (!resource) {
++		wl_client_post_no_memory(client);
++		return;
++	}
++	wl_resource_set_implementation(resource, &radius_manager_impl, blur,
++		manager_resource_destroy);
++	wl_list_insert(&blur->radius_resources, wl_resource_get_link(resource));
++}
++
++void
++background_blur_update_capabilities(void)
++{
++	if (!manager) {
++		return;
++	}
++	bool supported = wlr_scene_background_blur_supported(server.renderer,
++		server.allocator);
++	if (supported == manager->supported) {
++		return;
++	}
++	manager->supported = supported;
++	struct wl_resource *resource;
++	wl_resource_for_each(resource, &manager->resources) {
++		ext_background_effect_manager_v1_send_capabilities(resource,
++			supported ? EXT_BACKGROUND_EFFECT_MANAGER_V1_CAPABILITY_BLUR : 0);
++	}
++	queue_apply(manager);
++}
++
++void
++background_blur_init(void)
++{
++	assert(!manager);
++	manager = calloc(1, sizeof(*manager));
++	if (!manager) {
++		wlr_log(WLR_ERROR, "Unable to allocate background effect manager");
++		return;
++	}
++	wl_list_init(&manager->resources);
++	wl_list_init(&manager->radius_resources);
++	wl_list_init(&manager->effects);
++	manager->supported = wlr_scene_background_blur_supported(server.renderer,
++		server.allocator);
++	manager->global = wl_global_create(server.wl_display,
++		&ext_background_effect_manager_v1_interface, 1, manager, manager_bind);
++	if (!manager->global) {
++		free(manager);
++		manager = NULL;
++		wlr_log(WLR_ERROR, "Unable to create background effect global");
++		return;
++	}
++	manager->radius_global = wl_global_create(server.wl_display,
++		&waydock_blur_manager_v1_interface, 1, manager, radius_manager_bind);
++	if (!manager->radius_global) {
++		wlr_log(WLR_ERROR, "Unable to create optional blur radius global");
++	}
++}
++
++void
++background_blur_finish(void)
++{
++	if (!manager) {
++		return;
++	}
++	if (manager->apply_idle) {
++		wl_event_source_remove(manager->apply_idle);
++	}
++	struct blur_effect *effect, *tmp;
++	wl_list_for_each_safe(effect, tmp, &manager->effects, link) {
++		effect_finish(effect);
++	}
++	struct wl_resource *resource, *resource_tmp;
++	wl_resource_for_each_safe(resource, resource_tmp, &manager->resources) {
++		wl_resource_destroy(resource);
++	}
++	wl_resource_for_each_safe(resource, resource_tmp, &manager->radius_resources) {
++		wl_resource_destroy(resource);
++	}
++	if (manager->radius_global) {
++		wl_global_destroy(manager->radius_global);
++	}
++	wl_global_destroy(manager->global);
++	free(manager);
++	manager = NULL;
++}
+--- a/src/meson.build
++++ b/src/meson.build
+@@ -1,5 +1,6 @@
+ labwc_sources = files(
+   'action.c',
++  'background-blur.c',
+   'buffer.c',
+   'debug.c',
+   'desktop.c',
+--- a/src/server.c
++++ b/src/server.c
+@@ -52,6 +52,7 @@
+ #endif
+ 
+ #include "action.h"
++#include "background-blur.h"
+ #include "common/macros.h"
+ #include "common/mem.h"
+ #include "common/nag.h"
+@@ -439,6 +440,7 @@
+ 	reload_config_and_theme();
+ 
+ 	magnifier_reset();
++	background_blur_update_capabilities();
+ 
+ 	wlr_allocator_destroy(old_allocator);
+ 	wlr_renderer_destroy(old_renderer);
+@@ -710,6 +712,7 @@
+ 		exit(EXIT_FAILURE);
+ 	}
+ 	wlr_subcompositor_create(server.wl_display);
++	background_blur_init();
+ 
+ 	struct wlr_data_device_manager *device_manager = NULL;
+ 	device_manager = wlr_data_device_manager_create(server.wl_display);
+@@ -889,6 +892,7 @@
+ 	wl_event_source_remove(server.sigchld_source);
+ 
+ 	wl_display_destroy_clients(server.wl_display);
++	background_blur_finish();
+ 
+ 	nag_finish();
+ 	seat_finish();
