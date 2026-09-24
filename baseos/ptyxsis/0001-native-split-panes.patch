@@ -1,0 +1,2672 @@
+diff --git a/src/meson.build b/src/meson.build
+index 575f08c..2b744f1 100644
+--- a/src/meson.build
++++ b/src/meson.build
+@@ -1,6 +1,5 @@
+ ptyxis_sources = [
+   'gdkhsla.c',
+-  'main.c',
+   'ptyxis-add-button-list-item.c',
+   'ptyxis-add-button-list-model.c',
+   'ptyxis-application.c',
+@@ -18,6 +17,7 @@ ptyxis_sources = [
+   'ptyxis-palette-preview.c',
+   'ptyxis-palette-preview-color.c',
+   'ptyxis-parking-lot.c',
++  'ptyxis-pane.c',
+   'ptyxis-preferences-list-item.c',
+   'ptyxis-preferences-window.c',
+   'ptyxis-profile-editor.c',
+@@ -73,7 +73,7 @@ schema_config.set('APP_SCHEMA_PATH', app_schema_path)
+ schema_config.set('APP_SCHEMA_PROFILE_ID', app_schema_profile_id)
+ schema_config.set('APP_SCHEMA_SHORTCUTS_ID', app_schema_shortcuts_id)
+ schema_config.set('APP_SCHEMA_SHORTCUTS_PATH', app_schema_shortcuts_path)
+-configure_file(
++ptyxis_schema = configure_file(
+           input: 'org.gnome.Ptyxis.gschema.xml.in',
+          output: '@0@.gschema.xml'.format(app_schema_id),
+   configuration: schema_config,
+@@ -110,9 +110,16 @@ ptyxis_include_directories = [
+   include_directories('../agent'),
+ ]
+ 
+-executable('ptyxis', ptyxis_sources + ptyxis_agent_ipc,
++ptyxis_executable = executable('ptyxis', ['main.c'] + ptyxis_sources + ptyxis_agent_ipc,
+          dependencies: ptyxis_deps,
+               install: true,
+                c_args: ptyxis_c_args,
+   include_directories: ptyxis_include_directories,
+ )
++
++custom_target('split-test-schemas',
++  input: ptyxis_schema,
++  output: 'gschemas.compiled',
++  command: [find_program('glib-compile-schemas'), meson.current_build_dir()],
++  build_by_default: true,
++)
+diff --git a/src/org.gnome.Ptyxis.gschema.xml.in b/src/org.gnome.Ptyxis.gschema.xml.in
+index ae43481..2c710a2 100644
+--- a/src/org.gnome.Ptyxis.gschema.xml.in
++++ b/src/org.gnome.Ptyxis.gschema.xml.in
+@@ -413,6 +413,42 @@
+       <description>The shortcut to paste from the clipboard</description>
+     </key>
+ 
++    <key name="split-right" type="s">
++      <default>'&lt;Control&gt;&lt;Shift&gt;e'</default>
++      <summary>Split Right</summary>
++    </key>
++    <key name="split-down" type="s">
++      <default>'&lt;Control&gt;&lt;Shift&gt;o'</default>
++      <summary>Split Down</summary>
++    </key>
++    <key name="close-pane" type="s">
++      <default>'&lt;Control&gt;&lt;Alt&gt;w'</default>
++      <summary>Close Pane</summary>
++    </key>
++    <key name="pane-next" type="s">
++      <default>'&lt;Control&gt;&lt;Alt&gt;Page_Down'</default>
++      <summary>Next Pane</summary>
++    </key>
++    <key name="pane-previous" type="s">
++      <default>'&lt;Control&gt;&lt;Alt&gt;Page_Up'</default>
++      <summary>Previous Pane</summary>
++    </key>
++    <key name="pane-left" type="s">
++      <default>'&lt;Control&gt;&lt;Alt&gt;Left'</default>
++      <summary>Focus Pane Left</summary>
++    </key>
++    <key name="pane-right" type="s">
++      <default>'&lt;Control&gt;&lt;Alt&gt;Right'</default>
++      <summary>Focus Pane Right</summary>
++    </key>
++    <key name="pane-up" type="s">
++      <default>'&lt;Control&gt;&lt;Alt&gt;Up'</default>
++      <summary>Focus Pane Up</summary>
++    </key>
++    <key name="pane-down" type="s">
++      <default>'&lt;Control&gt;&lt;Alt&gt;Down'</default>
++      <summary>Focus Pane Down</summary>
++    </key>
+     <key name="new-tab" type="s">
+       <default>'&lt;ctrl&gt;&lt;shift&gt;t'</default>
+       <summary>New Tab</summary>
+diff --git a/src/ptyxis-pane.c b/src/ptyxis-pane.c
+new file mode 100644
+index 0000000..a7de98f
+--- /dev/null
++++ b/src/ptyxis-pane.c
+@@ -0,0 +1,444 @@
++/* SPDX-License-Identifier: GPL-3.0-or-later */
++#include "config.h"
++#include <math.h>
++
++#include "ptyxis-pane.h"
++
++/* A page owns a binary tree of GtkPaned nodes. Leaves are independent
++ * terminal sessions; reparenting them must never restart their processes.
++ */
++struct _PtyxisPane
++{
++  GtkWidget parent_instance;
++  GtkWidget *tree;
++  GtkWidget *active;
++};
++
++G_DEFINE_FINAL_TYPE (PtyxisPane, ptyxis_pane, GTK_TYPE_WIDGET)
++
++enum { PROP_0, PROP_ACTIVE, N_PROPS };
++static GParamSpec *properties[N_PROPS];
++
++static void
++collect_children (GtkWidget *node,
++                  GPtrArray *children)
++{
++  if (GTK_IS_PANED (node))
++    {
++      collect_children (gtk_paned_get_start_child (GTK_PANED (node)), children);
++      collect_children (gtk_paned_get_end_child (GTK_PANED (node)), children);
++    }
++  else if (node != NULL)
++    g_ptr_array_add (children, g_object_ref (node));
++}
++
++GPtrArray *
++ptyxis_pane_list_children (PtyxisPane *self)
++{
++  GPtrArray *children = g_ptr_array_new_with_free_func (g_object_unref);
++  collect_children (self->tree, children);
++  return children;
++}
++
++void
++ptyxis_pane_set_active (PtyxisPane *self,
++                        GtkWidget  *child)
++{
++  g_return_if_fail (PTYXIS_IS_PANE (self));
++  g_return_if_fail (child != NULL && gtk_widget_is_ancestor (child, GTK_WIDGET (self)));
++
++  if (self->active == child)
++    return;
++
++  if (self->active != NULL)
++    gtk_widget_remove_css_class (self->active, "active-pane");
++  self->active = child;
++  gtk_widget_add_css_class (child, "active-pane");
++  g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_ACTIVE]);
++}
++
++GtkWidget *
++ptyxis_pane_get_active (PtyxisPane *self)
++{
++  g_return_val_if_fail (PTYXIS_IS_PANE (self), NULL);
++  return self->active;
++}
++
++static void
++focus_enter (GtkEventControllerFocus *controller,
++             gpointer                 user_data)
++{
++  GtkWidget *child = gtk_event_controller_get_widget (GTK_EVENT_CONTROLLER (controller));
++  GtkWidget *pane = gtk_widget_get_ancestor (child, PTYXIS_TYPE_PANE);
++
++  if (pane != NULL)
++    ptyxis_pane_set_active (PTYXIS_PANE (pane), child);
++}
++
++static void
++watch_child (GtkWidget *child)
++{
++  GtkEventController *controller;
++
++  if (g_object_get_data (G_OBJECT (child), "ptyxis-pane-focus") != NULL)
++    return;
++
++  controller = gtk_event_controller_focus_new ();
++  g_signal_connect (controller, "enter", G_CALLBACK (focus_enter), NULL);
++  gtk_widget_add_controller (child, controller);
++  g_object_set_data (G_OBJECT (child), "ptyxis-pane-focus", controller);
++}
++
++static void
++ptyxis_pane_dispose (GObject *object)
++{
++  PtyxisPane *self = PTYXIS_PANE (object);
++  self->active = NULL;
++  g_clear_pointer (&self->tree, gtk_widget_unparent);
++  G_OBJECT_CLASS (ptyxis_pane_parent_class)->dispose (object);
++}
++
++static void
++ptyxis_pane_get_property (GObject *object, guint prop_id,
++                          GValue *value, GParamSpec *pspec)
++{
++  if (prop_id == PROP_ACTIVE)
++    g_value_set_object (value, PTYXIS_PANE (object)->active);
++  else
++    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
++}
++
++static gboolean
++ptyxis_pane_grab_focus (GtkWidget *widget)
++{
++  GtkWidget *active = PTYXIS_PANE (widget)->active;
++  return active != NULL && gtk_widget_grab_focus (active);
++}
++
++static void
++ptyxis_pane_class_init (PtyxisPaneClass *klass)
++{
++  GObjectClass *object_class = G_OBJECT_CLASS (klass);
++  GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
++
++  object_class->dispose = ptyxis_pane_dispose;
++  object_class->get_property = ptyxis_pane_get_property;
++  widget_class->grab_focus = ptyxis_pane_grab_focus;
++  gtk_widget_class_set_layout_manager_type (widget_class, GTK_TYPE_BIN_LAYOUT);
++  gtk_widget_class_set_css_name (widget_class, "ptyxispane");
++  properties[PROP_ACTIVE] = g_param_spec_object ("active", NULL, NULL,
++                                                GTK_TYPE_WIDGET,
++                                                G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
++  g_object_class_install_properties (object_class, N_PROPS, properties);
++}
++
++static void
++ptyxis_pane_init (PtyxisPane *self)
++{
++  gtk_widget_set_hexpand (GTK_WIDGET (self), TRUE);
++  gtk_widget_set_vexpand (GTK_WIDGET (self), TRUE);
++}
++
++PtyxisPane *
++ptyxis_pane_new (GtkWidget *child)
++{
++  PtyxisPane *self = g_object_new (PTYXIS_TYPE_PANE, NULL);
++  self->tree = child;
++  watch_child (child);
++  gtk_widget_set_parent (child, GTK_WIDGET (self));
++  ptyxis_pane_set_active (self, child);
++  return self;
++}
++
++static gboolean
++set_initial_position (GtkWidget *widget, GdkFrameClock *clock, gpointer data)
++{
++  GtkOrientation orientation = gtk_orientable_get_orientation (GTK_ORIENTABLE (widget));
++  int size = orientation == GTK_ORIENTATION_HORIZONTAL
++           ? gtk_widget_get_width (widget) : gtk_widget_get_height (widget);
++  double *ratio = g_object_get_data (G_OBJECT (widget), "ptyxis-initial-ratio");
++
++  if (size <= 1)
++    return G_SOURCE_CONTINUE;
++
++  gtk_paned_set_position (GTK_PANED (widget), size * *ratio);
++  g_object_set_data (G_OBJECT (widget), "ptyxis-initial-ratio", NULL);
++  return G_SOURCE_REMOVE;
++}
++
++static GtkWidget *
++new_split (GtkOrientation orientation, double ratio)
++{
++  GtkWidget *split = gtk_paned_new (orientation);
++  double *initial_ratio = g_new (double, 1);
++
++  *initial_ratio = ratio;
++  g_object_set_data_full (G_OBJECT (split), "ptyxis-initial-ratio", initial_ratio, g_free);
++  gtk_paned_set_wide_handle (GTK_PANED (split), TRUE);
++  gtk_paned_set_resize_start_child (GTK_PANED (split), TRUE);
++  gtk_paned_set_resize_end_child (GTK_PANED (split), TRUE);
++  gtk_paned_set_shrink_start_child (GTK_PANED (split), FALSE);
++  gtk_paned_set_shrink_end_child (GTK_PANED (split), FALSE);
++  gtk_widget_add_tick_callback (split, set_initial_position, NULL, NULL);
++  return split;
++}
++
++/* Caller holds references across detach, including to the parent when
++ * replacing a split with its surviving subtree.
++ */
++static void
++replace_child (PtyxisPane *self, GtkWidget *parent,
++               GtkWidget *old_child, GtkWidget *new_child)
++{
++  if (parent == GTK_WIDGET (self))
++    {
++      gtk_widget_unparent (old_child);
++      self->tree = new_child;
++      if (new_child != NULL)
++        gtk_widget_set_parent (new_child, parent);
++    }
++  else if (gtk_paned_get_start_child (GTK_PANED (parent)) == old_child)
++    gtk_paned_set_start_child (GTK_PANED (parent), new_child);
++  else
++    gtk_paned_set_end_child (GTK_PANED (parent), new_child);
++}
++
++/* GtkPaned remembers focused descendants. Clear the root's focus before
++ * detaching a focused subtree so it cannot traverse a half-rebuilt tree.
++ */
++static gboolean
++clear_subtree_focus (GtkWidget *subtree)
++{
++  GtkRoot *root = gtk_widget_get_root (subtree);
++  GtkWidget *focus = root ? gtk_root_get_focus (root) : NULL;
++  if (focus != NULL && (focus == subtree || gtk_widget_is_ancestor (focus, subtree)))
++    {
++      gtk_root_set_focus (root, NULL);
++      return TRUE;
++    }
++  return FALSE;
++}
++
++void
++ptyxis_pane_split (PtyxisPane *self, GtkWidget *child,
++                   GtkWidget *new_child, GtkOrientation orientation)
++{
++  GtkWidget *parent;
++  GtkWidget *split;
++
++  g_return_if_fail (gtk_widget_is_ancestor (child, GTK_WIDGET (self)));
++  g_return_if_fail (gtk_widget_get_parent (new_child) == NULL);
++  parent = gtk_widget_get_parent (child);
++  split = new_split (orientation, .5);
++
++  clear_subtree_focus (child);
++  g_object_ref (child);
++  replace_child (self, parent, child, split);
++  gtk_paned_set_start_child (GTK_PANED (split), child);
++  gtk_paned_set_end_child (GTK_PANED (split), new_child);
++  g_object_unref (child);
++  watch_child (new_child);
++  gtk_widget_add_css_class (GTK_WIDGET (self), "split");
++  ptyxis_pane_set_active (self, new_child);
++}
++
++gboolean
++ptyxis_pane_remove (PtyxisPane *self, GtkWidget *child)
++{
++  g_autoptr(GtkWidget) parent = NULL;
++  g_autoptr(GtkWidget) sibling = NULL;
++  g_autoptr(GPtrArray) children = NULL;
++  GtkWidget *grandparent;
++  gboolean was_active;
++  gboolean restore_focus;
++
++  g_return_val_if_fail (gtk_widget_is_ancestor (child, GTK_WIDGET (self)), FALSE);
++  if (self->tree == child)
++    return FALSE;
++
++  parent = g_object_ref (gtk_widget_get_parent (child));
++  grandparent = gtk_widget_get_parent (parent);
++  restore_focus = clear_subtree_focus (parent);
++  sibling = g_object_ref (gtk_paned_get_start_child (GTK_PANED (parent)) == child
++                        ? gtk_paned_get_end_child (GTK_PANED (parent))
++                        : gtk_paned_get_start_child (GTK_PANED (parent)));
++  was_active = self->active == child;
++  if (was_active)
++    {
++      gtk_widget_remove_css_class (child, "active-pane");
++      self->active = NULL;
++    }
++  gtk_paned_set_start_child (GTK_PANED (parent), NULL);
++  gtk_paned_set_end_child (GTK_PANED (parent), NULL);
++  replace_child (self, grandparent, parent, sibling);
++  children = ptyxis_pane_list_children (self);
++  if (was_active)
++    {
++      g_autoptr(GPtrArray) survivors = g_ptr_array_new_with_free_func (g_object_unref);
++      collect_children (sibling, survivors);
++      ptyxis_pane_set_active (self, g_ptr_array_index (survivors, 0));
++    }
++  if (children->len == 1)
++    gtk_widget_remove_css_class (GTK_WIDGET (self), "split");
++  if (restore_focus)
++    gtk_widget_grab_focus (self->active);
++  return TRUE;
++}
++
++void
++ptyxis_pane_focus_next (PtyxisPane *self, int step)
++{
++  g_autoptr(GPtrArray) children = ptyxis_pane_list_children (self);
++  guint index;
++  if (g_ptr_array_find (children, self->active, &index))
++    {
++      int next = ((int)index + step + (int)children->len) % (int)children->len;
++      ptyxis_pane_set_active (self, g_ptr_array_index (children, next));
++      gtk_widget_grab_focus (self->active);
++    }
++}
++
++void
++ptyxis_pane_focus_direction (PtyxisPane *self, GtkDirectionType direction)
++{
++  g_autoptr(GPtrArray) children = ptyxis_pane_list_children (self);
++  graphene_rect_t from;
++  GtkWidget *best = NULL;
++  double best_score = G_MAXDOUBLE;
++  gboolean horizontal = direction == GTK_DIR_LEFT || direction == GTK_DIR_RIGHT;
++
++  if (self->active == NULL ||
++      !gtk_widget_compute_bounds (self->active, GTK_WIDGET (self), &from))
++    return;
++  for (guint i = 0; i < children->len; i++)
++    {
++      GtkWidget *child = g_ptr_array_index (children, i);
++      graphene_rect_t to;
++      double dx, dy, primary, secondary, score;
++      if (child == self->active || !gtk_widget_compute_bounds (child, GTK_WIDGET (self), &to))
++        continue;
++      dx = to.origin.x + to.size.width / 2 - from.origin.x - from.size.width / 2;
++      dy = to.origin.y + to.size.height / 2 - from.origin.y - from.size.height / 2;
++      primary = horizontal ? dx : dy;
++      if (direction == GTK_DIR_LEFT || direction == GTK_DIR_UP)
++        primary = -primary;
++      if (primary <= 0)
++        continue;
++      secondary = horizontal ? fabs (dy) : fabs (dx);
++      score = primary + secondary * 4;
++      if (score < best_score)
++        {
++          best = child;
++          best_score = score;
++        }
++    }
++  if (best != NULL)
++    {
++      ptyxis_pane_set_active (self, best);
++      gtk_widget_grab_focus (best);
++    }
++}
++
++static GVariant *
++save_node (GtkWidget *node, guint *index)
++{
++  GVariantBuilder builder;
++  g_variant_builder_init (&builder, G_VARIANT_TYPE_VARDICT);
++  if (GTK_IS_PANED (node))
++    {
++      GtkOrientation orientation = gtk_orientable_get_orientation (GTK_ORIENTABLE (node));
++      double *initial = g_object_get_data (G_OBJECT (node), "ptyxis-initial-ratio");
++      int size = orientation == GTK_ORIENTATION_HORIZONTAL
++               ? gtk_widget_get_width (node) : gtk_widget_get_height (node);
++      double ratio = initial ? *initial : size > 0 ? (double)gtk_paned_get_position (GTK_PANED (node)) / size : .5;
++      g_variant_builder_add (&builder, "{sv}", "orientation", g_variant_new_uint32 (orientation));
++      g_variant_builder_add (&builder, "{sv}", "ratio", g_variant_new_double (CLAMP (ratio, .001, .999)));
++      g_variant_builder_add (&builder, "{sv}", "first", save_node (gtk_paned_get_start_child (GTK_PANED (node)), index));
++      g_variant_builder_add (&builder, "{sv}", "second", save_node (gtk_paned_get_end_child (GTK_PANED (node)), index));
++    }
++  else
++    g_variant_builder_add (&builder, "{sv}", "index", g_variant_new_uint32 ((*index)++));
++  return g_variant_builder_end (&builder);
++}
++
++GVariant *
++ptyxis_pane_save_layout (PtyxisPane *self)
++{
++  g_autoptr(GPtrArray) children = ptyxis_pane_list_children (self);
++  guint active = 0, index = 0;
++  g_ptr_array_find (children, self->active, &active);
++  return g_variant_ref_sink (g_variant_new ("(u@a{sv})", active, save_node (self->tree, &index)));
++}
++
++/* Validate the entire tree before reparenting any children. */
++static gboolean
++validate_node (GVariant *node, guint count, gboolean *seen, guint depth)
++{
++  g_autoptr(GVariant) first = NULL;
++  g_autoptr(GVariant) second = NULL;
++  guint index, orientation;
++  double ratio;
++  if (depth > 64)
++    return FALSE;
++  if (g_variant_lookup (node, "index", "u", &index))
++    {
++      if (index >= count || seen[index])
++        return FALSE;
++      seen[index] = TRUE;
++      return TRUE;
++    }
++  first = g_variant_lookup_value (node, "first", G_VARIANT_TYPE_VARDICT);
++  second = g_variant_lookup_value (node, "second", G_VARIANT_TYPE_VARDICT);
++  return first && second &&
++         g_variant_lookup (node, "orientation", "u", &orientation) && orientation <= GTK_ORIENTATION_VERTICAL &&
++         g_variant_lookup (node, "ratio", "d", &ratio) && isfinite (ratio) && ratio > 0 && ratio < 1 &&
++         validate_node (first, count, seen, depth + 1) && validate_node (second, count, seen, depth + 1);
++}
++
++static GtkWidget *
++restore_node (GVariant *node, GPtrArray *children)
++{
++  g_autoptr(GVariant) first = NULL;
++  g_autoptr(GVariant) second = NULL;
++  guint index, orientation;
++  double ratio;
++  GtkWidget *split;
++  if (g_variant_lookup (node, "index", "u", &index))
++    {
++      GtkWidget *child = g_ptr_array_index (children, index);
++      watch_child (child);
++      return child;
++    }
++  g_variant_lookup (node, "orientation", "u", &orientation);
++  g_variant_lookup (node, "ratio", "d", &ratio);
++  first = g_variant_lookup_value (node, "first", G_VARIANT_TYPE_VARDICT);
++  second = g_variant_lookup_value (node, "second", G_VARIANT_TYPE_VARDICT);
++  split = new_split (orientation, ratio);
++  gtk_paned_set_start_child (GTK_PANED (split), restore_node (first, children));
++  gtk_paned_set_end_child (GTK_PANED (split), restore_node (second, children));
++  return split;
++}
++
++PtyxisPane *
++ptyxis_pane_restore (GPtrArray *children, GVariant *layout)
++{
++  g_autoptr(GVariant) tree = NULL;
++  g_autofree gboolean *seen = g_new0 (gboolean, children->len);
++  PtyxisPane *self;
++  guint active;
++  if (!g_variant_is_of_type (layout, G_VARIANT_TYPE ("(ua{sv})")))
++    return NULL;
++  g_variant_get (layout, "(u@a{sv})", &active, &tree);
++  if (active >= children->len || !validate_node (tree, children->len, seen, 0))
++    return NULL;
++  for (guint i = 0; i < children->len; i++)
++    if (!seen[i] || gtk_widget_get_parent (g_ptr_array_index (children, i)) != NULL)
++      return NULL;
++  self = g_object_new (PTYXIS_TYPE_PANE, NULL);
++  self->tree = restore_node (tree, children);
++  gtk_widget_set_parent (self->tree, GTK_WIDGET (self));
++  ptyxis_pane_set_active (self, g_ptr_array_index (children, active));
++  if (children->len > 1)
++    gtk_widget_add_css_class (GTK_WIDGET (self), "split");
++  return self;
++}
+diff --git a/src/ptyxis-pane.h b/src/ptyxis-pane.h
+new file mode 100644
+index 0000000..51da308
+--- /dev/null
++++ b/src/ptyxis-pane.h
+@@ -0,0 +1,30 @@
++/* SPDX-License-Identifier: GPL-3.0-or-later */
++#pragma once
++
++#include <gtk/gtk.h>
++
++G_BEGIN_DECLS
++
++#define PTYXIS_TYPE_PANE (ptyxis_pane_get_type ())
++G_DECLARE_FINAL_TYPE (PtyxisPane, ptyxis_pane, PTYXIS, PANE, GtkWidget)
++
++PtyxisPane *ptyxis_pane_new           (GtkWidget      *child);
++GtkWidget  *ptyxis_pane_get_active    (PtyxisPane     *self);
++void        ptyxis_pane_set_active    (PtyxisPane     *self,
++                                      GtkWidget      *child);
++GPtrArray  *ptyxis_pane_list_children (PtyxisPane     *self);
++void        ptyxis_pane_split         (PtyxisPane     *self,
++                                      GtkWidget      *child,
++                                      GtkWidget      *new_child,
++                                      GtkOrientation  orientation);
++gboolean    ptyxis_pane_remove        (PtyxisPane     *self,
++                                      GtkWidget      *child);
++void        ptyxis_pane_focus_next    (PtyxisPane     *self,
++                                      int             step);
++void        ptyxis_pane_focus_direction (PtyxisPane   *self,
++                                        GtkDirectionType direction);
++GVariant   *ptyxis_pane_save_layout   (PtyxisPane     *self);
++PtyxisPane *ptyxis_pane_restore       (GPtrArray      *children,
++                                      GVariant       *layout);
++
++G_END_DECLS
+diff --git a/src/ptyxis-parking-lot.c b/src/ptyxis-parking-lot.c
+index d250b13..ec8eb14 100644
+--- a/src/ptyxis-parking-lot.c
++++ b/src/ptyxis-parking-lot.c
+@@ -22,6 +22,7 @@
+ #include "config.h"
+ 
+ #include "ptyxis-parking-lot.h"
++#include "ptyxis-tab.h"
+ 
+ #define DEFAULT_TIMEOUT_SECONDS 5
+ 
+@@ -29,7 +30,7 @@ typedef struct _PtyxisParkedTab
+ {
+   GList             link;
+   PtyxisParkingLot *lot;
+-  PtyxisTab        *tab;
++  PtyxisPane        *tab;
+   guint             source_id;
+ } PtyxisParkedTab;
+ 
+@@ -55,7 +56,7 @@ ptyxis_parking_lot_remove (PtyxisParkingLot *self,
+                            PtyxisParkedTab  *parked,
+                            gboolean          force_quit)
+ {
+-  g_autoptr(PtyxisTab) tab = NULL;
++  g_autoptr(PtyxisPane) tab = NULL;
+ 
+   g_assert (PTYXIS_IS_PARKING_LOT (self));
+   g_assert (parked != NULL);
+@@ -69,11 +70,11 @@ ptyxis_parking_lot_remove (PtyxisParkingLot *self,
+ 
+   if (tab != NULL)
+     {
+-      g_autofree char *title = ptyxis_tab_dup_title (tab);
+-      g_debug ("Removing tab \"%s\" from parking lot", title);
++      g_autoptr(GPtrArray) children = ptyxis_pane_list_children (tab);
+ 
+       if (force_quit)
+-        ptyxis_tab_force_quit (tab);
++        for (guint i = 0; i < children->len; i++)
++          ptyxis_tab_force_quit (g_ptr_array_index (children, i));
+     }
+ }
+ 
+@@ -185,7 +186,7 @@ ptyxis_parking_lot_source_func (gpointer data)
+ 
+   g_assert (parked != NULL);
+   g_assert (PTYXIS_IS_PARKING_LOT (parked->lot));
+-  g_assert (PTYXIS_IS_TAB (parked->tab));
++  g_assert (PTYXIS_IS_PANE (parked->tab));
+   g_assert (parked->source_id != 0);
+ 
+   ptyxis_parking_lot_remove (parked->lot, parked, TRUE);
+@@ -195,16 +196,13 @@ ptyxis_parking_lot_source_func (gpointer data)
+ 
+ void
+ ptyxis_parking_lot_push (PtyxisParkingLot *self,
+-                         PtyxisTab        *tab)
++                         PtyxisPane        *tab)
+ {
+   PtyxisParkedTab *parked;
+-  g_autofree char *title = NULL;
+ 
+   g_return_if_fail (PTYXIS_IS_PARKING_LOT (self));
+-  g_return_if_fail (PTYXIS_IS_TAB (tab));
++  g_return_if_fail (PTYXIS_IS_PANE (tab));
+ 
+-  title = ptyxis_tab_dup_title (tab);
+-  g_debug ("Adding tab \"%s\" to parking lot", title);
+ 
+   parked = g_new0 (PtyxisParkedTab, 1);
+   parked->link.data = parked;
+@@ -222,20 +220,20 @@ ptyxis_parking_lot_push (PtyxisParkingLot *self,
+  * ptyxis_parking_lot_pop:
+  * @self: a #PtyxisParkingLot
+  *
+- * Returns: (transfer full) (nullable): a #PtyxisTab or %NULL
++ * Returns: (transfer full) (nullable): a #PtyxisPane or %NULL
+  */
+-PtyxisTab *
++PtyxisPane *
+ ptyxis_parking_lot_pop (PtyxisParkingLot *self)
+ {
+   PtyxisParkedTab *parked;
+-  PtyxisTab *ret = NULL;
++  PtyxisPane *ret = NULL;
+ 
+   g_return_val_if_fail (PTYXIS_IS_PARKING_LOT (self), NULL);
+ 
+   g_debug ("Request to pop tab from parking lot of %u tabs",
+            self->tabs.length);
+ 
+-  if ((parked = g_queue_peek_head (&self->tabs)))
++  if ((parked = g_queue_peek_tail (&self->tabs)))
+     {
+       ret = g_steal_pointer (&parked->tab);
+       ptyxis_parking_lot_remove (self, parked, FALSE);
+diff --git a/src/ptyxis-parking-lot.h b/src/ptyxis-parking-lot.h
+index 0380143..bc39c6d 100644
+--- a/src/ptyxis-parking-lot.h
++++ b/src/ptyxis-parking-lot.h
+@@ -21,7 +21,7 @@
+ 
+ #pragma once
+ 
+-#include "ptyxis-tab.h"
++#include "ptyxis-pane.h"
+ 
+ G_BEGIN_DECLS
+ 
+@@ -34,7 +34,7 @@ guint             ptyxis_parking_lot_get_timeout (PtyxisParkingLot *self);
+ void              ptyxis_parking_lot_set_timeout (PtyxisParkingLot *self,
+                                                   guint             timeout);
+ void              ptyxis_parking_lot_push        (PtyxisParkingLot *self,
+-                                                  PtyxisTab        *tab);
+-PtyxisTab        *ptyxis_parking_lot_pop         (PtyxisParkingLot *self);
++                                                  PtyxisPane        *tab);
++PtyxisPane        *ptyxis_parking_lot_pop         (PtyxisParkingLot *self);
+ 
+ G_END_DECLS
+diff --git a/src/ptyxis-preferences-window.c b/src/ptyxis-preferences-window.c
+index fb3eea9..2852fdc 100644
+--- a/src/ptyxis-preferences-window.c
++++ b/src/ptyxis-preferences-window.c
+@@ -89,6 +89,15 @@ struct _PtyxisPreferencesWindow
+   AdwSwitchRow         *scroll_on_keystroke;
+   AdwComboRow          *scrollbar_policy;
+   GListModel           *scrollbar_policies;
++  PtyxisShortcutRow *shortcut_split_right;
++  PtyxisShortcutRow *shortcut_split_down;
++  PtyxisShortcutRow *shortcut_close_pane;
++  PtyxisShortcutRow *shortcut_pane_next;
++  PtyxisShortcutRow *shortcut_pane_previous;
++  PtyxisShortcutRow *shortcut_pane_left;
++  PtyxisShortcutRow *shortcut_pane_right;
++  PtyxisShortcutRow *shortcut_pane_up;
++  PtyxisShortcutRow *shortcut_pane_down;
+   PtyxisShortcutRow    *shortcut_close_other_tabs;
+   PtyxisShortcutRow    *shortcut_close_tab;
+   PtyxisShortcutRow    *shortcut_close_window;
+@@ -921,6 +930,33 @@ ptyxis_preferences_window_constructed (GObject *object)
+                           self->enable_a11y, "active",
+                           G_BINDING_SYNC_CREATE | G_BINDING_BIDIRECTIONAL);
+ 
++  g_object_bind_property (shortcuts, "split-right",
++                          self->shortcut_split_right, "accelerator",
++                          G_BINDING_SYNC_CREATE | G_BINDING_BIDIRECTIONAL);
++  g_object_bind_property (shortcuts, "split-down",
++                          self->shortcut_split_down, "accelerator",
++                          G_BINDING_SYNC_CREATE | G_BINDING_BIDIRECTIONAL);
++  g_object_bind_property (shortcuts, "close-pane",
++                          self->shortcut_close_pane, "accelerator",
++                          G_BINDING_SYNC_CREATE | G_BINDING_BIDIRECTIONAL);
++  g_object_bind_property (shortcuts, "pane-next",
++                          self->shortcut_pane_next, "accelerator",
++                          G_BINDING_SYNC_CREATE | G_BINDING_BIDIRECTIONAL);
++  g_object_bind_property (shortcuts, "pane-previous",
++                          self->shortcut_pane_previous, "accelerator",
++                          G_BINDING_SYNC_CREATE | G_BINDING_BIDIRECTIONAL);
++  g_object_bind_property (shortcuts, "pane-left",
++                          self->shortcut_pane_left, "accelerator",
++                          G_BINDING_SYNC_CREATE | G_BINDING_BIDIRECTIONAL);
++  g_object_bind_property (shortcuts, "pane-right",
++                          self->shortcut_pane_right, "accelerator",
++                          G_BINDING_SYNC_CREATE | G_BINDING_BIDIRECTIONAL);
++  g_object_bind_property (shortcuts, "pane-up",
++                          self->shortcut_pane_up, "accelerator",
++                          G_BINDING_SYNC_CREATE | G_BINDING_BIDIRECTIONAL);
++  g_object_bind_property (shortcuts, "pane-down",
++                          self->shortcut_pane_down, "accelerator",
++                          G_BINDING_SYNC_CREATE | G_BINDING_BIDIRECTIONAL);
+   g_object_bind_property (shortcuts, "new-tab",
+                           self->shortcut_new_tab, "accelerator",
+                           G_BINDING_SYNC_CREATE | G_BINDING_BIDIRECTIONAL);
+@@ -1172,6 +1208,15 @@ ptyxis_preferences_window_class_init (PtyxisPreferencesWindowClass *klass)
+   gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, scrollback_lines);
+   gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, scrollbar_policies);
+   gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, scrollbar_policy);
++  gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, shortcut_split_right);
++  gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, shortcut_split_down);
++  gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, shortcut_close_pane);
++  gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, shortcut_pane_next);
++  gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, shortcut_pane_previous);
++  gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, shortcut_pane_left);
++  gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, shortcut_pane_right);
++  gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, shortcut_pane_up);
++  gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, shortcut_pane_down);
+   gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, shortcut_close_other_tabs);
+   gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, shortcut_close_tab);
+   gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, shortcut_close_window);
+diff --git a/src/ptyxis-preferences-window.ui b/src/ptyxis-preferences-window.ui
+index ee3b477..e621040 100644
+--- a/src/ptyxis-preferences-window.ui
++++ b/src/ptyxis-preferences-window.ui
+@@ -763,6 +763,65 @@
+             </child>
+           </object>
+         </child>
++        <child>
++          <object class="AdwPreferencesGroup">
++            <property name="title" translatable="yes">Panes</property>
++            <child>
++              <object class="PtyxisShortcutRow" id="shortcut_split_right">
++                <property name="title" translatable="yes">Split Right</property>
++                <property name="shortcut-name">split-right</property>
++              </object>
++            </child>
++            <child>
++              <object class="PtyxisShortcutRow" id="shortcut_split_down">
++                <property name="title" translatable="yes">Split Down</property>
++                <property name="shortcut-name">split-down</property>
++              </object>
++            </child>
++            <child>
++              <object class="PtyxisShortcutRow" id="shortcut_close_pane">
++                <property name="title" translatable="yes">Close Pane</property>
++                <property name="shortcut-name">close-pane</property>
++              </object>
++            </child>
++            <child>
++              <object class="PtyxisShortcutRow" id="shortcut_pane_next">
++                <property name="title" translatable="yes">Next Pane</property>
++                <property name="shortcut-name">pane-next</property>
++              </object>
++            </child>
++            <child>
++              <object class="PtyxisShortcutRow" id="shortcut_pane_previous">
++                <property name="title" translatable="yes">Previous Pane</property>
++                <property name="shortcut-name">pane-previous</property>
++              </object>
++            </child>
++            <child>
++              <object class="PtyxisShortcutRow" id="shortcut_pane_left">
++                <property name="title" translatable="yes">Focus Pane Left</property>
++                <property name="shortcut-name">pane-left</property>
++              </object>
++            </child>
++            <child>
++              <object class="PtyxisShortcutRow" id="shortcut_pane_right">
++                <property name="title" translatable="yes">Focus Pane Right</property>
++                <property name="shortcut-name">pane-right</property>
++              </object>
++            </child>
++            <child>
++              <object class="PtyxisShortcutRow" id="shortcut_pane_up">
++                <property name="title" translatable="yes">Focus Pane Up</property>
++                <property name="shortcut-name">pane-up</property>
++              </object>
++            </child>
++            <child>
++              <object class="PtyxisShortcutRow" id="shortcut_pane_down">
++                <property name="title" translatable="yes">Focus Pane Down</property>
++                <property name="shortcut-name">pane-down</property>
++              </object>
++            </child>
++          </object>
++        </child>
+         <child>
+           <object class="AdwPreferencesGroup">
+             <property name="title" translatable="yes">Tabs</property>
+diff --git a/src/ptyxis-session.c b/src/ptyxis-session.c
+index 6330fcb..b5ce4b1 100644
+--- a/src/ptyxis-session.c
++++ b/src/ptyxis-session.c
+@@ -27,291 +27,236 @@
+ #include "ptyxis-util.h"
+ #include "ptyxis-window.h"
+ 
+-GVariant *
+-ptyxis_session_save (PtyxisApplication *app)
++/* Leaf state stays compatible with the original single-terminal session
++ * format. Version 2 wraps leaves in a tab and stores their split tree.
++ */
++static GVariant *
++save_terminal (PtyxisTab *tab)
+ {
+-  PtyxisSettings *settings;
+   GVariantBuilder builder;
+-  gboolean restore_session;
++  PtyxisProfile *profile = ptyxis_tab_get_profile (tab);
++  PtyxisTerminal *terminal = ptyxis_tab_get_terminal (tab);
++  g_autoptr(PtyxisIpcContainer) container = ptyxis_tab_dup_container (tab);
++  g_autofree char *cwd = ptyxis_tab_dup_current_directory_uri (tab);
++  const char *title;
+ 
+-  g_return_val_if_fail (PTYXIS_IS_APPLICATION (app), NULL);
+-
+-  g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
+-  g_variant_builder_add_parsed (&builder, "{'version', <%u>}", 1);
+-  g_variant_builder_open (&builder, G_VARIANT_TYPE ("{sv}"));
+-  g_variant_builder_add (&builder, "s", "windows");
+-  g_variant_builder_open (&builder, G_VARIANT_TYPE ("v"));
+-  g_variant_builder_open (&builder, G_VARIANT_TYPE ("aa{sv}"));
++  if (cwd == NULL)
++    {
++      g_autofree char *path = ptyxis_tab_query_working_directory_from_agent (tab);
++      if (path != NULL && g_path_is_absolute (path))
++        cwd = g_filename_to_uri (path, NULL, NULL);
++    }
++  if (cwd == NULL)
++    cwd = ptyxis_tab_dup_previous_working_directory_uri (tab);
++  G_GNUC_BEGIN_IGNORE_DEPRECATIONS
++  title = vte_terminal_get_window_title (VTE_TERMINAL (terminal));
++  G_GNUC_END_IGNORE_DEPRECATIONS
++  if (title == NULL)
++    title = ptyxis_tab_get_initial_title (tab);
++
++  g_variant_builder_init (&builder, G_VARIANT_TYPE_VARDICT);
++  g_variant_builder_add (&builder, "{sv}", "profile", g_variant_new_string (ptyxis_profile_get_uuid (profile)));
++  g_variant_builder_add (&builder, "{sv}", "size", g_variant_new ("(uu)",
++                         (guint)vte_terminal_get_column_count (VTE_TERMINAL (terminal)),
++                         (guint)vte_terminal_get_row_count (VTE_TERMINAL (terminal))));
++  g_variant_builder_add (&builder, "{sv}", "zoom", g_variant_new_uint32 (ptyxis_tab_get_zoom (tab)));
++  if (title != NULL)
++    g_variant_builder_add (&builder, "{sv}", "window-title", g_variant_new_string (title));
++  if (cwd != NULL)
++    g_variant_builder_add (&builder, "{sv}", "cwd", g_variant_new_string (cwd));
++  if (container != NULL)
++    g_variant_builder_add (&builder, "{sv}", "container", g_variant_new_string (ptyxis_ipc_container_get_id (container)));
++  if (ptyxis_tab_get_title_prefix (tab) != NULL)
++    g_variant_builder_add (&builder, "{sv}", "title-prefix", g_variant_new_string (ptyxis_tab_get_title_prefix (tab)));
++  g_variant_builder_add (&builder, "{sv}", "ignore-osc-title", g_variant_new_boolean (ptyxis_tab_get_ignore_osc_title (tab)));
++  return g_variant_builder_end (&builder);
++}
+ 
+-  settings = ptyxis_application_get_settings (PTYXIS_APPLICATION_DEFAULT);
+-  restore_session = ptyxis_settings_get_restore_session (settings);
++GVariant *
++ptyxis_session_save (PtyxisApplication *app)
++{
++  PtyxisSettings *settings = ptyxis_application_get_settings (app);
++  gboolean restore_session = ptyxis_settings_get_restore_session (settings);
++  GVariantBuilder state, windows;
+ 
+-  for (const GList *list = gtk_application_get_windows (GTK_APPLICATION (app));
+-       list != NULL;
+-       list = list->next)
++  g_variant_builder_init (&state, G_VARIANT_TYPE_VARDICT);
++  g_variant_builder_init (&windows, G_VARIANT_TYPE ("aa{sv}"));
++  for (const GList *list = gtk_application_get_windows (GTK_APPLICATION (app)); list; list = list->next)
+     {
+-      if (PTYXIS_IS_WINDOW (list->data))
++      PtyxisWindow *window;
++      g_autoptr(GListModel) pages = NULL;
++      GVariantBuilder saved_window, tabs;
++      int width, height;
++      if (!PTYXIS_IS_WINDOW (list->data))
++        continue;
++      window = PTYXIS_WINDOW (list->data);
++      pages = ptyxis_window_list_pages (window);
++      g_variant_builder_init (&saved_window, G_VARIANT_TYPE_VARDICT);
++      g_variant_builder_init (&tabs, G_VARIANT_TYPE ("aa{sv}"));
++      for (guint i = 0; i < g_list_model_get_n_items (pages); i++)
+         {
+-          PtyxisWindow *window = PTYXIS_WINDOW (list->data);
+-          g_autoptr(GListModel) pages = ptyxis_window_list_pages (window);
+-          guint n_items = g_list_model_get_n_items (pages);
+-
+-          g_variant_builder_open (&builder, G_VARIANT_TYPE ("a{sv}"));
+-
+-          if (gtk_window_is_maximized (GTK_WINDOW (window)))
+-            g_variant_builder_add_parsed (&builder, "{'maximized', <%b>}", TRUE);
+-
+-          g_variant_builder_open (&builder, G_VARIANT_TYPE ("{sv}"));
+-          g_variant_builder_add (&builder, "s", "tabs");
+-          g_variant_builder_open (&builder, G_VARIANT_TYPE ("v"));
+-          g_variant_builder_open (&builder, G_VARIANT_TYPE ("aa{sv}"));
+-
+-          for (guint i = 0; i < n_items; i++)
+-            {
+-              g_autoptr(AdwTabPage) page = g_list_model_get_item (pages, i);
+-              gboolean pinned;
+-
+-              g_assert (ADW_IS_TAB_PAGE (page));
+-
+-              pinned = adw_tab_page_get_pinned (page);
+-
+-              if (restore_session || pinned)
+-                {
+-                  PtyxisTab *tab = PTYXIS_TAB (adw_tab_page_get_child (page));
+-                  g_autoptr(PtyxisIpcContainer) container = NULL;
+-                  g_autofree char *default_container = NULL;
+-                  g_autofree char *cwd = NULL;
+-                  PtyxisTerminal *terminal;
+-                  PtyxisProfile *profile;
+-                  const char *container_id = NULL;
+-                  const char *window_title;
+-                  const char *uuid;
+-                  gboolean is_active;
+-                  PtyxisZoomLevel zoom;
+-                  guint rows;
+-                  guint columns;
+-
+-                  g_assert (PTYXIS_IS_TAB (tab));
+-
+-                  profile = ptyxis_tab_get_profile (tab);
+-                  uuid = ptyxis_profile_get_uuid (profile);
+-                  default_container = ptyxis_profile_dup_default_container (profile);
+-                  container = ptyxis_tab_dup_container (tab);
+-                  is_active = ptyxis_window_get_active_tab (window) == tab;
+-
+-                  terminal = ptyxis_tab_get_terminal (tab);
+-                  columns = vte_terminal_get_column_count (VTE_TERMINAL (terminal));
+-                  rows = vte_terminal_get_row_count (VTE_TERMINAL (terminal));
+-                  cwd = ptyxis_terminal_dup_current_directory_uri (terminal);
+-                  zoom = ptyxis_tab_get_zoom (tab);
+-
+-                  /* If we had an initial directory and we've never got an update,
+-                   * it could be that the tab has never spawned to process the
+-                   * directory state updates.
+-                   */
+-                  if (cwd == NULL)
+-                    cwd = ptyxis_tab_dup_previous_working_directory_uri (tab);
+-
+-                  G_GNUC_BEGIN_IGNORE_DEPRECATIONS
+-                  if (!(window_title = vte_terminal_get_window_title (VTE_TERMINAL (terminal))))
+-                    window_title = ptyxis_tab_get_initial_title (tab);
+-                  G_GNUC_END_IGNORE_DEPRECATIONS
+-
+-                  if (container != NULL)
+-                    container_id = ptyxis_ipc_container_get_id (container);
+-
+-                  g_variant_builder_open (&builder, G_VARIANT_TYPE ("a{sv}"));
+-                  g_variant_builder_add_parsed (&builder, "{'profile', <%s>}", uuid);
+-                  g_variant_builder_add_parsed (&builder, "{'pinned', <%b>}", pinned);
+-                  g_variant_builder_add_parsed (&builder, "{'size', <(%u,%u)>}", columns, rows);
+-                  if (zoom != PTYXIS_ZOOM_LEVEL_DEFAULT)
+-                    g_variant_builder_add_parsed (&builder, "{'zoom', <%u>}", zoom);
+-                  g_variant_builder_add_parsed (&builder, "{'active', <%b>}", is_active);
+-                  if (!ptyxis_str_empty0 (window_title))
+-                    g_variant_builder_add_parsed (&builder, "{'window-title', <%s>}", window_title);
+-                  if (!ptyxis_str_empty0 (cwd))
+-                    g_variant_builder_add_parsed (&builder, "{'cwd', <%s>}", cwd);
+-                  if (container_id != NULL &&
+-                      g_strcmp0 (default_container, container_id) != 0)
+-                    g_variant_builder_add_parsed (&builder, "{'container', <%s>}", container_id);
+-                  g_variant_builder_close (&builder);
+-                }
+-            }
+-
+-          g_variant_builder_close (&builder);
+-          g_variant_builder_close (&builder);
+-          g_variant_builder_close (&builder);
+-          g_variant_builder_close (&builder);
++          g_autoptr(AdwTabPage) page = g_list_model_get_item (pages, i);
++          gboolean pinned = adw_tab_page_get_pinned (page);
++          PtyxisPane *pane = PTYXIS_PANE (adw_tab_page_get_child (page));
++          g_autoptr(GPtrArray) children = NULL;
++          g_autoptr(GVariant) layout = NULL;
++          GVariantBuilder saved_tab, leaves;
++          if (!restore_session && !pinned)
++            continue;
++          children = ptyxis_pane_list_children (pane);
++          layout = ptyxis_pane_save_layout (pane);
++          g_variant_builder_init (&saved_tab, G_VARIANT_TYPE_VARDICT);
++          g_variant_builder_init (&leaves, G_VARIANT_TYPE ("aa{sv}"));
++          for (guint j = 0; j < children->len; j++)
++            g_variant_builder_add_value (&leaves, save_terminal (g_ptr_array_index (children, j)));
++          g_variant_builder_add (&saved_tab, "{sv}", "panes", g_variant_builder_end (&leaves));
++          g_variant_builder_add (&saved_tab, "{sv}", "layout", layout);
++          g_variant_builder_add (&saved_tab, "{sv}", "pinned", g_variant_new_boolean (pinned));
++          g_variant_builder_add (&saved_tab, "{sv}", "active", g_variant_new_boolean (
++                                 GTK_WIDGET (ptyxis_window_get_active_tab (window)) == ptyxis_pane_get_active (pane)));
++          g_variant_builder_add_value (&tabs, g_variant_builder_end (&saved_tab));
+         }
++      gtk_window_get_default_size (GTK_WINDOW (window), &width, &height);
++      g_variant_builder_add (&saved_window, "{sv}", "window-size", g_variant_new ("(ii)", width, height));
++      g_variant_builder_add (&saved_window, "{sv}", "maximized", g_variant_new_boolean (gtk_window_is_maximized (GTK_WINDOW (window))));
++      g_variant_builder_add (&saved_window, "{sv}", "tabs", g_variant_builder_end (&tabs));
++      g_variant_builder_add_value (&windows, g_variant_builder_end (&saved_window));
+     }
++  g_variant_builder_add (&state, "{sv}", "version", g_variant_new_uint32 (2));
++  g_variant_builder_add (&state, "{sv}", "windows", g_variant_builder_end (&windows));
++  return g_variant_ref_sink (g_variant_builder_end (&state));
++}
+ 
+-  g_variant_builder_close (&builder);
+-  g_variant_builder_close (&builder);
+-  g_variant_builder_close (&builder);
+-
+-  return g_variant_take_ref (g_variant_builder_end (&builder));
++static PtyxisTab *
++restore_terminal (PtyxisApplication *app, GVariant *state, gboolean restore_size)
++{
++  PtyxisSettings *settings = ptyxis_application_get_settings (app);
++  g_autoptr(PtyxisProfile) profile = NULL;
++  g_autoptr(PtyxisIpcContainer) container = NULL;
++  const char *profile_id = NULL, *container_id = NULL, *cwd = NULL, *title = NULL, *prefix = NULL;
++  guint columns, rows, zoom = PTYXIS_ZOOM_LEVEL_DEFAULT;
++  gboolean ignore_title = FALSE;
++  PtyxisTab *tab;
++
++  g_variant_lookup (state, "profile", "&s", &profile_id);
++  g_variant_lookup (state, "container", "&s", &container_id);
++  g_variant_lookup (state, "cwd", "&s", &cwd);
++  g_variant_lookup (state, "window-title", "&s", &title);
++  g_variant_lookup (state, "title-prefix", "&s", &prefix);
++  g_variant_lookup (state, "ignore-osc-title", "b", &ignore_title);
++  g_variant_lookup (state, "zoom", "u", &zoom);
++  if (!ptyxis_str_empty0 (profile_id))
++    profile = ptyxis_application_dup_profile (app, profile_id);
++  if (profile == NULL)
++    profile = ptyxis_application_dup_default_profile (app);
++  tab = ptyxis_tab_new (profile);
++  if (!ptyxis_str_empty0 (container_id))
++    container = ptyxis_application_lookup_container (app, container_id);
++  if (container != NULL)
++    ptyxis_tab_set_container (tab, container);
++  if (cwd != NULL)
++    ptyxis_tab_set_previous_working_directory_uri (tab, cwd);
++  if (title != NULL)
++    ptyxis_tab_set_initial_title (tab, title);
++  if (prefix != NULL)
++    ptyxis_tab_set_title_prefix (tab, prefix);
++  ptyxis_tab_set_ignore_osc_title (tab, ignore_title);
++  if (zoom > 0 && zoom < PTYXIS_ZOOM_LEVEL_LAST)
++    ptyxis_tab_set_zoom (tab, zoom);
++  if (!restore_size || !g_variant_lookup (state, "size", "(uu)", &columns, &rows) || columns == 0 || rows == 0)
++    ptyxis_settings_get_default_size (settings, &columns, &rows);
++  vte_terminal_set_size (VTE_TERMINAL (ptyxis_tab_get_terminal (tab)), columns, rows);
++  return tab;
+ }
+ 
+ gboolean
+-ptyxis_session_restore (PtyxisApplication *app,
+-                        GVariant          *state)
++ptyxis_session_restore (PtyxisApplication *app, GVariant *state)
+ {
+   g_autoptr(GVariant) windows = NULL;
+-  PtyxisSettings *settings;
+-  GVariantIter iter;
+-  GVariant *window;
+-  gboolean restore_session;
+-  gboolean restore_window_size;
++  PtyxisSettings *settings = ptyxis_application_get_settings (app);
++  gboolean restore_session = ptyxis_settings_get_restore_session (settings);
++  gboolean restore_size = ptyxis_settings_get_restore_window_size (settings);
+   gboolean added_window = FALSE;
+-  guint32 version;
++  guint version;
+ 
+-  g_return_val_if_fail (PTYXIS_IS_APPLICATION (app), FALSE);
+-  g_return_val_if_fail (state != NULL, FALSE);
+-  g_return_val_if_fail (g_variant_is_of_type (state, G_VARIANT_TYPE ("a{sv}")), FALSE);
+-
+-  if (!g_variant_lookup (state, "version", "u", &version))
++  g_return_val_if_fail (g_variant_is_of_type (state, G_VARIANT_TYPE_VARDICT), FALSE);
++  if (!g_variant_lookup (state, "version", "u", &version) || version < 1 || version > 2)
+     return FALSE;
+-
+-  if (!(windows = g_variant_lookup_value (state, "windows", G_VARIANT_TYPE ("aa{sv}"))))
++  windows = g_variant_lookup_value (state, "windows", G_VARIANT_TYPE ("aa{sv}"));
++  if (windows == NULL)
+     return FALSE;
+-
+-  settings = ptyxis_application_get_settings (PTYXIS_APPLICATION_DEFAULT);
+-  restore_session = ptyxis_settings_get_restore_session (settings);
+-  restore_window_size = ptyxis_settings_get_restore_window_size (settings);
+-
+-  g_variant_iter_init (&iter, windows);
+-  while (g_variant_iter_loop (&iter, "@a{sv}", &window))
++  for (gsize i = 0; i < g_variant_n_children (windows); i++)
+     {
+-      g_autoptr(GVariant) tabs = NULL;
+-      g_autoptr(GVariant) tab = NULL;
+-      PtyxisWindow *the_window = NULL;
+-      PtyxisTab *active_tab = NULL;
+-      GVariantIter tab_iter;
+-      gboolean maximized;
+-
+-      if (!(tabs = g_variant_lookup_value (window, "tabs", G_VARIANT_TYPE ("aa{sv}"))) ||
+-          g_variant_n_children (tabs) == 0)
++      g_autoptr(GVariant) saved_window = g_variant_get_child_value (windows, i);
++      g_autoptr(GVariant) tabs = g_variant_lookup_value (saved_window, "tabs", G_VARIANT_TYPE ("aa{sv}"));
++      PtyxisWindow *window = NULL;
++      PtyxisTab *active = NULL;
++      gboolean maximized = FALSE;
++      int width, height;
++      if (tabs == NULL)
+         continue;
+-
+-      if (!g_variant_lookup (window, "maximized", "b", &maximized))
+-        maximized = FALSE;
+-
+-      g_variant_iter_init (&tab_iter, tabs);
+-      while (g_variant_iter_loop (&tab_iter, "@a{sv}", &tab))
++      g_variant_lookup (saved_window, "maximized", "b", &maximized);
++      for (gsize j = 0; j < g_variant_n_children (tabs); j++)
+         {
+-          g_autoptr(PtyxisIpcContainer) the_container = NULL;
+-          g_autoptr(PtyxisProfile) the_profile = NULL;
+-          PtyxisTerminal *terminal;
+-          const char *profile;
+-          const char *container;
+-          const char *cwd;
+-          const char *window_title;
+-          PtyxisTab *the_tab;
+-          guint32 zoom;
+-          gboolean is_active;
+-          gboolean pinned;
+-          guint32 columns;
+-          guint32 rows;
+-
+-          if (!g_variant_lookup (tab, "profile", "&s", &profile))
+-            profile = NULL;
+-
+-          if (!g_variant_lookup (tab, "container", "&s", &container))
+-            container = NULL;
+-
+-          if (!g_variant_lookup (tab, "pinned", "b", &pinned))
+-            pinned = FALSE;
+-
++          g_autoptr(GVariant) saved_tab = g_variant_get_child_value (tabs, j);
++          g_autoptr(GVariant) leaves = g_variant_lookup_value (saved_tab, "panes", G_VARIANT_TYPE ("aa{sv}"));
++          g_autoptr(GVariant) layout = g_variant_lookup_value (saved_tab, "layout", G_VARIANT_TYPE ("(ua{sv})"));
++          g_autoptr(GPtrArray) children = g_ptr_array_new_with_free_func (g_object_unref);
++          PtyxisPane *pane = NULL;
++          gboolean pinned = FALSE, is_active = FALSE;
++          g_variant_lookup (saved_tab, "pinned", "b", &pinned);
++          g_variant_lookup (saved_tab, "active", "b", &is_active);
+           if (!pinned && !restore_session)
+             continue;
+-
+-          if (!restore_window_size ||
+-              !g_variant_lookup (tab, "size", "(uu)", &columns, &rows))
+-            ptyxis_settings_get_default_size (settings, &columns, &rows);
+-
+-          if (!g_variant_lookup (tab, "cwd", "&s", &cwd))
+-            cwd = NULL;
+-
+-          if (!g_variant_lookup (tab, "window-title", "&s", &window_title))
+-            window_title = NULL;
+-
+-          if (!g_variant_lookup (tab, "active", "b", &is_active))
+-            is_active = FALSE;
+-
+-          if (!g_variant_lookup (tab, "zoom", "u", &zoom) || zoom >= PTYXIS_ZOOM_LEVEL_LAST)
+-            zoom = PTYXIS_ZOOM_LEVEL_DEFAULT;
+-
+-          if (!ptyxis_str_empty0 (container))
+-            the_container = ptyxis_application_lookup_container (app, container);
+-
+-          if (!ptyxis_str_empty0 (profile))
+-            the_profile = ptyxis_application_dup_profile (app, profile);
+-
+-          if (the_profile == NULL)
+-            the_profile = ptyxis_application_dup_default_profile (app);
+-
+-          if (the_window == NULL)
+-            the_window = ptyxis_window_new_empty ();
+-
+-          the_tab = ptyxis_tab_new (the_profile);
+-
+-          if (the_container != NULL)
+-            ptyxis_tab_set_container (the_tab, the_container);
+-
+-          if (cwd != NULL)
+-            ptyxis_tab_set_previous_working_directory_uri (the_tab, cwd);
+-
+-          if (window_title != NULL)
+-            ptyxis_tab_set_initial_title (the_tab, window_title);
+-
+-          terminal = ptyxis_tab_get_terminal (the_tab);
+-
+-          if (!maximized)
+-            vte_terminal_set_size (VTE_TERMINAL (terminal), columns, rows);
+-
+-          if (zoom != PTYXIS_ZOOM_LEVEL_DEFAULT)
+-            ptyxis_tab_set_zoom (the_tab, zoom);
+-
+-          ptyxis_window_add_tab_at_end (the_window, the_tab);
+-          ptyxis_window_set_tab_pinned (the_window, the_tab, pinned);
+-
+-          if (is_active)
+-            active_tab = the_tab;
+-        }
+-
+-      if (the_window != NULL)
+-        {
+-          if (!restore_session)
++          if (leaves != NULL)
+             {
+-              g_autoptr(PtyxisProfile) the_profile = NULL;
+-              PtyxisTab *the_tab;
+-
+-              /* Also add a default profile tab which will be our focused
+-               * tab for the new window since we're not restoring the
+-               * full tab session for the user.
+-               */
+-              the_profile = ptyxis_application_dup_default_profile (app);
+-              the_tab = ptyxis_tab_new (the_profile);
+-              ptyxis_window_add_tab_at_end (the_window, the_tab);
+-
+-              if (!active_tab)
+-                active_tab = the_tab;
++              for (gsize k = 0; k < g_variant_n_children (leaves); k++)
++                {
++                  g_autoptr(GVariant) leaf = g_variant_get_child_value (leaves, k);
++                  g_ptr_array_add (children, g_object_ref_sink (restore_terminal (app, leaf, restore_size && !maximized)));
++                }
+             }
+-
+-          if (maximized)
+-            gtk_window_maximize (GTK_WINDOW (the_window));
+-
+-          gtk_window_present (GTK_WINDOW (the_window));
+-
+-          if (active_tab)
++          else
++            g_ptr_array_add (children, g_object_ref_sink (restore_terminal (app, saved_tab, restore_size && !maximized)));
++          if (children->len == 0)
++            continue;
++          if (layout != NULL)
++            pane = ptyxis_pane_restore (children, layout);
++          /* Recover every session even if layout metadata is damaged. */
++          if (pane == NULL)
+             {
+-              ptyxis_window_set_active_tab (the_window, active_tab);
+-              ptyxis_tab_grab_focus (active_tab);
++              pane = ptyxis_pane_new (g_ptr_array_index (children, 0));
++              for (guint k = 1; k < children->len; k++)
++                ptyxis_pane_split (pane, ptyxis_pane_get_active (pane), g_ptr_array_index (children, k), GTK_ORIENTATION_HORIZONTAL);
+             }
++          if (window == NULL)
++            window = ptyxis_window_new_empty ();
++          {
++            g_autoptr(GListModel) pages = ptyxis_window_list_pages (window);
++            ptyxis_window_add_pane (window, pane, g_list_model_get_n_items (pages));
++          }
++          ptyxis_window_set_tab_pinned (window, PTYXIS_TAB (ptyxis_pane_get_active (pane)), pinned);
++          if (is_active)
++            active = PTYXIS_TAB (ptyxis_pane_get_active (pane));
+         }
+-
+-      added_window |= the_window != NULL;
++      if (window == NULL)
++        continue;
++      if (!restore_session)
++        {
++          g_autoptr(PtyxisProfile) profile = ptyxis_application_dup_default_profile (app);
++          PtyxisTab *tab = ptyxis_tab_new (profile);
++          ptyxis_window_add_tab_at_end (window, tab);
++          if (active == NULL)
++            active = tab;
++        }
++      if (restore_size && g_variant_lookup (saved_window, "window-size", "(ii)", &width, &height) && width > 0 && height > 0)
++        gtk_window_set_default_size (GTK_WINDOW (window), width, height);
++      if (maximized)
++        gtk_window_maximize (GTK_WINDOW (window));
++      gtk_window_present (GTK_WINDOW (window));
++      if (active != NULL)
++        ptyxis_window_set_active_tab (window, active);
++      added_window = TRUE;
+     }
+-
+   return added_window;
+ }
+diff --git a/src/ptyxis-shortcuts.defs b/src/ptyxis-shortcuts.defs
+index b39111b..24f27e4 100644
+--- a/src/ptyxis-shortcuts.defs
++++ b/src/ptyxis-shortcuts.defs
+@@ -37,4 +37,13 @@ PTYXIS_SHORTCUT_DEFINE(ZOOM_IN, "zoom-in")
+ PTYXIS_SHORTCUT_DEFINE(ZOOM_ONE, "zoom-one")
+ PTYXIS_SHORTCUT_DEFINE(ZOOM_OUT, "zoom-out")
+ PTYXIS_SHORTCUT_DEFINE(SET_TITLE, "set-title")
+-PTYXIS_SHORTCUT_DEFINE(SHOW_KEYBOARD_SHORTCUTS, "show-keyboard-shortcuts")
+\ No newline at end of file
++PTYXIS_SHORTCUT_DEFINE(SHOW_KEYBOARD_SHORTCUTS, "show-keyboard-shortcuts")
++PTYXIS_SHORTCUT_DEFINE(SPLIT_RIGHT, "split-right")
++PTYXIS_SHORTCUT_DEFINE(SPLIT_DOWN, "split-down")
++PTYXIS_SHORTCUT_DEFINE(CLOSE_PANE, "close-pane")
++PTYXIS_SHORTCUT_DEFINE(PANE_NEXT, "pane-next")
++PTYXIS_SHORTCUT_DEFINE(PANE_PREVIOUS, "pane-previous")
++PTYXIS_SHORTCUT_DEFINE(PANE_LEFT, "pane-left")
++PTYXIS_SHORTCUT_DEFINE(PANE_RIGHT, "pane-right")
++PTYXIS_SHORTCUT_DEFINE(PANE_UP, "pane-up")
++PTYXIS_SHORTCUT_DEFINE(PANE_DOWN, "pane-down")
+diff --git a/src/ptyxis-tab.c b/src/ptyxis-tab.c
+index b19c212..69f0d09 100644
+--- a/src/ptyxis-tab.c
++++ b/src/ptyxis-tab.c
+@@ -20,6 +20,7 @@
+  */
+ 
+ #include "config.h"
++#include "ptyxis-pane.h"
+ 
+ #include <glib/gi18n.h>
+ 
+@@ -428,7 +429,7 @@ ptyxis_tab_wait_cb (GObject      *object,
+     exit_action = PTYXIS_EXIT_ACTION_CLOSE;
+ 
+   if (ADW_IS_TAB_VIEW (tab_view))
+-    page = adw_tab_view_get_page (ADW_TAB_VIEW (tab_view), GTK_WIDGET (self));
++    page = ptyxis_tab_get_page (self);
+ 
+   /* Always prepare the banner even if we don't show it because we may
+    * display it again if the tab is removed from the parking lot and
+@@ -455,12 +456,8 @@ ptyxis_tab_wait_cb (GObject      *object,
+       break;
+ 
+     case PTYXIS_EXIT_ACTION_CLOSE:
+-      if (ADW_IS_TAB_VIEW (tab_view) && ADW_IS_TAB_PAGE (page))
+-        {
+-          if (adw_tab_page_get_pinned (page))
+-            adw_tab_view_set_page_pinned (ADW_TAB_VIEW (tab_view), page, FALSE);
+-          adw_tab_view_close_page (ADW_TAB_VIEW (tab_view), page);
+-        }
++      if (window != NULL && page != NULL)
++        ptyxis_window_close_pane (window, self);
+       break;
+ 
+     case PTYXIS_EXIT_ACTION_NONE:
+@@ -794,7 +791,7 @@ ptyxis_tab_invalidate_thumbnail (PtyxisTab *self)
+   gtk_widget_queue_draw (GTK_WIDGET (self));
+ 
+   if ((view = gtk_widget_get_ancestor (GTK_WIDGET (self), ADW_TYPE_TAB_VIEW)) &&
+-      (page = adw_tab_view_get_page (ADW_TAB_VIEW (view), GTK_WIDGET (self))))
++      (page = ptyxis_tab_get_page (self)))
+     adw_tab_page_invalidate_thumbnail (page);
+ }
+ 
+@@ -1333,6 +1330,12 @@ ptyxis_tab_set_property (GObject      *object,
+     }
+ }
+ 
++static gboolean
++ptyxis_tab_grab_focus_widget (GtkWidget *widget)
++{
++  return gtk_widget_grab_focus (GTK_WIDGET (PTYXIS_TAB (widget)->terminal));
++}
++
+ static void
+ ptyxis_tab_class_init (PtyxisTabClass *klass)
+ {
+@@ -1345,6 +1348,7 @@ ptyxis_tab_class_init (PtyxisTabClass *klass)
+   object_class->get_property = ptyxis_tab_get_property;
+   object_class->set_property = ptyxis_tab_set_property;
+ 
++  widget_class->grab_focus = ptyxis_tab_grab_focus_widget;
+   widget_class->map = ptyxis_tab_map;
+   widget_class->snapshot = ptyxis_tab_snapshot;
+   widget_class->size_allocate = ptyxis_tab_size_allocate;
+@@ -1790,17 +1794,22 @@ ptyxis_tab_get_terminal (PtyxisTab *self)
+   return self->terminal;
+ }
+ 
++AdwTabPage *
++ptyxis_tab_get_page (PtyxisTab *self)
++{
++  GtkWidget *pane = gtk_widget_get_ancestor (GTK_WIDGET (self), PTYXIS_TYPE_PANE);
++  GtkWidget *view = gtk_widget_get_ancestor (GTK_WIDGET (self), ADW_TYPE_TAB_VIEW);
++  if (pane == NULL || view == NULL)
++    return NULL;
++  return adw_tab_view_get_page (ADW_TAB_VIEW (view), pane);
++}
++
+ void
+ ptyxis_tab_raise (PtyxisTab *self)
+ {
+-  AdwTabView *tab_view;
+-  AdwTabPage *tab_page;
+-
+-  g_return_if_fail (PTYXIS_IS_TAB (self));
+-
+-  if ((tab_view = ADW_TAB_VIEW (gtk_widget_get_ancestor (GTK_WIDGET (self), ADW_TYPE_TAB_VIEW))) &&
+-      (tab_page = adw_tab_view_get_page (tab_view, GTK_WIDGET (self))))
+-    adw_tab_view_set_selected_page (tab_view, tab_page);
++  GtkWidget *window = gtk_widget_get_ancestor (GTK_WIDGET (self), PTYXIS_TYPE_WINDOW);
++  if (window != NULL)
++    ptyxis_window_set_active_tab (PTYXIS_WINDOW (window), self);
+ }
+ 
+ typedef struct _Wait
+@@ -1951,7 +1960,7 @@ ptyxis_tab_set_needs_attention (PtyxisTab *self,
+   g_return_if_fail (PTYXIS_IS_TAB (self));
+ 
+   if ((tab_view = gtk_widget_get_ancestor (GTK_WIDGET (self), ADW_TYPE_TAB_VIEW)) &&
+-      (page = adw_tab_view_get_page (ADW_TAB_VIEW (tab_view), GTK_WIDGET (self))))
++      (page = ptyxis_tab_get_page (self)))
+     adw_tab_page_set_needs_attention (page, needs_attention);
+ }
+ 
+diff --git a/src/ptyxis-tab.h b/src/ptyxis-tab.h
+index 06c061c..99e17ad 100644
+--- a/src/ptyxis-tab.h
++++ b/src/ptyxis-tab.h
+@@ -21,7 +21,7 @@
+ 
+ #pragma once
+ 
+-#include <gtk/gtk.h>
++#include <adwaita.h>
+ 
+ #include "ptyxis-agent-ipc.h"
+ #include "ptyxis-profile.h"
+@@ -144,4 +144,6 @@ void                ptyxis_tab_open_uri                           (PtyxisTab
+ char               *ptyxis_tab_query_working_directory_from_agent (PtyxisTab            *self);
+ void                ptyxis_tab_grab_focus                         (PtyxisTab            *self);
+ 
++AdwTabPage *ptyxis_tab_get_page (PtyxisTab *self);
++
+ G_END_DECLS
+diff --git a/src/ptyxis-terminal.c b/src/ptyxis-terminal.c
+index 0bbaab5..eeab1ab 100644
+--- a/src/ptyxis-terminal.c
++++ b/src/ptyxis-terminal.c
+@@ -252,6 +252,7 @@ ptyxis_terminal_setup_context_menu (VteTerminal           *terminal,
+       return;
+     }
+ 
++  gtk_widget_grab_focus (GTK_WIDGET (self));
+   ptyxis_terminal_update_clipboard_actions (self);
+ 
+   vte_event_context_get_coordinates (context, &x, &y);
+diff --git a/src/ptyxis-terminal.ui b/src/ptyxis-terminal.ui
+index 15e6812..68a792a 100644
+--- a/src/ptyxis-terminal.ui
++++ b/src/ptyxis-terminal.ui
+@@ -164,6 +164,26 @@
+     </child>
+   </template>
+   <menu id="terminal_menu">
++    <section>
++      <item>
++        <attribute name="id">split-right</attribute>
++        <attribute name="label" translatable="yes">Split Right</attribute>
++        <attribute name="action">win.split-right</attribute>
++        <attribute name="hidden-when">action-disabled</attribute>
++      </item>
++      <item>
++        <attribute name="id">split-down</attribute>
++        <attribute name="label" translatable="yes">Split Down</attribute>
++        <attribute name="action">win.split-down</attribute>
++        <attribute name="hidden-when">action-disabled</attribute>
++      </item>
++      <item>
++        <attribute name="id">close-pane</attribute>
++        <attribute name="label" translatable="yes">Close Pane</attribute>
++        <attribute name="action">win.close-pane</attribute>
++        <attribute name="hidden-when">action-disabled</attribute>
++      </item>
++    </section>
+     <section>
+       <item>
+         <attribute name="label" translatable="yes">_Open Link</attribute>
+diff --git a/src/ptyxis-window.c b/src/ptyxis-window.c
+index ac565dd..f9b6057 100644
+--- a/src/ptyxis-window.c
++++ b/src/ptyxis-window.c
+@@ -107,6 +107,25 @@ enum {
+ 
+ static GParamSpec *properties[N_PROPS];
+ 
++static void ptyxis_window_notify_selected_page_cb (PtyxisWindow *, GParamSpec *, AdwTabView *);
++
++static PtyxisTab *
++page_active_tab (AdwTabPage *page)
++{
++  return PTYXIS_TAB (ptyxis_pane_get_active (PTYXIS_PANE (adw_tab_page_get_child (page))));
++}
++
++static void
++park_page (PtyxisWindow *self, AdwTabPage *page)
++{
++  PtyxisPane *pane = PTYXIS_PANE (adw_tab_page_get_child (page));
++  g_autoptr(GPtrArray) children = ptyxis_pane_list_children (pane);
++  ptyxis_parking_lot_push (self->parking_lot, pane);
++  for (guint i = 0; i < children->len; i++)
++    _ptyxis_tab_ignore_snapshot (g_ptr_array_index (children, i));
++}
++
++
+ static void
+ ptyxis_window_save_size (PtyxisWindow *self)
+ {
+@@ -120,87 +139,54 @@ ptyxis_window_save_size (PtyxisWindow *self)
+       PtyxisTerminal *terminal = ptyxis_tab_get_terminal (active_tab);
+       guint columns = vte_terminal_get_column_count (VTE_TERMINAL (terminal));
+       guint rows = vte_terminal_get_row_count (VTE_TERMINAL (terminal));
++      GtkWidget *pane = gtk_widget_get_ancestor (GTK_WIDGET (active_tab), PTYXIS_TYPE_PANE);
++      if (pane != NULL && gtk_widget_has_css_class (pane, "split"))
++        {
++          columns = gtk_widget_get_width (pane) / MAX (1, vte_terminal_get_char_width (VTE_TERMINAL (terminal)));
++          rows = gtk_widget_get_height (pane) / MAX (1, vte_terminal_get_char_height (VTE_TERMINAL (terminal)));
++        }
+ 
+       ptyxis_settings_set_window_size (settings, columns, rows);
+     }
+ }
+ 
+ static void
+-ptyxis_window_close_page_dialog_cb (GObject      *object,
+-                                    GAsyncResult *result,
+-                                    gpointer      user_data)
++ptyxis_window_close_page_dialog_cb (GObject *object, GAsyncResult *result, gpointer user_data)
+ {
+-  g_autoptr(PtyxisTab) tab = user_data;
+-  g_autoptr(GError) error = NULL;
+-  PtyxisWindow *self;
+-  AdwTabPage *page;
+-
+-  g_assert (G_IS_ASYNC_RESULT (result));
+-  g_assert (PTYXIS_IS_TAB (tab));
+-
+-  self = PTYXIS_WINDOW (gtk_widget_get_ancestor (GTK_WIDGET (tab), PTYXIS_TYPE_WINDOW));
+-  page = adw_tab_view_get_page (self->tab_view, GTK_WIDGET (tab));
+-
+-  if (!_ptyxis_close_dialog_run_finish (result, &error))
+-    {
+-      adw_tab_view_close_page_finish (self->tab_view, page, FALSE);
+-      return;
+-    }
+-
+-  ptyxis_parking_lot_push (self->parking_lot, tab);
+-
+-  /* Ignore snapshot because libadwaita will try to snapshot this when
+-   * calling adw_tab_view_close_page_finish(). This just skips past it
+-   * until we maybe get re-added to a view later.
+-   */
+-  _ptyxis_tab_ignore_snapshot (tab);
+-
+-  adw_tab_view_close_page_finish (self->tab_view, page, TRUE);
+-
+-  /* Resize if we are going from 2->1 tabs */
+-  if (adw_tab_view_get_n_pages (self->tab_view) == 1)
+-    gtk_window_set_default_size (GTK_WINDOW (self), -1, -1);
++  g_autoptr(AdwTabPage) page = user_data;
++  GtkWidget *child = adw_tab_page_get_child (page);
++  PtyxisWindow *self = PTYXIS_WINDOW (gtk_widget_get_ancestor (child, PTYXIS_TYPE_WINDOW));
++  gboolean confirmed = _ptyxis_close_dialog_run_finish (result, NULL);
++  if (self == NULL || self->disposed)
++    return;
++  if (confirmed)
++    park_page (self, page);
++  adw_tab_view_close_page_finish (self->tab_view, page, confirmed);
+ }
+ 
+ static gboolean
+-ptyxis_window_close_page_cb (PtyxisWindow *self,
+-                             AdwTabPage   *tab_page,
+-                             AdwTabView   *tab_view)
++ptyxis_window_close_page_cb (PtyxisWindow *self, AdwTabPage *page, AdwTabView *view)
+ {
+-  g_autoptr(GPtrArray) tabs = NULL;
+-  PtyxisSettings *settings;
+-  PtyxisTab *tab;
+-
+-  g_assert (PTYXIS_IS_WINDOW (self));
+-  g_assert (ADW_IS_TAB_PAGE (tab_page));
+-  g_assert (ADW_IS_TAB_VIEW (tab_view));
+-
+-  ptyxis_window_save_size (self);
+-
+-  tab = PTYXIS_TAB (adw_tab_page_get_child (tab_page));
+-  settings = ptyxis_application_get_settings (PTYXIS_APPLICATION_DEFAULT);
++  g_autoptr(GPtrArray) children = ptyxis_pane_list_children (PTYXIS_PANE (adw_tab_page_get_child (page)));
++  g_autoptr(GPtrArray) running = g_ptr_array_new_with_free_func (g_object_unref);
++  PtyxisSettings *settings = ptyxis_application_get_settings (PTYXIS_APPLICATION_DEFAULT);
+ 
+-  /* If we are disposed, allow closing immediately */
+   if (self->disposed)
+     return GDK_EVENT_PROPAGATE;
+-
+-  if (!ptyxis_tab_is_running (tab, NULL) ||
+-      !ptyxis_settings_get_prompt_on_close (settings))
++  ptyxis_window_save_size (self);
++  for (guint i = 0; i < children->len; i++)
+     {
+-      ptyxis_parking_lot_push (self->parking_lot, tab);
+-      gtk_window_set_default_size (GTK_WINDOW (self), -1, -1);
++      PtyxisTab *tab = g_ptr_array_index (children, i);
++      if (ptyxis_tab_is_running (tab, NULL))
++        g_ptr_array_add (running, g_object_ref (tab));
++    }
++  if (running->len == 0 || !ptyxis_settings_get_prompt_on_close (settings))
++    {
++      park_page (self, page);
+       return GDK_EVENT_PROPAGATE;
+     }
+-
+-  tabs = g_ptr_array_new_with_free_func (g_object_unref);
+-  g_ptr_array_add (tabs, g_object_ref (tab));
+-
+-  _ptyxis_close_dialog_run_async (GTK_WINDOW (self),
+-                                  tabs,
+-                                  NULL,
+-                                  ptyxis_window_close_page_dialog_cb,
+-                                  g_object_ref (tab));
+-
++  _ptyxis_close_dialog_run_async (GTK_WINDOW (self), running, NULL,
++                                  ptyxis_window_close_page_dialog_cb, g_object_ref (page));
+   return GDK_EVENT_STOP;
+ }
+ 
+@@ -236,10 +222,10 @@ ptyxis_window_get_tab_at_tab_bar_point (PtyxisWindow     *self,
+ 
+   if (page == NULL ||
+       !(child = adw_tab_page_get_child (page)) ||
+-      !PTYXIS_IS_TAB (child))
++      !PTYXIS_IS_PANE (child))
+     return NULL;
+ 
+-  return PTYXIS_TAB (child);
++  return PTYXIS_TAB (ptyxis_pane_get_active (PTYXIS_PANE (child)));
+ }
+ 
+ static void
+@@ -472,7 +458,7 @@ ptyxis_window_notify_selected_page_cb (PtyxisWindow *self,
+ 
+   if (page != NULL)
+     {
+-      tab = PTYXIS_TAB (adw_tab_page_get_child (page));
++      tab = page_active_tab (page);
+ 
+       has_page = TRUE;
+ 
+@@ -520,6 +506,7 @@ ptyxis_window_notify_selected_page_cb (PtyxisWindow *self,
+   if (read_only != NULL)
+     g_action_map_add_action (G_ACTION_MAP (self), G_ACTION (read_only));
+ 
++  g_signal_group_set_target (self->active_tab_signals, tab);
+   g_binding_group_set_source (self->active_tab_bindings, tab);
+ 
+   g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_ACTIVE_TAB]);
+@@ -550,6 +537,13 @@ ptyxis_window_apply_current_settings (PtyxisWindow *self,
+       PtyxisZoomLevel zoom = ptyxis_tab_get_zoom (active_tab);
+       g_autoptr(PtyxisIpcContainer) current_container = NULL;
+ 
++      if (current_directory_uri == NULL)
++        {
++          g_autofree char *path = ptyxis_tab_query_working_directory_from_agent (active_tab);
++          if (path != NULL && g_path_is_absolute (path))
++            current_directory_uri = g_filename_to_uri (path, NULL, NULL);
++        }
++
+       if (ptyxis_profile_get_preserve_container (profile) != PTYXIS_PRESERVE_CONTAINER_NEVER)
+         {
+           if ((current_container = ptyxis_application_find_container_by_name (app,
+@@ -823,6 +817,98 @@ ptyxis_window_active_tab_commit_cb (PtyxisWindow *self,
+     ptyxis_fullscreen_box_unreveal (self->fullscreen_box);
+ }
+ 
++static void
++ptyxis_window_split_action (GtkWidget *widget, const char *action_name, GVariant *param)
++{
++  PtyxisWindow *self = PTYXIS_WINDOW (widget);
++  PtyxisTab *active = ptyxis_window_get_active_tab (self);
++  PtyxisTab *tab;
++  PtyxisPane *pane;
++  GtkOrientation orientation = g_str_equal (action_name, "win.split-right")
++                             ? GTK_ORIENTATION_HORIZONTAL : GTK_ORIENTATION_VERTICAL;
++  if (active == NULL)
++    return;
++  pane = PTYXIS_PANE (gtk_widget_get_ancestor (GTK_WIDGET (active), PTYXIS_TYPE_PANE));
++  tab = ptyxis_tab_new (ptyxis_tab_get_profile (active));
++  ptyxis_window_apply_current_settings (self, tab);
++  ptyxis_pane_split (pane, GTK_WIDGET (active), GTK_WIDGET (tab), orientation);
++  ptyxis_tab_grab_focus (tab);
++}
++
++void
++ptyxis_window_close_pane (PtyxisWindow *self, PtyxisTab *tab)
++{
++  PtyxisPane *pane = PTYXIS_PANE (gtk_widget_get_ancestor (GTK_WIDGET (tab), PTYXIS_TYPE_PANE));
++  AdwTabPage *page = ptyxis_tab_get_page (tab);
++  g_autoptr(PtyxisTab) hold = g_object_ref (tab);
++  if (pane == NULL || page == NULL || self->disposed)
++    return;
++  if (ptyxis_pane_remove (pane, GTK_WIDGET (tab)))
++    {
++      /* A closed pane can be recovered as a separate tab. A closed tab
++       * retains the entire split tree in the parking lot.
++       */
++      g_autoptr(PtyxisPane) parked = g_object_ref_sink (ptyxis_pane_new (GTK_WIDGET (tab)));
++      ptyxis_parking_lot_push (self->parking_lot, parked);
++      ptyxis_tab_grab_focus (PTYXIS_TAB (ptyxis_pane_get_active (pane)));
++    }
++  else
++    {
++      if (adw_tab_page_get_pinned (page))
++        adw_tab_view_set_page_pinned (self->tab_view, page, FALSE);
++      adw_tab_view_close_page (self->tab_view, page);
++    }
++}
++
++static void
++close_pane_confirmed (GObject *object, GAsyncResult *result, gpointer user_data)
++{
++  g_autoptr(PtyxisTab) tab = user_data;
++  PtyxisWindow *self = PTYXIS_WINDOW (gtk_widget_get_ancestor (GTK_WIDGET (tab), PTYXIS_TYPE_WINDOW));
++  if (_ptyxis_close_dialog_run_finish (result, NULL) && self != NULL)
++    ptyxis_window_close_pane (self, tab);
++}
++
++static void
++ptyxis_window_close_pane_action (GtkWidget *widget, const char *action_name, GVariant *param)
++{
++  PtyxisWindow *self = PTYXIS_WINDOW (widget);
++  PtyxisTab *tab = ptyxis_window_get_active_tab (self);
++  PtyxisSettings *settings = ptyxis_application_get_settings (PTYXIS_APPLICATION_DEFAULT);
++  if (tab == NULL)
++    return;
++  if (ptyxis_tab_is_running (tab, NULL) && ptyxis_settings_get_prompt_on_close (settings))
++    {
++      g_autoptr(GPtrArray) tabs = g_ptr_array_new_with_free_func (g_object_unref);
++      g_ptr_array_add (tabs, g_object_ref (tab));
++      _ptyxis_close_dialog_run_async (GTK_WINDOW (self), tabs, NULL, close_pane_confirmed, g_object_ref (tab));
++    }
++  else
++    ptyxis_window_close_pane (self, tab);
++}
++
++static void
++ptyxis_window_focus_pane_action (GtkWidget *widget, const char *action_name, GVariant *param)
++{
++  PtyxisTab *tab = ptyxis_window_get_active_tab (PTYXIS_WINDOW (widget));
++  PtyxisPane *pane;
++  if (tab == NULL)
++    return;
++  pane = PTYXIS_PANE (gtk_widget_get_ancestor (GTK_WIDGET (tab), PTYXIS_TYPE_PANE));
++  if (g_str_equal (action_name, "win.pane-next"))
++    ptyxis_pane_focus_next (pane, 1);
++  else if (g_str_equal (action_name, "win.pane-previous"))
++    ptyxis_pane_focus_next (pane, -1);
++  else if (g_str_equal (action_name, "win.pane-left"))
++    ptyxis_pane_focus_direction (pane, GTK_DIR_LEFT);
++  else if (g_str_equal (action_name, "win.pane-right"))
++    ptyxis_pane_focus_direction (pane, GTK_DIR_RIGHT);
++  else if (g_str_equal (action_name, "win.pane-up"))
++    ptyxis_pane_focus_direction (pane, GTK_DIR_UP);
++  else if (g_str_equal (action_name, "win.pane-down"))
++    ptyxis_pane_focus_direction (pane, GTK_DIR_DOWN);
++}
++
+ static void
+ ptyxis_window_close_action (GtkWidget  *widget,
+                             const char *action_name,
+@@ -837,7 +923,7 @@ ptyxis_window_close_action (GtkWidget  *widget,
+   if (!(tab = ptyxis_window_get_active_tab (self)))
+     return;
+ 
+-  tab_page = adw_tab_view_get_page (self->tab_view, GTK_WIDGET (tab));
++  tab_page = ptyxis_tab_get_page (tab);
+   adw_tab_view_close_page (self->tab_view, tab_page);
+ }
+ 
+@@ -855,7 +941,7 @@ ptyxis_window_close_others_action (GtkWidget  *widget,
+   if (!(tab = ptyxis_window_get_active_tab (self)))
+     return;
+ 
+-  tab_page = adw_tab_view_get_page (self->tab_view, GTK_WIDGET (tab));
++  tab_page = ptyxis_tab_get_page (tab);
+   adw_tab_view_close_other_pages (self->tab_view, tab_page);
+ }
+ 
+@@ -874,7 +960,7 @@ ptyxis_window_detach_action (GtkWidget  *widget,
+   if (!(tab = ptyxis_window_get_active_tab (self)))
+     return;
+ 
+-  tab_page = adw_tab_view_get_page (self->tab_view, GTK_WIDGET (tab));
++  tab_page = ptyxis_tab_get_page (tab);
+ 
+   new_window = g_object_new (PTYXIS_TYPE_WINDOW,
+                              "application", PTYXIS_APPLICATION_DEFAULT,
+@@ -896,7 +982,7 @@ ptyxis_window_tab_pin_action (GtkWidget  *widget,
+   g_assert (PTYXIS_IS_WINDOW (self));
+ 
+   if (!(tab = ptyxis_window_get_active_tab (self)) ||
+-      !(tab_page = adw_tab_view_get_page (self->tab_view, GTK_WIDGET (tab))))
++      !(tab_page = ptyxis_tab_get_page (tab)))
+     return;
+ 
+   adw_tab_view_set_page_pinned (self->tab_view, tab_page, TRUE);
+@@ -914,7 +1000,7 @@ ptyxis_window_tab_unpin_action (GtkWidget  *widget,
+   g_assert (PTYXIS_IS_WINDOW (self));
+ 
+   if (!(tab = ptyxis_window_get_active_tab (self)) ||
+-      !(tab_page = adw_tab_view_get_page (self->tab_view, GTK_WIDGET (tab))))
++      !(tab_page = ptyxis_tab_get_page (tab)))
+     return;
+ 
+   adw_tab_view_set_page_pinned (self->tab_view, tab_page, FALSE);
+@@ -930,7 +1016,7 @@ ptyxis_window_set_tab_pinned (PtyxisWindow *self,
+   g_return_if_fail (PTYXIS_IS_WINDOW (self));
+   g_return_if_fail (PTYXIS_IS_TAB (tab));
+ 
+-  if ((tab_page = adw_tab_view_get_page (self->tab_view, GTK_WIDGET (tab))))
++  if ((tab_page = ptyxis_tab_get_page (tab)))
+     adw_tab_view_set_page_pinned (self->tab_view, tab_page, pinned);
+ }
+ 
+@@ -1037,7 +1123,7 @@ ptyxis_window_move_left_action (GtkWidget  *widget,
+   if (!(tab = ptyxis_window_get_active_tab (self)))
+     return;
+ 
+-  tab_page = adw_tab_view_get_page (self->tab_view, GTK_WIDGET (tab));
++  tab_page = ptyxis_tab_get_page (tab);
+   adw_tab_view_reorder_backward (self->tab_view, tab_page);
+   ptyxis_tab_raise (tab);
+   ptyxis_tab_grab_focus (tab);
+@@ -1057,7 +1143,7 @@ ptyxis_window_move_right_action (GtkWidget  *widget,
+   if (!(tab = ptyxis_window_get_active_tab (self)))
+     return;
+ 
+-  tab_page = adw_tab_view_get_page (self->tab_view, GTK_WIDGET (tab));
++  tab_page = ptyxis_tab_get_page (tab);
+   adw_tab_view_reorder_forward (self->tab_view, tab_page);
+   ptyxis_tab_raise (tab);
+   ptyxis_tab_grab_focus (tab);
+@@ -1255,17 +1341,19 @@ ptyxis_window_undo_close_tab_action (GtkWidget  *widget,
+                                      GVariant   *param)
+ {
+   PtyxisWindow *self = (PtyxisWindow *)widget;
+-  g_autoptr(PtyxisTab) tab = NULL;
+-
+-  g_assert (PTYXIS_IS_WINDOW (self));
++  g_autoptr(PtyxisPane) pane = NULL;
+ 
+-  if ((tab = ptyxis_parking_lot_pop (self->parking_lot)))
++  if ((pane = ptyxis_parking_lot_pop (self->parking_lot)))
+     {
+-      if (!ptyxis_tab_is_running (tab, NULL))
+-        ptyxis_tab_show_banner (tab);
+-      ptyxis_window_add_tab (self, tab);
+-      ptyxis_window_set_active_tab (self, tab);
+-      ptyxis_tab_grab_focus (tab);
++      g_autoptr(GPtrArray) children = ptyxis_pane_list_children (pane);
++      for (guint i = 0; i < children->len; i++)
++        {
++          PtyxisTab *tab = g_ptr_array_index (children, i);
++          if (ptyxis_tab_get_process (tab) == NULL)
++            ptyxis_tab_show_banner (tab);
++        }
++      ptyxis_window_add_pane (self, pane, adw_tab_view_get_n_pages (self->tab_view));
++      ptyxis_window_set_active_tab (self, PTYXIS_TAB (ptyxis_pane_get_active (pane)));
+     }
+ }
+ 
+@@ -1400,11 +1488,15 @@ ptyxis_window_close_request (GtkWindow *window)
+   for (guint i = n_pages; i > 0; i--)
+     {
+       AdwTabPage *page = adw_tab_view_get_nth_page (self->tab_view, i - 1);
+-      PtyxisTab *tab = PTYXIS_TAB (adw_tab_page_get_child (page));
+-
+-      if (ptyxis_tab_is_running (tab, NULL))
+-        g_ptr_array_add (tabs, g_object_ref (tab));
+-      else
++      g_autoptr(GPtrArray) children = ptyxis_pane_list_children (PTYXIS_PANE (adw_tab_page_get_child (page)));
++      guint before = tabs->len;
++      for (guint j = 0; j < children->len; j++)
++        {
++          PtyxisTab *tab = g_ptr_array_index (children, j);
++          if (ptyxis_tab_is_running (tab, NULL))
++            g_ptr_array_add (tabs, g_object_ref (tab));
++        }
++      if (tabs->len == before)
+         adw_tab_view_close_page (self->tab_view, page);
+     }
+ 
+@@ -1925,13 +2017,11 @@ ptyxis_window_size_allocate (GtkWidget *widget,
+       for (guint i = 0; i < n_pages; i++)
+         {
+           g_autoptr(AdwTabPage) page = g_list_model_get_item (pages, i);
+-          PtyxisTab *tab = PTYXIS_TAB (adw_tab_page_get_child (page));
+-          PtyxisTerminal *terminal = ptyxis_tab_get_terminal (tab);
+-
++          g_autoptr(GPtrArray) children = ptyxis_pane_list_children (PTYXIS_PANE (adw_tab_page_get_child (page)));
+           if (page == adw_tab_view_get_selected_page (self->tab_view))
+             continue;
+-
+-          ptyxis_terminal_reset_for_size (terminal);
++          for (guint j = 0; j < children->len; j++)
++            ptyxis_terminal_reset_for_size (ptyxis_tab_get_terminal (g_ptr_array_index (children, j)));
+         }
+ 
+       self->reset_nonvisible_from_size_allocate = FALSE;
+@@ -1945,6 +2035,15 @@ ptyxis_window_dispose (GObject *object)
+ 
+   self->disposed = TRUE;
+ 
++  if (self->tab_view != NULL)
++    for (int i = 0; i < adw_tab_view_get_n_pages (self->tab_view); i++)
++      {
++        AdwTabPage *page = adw_tab_view_get_nth_page (self->tab_view, i);
++        g_autoptr(GPtrArray) children = ptyxis_pane_list_children (PTYXIS_PANE (adw_tab_page_get_child (page)));
++        for (guint j = 0; j < children->len; j++)
++          ptyxis_tab_force_quit (g_ptr_array_index (children, j));
++      }
++
+   g_action_map_remove_action (G_ACTION_MAP (self), "interface-style");
+ 
+   gtk_widget_dispose_template (GTK_WIDGET (self), PTYXIS_TYPE_WINDOW);
+@@ -2091,6 +2190,15 @@ ptyxis_window_class_init (PtyxisWindowClass *klass)
+   gtk_widget_class_bind_template_callback (widget_class, ptyxis_window_tab_overview_notify_open_cb);
+   gtk_widget_class_bind_template_callback (widget_class, ptyxis_window_tab_overview_create_tab_cb);
+ 
++  gtk_widget_class_install_action (widget_class, "win.split-right", NULL, ptyxis_window_split_action);
++  gtk_widget_class_install_action (widget_class, "win.split-down", NULL, ptyxis_window_split_action);
++  gtk_widget_class_install_action (widget_class, "win.close-pane", NULL, ptyxis_window_close_pane_action);
++  gtk_widget_class_install_action (widget_class, "win.pane-next", NULL, ptyxis_window_focus_pane_action);
++  gtk_widget_class_install_action (widget_class, "win.pane-previous", NULL, ptyxis_window_focus_pane_action);
++  gtk_widget_class_install_action (widget_class, "win.pane-left", NULL, ptyxis_window_focus_pane_action);
++  gtk_widget_class_install_action (widget_class, "win.pane-right", NULL, ptyxis_window_focus_pane_action);
++  gtk_widget_class_install_action (widget_class, "win.pane-up", NULL, ptyxis_window_focus_pane_action);
++  gtk_widget_class_install_action (widget_class, "win.pane-down", NULL, ptyxis_window_focus_pane_action);
+   gtk_widget_class_install_action (widget_class, "win.primary-menu", NULL, ptyxis_window_primary_menu_action);
+   gtk_widget_class_install_action (widget_class, "win.tab-menu", NULL, ptyxis_window_tab_menu_action);
+   gtk_widget_class_install_action (widget_class, "win.new-tab", "(ss)", ptyxis_window_new_tab_action);
+@@ -2314,32 +2422,32 @@ ptyxis_window_new_for_profile_and_command (PtyxisProfile      *profile,
+ }
+ 
+ static void
+-ptyxis_window_setup_page (PtyxisWindow *self,
+-                          PtyxisTab    *tab,
+-                          AdwTabPage   *page)
++pane_active_changed (PtyxisPane *pane, GParamSpec *pspec, AdwTabPage *page)
+ {
+-  g_assert (PTYXIS_IS_WINDOW (self));
+-  g_assert (PTYXIS_IS_TAB (tab));
+-  g_assert (ADW_IS_TAB_PAGE (page));
+-
+-  g_object_bind_property (tab, "title", page, "title", G_BINDING_SYNC_CREATE);
+-  g_object_bind_property (tab, "icon", page, "icon", G_BINDING_SYNC_CREATE);
+-  g_object_bind_property (tab, "indicator-icon", page, "indicator-icon", G_BINDING_SYNC_CREATE);
++  GBindingGroup *bindings = g_object_get_data (G_OBJECT (page), "pane-bindings");
++  PtyxisWindow *self = PTYXIS_WINDOW (gtk_widget_get_ancestor (GTK_WIDGET (pane), PTYXIS_TYPE_WINDOW));
++  g_binding_group_set_source (bindings, ptyxis_pane_get_active (pane));
++  if (self != NULL && !self->disposed && page == adw_tab_view_get_selected_page (self->tab_view))
++    ptyxis_window_notify_selected_page_cb (self, NULL, self->tab_view);
+ }
+ 
+ void
+-ptyxis_window_append_tab (PtyxisWindow *self,
+-                          PtyxisTab    *tab)
++ptyxis_window_add_pane (PtyxisWindow *self, PtyxisPane *pane, int position)
+ {
+-  AdwTabPage *page;
+-
+-  g_return_if_fail (PTYXIS_IS_WINDOW (self));
+-  g_return_if_fail (PTYXIS_IS_TAB (tab));
+-
+-  page = adw_tab_view_append (self->tab_view, GTK_WIDGET (tab));
+-
+-  ptyxis_window_setup_page (self, tab, page);
++  AdwTabPage *page = adw_tab_view_insert (self->tab_view, GTK_WIDGET (pane), position);
++  GBindingGroup *bindings = g_binding_group_new ();
++  g_binding_group_bind (bindings, "title", page, "title", G_BINDING_SYNC_CREATE);
++  g_binding_group_bind (bindings, "icon", page, "icon", G_BINDING_SYNC_CREATE);
++  g_binding_group_bind (bindings, "indicator-icon", page, "indicator-icon", G_BINDING_SYNC_CREATE);
++  g_object_set_data_full (G_OBJECT (page), "pane-bindings", bindings, g_object_unref);
++  g_signal_connect_object (pane, "notify::active", G_CALLBACK (pane_active_changed), page, 0);
++  pane_active_changed (pane, NULL, page);
++}
+ 
++void
++ptyxis_window_append_tab (PtyxisWindow *self, PtyxisTab *tab)
++{
++  ptyxis_window_add_pane (self, ptyxis_pane_new (GTK_WIDGET (tab)), adw_tab_view_get_n_pages (self->tab_view));
+   ptyxis_tab_grab_focus (tab);
+ }
+ 
+@@ -2376,6 +2484,8 @@ ptyxis_window_new_for_command (PtyxisProfile      *profile,
+       GApplicationFlags flags = g_application_get_flags (app);
+ 
+       self->single_terminal_mode = !!(flags & G_APPLICATION_NON_UNIQUE);
++      gtk_widget_action_set_enabled (GTK_WIDGET (self), "win.split-right", FALSE);
++      gtk_widget_action_set_enabled (GTK_WIDGET (self), "win.split-down", FALSE);
+ 
+       gtk_widget_action_set_enabled (GTK_WIDGET (self), "win.new-tab", FALSE);
+       gtk_widget_action_set_enabled (GTK_WIDGET (self), "win.new-window", FALSE);
+@@ -2442,9 +2552,7 @@ ptyxis_window_add_tab (PtyxisWindow *self,
+         }
+     }
+ 
+-  page = adw_tab_view_insert (self->tab_view, GTK_WIDGET (tab), position);
+-
+-  ptyxis_window_setup_page (self, tab, page);
++  ptyxis_window_add_pane (self, ptyxis_pane_new (GTK_WIDGET (tab)), position);
+ 
+   /* Resize if we are going from 1->2 tabs */
+   if (adw_tab_view_get_n_pages (self->tab_view) == 2)
+@@ -2455,16 +2563,13 @@ void
+ ptyxis_window_add_tab_at_end (PtyxisWindow *self,
+                               PtyxisTab    *tab)
+ {
+-  AdwTabPage *page;
+   int position;
+ 
+   g_return_if_fail (PTYXIS_IS_WINDOW (self));
+   g_return_if_fail (PTYXIS_IS_TAB (tab));
+ 
+   position = adw_tab_view_get_n_pages (self->tab_view);
+-  page = adw_tab_view_insert (self->tab_view, GTK_WIDGET (tab), position);
+-
+-  ptyxis_window_setup_page (self, tab, page);
++  ptyxis_window_add_pane (self, ptyxis_pane_new (GTK_WIDGET (tab)), position);
+ 
+   /* Resize if we are going from 1->2 tabs */
+   if (adw_tab_view_get_n_pages (self->tab_view) == 2)
+@@ -2484,7 +2589,7 @@ ptyxis_window_get_active_tab (PtyxisWindow *self)
+   if (!(page = adw_tab_view_get_selected_page (self->tab_view)))
+     return NULL;
+ 
+-  return PTYXIS_TAB (adw_tab_page_get_child (page));
++  return page_active_tab (page);
+ }
+ 
+ void
+@@ -2502,10 +2607,12 @@ ptyxis_window_set_active_tab (PtyxisWindow *self,
+   if (tab == NULL)
+     return;
+ 
+-  if (!(page = adw_tab_view_get_page (self->tab_view, GTK_WIDGET (tab))))
++  if (!(page = ptyxis_tab_get_page (tab)))
+     return;
+ 
++  ptyxis_pane_set_active (PTYXIS_PANE (adw_tab_page_get_child (page)), GTK_WIDGET (tab));
+   adw_tab_view_set_selected_page (self->tab_view, page);
++  ptyxis_tab_grab_focus (tab);
+ }
+ 
+ static gboolean
+@@ -2597,16 +2704,17 @@ ptyxis_window_focus_tab_by_uuid (PtyxisWindow *self,
+   for (guint i = 0; i < n_items; i++)
+     {
+       g_autoptr(AdwTabPage) page = g_list_model_get_item (G_LIST_MODEL (model), i);
+-      PtyxisTab *tab = PTYXIS_TAB (adw_tab_page_get_child (page));
+-
+-      g_debug ("Window has tab \"%s\"", ptyxis_tab_get_uuid (tab));
+-
+-      if (0 == g_strcmp0 (uuid, ptyxis_tab_get_uuid (tab)))
++      g_autoptr(GPtrArray) children = ptyxis_pane_list_children (PTYXIS_PANE (adw_tab_page_get_child (page)));
++      for (guint j = 0; j < children->len; j++)
+         {
+-          ptyxis_window_set_active_tab (self, tab);
+-          gtk_window_present (GTK_WINDOW (self));
+-          ptyxis_tab_grab_focus (tab);
+-          return TRUE;
++          PtyxisTab *tab = g_ptr_array_index (children, j);
++          if (g_strcmp0 (uuid, ptyxis_tab_get_uuid (tab)) == 0)
++            {
++              ptyxis_window_set_active_tab (self, tab);
++              gtk_window_present (GTK_WINDOW (self));
++              ptyxis_tab_grab_focus (tab);
++              return TRUE;
++            }
+         }
+     }
+ 
+diff --git a/src/ptyxis-window.h b/src/ptyxis-window.h
+index e30caff..7a39bfc 100644
+--- a/src/ptyxis-window.h
++++ b/src/ptyxis-window.h
+@@ -24,6 +24,7 @@
+ 
+ #include "ptyxis-profile.h"
+ #include "ptyxis-tab.h"
++#include "ptyxis-pane.h"
+ 
+ G_BEGIN_DECLS
+ 
+@@ -60,4 +61,7 @@ void           ptyxis_window_set_tab_pinned      (PtyxisWindow       *self,
+                                                   PtyxisTab          *tab,
+                                                   gboolean            pinned);
+ 
++void ptyxis_window_add_pane (PtyxisWindow *self, PtyxisPane *pane, int position);
++void ptyxis_window_close_pane (PtyxisWindow *self, PtyxisTab *tab);
++
+ G_END_DECLS
+diff --git a/src/ptyxis-window.ui b/src/ptyxis-window.ui
+index 71b575d..5b05406 100644
+--- a/src/ptyxis-window.ui
++++ b/src/ptyxis-window.ui
+@@ -29,6 +29,96 @@
+     <child>
+       <object class="GtkShortcutController">
+         <property name="propagation-phase">capture</property>
++        <child>
++          <object class="GtkShortcut">
++            <binding name="trigger">
++              <lookup name="split-right" type="PtyxisShortcuts">
++                <lookup name="shortcuts">PtyxisWindow</lookup>
++              </lookup>
++            </binding>
++            <property name="action">action(win.split-right)</property>
++          </object>
++        </child>
++        <child>
++          <object class="GtkShortcut">
++            <binding name="trigger">
++              <lookup name="split-down" type="PtyxisShortcuts">
++                <lookup name="shortcuts">PtyxisWindow</lookup>
++              </lookup>
++            </binding>
++            <property name="action">action(win.split-down)</property>
++          </object>
++        </child>
++        <child>
++          <object class="GtkShortcut">
++            <binding name="trigger">
++              <lookup name="close-pane" type="PtyxisShortcuts">
++                <lookup name="shortcuts">PtyxisWindow</lookup>
++              </lookup>
++            </binding>
++            <property name="action">action(win.close-pane)</property>
++          </object>
++        </child>
++        <child>
++          <object class="GtkShortcut">
++            <binding name="trigger">
++              <lookup name="pane-next" type="PtyxisShortcuts">
++                <lookup name="shortcuts">PtyxisWindow</lookup>
++              </lookup>
++            </binding>
++            <property name="action">action(win.pane-next)</property>
++          </object>
++        </child>
++        <child>
++          <object class="GtkShortcut">
++            <binding name="trigger">
++              <lookup name="pane-previous" type="PtyxisShortcuts">
++                <lookup name="shortcuts">PtyxisWindow</lookup>
++              </lookup>
++            </binding>
++            <property name="action">action(win.pane-previous)</property>
++          </object>
++        </child>
++        <child>
++          <object class="GtkShortcut">
++            <binding name="trigger">
++              <lookup name="pane-left" type="PtyxisShortcuts">
++                <lookup name="shortcuts">PtyxisWindow</lookup>
++              </lookup>
++            </binding>
++            <property name="action">action(win.pane-left)</property>
++          </object>
++        </child>
++        <child>
++          <object class="GtkShortcut">
++            <binding name="trigger">
++              <lookup name="pane-right" type="PtyxisShortcuts">
++                <lookup name="shortcuts">PtyxisWindow</lookup>
++              </lookup>
++            </binding>
++            <property name="action">action(win.pane-right)</property>
++          </object>
++        </child>
++        <child>
++          <object class="GtkShortcut">
++            <binding name="trigger">
++              <lookup name="pane-up" type="PtyxisShortcuts">
++                <lookup name="shortcuts">PtyxisWindow</lookup>
++              </lookup>
++            </binding>
++            <property name="action">action(win.pane-up)</property>
++          </object>
++        </child>
++        <child>
++          <object class="GtkShortcut">
++            <binding name="trigger">
++              <lookup name="pane-down" type="PtyxisShortcuts">
++                <lookup name="shortcuts">PtyxisWindow</lookup>
++              </lookup>
++            </binding>
++            <property name="action">action(win.pane-down)</property>
++          </object>
++        </child>
+         <child>
+           <object class="GtkShortcut">
+             <binding name="trigger">
+@@ -745,6 +835,26 @@
+     </property>
+   </object>
+   <menu id="primary_menu">
++    <section>
++      <item>
++        <attribute name="id">split-right</attribute>
++        <attribute name="label" translatable="yes">Split Right</attribute>
++        <attribute name="action">win.split-right</attribute>
++        <attribute name="hidden-when">action-disabled</attribute>
++      </item>
++      <item>
++        <attribute name="id">split-down</attribute>
++        <attribute name="label" translatable="yes">Split Down</attribute>
++        <attribute name="action">win.split-down</attribute>
++        <attribute name="hidden-when">action-disabled</attribute>
++      </item>
++      <item>
++        <attribute name="id">close-pane</attribute>
++        <attribute name="label" translatable="yes">Close Pane</attribute>
++        <attribute name="action">win.close-pane</attribute>
++        <attribute name="hidden-when">action-disabled</attribute>
++      </item>
++    </section>
+     <section>
+       <item>
+         <attribute name="custom">interface-style</attribute>
+diff --git a/src/style.css b/src/style.css
+index d65f0d7..e49f58d 100644
+--- a/src/style.css
++++ b/src/style.css
+@@ -175,3 +175,12 @@ window.has-tab-bar .visual-bell-area {
+   padding-top: 3px;
+   padding-bottom: 3px;
+ }
++
++/* Inset shading leaves terminal cell geometry unchanged when focus moves. */
++ptyxispane.split ptyxistab.active-pane {
++  box-shadow: inset 0 0 0 2px var(--accent-bg-color);
++}
++ptyxispane.split > paned > separator {
++  min-width: 5px;
++  min-height: 5px;
++}
+diff --git a/testsuite/meson.build b/testsuite/meson.build
+index 72cc9d0..e77b17a 100644
+--- a/testsuite/meson.build
++++ b/testsuite/meson.build
+@@ -33,3 +33,20 @@ foreach test, params: testsuite
+     test(test, test_exe, env: test_env)
+   endif
+ endforeach
++
++split_tests = executable('test-splits', 'test-splits.c',
++  objects: ptyxis_executable.extract_objects(ptyxis_sources + ptyxis_agent_ipc),
++  dependencies: ptyxis_deps,
++  include_directories: ptyxis_include_directories,
++  c_args: testsuite_c_args,
++)
++split_env = environment()
++split_env.set('GSETTINGS_BACKEND', 'memory')
++split_env.set('GSETTINGS_SCHEMA_DIR', meson.project_build_root() / 'src')
++split_env.set('GSK_RENDERER', 'cairo')
++split_env.set('GDK_BACKEND', 'x11')
++split_env.set('GTK_A11Y', 'none')
++split_env.set('XDG_CONFIG_HOME', meson.current_build_dir() / 'test-config')
++split_env.set('XDG_CONFIG_DIRS', meson.current_build_dir() / 'test-config')
++split_env.set('XDG_DATA_HOME', meson.current_build_dir() / 'test-data')
++test('test-splits', split_tests, env: split_env, timeout: 60)
+diff --git a/testsuite/test-splits.c b/testsuite/test-splits.c
+new file mode 100644
+index 0000000..904b0ac
+--- /dev/null
++++ b/testsuite/test-splits.c
+@@ -0,0 +1,346 @@
++/* SPDX-License-Identifier: GPL-3.0-or-later */
++#include "config.h"
++#include <adwaita.h>
++#include <sys/resource.h>
++#ifdef GDK_WINDOWING_X11
++#include <gdk/x11/gdkx.h>
++#endif
++#include "ptyxis-application.h"
++#include "ptyxis-pane.h"
++#include "ptyxis-preferences-window.h"
++#include "ptyxis-session.h"
++#include "ptyxis-window.h"
++
++gint64
++ptyxis_application_get_default_rlimit_nofile (void)
++{
++  struct rlimit limit;
++  return getrlimit (RLIMIT_NOFILE, &limit) == 0 ? limit.rlim_cur : 1024;
++}
++
++static void
++spin (guint milliseconds)
++{
++  gint64 until = g_get_monotonic_time () + milliseconds * 1000;
++  do
++    {
++      while (g_main_context_iteration (NULL, FALSE));
++      g_usleep (1000);
++    }
++  while (g_get_monotonic_time () < until);
++}
++
++static void
++assert_count (PtyxisPane *pane, guint count)
++{
++  g_autoptr(GPtrArray) children = ptyxis_pane_list_children (pane);
++  g_assert_cmpuint (children->len, ==, count);
++}
++
++static PtyxisPane *
++active_pane (PtyxisWindow *window)
++{
++  return PTYXIS_PANE (gtk_widget_get_ancestor (GTK_WIDGET (ptyxis_window_get_active_tab (window)), PTYXIS_TYPE_PANE));
++}
++
++static void
++layout_tree (void)
++{
++  GtkWidget *a = gtk_entry_new (), *b = gtk_entry_new ();
++  GtkWidget *c = gtk_entry_new (), *d = gtk_entry_new ();
++  g_autoptr(PtyxisPane) pane = g_object_ref_sink (ptyxis_pane_new (a));
++  g_autoptr(PtyxisPane) restored = NULL;
++  g_autoptr(GPtrArray) replacements = g_ptr_array_new_with_free_func (g_object_unref);
++  g_autoptr(GVariant) layout = NULL;
++  g_autoptr(GVariant) again = NULL;
++
++  ptyxis_pane_split (pane, a, b, GTK_ORIENTATION_HORIZONTAL);
++  ptyxis_pane_split (pane, a, c, GTK_ORIENTATION_VERTICAL);
++  ptyxis_pane_split (pane, b, d, GTK_ORIENTATION_VERTICAL);
++  assert_count (pane, 4);
++  g_assert_true (ptyxis_pane_get_active (pane) == d);
++  layout = ptyxis_pane_save_layout (pane);
++  for (guint i = 0; i < 4; i++)
++    g_ptr_array_add (replacements, g_object_ref_sink (gtk_entry_new ()));
++  restored = g_object_ref_sink (ptyxis_pane_restore (replacements, layout));
++  again = ptyxis_pane_save_layout (restored);
++  g_assert_true (g_variant_equal (layout, again));
++  g_assert_true (ptyxis_pane_get_active (restored) == g_ptr_array_index (replacements, 3));
++
++  /* Remove both sides of nested nodes, including an inactive pane. */
++  g_assert_true (ptyxis_pane_remove (pane, a));
++  g_assert_true (ptyxis_pane_get_active (pane) == d);
++  g_assert_true (ptyxis_pane_remove (pane, d));
++  g_assert_true (ptyxis_pane_get_active (pane) == b);
++  g_assert_true (ptyxis_pane_remove (pane, c));
++  assert_count (pane, 1);
++  g_assert_false (ptyxis_pane_remove (pane, b));
++  g_assert_true (gtk_widget_get_first_child (GTK_WIDGET (pane)) == b);
++}
++
++static void
++invalid_layout (void)
++{
++  const char *cases[] = {
++    "(uint32 0, {'index': <uint32 3>})",
++    "(uint32 0, {'orientation': <uint32 0>, 'ratio': <0.5>, 'first': <{'index': <uint32 0>}>, 'second': <{'index': <uint32 0>}>})",
++    "(uint32 0, {'orientation': <uint32 9>, 'ratio': <0.5>, 'first': <{'index': <uint32 0>}>, 'second': <{'index': <uint32 1>}>})",
++    "(uint32 2, {'index': <uint32 0>})",
++    "(uint32 0, {'index': <uint32 0>})",
++    "(uint32 0, {'orientation': <uint32 0>, 'ratio': <1.5>})",
++  };
++  g_autoptr(GPtrArray) children = g_ptr_array_new_with_free_func (g_object_unref);
++  g_ptr_array_add (children, g_object_ref_sink (gtk_entry_new ()));
++  g_ptr_array_add (children, g_object_ref_sink (gtk_entry_new ()));
++  for (guint i = 0; i < G_N_ELEMENTS (cases); i++)
++    {
++      g_autoptr(GVariant) layout = g_variant_parse (G_VARIANT_TYPE ("(ua{sv})"), cases[i], NULL, NULL, NULL);
++      g_assert_nonnull (layout);
++      g_assert_null (ptyxis_pane_restore (children, layout));
++      g_assert_null (gtk_widget_get_parent (g_ptr_array_index (children, 0)));
++      g_assert_null (gtk_widget_get_parent (g_ptr_array_index (children, 1)));
++    }
++}
++
++static void
++wait_running (PtyxisTab *tab)
++{
++  for (guint i = 0; i < 500 && ptyxis_tab_get_process (tab) == NULL; i++)
++    spin (10);
++  g_assert_nonnull (ptyxis_tab_get_process (tab));
++}
++
++static void
++send_command (PtyxisTab *tab, const char *command)
++{
++  vte_terminal_feed_child (VTE_TERMINAL (ptyxis_tab_get_terminal (tab)), command, -1);
++}
++
++static void
++assert_focus (PtyxisWindow *window, PtyxisTab *tab)
++{
++  GtkWidget *terminal = GTK_WIDGET (ptyxis_tab_get_terminal (tab));
++  g_assert_true (ptyxis_window_get_active_tab (window) == tab);
++  g_assert_true (gtk_window_get_focus (GTK_WINDOW (window)) == terminal);
++}
++
++static gboolean
++send_shortcut (PtyxisWindow *window, const char *key)
++{
++#ifdef GDK_WINDOWING_X11
++  g_autofree char *xdotool = g_find_program_in_path ("xdotool");
++  GdkSurface *surface = gtk_native_get_surface (GTK_NATIVE (window));
++  if (xdotool != NULL && GDK_IS_X11_SURFACE (surface))
++    {
++      g_autofree char *id = g_strdup_printf ("%lu", gdk_x11_surface_get_xid (surface));
++      const char *argv[] = {xdotool, "windowfocus", "--sync", id, "key", "--clearmodifiers", key, NULL};
++      g_autoptr(GError) error = NULL;
++      int status;
++      g_assert_true (g_spawn_sync (NULL, (char **)argv, NULL, G_SPAWN_DEFAULT, NULL, NULL, NULL, NULL, &status, &error));
++      g_assert_true (g_spawn_check_wait_status (status, &error));
++      spin (150);
++      return TRUE;
++    }
++#endif
++  return FALSE;
++}
++
++static void
++save_screenshot (PtyxisWindow *window)
++{
++  g_autoptr(GdkPaintable) paintable = gtk_widget_paintable_new (GTK_WIDGET (window));
++  GtkSnapshot *snapshot = gtk_snapshot_new ();
++  GskRenderNode *node;
++  g_autoptr(GdkTexture) texture = NULL;
++  int width = gtk_widget_get_width (GTK_WIDGET (window));
++  int height = gtk_widget_get_height (GTK_WIDGET (window));
++  spin (100);
++  gdk_paintable_snapshot (paintable, snapshot, width, height);
++  node = gtk_snapshot_free_to_node (snapshot);
++  g_assert_nonnull (node);
++  texture = gsk_renderer_render_texture (gtk_native_get_renderer (GTK_NATIVE (window)), node, NULL);
++  g_assert_true (gdk_texture_save_to_png (texture, "test-splits.png"));
++  gsk_render_node_unref (node);
++}
++
++static void
++integration (void)
++{
++  g_autoptr(PtyxisApplication) app = ptyxis_application_new ("org.gnome.Ptyxis.Splits.Test", G_APPLICATION_NON_UNIQUE);
++  g_autoptr(GError) error = NULL;
++  g_autoptr(PtyxisProfile) profile = NULL;
++  g_autoptr(GVariant) state = NULL;
++  PtyxisSettings *settings;
++  PtyxisWindow *window;
++  PtyxisPane *pane;
++  PtyxisTab *a, *b, *c;
++  g_autoptr(PtyxisIpcProcess) original_process = NULL;
++  g_autofree char *cwd = NULL;
++
++  g_assert_true (g_application_register (G_APPLICATION (app), NULL, &error));
++  g_assert_no_error (error);
++  settings = ptyxis_application_get_settings (app);
++  ptyxis_settings_set_prompt_on_close (settings, FALSE);
++  ptyxis_settings_set_restore_session (settings, TRUE);
++  profile = ptyxis_application_dup_default_profile (app);
++  ptyxis_profile_set_use_custom_command (profile, TRUE);
++  ptyxis_profile_set_custom_command (profile, "/bin/sh");
++  ptyxis_profile_set_exit_action (profile, PTYXIS_EXIT_ACTION_CLOSE);
++
++  window = ptyxis_window_new_for_profile (profile);
++  gtk_window_set_default_size (GTK_WINDOW (window), 1000, 720);
++  gtk_window_present (GTK_WINDOW (window));
++  a = ptyxis_window_get_active_tab (window);
++  wait_running (a);
++  original_process = g_object_ref (ptyxis_tab_get_process (a));
++  send_command (a, "cd /tmp; printf '\\033]7;file://localhost/tmp\\007'; printf 'LEFT PANE\\n'\n");
++  spin (300);
++  if (!send_shortcut (window, "ctrl+shift+e"))
++    g_assert_true (gtk_widget_activate_action (GTK_WIDGET (window), "win.split-right", NULL));
++  b = ptyxis_window_get_active_tab (window);
++  g_assert_true (b != a);
++  wait_running (b);
++  spin (300);
++  cwd = ptyxis_tab_query_working_directory_from_agent (b);
++  g_assert_nonnull (cwd);
++  g_assert_true (g_str_has_suffix (cwd, "/tmp"));
++  g_assert_true (ptyxis_tab_get_profile (b) == profile);
++  g_assert_true (ptyxis_tab_get_process (a) == original_process);
++  if (!send_shortcut (window, "ctrl+shift+o"))
++    g_assert_true (gtk_widget_activate_action (GTK_WIDGET (window), "win.split-down", NULL));
++  c = ptyxis_window_get_active_tab (window);
++  wait_running (c);
++  send_command (b, "printf 'TOP RIGHT PANE\\n'\n");
++  send_command (c, "printf 'BOTTOM RIGHT PANE\\n'\n");
++  pane = active_pane (window);
++  assert_count (pane, 3);
++  spin (500);
++  g_assert_cmpint (gtk_widget_get_width (GTK_WIDGET (a)), >, 100);
++  g_assert_cmpint (gtk_widget_get_height (GTK_WIDGET (c)), >, 100);
++  assert_focus (window, c);
++  gtk_widget_activate_action (GTK_WIDGET (window), "win.pane-up", NULL);
++  assert_focus (window, b);
++  gtk_widget_activate_action (GTK_WIDGET (window), "win.pane-left", NULL);
++  assert_focus (window, a);
++  ptyxis_tab_grab_focus (c);
++  assert_focus (window, c);
++  ptyxis_tab_set_title_prefix (c, "bottom");
++  gtk_widget_activate_action (GTK_WIDGET (window), "win.pane-next", NULL);
++  assert_focus (window, a);
++  gtk_widget_activate_action (GTK_WIDGET (window), "win.pane-previous", NULL);
++  assert_focus (window, c);
++  gtk_paned_set_position (GTK_PANED (gtk_widget_get_first_child (GTK_WIDGET (pane))), 380);
++  ptyxis_tab_set_zoom (b, PTYXIS_ZOOM_LEVEL_PLUS_1);
++  spin (200);
++  save_screenshot (window);
++
++  /* Save and restore includes all panes, their focused leaf, and ratios. */
++  state = ptyxis_session_save (app);
++  g_assert_true (ptyxis_session_restore (app, state));
++  {
++    const GList *windows = gtk_application_get_windows (GTK_APPLICATION (app));
++    PtyxisWindow *restored = windows->data == window ? windows->next->data : windows->data;
++    PtyxisPane *restored_pane = active_pane (restored);
++    g_autoptr(GVariant) layout = ptyxis_pane_save_layout (pane);
++    g_autoptr(GVariant) restored_layout = ptyxis_pane_save_layout (restored_pane);
++    assert_count (restored_pane, 3);
++    g_assert_true (g_variant_equal (layout, restored_layout));
++    g_assert_cmpstr (ptyxis_tab_get_title_prefix (ptyxis_window_get_active_tab (restored)), ==, "bottom");
++    spin (500);
++    {
++      g_autoptr(GPtrArray) restored_children = ptyxis_pane_list_children (restored_pane);
++      g_autofree char *restored_cwd = ptyxis_tab_query_working_directory_from_agent (g_ptr_array_index (restored_children, 1));
++      GtkPaned *divider = GTK_PANED (gtk_widget_get_first_child (GTK_WIDGET (restored_pane)));
++      g_assert_cmpint (ABS (gtk_paned_get_position (divider) - 380), <, 5);
++      g_assert_cmpstr (restored_cwd, ==, "/tmp");
++      g_assert_cmpint (ptyxis_tab_get_zoom (g_ptr_array_index (restored_children, 1)), ==, PTYXIS_ZOOM_LEVEL_PLUS_1);
++    }
++    gtk_window_destroy (GTK_WINDOW (restored));
++  }
++
++  /* Confirming a tab close must account for a busy inactive pane. */
++  send_command (b, "sleep 20\n");
++  spin (150);
++  ptyxis_window_set_active_tab (window, a);
++  ptyxis_settings_set_prompt_on_close (settings, TRUE);
++  gtk_widget_activate_action (GTK_WIDGET (window), "page.close", NULL);
++  spin (100);
++  {
++    AdwDialog *dialog = adw_application_window_get_visible_dialog (ADW_APPLICATION_WINDOW (window));
++    g_assert_true (ADW_IS_ALERT_DIALOG (dialog));
++    adw_dialog_close (dialog);
++    spin (100);
++    assert_count (pane, 3);
++    g_assert_true (ptyxis_tab_is_running (b, NULL));
++  }
++  send_command (b, "\003");
++  spin (100);
++  ptyxis_settings_set_prompt_on_close (settings, FALSE);
++
++  /* Shell exit collapses only that pane; the original shell survives. */
++  send_command (c, "exit\n");
++  for (guint i = 0; i < 300; i++)
++    {
++      g_autoptr(GPtrArray) children = ptyxis_pane_list_children (pane);
++      if (children->len == 2)
++        break;
++      spin (10);
++    }
++  assert_count (pane, 2);
++  g_assert_true (ptyxis_tab_get_process (a) == original_process);
++
++  /* Closing and undoing a whole tab retains its complete layout. */
++  gtk_widget_activate_action (GTK_WIDGET (window), "win.new-tab", "(ss)", "", "");
++  ptyxis_window_set_active_tab (window, a);
++  gtk_widget_activate_action (GTK_WIDGET (window), "page.close", NULL);
++  spin (100);
++  gtk_widget_activate_action (GTK_WIDGET (window), "win.undo-close-tab", NULL);
++  pane = active_pane (window);
++  assert_count (pane, 2);
++  g_assert_true (ptyxis_tab_get_process (a) == original_process);
++
++  /* Detaching carries both panes, including an inactive terminal. */
++  gtk_widget_activate_action (GTK_WIDGET (window), "page.detach", NULL);
++  {
++    PtyxisWindow *detached = PTYXIS_WINDOW (gtk_widget_get_ancestor (GTK_WIDGET (a), PTYXIS_TYPE_WINDOW));
++    g_assert_true (detached != window);
++    assert_count (active_pane (detached), 2);
++    ptyxis_tab_grab_focus (b);
++    assert_focus (detached, b);
++    gtk_widget_activate_action (GTK_WIDGET (detached), "win.close-pane", NULL);
++    assert_count (active_pane (detached), 1);
++    g_assert_true (ptyxis_tab_get_process (a) == original_process);
++    gtk_window_destroy (GTK_WINDOW (detached));
++  }
++  {
++    GtkWindow *preferences = GTK_WINDOW (g_object_new (PTYXIS_TYPE_PREFERENCES_WINDOW, "application", app, NULL));
++    gtk_window_present (preferences);
++    spin (100);
++    gtk_window_destroy (preferences);
++  }
++  gtk_window_destroy (GTK_WINDOW (window));
++  spin (200);
++  {
++    g_autoptr(GVariant) legacy = g_variant_parse (G_VARIANT_TYPE_VARDICT,
++      "{'version': <uint32 1>, 'windows': <[{'tabs': <[{'cwd': <'file:///tmp'>, 'active': <true>, 'pinned': <true>}]>}]>}",
++      NULL, NULL, NULL);
++    PtyxisWindow *restored;
++    g_assert_true (ptyxis_session_restore (app, legacy));
++    restored = gtk_application_get_windows (GTK_APPLICATION (app))->data;
++    assert_count (active_pane (restored), 1);
++    g_assert_true (adw_tab_page_get_pinned (ptyxis_tab_get_page (ptyxis_window_get_active_tab (restored))));
++    gtk_window_destroy (GTK_WINDOW (restored));
++    spin (100);
++  }
++}
++
++int
++main (int argc, char **argv)
++{
++  g_test_init (&argc, &argv, NULL);
++  adw_init ();
++  g_test_add_func ("/splits/tree-roundtrip-and-collapse", layout_tree);
++  g_test_add_func ("/splits/invalid-layout", invalid_layout);
++  g_test_add_func ("/splits/integration", integration);
++  return g_test_run ();
++}

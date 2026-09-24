@@ -1,0 +1,46 @@
+Ptyxis native split panes for Nobara / Fedora 44
+================================================
+
+Based on Fedora ptyxis-50.1-2.fc44.src.rpm, retrieved from:
+https://kojipkgs.fedoraproject.org/packages/ptyxis/50.1/2.fc44/src/ptyxis-50.1-2.fc44.src.rpm
+Fedora f44 dist-git commit: dce6833 (Disable inhibition management by default).
+The source tarball is unmodified; the spec applies the included patches.
+
+Package: ptyxis-50.1-2.fc44.nobara.1
+This is the normal Ptyxis/Terminal package, using org.gnome.Ptyxis and the
+Fedora dark-mode, accessibility, and inhibition defaults.
+
+Shortcuts (configurable under Preferences > Shortcuts > Panes):
+  Ctrl+Shift+E          Split right (side by side)
+  Ctrl+Shift+O          Split down (top and bottom)
+  Ctrl+Alt+Arrow        Focus neighboring pane
+  Ctrl+Alt+PageDown/Up  Next/previous pane
+  Ctrl+Alt+W            Close focused pane
+  Ctrl+Shift+W          Close entire tab (existing shortcut)
+
+Split and close actions are also available in the main and context menus.
+Dividers can be dragged. Splits can be nested. New panes inherit the focused
+pane's profile, zoom, and working directory, subject to profile settings.
+Closing tabs/windows checks every pane for running commands. Exiting a shell
+closes only its pane. Undo restores the most recently closed item; an undone
+single pane opens as a separate tab. The existing undo timeout applies.
+
+When session restoration is enabled, pane layouts, divider positions, focus,
+profiles, titles, zoom, and directories are saved. Restoring a session starts
+fresh shells, as in upstream Ptyxis; running jobs and scrollback are not
+preserved. Older single-terminal saved sessions remain readable. Standalone
+command windows retain single-terminal behavior.
+
+Patches:
+  0001-native-split-panes.patch    Native pane implementation and regression tests
+  0002-test-with-built-agent.patch  Use the build-tree agent in GLib tests only
+
+Build:
+  dnf builddep ./ptyxis-50.1-2.fc44.nobara.1.src.rpm
+  rpmbuild --rebuild ./ptyxis-50.1-2.fc44.nobara.1.src.rpm
+
+The RPM check phase runs metadata validation, Podman parsing tests, and the
+split-pane suite under Xvfb with a private D-Bus session and temporary settings.
+The suite covers actual shortcut keys, nested layouts and collapsing splits,
+focus, inherited directories, session/ratio restoration, legacy sessions,
+inactive-pane close prompts, shell exit, undo, and tab detachment.
