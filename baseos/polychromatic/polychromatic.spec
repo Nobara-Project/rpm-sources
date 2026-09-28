@@ -9,7 +9,7 @@
 
 Name: polychromatic
 Version: 0.9.8
-Release: 1.1
+Release: 1.13
 Summary: RGB lighting management front-end application for OpenRazer
 
 License: GPL-3.0
@@ -20,6 +20,8 @@ Source0: https://github.com/polychromatic/polychromatic/archive/%{gitcommit}.tar
 %else
 Source0: https://github.com/polychromatic/polychromatic/archive/v%{version}.tar.gz
 %endif
+Patch0: polychromatic-device-support.patch
+Source1: naga-v3-pro-with-side-plates.png
 
 BuildArch: noarch
 
@@ -69,8 +71,9 @@ graphical, command line and tray applet interface.
 %if 0%{?gitcommit:1}
 %autosetup -n polychromatic-%{gitcommit}
 %else
-%autosetup -n polychromatic-%{version}
+%autosetup -n polychromatic-%{version} -p1
 %endif
+install -m 0644 %{SOURCE1} data/devices/naga-v3-pro-with-side-plates.png
 
 %build
 %meson
@@ -97,6 +100,40 @@ rm -rf $RPM_BUILD_ROOT
 %{_mandir}/man1/polychromatic-*
 
 %changelog
+* Sun Sep 27 2026 Nobara local build - 0.9.8-1.13
+- Remove HyperFlux Help, Diagnostics and Advanced buttons and firmware controls.
+- Keep receiver status, driver auto-pairing, manual pairing and Refresh.
+- Keep failure details in status tooltips without links to removed controls.
+
+* Sun Sep 27 2026 Nobara local build - 0.9.8-1.12
+- Replace verbose receiver instructions with compact standard device rows.
+- Use the application-themed dialogs with default-No pairing confirmations.
+- Move guidance, scan counters and firmware controls into Help/Diagnostics/Advanced.
+- Defer page replacement during confirmation and recover inventory after scans.
+
+* Sun Sep 27 2026 Nobara local build - 0.9.8-1.11
+- Present sleeping wireless devices with a wake-up message and read-only retry.
+- Keep tracebacks in optional details and distinguish busy or stale devices.
+- Distinguish automatic discovery from pairing, with separate command counts.
+
+* Sun Sep 27 2026 Nobara local build - 0.9.8-1.10
+- Keep HyperFlux receiver and healthy devices visible when a child query fails.
+- Show unavailable wireless child entries with explicit retry and error details.
+
+* Sat Sep 26 2026 Nobara local build - 0.9.8-1.9
+- Add explicit driver auto-pair enable/disable for mouse and keyboard slots.
+- Display kernel policy and progress; keep firmware command separate.
+- Handle dynamic HyperFlux keyboard entries using daemon hotplug notifications.
+
+* Sat Sep 26 2026 Nobara local build - 0.9.8-1.8
+- Use receiver-slot pairing for all reported mice/keyboards without model gates.
+- Display capture coverage as a notice instead of disabling untested models.
+- Retain per-receiver inventory controls and support HyperFlux keyboard children.
+
+* Sat Sep 26 2026 Nobara local build - 0.9.8-1.7
+- Build receiver pairing controls from the selected pad's live inventory.
+- Do not show unpair buttons for absent or unsupported devices.
+- Disable pairing actions when live inventory is unavailable.
+
 * Wed Feb 08 2017 Luca Weiss <luca@z3ntu.xyz> 0.3.6.1.git-1
 - Initial RPM release
-
