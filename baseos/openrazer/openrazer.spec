@@ -9,7 +9,7 @@
 
 Name: 		openrazer-meta
 Version: 	3.12.4
-Release: 	%autorelease -b2
+Release: 	13%{?dist}
 Summary: 	Open source driver and user-space daemon for managing Razer devices
 
 License: 	GPL-2.0
@@ -20,12 +20,14 @@ Source0: 	https://github.com/crstmkt/openrazer/archive/%{gitcommit}.tar.gz
 %else
 Source0: 	https://github.com/openrazer/openrazer/releases/download/v%{version}/openrazer-%{version}.tar.xz
 %endif
+Patch0: 	openrazer-device-support.patch
 
 # https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
 ExcludeArch:    %{ix86}
 
 BuildArch: 	noarch
 BuildRequires: 	make
+BuildRequires:  gcc
 
 Requires: 	openrazer-kernel-modules-dkms
 Requires: 	openrazer-daemon
@@ -120,6 +122,16 @@ Python library for accessing the daemon from Python.
 %build
 # noop
 
+%check
+gcc -Wall -Wextra -Werror -o test-hyperflux scripts/ci/test-hyperflux.c
+./test-hyperflux
+gcc -Wall -Wextra -Werror -o test-hyperflux-pairing scripts/ci/test-hyperflux-pairing.c
+./test-hyperflux-pairing
+gcc -Wall -Wextra -Werror -o test-hyperflux-keyboard scripts/ci/test-hyperflux-keyboard.c
+./test-hyperflux-keyboard
+gcc -Wall -Wextra -Werror -o test-hyperflux-auto scripts/ci/test-hyperflux-auto.c
+./test-hyperflux-auto
+
 
 %install
 rm -rf $RPM_BUILD_ROOT
@@ -204,3 +216,31 @@ fi
 %files -n python3-openrazer
 %{python3_sitelib}/openrazer/
 %{python3_sitelib}/openrazer-*.egg-info/
+
+%changelog
+* Sun Sep 27 2026 Nobara local build - 3.12.4-13
+- Create and remove HyperFlux mouse controls dynamically on pairing changes.
+- Support pairing after empty-slot boot and switching Naga models without replug.
+- Keep PID-specific control paths, stable daemon identities and unchanged HID input.
+- Retry registration after transient udev permission races without settings writes.
+
+* Sun Sep 27 2026 Nobara local build - 3.12.4-12
+- Publish confirmed mouse membership and remove unpaired logical devices.
+- Preserve sleeping children and existing entries on failed inventory reads.
+- Expose discovery versus pairing counters and require completed discovery.
+
+* Sun Sep 27 2026 Nobara local build - 3.12.4-11
+- Defer client firmware reads so a sleeping child cannot abort DeviceManager.
+- Cache successful firmware queries only, preserving explicit errors and retries.
+- Isolate suspend/resume I/O failures and restore flags so shutdown completes.
+- Exercise the full client enumeration path with an isolated real D-Bus service.
+
+* Sun Sep 27 2026 Nobara local build - 3.12.4-10
+- Register HyperFlux mouse children without startup feature reads or settings writes.
+- Use stable per-receiver/model mouse identity and preserve input mode.
+- Keep battery notification threads alive on busy/asleep wireless read failures.
+
+* Sat Sep 26 2026 Nobara local build - 3.12.4-9
+- Add opt-in kernel-managed auto-pairing for independent mouse/keyboard slots.
+- Refresh keyboard sysfs/daemon children on wireless membership changes.
+- Preserve input, slot/token checks, bounded operations and disconnect teardown.
