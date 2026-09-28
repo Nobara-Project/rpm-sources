@@ -9,7 +9,7 @@
 
 Name:		ptyxis
 Version:	50.1
-Release:	2%{?dist}.nobara.1
+Release:	2%{?dist}.nobara.2
 Summary:	A container oriented terminal for GNOME
 
 License:	GPL-2.0-or-later AND GPL-3.0-or-later AND LGPL-3.0-or-later AND LGPL-2.0-or-later AND CC0-1.0
@@ -22,6 +22,8 @@ Source2:        README.nobara
 Patch0:         0001-native-split-panes.patch
 # Run integration tests against the helper built by this RPM.
 Patch1:         0002-test-with-built-agent.patch
+# Appearance setting for square window corners, applied live to all windows.
+Patch2:         0003-rounded-window-corners.patch
 
 BuildRequires:	pkgconfig(gio-unix-2.0) >= %{glib2_version}
 BuildRequires:	pkgconfig(gtk4) >= %{gtk4_version}
@@ -90,6 +92,10 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/org.gnome.Ptyxis.desk
 %{_mandir}/man1/ptyxis.1*
 
 %changelog
+* Sun Sep 27 2026 Nobara Project - 50.1-2.nobara.2
+- Add a persistent Rounded Corners switch under Appearance
+- Apply square corners immediately to existing and new windows
+
 * Tue Sep 22 2026 Nobara Project - 50.1-2.nobara.1
 - Add nested split panes with resizable dividers and configurable shortcuts
 - Preserve pane layouts, focus, profiles, and directories in saved sessions

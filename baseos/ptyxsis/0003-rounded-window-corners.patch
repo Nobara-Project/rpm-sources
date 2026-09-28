@@ -1,0 +1,180 @@
+diff --git a/src/org.gnome.Ptyxis.gschema.xml.in b/src/org.gnome.Ptyxis.gschema.xml.in
+--- a/src/org.gnome.Ptyxis.gschema.xml.in
++++ b/src/org.gnome.Ptyxis.gschema.xml.in
+@@ -184,6 +184,12 @@
+       <description>If light or dark interface style should be used</description>
+     </key>
+ 
++    <key name="rounded-corners" type="b">
++      <default>true</default>
++      <summary>Rounded Corners</summary>
++      <description>Use rounded window corners. Disable to use square corners.</description>
++    </key>
++
+     <key name="restore-session" type="b">
+       <default>true</default>
+       <summary>Restore Session</summary>
+diff --git a/src/ptyxis-application.c b/src/ptyxis-application.c
+--- a/src/ptyxis-application.c
++++ b/src/ptyxis-application.c
+@@ -875,6 +875,42 @@
+ }
+ 
+ static void
++set_window_rounded_corners (GtkWindow *window,
++                            gboolean   rounded)
++{
++  if (rounded)
++    gtk_widget_remove_css_class (GTK_WIDGET (window), "square-corners");
++  else
++    gtk_widget_add_css_class (GTK_WIDGET (window), "square-corners");
++}
++
++static void
++ptyxis_application_rounded_corners_changed_cb (GSettings         *settings,
++                                               const char        *key,
++                                               PtyxisApplication *self)
++{
++  gboolean rounded = g_settings_get_boolean (settings, PTYXIS_SETTING_KEY_ROUNDED_CORNERS);
++
++  for (const GList *iter = gtk_application_get_windows (GTK_APPLICATION (self));
++       iter != NULL;
++       iter = iter->next)
++    set_window_rounded_corners (iter->data, rounded);
++}
++
++static void
++ptyxis_application_window_added (GtkApplication *application,
++                                 GtkWindow      *window)
++{
++  PtyxisApplication *self = PTYXIS_APPLICATION (application);
++  GSettings *settings = ptyxis_settings_get_settings (self->settings);
++
++  GTK_APPLICATION_CLASS (ptyxis_application_parent_class)->window_added (application, window);
++
++  set_window_rounded_corners (window,
++                             g_settings_get_boolean (settings, PTYXIS_SETTING_KEY_ROUNDED_CORNERS));
++}
++
++static void
+ ptyxis_application_startup (GApplication *application)
+ {
+   static const char *patterns[] = { "org.gnome.*", NULL };
+@@ -910,6 +946,12 @@
+     }
+ 
+   G_APPLICATION_CLASS (ptyxis_application_parent_class)->startup (application);
++
++  g_signal_connect_object (ptyxis_settings_get_settings (self->settings),
++                           "changed::" PTYXIS_SETTING_KEY_ROUNDED_CORNERS,
++                           G_CALLBACK (ptyxis_application_rounded_corners_changed_cb),
++                           self,
++                           0);
+ 
+   if ((sandbox_agent = ptyxis_application_should_sandbox_agent (self)))
+     timeout_msec = G_MAXINT;
+@@ -1086,6 +1128,7 @@
+ {
+   GObjectClass *object_class = G_OBJECT_CLASS (klass);
+   GApplicationClass *app_class = G_APPLICATION_CLASS (klass);
++  GtkApplicationClass *gtk_app_class = GTK_APPLICATION_CLASS (klass);
+ 
+   object_class->get_property = ptyxis_application_get_property;
+   object_class->finalize = ptyxis_application_finalize;
+@@ -1094,6 +1137,8 @@
+   app_class->startup = ptyxis_application_startup;
+   app_class->command_line = ptyxis_application_command_line;
+   app_class->open = ptyxis_application_open;
++
++  gtk_app_class->window_added = ptyxis_application_window_added;
+ 
+   properties[PROP_CONTAINERS] =
+     g_param_spec_object ("containers", NULL, NULL,
+diff --git a/src/ptyxis-preferences-window.c b/src/ptyxis-preferences-window.c
+--- a/src/ptyxis-preferences-window.c
++++ b/src/ptyxis-preferences-window.c
+@@ -82,6 +82,7 @@
+   GtkListBox           *profiles_list_box;
+   AdwSwitchRow         *restore_session;
+   GtkSwitch            *restore_window_size;
++  AdwSwitchRow         *rounded_corners;
+   AdwSpinRow           *default_rows;
+   AdwSpinRow           *default_columns;
+   AdwSpinRow           *scrollback_lines;
+@@ -814,6 +815,12 @@
+ 
+   G_OBJECT_CLASS (ptyxis_preferences_window_parent_class)->constructed (object);
+ 
++  g_settings_bind (gsettings,
++                   PTYXIS_SETTING_KEY_ROUNDED_CORNERS,
++                   self->rounded_corners,
++                   "active",
++                   G_SETTINGS_BIND_DEFAULT);
++
+   self->filter = gtk_custom_filter_new (do_filter_palettes, self, NULL);
+   self->filter_palettes = gtk_filter_list_model_new (g_object_ref (ptyxis_palette_get_all ()),
+                                                      g_object_ref (GTK_FILTER (self->filter)));
+@@ -1201,6 +1208,7 @@
+   gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, profiles_list_box);
+   gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, restore_session);
+   gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, restore_window_size);
++  gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, rounded_corners);
+   gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, default_rows);
+   gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, default_columns);
+   gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, scroll_on_keystroke);
+diff --git a/src/ptyxis-preferences-window.ui b/src/ptyxis-preferences-window.ui
+--- a/src/ptyxis-preferences-window.ui
++++ b/src/ptyxis-preferences-window.ui
+@@ -60,6 +60,17 @@
+                 <property name="max-children-per-line">3</property>
+                 <property name="selection-mode">none</property>
+                 <property name="homogeneous">true</property>
++              </object>
++            </child>
++          </object>
++        </child>
++        <child>
++          <object class="AdwPreferencesGroup">
++            <property name="title" translatable="yes">Window</property>
++            <child>
++              <object class="AdwSwitchRow" id="rounded_corners">
++                <property name="title" translatable="yes">Rounded Corners</property>
++                <property name="subtitle" translatable="yes">Turn off to use square window corners</property>
+               </object>
+             </child>
+           </object>
+diff --git a/src/ptyxis-settings.h b/src/ptyxis-settings.h
+--- a/src/ptyxis-settings.h
++++ b/src/ptyxis-settings.h
+@@ -39,6 +39,7 @@
+ #define PTYXIS_SETTING_KEY_PROMPT_ON_CLOSE         "prompt-on-close"
+ #define PTYXIS_SETTING_KEY_RESTORE_SESSION         "restore-session"
+ #define PTYXIS_SETTING_KEY_RESTORE_WINDOW_SIZE     "restore-window-size"
++#define PTYXIS_SETTING_KEY_ROUNDED_CORNERS         "rounded-corners"
+ #define PTYXIS_SETTING_KEY_DEFAULT_COLUMNS         "default-columns"
+ #define PTYXIS_SETTING_KEY_DEFAULT_ROWS            "default-rows"
+ #define PTYXIS_SETTING_KEY_SCROLLBAR_POLICY        "scrollbar-policy"
+diff --git a/src/style.css b/src/style.css
+--- a/src/style.css
++++ b/src/style.css
+@@ -12,6 +12,12 @@
+   outline-width: 0;
+ }
+ 
++/* Keep window clipping, decorations, and edge effects square together. */
++window.square-corners {
++  --window-radius: 0px;
++  border-radius: 0;
++}
++
+ vte-terminal.padded {
+   margin: 0 0 1px 0;
+   padding: 7px 6px 3px 6px;
+@@ -19,6 +25,7 @@
+ 
+ vte-terminal:drop(active) { border-radius: 0 0 11px 11px; }
+ 
++window.square-corners vte-terminal:drop(active),
+ window.maximized vte-terminal:drop(active),
+ window.tiled-bottom vte-terminal:drop(active) { border-radius: 0; }
+ 

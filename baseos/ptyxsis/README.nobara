@@ -6,9 +6,14 @@ https://kojipkgs.fedoraproject.org/packages/ptyxis/50.1/2.fc44/src/ptyxis-50.1-2
 Fedora f44 dist-git commit: dce6833 (Disable inhibition management by default).
 The source tarball is unmodified; the spec applies the included patches.
 
-Package: ptyxis-50.1-2.fc44.nobara.1
+Package: ptyxis-50.1-2.fc44.nobara.2
 This is the normal Ptyxis/Terminal package, using org.gnome.Ptyxis and the
 Fedora dark-mode, accessibility, and inhibition defaults.
+
+Appearance:
+  Preferences > Appearance > Window > Rounded Corners
+  Enabled by default. Turn off for square terminal and preferences windows.
+  Changes apply immediately to open windows and are remembered for new ones.
 
 Shortcuts (configurable under Preferences > Shortcuts > Panes):
   Ctrl+Shift+E          Split right (side by side)
@@ -34,10 +39,11 @@ command windows retain single-terminal behavior.
 Patches:
   0001-native-split-panes.patch    Native pane implementation and regression tests
   0002-test-with-built-agent.patch  Use the build-tree agent in GLib tests only
+  0003-rounded-window-corners.patch  Appearance setting for square window corners
 
 Build:
-  dnf builddep ./ptyxis-50.1-2.fc44.nobara.1.src.rpm
-  rpmbuild --rebuild ./ptyxis-50.1-2.fc44.nobara.1.src.rpm
+  dnf builddep ./ptyxis-50.1-2.fc44.nobara.2.src.rpm
+  rpmbuild --rebuild ./ptyxis-50.1-2.fc44.nobara.2.src.rpm
 
 The RPM check phase runs metadata validation, Podman parsing tests, and the
 split-pane suite under Xvfb with a private D-Bus session and temporary settings.
