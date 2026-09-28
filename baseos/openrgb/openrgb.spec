@@ -1,5 +1,5 @@
 %global forgeurl https://gitlab.com/CalcProgrammer1/%{upstream_package_name}
-%global commit cb0052c76160ca7b6dc603c28121339527508adc
+%global commit 0f8f2dccc46576f0a9dac6b70adcbf49901c6b73
 #%%global tag release_%%{version}
 # Workaround for incorrect package suffix name with forge macros
 # (.20231017gitrelease.0.9 for example)
@@ -13,7 +13,7 @@ ExcludeArch: %{ix86}
 Name:           openrgb
 Version:        1.0
 %forgemeta
-Release:        %autorelease -b2
+Release:        %autorelease -b3
 Summary:        Open source RGB lighting control
 
 # Entire source code is GPL-2.0-only except some bundled libs:
@@ -34,8 +34,8 @@ BuildRequires:  pkgconfig(hidapi-libusb)
 BuildRequires:  pkgconfig(libusb)
 
 BuildRequires:  cmake
-BuildRequires:  cmake(Qt5)
-BuildRequires:  cmake(Qt5LinguistTools)
+BuildRequires:  cmake(Qt6)
+BuildRequires:  cmake(Qt6LinguistTools)
 
 Requires:       %{name}-udev-rules = %{version}-%{release}
 Requires:       hicolor-icon-theme
@@ -91,7 +91,7 @@ rm -rf       \
 popd
 
 %build
-%qmake_qt5 \
+%qmake_qt6 \
     .      \
     %{nil}
 %make_build
@@ -136,7 +136,11 @@ fi
 %{_udevrulesdir}/60-%{name}.rules
 
 %changelog
-* Sun Sep 20 2026 LionHeartP <LionHeartP@proton.me> - 1.0-1.20260920gitcb0052c
+* Sun Sep 20 2026 LionHeartP <LionHeartP@proton.me> - 1.0-3.20260926git0f8f2dc
+- Update to latest commit
+- Swap to QT6
+
+* Sun Sep 20 2026 LionHeartP <LionHeartP@proton.me> - 1.0-2.20260920gitcb0052c
 - Update to latest commit
 - Generate and package udev rules files during install
 
