@@ -4,7 +4,7 @@
 
 Name:           dkms-%{dkms_name}
 Version:        615.71.09
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        NVIDIA display driver kernel module
 Epoch:          3
 License:        NVIDIA License
@@ -13,6 +13,10 @@ BuildArch:      noarch
 
 Source0:        https://github.com/NVIDIA/open-gpu-kernel-modules/archive/refs/tags/%{version}.tar.gz
 Source1:        %{name}.conf
+# Anatase patches adopted by negativo17/dkms-nvidia at a367d0d0.
+Patch0:         0001-nvidia-control-tunneled-PCIe-speed-during-active-epochs.patch
+Patch1:         0002-add-CEC-support-via-DP-to-HDMI-dongles.patch
+
 BuildRequires:  sed
 
 # The run file contains precompiled C++ code for the open modules:
@@ -100,6 +104,9 @@ dkms remove -m %{dkms_name} -v %{version} --all --rpm_safe_upgrade --directive p
 %{_usrsrc}/%{dkms_name}-%{version}
 
 %changelog
+* Sat Oct 03 2026 Nobara Project <contact@nobaraproject.org> - 3:615.71.09-4
+- Add Anatase's tunneled PCIe link-speed control and DisplayPort-to-HDMI CEC support.
+
 * Thu Mar 05 2026 Simone Caronni <negativo17@gmail.com> - 3:595.45.04-1
 - Update to 595.45.04.
 

@@ -4,7 +4,7 @@
 
 Name:           nvidia-kmod-common
 Version:        615.71.09
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Common file for NVIDIA's proprietary driver kernel modules
 Epoch:          3
 License:        NVIDIA License
@@ -17,11 +17,14 @@ Source17:       nvidia-boot-update
 Source20:       nvidia.conf
 Source21:       60-nvidia.rules
 Source19:       nvidia-modeset.conf
+Source22:       nvidia-driver-blacklist.conf
 
 # UDev rule location (_udevrulesdir) and systemd macros:
 BuildRequires:  systemd-rpm-macros
 
-Requires:       drm-awaiter >= 1-2
+Requires:       drm-awaiter >= 1-3
+Requires(post): drm-awaiter >= 1-3
+Requires(preun): drm-awaiter >= 1-3
 Requires:       python3
 Requires(post): python3
 Requires(preun): python3
@@ -44,6 +47,9 @@ install -p -m 0755 -D %{SOURCE17} %{buildroot}%{_bindir}/nvidia-boot-update
 # Load nvidia-uvm, enable complete power management:
 install -p -m 0644 -D %{SOURCE20} %{buildroot}%{_modprobedir}/nvidia.conf
 
+# Keep driver selection independent of locally overridden NVIDIA options.
+install -p -m 0644 -D %{SOURCE22} %{buildroot}%{_modprobedir}/nvidia-driver-blacklist.conf
+
 # NVIDIA modesetting is configured here, without kernel command-line edits.
 install -p -m 0644 -D %{SOURCE19} %{buildroot}%{_sysconfdir}/modprobe.d/nvidia-modeset.conf
 
@@ -58,16 +64,19 @@ mkdir -p %{buildroot}%{_prefix}/lib/firmware/nvidia/%{version}/
 install -p -m 644 firmware/* %{buildroot}%{_prefix}/lib/firmware/nvidia/%{version}
 
 %post
+%{_libexecdir}/drm-awaiter-initramfs request || exit $?
 %{_bindir}/nvidia-boot-update post
 
 %preun
 if [ "$1" -eq "0" ]; then
+  %{_libexecdir}/drm-awaiter-initramfs request || exit $?
   %{_bindir}/nvidia-boot-update preun
 fi ||:
 
 %files
 %config(noreplace) %{_sysconfdir}/modprobe.d/nvidia-modeset.conf
 %{_modprobedir}/nvidia.conf
+%{_modprobedir}/nvidia-driver-blacklist.conf
 %dir %{_prefix}/lib/firmware
 %dir %{_prefix}/lib/firmware/nvidia
 %{_prefix}/lib/firmware/nvidia/%{version}
@@ -75,6 +84,10 @@ fi ||:
 %{_udevrulesdir}/60-nvidia.rules
 
 %changelog
+* Sat Oct 03 2026 Nobara Project <contact@nobaraproject.org> - 3:615.71.09-4
+- Keep Nouveau/Nova blacklists separate from locally overridden NVIDIA options.
+- Require the corrected DRM awaiter and queue initramfs updates for policy changes.
+
 * Wed Oct 01 2025 Simone Caronni <negativo17@gmail.com> - 3:580.95.05-1
 - Update to 580.95.05.
 - Move nvidia-bug-report.sh in nvidia-kmod-common.
