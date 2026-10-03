@@ -10,7 +10,7 @@
 
 Name:           nvidia-driver
 Version:        615.71.09
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        NVIDIA's proprietary display driver for NVIDIA graphic cards
 Epoch:          3
 License:        NVIDIA License

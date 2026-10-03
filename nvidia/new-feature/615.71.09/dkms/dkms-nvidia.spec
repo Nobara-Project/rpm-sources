@@ -4,7 +4,7 @@
 
 Name:           dkms-%{dkms_name}
 Version:        615.71.09
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        NVIDIA display driver kernel module
 Epoch:          3
 License:        NVIDIA License
