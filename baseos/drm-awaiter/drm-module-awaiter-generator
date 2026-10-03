@@ -7,7 +7,8 @@
 # on the real root, never in PID 1's generator phase or in the initramfs.
 generate() {
     [[ ! -e /etc/initrd-release && -n ${1:-} ]] || return 0
-    local output=$1 path class alias module bound override word kind rest
+    local output=$1 path class alias module bound override word kind rest other
+    local nvidia_available=0
     local -a candidates=() modules=() nvidia=()
     local -A seen=() blocked=()
 
@@ -26,6 +27,11 @@ generate() {
         esac
     done
 
+    if [[ -z ${blocked[nvidia]:-} && -z ${blocked[nvidia_modeset]:-} && -z ${blocked[nvidia_drm]:-} ]] &&
+        modinfo nvidia_drm &>/dev/null; then
+        nvidia_available=1
+    fi
+
     for path in /sys/bus/pci/devices/*; do
         [[ -r $path/class && -r $path/modalias ]] || continue
         class=$(<"$path/class")
@@ -37,22 +43,45 @@ generate() {
         candidates=()
         if [[ -L $path/driver ]]; then
             bound=$(readlink "$path/driver")
-            candidates=("${bound##*/}")
+            bound=${bound##*/}
+            candidates=("$bound")
+            if [[ -n ${blocked[${bound//-/_}]:-} ]]; then
+                echo "drm-awaiter: $path is already bound to blacklisted driver $bound; check earlier module loads." >&2
+            fi
         else
             alias=$(<"$path/modalias")
             # Resolve the complete alias with kmod, including wildcard aliases.
             # Keep both Intel/AMD candidates: their probe routines honor
             # force_probe and si_support/cik_support, just as with udev probing.
             mapfile -t candidates < <(modprobe -b -R "$alias" 2>/dev/null)
+            # NVIDIA, Nouveau and Nova can match the same device. Select NVIDIA
+            # when its DRM module is present and allowed, rather than queuing a
+            # competing driver ahead of it. Apply this choice per PCI device.
+            if ((nvidia_available)); then
+                for module in "${candidates[@]}"; do
+                    [[ $module == nvidia ]] || continue
+                    for other in "${candidates[@]}"; do
+                        other=${other//-/_}
+                        case $other in
+                            nouveau|nova_core|nova_drm)
+                                [[ -z ${blocked[$other]:-} ]] || continue
+                                echo "drm-awaiter: $path matches competing drivers; selecting nvidia_drm. Check Nouveau/Nova blacklists to prevent competing udev loads." >&2
+                                break
+                                ;;
+                        esac
+                    done
+                    candidates=(nvidia)
+                    break
+                done
+            fi
         fi
         for module in "${candidates[@]}"; do
             module=${module//-/_}
             [[ -z ${blocked[$module]:-} ]] || continue
             case $module in
                 nvidia)
-                    [[ -z ${blocked[nvidia_modeset]:-} && -z ${blocked[nvidia_drm]:-} ]] || continue
                     # Loading nvidia alone does not guarantee DRM registration.
-                    modinfo nvidia_drm &>/dev/null || continue
+                    ((nvidia_available)) || continue
                     module=nvidia_drm
                     ;;
                 amdgpu|radeon|i915|xe|nouveau|nova_core|nova_drm|virtio_gpu|vmwgfx|qxl|bochs|mgag200|ast) ;;

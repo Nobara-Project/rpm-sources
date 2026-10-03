@@ -19,6 +19,9 @@ in initramfs: both are loaded from the root filesystem.
 
 * Resolve complete PCI modaliases with kmod, including wildcard matches.
 * Handle NVIDIA-only machines and explicitly insert `nvidia_drm`.
+* Prefer NVIDIA over Nouveau/Nova for each unbound PCI device when its alias
+  matches and `nvidia_drm` is present and allowed. Honor explicit blacklists
+  and existing bindings; log competing candidates or blacklisted bindings.
 * Wait for synchronous module insertion to finish, rather than module-device
   uevents, which can arrive before driver initialization finishes. No extra
   udev rule is needed and already-loaded drivers work without another event.
@@ -35,8 +38,7 @@ in initramfs: both are loaded from the root filesystem.
 
 Build this noarch package first and publish it with the updated kernel-core
 and nvidia-kmod-common packages. Integration currently targets LTS 6.18,
-mainline 7.2, production 595.99.02 and the new-feature 615.71.09 staging
-directory (whose specs currently still declare 610.57.04). Historical source
+mainline 7.2, production 595.99.02 and new-feature 615.71.09. Historical source
 directories and the beta driver channel are unchanged.
 The kernel dependency covers machines without NVIDIA. Either NVIDIA flavor
 also pulls the package in for machines still running an older kernel package.
@@ -57,6 +59,22 @@ Locally created `/etc/dracut.conf.d` configuration is not deleted or rewritten.
 Check such overrides and any external updater scripts that explicitly force
 GPU drivers into an image. A rebuild failure is reported and must be corrected
 before relying on the migration. No reboot is performed by the RPM.
+
+Starting with drm-awaiter 1-3, production 595.99.02-5 and new-feature 615.71.09-4
+keep the Nouveau/Nova blacklist in
+`/usr/lib/modprobe.d/nvidia-driver-blacklist.conf`. A local
+`/etc/modprobe.d/nvidia.conf` can then override NVIDIA options without hiding
+the driver-selection policy. Both driver packages require drm-awaiter 1-3.
+Installing or removing the policy queues and flushes an initramfs rebuild,
+including when only `nvidia-kmod-common` changes. This also updates images on
+systems with a local early-KMS override.
+
+The generator's driver preference does not serialize udev probing: the
+packaged blacklist must remain effective to prevent Nouveau/Nova from binding
+first. An already-bound GPU is not detached during boot. Check
+`modprobe -c` and `journalctl -b -u drm-module-load.service` when diagnosing a
+conflict. Module-load errors remain nonfatal so another GPU or console login
+can still work; successful service completion does not prove a GPU initialized.
 
 The production/new-feature `nvidia-boot-update` helper remains installed and is still
 called by the package hooks and NVIDIA HTPC installer. Both `post` and `preun`

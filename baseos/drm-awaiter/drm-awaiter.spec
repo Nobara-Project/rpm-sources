@@ -1,6 +1,6 @@
 Name:           drm-awaiter
 Version:        1
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Load GPU drivers from the root filesystem before graphical login
 License:        GPL-3.0-or-later
 URL:            https://github.com/CachyOS/CachyOS-PKGBUILDS/pull/1695
@@ -47,10 +47,10 @@ python3 test-generator.py
 
 # Both trigger types may run during an upgrade. The shared pending request is
 # consumed only once, after all DKMS scriptlets and kernel posttrans work.
-%transfiletriggerin -P 100 -- %{_usrsrc}/nvidia- %{_prefix}/lib/dracut/dracut.conf.d/90-drm-awaiter.conf
+%transfiletriggerin -P 100 -- %{_usrsrc}/nvidia- %{_prefix}/lib/dracut/dracut.conf.d/90-drm-awaiter.conf %{_prefix}/lib/modprobe.d/nvidia-driver-blacklist.conf
 %{_libexecdir}/drm-awaiter-initramfs flush
 
-%transfiletriggerpostun -P 100 -- %{_usrsrc}/nvidia-
+%transfiletriggerpostun -P 100 -- %{_usrsrc}/nvidia- %{_prefix}/lib/modprobe.d/nvidia-driver-blacklist.conf
 %{_libexecdir}/drm-awaiter-initramfs flush
 
 %files
@@ -61,5 +61,10 @@ python3 test-generator.py
 %{_libexecdir}/drm-awaiter-initramfs
 
 %changelog
+* Sat Oct 03 2026 Nobara Project <contact@nobaraproject.org> - 1-3
+- Prefer NVIDIA over competing drivers for the same unbound GPU.
+- Report conflicting candidates and already-bound blacklisted drivers.
+- Flush queued initramfs updates when the NVIDIA blacklist is installed or removed.
+
 * Wed Sep 09 2026 Nobara Project <contact@nobaraproject.org> - 1-1
 - Adapt CachyOS DRM awaiter for root-filesystem GPU loading with dracut.
