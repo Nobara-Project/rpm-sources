@@ -1,0 +1,255 @@
+From ab2ed1443400caa8097da1107ccd0eda8e6a5354 Mon Sep 17 00:00:00 2001
+From: Antheas Kapenekakis <git@antheas.dev>
+Date: Fri, 28 Aug 2026 17:11:57 +0200
+Subject: [PATCH] nvidia: control tunneled PCIe speed during active epochs
+
+
+Upstream: https://github.com/anatase-org/open-gpu-kernel-modules/commit/ab2ed1443400caa8097da1107ccd0eda8e6a5354
+Rebased for NVIDIA 595.104.02 after Nobara's existing patch stack.
+
+---
+diff --git a/kernel-open/common/inc/nv-linux.h b/kernel-open/common/inc/nv-linux.h
+--- a/kernel-open/common/inc/nv-linux.h
++++ b/kernel-open/common/inc/nv-linux.h
+@@ -1293,6 +1293,11 @@
+ 
+     nv_work_t work;
+ 
++    NvBool pcie_endpoint_hasd_set;
++    NvBool pcie_speed_locked;
++    NvBool pcie_tunneled;
++    NvBool pcie_upstream_hasd_set;
++
+     /* get a timer callback every second */
+     struct nv_timer rc_timer;
+ 
+diff --git a/kernel-open/common/inc/nv-pci.h b/kernel-open/common/inc/nv-pci.h
+--- a/kernel-open/common/inc/nv-pci.h
++++ b/kernel-open/common/inc/nv-pci.h
+@@ -39,4 +39,6 @@
+ NvBool nv_pci_is_valid_topology_for_direct_pci(nv_state_t *, struct pci_dev *);
+ NvBool nv_pci_has_common_pci_switch(nv_state_t *nv, struct pci_dev *);
+ void nv_pci_tegra_boost_clocks(struct device *dev);
++int nv_pci_begin_active_epoch(nv_linux_state_t *nvl);
++void nv_pci_end_active_epoch(nv_linux_state_t *nvl);
+ #endif
+diff --git a/kernel-open/nvidia/nv-pci.c b/kernel-open/nvidia/nv-pci.c
+--- a/kernel-open/nvidia/nv-pci.c
++++ b/kernel-open/nvidia/nv-pci.c
+@@ -79,6 +79,101 @@
+ #endif
+ 
+ extern int NVreg_ExcludeAllGpus;
++
++int nv_pci_begin_active_epoch(nv_linux_state_t *nvl)
++{
++#if NV_IS_EXPORT_SYMBOL_GPL_pcie_set_target_speed
++    struct pci_dev *upstream;
++    enum pci_bus_speed achieved;
++    enum pci_bus_speed requested;
++    u16 endpoint_lnkctl2;
++    u16 upstream_lnkctl2;
++    int ret;
++
++    if (!nvl->pcie_tunneled || nvl->pcie_speed_locked ||
++        !((NV_STATE_PTR(nvl))->flags &
++          (NV_FLAG_INITIALIZED | NV_FLAG_PERSISTENT_SW_STATE)))
++        return 0;
++
++    upstream = pci_upstream_bridge(nvl->pci_dev);
++    if (!upstream || !upstream->subordinate)
++        return -ENODEV;
++
++    requested = upstream->subordinate->max_bus_speed;
++    if (requested < PCIE_SPEED_2_5GT || requested > PCIE_SPEED_64_0GT)
++        return -EINVAL;
++
++    if (pcie_capability_read_word(nvl->pci_dev, PCI_EXP_LNKCTL2,
++                                  &endpoint_lnkctl2) ||
++        pcie_capability_read_word(upstream, PCI_EXP_LNKCTL2,
++                                  &upstream_lnkctl2))
++        return -EIO;
++
++    nvl->pcie_endpoint_hasd_set =
++        !(endpoint_lnkctl2 & PCI_EXP_LNKCTL2_HASD);
++    nvl->pcie_upstream_hasd_set =
++        !(upstream_lnkctl2 & PCI_EXP_LNKCTL2_HASD);
++
++    /*
++     * Stop GSP's autonomous policy at both ends before asking PCI core to
++     * negotiate.  HASD does not block software-directed or error-recovery
++     * retraining.
++     */
++    if ((nvl->pcie_endpoint_hasd_set &&
++         pcie_capability_set_word(nvl->pci_dev, PCI_EXP_LNKCTL2,
++                                  PCI_EXP_LNKCTL2_HASD)) ||
++        (nvl->pcie_upstream_hasd_set &&
++         pcie_capability_set_word(upstream, PCI_EXP_LNKCTL2,
++                                  PCI_EXP_LNKCTL2_HASD))) {
++        ret = -EIO;
++        goto failed;
++    }
++
++    /*
++     * Make one attempt at the maximum supported speed.  A lower speed after
++     * that retrain is the link's achieved speed for this active epoch; do not
++     * trigger further fallback retrains.
++     */
++    ret = pcie_set_target_speed(upstream, requested, true);
++    achieved = upstream->subordinate->cur_bus_speed;
++    if (ret && ret != -EAGAIN)
++        goto failed;
++
++    nvl->pcie_speed_locked = NV_TRUE;
++    NV_DEV_PRINTF(NV_DBG_SETUP, NV_STATE_PTR(nvl),
++                  "Tunneled PCIe active epoch requested %#x, achieved %#x\n",
++                  requested, achieved);
++    return 0;
++
++failed:
++    nv_pci_end_active_epoch(nvl);
++    return ret;
++#else
++    return 0;
++#endif
++}
++
++void nv_pci_end_active_epoch(nv_linux_state_t *nvl)
++{
++#if NV_IS_EXPORT_SYMBOL_GPL_pcie_set_target_speed
++    struct pci_dev *upstream;
++
++    if (!nvl->pcie_tunneled)
++        return;
++
++    upstream = pci_upstream_bridge(nvl->pci_dev);
++    if (nvl->pcie_endpoint_hasd_set)
++        pcie_capability_clear_word(nvl->pci_dev, PCI_EXP_LNKCTL2,
++                                   PCI_EXP_LNKCTL2_HASD);
++    if (upstream && nvl->pcie_upstream_hasd_set)
++        pcie_capability_clear_word(upstream, PCI_EXP_LNKCTL2,
++                                   PCI_EXP_LNKCTL2_HASD);
++
++    nvl->pcie_endpoint_hasd_set = NV_FALSE;
++    nvl->pcie_speed_locked = NV_FALSE;
++    nvl->pcie_upstream_hasd_set = NV_FALSE;
++#endif
++}
+ 
+ static void
+ nv_check_and_exclude_gpu(
+@@ -1896,6 +1991,10 @@
+         goto err_not_supported;
+     }
+ 
++#if NV_IS_EXPORT_SYMBOL_GPL_pcie_set_target_speed
++    nvl->pcie_tunneled = pci_is_thunderbolt_attached(pci_dev);
++#endif
++
+     nv  = NV_STATE_PTR(nvl);
+     os_mem_copy(nv->cached_gpu_info.vbios_version, "??.??.??.??.??", 15);
+ 
+@@ -2192,6 +2291,10 @@
+     rm_notify_gpu_addition(sp, nv);
+ 
+     nvidia_modeset_probe(nvl);
++
++    if (nv_pci_begin_active_epoch(nvl) != 0)
++        NV_DEV_PRINTF(NV_DBG_ERRORS, nv,
++                      "Failed to negotiate tunneled PCIe link at startup\n");
+ 
+     /*
+      * Dynamic power management should be enabled as the last step.
+@@ -2271,6 +2374,8 @@
+         return;
+     }
+ 
++    nv_pci_end_active_epoch(nvl);
++
+     nv = NV_STATE_PTR(nvl);
+ 
+ #if NV_IS_EXPORT_SYMBOL_GPL_iommu_dev_disable_feature
+diff --git a/kernel-open/nvidia/nv.c b/kernel-open/nvidia/nv.c
+--- a/kernel-open/nvidia/nv.c
++++ b/kernel-open/nvidia/nv.c
+@@ -36,6 +36,7 @@
+ #include "nv-reg.h"
+ #include "nv-msi.h"
+ #include "nv-pci-table.h"
++#include "nv-pci.h"
+ #include "nv-chardev-numbers.h"
+ 
+ #if defined(NV_UVM_ENABLE)
+@@ -1730,6 +1731,10 @@
+     }
+ 
+     nv_assert_not_in_gpu_exclusion_list(sp, nv);
++
++    rc = nv_pci_begin_active_epoch(nvl);
++    if (rc)
++        return rc;
+ 
+     atomic64_inc(&nvl->usage_count);
+ 
+@@ -5162,6 +5167,8 @@
+     nv_pci_tegra_boost_clocks(dev);
+ #endif
+ 
++    nv_pci_end_active_epoch(nvl);
++
+     err = nvidia_transition_dynamic_power(dev, NV_TRUE);
+     if (err)
+     {
+@@ -5179,6 +5186,7 @@
+     return err;
+ 
+ nv_pmops_runtime_suspend_exit:
++    nv_pci_begin_active_epoch(nvl);
+ #if defined(CONFIG_PM_DEVFREQ)
+     if (nvl->devfreq_resume != NULL)
+     {
+@@ -5193,10 +5201,9 @@
+ )
+ {
+     int err = 0;
+-#if defined(CONFIG_PM_DEVFREQ)
+     struct pci_dev *pci_dev = to_pci_dev(dev);
+     nv_linux_state_t *nvl = pci_get_drvdata(pci_dev);
+-
++#if defined(CONFIG_PM_DEVFREQ)
+     nv_pci_tegra_boost_clocks(dev);
+ #endif
+ 
+@@ -5206,6 +5213,13 @@
+         return err;
+     }
+ 
++    err = nv_pci_begin_active_epoch(nvl);
++    if (err)
++    {
++        nvidia_transition_dynamic_power(dev, NV_TRUE);
++        return err;
++    }
++
+ #if defined(CONFIG_PM_DEVFREQ)
+     if (nvl->devfreq_resume != NULL)
+     {
+@@ -5221,6 +5235,7 @@
+ 
+ #if defined(CONFIG_PM_DEVFREQ)
+ nv_pmops_runtime_resume_exit:
++    nv_pci_end_active_epoch(nvl);
+     nvidia_transition_dynamic_power(dev, NV_TRUE);
+     return err;
+ #endif
+diff --git a/kernel-open/nvidia/nvidia.Kbuild b/kernel-open/nvidia/nvidia.Kbuild
+--- a/kernel-open/nvidia/nvidia.Kbuild
++++ b/kernel-open/nvidia/nvidia.Kbuild
+@@ -192,6 +192,7 @@
+ NV_CONFTEST_SYMBOL_COMPILE_TESTS += dma_buf_ops_attach_has_arg_dev
+ NV_CONFTEST_SYMBOL_COMPILE_TESTS += is_export_symbol_present_follow_pfnmap_start
+ NV_CONFTEST_SYMBOL_COMPILE_TESTS += is_export_symbol_gpl_pci_ats_supported
++NV_CONFTEST_SYMBOL_COMPILE_TESTS += is_export_symbol_gpl_pcie_set_target_speed
+ NV_CONFTEST_SYMBOL_COMPILE_TESTS += ecc_digits_from_bytes
+ NV_CONFTEST_SYMBOL_COMPILE_TESTS += is_export_symbol_gpl_set_memory_encrypted
+ NV_CONFTEST_SYMBOL_COMPILE_TESTS += is_export_symbol_gpl_set_memory_decrypted
