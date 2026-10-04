@@ -111,8 +111,23 @@ A failed rebuild retains the request and reports the manual retry command:
 sudo /usr/libexec/drm-awaiter-initramfs flush
 ```
 
+Starting with drm-awaiter 1-4, the helper rebuilds kernels that still have an
+actual kernel image. Leftover module trees from removed kernels are skipped
+without deleting them. For split kernels in `/boot`, it explicitly writes
+`/boot/initramfs-<kernel-version>.img`, avoiding dracut's EFI path guessing.
+Kernels with only a module-tree `vmlinuz` retain dracut's configured destination
+and UKI policy. Failures for installed kernels remain fatal and keep the request
+pending; other installed kernels are still attempted.
+
 The marker is runtime state, so after rebooting following a failed transaction,
-use `sudo dracut --regenerate-all --force` directly. Rebuilds remain necessary
+queue a fresh request before retrying with the updated helper:
+
+```sh
+sudo /usr/libexec/drm-awaiter-initramfs request
+sudo /usr/libexec/drm-awaiter-initramfs flush
+```
+
+Rebuilds remain necessary
 for migration and machines with a local early-KMS override; this change does
 not yet eliminate rebuilding on subsequent NVIDIA updates. Kernel-install and
 unrelated packages can still request their own rebuilds.
@@ -134,8 +149,10 @@ their existing cleanup. No change to the global DKMS hook is required.
 ## Validation before release
 
 `python3 test-generator.py` runs isolated topology/blacklist/recovery fixtures;
-it does not load host modules. RPM `%check` runs this suite and bash syntax
-validation. These checks do not replace a boot test.
+it does not load host modules. `python3 test-initramfs.py` checks kernel selection,
+orphan module trees, output destinations, batching and failed-rebuild retries
+using temporary boot trees and a recording dracut stub. RPM `%check` runs both
+suites and bash syntax validation. These checks do not replace a boot test.
 
 Test both kernels with each NVIDIA channel, plus AMD, Intel, Nouveau,
 hybrid graphics, a VM and a machine without a GPU. For each relevant machine:
@@ -166,7 +183,8 @@ rebuild its images:
 
 ```sh
 sudo ln -s /dev/null /etc/dracut.conf.d/90-drm-awaiter.conf
-sudo dracut --regenerate-all --force
+sudo /usr/libexec/drm-awaiter-initramfs request
+sudo /usr/libexec/drm-awaiter-initramfs flush
 ```
 
 If that filename already exists, review it rather than replacing it blindly.

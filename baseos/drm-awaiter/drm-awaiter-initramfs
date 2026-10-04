@@ -18,7 +18,43 @@ fi
 
 [[ -e /run/drm-awaiter/initramfs-pending ]] || exit 0
 echo 'Rebuilding initramfs once for queued GPU package changes...'
-if /usr/bin/dracut --regenerate-all --force; then
+
+rebuild_installed_kernels() {
+    local modules kernel found=0 failed=0
+    local -a args
+    # Removed kernels can leave modules.dep and third-party modules behind.
+    # dracut --regenerate-all includes those orphan trees, then can guess an
+    # absent EFI destination and fail the entire RPM transaction.
+    for modules in /lib/modules/*; do
+        [[ -d $modules ]] || continue
+        kernel=${modules##*/}
+        args=(--force --kver "$kernel")
+        if [[ -f /boot/vmlinuz-$kernel || -f /boot/vmlinux-$kernel || -f /boot/kernel-$kernel ]]; then
+            # Nobara's split kernel/initramfs layout: do not let stale EFI
+            # directories redirect the image away from the GRUB boot entry.
+            args+=(--no-uefi "/boot/initramfs-$kernel.img")
+        elif [[ -f $modules/vmlinuz ]]; then
+            # Other installed kernel layouts retain dracut's configured
+            # destination and UKI policy. Genuine rebuild errors still fail.
+            :
+        else
+            echo "Skipping module tree without an installed kernel image: $kernel"
+            continue
+        fi
+        found=1
+        echo "Rebuilding initramfs for installed kernel $kernel..."
+        if ! /usr/bin/dracut "${args[@]}"; then
+            failed=1
+        fi
+    done
+    if [[ $found == 0 ]]; then
+        echo 'No installed kernel images found; keeping the initramfs rebuild request pending.' >&2
+        return 1
+    fi
+    return "$failed"
+}
+
+if rebuild_installed_kernels; then
     rm -f /run/drm-awaiter/initramfs-pending
 else
     echo 'GPU initramfs rebuild failed. Fix the reported error, then run /usr/libexec/drm-awaiter-initramfs flush to retry.' >&2
