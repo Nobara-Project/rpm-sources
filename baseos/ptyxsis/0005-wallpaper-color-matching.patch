@@ -1,0 +1,681 @@
+--- a/po/POTFILES.in
++++ b/po/POTFILES.in
+@@ -35,5 +35,6 @@
+ src/ptyxis-theme-selector.ui
+ src/ptyxis-title-dialog.ui
+ src/ptyxis-util.c
++src/ptyxis-wallpaper.c
+ src/ptyxis-window.c
+ src/ptyxis-window.ui
+--- a/src/meson.build
++++ b/src/meson.build
+@@ -14,6 +14,7 @@
+   'ptyxis-inspector.c',
+   'ptyxis-menu-row.c',
+   'ptyxis-palette.c',
++  'ptyxis-wallpaper.c',
+   'ptyxis-palette-preview.c',
+   'ptyxis-palette-preview-color.c',
+   'ptyxis-parking-lot.c',
+--- a/src/org.gnome.Ptyxis.gschema.xml.in
++++ b/src/org.gnome.Ptyxis.gschema.xml.in
+@@ -184,6 +184,19 @@
+       <description>If light or dark interface style should be used</description>
+     </key>
+ 
++    <key name="match-wallpaper" type="b">
++      <default>false</default>
++      <summary>Match wallpaper colors</summary>
++      <description>Override profile palettes using the wallpaper. Refresh at startup or with Apply.</description>
++    </key>
++    <key name="wallpaper-color" type="s">
++      <default>''</default>
++      <summary>Last successfully sampled wallpaper color</summary>
++    </key>
++    <key name="wallpaper-monitor" type="s">
++      <default>''</default>
++      <summary>Display used by the last wallpaper Apply operation</summary>
++    </key>
+     <key name="rounded-corners" type="b">
+       <default>true</default>
+       <summary>Rounded Corners</summary>
+--- a/src/ptyxis-application.c
++++ b/src/ptyxis-application.c
+@@ -33,6 +33,7 @@
+ #include "ptyxis-preferences-window.h"
+ #include "ptyxis-session.h"
+ #include "ptyxis-settings.h"
++#include "ptyxis-wallpaper.h"
+ #include "ptyxis-util.h"
+ #include "ptyxis-window.h"
+ 
+@@ -1060,6 +1061,8 @@
+   g_object_bind_property (self->settings, "interface-style",
+                           style_manager, "color-scheme",
+                           G_BINDING_SYNC_CREATE | G_BINDING_BIDIRECTIONAL);
++
++  ptyxis_wallpaper_init (self);
+ }
+ 
+ static void
+--- a/src/ptyxis-palette.c
++++ b/src/ptyxis-palette.c
+@@ -556,3 +556,52 @@
+ 
+   return self->has_light;
+ }
++
++/* Build paired light/dark faces without modifying any saved profile palette. */
++static double
++wallpaper_luminance (const GdkRGBA *c)
++{
++  double v[3] = {c->red, c->green, c->blue};
++  for (int i = 0; i < 3; i++)
++    v[i] = v[i] <= .04045 ? v[i]/12.92 : pow ((v[i]+.055)/1.055, 2.4);
++  return v[0]*.2126 + v[1]*.7152 + v[2]*.0722;
++}
++
++PtyxisPalette *
++ptyxis_palette_new_wallpaper (const GdkRGBA *color)
++{
++  g_autoptr(PtyxisPalette) base = ptyxis_palette_lookup ("gnome");
++  PtyxisPalette *self = g_object_new (PTYXIS_TYPE_PALETTE, NULL);
++  self->allocated = g_memdup2 (base->palette, sizeof *self->allocated);
++  self->palette = self->allocated;
++  self->allocated->id = "wallpaper";
++  self->allocated->name = g_intern_string (_("Wallpaper"));
++  self->has_dark = self->has_light = TRUE;
++  for (int dark = 0; dark < 2; dark++)
++    {
++      PtyxisPaletteFace *face = &self->allocated->faces[dark];
++      double strength = dark ? .35 : .18;
++      face->background = (GdkRGBA){
++        (dark ? 0 : 250./255.)*(1-strength)+color->red*strength,
++        (dark ? 0 : 250./255.)*(1-strength)+color->green*strength,
++        (dark ? 0 : 252./255.)*(1-strength)+color->blue*strength, 1};
++      gdk_rgba_parse (&face->foreground, dark ? "#eeeeee" : "#23262d");
++      face->titlebar_background = face->background;
++      face->titlebar_foreground = face->foreground;
++      double bg = wallpaper_luminance (&face->background);
++      GdkRGBA accent = *color;
++      for (int step = 0; step <= 100; step++)
++        {
++          double a = step/100., target = dark ? 1 : 0;
++          accent = (GdkRGBA){color->red*(1-a)+target*a,
++                            color->green*(1-a)+target*a,
++                            color->blue*(1-a)+target*a, 1};
++          double luminance = wallpaper_luminance (&accent);
++          if ((MAX (bg,luminance)+.05)/(MIN (bg,luminance)+.05) >= 4.5) break;
++        }
++      face->cursor_bg = accent;
++      face->cursor_fg = face->background;
++      face->indexed[4] = face->indexed[12] = accent;
++    }
++  return self;
++}
+--- a/src/ptyxis-palette.h
++++ b/src/ptyxis-palette.h
+@@ -76,4 +76,6 @@
+ gboolean                 ptyxis_palette_has_light              (PtyxisPalette  *self);
+ char                    *ptyxis_get_user_palettes_dir          (void);
+ 
++PtyxisPalette *ptyxis_palette_new_wallpaper (const GdkRGBA *color);
++
+ G_END_DECLS
+--- a/src/ptyxis-preferences-window.c
++++ b/src/ptyxis-preferences-window.c
+@@ -31,6 +31,7 @@
+ #include "ptyxis-custom-link-editor.h"
+ #include "ptyxis-custom-link-row.h"
+ #include "ptyxis-palette-preview.h"
++#include "ptyxis-wallpaper.h"
+ #include "ptyxis-preferences-list-item.h"
+ #include "ptyxis-preferences-window.h"
+ #include "ptyxis-profile-editor.h"
+@@ -83,6 +84,9 @@
+   AdwSwitchRow         *restore_session;
+   GtkSwitch            *restore_window_size;
+   AdwSwitchRow         *rounded_corners;
++  AdwSwitchRow         *match_wallpaper;
++  GtkButton            *wallpaper_apply;
++  AdwActionRow         *wallpaper_status;
+   AdwSpinRow           *default_rows;
+   AdwSpinRow           *default_columns;
+   AdwSpinRow           *scrollback_lines;
+@@ -802,6 +806,25 @@
+ }
+ 
+ static void
++wallpaper_applied (GObject *source, GAsyncResult *result, gpointer data)
++{
++  g_autoptr(PtyxisPreferencesWindow) self = data;
++  g_autoptr(GError) error = NULL;
++  const char *message = _("Wallpaper colors applied");
++  if (!ptyxis_wallpaper_refresh_finish (result, &error)) message = error->message;
++  adw_action_row_set_subtitle (self->wallpaper_status, message);
++  gtk_widget_set_sensitive (GTK_WIDGET (self->wallpaper_apply), TRUE);
++}
++
++static void
++ptyxis_preferences_window_wallpaper_apply (PtyxisPreferencesWindow *self)
++{
++  gtk_widget_set_sensitive (GTK_WIDGET (self->wallpaper_apply), FALSE);
++  adw_action_row_set_subtitle (self->wallpaper_status, _("Sampling wallpaper…"));
++  ptyxis_wallpaper_refresh (GTK_WINDOW (self), wallpaper_applied, g_object_ref (self));
++}
++
++static void
+ ptyxis_preferences_window_constructed (GObject *object)
+ {
+   PtyxisPreferencesWindow *self = (PtyxisPreferencesWindow *)object;
+@@ -820,6 +843,11 @@
+                    self->rounded_corners,
+                    "active",
+                    G_SETTINGS_BIND_DEFAULT);
++
++  g_settings_bind (gsettings, "match-wallpaper", self->match_wallpaper, "active", G_SETTINGS_BIND_DEFAULT);
++  g_settings_bind (gsettings, "match-wallpaper", self->wallpaper_status, "sensitive", G_SETTINGS_BIND_GET);
++  g_settings_bind (gsettings, "match-wallpaper", self->palette_previews, "sensitive",
++                   G_SETTINGS_BIND_GET | G_SETTINGS_BIND_INVERT_BOOLEAN);
+ 
+   self->filter = gtk_custom_filter_new (do_filter_palettes, self, NULL);
+   self->filter_palettes = gtk_filter_list_model_new (g_object_ref (ptyxis_palette_get_all ()),
+@@ -1209,6 +1237,10 @@
+   gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, restore_session);
+   gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, restore_window_size);
+   gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, rounded_corners);
++  gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, match_wallpaper);
++  gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, wallpaper_apply);
++  gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, wallpaper_status);
++  gtk_widget_class_bind_template_callback (widget_class, ptyxis_preferences_window_wallpaper_apply);
+   gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, default_rows);
+   gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, default_columns);
+   gtk_widget_class_bind_template_child (widget_class, PtyxisPreferencesWindow, scroll_on_keystroke);
+--- a/src/ptyxis-preferences-window.ui
++++ b/src/ptyxis-preferences-window.ui
+@@ -35,6 +35,32 @@
+       <object class="AdwPreferencesPage">
+         <property name="title" translatable="yes">Appearance</property>
+         <property name="icon-name">font-select-symbolic</property>
++        <child>
++          <object class="AdwPreferencesGroup">
++            <property name="title" translatable="yes">Wallpaper Colors</property>
++            <property name="description" translatable="yes">Refreshes at startup. Turn off to restore your profile palettes.</property>
++            <child>
++              <object class="AdwSwitchRow" id="match_wallpaper">
++                <property name="title" translatable="yes">Match Wallpaper Colors</property>
++                <property name="subtitle" translatable="yes">Applies to all profiles, in light and dark mode</property>
++              </object>
++            </child>
++            <child>
++              <object class="AdwActionRow" id="wallpaper_status">
++                <property name="title" translatable="yes">Current Wallpaper</property>
++                <property name="subtitle" translatable="yes">Apply uses the wallpaper on this window’s display</property>
++                <child type="suffix">
++                  <object class="GtkButton" id="wallpaper_apply">
++                    <property name="label" translatable="yes">Apply</property>
++                    <property name="valign">center</property>
++                    <signal name="clicked" handler="ptyxis_preferences_window_wallpaper_apply" swapped="true"/>
++                    <style><class name="suggested-action"/></style>
++                  </object>
++                </child>
++              </object>
++            </child>
++          </object>
++        </child>
+         <child>
+           <object class="AdwPreferencesGroup">
+             <property name="title" translatable="yes">Palette</property>
+--- a/src/ptyxis-profile.c
++++ b/src/ptyxis-profile.c
+@@ -28,6 +28,7 @@
+ #include "ptyxis-application.h"
+ #include "ptyxis-enums.h"
+ #include "ptyxis-profile.h"
++#include "ptyxis-wallpaper.h"
+ #include "ptyxis-util.h"
+ 
+ struct _PtyxisProfile
+@@ -909,6 +910,9 @@
+ 
+   g_return_val_if_fail (PTYXIS_IS_PROFILE (self), NULL);
+ 
++  PtyxisPalette *wallpaper = ptyxis_wallpaper_dup_palette ();
++  if (wallpaper != NULL) return wallpaper;
++
+   name = g_settings_get_string (self->settings, PTYXIS_PROFILE_KEY_PALETTE);
+ 
+   return ptyxis_palette_lookup (name);
+--- /dev/null
++++ b/src/ptyxis-wallpaper.c
+@@ -0,0 +1,246 @@
++/* SPDX-License-Identifier: GPL-3.0-or-later */
++#include "config.h"
++#include <math.h>
++#include <sys/stat.h>
++#include <glib/gi18n.h>
++#include <json-glib/json-glib.h>
++#include "ptyxis-wallpaper.h"
++#include "ptyxis-settings.h"
++
++static GSettings *settings;
++static PtyxisPalette *palette;
++static guint generation;
++
++typedef struct {
++  char **connectors;
++  char *fallback_uri;
++  guint generation;
++} Request;
++
++static void
++request_free (Request *request)
++{
++  g_strfreev (request->connectors);
++  g_free (request->fallback_uri);
++  g_free (request);
++}
++
++/* Match Wayshell/Waydock's bounded, saturation-weighted dominant color. */
++gboolean
++ptyxis_wallpaper_sample (const char *path, GdkRGBA *color, GError **error)
++{
++  struct stat st;
++  int width, height;
++  double buckets[512][4] = {{0}};
++  double best = -1;
++  int winner = -1;
++  g_autoptr(GdkPixbuf) image = NULL;
++
++  if (stat (path, &st) != 0 || !S_ISREG (st.st_mode) || st.st_size > 64 * 1024 * 1024 ||
++      !gdk_pixbuf_get_file_info (path, &width, &height) || width <= 0 || height <= 0 ||
++      (guint64)width * height > 100000000)
++    {
++      g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
++                           _("The wallpaper is missing, too large, or not a supported image."));
++      return FALSE;
++    }
++  image = gdk_pixbuf_new_from_file_at_scale (path, 64, 64, TRUE, error);
++  if (!image) return FALSE;
++  const guchar *pixels = gdk_pixbuf_read_pixels (image);
++  int stride = gdk_pixbuf_get_rowstride (image);
++  int channels = gdk_pixbuf_get_n_channels (image);
++  for (int y = 0; y < gdk_pixbuf_get_height (image); y++)
++    for (int x = 0; x < gdk_pixbuf_get_width (image); x++)
++      {
++        const guchar *p = pixels + y * stride + x * channels;
++        double alpha = channels == 4 ? p[3] / 255. : 1.;
++        if (alpha < .1) continue;
++        double *b = buckets[(p[0]/32)*64 + (p[1]/32)*8 + p[2]/32];
++        b[0] += alpha;
++        for (int c = 0; c < 3; c++) b[c+1] += p[c] * alpha;
++      }
++  for (int i = 0; i < 512; i++)
++    {
++      double *b = buckets[i];
++      if (b[0] == 0) continue;
++      double max = MAX (b[1], MAX (b[2], b[3])) / b[0] / 255.;
++      double min = MIN (b[1], MIN (b[2], b[3])) / b[0] / 255.;
++      double score = b[0] * (.25 + (max > 0 ? (max-min)/max : 0)) * (.35 + max);
++      if (score > best) { best = score; winner = i; }
++    }
++  if (winner < 0)
++    {
++      g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA, _("The wallpaper has no visible colors."));
++      return FALSE;
++    }
++  double *b = buckets[winner];
++  *color = (GdkRGBA){b[1]/b[0]/255., b[2]/b[0]/255., b[3]/b[0]/255., 1};
++  return TRUE;
++}
++
++static const char *
++string_member (JsonObject *object, const char *name)
++{
++  JsonNode *node = json_object_get_member (object, name);
++  return node && JSON_NODE_HOLDS_VALUE (node) && json_node_get_value_type (node) == G_TYPE_STRING
++    ? json_node_get_string (node) : NULL;
++}
++
++static gboolean
++read_wallpaper (Request *request, GdkRGBA *color, GError **error)
++{
++  g_autofree char *config = g_build_filename (g_get_user_config_dir (), "wayshell", "wallpapers.json", NULL);
++  g_autoptr(JsonParser) parser = json_parser_new ();
++  struct stat st;
++  if (stat (config, &st) == 0 && S_ISREG (st.st_mode) && st.st_size <= 65536 &&
++      json_parser_load_from_file (parser, config, NULL) &&
++      JSON_NODE_HOLDS_OBJECT (json_parser_get_root (parser)))
++    {
++      JsonObject *root = json_node_get_object (json_parser_get_root (parser));
++      for (guint i = 0; request->connectors[i]; i++)
++        {
++          JsonNode *node = json_object_get_member (root, request->connectors[i]);
++          if (!node || !JSON_NODE_HOLDS_OBJECT (node)) continue;
++          JsonObject *monitor = json_node_get_object (node);
++          const char *path = string_member (monitor, "file_path");
++          const char *solid = string_member (monitor, "color");
++          if (path && *path) return ptyxis_wallpaper_sample (path, color, error);
++          if (solid && gdk_rgba_parse (color, solid)) return TRUE;
++        }
++    }
++  if (request->fallback_uri && *request->fallback_uri)
++    {
++      g_autoptr(GFile) file = g_file_new_for_uri (request->fallback_uri);
++      const char *path = g_file_peek_path (file);
++      if (path) return ptyxis_wallpaper_sample (path, color, error);
++    }
++  g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
++                       _("No wallpaper was found for this display. Choose an image in desktop wallpaper settings."));
++  return FALSE;
++}
++
++static void
++sample_worker (GTask *task, gpointer source, gpointer task_data, GCancellable *cancellable)
++{
++  g_autoptr(GError) error = NULL;
++  GdkRGBA *color = g_new0 (GdkRGBA, 1);
++  if (read_wallpaper (task_data, color, &error))
++    g_task_return_pointer (task, color, g_free);
++  else
++    { g_free (color); g_task_return_error (task, g_steal_pointer (&error)); }
++}
++
++static void
++notify_profiles (void)
++{
++  g_autoptr(GListModel) profiles = ptyxis_application_list_profiles (PTYXIS_APPLICATION_DEFAULT);
++  for (guint i = 0; i < g_list_model_get_n_items (profiles); i++)
++    {
++      g_autoptr(GObject) profile = g_list_model_get_item (profiles, i);
++      g_object_notify (profile, "palette");
++    }
++}
++
++static void
++sample_done (GObject *source, GAsyncResult *result, gpointer data)
++{
++  g_autoptr(GTask) completion = data;
++  g_autoptr(GError) error = NULL;
++  g_autofree GdkRGBA *color = g_task_propagate_pointer (G_TASK (result), &error);
++  Request *request = g_task_get_task_data (G_TASK (result));
++  if (!color)
++    g_task_return_error (completion, g_steal_pointer (&error));
++  else
++    {
++      if (request->generation == generation)
++        {
++          g_autoptr(PtyxisPalette) next = ptyxis_palette_new_wallpaper (color);
++          g_set_object (&palette, next);
++          g_settings_set_string (settings, "wallpaper-monitor", request->connectors[0] ?: "");
++          g_autofree char *saved = gdk_rgba_to_string (color);
++          g_settings_set_string (settings, "wallpaper-color", saved);
++          notify_profiles ();
++        }
++      g_task_return_boolean (completion, TRUE);
++    }
++  g_application_release (G_APPLICATION (source));
++}
++
++void
++ptyxis_wallpaper_refresh (GtkWindow *window, GAsyncReadyCallback callback, gpointer data)
++{
++  PtyxisApplication *app = PTYXIS_APPLICATION_DEFAULT;
++  g_autoptr(GTask) task = g_task_new (app, NULL, sample_done, g_task_new (app, NULL, callback, data));
++  Request *request = g_new0 (Request, 1);
++  g_autoptr(GPtrArray) connectors = g_ptr_array_new_with_free_func (g_free);
++  GdkDisplay *display = gdk_display_get_default ();
++  GListModel *monitors = gdk_display_get_monitors (display);
++  GdkSurface *surface = window ? gtk_native_get_surface (GTK_NATIVE (window)) : NULL;
++  GdkMonitor *monitor = surface ? gdk_display_get_monitor_at_surface (display, surface) : NULL;
++  const char *connector = monitor ? gdk_monitor_get_connector (monitor) : NULL;
++  g_autofree char *saved = g_settings_get_string (settings, "wallpaper-monitor");
++  if (connector) g_ptr_array_add (connectors, g_strdup (connector));
++  for (guint i = 0; i < g_list_model_get_n_items (monitors); i++)
++    {
++      g_autoptr(GdkMonitor) m = g_list_model_get_item (monitors, i);
++      const char *name = gdk_monitor_get_connector (m);
++      if (!name) continue;
++      if (!connector && g_str_equal (name, saved)) g_ptr_array_insert (connectors, 0, g_strdup (name));
++      else g_ptr_array_add (connectors, g_strdup (name));
++    }
++  g_ptr_array_add (connectors, NULL);
++  request->connectors = (char **)g_ptr_array_free (g_steal_pointer (&connectors), FALSE);
++  request->generation = ++generation;
++  GSettingsSchemaSource *schemas = g_settings_schema_source_get_default ();
++  g_autoptr(GSettingsSchema) schema = g_settings_schema_source_lookup (schemas, "org.gnome.desktop.background", TRUE);
++  if (schema)
++    {
++      g_autoptr(GSettings) background = g_settings_new_full (schema, NULL, NULL);
++      gboolean dark = adw_style_manager_get_dark (adw_style_manager_get_default ());
++      const char *key = dark && g_settings_schema_has_key (schema, "picture-uri-dark") ? "picture-uri-dark" : "picture-uri";
++      if (g_settings_schema_has_key (schema, key)) request->fallback_uri = g_settings_get_string (background, key);
++    }
++  g_task_set_task_data (task, request, (GDestroyNotify)request_free);
++  g_application_hold (G_APPLICATION (app));
++  g_task_run_in_thread (task, sample_worker);
++}
++
++gboolean
++ptyxis_wallpaper_refresh_finish (GAsyncResult *result, GError **error)
++{
++  return g_task_propagate_boolean (G_TASK (result), error);
++}
++
++PtyxisPalette *
++ptyxis_wallpaper_dup_palette (void)
++{
++  return settings && palette && g_settings_get_boolean (settings, "match-wallpaper")
++    ? g_object_ref (palette) : NULL;
++}
++
++static void
++auto_done (GObject *source, GAsyncResult *result, gpointer data)
++{
++  g_autoptr(GError) error = NULL;
++  if (!ptyxis_wallpaper_refresh_finish (result, &error))
++    g_debug ("Wallpaper palette: %s", error->message);
++}
++
++static void
++match_changed (void)
++{
++  notify_profiles ();
++  if (g_settings_get_boolean (settings, "match-wallpaper"))
++    ptyxis_wallpaper_refresh (gtk_application_get_active_window (GTK_APPLICATION (PTYXIS_APPLICATION_DEFAULT)), auto_done, NULL);
++}
++
++void
++ptyxis_wallpaper_init (PtyxisApplication *app)
++{
++  GdkRGBA color;
++  settings = g_object_ref (ptyxis_settings_get_settings (ptyxis_application_get_settings (app)));
++  g_autofree char *saved = g_settings_get_string (settings, "wallpaper-color");
++  if (gdk_rgba_parse (&color, saved)) palette = ptyxis_palette_new_wallpaper (&color);
++  g_signal_connect (settings, "changed::match-wallpaper", G_CALLBACK (match_changed), NULL);
++  match_changed ();
++}
+--- /dev/null
++++ b/src/ptyxis-wallpaper.h
+@@ -0,0 +1,11 @@
++/* SPDX-License-Identifier: GPL-3.0-or-later */
++#pragma once
++#include "ptyxis-palette.h"
++#include "ptyxis-application.h"
++
++void           ptyxis_wallpaper_init          (PtyxisApplication *app);
++void           ptyxis_wallpaper_refresh       (GtkWindow *window, GAsyncReadyCallback callback, gpointer data);
++gboolean       ptyxis_wallpaper_refresh_finish(GAsyncResult *result, GError **error);
++PtyxisPalette *ptyxis_wallpaper_dup_palette   (void);
++/* Pure image sampling, also used by the regression tests. */
++gboolean       ptyxis_wallpaper_sample        (const char *path, GdkRGBA *color, GError **error);
+--- a/testsuite/meson.build
++++ b/testsuite/meson.build
+@@ -51,3 +51,12 @@
+ split_env.set('XDG_CONFIG_DIRS', meson.current_build_dir() / 'test-config')
+ split_env.set('XDG_DATA_HOME', meson.current_build_dir() / 'test-data')
+ test('test-splits', split_tests, env: split_env, timeout: 60)
++
++wallpaper_tests = executable('test-wallpaper', 'test-wallpaper.c',
++  objects: ptyxis_executable.extract_objects(ptyxis_sources + ptyxis_agent_ipc),
++  dependencies: ptyxis_deps,
++  include_directories: ptyxis_include_directories,
++  c_args: testsuite_c_args,
++)
++test('test-wallpaper', wallpaper_tests, args: ['-s', '/wallpaper/startup-refresh'], env: split_env, timeout: 30, is_parallel: false)
++test('test-wallpaper-startup', wallpaper_tests, args: ['-p', '/wallpaper/startup-refresh'], env: split_env, timeout: 30, is_parallel: false)
+--- /dev/null
++++ b/testsuite/test-wallpaper.c
+@@ -0,0 +1,152 @@
++/* SPDX-License-Identifier: GPL-3.0-or-later */
++#include "config.h"
++#include <adwaita.h>
++#include <math.h>
++#include <sys/resource.h>
++#include "ptyxis-wallpaper.h"
++#include "ptyxis-settings.h"
++#include "ptyxis-preferences-window.h"
++
++gint64 ptyxis_application_get_default_rlimit_nofile (void) { return 1024; }
++
++static double luminance (const GdkRGBA *c)
++{
++  double v[3] = {c->red,c->green,c->blue};
++  for(int i=0;i<3;i++)v[i]=v[i]<=.04045?v[i]/12.92:pow((v[i]+.055)/1.055,2.4);
++  return v[0]*.2126+v[1]*.7152+v[2]*.0722;
++}
++static double contrast (const GdkRGBA *a, const GdkRGBA *b)
++{ double x=luminance(a),y=luminance(b);return (MAX(x,y)+.05)/(MIN(x,y)+.05); }
++
++static void palette_contrast (void)
++{
++  for (int r=0;r<=255;r+=51)for(int g=0;g<=255;g+=51)for(int b=0;b<=255;b+=51)
++    {
++      GdkRGBA color={r/255.,g/255.,b/255.,1};
++      g_autoptr(PtyxisPalette) p=ptyxis_palette_new_wallpaper(&color);
++      g_assert_true(ptyxis_palette_has_light(p));g_assert_true(ptyxis_palette_has_dark(p));
++      for(int dark=0;dark<2;dark++){
++        const PtyxisPaletteFace *face=ptyxis_palette_get_face(p,dark);
++        g_assert_cmpfloat(contrast(&face->foreground,&face->background),>=,4.5);
++        g_assert_cmpfloat(contrast(&face->cursor_bg,&face->background),>=,4.5);
++      }
++    }
++}
++
++static char *make_image (const char *name, guint32 rgba)
++{
++  g_autoptr(GdkPixbuf) p=gdk_pixbuf_new(GDK_COLORSPACE_RGB,TRUE,8,32,32);
++  char *path=g_build_filename(g_get_user_data_dir(),name,NULL);
++  g_mkdir_with_parents(g_get_user_data_dir(),0700);
++  gdk_pixbuf_fill(p,rgba);
++  g_assert_true(gdk_pixbuf_save(p,path,"png",NULL,NULL));return path;
++}
++
++static void sample_image (void)
++{
++  GdkRGBA color;
++  g_autoptr(GError) error=NULL;
++  g_autofree char *red=make_image("red.png",0xc04020ff);
++  g_autofree char *clear=make_image("clear.png",0x00000000);
++  g_assert_true(ptyxis_wallpaper_sample(red,&color,&error));
++  g_assert_cmpfloat_with_epsilon(color.red,192./255.,.001);
++  g_assert_false(ptyxis_wallpaper_sample(clear,&color,&error));g_clear_error(&error);
++  g_assert_false(ptyxis_wallpaper_sample("/does-not-exist",&color,&error));g_clear_error(&error);
++  g_assert_false(ptyxis_wallpaper_sample("/dev/zero",&color,&error));
++}
++
++static gboolean done;
++static gboolean succeeded;
++static void applied (GObject *source,GAsyncResult *result,gpointer data)
++{
++  g_autoptr(GError) error=NULL;
++  succeeded=ptyxis_wallpaper_refresh_finish(result,&error);done=TRUE;
++}
++static void wait_applied (void)
++{
++  gint64 until=g_get_monotonic_time()+5000000;
++  while(!done && g_get_monotonic_time()<until){
++    while(g_main_context_iteration(NULL,FALSE)) {}
++    g_usleep(1000);
++  }
++  g_assert_true(done);
++}
++static void match_round_trip (void)
++{
++  g_autoptr(PtyxisApplication) app=ptyxis_application_new("org.gnome.Ptyxis.Wallpaper.Test",G_APPLICATION_NON_UNIQUE);
++  g_autoptr(GError) error=NULL;
++  g_assert_true(g_application_register(G_APPLICATION(app),NULL,&error));
++  GSettings *settings=ptyxis_settings_get_settings(ptyxis_application_get_settings(app));
++  g_autoptr(PtyxisProfile) profile=ptyxis_application_dup_default_profile(app);
++  g_autofree char *old=ptyxis_profile_dup_palette_id(profile);
++  GdkMonitor *monitor=g_list_model_get_item(gdk_display_get_monitors(gdk_display_get_default()),0);
++  const char *connector=gdk_monitor_get_connector(monitor);
++  g_assert_nonnull(connector);
++  g_autofree char *image=make_image("current.png",0xc04020ff);
++  g_autofree char *dir=g_build_filename(g_get_user_config_dir(),"wayshell",NULL);
++  g_autofree char *config=g_build_filename(dir,"wallpapers.json",NULL);
++  g_mkdir_with_parents(dir,0700);
++  g_autofree char *json=g_strdup_printf("{\"%s\":{\"file_path\":\"%s\"}}",connector,image);
++  g_assert_true(g_file_set_contents(config,json,-1,&error));
++  g_settings_set_boolean(settings,"match-wallpaper",TRUE);
++  done=FALSE;ptyxis_wallpaper_refresh(NULL,applied,NULL);wait_applied();g_assert_true(succeeded);
++  g_autoptr(PtyxisPalette) p=ptyxis_profile_dup_palette(profile);
++  g_assert_cmpstr(ptyxis_palette_get_id(p),==,"wallpaper");
++  g_assert_cmpfloat_with_epsilon(ptyxis_palette_get_face(p,TRUE)->background.red,192./255.*.35,.002);
++  /* Apply must refresh an existing palette, even though its ID is unchanged. */
++  g_autofree char *replaced=make_image("current.png",0x2060c0ff);
++  done=FALSE;ptyxis_wallpaper_refresh(NULL,applied,NULL);wait_applied();g_assert_true(succeeded);
++  g_clear_object(&p);p=ptyxis_profile_dup_palette(profile);
++  g_assert_cmpfloat_with_epsilon(ptyxis_palette_get_face(p,TRUE)->background.blue,192./255.*.35,.002);
++  /* A failed refresh retains the previous successful colors. */
++  g_assert_true(g_file_set_contents(image,"broken",-1,&error));
++  done=FALSE;ptyxis_wallpaper_refresh(NULL,applied,NULL);wait_applied();g_assert_false(succeeded);
++  g_autoptr(PtyxisPalette) retained=ptyxis_profile_dup_palette(profile);
++  g_assert_true(retained==p);
++  /* Template and bindings are real, and the existing profile choice survives. */
++  GtkWidget *prefs=g_object_new(PTYXIS_TYPE_PREFERENCES_WINDOW,NULL);
++  g_object_ref_sink(prefs);
++  gtk_window_destroy(GTK_WINDOW(prefs));g_object_unref(prefs);
++  g_settings_set_boolean(settings,"match-wallpaper",FALSE);
++  g_clear_object(&p);p=ptyxis_profile_dup_palette(profile);
++  g_assert_cmpstr(ptyxis_palette_get_id(p),==,old);
++  g_autofree char *unchanged=ptyxis_profile_dup_palette_id(profile);
++  g_assert_cmpstr(old,==,unchanged);
++  g_object_unref(monitor);
++}
++static void startup_refresh (void)
++{
++  g_autoptr(GdkMonitor) monitor = g_list_model_get_item (gdk_display_get_monitors (gdk_display_get_default ()), 0);
++  g_autofree char *image = make_image ("startup.png", 0x309060ff);
++  g_autofree char *dir = g_build_filename (g_get_user_config_dir (), "wayshell", NULL);
++  g_autofree char *path = g_build_filename (dir, "wallpapers.json", NULL);
++  g_autofree char *json = g_strdup_printf ("{\"%s\":{\"file_path\":\"%s\"}}", gdk_monitor_get_connector (monitor), image);
++  g_mkdir_with_parents (dir, 0700);
++  g_assert_true (g_file_set_contents (path, json, -1, NULL));
++  g_autoptr(GSettings) saved = g_settings_new (APP_SCHEMA_ID);
++  g_settings_set_string (saved, "wallpaper-color", "#112233");
++  g_settings_set_boolean (saved, "match-wallpaper", TRUE);
++  g_autoptr(PtyxisApplication) app = ptyxis_application_new ("org.gnome.Ptyxis.Wallpaper.Startup", G_APPLICATION_NON_UNIQUE);
++  g_assert_true (g_application_register (G_APPLICATION (app), NULL, NULL));
++  gint64 deadline = g_get_monotonic_time () + 5000000;
++  while (g_get_monotonic_time () < deadline)
++    {
++      g_autofree char *color = g_settings_get_string (saved, "wallpaper-color");
++      if (!g_str_equal (color, "#112233")) break;
++      while (g_main_context_iteration (NULL, FALSE)) {}
++      g_usleep (1000);
++    }
++  g_autoptr(PtyxisProfile) profile = ptyxis_application_dup_default_profile (app);
++  g_autoptr(PtyxisPalette) palette = ptyxis_profile_dup_palette (profile);
++  g_assert_cmpstr (ptyxis_palette_get_id (palette), ==, "wallpaper");
++  g_assert_cmpfloat_with_epsilon (ptyxis_palette_get_face (palette, TRUE)->background.green, 144./255.*.35, .002);
++}
++int main(int argc,char **argv)
++{
++  g_test_init(&argc,&argv,NULL);adw_init();
++  g_test_add_func("/wallpaper/contrast",palette_contrast);
++  g_test_add_func("/wallpaper/sample",sample_image);
++  g_test_add_func("/wallpaper/apply-and-restore",match_round_trip);
++  g_test_add_func("/wallpaper/startup-refresh",startup_refresh);
++  return g_test_run();
++}

@@ -1,0 +1,139 @@
+--- a/src/ptyxis-terminal.c
++++ b/src/ptyxis-terminal.c
+@@ -490,6 +490,42 @@
+   tab = PTYXIS_TAB (gtk_widget_get_ancestor (widget, PTYXIS_TYPE_TAB));
+ 
+   ptyxis_tab_open_uri (tab, self->url);
++}
++
++static void
++open_location_action (GtkWidget  *widget,
++                      const char *action_name,
++                      GVariant   *param)
++{
++  PtyxisTerminal *self = PTYXIS_TERMINAL (widget);
++  PtyxisTab *tab = PTYXIS_TAB (gtk_widget_get_ancestor (widget, PTYXIS_TYPE_TAB));
++  g_autofree char *uri = NULL;
++
++  if (tab == NULL)
++    return;
++
++  /* Use this pane's shell-reported location, just like splitting a pane.
++   * Shells without OSC 7 support fall back to the agent's process cwd.
++   */
++  uri = ptyxis_terminal_dup_current_directory_uri (self);
++  if (ptyxis_str_empty0 (uri))
++    {
++      g_autofree char *path = ptyxis_tab_query_working_directory_from_agent (tab);
++      g_clear_pointer (&uri, g_free);
++      if (path != NULL && g_path_is_absolute (path))
++        uri = g_filename_to_uri (path, NULL, NULL);
++    }
++
++  if (ptyxis_str_empty0 (uri))
++    {
++      ptyxis_terminal_toast (self, 3, _("The current location is not available"));
++      return;
++    }
++
++  /* Reuse the default-handler/portal path and its container URI translation.
++   * Never interpolate terminal paths into a shell command.
++   */
++  ptyxis_tab_open_uri (tab, uri);
+ }
+ 
+ typedef struct {
+@@ -1399,6 +1435,7 @@
+   gtk_widget_class_install_action (widget_class, "clipboard.copy-link", NULL, copy_link_address_action);
+   gtk_widget_class_install_action (widget_class, "clipboard.paste", NULL, paste_clipboard_action);
+   gtk_widget_class_install_action (widget_class, "terminal.open-link", NULL, open_link_action);
++  gtk_widget_class_install_action (widget_class, "terminal.open-location", NULL, open_location_action);
+   gtk_widget_class_install_action (widget_class, "terminal.select-all", "b", select_all_action);
+ 
+   for (guint i = 0; i < G_N_ELEMENTS (url_regexes); i++)
+--- a/src/ptyxis-terminal.ui
++++ b/src/ptyxis-terminal.ui
+@@ -198,6 +198,13 @@
+     </section>
+     <section>
+       <item>
++        <attribute name="label" translatable="yes">Open _Location</attribute>
++        <attribute name="description" translatable="yes">Open the current directory in the default file manager</attribute>
++        <attribute name="action">terminal.open-location</attribute>
++      </item>
++    </section>
++    <section>
++      <item>
+         <attribute name="id">search</attribute>
+         <attribute name="label" translatable="yes">Search…</attribute>
+         <attribute name="action">win.search</attribute>
+--- a/testsuite/test-splits.c
++++ b/testsuite/test-splits.c
+@@ -18,6 +18,19 @@
+   return getrlimit (RLIMIT_NOFILE, &limit) == 0 ? limit.rlim_cur : 1024;
+ }
+ 
++/* Capture only the final opener: exercise the real terminal action, directory
++ * tracking, and process-cwd fallback without opening a desktop file manager.
++ */
++static char *opened_location;
++static PtyxisTab *opened_tab;
++void __wrap_ptyxis_tab_open_uri (PtyxisTab *tab, const char *uri);
++void
++__wrap_ptyxis_tab_open_uri (PtyxisTab *tab, const char *uri)
++{
++  g_set_str (&opened_location, uri);
++  opened_tab = tab;
++}
++
+ static void
+ spin (guint milliseconds)
+ {
+@@ -193,6 +206,17 @@
+   a = ptyxis_window_get_active_tab (window);
+   wait_running (a);
+   original_process = g_object_ref (ptyxis_tab_get_process (a));
++  send_command (a, "cd /tmp\n");
++  for (guint i = 0; i < 500; i++)
++    {
++      g_autofree char *path = ptyxis_tab_query_working_directory_from_agent (a);
++      if (g_strcmp0 (path, "/tmp") == 0) break;
++      spin (10);
++    }
++  g_assert_null (ptyxis_terminal_dup_current_directory_uri (ptyxis_tab_get_terminal (a)));
++  g_assert_true (gtk_widget_activate_action (GTK_WIDGET (ptyxis_tab_get_terminal (a)), "terminal.open-location", NULL));
++  g_assert_cmpstr (opened_location, ==, "file:///tmp");
++  g_assert_true (opened_tab == a);
+   send_command (a, "cd /tmp; printf '\\033]7;file://localhost/tmp\\007'; printf 'LEFT PANE\\n'\n");
+   spin (300);
+   if (!send_shortcut (window, "ctrl+shift+e"))
+@@ -218,6 +242,19 @@
+   g_assert_cmpint (gtk_widget_get_width (GTK_WIDGET (a)), >, 100);
+   g_assert_cmpint (gtk_widget_get_height (GTK_WIDGET (c)), >, 100);
+   assert_focus (window, c);
++  /* The right-clicked pane, rather than another focused pane, owns the action.
++   * Preserve URI escaping from OSC 7 instead of parsing paths with a shell.
++   */
++  vte_terminal_feed (VTE_TERMINAL (ptyxis_tab_get_terminal (b)),
++                    "\033]7;file://localhost/tmp/Space%20and%20%23hash\007", -1);
++  spin (100);
++  g_assert_true (gtk_widget_activate_action (GTK_WIDGET (ptyxis_tab_get_terminal (b)), "terminal.open-location", NULL));
++  g_assert_true (opened_tab == b);
++  g_assert_cmpstr (opened_location, ==, "file://localhost/tmp/Space%20and%20%23hash");
++  /* Restore the real working directory before the session restoration tests. */
++  vte_terminal_feed (VTE_TERMINAL (ptyxis_tab_get_terminal (b)), "\033]7;file://localhost/tmp\007", -1);
++  spin (100);
++  g_clear_pointer (&opened_location, g_free);
+   gtk_widget_activate_action (GTK_WIDGET (window), "win.pane-up", NULL);
+   assert_focus (window, b);
+   gtk_widget_activate_action (GTK_WIDGET (window), "win.pane-left", NULL);
+--- a/testsuite/meson.build
++++ b/testsuite/meson.build
+@@ -35,6 +35,7 @@
+ endforeach
+ 
+ split_tests = executable('test-splits', 'test-splits.c',
++  link_args: ['-Wl,--wrap=ptyxis_tab_open_uri'],
+   objects: ptyxis_executable.extract_objects(ptyxis_sources + ptyxis_agent_ipc),
+   dependencies: ptyxis_deps,
+   include_directories: ptyxis_include_directories,

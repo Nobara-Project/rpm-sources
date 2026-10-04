@@ -6,9 +6,29 @@ https://kojipkgs.fedoraproject.org/packages/ptyxis/50.1/2.fc44/src/ptyxis-50.1-2
 Fedora f44 dist-git commit: dce6833 (Disable inhibition management by default).
 The source tarball is unmodified; the spec applies the included patches.
 
-Package: ptyxis-50.1-2.fc44.nobara.2
+Package: ptyxis-50.1-2.fc44.nobara.4
 This is the normal Ptyxis/Terminal package, using org.gnome.Ptyxis and the
 Fedora dark-mode, accessibility, and inhibition defaults.
+
+Application/desktop shortcuts request a new window with --new-window.
+Desktop D-Bus activation is disabled so launchers honor that command.
+The existing New Tab and Preferences actions remain available.
+
+Right-click a terminal pane and choose Open Location to open its current
+directory in the default file manager. Shell-reported locations are preferred;
+shells without directory reporting use the process cwd from the Ptyxis agent.
+
+Wallpaper colors:
+  Preferences > Appearance > Wallpaper Colors > Match Wallpaper Colors
+  Off by default. Overrides all profile palettes without changing their saved
+  choices; turning it off restores those choices. Apply samples the wallpaper
+  on the preferences window's display and updates open terminal windows.
+  Startup samples again using that display if connected, otherwise the first
+  available display. There is no live wallpaper watcher.
+  Uses Wayshell's per-monitor image/solid-color configuration, with GNOME's
+  desktop image settings as a fallback. Sampling is bounded and asynchronous;
+  a missing or unsupported image keeps the last successful color. Dark and
+  light faces retain readable foregrounds and a contrast-adjusted accent.
 
 Appearance:
   Preferences > Appearance > Window > Rounded Corners
@@ -40,10 +60,13 @@ Patches:
   0001-native-split-panes.patch    Native pane implementation and regression tests
   0002-test-with-built-agent.patch  Use the build-tree agent in GLib tests only
   0003-rounded-window-corners.patch  Appearance setting for square window corners
+  0004-launch-new-window.patch       New windows from application/desktop shortcuts
+  0005-wallpaper-color-matching.patch  Wallpaper appearance option and regression tests
+  0006-open-current-location.patch    Open terminal cwd in the default file manager
 
 Build:
-  dnf builddep ./ptyxis-50.1-2.fc44.nobara.2.src.rpm
-  rpmbuild --rebuild ./ptyxis-50.1-2.fc44.nobara.2.src.rpm
+  dnf builddep ./ptyxis-50.1-2.fc44.nobara.4.src.rpm
+  rpmbuild --rebuild ./ptyxis-50.1-2.fc44.nobara.4.src.rpm
 
 The RPM check phase runs metadata validation, Podman parsing tests, and the
 split-pane suite under Xvfb with a private D-Bus session and temporary settings.

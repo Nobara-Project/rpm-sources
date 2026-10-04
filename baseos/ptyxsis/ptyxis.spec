@@ -9,7 +9,7 @@
 
 Name:		ptyxis
 Version:	50.1
-Release:	2%{?dist}.nobara.2
+Release:	2%{?dist}.nobara.4
 Summary:	A container oriented terminal for GNOME
 
 License:	GPL-2.0-or-later AND GPL-3.0-or-later AND LGPL-3.0-or-later AND LGPL-2.0-or-later AND CC0-1.0
@@ -24,6 +24,12 @@ Patch0:         0001-native-split-panes.patch
 Patch1:         0002-test-with-built-agent.patch
 # Appearance setting for square window corners, applied live to all windows.
 Patch2:         0003-rounded-window-corners.patch
+# Menu/desktop launches must request a new window, including when already open.
+Patch3:         0004-launch-new-window.patch
+# Optional, asynchronous wallpaper palette with Apply and startup refresh.
+Patch4:         0005-wallpaper-color-matching.patch
+# Open the clicked terminal pane's current directory in the default file manager.
+Patch5:         0006-open-current-location.patch
 
 BuildRequires:	pkgconfig(gio-unix-2.0) >= %{glib2_version}
 BuildRequires:	pkgconfig(gtk4) >= %{gtk4_version}
@@ -92,6 +98,16 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/org.gnome.Ptyxis.desk
 %{_mandir}/man1/ptyxis.1*
 
 %changelog
+* Tue Sep 29 2026 Nobara Project - 50.1-2.nobara.4
+- Add Open Location to the terminal context menu
+- Use shell directory tracking with process cwd fallback and default URI handler
+
+* Tue Sep 29 2026 Nobara Project - 50.1-2.nobara.3
+- Add wallpaper palette matching, Apply, and refresh on application startup
+- Preserve profile palettes and provide matching light and dark colors
+- Launch a new terminal window from the application desktop shortcut
+- Disable desktop D-Bus activation so launchers honor --new-window
+
 * Sun Sep 27 2026 Nobara Project - 50.1-2.nobara.2
 - Add a persistent Rounded Corners switch under Appearance
 - Apply square corners immediately to existing and new windows
