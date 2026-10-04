@@ -1,6 +1,6 @@
 Name:           calamares
 Version:        3.3.14
-Release:        135%{?dist}
+Release:        136%{?dist}
 Summary:        Installer from a live CD/DVD/USB to disk
 
 License:        GPL-3.0-or-later
@@ -49,6 +49,8 @@ Patch1014:       0010-fix-package-status-typo.patch
 Patch1015:       0011-run-nobara-sync-as-target-root.patch
 # Align partition boundaries for KPMcore's 4 KiB LUKS2 sector size
 Patch1016:       0012-align-partitions-to-4k.patch
+# Guided ext4/XFS on LVM, recovery storage, and SSD mount defaults.
+Patch1017:       0013-guided-lvm-recovery.patch
 #Patch1007:       fixup_branding.patch
 
 # Fedora-specific changes
@@ -156,6 +158,10 @@ Requires:       console-setup
 Requires:       setxkbmap
 Requires:       os-prober
 Requires:       e2fsprogs
+Requires:       xfsprogs
+Requires:       lvm2
+Requires:       cryptsetup
+Requires:       nobara-updater >= 2.0.1-46
 Requires:       dosfstools
 Requires:       ntfsprogs
 Requires:       gawk
@@ -254,6 +260,7 @@ cd ../../
 %patch 1014 -p1
 %patch 1015 -p1
 %patch 1016 -p1
+%patch 1017 -p1
 
 mv %{SOURCE1009} src/branding/nobara_branding/
 mv %{SOURCE1010} src/branding/nobara_branding/
@@ -427,6 +434,12 @@ EOF
 
 
 %changelog
+* Mon Sep 28 2026 Nobara Project <support@nobaraproject.org> - 3.3.14-136
+- Default guided installs to ext4 on LVM, with XFS on LVM and Btrfs options.
+- Reserve full-root rollback capacity and isolate home data, including under LUKS.
+- Enable ext4 metadata checksums and relatime; use async discard for Btrfs
+  and periodic TRIM for ext4/XFS without redundant Btrfs trimming.
+
 * Sat Dec 14 2024 Neal Gompa <ngompa@fedoraproject.org> - 3.3.12-2
 - Adjust unpackfs config to use /run/rootfsbase
 
