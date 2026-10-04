@@ -1,0 +1,1065 @@
+--- a/docs/labwc-config.5.scd
++++ b/docs/labwc-config.5.scd
+@@ -261,6 +261,42 @@
+ 	  <output name="DP-1" enabled="no" />
+ 	</hdrOutputs>
+ 	```
++
++*<hdrCalibration><output name="..." displayId="..." black="..." peak="..." fullFrame="..." white="..." />*
++	Per-output HDR luminance setup, normally written by HDR Calibration. The
++	16-digit hexadecimal displayId must match the connected monitor's EDID
++	fingerprint. Values are nits: black is nonnegative and below white; white
++	is 20–500; peak is 40–10000; fullFrame is between white and peak. Settings
++	apply only in HDR mode. White adjusts SDR content while retaining absolute
++	PQ levels. The other limits are shared with color-managed applications;
++	they do not constitute a measured color correction. An output entry with
++	enabled="false" restores defaults. Reloads take effect at frame boundaries.
++
++*<colorManagement><output name="..." profile="..." calibration="..." sdrBitDepth="..." />*
++	Configure SDR color management independently for each connector. Later
++	entries take precedence. Changes apply on reconfigure. *profile* is an
++	absolute path to an ICC v2 or v4 RGB display profile (maximum 16 MiB).
++	An empty or omitted path removes the profile. Vulkan is required for ICC
++	conversion. Invalid profiles retain the last successfully applied profile.
++
++	*calibration* accepts true or false (default true). When enabled, the
++	profile's VCGT calibration curves are applied once after color conversion.
++	External gamma controls are suspended while an ICC profile or HDR is active.
++	*sdrBitDepth* accepts 8 (default) or 10. The compositor falls back to 8-bit
++	if the output cannot use a 10-bit format. This setting does not enable HDR.
++
++	SDR profiles and their calibration are suspended while HDR is active and
++	resume when returning to SDR. Native Wayland clients can submit their source
++	ICC profiles or supported parametric color descriptions through
++	color-management-v1. Conversion is performed separately for every output,
++	including windows spanning outputs. Applications must identify their pixel
++	color space correctly; untagged XWayland pixels cannot be inferred. Avoid
++	applying a monitor conversion both in the application and the compositor.
++
++	Matrix/TRC display profiles use a matrix and per-channel curves. Other ICC
++	profiles use a sampled 3D lookup table and require workflow validation.
++	Display characterization and application compatibility still need to be
++	verified for color-critical work.
+ 
+ *<core><reuseOutputMode>* [yes|no]
+ 	Try to re-use the existing output mode (resolution / refresh rate).
+--- a/docs/rc.xml.all
++++ b/docs/rc.xml.all
+@@ -29,6 +29,12 @@
+   <hdrOutputs>
+     <!-- <output name="DP-1" enabled="no" /> -->
+   </hdrOutputs>
++
++  <!-- SDR monitor characterization, calibration and output precision (Vulkan). -->
++  <colorManagement>
++    <!-- <output name="DP-1" profile="/absolute/path/monitor.icc"
++                 calibration="true" sdrBitDepth="10" /> -->
++  </colorManagement>
+ 
+   <placement>
+     <policy>cascade</policy>
+--- /dev/null
++++ b/include/color-management.h
+@@ -0,0 +1,36 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++#ifndef LABWC_COLOR_MANAGEMENT_H
++#define LABWC_COLOR_MANAGEMENT_H
++
++#include <stdbool.h>
++#include <libxml/tree.h>
++#include <wayland-server-core.h>
++
++struct output;
++struct wlr_output_state;
++struct wlr_color_transform;
++
++struct output_color_config {
++	struct wl_list link;
++	char *name;
++	char *profile;
++	bool calibration;
++	int sdr_bit_depth;
++};
++
++void color_config_parse(xmlNode *node);
++struct wlr_output_image_description;
++void hdr_config_parse(xmlNode *node);
++void output_color_hdr_description(const struct output *output,
++	struct wlr_output_image_description *description);
++void color_config_finish(void);
++const struct output_color_config *color_config_get(const char *name);
++void output_color_load(struct output *output);
++void output_color_reconfigure(void);
++struct wlr_color_transform *output_color_get_transform(struct output *output,
++	const struct wlr_output_state *state);
++void output_color_commit(struct output *output, bool success);
++void output_color_finish(struct output *output);
++void output_color_write_status(void);
++
++#endif
+--- a/include/output.h
++++ b/include/output.h
+@@ -12,6 +12,17 @@
+ 	struct wlr_output *wlr_output;
+ 	struct wlr_output_state pending;
+ 	bool hdr_reconfigure_pending;
++	struct wlr_color_transform *color_transform, *color_pending;
++	bool color_pending_valid;
++	struct wlr_color_transform *color_description, *color_pending_description;
++	char *color_profile, *color_pending_profile;
++	const char *color_error;
++    struct wlr_color_transform *hdr_correction, *hdr_correction_pending;
++    char *hdr_correction_path, *hdr_correction_pending_path;
++    char *hdr_correction_sha, *hdr_correction_pending_sha;
++    uint64_t hdr_correction_identity, hdr_correction_pending_identity;
++    bool hdr_correction_pending_valid;
++    const char *hdr_correction_error;
+ 	struct wlr_scene_output *scene_output;
+ 	struct wlr_scene_tree *layer_tree[LAB_NR_LAYERS];
+ 	struct wlr_scene_tree *layer_popup_tree;
+--- a/meson.build
++++ b/meson.build
+@@ -69,6 +69,7 @@
+ drm = drm_full.partial_dependency(compile_args: true, includes: true)
+ xml2 = dependency('libxml-2.0')
+ glib = dependency('glib-2.0')
++lcms2 = dependency('lcms2')
+ cairo = dependency('cairo')
+ pangocairo = dependency('pangocairo')
+ input = dependency('libinput', version: '>=1.26', required: wlroots.get_variable('have_libinput_backend') == 'true')
+@@ -167,6 +168,7 @@
+   xcb_icccm,
+   xml2,
+   glib,
++  lcms2,
+   cairo,
+   drm,
+   pangocairo,
+--- /dev/null
++++ b/src/color-management.c
+@@ -0,0 +1,613 @@
++// SPDX-License-Identifier: GPL-2.0-only
++#define _POSIX_C_SOURCE 200809L
++#include "color-management.h"
++#include <errno.h>
++#include <fcntl.h>
++#include <glib.h>
++#include <drm_fourcc.h>
++#include <lcms2.h>
++#include <math.h>
++#include <inttypes.h>
++#include <stdlib.h>
++#include <string.h>
++#include <strings.h>
++#include <sys/stat.h>
++#include <unistd.h>
++#include <wlr/render/color.h>
++#include <wlr/types/wlr_scene.h>
++#include <wlr/types/wlr_color_management_v1.h>
++#include <wlr/util/log.h>
++#include "common/mem.h"
++#include "common/scene-helpers.h"
++#include "labwc.h"
++#include "output.h"
++
++struct hdr_config {
++	struct wl_list link;
++	char *name;
++	uint64_t identity;
++	bool disabled;
++	float black, peak, full_frame, white;
++	char *correction, *sha, *picture_mode;
++};
++static struct wl_list hdr_configs = { &hdr_configs, &hdr_configs };
++
++static struct wl_list configs = { &configs, &configs };
++
++void
++color_config_finish(void)
++{
++	struct hdr_config *hdr, *next;
++	wl_list_for_each_safe(hdr, next, &hdr_configs, link) {
++		wl_list_remove(&hdr->link);
++		free(hdr->name);
++		free(hdr->correction);
++		free(hdr->sha);
++		free(hdr->picture_mode);
++		free(hdr);
++	}
++	struct output_color_config *config, *tmp;
++	wl_list_for_each_safe(config, tmp, &configs, link) {
++		wl_list_remove(&config->link);
++		free(config->name);
++		free(config->profile);
++		free(config);
++	}
++}
++
++/* rcxml expands attributes to child elements before calling handlers. */
++static xmlChar *
++config_value(xmlNode *node, const char *key)
++{
++	for (xmlNode *child = node->last; child; child = child->prev) {
++		if (child->type == XML_ELEMENT_NODE && !strcasecmp((char *)child->name, key)) {
++			return xmlNodeGetContent(child);
++		}
++	}
++	return NULL;
++}
++
++void
++color_config_parse(xmlNode *node)
++{
++	for (xmlNode *child = node->children; child; child = child->next) {
++		if (child->type != XML_ELEMENT_NODE) {
++			continue;
++		}
++		xmlChar *name = config_value(child, "name");
++		xmlChar *profile = config_value(child, "profile");
++		xmlChar *calibration = config_value(child, "calibration");
++		xmlChar *depth = config_value(child, "sdrBitDepth");
++		bool valid = !strcasecmp((char *)child->name, "output") && name && *name
++			&& (!profile || !*profile || *profile == '/')
++			&& (!depth || !xmlStrcmp(depth, BAD_CAST "8") || !xmlStrcmp(depth, BAD_CAST "10"))
++			&& (!calibration || !xmlStrcmp(calibration, BAD_CAST "true")
++				|| !xmlStrcmp(calibration, BAD_CAST "false"));
++		if (valid) {
++			struct output_color_config *config = znew(*config);
++			config->name = xstrdup((char *)name);
++			config->profile = profile && *profile ? xstrdup((char *)profile) : NULL;
++			config->calibration = !calibration || !xmlStrcmp(calibration, BAD_CAST "true");
++			config->sdr_bit_depth = depth ? atoi((char *)depth) : 0;
++			wl_list_insert(configs.prev, &config->link);
++		} else {
++			wlr_log(WLR_ERROR, "Invalid colorManagement output: expected name, absolute "
++				"profile path, calibration=true/false and sdrBitDepth=8/10");
++		}
++		xmlFree(name);
++		xmlFree(profile);
++		xmlFree(calibration);
++		xmlFree(depth);
++	}
++}
++
++/* A separate block keeps HDR setup independent of SDR ICC selection. */
++static bool
++hdr_number(xmlNode *node, const char *key, float *value)
++{
++	xmlChar *text = config_value(node, key);
++	char *end = NULL;
++	double parsed = text ? g_ascii_strtod((char *)text, &end) : NAN;
++	bool valid = text && end != (char *)text && !*end && isfinite(parsed);
++	*value = parsed;
++	xmlFree(text);
++	return valid;
++}
++
++void
++hdr_config_parse(xmlNode *node)
++{
++	for (xmlNode *child = node->children; child; child = child->next) {
++		if (child->type != XML_ELEMENT_NODE) {
++			continue;
++		}
++		xmlChar *name = config_value(child, "name");
++		xmlChar *identity = config_value(child, "displayId");
++		xmlChar *enabled = config_value(child, "enabled");
++        xmlChar *correction = config_value(child, "correction");
++        xmlChar *sha = config_value(child, "correctionSha256");
++        xmlChar *picture_mode = config_value(child, "pictureMode");
++		bool disabled = enabled && !xmlStrcmp(enabled, BAD_CAST "false");
++		char *end = NULL;
++		uint64_t id = identity ? strtoull((char *)identity, &end, 16) : 0;
++		struct hdr_config value = {0};
++		bool valid = !strcasecmp((char *)child->name, "output") && name && *name
++			&& identity && xmlStrlen(identity) == 16 && id && end && !*end
++			&& hdr_number(child, "black", &value.black)
++			&& hdr_number(child, "peak", &value.peak)
++			&& hdr_number(child, "fullFrame", &value.full_frame)
++			&& hdr_number(child, "white", &value.white)
++			&& value.white >= 20 && value.white <= 500
++			&& value.black >= 0 && value.black < value.white
++			&& value.peak >= 40 && value.peak <= 10000
++			&& value.full_frame >= value.white && value.full_frame <= value.peak
++            && (!correction || !*correction || (*correction == '/' && sha && xmlStrlen(sha) == 64
++                && strspn((char *)sha, "0123456789abcdef") == 64 && picture_mode && *picture_mode));
++		if (valid || (disabled && name && *name && !strcasecmp((char *)child->name, "output"))) {
++			struct hdr_config *config = znew(*config);
++			*config = value;
++			config->name = xstrdup((char *)name);
++			config->identity = id;
++			config->disabled = disabled;
++            config->correction = correction && *correction ? xstrdup((char *)correction) : NULL;
++            config->sha = sha ? xstrdup((char *)sha) : NULL;
++            config->picture_mode = picture_mode ? xstrdup((char *)picture_mode) : NULL;
++			wl_list_insert(hdr_configs.prev, &config->link);
++		} else {
++			wlr_log(WLR_ERROR, "Invalid hdrCalibration output; check display identity and luminance limits");
++		}
++		xmlFree(name);
++		xmlFree(identity);
++		xmlFree(enabled);
++		xmlFree(correction);
++		xmlFree(sha);
++		xmlFree(picture_mode);
++	}
++}
++
++static const struct hdr_config *
++hdr_config_get(const struct output *output)
++{
++	struct hdr_config *config;
++	wl_list_for_each_reverse(config, &hdr_configs, link) {
++		if (!strcmp(config->name, output->wlr_output->name)) {
++			return !config->disabled && config->identity == output->wlr_output->display_id ? config : NULL;
++		}
++	}
++	return NULL;
++}
++
++void
++output_color_hdr_description(const struct output *output,
++	struct wlr_output_image_description *description)
++{
++	const struct hdr_config *config = hdr_config_get(output);
++	const struct wlr_output *wlr = output->wlr_output;
++	description->reference_luminance = config ? config->white : 203;
++	description->target_luminance.min = config ? config->black : 0;
++	float peak = wlr->hdr_metadata.max_luminance;
++	float average = wlr->hdr_metadata.max_frame_average_luminance;
++	description->target_luminance.max = config ? config->peak :
++		(isfinite(peak) && peak > 0 ? peak : 0);
++	description->target_max_fall = config ? config->full_frame :
++		(isfinite(average) && average > 0 ? average : 0);
++}
++
++const struct output_color_config *
++color_config_get(const char *name)
++{
++	struct output_color_config *config;
++	wl_list_for_each_reverse(config, &configs, link) {
++		if (!strcmp(config->name, name)) {
++			return config;
++		}
++	}
++	return NULL;
++}
++
++/* Copy a bounded regular file; never mmap a user-replaceable profile. */
++static void *
++read_profile(const char *path, size_t *size)
++{
++	int fd = open(path, O_RDONLY | O_CLOEXEC | O_NONBLOCK);
++	if (fd < 0) {
++		return NULL;
++	}
++	struct stat st;
++	if (fstat(fd, &st) || !S_ISREG(st.st_mode) || st.st_size < 128
++			|| st.st_size > 16 * 1024 * 1024) {
++		close(fd);
++		return NULL;
++	}
++	*size = st.st_size;
++	char *data = malloc(*size);
++	if (!data) {
++		close(fd);
++		return NULL;
++	}
++	size_t pos = 0;
++	while (pos < *size) {
++		ssize_t n = read(fd, data + pos, *size - pos);
++		if (n < 0 && errno == EINTR) {
++			continue;
++		}
++		if (n <= 0) {
++			free(data);
++			close(fd);
++			return NULL;
++		}
++		pos += n;
++	}
++	close(fd);
++	return data;
++}
++
++static struct wlr_color_transform *
++load_transform(const char *path, bool calibration, struct wlr_color_transform **description)
++{
++	size_t size;
++	void *data = read_profile(path, &size);
++	if (!data) {
++		return NULL;
++	}
++	struct wlr_color_transform *transform =
++		wlr_color_transform_init_linear_to_icc(data, size);
++	if (transform) {
++		*description = wlr_color_transform_init_icc_to_linear(data, size);
++		if (!*description) {
++			wlr_color_transform_unref(transform);
++			transform = NULL;
++		}
++	}
++	if (!transform || !calibration) {
++		free(data);
++		return transform;
++	}
++	cmsHPROFILE profile = cmsOpenProfileFromMem(data, size);
++	free(data);
++	if (!profile) {
++		wlr_color_transform_unref(transform);
++		return NULL;
++	}
++	bool has_vcgt = cmsIsTag(profile, cmsSigVcgtTag);
++	cmsToneCurve **curves = has_vcgt ? cmsReadTag(profile, cmsSigVcgtTag) : NULL;
++	if (has_vcgt) {
++		struct wlr_color_transform *lut = NULL;
++		if (curves && curves[0] && curves[1] && curves[2]) {
++			uint16_t samples[3][4096];
++			for (size_t c = 0; c < 3; c++) {
++				for (size_t i = 0; i < 4096; i++) {
++					samples[c][i] = cmsEvalToneCurve16(curves[c], (i * 65535u) / 4095);
++				}
++			}
++			lut = wlr_color_transform_init_lut_3x1d(4096, samples[0], samples[1], samples[2]);
++		}
++		struct wlr_color_transform *pipeline = NULL;
++		if (lut) {
++			struct wlr_color_transform *steps[] = { transform, lut };
++			pipeline = wlr_color_transform_init_pipeline(steps, 2);
++		}
++		wlr_color_transform_unref(lut);
++		wlr_color_transform_unref(transform);
++		transform = pipeline;
++	}
++	cmsCloseProfile(profile);
++	return transform;
++}
++
++/* A deliberately strict .cube subset: encoded BT.2020/PQ in and out,
++ * full [0,1] domain, bound to an EDID identity and HDR picture mode. */
++static bool cube_triplet(const char *s, float v[3]) {
++    for (int c = 0; c < 3; c++) {
++        while (g_ascii_isspace(*s)) s++;
++        char *end;
++        double n = g_ascii_strtod(s, &end);
++        if (end == s || !isfinite(n) || n < 0 || n > 1) return false;
++        v[c] = n; s = end;
++    }
++    while (g_ascii_isspace(*s)) s++;
++    return !*s;
++}
++
++static struct wlr_color_transform *load_hdr_correction(const struct hdr_config *config) {
++    size_t size = 0;
++    char *bytes = read_profile(config->correction, &size);
++    if (!bytes) return NULL;
++    char *sha = g_compute_checksum_for_data(G_CHECKSUM_SHA256, (guchar *)bytes, size);
++    bool valid = !g_strcmp0(sha, config->sha) && !memchr(bytes, 0, size);
++    g_free(sha);
++    char *text = g_strndup(bytes, size); free(bytes);
++    char **lines = g_strsplit(text, "\n", -1); g_free(text);
++    bool marker = false, identity = false, mode = false, domain_min = false, domain_max = false;
++    size_t dim = 0, count = 0;
++    float *values = NULL;
++    char expected_id[17]; snprintf(expected_id, sizeof(expected_id), "%016" PRIx64, config->identity);
++    for (size_t i = 0; valid && lines[i]; i++) {
++        char *s = g_strstrip(lines[i]);
++        if (!*s) continue;
++        if (!strcmp(s, "# labwc-hdr-pq-correction-v1")) { marker = true; continue; }
++        if (g_str_has_prefix(s, "# display-id: ")) {
++            valid = !identity && !strcmp(s + 14, expected_id); identity = true; continue;
++        }
++        if (g_str_has_prefix(s, "# picture-mode: ")) {
++            valid = !mode && !g_strcmp0(s + 16, config->picture_mode); mode = true; continue;
++        }
++        if (*s == '#') continue;
++        if (g_str_has_prefix(s, "TITLE ") && !count) continue;
++        if (g_str_has_prefix(s, "LUT_3D_SIZE ")) {
++            char *end; unsigned long n = strtoul(s + 12, &end, 10);
++            valid = !dim && end != s + 12 && !*end && (n == 2 || n == 17 || n == 33 || n == 65);
++            if (!valid) break;
++            dim = n; values = calloc(dim * dim * dim * 3, sizeof(float));
++            if (!values) { valid = false; break; }
++            continue;
++        }
++        if (g_str_has_prefix(s, "DOMAIN_MIN ") || g_str_has_prefix(s, "DOMAIN_MAX ")) {
++            bool min = s[7] == 'M' && s[8] == 'I';
++            float v[3];
++            valid = !count && !(min ? domain_min : domain_max) && cube_triplet(s + 11, v);
++            for (int c = 0; valid && c < 3; c++) valid = v[c] == (min ? 0 : 1);
++            if (min) domain_min = true; else domain_max = true;
++            continue;
++        }
++        if (!dim || count >= dim*dim*dim || !cube_triplet(s, &values[count*3])) { valid = false; break; }
++        count++;
++    }
++    struct wlr_color_transform *result = NULL;
++    if (valid && marker && identity && mode && dim && count == dim*dim*dim)
++        result = wlr_color_transform_init_lut_3d(dim, values);
++    free(values); g_strfreev(lines);
++    return result;
++}
++
++static void hdr_correction_load(struct output *output) {
++    wlr_color_transform_unref(output->hdr_correction_pending);
++    free(output->hdr_correction_pending_path); free(output->hdr_correction_pending_sha);
++    output->hdr_correction_pending = NULL;
++    output->hdr_correction_pending_path = output->hdr_correction_pending_sha = NULL;
++    output->hdr_correction_pending_valid = false;
++    const struct hdr_config *config = hdr_config_get(output);
++    if (config && config->correction) {
++        if (!server.renderer->features.output_color_transform ||
++                !(output->hdr_correction_pending = load_hdr_correction(config))) {
++            output->hdr_correction_error = "HDR correction rejected. Check its encoding, identity, picture mode and checksum. Previous correction retained.";
++            return;
++        }
++        output->hdr_correction_pending_path = xstrdup(config->correction);
++        output->hdr_correction_pending_sha = xstrdup(config->sha);
++    }
++    output->hdr_correction_pending_identity = output->wlr_output->display_id;
++    output->hdr_correction_pending_valid = true;
++    output->hdr_correction_error = NULL;
++}
++
++static void hdr_correction_commit(struct output *output, bool success) {
++    if (!output->hdr_correction_pending_valid) return;
++    if (success) {
++        wlr_color_transform_unref(output->hdr_correction);
++        free(output->hdr_correction_path); free(output->hdr_correction_sha);
++        output->hdr_correction = output->hdr_correction_pending;
++        output->hdr_correction_path = output->hdr_correction_pending_path;
++        output->hdr_correction_sha = output->hdr_correction_pending_sha;
++        output->hdr_correction_identity = output->hdr_correction_pending_identity;
++    } else {
++        wlr_color_transform_unref(output->hdr_correction_pending);
++        free(output->hdr_correction_pending_path); free(output->hdr_correction_pending_sha);
++        output->hdr_correction_error = "HDR correction could not be committed. Previous correction retained.";
++    }
++    output->hdr_correction_pending = NULL;
++    output->hdr_correction_pending_path = output->hdr_correction_pending_sha = NULL;
++    output->hdr_correction_pending_valid = false;
++}
++
++void
++output_color_load(struct output *output)
++{
++	hdr_correction_load(output);
++	/* A newer request supersedes any staged, not yet committed profile. */
++	wlr_color_transform_unref(output->color_pending);
++	wlr_color_transform_unref(output->color_pending_description);
++	free(output->color_pending_profile);
++	output->color_pending = NULL;
++	output->color_pending_description = NULL;
++	output->color_pending_profile = NULL;
++	output->color_pending_valid = false;
++	const struct output_color_config *config = color_config_get(output->wlr_output->name);
++	struct wlr_color_transform *transform = NULL, *description = NULL;
++	if (config && config->profile) {
++		if (!server.renderer->features.output_color_transform) {
++			output->color_error = "The active renderer does not support ICC color conversion. Use Vulkan.";
++			wlr_log(WLR_ERROR, "ICC profile for %s requires a color-managed renderer (Vulkan)",
++				output->wlr_output->name);
++			return;
++		}
++		transform = load_transform(config->profile, config->calibration, &description);
++		if (!transform) {
++			wlr_color_transform_unref(description);
++			output->color_error = "The ICC profile could not be loaded. The previous profile remains active.";
++			wlr_log(WLR_ERROR, "Cannot load RGB display ICC profile %s for %s; "
++				"keeping previous transform", config->profile, output->wlr_output->name);
++			return;
++		}
++		wlr_log(WLR_INFO, "Staging ICC profile %s for %s (VCGT %s)",
++			config->profile, output->wlr_output->name,
++			config->calibration ? "enabled" : "disabled");
++	}
++	output->color_pending_description = description;
++	output->color_pending_profile = config && config->profile ? xstrdup(config->profile) : NULL;
++	output->color_error = NULL;
++	output->color_pending = transform;
++	output->color_pending_valid = true;
++}
++
++void
++output_color_reconfigure(void)
++{
++	struct output *output;
++	wl_list_for_each(output, &server.outputs, link) {
++		output_color_load(output);
++		if (output->scene_output) {
++			lab_wlr_scene_output_damage_whole(output->scene_output);
++			wlr_output_schedule_frame(output->wlr_output);
++		}
++	}
++	output_color_write_status();
++}
++
++struct wlr_color_transform *
++output_color_get_transform(struct output *output, const struct wlr_output_state *state)
++{
++	const struct wlr_output_image_description *description =
++		(state->committed & WLR_OUTPUT_STATE_IMAGE_DESCRIPTION)
++			? state->image_description : output->wlr_output->image_description;
++	/* An SDR characterization must never be applied to PQ signal values. */
++    if (description) {
++        if (description->transfer_function != WLR_COLOR_TRANSFER_FUNCTION_ST2084_PQ) return NULL;
++        bool pending = output->hdr_correction_pending_valid;
++        uint64_t identity = pending ? output->hdr_correction_pending_identity : output->hdr_correction_identity;
++        if (identity != output->wlr_output->display_id) return NULL;
++        return pending ? output->hdr_correction_pending : output->hdr_correction;
++    }
++	return output->color_pending_valid ? output->color_pending : output->color_transform;
++}
++
++void
++output_color_commit(struct output *output, bool success)
++{
++	hdr_correction_commit(output, success);
++	if (!output->color_pending_valid) {
++		return;
++	}
++	if (success) {
++		wlr_color_transform_unref(output->color_transform);
++		output->color_transform = output->color_pending;
++		wlr_color_transform_unref(output->color_description);
++		output->color_description = output->color_pending_description;
++		free(output->color_profile);
++		output->color_profile = output->color_pending_profile;
++	} else {
++		output->color_error = "The display rejected the color change. The previous profile remains active.";
++		wlr_log(WLR_ERROR, "ICC commit failed for %s; keeping previous transform",
++			output->wlr_output->name);
++		wlr_color_transform_unref(output->color_pending);
++		wlr_color_transform_unref(output->color_pending_description);
++		free(output->color_pending_profile);
++		lab_wlr_scene_output_damage_whole(output->scene_output);
++		wlr_output_schedule_frame(output->wlr_output);
++	}
++	output->color_pending = NULL;
++	output->color_pending_description = NULL;
++	output->color_pending_profile = NULL;
++	output->color_pending_valid = false;
++}
++
++void
++output_color_finish(struct output *output)
++{
++    wlr_color_transform_unref(output->hdr_correction);
++    wlr_color_transform_unref(output->hdr_correction_pending);
++    free(output->hdr_correction_path); free(output->hdr_correction_pending_path);
++    free(output->hdr_correction_sha); free(output->hdr_correction_pending_sha);
++	wlr_color_transform_unref(output->color_pending);
++	wlr_color_transform_unref(output->color_transform);
++	wlr_color_transform_unref(output->color_description);
++	wlr_color_transform_unref(output->color_pending_description);
++	free(output->color_pending_profile);
++	free(output->color_profile);
++}
++
++/* Read-only, per-session status for the settings UI. Write only on changes. */
++void
++output_color_write_status(void)
++{
++	const char *runtime = getenv("XDG_RUNTIME_DIR");
++	const char *display = getenv("WAYLAND_DISPLAY");
++	if (!runtime || !display || strchr(display, '/')) {
++		return;
++	}
++	GKeyFile *status = g_key_file_new();
++	g_key_file_set_integer(status, "compositor", "pid", getpid());
++	g_key_file_set_integer(status, "compositor", "version", 1);
++	g_key_file_set_boolean(status, "compositor", "hdr_calibration_supported", true);
++    g_key_file_set_boolean(status, "compositor", "hdr_correction_supported", server.renderer->features.output_color_transform);
++	g_key_file_set_boolean(status, "compositor", "icc_supported",
++		server.renderer->features.output_color_transform);
++	struct output *output;
++	wl_list_for_each(output, &server.outputs, link) {
++		struct wlr_output *wlr = output->wlr_output;
++		const char *name = wlr->name;
++		char identity[17];
++		snprintf(identity, sizeof(identity), "%016" PRIx64, wlr->display_id);
++		g_key_file_set_string(status, name, "display_id", identity);
++		g_key_file_set_string(status, name, "description", wlr->description ?: name);
++		if (server.scene->color_manager_v1) {
++			wlr_color_manager_v1_set_output_icc(server.scene->color_manager_v1, wlr,
++				output->color_description);
++		}
++		bool hdr = wlr->image_description && wlr->image_description->transfer_function
++			== WLR_COLOR_TRANSFER_FUNCTION_ST2084_PQ;
++		g_key_file_set_boolean(status, name, "enabled", wlr->enabled);
++		g_key_file_set_boolean(status, name, "hdr", hdr);
++		g_key_file_set_boolean(status, name, "hdr_supported",
++			wlr->supported_transfer_functions & WLR_COLOR_TRANSFER_FUNCTION_ST2084_PQ);
++		double peak = wlr->hdr_metadata.max_luminance;
++		double average = wlr->hdr_metadata.max_frame_average_luminance;
++		g_key_file_set_double(status, name, "hdr_peak_nits", isfinite(peak) && peak > 0 ? peak : 0);
++		g_key_file_set_double(status, name, "hdr_max_frame_average_nits",
++			isfinite(average) && average > 0 ? average : 0);
++		struct wlr_color_luminances luminances = {0};
++		if (hdr && wlr->enabled) {
++			wlr_color_transfer_function_get_default_luminance(
++				wlr->image_description->transfer_function, &luminances);
++		}
++		if (hdr && wlr->enabled && wlr->image_description->reference_luminance > 0) {
++			luminances.reference = wlr->image_description->reference_luminance;
++		}
++		g_key_file_set_double(status, name, "hdr_reference_white_nits", luminances.reference);
++		const struct hdr_config *calibration = hdr_config_get(output);
++		const struct wlr_output_image_description *desc = hdr ? wlr->image_description : NULL;
++		g_key_file_set_boolean(status, name, "hdr_calibration_active", wlr->enabled && desc && calibration
++			&& desc->reference_luminance == calibration->white
++			&& desc->target_luminance.min == calibration->black
++			&& desc->target_luminance.max == calibration->peak
++			&& desc->target_max_fall == calibration->full_frame);
++		g_key_file_set_double(status, name, "hdr_target_black_nits", desc ? desc->target_luminance.min : 0);
++		g_key_file_set_double(status, name, "hdr_target_peak_nits", desc ? desc->target_luminance.max : 0);
++		g_key_file_set_double(status, name, "hdr_target_full_frame_nits", desc ? desc->target_max_fall : 0);
++        g_key_file_set_boolean(status, name, "hdr_correction_active", hdr && wlr->enabled && output->hdr_correction && output->hdr_correction_identity == wlr->display_id);
++        g_key_file_set_boolean(status, name, "hdr_correction_pending", output->hdr_correction_pending_valid);
++        g_key_file_set_string(status, name, "hdr_correction_path", output->hdr_correction_path ?: "");
++        g_key_file_set_string(status, name, "hdr_correction_sha256", output->hdr_correction_sha ?: "");
++        g_key_file_set_string(status, name, "hdr_correction_error", output->hdr_correction_error ?: "");
++		g_key_file_set_boolean(status, name, "pending", output->color_pending_valid);
++		g_key_file_set_boolean(status, name, "icc_active", wlr->enabled && output->color_transform && !hdr);
++		g_key_file_set_string(status, name, "profile", output->color_profile ?: "");
++		g_key_file_set_string(status, name, "error", output->color_error ?: "");
++		bool ten = wlr->render_format == DRM_FORMAT_XRGB2101010
++			|| wlr->render_format == DRM_FORMAT_XBGR2101010
++			|| wlr->render_format == DRM_FORMAT_ARGB2101010
++			|| wlr->render_format == DRM_FORMAT_ABGR2101010
++			|| wlr->render_format == DRM_FORMAT_RGBX1010102
++			|| wlr->render_format == DRM_FORMAT_BGRX1010102
++			|| wlr->render_format == DRM_FORMAT_RGBA1010102
++			|| wlr->render_format == DRM_FORMAT_BGRA1010102;
++		g_key_file_set_integer(status, name, "bit_depth", ten ? 10 : 8);
++	}
++	gsize length;
++	char *text = g_key_file_to_data(status, &length, NULL);
++	char *path = g_strdup_printf("%s/labwc-color-%s.ini", runtime, display);
++	char *previous = NULL;
++	g_file_get_contents(path, &previous, NULL, NULL);
++	if (g_strcmp0(text, previous)) {
++		GError *error = NULL;
++		if (!g_file_set_contents_full(path, text, length,
++				G_FILE_SET_CONTENTS_CONSISTENT, 0600, &error)) {
++			wlr_log(WLR_ERROR, "Cannot write color status: %s", error->message);
++			g_error_free(error);
++		}
++	}
++	g_free(previous);
++	g_free(path);
++	g_free(text);
++	g_key_file_unref(status);
++}
+--- a/src/common/scene-helpers.c
++++ b/src/common/scene-helpers.c
+@@ -8,6 +8,7 @@
+ #include "common/mem.h"
+ #include "magnifier.h"
+ #include "output.h"
++#include "color-management.h"
+ 
+ struct wlr_surface *
+ lab_wlr_surface_from_node(struct wlr_scene_node *node)
+@@ -125,7 +126,15 @@
+ 		return true;
+ 	}
+ 
+-	if (!wlr_scene_output_build_state(scene_output, state, NULL)) {
++	struct wlr_scene_output_state_options options = {
++		.color_transform = output_color_get_transform(output, state),
++	};
++	options.disable_gamma_lut = options.color_transform != NULL
++		|| ((state->committed & WLR_OUTPUT_STATE_IMAGE_DESCRIPTION)
++			? state->image_description != NULL : wlr_output->image_description != NULL);
++	if (!wlr_scene_output_build_state(scene_output, state, &options)) {
++		output_color_commit(output, false);
++		output_color_write_status();
+ 		wlr_log(WLR_ERROR, "Failed to build output state for %s",
+ 			wlr_output->name);
+ 		return false;
+@@ -142,6 +151,9 @@
+ 		magnifier_draw(output, state->buffer, &additional_damage);
+ 	}
+ 
++	bool color_changed = output->color_pending_valid
++		|| (state->committed & (WLR_OUTPUT_STATE_IMAGE_DESCRIPTION | WLR_OUTPUT_STATE_RENDER_FORMAT
++			| WLR_OUTPUT_STATE_ENABLED));
+ 	bool committed = wlr_output_commit_state(wlr_output, state);
+ 	/*
+ 	 * Handle case where the output state test for tearing succeeded,
+@@ -150,6 +162,10 @@
+ 	if (!committed && state->tearing_page_flip) {
+ 		state->tearing_page_flip = false;
+ 		committed = wlr_output_commit_state(wlr_output, state);
++	}
++	output_color_commit(output, committed);
++	if (color_changed) {
++		output_color_write_status();
+ 	}
+ 	if (committed) {
+ 		if (state == &output->pending) {
+--- a/src/config/rcxml.c
++++ b/src/config/rcxml.c
+@@ -1,6 +1,7 @@
+ // SPDX-License-Identifier: GPL-2.0-only
+ #define _POSIX_C_SOURCE 200809L
+ #include "config/rcxml.h"
++#include "color-management.h"
+ #include <assert.h>
+ #include <glib.h>
+ #include <libxml/parser.h>
+@@ -1137,6 +1138,10 @@
+ 	/* handle nested nodes */
+ 	if (!strcasecmp(nodename, "margin")) {
+ 		fill_usable_area_override(node);
++	} else if (!strcasecmp(nodename, "hdrCalibration")) {
++		hdr_config_parse(node);
++	} else if (!strcasecmp(nodename, "colorManagement")) {
++		color_config_parse(node);
+ 	} else if (!strcasecmp(nodename, "hdrOutputs")) {
+ 		fill_output_hdr_overrides(node);
+ 	} else if (!strcasecmp(nodename, "keybind.keyboard")) {
+@@ -2093,6 +2098,7 @@
+ void
+ rcxml_finish(void)
+ {
++	color_config_finish();
+ 	zfree(rc.font_activewindow.name);
+ 	zfree(rc.font_inactivewindow.name);
+ 	zfree(rc.font_menuheader.name);
+--- a/src/meson.build
++++ b/src/meson.build
+@@ -2,6 +2,7 @@
+   'action.c',
+   'tiling.c',
+   'background-blur.c',
++  'color-management.c',
+   'buffer.c',
+   'debug.c',
+   'desktop.c',
+--- a/src/output.c
++++ b/src/output.c
+@@ -9,6 +9,7 @@
+ #define _POSIX_C_SOURCE 200809L
+ #include "tiling.h"
+ #include "output.h"
++#include "color-management.h"
+ #include <assert.h>
+ #include <drm_fourcc.h>
+ #include <glib.h>
+@@ -156,83 +157,77 @@
+ 	return !unsupported_reason;
+ }
+ 
++static bool
++output_wants_hdr(const struct output *output)
++{
++	enum render_bit_depth target = get_config_render_bit_depth(output);
++	if (target != LAB_RENDER_BIT_DEPTH_DEFAULT) {
++		return target == LAB_RENDER_BIT_DEPTH_10;
++	}
++	return output->wlr_output->image_description
++		&& output->wlr_output->image_description->transfer_function
++			== WLR_COLOR_TRANSFER_FUNCTION_ST2084_PQ;
++}
++
++static enum render_bit_depth
++output_target_depth(const struct output *output, bool hdr)
++{
++	const struct output_color_config *color = color_config_get(output->wlr_output->name);
++	if (hdr || (color && color->sdr_bit_depth == 10)) {
++		return LAB_RENDER_BIT_DEPTH_10;
++	}
++	return LAB_RENDER_BIT_DEPTH_8;
++}
++
+ void
+ output_state_setup_hdr(struct output *output, bool silent)
+ {
+-	uint32_t render_format = output->wlr_output->render_format;
+-	const char *unsupported_reason = NULL;
+-	bool hdr_supported = output_supports_hdr(output->wlr_output,
+-		&unsupported_reason);
+-	bool hdr_succeeded = false;
+-
+-	enum render_bit_depth render_bit_depth = get_config_render_bit_depth(output);
+-	if (render_bit_depth == LAB_RENDER_BIT_DEPTH_DEFAULT) {
+-		render_bit_depth = bit_depth_from_format(render_format);
+-	}
+-
+-	if (!hdr_supported && render_bit_depth == LAB_RENDER_BIT_DEPTH_10) {
++	bool hdr = output_wants_hdr(output);
++	const char *reason = NULL;
++	if (hdr && !output_supports_hdr(output->wlr_output, &reason)) {
+ 		if (!silent) {
+-			wlr_log(WLR_INFO, "Cannot enable HDR on output %s: %s",
+-				output->wlr_output->name, unsupported_reason);
+-		}
+-		render_bit_depth = LAB_RENDER_BIT_DEPTH_8;
+-	}
+-
+-	if (render_bit_depth == LAB_RENDER_BIT_DEPTH_10) {
+-		/* Test the render format together with the target image description. */
+-		output_enable_hdr(output, &output->pending, true, silent);
+-	}
+-
+-	if (render_bit_depth == LAB_RENDER_BIT_DEPTH_10
+-			&& bit_depth_from_format(render_format) == render_bit_depth) {
+-		/* 10-bit was set successfully before, try to save some
+-		 * tests by reusing the format
+-		 */
+-		hdr_succeeded = true;
+-	} else if (render_bit_depth == LAB_RENDER_BIT_DEPTH_10) {
+-		hdr_succeeded = output_set_render_format(output, output_formats_10bit,
+-			ARRAY_SIZE(output_formats_10bit), silent);
+-		if (!hdr_succeeded) {
+-			if (!silent) {
+-				wlr_log(WLR_INFO, "No 10 bit color formats"
+-					" supported, HDR disabled.");
+-			}
+-			output_enable_hdr(output, &output->pending, false, true);
+-			if (!output_set_render_format(output, output_formats_8bit,
+-					ARRAY_SIZE(output_formats_8bit), silent)) {
+-				if (!silent) {
+-					wlr_log(WLR_ERROR, "No 8 bit color formats"
+-						" supported either!");
+-				}
+-			}
+-		}
+-	} else {
+-		/* Test the render format together with the target image description. */
+-		output_enable_hdr(output, &output->pending, false, silent);
+-		if (!output_set_render_format(output, output_formats_8bit,
+-				ARRAY_SIZE(output_formats_8bit), silent) && !silent) {
+-			wlr_log(WLR_ERROR, "No 8 bit color formats supported!");
+-		}
++			wlr_log(WLR_ERROR, "Cannot enable HDR on %s: %s", output->wlr_output->name, reason);
++		}
++		hdr = false;
++	}
++	output_enable_hdr(output, &output->pending, hdr, silent);
++	enum render_bit_depth depth = output_target_depth(output, hdr);
++	if (depth == LAB_RENDER_BIT_DEPTH_10
++			&& output_set_render_format(output, output_formats_10bit,
++				ARRAY_SIZE(output_formats_10bit), silent)) {
++		return;
++	}
++	if (depth == LAB_RENDER_BIT_DEPTH_10 && !silent) {
++		wlr_log(WLR_ERROR, "10-bit output unavailable for %s; using 8-bit SDR",
++			output->wlr_output->name);
++	}
++	output_enable_hdr(output, &output->pending, false, silent);
++	if (!output_set_render_format(output, output_formats_8bit,
++			ARRAY_SIZE(output_formats_8bit), silent) && !silent) {
++		wlr_log(WLR_ERROR, "No supported output format for %s", output->wlr_output->name);
+ 	}
+ }
+ 
+ static bool
+ output_hdr_matches_config(const struct output *output)
+ {
+-	enum render_bit_depth target = get_config_render_bit_depth(output);
+-	if (target == LAB_RENDER_BIT_DEPTH_DEFAULT) {
+-		return true;
+-	}
+-
+-	bool hdr_enabled = output->wlr_output->image_description
+-		&& output->wlr_output->image_description->primaries
+-			== WLR_COLOR_NAMED_PRIMARIES_BT2020
++	bool hdr = output_wants_hdr(output);
++	bool active_hdr = output->wlr_output->image_description
+ 		&& output->wlr_output->image_description->transfer_function
+ 			== WLR_COLOR_TRANSFER_FUNCTION_ST2084_PQ;
+-	bool ten_bit = bit_depth_from_format(output->wlr_output->render_format)
+-		== LAB_RENDER_BIT_DEPTH_10;
+-	return target == LAB_RENDER_BIT_DEPTH_10
+-		? hdr_enabled && ten_bit : !hdr_enabled && !ten_bit;
++	if (active_hdr) {
++		struct wlr_output_image_description expected = {0};
++		output_color_hdr_description(output, &expected);
++		const struct wlr_output_image_description *active = output->wlr_output->image_description;
++		if (active->reference_luminance != expected.reference_luminance
++				|| active->target_luminance.min != expected.target_luminance.min
++				|| active->target_luminance.max != expected.target_luminance.max
++				|| active->target_max_fall != expected.target_max_fall) {
++			return false;
++		}
++	}
++	return hdr == active_hdr && output_target_depth(output, hdr)
++		== bit_depth_from_format(output->wlr_output->render_format);
+ }
+ 
+ void
+@@ -372,7 +367,9 @@
+ 		output->scene_output = NULL;
+ 	}
+ 
++	output_color_finish(output);
+ 	wl_list_remove(&output->link);
++	output_color_write_status();
+ 	wl_list_remove(&output->frame.link);
+ 	wl_list_remove(&output->destroy.link);
+ 	wl_list_remove(&output->request_state.link);
+@@ -819,6 +816,7 @@
+ 	 * it would result in no outputs being enabled at all. This check
+ 	 * might need tweaking if wlroots adds other output backends.
+ 	 */
++	output_color_load(output);
+ 	if (rc.auto_enable_outputs || !wlr_output_is_drm(wlr_output)) {
+ 		configure_new_output(output);
+ 	}
+@@ -1443,9 +1441,10 @@
+ 		wlr_log(WLR_DEBUG, "Enabling HDR on output %s",
+ 			output->wlr_output->name);
+ 	}
+-	const struct wlr_output_image_description image_desc = {
++	struct wlr_output_image_description image_desc = {
+ 		.primaries = WLR_COLOR_NAMED_PRIMARIES_BT2020,
+ 		.transfer_function = WLR_COLOR_TRANSFER_FUNCTION_ST2084_PQ,
+ 	};
++	output_color_hdr_description(output, &image_desc);
+ 	wlr_output_state_set_image_description(os, &image_desc);
+ }
+--- a/src/server.c
++++ b/src/server.c
+@@ -12,6 +12,7 @@
+ #include <wlr/render/allocator.h>
+ #include <wlr/types/wlr_alpha_modifier_v1.h>
+ #include <wlr/types/wlr_color_management_v1.h>
++#include "color-management.h"
+ #include <wlr/types/wlr_color_representation_v1.h>
+ #include <wlr/types/wlr_data_control_v1.h>
+ #include <wlr/types/wlr_data_device.h>
+@@ -123,6 +124,7 @@
+ 	resize_indicator_reconfigure();
+ 	kde_server_decoration_update_default();
+ 	workspaces_reconfigure();
++	output_color_reconfigure();
+ 	output_reconfigure_hdr();
+ 
+ 	wl_event_loop_add_idle(server.wl_event_loop, nag_show_callback, NULL);
+@@ -647,6 +649,7 @@
+ 	if (server.renderer->features.input_color_transform) {
+ 		const enum wp_color_manager_v1_render_intent render_intents[] = {
+ 			WP_COLOR_MANAGER_V1_RENDER_INTENT_PERCEPTUAL,
++			WP_COLOR_MANAGER_V1_RENDER_INTENT_RELATIVE,
+ 		};
+ 		size_t transfer_functions_len = 0;
+ 		enum wp_color_manager_v1_transfer_function *transfer_functions =
+@@ -661,6 +664,7 @@
+ 		struct wlr_color_manager_v1 *cm = wlr_color_manager_v1_create(
+ 			server.wl_display, 2, &(struct wlr_color_manager_v1_options){
+ 				.features = {
++					.icc_v2_v4 = WLR_HAS_COLOR_MANAGEMENT,
+ 					.parametric = true,
+ 					.set_mastering_display_primaries = true,
+ 				},
+@@ -876,6 +880,7 @@
+ 	} else {
+ 		wlr_log(WLR_DEBUG, "WAYLAND_DISPLAY=%s", socket);
+ 	}
++	output_color_write_status();
+ 	tiling_init();
+ }
+ 

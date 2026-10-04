@@ -4,7 +4,7 @@
 Name:           labwc
 Version:        0.20.2
 %forgemeta
-Release:        6%{?dist}
+Release:        15%{?dist}
 Summary:        A Wayland window-stacking compositor
 
 License:        GPL-2.0-only AND MIT
@@ -12,12 +12,18 @@ URL:            %{forgeurl}
 Source0:        %{forgesource}
 Source1:        https://gitlab.freedesktop.org/wlroots/wlroots/-/archive/0.20.2/wlroots-0.20.2.tar.gz
 Source2:        wlroots-0.20.2-background-blur.patch
+Source3:        wlroots-0.20.2-color-management.patch
 Patch:          0001-add-per-output-hdr-overrides.patch
 Patch:          0002-allow-moving-fullscreen-views-between-outputs.patch
 Patch:          0003-defer-live-hdr-changes-to-next-frame.patch
 Patch:          0004-snap-fullscreen-alt-drags-between-outputs.patch
 Patch:          0005-modeset-and-roll-back-live-hdr-changes.patch
 Patch:          0006-add-opt-in-background-blur.patch
+Patch:          0007-add-opt-in-native-tiling.patch
+Patch:          0008-add-color-management.patch
+Patch:          0009-bound-tiles-and-park-windows.patch
+Patch:          0010-avoid-redundant-output-modesets.patch
+Patch:          0011-query-capture-window-output.patch
 
 BuildRequires:  gcc
 BuildRequires:  meson >= 0.59.0
@@ -136,6 +142,7 @@ standalone environment.
 %{__tar} -xf %{SOURCE1} -C subprojects
 mv subprojects/wlroots-0.20.2 subprojects/wlroots
 %{__patch} -d subprojects/wlroots -p1 < %{SOURCE2}
+%{__patch} -d subprojects/wlroots -p1 < %{SOURCE3}
 cp subprojects/wlroots/LICENSE WLROOTS-LICENSE
 
 
@@ -182,6 +189,52 @@ cp subprojects/wlroots/LICENSE WLROOTS-LICENSE
 %{_userunitdir}/labwc-session.target
 
 %changelog
+* Tue Sep 29 2026 Nobara Project - 0.20.2-15
+- Add a read-only portal window identifier to output geometry lookup
+- Let capture notifications follow the captured window's monitor
+- Reject capture output lookups while the session is locked
+
+* Tue Sep 29 2026 Nobara Project - 0.20.2-14
+- Avoid modesets and HDR metadata changes for unchanged display heads
+- Keep position and scale changes from retraining unrelated display links
+- Commit real modesets with matching rendered frames, including re-enabled outputs
+
+* Tue Sep 29 2026 Local desktop build - 0.20.2-13
+- Bound tiled client geometry and rendering to each output's usable area
+- Respect minimum-size hints where space permits, including scrolling layouts
+- Add non-destructive window parking and newest-first restoration
+
+* Sun Sep 27 2026 Local desktop build - 0.20.2-12
+- Add monitor-bound HDR PQ correction cubes after analytic HDR output encoding
+- Preserve absolute HDR signals at SDR video and photo reference white targets
+- Report committed correction identity, errors and pending state to settings
+- Test SDR transfer functions, HDR range and correction rollback independently
+
+* Sun Sep 27 2026 Local desktop build - 0.20.2-11
+- Add per-monitor HDR luminance setup and independently adjustable SDR white
+- Preserve absolute PQ signals and publish calibrated target luminance metadata
+- Match saved settings to EDID identity and apply updates at frame boundaries
+
+* Sun Sep 27 2026 Local desktop build - 0.20.2-10
+- Report monitor HDR luminance limits and active renderer reference white
+- Keep unknown limits distinct from PQ's 10000-nit encoding range
+
+* Sun Sep 27 2026 Local desktop build - 0.20.2-9
+- Add per-output SDR ICC profiles, VCGT calibration and independent 10-bit SDR
+- Support application ICC descriptions and wide-gamut source primaries
+- Publish active color state for shared Displays and Settings controls
+- Preserve HDR, blur and tiling; include CPU color-conversion regression tests
+
+* Sun Sep 27 2026 Nobara Project - 0.20.2-8
+- Add a per-output accent outline for the active window while tiling
+- Follow scene geometry and stacking, with fullscreen and borderless exclusions
+- Allow the tiling applet to toggle outlines and refresh colors live
+
+* Sat Sep 26 2026 Nobara Project - 0.20.2-7
+- Add optional event-driven dwindle/scrolling tiling and native window actions
+- Keep ordinary stacking unchanged until explicitly enabled by Waytile
+- Provide per-session, owner-only control for the tiling applet
+
 * Thu Sep 24 2026 Nobara Project - 0.20.2-6
 - Add opt-in live background blur for Wayland surfaces, preserving HDR rendering
 - Support standard background-effect regions and independent shell blur strength

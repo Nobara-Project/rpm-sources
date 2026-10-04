@@ -1,0 +1,76 @@
+--- a/include/foreign-toplevel/foreign.h
++++ b/include/foreign-toplevel/foreign.h
+@@ -9,5 +9,6 @@
+ void foreign_toplevel_set_parent(struct foreign_toplevel *toplevel,
+ 	struct foreign_toplevel *parent);
+ void foreign_toplevel_destroy(struct foreign_toplevel *toplevel);
++const char *foreign_toplevel_identifier(struct foreign_toplevel *toplevel);
+ 
+ #endif /* LABWC_FOREIGN_TOPLEVEL_H */
+--- a/src/foreign-toplevel/foreign.c
++++ b/src/foreign-toplevel/foreign.c
+@@ -5,6 +5,7 @@
+ #include "foreign-toplevel/ext-foreign.h"
+ #include "foreign-toplevel/wlr-foreign.h"
+ #include "view.h"
++#include <wlr/types/wlr_ext_foreign_toplevel_list_v1.h>
+ 
+ struct foreign_toplevel {
+ 	/* *-toplevel implementations */
+@@ -13,6 +14,13 @@
+ 
+ 	/* TODO: add struct xdg_x11_mapped_toplevel at some point */
+ };
++
++const char *
++foreign_toplevel_identifier(struct foreign_toplevel *toplevel)
++{
++	return toplevel && toplevel->ext_toplevel.handle
++		? toplevel->ext_toplevel.handle->identifier : NULL;
++}
+ 
+ struct foreign_toplevel *
+ foreign_toplevel_create(struct view *view)
+--- a/src/tiling.c
++++ b/src/tiling.c
+@@ -26,6 +26,7 @@
+ #include "workspaces.h"
+ #include "window-rules.h"
+ #include "session-lock.h"
++#include "foreign-toplevel/foreign.h"
+ #include "config/rcxml.h"
+ 
+ struct tile;
+@@ -732,6 +733,7 @@
+     const char *error = "";
+     if (!strcmp(request, "status") || !strcmp(request, "windows")) { }
+     else if (locked) error = "The session is locked.";
++    else if (!strncmp(request, "capture-output ", 15)) { /* Read-only lookup below. */ }
+     else if (!strcmp(request, "enable")) set_enabled(true);
+     else if (!strcmp(request, "disable")) set_enabled(false);
+     else if (!strcmp(request, "outline on") || !strcmp(request, "outline off")) {
+@@ -774,7 +776,23 @@
+                 area.x, area.y, area.width, area.height); first = false;
+         }
+     }
+-    fputs("]}", stream); fclose(stream);
++    fputs("],\"capture_output_supported\":true,\"capture_output\":", stream);
++    struct wlr_box capture_box = {0};
++    if (!locked && !strncmp(request, "capture-output ", 15)) {
++        struct view *v;
++        wl_list_for_each(v, &server.views, link) {
++            const char *identifier = foreign_toplevel_identifier(v->foreign_toplevel);
++            if (identifier && !strcmp(identifier, request + 15) && output_is_usable(v->output)) {
++                wlr_output_layout_get_box(server.output_layout, v->output->wlr_output, &capture_box);
++                break;
++            }
++        }
++    }
++    if (capture_box.width > 0 && capture_box.height > 0) {
++        fprintf(stream, "{\"x\":%d,\"y\":%d,\"width\":%d,\"height\":%d}",
++            capture_box.x, capture_box.y, capture_box.width, capture_box.height);
++    } else fputs("null", stream);
++    fputs("}", stream); fclose(stream);
+     if (length < 60000) sendto(fd, text, length, MSG_DONTWAIT | MSG_NOSIGNAL, (struct sockaddr *)&peer, msg.msg_namelen);
+     free(text); return 0;
+ }

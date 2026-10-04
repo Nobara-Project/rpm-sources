@@ -1,0 +1,1003 @@
+--- /dev/null
++++ b/include/tiling.h
+@@ -0,0 +1,14 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++#ifndef LABWC_TILING_H
++#define LABWC_TILING_H
++#include <stdbool.h>
++struct view;
++void tiling_init(void);
++void tiling_finish(void);
++void tiling_schedule(void);
++void tiling_update_outline(struct view *view);
++void tiling_forget(struct view *view);
++void tiling_action(struct view *view, const char *command);
++bool tiling_is_managed(struct view *view);
++bool tiling_drag_finish(struct view *view);
++#endif
+--- a/include/view.h
++++ b/include/view.h
+@@ -183,6 +183,7 @@
+ 		struct wl_listener on_capture_source_destroy;
+ 	} capture;
+ 
++	bool auto_tiled; /* optional dynamic tiling controller */
+ 	bool mapped;
+ 	bool been_mapped;
+ 	uint64_t creation_id;
+--- a/src/action.c
++++ b/src/action.c
+@@ -1,5 +1,6 @@
+ // SPDX-License-Identifier: GPL-2.0-only
+ #define _POSIX_C_SOURCE 200809L
++#include "tiling.h"
+ #include "action.h"
+ #include <assert.h>
+ #include <signal.h>
+@@ -77,6 +78,7 @@
+ 	X(KILL, "Kill") \
+ 	X(DEBUG, "Debug") \
+ 	X(EXECUTE, "Execute") \
++	X(TILING, "Tiling") \
+ 	X(EXIT, "Exit") \
+ 	X(MOVE_TO_EDGE, "MoveToEdge") \
+ 	X(TOGGLE_SNAP_TO_EDGE, "ToggleSnapToEdge") \
+@@ -298,6 +300,7 @@
+ 	string_truncate_at_pattern(argument, ".action");
+ 
+ 	switch (action->type) {
++	case ACTION_TYPE_TILING:
+ 	case ACTION_TYPE_EXECUTE:
+ 		/*
+ 		 * <action name="Execute"> with an <execute> child is
+@@ -631,6 +634,7 @@
+ 	enum action_arg_type arg_type = LAB_ACTION_ARG_STR;
+ 
+ 	switch (action->type) {
++	case ACTION_TYPE_TILING:
+ 	case ACTION_TYPE_EXECUTE:
+ 		arg_name = "command";
+ 		break;
+@@ -1080,6 +1084,9 @@
+ 	case ACTION_TYPE_DEBUG:
+ 		debug_dump_scene();
+ 		break;
++	case ACTION_TYPE_TILING:
++		tiling_action(view, action_get_str(action, "command", ""));
++		break;
+ 	case ACTION_TYPE_EXECUTE: {
+ 		struct buf cmd = BUF_INIT;
+ 		buf_add(&cmd, action_get_str(action, "command", NULL));
+--- a/src/interactive.c
++++ b/src/interactive.c
+@@ -1,4 +1,5 @@
+ // SPDX-License-Identifier: GPL-2.0-only
++#include "tiling.h"
+ #include <assert.h>
+ #include <wlr/types/wlr_cursor.h>
+ #include <wlr/types/wlr_keyboard.h>
+@@ -323,6 +324,10 @@
+ 		return;
+ 	}
+ 
++	if (tiling_drag_finish(view)) {
++		interactive_cancel(view);
++		return;
++	}
+ 	bool snap_to_output = server.grabbed_view_snap_to_output;
+ 
+ 	if (server.input_mode == LAB_INPUT_STATE_MOVE) {
+@@ -353,6 +358,7 @@
+ 		return;
+ 	}
+ 
++	tiling_schedule();
+ 	server.grabbed_view = NULL;
+ 	server.grabbed_view_snap_to_output = false;
+ 
+--- a/src/meson.build
++++ b/src/meson.build
+@@ -1,5 +1,6 @@
+ labwc_sources = files(
+   'action.c',
++  'tiling.c',
+   'background-blur.c',
+   'buffer.c',
+   'debug.c',
+--- a/src/output.c
++++ b/src/output.c
+@@ -7,6 +7,7 @@
+  */
+ 
+ #define _POSIX_C_SOURCE 200809L
++#include "tiling.h"
+ #include "output.h"
+ #include <assert.h>
+ #include <drm_fourcc.h>
+@@ -1326,6 +1327,7 @@
+ void
+ output_update_all_usable_areas(bool layout_changed)
+ {
++	tiling_schedule();
+ 	bool usable_area_changed = false;
+ 	struct output *output;
+ 
+--- a/src/server.c
++++ b/src/server.c
+@@ -1,5 +1,6 @@
+ // SPDX-License-Identifier: GPL-2.0-only
+ #define _POSIX_C_SOURCE 200809L
++#include "tiling.h"
+ #include "config.h"
+ #include <assert.h>
+ #include <signal.h>
+@@ -875,6 +876,7 @@
+ 	} else {
+ 		wlr_log(WLR_DEBUG, "WAYLAND_DISPLAY=%s", socket);
+ 	}
++	tiling_init();
+ }
+ 
+ void
+@@ -891,6 +893,7 @@
+ 	wl_event_source_remove(server.sigterm_source);
+ 	wl_event_source_remove(server.sigchld_source);
+ 
++	tiling_finish();
+ 	wl_display_destroy_clients(server.wl_display);
+ 	background_blur_finish();
+ 
+--- /dev/null
++++ b/src/tiling.c
+@@ -0,0 +1,719 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/* Optional, event-driven tiling. All rectangles are logical outer-window boxes.
++ * Control socket is per compositor, owner-only, datagram/nonblocking. No tiling
++ * process polls windows or rewrites geometry through simulated keyboard input.
++ */
++#define _GNU_SOURCE
++#include <errno.h>
++#include <math.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <sys/socket.h>
++#include <sys/stat.h>
++#include <sys/un.h>
++#include <unistd.h>
++#include <wlr/types/wlr_cursor.h>
++#include <wlr/types/wlr_scene.h>
++#include <wlr/types/wlr_output_layout.h>
++#include <wlr/util/log.h>
++#include "tiling.h"
++#include "labwc.h"
++#include "view.h"
++#include "output.h"
++#include "ssd.h"
++#include "workspaces.h"
++#include "window-rules.h"
++#include "session-lock.h"
++#include "config/rcxml.h"
++
++struct tile;
++struct layout {
++    struct wl_list link;
++    struct output *output;
++    struct workspace *workspace;
++    struct tile *root;
++    bool scrolling;
++    double scroll;
++};
++struct tile {
++    struct tile *parent, *a, *b;
++    struct layout *layout;
++    struct view *view;
++    struct wlr_box box;
++    bool vertical;
++    double ratio;
++};
++struct record {
++    struct wl_list link;
++    struct view *view;
++    struct tile *tile;
++    struct wlr_box original, floating_geo;
++    bool floating, pseudo, scratch, scratch_visible, clipped, group_active;
++    bool original_sticky;
++    enum view_layer original_layer;
++    unsigned group;
++    int width;
++    struct wlr_scene_tree *outline;
++    struct wlr_scene_rect *outline_edges[4];
++};
++static struct wl_list layouts, records;
++static bool initialized, enabled, arranging;
++static unsigned next_group = 1;
++static struct wl_event_source *idle, *control_source;
++static int control_fd = -1;
++static char socket_path[sizeof(((struct sockaddr_un *)0)->sun_path)];
++static struct view *last_active;
++static int saved_width;
++static bool outline_enabled = true;
++static struct { char output[128]; float rgba[4]; } outline_colors[64];
++static size_t outline_color_count;
++static struct record *record_for(struct view *view);
++
++static bool outline_fullscreen(struct view *v) {
++    if (v->fullscreen) return true;
++    if (!output_is_usable(v->output) || view_wants_decorations(v)) return false;
++    struct wlr_box output;
++    wlr_output_layout_get_box(server.output_layout, v->output->wlr_output, &output);
++    /* Check the visible client geometry as well as an incoming configure. */
++    struct wlr_box boxes[] = {v->current, v->pending};
++    for (size_t i = 0; i < 2; i++)
++        if (abs(boxes[i].x - output.x) <= 2 && abs(boxes[i].y - output.y) <= 2
++            && abs(boxes[i].width - output.width) <= 2 && abs(boxes[i].height - output.height) <= 2)
++            return true;
++    return false;
++}
++
++static void update_outline(struct record *r) {
++    struct view *v = r->view;
++    bool visible = enabled && outline_enabled && server.active_view == v
++        && v->mapped && !v->minimized && !r->clipped && !v->shaded
++        && !outline_fullscreen(v)
++        && !(server.session_lock_manager && server.session_lock_manager->locked);
++    if (!visible) {
++        if (r->outline) wlr_scene_node_set_enabled(&r->outline->node, false);
++        return;
++    }
++    float color[4] = {.35f, .65f, .95f, 1.f};
++    for (size_t i = 0; v->output && i < outline_color_count; i++)
++        if (!strcmp(outline_colors[i].output, v->output->wlr_output->name))
++            memcpy(color, outline_colors[i].rgba, sizeof(color));
++    if (!r->outline) {
++        r->outline = wlr_scene_tree_create(v->scene_tree);
++        if (!r->outline) return;
++        for (int i = 0; i < 4; i++) {
++            r->outline_edges[i] = wlr_scene_rect_create(r->outline, 1, 1, color);
++            if (!r->outline_edges[i]) {
++                wlr_scene_node_destroy(&r->outline->node); r->outline = NULL; return;
++            }
++        }
++    }
++    struct border margin = ssd_get_margin(v->ssd);
++    int x = -margin.left, y = -margin.top;
++    int w = v->current.width + margin.left + margin.right;
++    int h = v->current.height + margin.top + margin.bottom;
++    if (w < 4 || h < 4) { wlr_scene_node_set_enabled(&r->outline->node, false); return; }
++    struct wlr_box edges[] = {{x, y, w, 2}, {x, y + h - 2, w, 2},
++                              {x, y + 2, 2, h - 4}, {x + w - 2, y + 2, 2, h - 4}};
++    for (int i = 0; i < 4; i++) {
++        wlr_scene_node_set_position(&r->outline_edges[i]->node, edges[i].x, edges[i].y);
++        wlr_scene_rect_set_size(r->outline_edges[i], edges[i].width, edges[i].height);
++        wlr_scene_rect_set_color(r->outline_edges[i], color);
++    }
++    wlr_scene_node_raise_to_top(&r->outline->node);
++    wlr_scene_node_set_enabled(&r->outline->node, true);
++}
++
++void tiling_update_outline(struct view *view) {
++    if (!initialized) return;
++    struct record *r = record_for(view);
++    if (r) update_outline(r);
++}
++
++static struct record *record_for(struct view *view) {
++    struct record *r;
++    wl_list_for_each(r, &records, link) if (r->view == view) return r;
++    return NULL;
++}
++static bool special(struct view *v) {
++    return v->fullscreen || v->maximized != VIEW_AXIS_NONE;
++}
++static bool borderless_fullscreen(struct view *v) {
++    if (v->auto_tiled || !output_is_usable(v->output) || view_wants_decorations(v)) return false;
++    struct wlr_box output;
++    wlr_output_layout_get_box(server.output_layout, v->output->wlr_output, &output);
++    return abs(v->pending.x - output.x) <= 2 && abs(v->pending.y - output.y) <= 2
++        && abs(v->pending.width - output.width) <= 2 && abs(v->pending.height - output.height) <= 2;
++}
++static bool eligible(struct view *v) {
++    return v->mapped && !borderless_fullscreen(v) && !v->shaded && v->layer == VIEW_LAYER_NORMAL
++        && !v->visible_on_all_workspaces && !view_has_strut_partial(v)
++        && (!v->impl->get_parent || !v->impl->get_parent(v))
++        && (!v->impl->is_modal_dialog || !v->impl->is_modal_dialog(v))
++        && window_rules_get_property(v, "fixedPosition") != LAB_PROP_TRUE;
++}
++static bool available(struct record *r) {
++    return r && r->view->mapped && !r->view->minimized && !r->floating
++        && !r->scratch && !special(r->view);
++}
++static struct record *group_visible(struct record *r) {
++    if (!r->group) return r;
++    struct record *candidate = available(r) ? r : NULL, *other;
++    wl_list_for_each(other, &records, link) {
++        if (other->group != r->group || !available(other)) continue;
++        if (other->view == server.active_view) return other;
++        if (!candidate || other->group_active) candidate = other;
++    }
++    return candidate;
++}
++static struct record *tile_owner(struct record *r) {
++    if (!r || r->tile || !r->group) return r;
++    struct record *other;
++    wl_list_for_each(other, &records, link)
++        if (other->group == r->group && other->tile) return other;
++    return r;
++}
++static bool leaf_visible(struct tile *t) {
++    struct record *r = record_for(t->view);
++    return r && group_visible(r) && available(group_visible(r));
++}
++static int count(struct tile *t) {
++    if (!t) return 0;
++    return t->view ? leaf_visible(t) : count(t->a) + count(t->b);
++}
++static void detach(struct record *r) {
++    struct tile *t = r->tile;
++    if (!t) return;
++    struct tile *p = t->parent;
++    if (!p) t->layout->root = NULL;
++    else {
++        struct tile *s = p->a == t ? p->b : p->a;
++        s->parent = p->parent;
++        if (!p->parent) t->layout->root = s;
++        else if (p->parent->a == p) p->parent->a = s;
++        else p->parent->b = s;
++        free(p);
++    }
++    free(t);
++    r->tile = NULL;
++}
++static struct layout *layout_for(struct view *v) {
++    struct layout *l;
++    wl_list_for_each(l, &layouts, link)
++        if (l->output == v->output && l->workspace == v->workspace) return l;
++    l = calloc(1, sizeof(*l));
++    if (!l) return NULL;
++    l->output = v->output;
++    l->workspace = v->workspace;
++    wl_list_insert(layouts.prev, &l->link);
++    return l;
++}
++static struct tile *last_leaf(struct tile *t) {
++    if (!t) return NULL;
++    while (!t->view) t = t->b;
++    return t;
++}
++static void attach(struct record *r) {
++    struct layout *l = layout_for(r->view);
++    if (!l) return;
++    struct tile *t = calloc(1, sizeof(*t));
++    if (!t) return;
++    t->view = r->view; t->layout = l; t->ratio = .5;
++    if (!l->root) l->root = t;
++    else {
++        struct record *focus = record_for(last_active);
++        struct tile *old = focus && focus->tile && focus->tile->layout == l ? focus->tile : last_leaf(l->root);
++        struct tile *p = calloc(1, sizeof(*p));
++        if (!p) { free(t); return; }
++        p->layout = l; p->parent = old->parent; p->a = old; p->b = t; p->ratio = .5;
++        struct wlr_box box = old->box;
++        if (!box.width) box = output_usable_area_in_layout_coords(l->output);
++        p->vertical = box.height > box.width;
++        if (!p->parent) l->root = p;
++        else if (p->parent->a == old) p->parent->a = p;
++        else p->parent->b = p;
++        t->parent = old->parent = p;
++    }
++    r->tile = t;
++}
++static void set_hidden(struct record *r, bool hidden) {
++    if (r->clipped == hidden) return;
++    r->clipped = hidden;
++    wlr_scene_node_set_enabled(&r->view->scene_tree->node,
++        !hidden && r->view->mapped && !r->view->minimized);
++}
++static void configure(struct record *r, struct wlr_box outer) {
++    struct view *v = r->view;
++    struct border margin = ssd_get_margin(v->ssd);
++    struct wlr_box box = {outer.x + margin.left, outer.y + margin.top,
++        outer.width - margin.left - margin.right, outer.height - margin.top - margin.bottom};
++    if (box.width < 1 || box.height < 1) return;
++    if (r->pseudo) {
++        int w = r->floating_geo.width < box.width ? r->floating_geo.width : box.width;
++        int h = r->floating_geo.height < box.height ? r->floating_geo.height : box.height;
++        box.x += (box.width - w) / 2; box.y += (box.height - h) / 2;
++        box.width = w; box.height = h;
++    }
++    view_adjust_size(v, &box.width, &box.height);
++    if (memcmp(&v->pending, &box, sizeof(box))) view_move_resize(v, box);
++}
++static void place_leaf(struct tile *t, struct wlr_box box, bool hidden) {
++    struct record *r = record_for(t->view), *active = group_visible(r), *other;
++    t->box = box;
++    wl_list_for_each(other, &records, link) {
++        if (other != r && (!r->group || other->group != r->group)) continue;
++        if (!available(other)) continue;
++        set_hidden(other, hidden || other != active);
++        if (!hidden) configure(other, box);
++    }
++}
++static void split_layout(struct tile *t, struct wlr_box box) {
++    if (!t || !count(t)) return;
++    t->box = box;
++    if (t->view) { place_leaf(t, box, false); return; }
++    if (!count(t->a)) { split_layout(t->b, box); return; }
++    if (!count(t->b)) { split_layout(t->a, box); return; }
++    int gap = rc.gap;
++    int extent = (t->vertical ? box.height : box.width) - gap;
++    if (extent < 2) extent = 2;
++    int first = (int)(extent * t->ratio);
++    if (first < 1) first = 1;
++    if (first >= extent) first = extent - 1;
++    struct wlr_box a = box, b = box;
++    if (t->vertical) { a.height = first; b.y += first + gap; b.height = extent - first; }
++    else { a.width = first; b.x += first + gap; b.width = extent - first; }
++    split_layout(t->a, a); split_layout(t->b, b);
++}
++static void scroll_layout(struct tile *t, struct wlr_box area, double *x, struct layout *l) {
++    if (!t || !count(t)) return;
++    if (!t->view) { scroll_layout(t->a, area, x, l); scroll_layout(t->b, area, x, l); return; }
++    struct record *r = record_for(t->view);
++    int width = r->width ? r->width : (area.width - rc.gap) / 2;
++    if (count(l->root) == 1) width = area.width;
++    if (width > area.width) width = area.width;
++    if (width < 100) width = 100;
++    struct wlr_box box = {area.x + (int)(*x - l->scroll), area.y, width, area.height};
++    /* Keep windows entirely within this output, never leaking onto a neighbour.
++     * Offscreen columns are hidden until focused; edge columns remain full size. */
++    bool hidden = box.x < area.x || box.x + box.width > area.x + area.width;
++    place_leaf(t, box, hidden);
++    *x += width + rc.gap;
++}
++static double column_position(struct tile *t, struct view *v, int width, double *x) {
++    if (!t || !count(t)) return -1;
++    if (t->view) {
++        struct record *r = record_for(t->view), *active = record_for(v);
++        double pos = *x;
++        *x += (r->width ? r->width : width) + rc.gap;
++        return t->view == v || (active && active->group && active->group == r->group) ? pos : -1;
++    }
++    double a = column_position(t->a, v, width, x);
++    double b = column_position(t->b, v, width, x);
++    return a >= 0 ? a : b;
++}
++static void arrange(void *unused) {
++    (void)unused;
++    idle = NULL;
++    if (!enabled || arranging || server.input_mode != LAB_INPUT_STATE_PASSTHROUGH) return;
++    arranging = true;
++    struct view *v;
++    struct record *r, *tmp;
++    wl_list_for_each_reverse(v, &server.views, link) {
++        if (!v->mapped || !output_is_usable(v->output)) continue;
++        r = record_for(v);
++        if (!r) {
++            r = calloc(1, sizeof(*r));
++            if (!r) continue;
++            r->view = v; r->original = r->floating_geo = v->pending;
++            r->original_sticky = v->visible_on_all_workspaces; r->original_layer = v->layer;
++            r->floating = !eligible(v);
++            wl_list_insert(records.prev, &r->link);
++            struct record *focus = record_for(last_active);
++            if (focus && focus->group && eligible(v) && !special(v)
++                && focus->view->workspace == v->workspace && focus->view->output == v->output)
++                r->group = focus->group;
++        }
++    }
++    wl_list_for_each_safe(r, tmp, &records, link) {
++        v = r->view;
++        if (!v->mapped && !v->minimized) { tiling_forget(v); continue; }
++        if (r->tile && (r->floating || r->scratch || r->tile->layout->output != v->output
++            || r->tile->layout->workspace != v->workspace)) detach(r);
++        /* Drop group membership when a window leaves the group's workspace/output. */
++        bool follower = false;
++        if (r->group) {
++            struct record *other;
++            wl_list_for_each(other, &records, link) {
++                if (other != r && other->group == r->group && other->tile) {
++                    if (other->view->output != v->output || other->view->workspace != v->workspace)
++                        r->group = 0;
++                    else follower = true;
++                    break;
++                }
++            }
++        }
++        bool tiled = !r->floating && !r->scratch;
++        if (v->auto_tiled != tiled) {
++            v->auto_tiled = tiled;
++            if (v->impl->notify_tiled) v->impl->notify_tiled(v);
++        }
++        if (r->group && server.active_view == v) {
++            struct record *other;
++            wl_list_for_each(other, &records, link)
++                if (other->group == r->group) other->group_active = other == r;
++        }
++        if (available(r) && !r->tile && !follower && output_is_usable(v->output)) attach(r);
++        if (!available(r)) set_hidden(r, false);
++    }
++    struct layout *l, *next;
++    wl_list_for_each_safe(l, next, &layouts, link) {
++        if (!l->root) { wl_list_remove(&l->link); free(l); continue; }
++        if (!output_is_usable(l->output)) continue;
++        struct wlr_box area = output_usable_area_in_layout_coords(l->output);
++        area.x += rc.gap; area.y += rc.gap; area.width -= 2 * rc.gap; area.height -= 2 * rc.gap;
++        if (area.width <= 0 || area.height <= 0) continue;
++        if (!l->scrolling) split_layout(l->root, area);
++        else {
++            double x = 0;
++            double pos = column_position(l->root, server.active_view, (area.width - rc.gap) / 2, &x);
++            struct record *focus = record_for(server.active_view);
++            int width = focus && focus->width ? focus->width : (area.width - rc.gap) / 2;
++            if (pos >= 0) {
++                if (pos < l->scroll) l->scroll = pos;
++                if (pos + width > l->scroll + area.width) l->scroll = pos + width - area.width;
++            }
++            double maximum = x - rc.gap - area.width;
++            if (l->scroll > maximum) l->scroll = maximum;
++            if (l->scroll < 0) l->scroll = 0;
++            x = 0; scroll_layout(l->root, area, &x, l);
++        }
++    }
++    if (server.active_view && record_for(server.active_view)) last_active = server.active_view;
++    wl_list_for_each(r, &records, link) update_outline(r);
++    arranging = false;
++}
++void tiling_schedule(void) {
++    if (initialized && enabled && !arranging && !idle)
++        idle = wl_event_loop_add_idle(server.wl_event_loop, arrange, NULL);
++}
++bool tiling_is_managed(struct view *v) { return enabled && v->auto_tiled; }
++void tiling_forget(struct view *v) {
++    if (!initialized) return;
++    struct record *r = record_for(v);
++    if (!r) return;
++    detach(r); set_hidden(r, false);
++    if (r->outline) wlr_scene_node_destroy(&r->outline->node);
++    v->auto_tiled = false;
++    wl_list_remove(&r->link); free(r);
++    if (last_active == v) last_active = NULL;
++    tiling_schedule();
++}
++static void set_enabled(bool value) {
++    if (enabled == value) return;
++    enabled = value;
++    if (value) { last_active = server.active_view; tiling_schedule(); return; }
++    if (idle) { wl_event_source_remove(idle); idle = NULL; }
++    struct record *r, *tmp;
++    wl_list_for_each_safe(r, tmp, &records, link) {
++        struct view *v = r->view;
++        v->auto_tiled = false;
++        if (v->impl->notify_tiled) v->impl->notify_tiled(v);
++        set_hidden(r, false);
++        if (r->scratch) view_minimize(v, false);
++        if (v->visible_on_all_workspaces != r->original_sticky) view_toggle_visible_on_all_workspaces(v);
++        if (v->layer != r->original_layer) view_set_layer(v, r->original_layer);
++        if (v->mapped && !special(v) && !r->floating) view_move_resize(v, r->original);
++        tiling_forget(v);
++    }
++    struct layout *l, *next;
++    wl_list_for_each_safe(l, next, &layouts, link) { wl_list_remove(&l->link); free(l); }
++}
++static void focus(struct view *v) {
++    if (!v) return;
++    struct record *r = record_for(v);
++    if (r) set_hidden(r, false);
++    desktop_focus_view(v, true);
++    /* Resolve scroller position before warping to its newly visible rectangle. */
++    if (idle) { wl_event_source_remove(idle); idle = NULL; }
++    arrange(NULL);
++    wlr_cursor_warp(server.seat.cursor, NULL, v->pending.x + v->pending.width / 2,
++                    v->pending.y + v->pending.height / 2);
++    cursor_update_focus();
++}
++static struct record *neighbour(struct view *v, char direction) {
++    if (!v) return NULL;
++    struct record *best = NULL, *r;
++    double score = 1e30;
++    struct record *self = tile_owner(record_for(v));
++    bool scroll = self && self->tile && self->tile->layout->scrolling;
++    if (scroll && (direction == 'l' || direction == 'r')) {
++        double x = 0, mine = column_position(self->tile->layout->root, v, 500, &x);
++        wl_list_for_each(r, &records, link) {
++            if (!available(r) || !r->tile || r->tile->layout != self->tile->layout || r == self) continue;
++            x = 0; double pos = column_position(r->tile->layout->root, r->view, 500, &x);
++            double d = direction == 'r' ? pos - mine : mine - pos;
++            if (d > 0 && d < score) { score = d; best = r; }
++        }
++        return best;
++    }
++    wl_list_for_each(r, &records, link) {
++        struct view *other = r->view;
++        if (other == v || !other->mapped || other->minimized || r->scratch || r->clipped
++            || other->workspace != v->workspace) continue;
++        double dx = other->pending.x + other->pending.width / 2.0 - v->pending.x - v->pending.width / 2.0;
++        double dy = other->pending.y + other->pending.height / 2.0 - v->pending.y - v->pending.height / 2.0;
++        double primary = direction == 'l' ? -dx : direction == 'r' ? dx : direction == 'u' ? -dy : dy;
++        double secondary = direction == 'l' || direction == 'r' ? fabs(dy) : fabs(dx);
++        if (primary > 1 && primary + 2 * secondary < score) { score = primary + 2 * secondary; best = r; }
++    }
++    return best;
++}
++static void swap(struct record *a, struct record *b) {
++    a = tile_owner(a); b = tile_owner(b);
++    if (!a || !b || !a->tile || !b->tile || a == b) return;
++    struct tile *t = a->tile;
++    a->tile = b->tile; b->tile = t;
++    a->tile->view = a->view; b->tile->view = b->view;
++    view_set_output(a->view, a->tile->layout->output);
++    view_set_output(b->view, b->tile->layout->output);
++}
++static void resize_tile(struct record *r, bool vertical, int delta) {
++    r = tile_owner(r);
++    if (!r || !r->tile) return;
++    struct tile *t = r->tile;
++    if (t->layout->scrolling) {
++        if (!vertical) r->width = fmax(150, (r->width ? r->width : t->box.width) + delta);
++        return;
++    }
++    while (t->parent && t->parent->vertical != vertical) t = t->parent;
++    if (!t->parent) return;
++    struct tile *p = t->parent;
++    double extent = vertical ? p->box.height : p->box.width;
++    if (extent <= 0) return;
++    p->ratio += (p->a == t ? delta : -delta) / extent;
++    p->ratio = fmax(.1, fmin(.9, p->ratio));
++}
++void tiling_action(struct view *v, const char *command) {
++    if (!enabled || !command || (server.session_lock_manager && server.session_lock_manager->locked)) return;
++    if (idle) { wl_event_source_remove(idle); idle = NULL; }
++    arrange(NULL);
++    if (!v) v = server.active_view;
++    struct record *r = record_for(v);
++    char op[32] = {0}, arg[32] = {0}; int amount = 0;
++    sscanf(command, "%31s %31s %d", op, arg, &amount);
++    if (!strcmp(op, "activate")) {
++        struct view *other;
++        unsigned long id = strtoul(arg, NULL, 10);
++        wl_list_for_each(other, &server.views, link)
++            if (other->creation_id == id) { focus(other); break; }
++    } else if (!strcmp(op, "scratch-show")) {
++        bool show = true; struct record *other;
++        wl_list_for_each(other, &records, link) if (other->scratch && other->scratch_visible) show = false;
++        wl_list_for_each(other, &records, link) if (other->scratch) {
++            other->scratch_visible = show;
++            if (show) view_move_to_workspace(other->view, server.workspaces.current);
++            view_minimize(other->view, !show);
++            if (show) focus(other->view);
++        }
++    } else if (!strcmp(op, "close-all")) {
++        struct view *other, *next;
++        wl_list_for_each_safe(other, next, &server.views, link) if (other->mapped) view_close(other);
++    } else if (!strcmp(op, "workspace") || !strcmp(op, "send") || !strcmp(op, "send-silent")) {
++        struct workspace *w = !strcmp(arg, "previous") ? server.workspaces.last
++            : workspaces_find(server.workspaces.current, arg, true);
++        if (w) {
++            if (strcmp(op, "workspace") && v) view_move_to_workspace(v, w);
++            if (strcmp(op, "send-silent")) workspaces_switch_to(w, true);
++        }
++    } else if (!strcmp(op, "monitor") || !strcmp(op, "workspace-monitor")) {
++        struct output *current = v ? v->output : output_nearest_to_cursor();
++        enum lab_edge direction = !strcmp(arg, "l") || !strcmp(arg, "previous") ? LAB_EDGE_LEFT
++            : !strcmp(arg, "u") ? LAB_EDGE_TOP : !strcmp(arg, "d") ? LAB_EDGE_BOTTOM : LAB_EDGE_RIGHT;
++        struct output *output = output_get_adjacent(current, direction, true);
++        if (output_is_usable(output)) {
++            if (!strcmp(op, "workspace-monitor")) {
++                struct view *other;
++                wl_list_for_each(other, &server.views, link)
++                    if (other->output == current && other->workspace == server.workspaces.current)
++                        view_move_to_output(other, output);
++            }
++            desktop_focus_output(output);
++        }
++    } else if (!v || !r) { /* no window selected */
++    } else if (!strcmp(op, "focus") || !strcmp(op, "swap") || !strcmp(op, "group-move")) {
++        struct record *other = neighbour(v, arg[0]);
++        if (other) {
++            if (!strcmp(op, "focus")) focus(group_visible(other)->view);
++            else if (!strcmp(op, "swap")) swap(r, other);
++            else {
++                if (!other->group) other->group = next_group++;
++                detach(r); r->group = other->group; r->floating = false;
++            }
++        }
++    } else if (!strcmp(op, "float") || !strcmp(op, "pop")) {
++        r->group = 0;
++        r->floating = !r->floating;
++        if (!strcmp(op, "pop")) {
++            view_toggle_visible_on_all_workspaces(v);
++            r->floating = v->visible_on_all_workspaces;
++        }
++        v->auto_tiled = !r->floating;
++        if (v->impl->notify_tiled) v->impl->notify_tiled(v);
++        if (r->floating) { detach(r); set_hidden(r, false); view_move_resize(v, r->floating_geo); }
++        else { r->floating_geo = v->pending; view_set_untiled(v); }
++    } else if (!strcmp(op, "split")) {
++        struct record *owner = tile_owner(r);
++        if (owner->tile && owner->tile->parent) owner->tile->parent->vertical = !owner->tile->parent->vertical;
++    } else if (!strcmp(op, "layout")) {
++        struct layout *l = layout_for(v); if (l) l->scrolling = !l->scrolling;
++    } else if (!strcmp(op, "pseudo")) r->pseudo = !r->pseudo;
++    else if (!strcmp(op, "width-save")) saved_width = v->pending.width;
++    else if (!strcmp(op, "width-restore") && saved_width) {
++        if (r->floating) view_resize_relative(v, 0, saved_width - v->pending.width, 0, 0);
++        else resize_tile(r, false, saved_width - v->pending.width);
++    } else if (!strcmp(op, "resize")) {
++        if (amount > 500) amount = 500;
++        if (amount < -500) amount = -500;
++        if (r->floating) view_resize_relative(v, 0, arg[0] == 'x' ? amount : 0, 0, arg[0] == 'y' ? amount : 0);
++        else resize_tile(r, arg[0] == 'y', amount);
++    } else if (!strcmp(op, "fullscreen")) view_toggle_fullscreen(v);
++    else if (!strcmp(op, "maximize") || !strcmp(op, "tiled-fullscreen")) view_toggle_maximize(v, VIEW_AXIS_BOTH);
++    else if (!strcmp(op, "close")) view_close(v);
++    else if (!strcmp(op, "scratch-send")) {
++        detach(r); r->group = 0; r->scratch = true; r->scratch_visible = false; v->auto_tiled = false;
++        if (v->impl->notify_tiled) v->impl->notify_tiled(v);
++        view_minimize(v, true);
++    } else if (!strcmp(op, "group")) {
++        if (r->group) {
++            unsigned old = r->group; struct record *other;
++            wl_list_for_each(other, &records, link) if (other->group == old) { other->group = 0; set_hidden(other, false); }
++        } else r->group = next_group++;
++    } else if (!strcmp(op, "ungroup")) {
++        r->group = 0; set_hidden(r, false);
++    } else if (!strcmp(op, "group-next") || !strcmp(op, "group-prev") || !strcmp(op, "group-index")) {
++        struct record *members[256], *other; int n = 0, index = 0;
++        wl_list_for_each(other, &records, link) if (r->group && other->group == r->group && available(other) && n < 256) {
++            if (other == r) index = n;
++            members[n++] = other;
++        }
++        if (n) {
++            if (!strcmp(op, "group-index")) index = atoi(arg) - 1;
++            else index = (index + (!strcmp(op, "group-next") ? 1 : n - 1)) % n;
++            if (index >= 0 && index < n) focus(members[index]->view);
++        }
++    }
++    tiling_schedule();
++}
++bool tiling_drag_finish(struct view *v) {
++    struct record *r = initialized ? record_for(v) : NULL;
++    if (!enabled || !r || !r->tile || special(v)) return false;
++    if (server.input_mode == LAB_INPUT_STATE_RESIZE) {
++        resize_tile(r, false, v->pending.width - server.grab_box.width);
++        resize_tile(r, true, v->pending.height - server.grab_box.height);
++    } else {
++        struct output *output = output_nearest_to_cursor();
++        if (output_is_usable(output) && output != v->output) { detach(r); view_set_output(v, output); }
++        else {
++            struct record *other;
++            wl_list_for_each(other, &records, link) {
++                if (other == r || !other->tile || !available(other) || other->view->workspace != v->workspace) continue;
++                struct wlr_box b = other->tile->box;
++                if (wlr_box_contains_point(&b, server.seat.cursor->x, server.seat.cursor->y)) { swap(r, other); break; }
++            }
++        }
++    }
++    tiling_schedule(); return true;
++}
++static int control(int fd, uint32_t mask, void *data) {
++    (void)mask; (void)data;
++    struct sockaddr_un peer;
++    char request[256], ancillary[CMSG_SPACE(sizeof(struct ucred))];
++    struct iovec io = {request, sizeof(request) - 1};
++    struct msghdr msg = {.msg_name=&peer, .msg_namelen=sizeof(peer), .msg_iov=&io, .msg_iovlen=1,
++        .msg_control=ancillary, .msg_controllen=sizeof(ancillary)};
++    ssize_t n = recvmsg(fd, &msg, MSG_DONTWAIT);
++    if (n <= 0 || (msg.msg_flags & (MSG_TRUNC | MSG_CTRUNC))) return 0;
++    bool authorized = false;
++    for (struct cmsghdr *c = CMSG_FIRSTHDR(&msg); c; c = CMSG_NXTHDR(&msg, c))
++        if (c->cmsg_level == SOL_SOCKET && c->cmsg_type == SCM_CREDENTIALS)
++            authorized = ((struct ucred *)CMSG_DATA(c))->uid == getuid();
++    if (!authorized) return 0;
++    request[n] = 0;
++    bool locked = server.session_lock_manager && server.session_lock_manager->locked;
++    const char *error = "";
++    if (!strcmp(request, "status") || !strcmp(request, "windows")) { }
++    else if (locked) error = "The session is locked.";
++    else if (!strcmp(request, "enable")) set_enabled(true);
++    else if (!strcmp(request, "disable")) set_enabled(false);
++    else if (!strcmp(request, "outline on") || !strcmp(request, "outline off")) {
++        outline_enabled = !strcmp(request, "outline on"); tiling_schedule();
++    } else if (!strncmp(request, "outline-color ", 14)) {
++        char output[128], extra; unsigned red, green, blue;
++        if (sscanf(request + 14, "%127s %u %u %u %c", output, &red, &green, &blue, &extra) != 4
++            || red > 255 || green > 255 || blue > 255) error = "Invalid outline color.";
++        else {
++            size_t i = 0;
++            while (i < outline_color_count && strcmp(outline_colors[i].output, output)) i++;
++            if (i == 64) error = "Too many output colors.";
++            else {
++                if (i == outline_color_count) outline_color_count++;
++                strcpy(outline_colors[i].output, output);
++                float rgba[] = {red / 255.f, green / 255.f, blue / 255.f, 1.f};
++                memcpy(outline_colors[i].rgba, rgba, sizeof(rgba)); tiling_schedule();
++            }
++        }
++    }
++    else if (!strncmp(request, "action ", 7)) tiling_action(NULL, request + 7);
++    else error = "Unknown tiling request.";
++    char *text = NULL; size_t length = 0;
++    FILE *stream = open_memstream(&text, &length);
++    if (!stream) return 0;
++    fprintf(stream, "{\"version\":1,\"ready\":true,\"compositor_pid\":%ld,\"enabled\":%s,\"outline_supported\":true,\"outline_enabled\":%s,\"error\":\"%s\",\"windows\":[", (long)getpid(), enabled ? "true" : "false", outline_enabled ? "true" : "false", error);
++    if (!strcmp(request, "windows") && !locked) {
++        struct view *v; bool first = true;
++        wl_list_for_each(v, &server.views, link) {
++            if (!v->mapped && !v->minimized) continue;
++            struct record *r = record_for(v);
++            bool outlined = r && r->outline && r->outline->node.enabled && v->scene_tree->node.enabled;
++            fprintf(stream, "%s{\"id\":%lu,\"active\":%s,\"tiled\":%s,\"visible\":%s,\"output\":%lu,\"x\":%d,\"y\":%d,\"width\":%d,\"height\":%d,\"fullscreen\":%s,\"minimized\":%s,\"outlined\":%s}",
++                first ? "" : ",", (unsigned long)v->creation_id, server.active_view == v ? "true" : "false",
++                v->auto_tiled ? "true" : "false", v->scene_tree->node.enabled ? "true" : "false",
++                (unsigned long)(v->output ? v->output->id_bit : 0), v->pending.x, v->pending.y, v->pending.width, v->pending.height,
++                v->fullscreen ? "true" : "false", v->minimized ? "true" : "false", outlined ? "true" : "false"); first = false;
++        }
++    }
++    fputs("]}", stream); fclose(stream);
++    if (length < 60000) sendto(fd, text, length, MSG_DONTWAIT | MSG_NOSIGNAL, (struct sockaddr *)&peer, msg.msg_namelen);
++    free(text); return 0;
++}
++void tiling_init(void) {
++    wl_list_init(&records); wl_list_init(&layouts); initialized = true;
++    const char *runtime = getenv("XDG_RUNTIME_DIR"), *display = getenv("WAYLAND_DISPLAY");
++    struct stat st;
++    if (!runtime || !display || strchr(display, '/') || stat(runtime, &st) || st.st_uid != getuid()
++        || (st.st_mode & 0077)) return;
++    struct sockaddr_un addr = {.sun_family=AF_UNIX};
++    if (snprintf(addr.sun_path, sizeof(addr.sun_path), "%s/waytile-%s.sock", runtime, display) >= (int)sizeof(addr.sun_path)) return;
++    control_fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
++    if (control_fd < 0) return;
++    int one = 1; setsockopt(control_fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
++    /* Recover only a dead, same-user socket left by a compositor crash. */
++    if (!lstat(addr.sun_path, &st) && S_ISSOCK(st.st_mode) && st.st_uid == getuid()) {
++        int probe = socket(AF_UNIX, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
++        if (probe >= 0) {
++            if (connect(probe, (struct sockaddr *)&addr, sizeof(addr)) && errno == ECONNREFUSED)
++                unlink(addr.sun_path);
++            close(probe);
++        }
++    }
++    if (bind(control_fd, (struct sockaddr *)&addr, sizeof(addr))) { close(control_fd); control_fd = -1; return; }
++    chmod(addr.sun_path, 0600); strcpy(socket_path, addr.sun_path);
++    control_source = wl_event_loop_add_fd(server.wl_event_loop, control_fd, WL_EVENT_READABLE, control, NULL);
++}
++void tiling_finish(void) {
++    if (!initialized) return;
++    set_enabled(false); initialized = false;
++    if (idle) { wl_event_source_remove(idle); idle = NULL; }
++    if (control_source) { wl_event_source_remove(control_source); control_source = NULL; }
++    if (control_fd >= 0) { close(control_fd); control_fd = -1; unlink(socket_path); }
++}
+--- a/src/view-impl-common.c
++++ b/src/view-impl-common.c
+@@ -1,5 +1,6 @@
+ // SPDX-License-Identifier: GPL-2.0-only
+ /* view-impl-common.c: common code for shell view->impl functions */
++#include "tiling.h"
+ #include "view-impl-common.h"
+ #include "foreign-toplevel/foreign.h"
+ #include "labwc.h"
+@@ -9,6 +10,7 @@
+ void
+ view_impl_map(struct view *view)
+ {
++	tiling_schedule();
+ 	view_update_visibility(view);
+ 
+ 	/* Leave minimized, if minimized before map */
+@@ -44,6 +46,7 @@
+ void
+ view_impl_unmap(struct view *view)
+ {
++	tiling_schedule();
+ 	view_update_visibility(view);
+ 
+ 	/*
+--- a/src/view.c
++++ b/src/view.c
+@@ -1,4 +1,5 @@
+ // SPDX-License-Identifier: GPL-2.0-only
++#include "tiling.h"
+ #include "view.h"
+ #include <assert.h>
+ #include <strings.h>
+@@ -462,6 +463,7 @@
+ void
+ view_set_activated(struct view *view, bool activated)
+ {
++	tiling_schedule();
+ 	assert(view);
+ 	ssd_set_active(view->ssd, activated);
+ 	if (view->impl->set_activated) {
+@@ -550,6 +552,7 @@
+ void
+ view_moved(struct view *view)
+ {
++	tiling_schedule();
+ 	assert(view);
+ 	wlr_scene_node_set_position(&view->scene_tree->node,
+ 		view->current.x, view->current.y);
+@@ -563,6 +566,7 @@
+ 	}
+ 	view_update_outputs(view);
+ 	ssd_update_geometry(view->ssd);
++	tiling_update_outline(view);
+ 	cursor_update_focus();
+ 	if (rc.resize_indicator && server.grabbed_view == view) {
+ 		resize_indicator_update(view);
+@@ -784,6 +788,7 @@
+ void
+ view_minimize(struct view *view, bool minimized)
+ {
++	tiling_schedule();
+ 	assert(view);
+ 	bool need_refocus = false;
+ 
+@@ -1317,6 +1322,8 @@
+ 		view_apply_tiled_geometry(view);
+ 	} else if (view->tiled_region || view->tiled_region_evacuate) {
+ 		view_apply_region_geometry(view);
++	} else if (tiling_is_managed(view)) {
++		tiling_schedule();
+ 	} else {
+ 		assert(false); // not reached
+ 	}
+@@ -1329,6 +1336,7 @@
+ void
+ view_set_maximized(struct view *view, enum view_axis maximized)
+ {
++	tiling_schedule();
+ 	assert(view);
+ 	if (view->maximized == maximized) {
+ 		return;
+@@ -1353,7 +1361,7 @@
+ view_is_tiled(struct view *view)
+ {
+ 	assert(view);
+-	return (view->tiled || view->tiled_region
++	return (tiling_is_managed(view) || view->tiled || view->tiled_region
+ 		|| view->tiled_region_evacuate);
+ }
+ 
+@@ -1586,6 +1594,7 @@
+ void
+ view_move_to_workspace(struct view *view, struct workspace *workspace)
+ {
++	tiling_schedule();
+ 	assert(view);
+ 	assert(workspace);
+ 	if (view->workspace != workspace) {
+@@ -1692,6 +1701,7 @@
+ void
+ view_set_fullscreen(struct view *view, bool fullscreen)
+ {
++	tiling_schedule();
+ 	assert(view);
+ 	if (fullscreen == view->fullscreen) {
+ 		return;
+@@ -2493,6 +2503,7 @@
+ {
+ 	assert(view);
+ 
++	tiling_forget(view);
+ 	wl_signal_emit_mutable(&view->events.destroy, NULL);
+ 	snap_constraints_invalidate(view);
+ 
+--- a/src/workspaces.c
++++ b/src/workspaces.c
+@@ -1,5 +1,6 @@
+ // SPDX-License-Identifier: GPL-2.0-only
+ #define _POSIX_C_SOURCE 200809L
++#include "tiling.h"
+ #include "workspaces.h"
+ #include <assert.h>
+ #include <cairo.h>
+@@ -434,6 +435,7 @@
+ void
+ workspaces_switch_to(struct workspace *target, bool update_focus)
+ {
++	tiling_schedule();
+ 	assert(target);
+ 	if (target == server.workspaces.current) {
+ 		return;
