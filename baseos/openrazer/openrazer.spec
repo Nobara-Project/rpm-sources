@@ -9,7 +9,7 @@
 
 Name: 		openrazer-meta
 Version: 	3.12.4
-Release: 	13%{?dist}
+Release: 	15%{?dist}
 Summary: 	Open source driver and user-space daemon for managing Razer devices
 
 License: 	GPL-2.0
@@ -21,6 +21,8 @@ Source0: 	https://github.com/crstmkt/openrazer/archive/%{gitcommit}.tar.gz
 Source0: 	https://github.com/openrazer/openrazer/releases/download/v%{version}/openrazer-%{version}.tar.xz
 %endif
 Patch0: 	openrazer-device-support.patch
+# HyperFlux reset-resume helper is unavailable on Linux 6.18 LTS.
+Patch1:         openrazer-lts-reset-resume.patch
 
 # https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
 ExcludeArch:    %{ix86}
@@ -218,6 +220,10 @@ fi
 %{python3_sitelib}/openrazer-*.egg-info/
 
 %changelog
+* Fri Oct 02 2026 Nobara Project <support@nobaraproject.org> - 3.12.4-14
+- Build HyperFlux support on Linux 6.18 LTS without the newer HID resume helper.
+- Preserve HID input reset-resume handling on Linux 6.19 and newer.
+
 * Sun Sep 27 2026 Nobara local build - 3.12.4-13
 - Create and remove HyperFlux mouse controls dynamically on pairing changes.
 - Support pairing after empty-slot boot and switching Naga models without replug.

@@ -1,0 +1,30 @@
+--- a/driver/razermouse_driver.c
++++ b/driver/razermouse_driver.c
+@@ -9300,6 +9300,9 @@
+ /**
+  * Describes the contents of the driver
+  */
++/* hidinput_reset_resume() was added in Linux 6.19. Older kernels
++ * have no HID input resume helper, so retain their default behavior. */
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 19, 0)
+ static int razer_mouse_reset_resume(struct hid_device *hdev)
+ {
+     if (hdev->product == USB_DEVICE_ID_RAZER_HYPERFLUX_V2 &&
+@@ -9307,6 +9310,7 @@
+         hidinput_reset_resume(hdev);
+     return 0;
+ }
++#endif
+ 
+ static struct hid_driver razer_mouse_driver = {
+     .name      = "razermouse",
+@@ -9317,7 +9321,9 @@
+     .raw_event = razer_raw_event,
+     .input_mapping = razer_input_mapping,
+     .input_configured = razer_input_configured,
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 19, 0)
+     .reset_resume = razer_mouse_reset_resume,
++#endif
+ };
+ 
+ module_hid_driver(razer_mouse_driver);
