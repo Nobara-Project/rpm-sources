@@ -20,13 +20,17 @@ This package installs the Snap Store using the Snapd service.
 # no install steps, everything done in post
 
 %post
-# Ensure that snapd is enabled and running, then install the Snap Store
-if systemctl is-active snapd.apparmor.service >/dev/null 2>&1; then
-    snap install snap-store
-elif systemctl is-active snapd.service >/dev/null 2>&1; then
+# snapd.service is socket-activated: on a new install only snapd.socket is
+# running (snapd-service's %post starts it), and snap starts snapd through it.
+# A freshly started snapd refuses installs until it has seeded ("too early
+# for operation"), which takes about a second.
+if systemctl is-active snapd.socket >/dev/null 2>&1; then
+    snap wait system seed.loaded
     snap install snap-store
 fi
-cp -R /var/lib/snapd/desktop/applications/snap-store*.desktop /usr/share/applications/
+# The store comes from the network and may not be there (offline, chroot), so
+# copying its launchers must not fail the transaction.
+cp -R /var/lib/snapd/desktop/applications/snap-store*.desktop /usr/share/applications/ 2>/dev/null || :
 
 %files
 # No files to be packaged for this simple installer
