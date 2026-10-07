@@ -43,8 +43,8 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 7.2
-%define _stablekver 8
-%define _PKGBUILD 1
+%define _stablekver 9
+%define _PKGBUILD 2
 %define _rcver rc7
 %define _tarkver %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
@@ -1127,6 +1127,9 @@ fi
 %files
 
 %changelog
+* Sun Oct 04 2026 LionHeartP <LionHeartP@proton.me> - 7.2.9-200
+- Update to 7.2.9
+
 * Sat Sep 26 2026 LionHeartP <LionHeartP@proton.me> - 7.2.8-200
 - Update to 7.2.8
 
