@@ -630,7 +630,7 @@ popd
 mkdir -p %{buildroot}%{_presetdir}/
 
 # Create preset file
-cat > %{buildroot}%{_presetdir}/snapd.preset << EOF
+cat > %{buildroot}%{_presetdir}/95-snapd.preset << EOF
 enable snapd.socket
 enable snapd.service
 enable snapd.apparmor.service
@@ -795,7 +795,7 @@ make -C data -k check
 
 %files
 %dir %{_presetdir}/
-%{_presetdir}/snapd.preset
+%{_presetdir}/95-snapd.preset
 #define license tag if not already defined
 %{!?_licensedir:%global license %doc}
 %license COPYING
