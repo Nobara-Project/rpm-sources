@@ -5,16 +5,15 @@ Subject: [PATCH] Update to C++20
 
 Current CEF requires compiling as C++20.
 ---
- CMakeLists.txt         | 2 +-
- cmake/os-linux.cmake   | 1 +
- obs-browser-source.cpp | 2 +-
- 3 files changed, 3 insertions(+), 2 deletions(-)
+ CMakeLists.txt       | 2 +-
+ cmake/os-linux.cmake | 1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 0853ac0c2d24..0139b4c1c828 100644
+index 16abf4c..ba56c5a 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -42,7 +42,7 @@ target_sources(
+@@ -44,7 +44,7 @@ target_sources(
  
  target_include_directories(obs-browser PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/deps")
  
@@ -24,10 +23,10 @@ index 0853ac0c2d24..0139b4c1c828 100644
  
  if(OS_WINDOWS)
 diff --git a/cmake/os-linux.cmake b/cmake/os-linux.cmake
-index f74797a62118..23443bf73f86 100644
+index 9ef8671..2dc1175 100644
 --- a/cmake/os-linux.cmake
 +++ b/cmake/os-linux.cmake
-@@ -20,6 +20,7 @@ target_include_directories(browser-helper PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/d
+@@ -21,6 +21,7 @@ target_include_directories(browser-helper PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/d
                                                    "${CMAKE_CURRENT_SOURCE_DIR}/obs-browser-page")
  
  target_link_libraries(browser-helper PRIVATE CEF::Wrapper CEF::Library)
@@ -35,19 +34,6 @@ index f74797a62118..23443bf73f86 100644
  
  target_sources(obs-browser PRIVATE deps/ip-string-posix.cpp)
  
-diff --git a/obs-browser-source.cpp b/obs-browser-source.cpp
-index 6e80fbce8180..86780113f63c 100644
---- a/obs-browser-source.cpp
-+++ b/obs-browser-source.cpp
-@@ -512,7 +512,7 @@ void BrowserSource::Update(obs_data_t *settings)
- 			width = n_width;
- 			height = n_height;
- 			ExecuteOnBrowser(
--				[=](CefRefPtr<CefBrowser> cefBrowser) {
-+				[=, this](CefRefPtr<CefBrowser> cefBrowser) {
- 					const CefSize cefSize(width, height);
- 					cefBrowser->GetHost()->GetClient()->GetDisplayHandler()->OnAutoResize(
- 						cefBrowser, cefSize);
 -- 
-2.53.0
+2.55.0
 

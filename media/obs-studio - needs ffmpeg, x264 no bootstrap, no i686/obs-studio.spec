@@ -33,25 +33,25 @@
 %global libvlc_soversion 5
 
 
-%global obswebsocket_version 5.7.3
-%global obsbrowser_commit ea04212e4bbadd077f9e6038758c4e4779c24fa3
+%global obswebsocket_version 5.7.4
+%global obsbrowser_commit 3f0a2cdf378939ebe3c6f9ab36d4ea100c25aac2
 
 # Upstream does not declare this yet. Arbitrarily pick 137.0 since it works
 # and it works around a CEF versioning teething issue:
 # https://github.com/chromiumembedded/cef/issues/3959
 %global cef_api_version 13700
 
-%define version_string 32.1.2
+%define version_string 32.2.2
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build %{build_timestamp}.%{shortcommit}%{?dist}
 %global _default_patch_fuzz 2
 # obs version and commit
-%global commit fb4d98bf88fae5fc85cb11fc57f7c5e309282194
+%global commit ba2f32bdf791005443988a4955e963663e16b1ed
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 Name:           obs-studio
 Version:        %{version_string}
-Release:        7.%{rel_build}
+Release:        1.%{rel_build}
 Summary:        Open Broadcaster Software Studio
 
 # OBS itself is GPL-2.0-or-later, while various plugin dependencies are of various other licenses
@@ -70,8 +70,6 @@ Patch0101:      0101-frontend-Consider-settings-changed-if-an-output-sett.patch
 Patch0102:      0102-frontend-Allow-invalid-recording-encoder-if-quality-.patch
 ## From: https://github.com/obsproject/obs-studio/pull/8529
 Patch0103:      0103-UI-Add-support-for-OpenH264-as-the-worst-case-fallba.patch
-## From: https://github.com/obsproject/obs-studio/pull/12507
-Patch0105:      0105-libobs-opengl-Reject-external-only-modifiers.patch
 
 # Downstream Nobara patches
 ## Preserve Rec. 2100 PQ from wlroots PipeWire screencasts
@@ -128,7 +126,13 @@ BuildRequires:  libxkbcommon-devel
 BuildRequires:  luajit-devel
 %endif
 BuildRequires:  mbedtls-devel
+%if 0%{?fedora} > 44
+# Lower nv-codec-headers to support older cards
+# https://bugzilla.redhat.com/show_bug.cgi?id=2521662#c3
+BuildRequires:  nv-codec-headers13.0
+%else
 BuildRequires:  nv-codec-headers
+%endif
 %if %{with vpl}
 BuildRequires:  libvpl-devel
 %endif

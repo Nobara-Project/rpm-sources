@@ -12,48 +12,44 @@ value, since you can never trigger the "changed" status).
 If the settings load process clamped any setting to the default, enable
 the apply button and consider the setting changed.
 ---
- frontend/settings/OBSBasicSettings.cpp | 28 +++++++++++++++++++++++---
- 1 file changed, 25 insertions(+), 3 deletions(-)
+ frontend/settings/OBSBasicSettings.cpp | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
 
 diff --git a/frontend/settings/OBSBasicSettings.cpp b/frontend/settings/OBSBasicSettings.cpp
-index 6e47f93ac924..98998f3605cf 100644
+index cace1de59..0a5639359 100644
 --- a/frontend/settings/OBSBasicSettings.cpp
 +++ b/frontend/settings/OBSBasicSettings.cpp
-@@ -1753,19 +1753,30 @@ void OBSBasicSettings::LoadSimpleOutputSettings()
+@@ -1813,21 +1813,29 @@ void OBSBasicSettings::LoadSimpleOutputSettings()
  	ui->simpleOutAdvanced->setChecked(advanced);
  	ui->simpleOutCustom->setText(custom);
  
 +	bool outputSettingReset = false;
 +
  	idx = ui->simpleOutRecQuality->findData(QString(recQual));
--	if (idx == -1)
-+	if (idx == -1) {
+	if (idx == -1) {
 +		ui->simpleOutRecQuality->setProperty("changed", QVariant(true));
  		idx = 0;
 +		outputSettingReset = true;
-+	}
+	}
  	ui->simpleOutRecQuality->setCurrentIndex(idx);
  
  	idx = ui->simpleOutStrEncoder->findData(QString(streamEnc));
--	if (idx == -1)
-+	if (idx == -1) {
+	if (idx == -1) {
 +		ui->simpleOutStrEncoder->setProperty("changed", QVariant(true));
  		idx = 0;
 +		outputSettingReset = true;
-+	}
+	}
  	ui->simpleOutStrEncoder->setCurrentIndex(idx);
  
  	idx = ui->simpleOutStrAEncoder->findData(QString(streamAudioEnc));
--	if (idx == -1)
-+	if (idx == -1) {
+	if (idx == -1) {
 +		ui->simpleOutStrAEncoder->setProperty("changed", QVariant(true));
  		idx = 0;
 +		outputSettingReset = true;
-+	}
+	}
  	ui->simpleOutStrAEncoder->setCurrentIndex(idx);
  
- 	idx = ui->simpleOutRecEncoder->findData(QString(recEnc));
-@@ -1781,6 +1792,10 @@ void OBSBasicSettings::LoadSimpleOutputSettings()
+@@ -1844,6 +1852,10 @@ void OBSBasicSettings::LoadSimpleOutputSettings()
  	ui->simpleRBMegsMax->setValue(rbSize);
  
  	SimpleStreamingEncoderChanged();
@@ -64,7 +60,7 @@ index 6e47f93ac924..98998f3605cf 100644
  }
  
  static inline QString makeFormatToolTip()
-@@ -1921,6 +1936,10 @@ void OBSBasicSettings::LoadAdvOutputStreamingEncoderProperties()
+@@ -1986,6 +1998,10 @@ void OBSBasicSettings::LoadAdvOutputStreamingEncoderProperties()
  
  			ui->advOutEncoder->insertItem(0, encName, QT_UTF8(type));
  			SetComboByValue(ui->advOutEncoder, type);
@@ -75,7 +71,7 @@ index 6e47f93ac924..98998f3605cf 100644
  		}
  	}
  
-@@ -2027,6 +2046,9 @@ void OBSBasicSettings::LoadAdvOutputRecordingEncoderProperties()
+@@ -2095,6 +2111,9 @@ void OBSBasicSettings::LoadAdvOutputRecordingEncoderProperties()
  			SetComboByValue(ui->advOutRecEncoder, type);
  		} else {
  			ui->advOutRecEncoder->setCurrentIndex(-1);
@@ -86,5 +82,5 @@ index 6e47f93ac924..98998f3605cf 100644
  	}
  }
 -- 
-2.51.0
+2.55.0
 

@@ -12,30 +12,30 @@ it's relevant.
  1 file changed, 5 insertions(+), 2 deletions(-)
 
 diff --git a/frontend/settings/OBSBasicSettings.cpp b/frontend/settings/OBSBasicSettings.cpp
-index 98998f3605cf..fdda9282f511 100644
+index 0a5639359..cb102f4a9 100644
 --- a/frontend/settings/OBSBasicSettings.cpp
 +++ b/frontend/settings/OBSBasicSettings.cpp
-@@ -3739,8 +3739,7 @@ bool OBSBasicSettings::QueryAllowedToClose()
+@@ -3905,8 +3905,7 @@ bool OBSBasicSettings::QueryAllowedToClose()
  	bool invalidFormat = false;
  	bool invalidTracks = false;
  	if (simple) {
 -		if (ui->simpleOutRecEncoder->currentIndex() == -1 || ui->simpleOutStrEncoder->currentIndex() == -1 ||
--		    ui->simpleOutRecAEncoder->currentIndex() == -1 || ui->simpleOutStrAEncoder->currentIndex() == -1)
-+		if (ui->simpleOutStrEncoder->currentIndex() == -1 || ui->simpleOutStrAEncoder->currentIndex() == -1)
+-		    ui->simpleOutRecAEncoder->currentIndex() == -1 || ui->simpleOutStrAEncoder->currentIndex() == -1) {
++		if (ui->simpleOutStrEncoder->currentIndex() == -1 || ui->simpleOutStrAEncoder->currentIndex() == -1) {
  			invalidEncoder = true;
- 
- 		if (ui->simpleOutRecFormat->currentIndex() == -1)
-@@ -3750,6 +3749,10 @@ bool OBSBasicSettings::QueryAllowedToClose()
- 		QString format = ui->simpleOutRecFormat->currentData().toString();
- 		if (SimpleOutGetSelectedAudioTracks() == 0 && qual != "Stream" && format != "flv")
+ 		}
+
+@@ -3919,6 +3918,10 @@ bool OBSBasicSettings::QueryAllowedToClose()
+ 		if (SimpleOutGetSelectedAudioTracks() == 0 && qual != "Stream" && format != "flv") {
  			invalidTracks = true;
+ 		}
 +
 +		if (qual != "Stream" &&
 +		    (ui->simpleOutRecEncoder->currentIndex() == -1 || ui->simpleOutRecAEncoder->currentIndex() == -1))
 +			invalidEncoder = true;
  	} else {
  		if (ui->advOutRecEncoder->currentIndex() == -1 || ui->advOutEncoder->currentIndex() == -1 ||
- 		    ui->advOutRecAEncoder->currentIndex() == -1 || ui->advOutAEncoder->currentIndex() == -1)
+ 		    ui->advOutRecAEncoder->currentIndex() == -1 || ui->advOutAEncoder->currentIndex() == -1) {
 -- 
-2.51.0
+2.55.0
 
