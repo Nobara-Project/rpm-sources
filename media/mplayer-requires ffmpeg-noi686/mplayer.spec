@@ -3,14 +3,14 @@
 %global         codecdir %{_libdir}/codecs
 %global         pre 20251106svn
 %global         svn 1
-%global         svnbuild 2026-07-06
+%global         svnbuild 2026-10-04
 
 Name:           mplayer
 Version:        1.5.1
 %if 0%{?svn}
-Release:        0.23%{?pre:.%{pre}}%{?dist}
+Release:        0.25%{?pre:.%{pre}}%{?dist}
 %else
-Release:        23%{?dist}
+Release:        25%{?dist}
 %endif
 Summary:        Movie player playing most video formats and DVDs
 
