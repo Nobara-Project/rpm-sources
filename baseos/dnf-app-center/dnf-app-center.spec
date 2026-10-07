@@ -1,5 +1,5 @@
 Name:           dnf-app-center
-Version:        0.2.0
+Version:        0.2.4
 Release:        1%{?dist}
 Summary:        GTK App Center for DNF/AppStream with updater tray service
 
