@@ -9,7 +9,7 @@
 
 Name:		ptyxis
 Version:	50.1
-Release:	2%{?dist}.nobara.4
+Release:	3%{?dist}.nobara.4
 Summary:	A container oriented terminal for GNOME
 
 License:	GPL-2.0-or-later AND GPL-3.0-or-later AND LGPL-3.0-or-later AND LGPL-2.0-or-later AND CC0-1.0
