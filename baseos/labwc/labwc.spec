@@ -4,7 +4,7 @@
 Name:           labwc
 Version:        0.20.2
 %forgemeta
-Release:        15%{?dist}
+Release:        17%{?dist}
 Summary:        A Wayland window-stacking compositor
 
 License:        GPL-2.0-only AND MIT
@@ -13,6 +13,8 @@ Source0:        %{forgesource}
 Source1:        https://gitlab.freedesktop.org/wlroots/wlroots/-/archive/0.20.2/wlroots-0.20.2.tar.gz
 Source2:        wlroots-0.20.2-background-blur.patch
 Source3:        wlroots-0.20.2-color-management.patch
+Source4:        wlroots-0.20.2-xwayland-associate.patch
+Source5:        wlroots-0.20.2-xwayland-clipboard-focus.patch
 Patch:          0001-add-per-output-hdr-overrides.patch
 Patch:          0002-allow-moving-fullscreen-views-between-outputs.patch
 Patch:          0003-defer-live-hdr-changes-to-next-frame.patch
@@ -143,6 +145,8 @@ standalone environment.
 mv subprojects/wlroots-0.20.2 subprojects/wlroots
 %{__patch} -d subprojects/wlroots -p1 < %{SOURCE2}
 %{__patch} -d subprojects/wlroots -p1 < %{SOURCE3}
+%{__patch} -d subprojects/wlroots -p1 < %{SOURCE4}
+%{__patch} -d subprojects/wlroots -p1 < %{SOURCE5}
 cp subprojects/wlroots/LICENSE WLROOTS-LICENSE
 
 
@@ -155,6 +159,7 @@ cp subprojects/wlroots/LICENSE WLROOTS-LICENSE
     -Dwlroots:install=false \
     -Dwlroots:examples=false \
     -Dwlroots:background-blur-tests=true \
+    -Dwlroots:xwayland-tests=true \
     -Dwlroots:renderers=gles2,vulkan \
     -Dwlroots:backends=drm,libinput,x11 \
     -Dwlroots:allocators=gbm,udmabuf \
@@ -189,6 +194,16 @@ cp subprojects/wlroots/LICENSE WLROOTS-LICENSE
 %{_userunitdir}/labwc-session.target
 
 %changelog
+* Thu Oct 08 2026 Nobara Project - 0.20.2-17
+- Reoffer Wayland clipboard and primary selections when XWayland gains focus.
+- Fix Wine/Proton caching an empty clipboard after an unfocused format request.
+- Preserve focus-gated clipboard access and X11-owned selections.
+
+* Thu Oct 08 2026 Nobara Project - 0.20.2-16
+- Map XWayland surfaces whose initial buffer arrives before window association.
+- Fix Steam secondary windows getting stuck waiting for a frame callback.
+- Test both association/commit orders and buffered surface reuse.
+
 * Tue Sep 29 2026 Nobara Project - 0.20.2-15
 - Add a read-only portal window identifier to output geometry lookup
 - Let capture notifications follow the captured window's monitor
