@@ -24,6 +24,9 @@ Source40:       ssh-agent.conf
 ## upstream patches
 
 ## upstreamable Patches
+# reserve the panel's space on its own screen when another output overlaps it,
+# so desktop icons don't go under the panel (sent to KDE, see the patch header)
+Patch100:       plasma-workspace-6.7.5-panel-strut-overlapping-outputs.patch
 
 ## downstream Patches
 # default to enable open terminal action

@@ -1,0 +1,46 @@
+From: jalsarraf0 <19882582+jalsarraf0@users.noreply.github.com>
+Subject: [PATCH] shell: reserve panel space on the screen the panel follows
+
+availableScreenRect() and availableScreenRegion() only subtract a panel
+when the panel's QWindow::screen() is the screen being asked about. On
+Wayland that is the oldest output the panel's surface entered. When a
+second output overlaps the panel's monitor (a KVM, capture dongle or TV
+at the same position) and KWin lists it first, the panel window lands
+on that output and its space is never reserved on its own screen, so
+the desktop icon grid runs under the panel.
+
+Compare against PanelView::screenToFollow(), as the rest of ShellCorona
+already does.
+
+Sent to KDE as "shell: reserve panel space on the screen the panel
+follows" (plasma/plasma-workspace, master); same change, plus an
+autotest. Unchanged in Plasma/6.7, Plasma/6.8 and master as of
+2026-10-10.
+---
+ shell/shellcorona.cpp | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/shell/shellcorona.cpp b/shell/shellcorona.cpp
+index c33387b..8687206 100644
+--- a/shell/shellcorona.cpp
++++ b/shell/shellcorona.cpp
+@@ -1219,7 +1219,7 @@ QRegion ShellCorona::_availableScreenRegion(int id) const
+     }
+ 
+     return std::accumulate(m_panelViews.cbegin(), m_panelViews.cend(), QRegion(screen->geometry()), [screen](const QRegion &a, const PanelView *v) {
+-        if (v->isVisible() && screen == v->screen() && v->visibilityMode() != PanelView::AutoHide) {
++        if (v->isVisible() && screen == v->screenToFollow() && v->visibilityMode() != PanelView::AutoHide) {
+             // if the panel is being moved around, we still want to calculate it from the edge
+             return a - v->geometryByDistance(0);
+         }
+@@ -1287,7 +1287,9 @@ QRect ShellCorona::_availableScreenRect(int id) const
+     int topThickness, leftThickness, rightThickness, bottomThickness;
+     topThickness = leftThickness = rightThickness = bottomThickness = 0;
+     for (PanelView *v : m_panelViews) {
+-        if (v->isVisible() && v->screen() == screen && v->visibilityMode() != PanelView::AutoHide) {
++        // Not QWindow::screen(): with overlapping outputs it is whichever one the compositor
++        // reported first, which may not be the screen the panel is on
++        if (v->isVisible() && v->screenToFollow() == screen && v->visibilityMode() != PanelView::AutoHide) {
+             switch (v->location()) {
+             case Plasma::Types::LeftEdge:
+                 leftThickness = accumulator(leftThickness, v->totalThickness());
