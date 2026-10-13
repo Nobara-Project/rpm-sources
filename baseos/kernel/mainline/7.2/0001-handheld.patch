@@ -1,6 +1,6 @@
-From 0a0023d2665ebbf6f8d237106b47d5db22633d52 Mon Sep 17 00:00:00 2001
+From 6f0244cd780fe30e0d1fc960f1b5ea501c7fbc13 Mon Sep 17 00:00:00 2001
 From: Peter Jung <admin@ptr1337.dev>
-Date: Fri, 18 Sep 2026 08:06:19 +0200
+Date: Sun, 4 Oct 2026 11:26:36 +0200
 Subject: [PATCH] handheld
 
 Signed-off-by: Peter Jung <admin@ptr1337.dev>
@@ -11,7 +11,7 @@ Signed-off-by: Peter Jung <admin@ptr1337.dev>
  .../wmi/devices/msi-wmi-platform.rst          |   26 +
  MAINTAINERS                                   |   12 +
  arch/x86/pci/fixup.c                          |   16 +
- drivers/acpi/battery.c                        |   82 +
+ drivers/acpi/battery.c                        |   83 +
  drivers/acpi/button.c                         |   12 +-
  drivers/acpi/device_pm.c                      |    6 +
  drivers/acpi/ec.c                             |    9 +
@@ -45,7 +45,7 @@ Signed-off-by: Peter Jung <admin@ptr1337.dev>
  drivers/gpu/drm/amd/amdgpu/tonga_ih.c         |    1 +
  drivers/gpu/drm/amd/amdgpu/vega10_ih.c        |    1 +
  drivers/gpu/drm/amd/amdgpu/vega20_ih.c        |    1 +
- .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c |   36 +-
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c |   30 +-
  .../amd/display/amdgpu_dm/amdgpu_dm_color.c   |   16 +-
  .../amd/display/dc/dcn30/dcn30_cm_common.c    |  192 +
  .../display/dc/dwb/dcn30/dcn30_cm_common.h    |    4 +
@@ -66,12 +66,12 @@ Signed-off-by: Peter Jung <admin@ptr1337.dev>
  drivers/hid/Makefile                          |    4 +-
  drivers/hid/hid-asus-ally.c                   | 2304 ++++++++
  drivers/hid/hid-asus-ally.h                   |  400 ++
- drivers/hid/hid-asus.c                        |   26 +-
+ drivers/hid/hid-asus.c                        |   27 +-
  drivers/hid/hid-asus.h                        |   13 +
  drivers/hid/hid-ids.h                         |   16 +
  drivers/hid/hid-msi.c                         | 2063 +++++++
  drivers/hid/hid-multitouch.c                  |   39 +
- drivers/hid/hid-steam.c                       | 1022 +++-
+ drivers/hid/hid-steam.c                       | 1018 +++-
  drivers/hid/zotac-zone-hid/Kconfig            |    8 +
  drivers/hid/zotac-zone-hid/Makefile           |    6 +
  .../zotac-zone-hid/zotac-zone-hid-config.c    | 2231 +++++++
@@ -196,7 +196,7 @@ Signed-off-by: Peter Jung <admin@ptr1337.dev>
  sound/soc/codecs/nau8821.c                    |    4 +
  sound/soc/sof/core.c                          |    2 +-
  sound/soc/sof/pm.c                            |   27 +
- 191 files changed, 36848 insertions(+), 523 deletions(-)
+ 191 files changed, 36848 insertions(+), 515 deletions(-)
  create mode 100644 drivers/extcon/extcon-steamdeck.c
  create mode 100644 drivers/hid/hid-asus-ally.c
  create mode 100644 drivers/hid/hid-asus-ally.h
@@ -359,7 +359,7 @@ index 73197b31926a..704bfdac5203 100644
  --------------------
  
 diff --git a/MAINTAINERS b/MAINTAINERS
-index 8014b9f8253e..9af2371137a6 100644
+index 95cd976a068c..1b93023f5bb7 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
 @@ -11564,6 +11564,12 @@ F:	drivers/hid/hid-sensor-*
@@ -389,10 +389,10 @@ index 8014b9f8253e..9af2371137a6 100644
  M:	Nikita Kravets <teackot@gmail.com>
  L:	platform-driver-x86@vger.kernel.org
 diff --git a/arch/x86/pci/fixup.c b/arch/x86/pci/fixup.c
-index b301c6c8df75..9da7ae0b2437 100644
+index 795d81c7a4de..38b38d67107c 100644
 --- a/arch/x86/pci/fixup.c
 +++ b/arch/x86/pci/fixup.c
-@@ -1080,4 +1080,20 @@ static void quirk_tuxeo_rp_d3(struct pci_dev *pdev)
+@@ -1179,4 +1179,20 @@ static void quirk_tuxeo_rp_d3(struct pci_dev *pdev)
  	}
  }
  DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_AMD, 0x1502, quirk_tuxeo_rp_d3);
@@ -414,7 +414,7 @@ index b301c6c8df75..9da7ae0b2437 100644
 +DECLARE_PCI_FIXUP_SUSPEND_LATE(PCI_VENDOR_ID_REALTEK, 0x525a, quirk_msi_claw_cardreader);
  #endif /* CONFIG_SUSPEND */
 diff --git a/drivers/acpi/battery.c b/drivers/acpi/battery.c
-index 365626827d61..2ff5e3e9fa71 100644
+index 365626827d61..f7f39dd72928 100644
 --- a/drivers/acpi/battery.c
 +++ b/drivers/acpi/battery.c
 @@ -16,6 +16,7 @@
@@ -455,19 +455,18 @@ index 365626827d61..2ff5e3e9fa71 100644
  
  static bool acpi_battery_is_full(struct acpi_battery *battery)
  {
-@@ -206,6 +216,11 @@ static int acpi_battery_get_property(struct power_supply *psy,
+@@ -205,6 +215,10 @@ static int acpi_battery_get_property(struct power_supply *psy,
+ 	mutex_lock(&battery->property_lock);
  
  	acpi_battery_get_state(battery);
- 
 +	if (test_bit(ACPI_BATTERY_QUIRK_DERIVE_RATE, &battery->flags)) {
 +		acpi_battery_derive_rate(battery);
 +		battery->rate_now = battery->derived_rate;
 +	}
-+
+ 
  	switch (psp) {
  	case POWER_SUPPLY_PROP_STATUS:
- 		/*
-@@ -973,6 +988,67 @@ static void find_battery(const struct dmi_header *dm, void *private)
+@@ -973,6 +987,69 @@ static void find_battery(const struct dmi_header *dm, void *private)
  	}
  }
  
@@ -496,6 +495,8 @@ index 365626827d61..2ff5e3e9fa71 100644
 +	unsigned long now = jiffies;
 +	unsigned long dt;
 +	u64 dcap;
++
++	lockdep_assert_held(&battery->property_lock);
 +
 +	/*
 +	 * When neither charging nor discharging (full/on AC), the true rate
@@ -535,7 +536,7 @@ index 365626827d61..2ff5e3e9fa71 100644
  /*
   * According to the ACPI spec, some kinds of primary batteries can
   * report percentage battery remaining capacity directly to OS.
-@@ -1322,6 +1398,12 @@ static int acpi_battery_probe(struct platform_device *pdev)
+@@ -1322,6 +1399,12 @@ static int acpi_battery_probe(struct platform_device *pdev)
  	if (acpi_has_method(battery->device->handle, "_BIX"))
  		set_bit(ACPI_BATTERY_XINFO_PRESENT, &battery->flags);
  
@@ -925,7 +926,7 @@ index 4ed2e9b7e99b..c3e0d3a8912f 100644
   * device_complete - Complete a PM transition for given device.
   * @dev: Device to handle.
 diff --git a/drivers/bluetooth/btrtl.c b/drivers/bluetooth/btrtl.c
-index 03fa9409e3ee..708c0c85859d 100644
+index d29813331603..0aa69d19d986 100644
 --- a/drivers/bluetooth/btrtl.c
 +++ b/drivers/bluetooth/btrtl.c
 @@ -9,6 +9,7 @@
@@ -981,7 +982,7 @@ index 03fa9409e3ee..708c0c85859d 100644
  static void *rtl_iov_pull_data(struct rtl_iovec *iov, u32 len)
  {
  	void *data = iov->data;
-@@ -1298,8 +1330,46 @@ int btrtl_download_firmware(struct hci_dev *hdev,
+@@ -1297,8 +1329,46 @@ int btrtl_download_firmware(struct hci_dev *hdev,
  }
  EXPORT_SYMBOL_GPL(btrtl_download_firmware);
  
@@ -1028,7 +1029,7 @@ index 03fa9409e3ee..708c0c85859d 100644
  	/* Enable controller to do both LE scan and BR/EDR inquiry
  	 * simultaneously.
  	 */
-@@ -1512,6 +1582,7 @@ int btrtl_get_uart_settings(struct hci_dev *hdev,
+@@ -1511,6 +1581,7 @@ int btrtl_get_uart_settings(struct hci_dev *hdev,
  }
  EXPORT_SYMBOL_GPL(btrtl_get_uart_settings);
  
@@ -1037,10 +1038,10 @@ index 03fa9409e3ee..708c0c85859d 100644
  MODULE_DESCRIPTION("Bluetooth support for Realtek devices ver " VERSION);
  MODULE_VERSION(VERSION);
 diff --git a/drivers/bluetooth/btusb.c b/drivers/bluetooth/btusb.c
-index 27f41eef6642..7202fd26d44e 100644
+index a4bad7780567..08a1ca475dc0 100644
 --- a/drivers/bluetooth/btusb.c
 +++ b/drivers/bluetooth/btusb.c
-@@ -412,6 +412,8 @@ static const struct usb_device_id quirks_table[] = {
+@@ -422,6 +422,8 @@ static const struct usb_device_id quirks_table[] = {
  						     BTUSB_WIDEBAND_SPEECH },
  	{ USB_DEVICE(0x2c7c, 0x0132), .driver_info = BTUSB_QCA_WCN6855 |
  						     BTUSB_WIDEBAND_SPEECH },
@@ -1050,10 +1051,10 @@ index 27f41eef6642..7202fd26d44e 100644
  	/* Broadcom BCM2035 */
  	{ USB_DEVICE(0x0a5c, 0x2009), .driver_info = BTUSB_BCM92035 },
 diff --git a/drivers/bluetooth/hci_qca.c b/drivers/bluetooth/hci_qca.c
-index 1222f97800f4..a2b0de45faa9 100644
+index 875093e61c68..7197de7f94ae 100644
 --- a/drivers/bluetooth/hci_qca.c
 +++ b/drivers/bluetooth/hci_qca.c
-@@ -2797,6 +2797,7 @@ static const struct acpi_device_id qca_bluetooth_acpi_match[] = {
+@@ -2803,6 +2803,7 @@ static const struct acpi_device_id qca_bluetooth_acpi_match[] = {
  	{ "DLA16390", (kernel_ulong_t)&qca_soc_data_qca6390 },
  	{ "DLB16390", (kernel_ulong_t)&qca_soc_data_qca6390 },
  	{ "DLB26390", (kernel_ulong_t)&qca_soc_data_qca6390 },
@@ -1360,7 +1361,7 @@ index 000000000000..74f190adc8ea
 +MODULE_DESCRIPTION("Steam Deck extcon driver");
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
-index 0dd8e2375c4d..1239442e15c3 100644
+index 11a6020dd8cf..537771fd4d43 100644
 --- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
 +++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
 @@ -51,6 +51,7 @@
@@ -1371,7 +1372,7 @@ index 0dd8e2375c4d..1239442e15c3 100644
  
  #include <kgd_kfd_interface.h>
  #include "dm_pp_interface.h"
-@@ -1067,6 +1068,7 @@ struct amdgpu_device {
+@@ -1070,6 +1071,7 @@ struct amdgpu_device {
  
  	int asic_reset_res;
  	struct work_struct		xgmi_reset_work;
@@ -1379,7 +1380,7 @@ index 0dd8e2375c4d..1239442e15c3 100644
  	struct list_head		reset_list;
  
  	long				gfx_timeout;
-@@ -1102,6 +1104,7 @@ struct amdgpu_device {
+@@ -1105,6 +1107,7 @@ struct amdgpu_device {
  	bool				barrier_has_auto_waitcnt;
  
  	struct amdgpu_reset_control     *reset_cntl;
@@ -1387,7 +1388,7 @@ index 0dd8e2375c4d..1239442e15c3 100644
  	uint32_t                        ip_versions[MAX_HWIP][HWIP_MAX_INSTANCE];
  
  	bool				ram_is_direct_mapped;
-@@ -1126,6 +1129,8 @@ struct amdgpu_device {
+@@ -1129,6 +1132,8 @@ struct amdgpu_device {
  	/* Mask of active clusters */
  	uint32_t			aid_mask;
  
@@ -1397,7 +1398,7 @@ index 0dd8e2375c4d..1239442e15c3 100644
  	bool                            debug_vm;
  	bool                            debug_largebar;
 diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
-index ddfc51a92d79..38eb4e938b95 100644
+index ea9a6ed4bcc9..894812a0f5fc 100644
 --- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
 +++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
 @@ -84,6 +84,7 @@
@@ -1408,7 +1409,7 @@ index ddfc51a92d79..38eb4e938b95 100644
  
  #if IS_ENABLED(CONFIG_X86)
  #include <asm/intel-family.h>
-@@ -3540,6 +3541,17 @@ bool amdgpu_device_has_dc_support(struct amdgpu_device *adev)
+@@ -3618,6 +3619,17 @@ bool amdgpu_device_has_dc_support(struct amdgpu_device *adev)
  	return amdgpu_device_asic_has_dc_support(adev->pdev, adev->asic_type);
  }
  
@@ -1426,7 +1427,7 @@ index ddfc51a92d79..38eb4e938b95 100644
  static void amdgpu_device_xgmi_reset_func(struct work_struct *__work)
  {
  	struct amdgpu_device *adev =
-@@ -3891,6 +3903,7 @@ int amdgpu_device_init(struct amdgpu_device *adev,
+@@ -3970,6 +3982,7 @@ int amdgpu_device_init(struct amdgpu_device *adev,
  	}
  
  	INIT_WORK(&adev->xgmi_reset_work, amdgpu_device_xgmi_reset_func);
@@ -1434,7 +1435,7 @@ index ddfc51a92d79..38eb4e938b95 100644
  
  	amdgpu_coredump_init(adev);
  
-@@ -4594,6 +4607,11 @@ int amdgpu_device_suspend(struct drm_device *dev, bool notify_clients)
+@@ -4671,6 +4684,11 @@ int amdgpu_device_suspend(struct drm_device *dev, bool notify_clients)
  	if (amdgpu_sriov_vf(adev))
  		amdgpu_virt_release_full_gpu(adev, false);
  
@@ -1446,7 +1447,7 @@ index ddfc51a92d79..38eb4e938b95 100644
  	return 0;
  
  unwind_evict:
-@@ -4781,6 +4799,11 @@ int amdgpu_device_resume(struct drm_device *dev, bool notify_clients)
+@@ -4858,6 +4876,11 @@ int amdgpu_device_resume(struct drm_device *dev, bool notify_clients)
  	if (amdgpu_acpi_smart_shift_update(adev, AMDGPU_SS_DEV_D0))
  		dev_warn(adev->dev, "smart shift update failed\n");
  
@@ -1458,7 +1459,7 @@ index ddfc51a92d79..38eb4e938b95 100644
  	return 0;
  }
  
-@@ -5337,6 +5360,20 @@ int amdgpu_device_reinit_after_reset(struct amdgpu_reset_context *reset_context)
+@@ -5414,6 +5437,20 @@ int amdgpu_device_reinit_after_reset(struct amdgpu_reset_context *reset_context)
  				if (!test_bit(AMDGPU_SKIP_COREDUMP, &reset_context->flags))
  					amdgpu_coredump(tmp_adev, false, vram_lost, reset_context->job);
  
@@ -1547,7 +1548,7 @@ index 8069fc41cc7f..f04c1be0f372 100644
  	struct amdgpu_encoder *encoder;
  	uint8_t negative;
 diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ring.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ring.c
-index b97fa35bac23..94c647733041 100644
+index 4d5d95e74bb5..ce6af644a24b 100644
 --- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ring.c
 +++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ring.c
 @@ -454,8 +454,6 @@ bool amdgpu_ring_soft_recovery(struct amdgpu_ring *ring, unsigned int vmid,
@@ -1811,7 +1812,7 @@ index 85846fd08ce4..fa9cca935d3c 100644
  out:
  	return (wptr & ih->ptr_mask);
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index 36982ca89d1f..780616784fcd 100644
+index 2466602fc0ab..87124bf5bc0f 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 @@ -161,6 +161,9 @@ MODULE_FIRMWARE(FIRMWARE_DCN_42_DMUB);
@@ -1824,7 +1825,7 @@ index 36982ca89d1f..780616784fcd 100644
  /**
   * DOC: overview
   *
-@@ -4215,6 +4218,8 @@ void amdgpu_dm_update_connector_after_detect(
+@@ -4219,6 +4222,8 @@ void amdgpu_dm_update_connector_after_detect(
  	struct drm_connector *connector = &aconnector->base;
  	struct dc_sink *sink __free(sink_release) = NULL;
  	struct drm_device *dev = connector->dev;
@@ -1833,7 +1834,7 @@ index 36982ca89d1f..780616784fcd 100644
  
  	/* MST handled by drm_mst framework */
  	if (aconnector->mst_mgr.mst_state == true)
-@@ -4348,6 +4353,13 @@ void amdgpu_dm_update_connector_after_detect(
+@@ -4352,6 +4357,13 @@ void amdgpu_dm_update_connector_after_detect(
  		/* Set CP to DESIRED if it was ENABLED, so we can re-enable it again on hotplug */
  		if (connector->state->content_protection == DRM_MODE_CONTENT_PROTECTION_ENABLED)
  			connector->state->content_protection = DRM_MODE_CONTENT_PROTECTION_DESIRED;
@@ -1847,15 +1848,15 @@ index 36982ca89d1f..780616784fcd 100644
  	}
  
  	update_subconnector_property(aconnector);
-@@ -5415,6 +5427,7 @@ static void amdgpu_dm_backlight_set_level(struct amdgpu_display_manager *dm,
+@@ -5501,6 +5501,7 @@ static void amdgpu_dm_backlight_set_level(struct amdgpu_display_manager *dm,
  	struct amdgpu_dm_backlight_caps *caps;
  	struct dc_link *link;
  	u32 brightness = 0;
 +	u32 prev_brightness;
+ 	u32 millipercent = 0;
  	bool rc = false, reallow_idle = false;
  	struct drm_connector *connector;
- 	struct dc_stream_state *stream;
-@@ -5437,7 +5450,10 @@ static void amdgpu_dm_backlight_set_level(struct amdgpu_display_manager *dm,
+@@ -5441,7 +5454,10 @@ static void amdgpu_dm_backlight_set_level(struct amdgpu_display_manager *dm,
  	amdgpu_dm_update_backlight_caps(dm, bl_idx);
  	caps = &dm->backlight_caps[bl_idx];
  
@@ -1866,7 +1867,7 @@ index 36982ca89d1f..780616784fcd 100644
  	/* update scratch register */
  	if (bl_idx == 0)
  		amdgpu_atombios_scratch_regs_set_backlight_level(dm->adev, dm->brightness[bl_idx]);
-@@ -5500,8 +5516,8 @@ static void amdgpu_dm_backlight_set_level(struct amdgpu_display_manager *dm,
+@@ -5504,8 +5520,8 @@ static void amdgpu_dm_backlight_set_level(struct amdgpu_display_manager *dm,
  
  	mutex_unlock(&dm->dc_lock);
  
@@ -1877,7 +1878,7 @@ index 36982ca89d1f..780616784fcd 100644
  }
  
  static int amdgpu_dm_backlight_update_status(struct backlight_device *bd)
-@@ -5617,6 +5633,7 @@ amdgpu_dm_register_backlight_device(struct amdgpu_dm_connector *aconnector)
+@@ -5621,6 +5637,7 @@ amdgpu_dm_register_backlight_device(struct amdgpu_dm_connector *aconnector)
  		backlight_device_register(bl_name, aconnector->base.kdev, dm,
  					  &amdgpu_dm_backlight_ops, &props);
  	dm->brightness[aconnector->bl_idx] = props.brightness;
@@ -1885,20 +1886,7 @@ index 36982ca89d1f..780616784fcd 100644
  
  	if (IS_ERR(dm->backlight_dev[aconnector->bl_idx])) {
  		drm_err(drm, "DM: Backlight registration failed!\n");
-@@ -7035,11 +7035,7 @@ static void fill_stream_properties_from_drm_display_mode(
- 	timing_out->v_border_top = 0;
- 	timing_out->v_border_bottom = 0;
- 	/* TODO: un-hardcode */
--	if (drm_mode_is_420_only(info, mode_in) ||
--	    (aconnector &&
--	     (aconnector->force_yuv_pixel_format == PIXEL_ENCODING_YCBCR420 ||
--	      aconnector->force_yuv420_output) &&
--	     drm_mode_is_420_also(info, mode_in)))
-+	if (drm_mode_is_420_only(info, mode_in))
- 		timing_out->pixel_encoding = PIXEL_ENCODING_YCBCR420;
- 	else if ((connector->display_info.color_formats & BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR422))
- 			&& aconnector
-@@ -9403,7 +9416,7 @@ static int amdgpu_dm_connector_get_modes(struct drm_connector *connector)
+@@ -9406,7 +9423,7 @@ static int amdgpu_dm_connector_get_modes(struct drm_connector *connector)
  		}
  	} else {
  		amdgpu_dm_connector_ddc_get_modes(connector, drm_edid);
@@ -1907,7 +1895,7 @@ index 36982ca89d1f..780616784fcd 100644
  			amdgpu_dm_connector_add_common_modes(encoder, connector);
  		amdgpu_dm_connector_add_freesync_modes(connector, drm_edid);
  	}
-@@ -10459,6 +10472,13 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
+@@ -10462,6 +10479,13 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
  		struct dc_stream_update stream_update;
  	} *bundle;
  
@@ -5483,7 +5471,7 @@ index 000000000000..c73e11619661
 +		.attrs = _fname##_turbo_attrs,                                    \
 +	}
 diff --git a/drivers/hid/hid-asus.c b/drivers/hid/hid-asus.c
-index 3bc94921942d..38acd9336bce 100644
+index 3bc94921942d..f2c376d35661 100644
 --- a/drivers/hid/hid-asus.c
 +++ b/drivers/hid/hid-asus.c
 @@ -22,6 +22,7 @@
@@ -5545,22 +5533,30 @@ index 3bc94921942d..38acd9336bce 100644
  
  	drvdata->listener.brightness_set = asus_kbd_backlight_set;
  	ret = asus_hid_register_listener(&drvdata->listener);
-@@ -1388,6 +1391,19 @@ static int asus_probe(struct hid_device *hdev, const struct hid_device_id *id)
+@@ -1376,6 +1379,8 @@ static int asus_probe(struct hid_device *hdev, const struct hid_device_id *id)
+ 	struct asus_drvdata *drvdata;
+ 	struct hid_report *rep;
+ 	bool is_vendor = false;
++	struct usb_host_endpoint *ep;
++	struct usb_interface *intf;
+ 	int ret;
+ 
+ 	drvdata = devm_kzalloc(&hdev->dev, sizeof(*drvdata), GFP_KERNEL);
+@@ -1388,6 +1393,18 @@ static int asus_probe(struct hid_device *hdev, const struct hid_device_id *id)
  
  	drvdata->quirks = id->driver_data;
  
 +	/* Ignore these endpoints as they are used by hid-asus-ally */
-+#if IS_REACHABLE(CONFIG_HID_ASUS_ALLY)
++	#if IS_REACHABLE(CONFIG_HID_ASUS_ALLY)
 +	if ((drvdata->quirks & QUIRK_ROG_ALLY_XPAD) && hid_is_usb(hdev)) {
-+		struct usb_interface *intf = to_usb_interface(hdev->dev.parent);
-+		struct usb_host_endpoint *ep = intf->cur_altsetting->endpoint;
-+
++		intf = to_usb_interface(hdev->dev.parent);
++		ep = intf->cur_altsetting->endpoint;
 +		if (ep->desc.bEndpointAddress == ROG_ALLY_X_INTF_IN ||
 +			ep->desc.bEndpointAddress == ROG_ALLY_CFG_INTF_IN ||
 +			ep->desc.bEndpointAddress == ROG_ALLY_CFG_INTF_OUT)
 +			return -ENODEV;
 +	}
-+#endif /* IS_REACHABLE(CONFIG_HID_ASUS_ALLY) */
++	#endif /* IS_REACHABLE(CONFIG_HID_ASUS_ALLY) */
 +
  	/*
  	 * T90CHI's keyboard dock returns same ID values as T100CHI's dock.
@@ -5585,7 +5581,7 @@ index 000000000000..f67dd5a3a1bc
 +
 +#endif	/* __HID_ASUS_H */
 diff --git a/drivers/hid/hid-ids.h b/drivers/hid/hid-ids.h
-index 561057573ca2..bb73bc6edb9e 100644
+index a4114f362d35..5ddff20ca2f2 100644
 --- a/drivers/hid/hid-ids.h
 +++ b/drivers/hid/hid-ids.h
 @@ -1081,7 +1081,12 @@
@@ -5601,7 +5597,7 @@ index 561057573ca2..bb73bc6edb9e 100644
  
  #define USB_VENDOR_ID_NATIONAL_SEMICONDUCTOR 0x0400
  #define USB_DEVICE_ID_N_S_HARMONY	0xc359
-@@ -1384,6 +1389,10 @@
+@@ -1387,6 +1392,10 @@
  #define USB_DEVICE_ID_STEAM_CONTROLLER		0x1102
  #define USB_DEVICE_ID_STEAM_CONTROLLER_WIRELESS	0x1142
  #define USB_DEVICE_ID_STEAM_DECK	0x1205
@@ -5612,7 +5608,7 @@ index 561057573ca2..bb73bc6edb9e 100644
  
  #define USB_VENDOR_ID_STEELSERIES	0x1038
  #define USB_DEVICE_ID_STEELSERIES_SRWS1	0x1410
-@@ -1609,6 +1618,10 @@
+@@ -1612,6 +1621,10 @@
  #define USB_VENDOR_ID_ZYTRONIC		0x14c8
  #define USB_DEVICE_ID_ZYTRONIC_ZXY100	0x0005
  
@@ -5623,7 +5619,7 @@ index 561057573ca2..bb73bc6edb9e 100644
  #define USB_VENDOR_ID_PRIMAX	0x0461
  #define USB_DEVICE_ID_PRIMAX_MOUSE_4D22	0x4d22
  #define USB_DEVICE_ID_PRIMAX_MOUSE_4E2A	0x4e2a
-@@ -1650,4 +1663,7 @@
+@@ -1653,4 +1666,7 @@
  #define USB_VENDOR_ID_HUAWEI			0x12d1
  #define USB_DEVICE_ID_HUAWEI_CD30KBD		0x109b
  
@@ -7701,10 +7697,10 @@ index 000000000000..0264a7a2bb24
 +MODULE_AUTHOR("Derek J. Clark <derekjohn.clark@gmail.com>");
 +MODULE_DESCRIPTION("HID driver for MSI Claw Handheld PC gamepads");
 diff --git a/drivers/hid/hid-multitouch.c b/drivers/hid/hid-multitouch.c
-index 571166a769b9..bad05ea17bf4 100644
+index e9da59e4bf79..203f46647f84 100644
 --- a/drivers/hid/hid-multitouch.c
 +++ b/drivers/hid/hid-multitouch.c
-@@ -1715,6 +1715,28 @@ static void mt_yogabook9_fixup(struct hid_device *hdev, __u8 *rdesc,
+@@ -1734,6 +1734,28 @@ static void mt_yogabook9_fixup(struct hid_device *hdev, __u8 *rdesc,
  	}
  }
  
@@ -7733,7 +7729,7 @@ index 571166a769b9..bad05ea17bf4 100644
  static const __u8 *mt_report_fixup(struct hid_device *hdev, __u8 *rdesc,
  			     unsigned int *size)
  {
-@@ -1748,6 +1770,23 @@ got: %x\n",
+@@ -1767,6 +1789,23 @@ got: %x\n",
  	    hdev->product == USB_DEVICE_ID_LENOVO_YOGABOOK9I)
  		mt_yogabook9_fixup(hdev, rdesc, size);
  
@@ -7758,7 +7754,7 @@ index 571166a769b9..bad05ea17bf4 100644
  }
  
 diff --git a/drivers/hid/hid-steam.c b/drivers/hid/hid-steam.c
-index 80d2eabc930e..9cd07607d082 100644
+index 80d2eabc930e..fc0acf3da58b 100644
 --- a/drivers/hid/hid-steam.c
 +++ b/drivers/hid/hid-steam.c
 @@ -44,11 +44,13 @@
@@ -7868,7 +7864,7 @@ index 80d2eabc930e..9cd07607d082 100644
  /* Pad identifiers for the deck */
  #define STEAM_PAD_LEFT 0
  #define STEAM_PAD_RIGHT 1
-@@ -337,39 +413,42 @@ struct steam_device {
+@@ -337,24 +413,29 @@ struct steam_device {
  	struct power_supply_desc battery_desc;
  	struct power_supply __rcu *battery;
  	u8 battery_charge;
@@ -7900,11 +7896,9 @@ index 80d2eabc930e..9cd07607d082 100644
  	int ret;
 +	u32 len;
  
--	/*
--	 * All reports start with a two byte header.
--	 * We must read at least two bytes to get a sensible output.
--	 */
-+	/* We need at least the two-byte reply header. */
+ 	/*
+ 	 * All reports start with a two byte header.
+@@ -363,13 +444,14 @@ static int steam_recv_report(struct steam_device *steam,
  	if (size < 2)
  		return -EINVAL;
  
@@ -7922,7 +7916,7 @@ index 80d2eabc930e..9cd07607d082 100644
  		return -EINVAL;
  
  	buf = hid_alloc_report_buf(r, GFP_KERNEL);
-@@ -377,29 +456,47 @@ static int steam_recv_report(struct steam_device *steam,
+@@ -377,25 +459,43 @@ static int steam_recv_report(struct steam_device *steam,
  		return -ENOMEM;
  
  	/*
@@ -7953,8 +7947,7 @@ index 80d2eabc930e..9cd07607d082 100644
 +		msleep(20);
 +	} while (--retries);
  	if (ret > 0) {
--		/* Remove the report ID from the return buffer */
-+		/* Remove the report ID from the return buffer. */
+ 		/* Remove the report ID from the return buffer */
  		ret--;
  		size = min(size, ret);
  		memcpy(data, buf + 1, size);
@@ -7970,16 +7963,11 @@ index 80d2eabc930e..9cd07607d082 100644
 +	if (ret < 0 && ret != -ENODEV)
  		hid_err(steam->hdev, "%s: error %d\n", __func__, ret);
 -	else
-+	else if (ret > 0)
++	else if (ret >= 0)
  		hid_dbg(steam->hdev, "Received report %*ph\n", size, data);
-+
  	if (ret < 0)
  		return ret;
--
- 	if (ret < 2) {
- 		hid_err(steam->hdev, "%s: reply too short\n", __func__);
- 		return -EPROTO;
-@@ -412,41 +509,60 @@ static int steam_recv_report(struct steam_device *steam,
+@@ -412,41 +512,60 @@ static int steam_recv_report(struct steam_device *steam,
  	return size;
  }
  
@@ -8049,7 +8037,7 @@ index 80d2eabc930e..9cd07607d082 100644
  				HID_FEATURE_REPORT, HID_REQ_SET_REPORT);
  		if (ret != -EPIPE)
  			break;
-@@ -454,12 +570,29 @@ static int steam_send_report(struct steam_device *steam,
+@@ -454,12 +573,29 @@ static int steam_send_report(struct steam_device *steam,
  	} while (--retries);
  
  	kfree(buf);
@@ -8080,7 +8068,7 @@ index 80d2eabc930e..9cd07607d082 100644
  static inline int steam_send_report_byte(struct steam_device *steam, u8 cmd)
  {
  	return steam_send_report(steam, &cmd, 1);
-@@ -472,7 +605,6 @@ static int steam_write_settings(struct steam_device *steam,
+@@ -472,7 +608,6 @@ static int steam_write_settings(struct steam_device *steam,
  	u8 reg;
  	u16 val;
  	u8 cmd[64] = {ID_SET_SETTINGS_VALUES, 0x00};
@@ -8088,7 +8076,7 @@ index 80d2eabc930e..9cd07607d082 100644
  	va_list args;
  
  	va_start(args, steam);
-@@ -488,16 +620,44 @@ static int steam_write_settings(struct steam_device *steam,
+@@ -488,16 +623,44 @@ static int steam_write_settings(struct steam_device *steam,
  	}
  	va_end(args);
  
@@ -8142,7 +8130,7 @@ index 80d2eabc930e..9cd07607d082 100644
  }
  
  static int steam_get_serial(struct steam_device *steam)
-@@ -510,11 +670,7 @@ static int steam_get_serial(struct steam_device *steam)
+@@ -510,15 +673,10 @@ static int steam_get_serial(struct steam_device *steam)
  	u8 cmd[] = {ID_GET_STRING_ATTRIBUTE, sizeof(steam->serial_no), ATTRIB_STR_UNIT_SERIAL};
  	u8 reply[3 + STEAM_SERIAL_LEN + 1];
  
@@ -8154,21 +8142,30 @@ index 80d2eabc930e..9cd07607d082 100644
 +	ret = steam_exchange_report(steam, cmd, sizeof(cmd), reply, sizeof(reply));
  	if (ret < 0)
  		return ret;
- 	if (reply[0] != ID_GET_STRING_ATTRIBUTE || reply[1] < 1 ||
-@@ -537,11 +693,7 @@ static int steam_get_attributes(struct steam_device *steam)
+-	if (reply[0] != ID_GET_STRING_ATTRIBUTE || reply[1] < 1 ||
+-	    reply[1] > sizeof(steam->serial_no) || reply[2] != ATTRIB_STR_UNIT_SERIAL) {
++	if (reply[1] > sizeof(steam->serial_no) || reply[2] != ATTRIB_STR_UNIT_SERIAL) {
+ 		hid_err(steam->hdev, "%s: invalid reply (%*ph)\n", __func__,
+ 				(int)sizeof(reply), reply);
+ 		return -EIO;
+@@ -537,14 +695,10 @@ static int steam_get_attributes(struct steam_device *steam)
  	int i;
  	struct steam_controller_attribute *attr;
  
 -	guard(mutex)(&steam->report_mutex);
 -	ret = steam_send_report(steam, cmd, sizeof(cmd));
--	if (ret < 0)
--		return ret;
--	ret = steam_recv_report(steam, reply, sizeof(reply));
 +	ret = steam_exchange_report(steam, cmd, sizeof(cmd), reply, sizeof(reply));
  	if (ret < 0)
  		return ret;
- 	if (reply[0] != ID_GET_ATTRIBUTES_VALUES || reply[1] < 2) {
-@@ -563,15 +715,32 @@ static int steam_get_attributes(struct steam_device *steam)
+-	ret = steam_recv_report(steam, reply, sizeof(reply));
+-	if (ret < 0)
+-		return ret;
+-	if (reply[0] != ID_GET_ATTRIBUTES_VALUES || reply[1] < 2) {
++	if (reply[1] < 2) {
+ 		hid_err(steam->hdev, "%s: invalid reply (%*ph)\n", __func__,
+ 				(int)sizeof(reply), reply);
+ 		return -EIO;
+@@ -563,15 +717,32 @@ static int steam_get_attributes(struct steam_device *steam)
  	return 0;
  }
  
@@ -8208,7 +8205,7 @@ index 80d2eabc930e..9cd07607d082 100644
  }
  
  /*
-@@ -584,24 +753,42 @@ static inline int steam_haptic_pulse(struct steam_device *steam, u8 pad,
+@@ -584,24 +755,42 @@ static inline int steam_haptic_pulse(struct steam_device *steam, u8 pad,
  				u16 duration, u16 interval, u16 count, u8 gain)
  {
  	int ret;
@@ -8263,7 +8260,7 @@ index 80d2eabc930e..9cd07607d082 100644
  	return ret;
  }
  
-@@ -610,20 +797,39 @@ static inline int steam_haptic_rumble(struct steam_device *steam,
+@@ -610,20 +799,39 @@ static inline int steam_haptic_rumble(struct steam_device *steam,
  				u8 left_gain, u8 right_gain)
  {
  	int ret;
@@ -8315,7 +8312,7 @@ index 80d2eabc930e..9cd07607d082 100644
  	return ret;
  }
  
-@@ -631,8 +837,24 @@ static void steam_haptic_rumble_cb(struct work_struct *work)
+@@ -631,8 +839,24 @@ static void steam_haptic_rumble_cb(struct work_struct *work)
  {
  	struct steam_device *steam = container_of(work, struct steam_device,
  							rumble_work);
@@ -8340,7 +8337,7 @@ index 80d2eabc930e..9cd07607d082 100644
  }
  
  #ifdef CONFIG_STEAM_FF
-@@ -644,6 +866,14 @@ static int steam_play_effect(struct input_dev *dev, void *data,
+@@ -644,6 +868,14 @@ static int steam_play_effect(struct input_dev *dev, void *data,
  	steam->rumble_left = effect->u.rumble.strong_magnitude;
  	steam->rumble_right = effect->u.rumble.weak_magnitude;
  
@@ -8355,7 +8352,7 @@ index 80d2eabc930e..9cd07607d082 100644
  	return schedule_work(&steam->rumble_work);
  }
  #endif
-@@ -663,20 +893,18 @@ static void steam_set_lizard_mode(struct steam_device *steam, bool enable)
+@@ -663,20 +895,18 @@ static void steam_set_lizard_mode(struct steam_device *steam, bool enable)
  		/* disable esc, enter, cursor */
  		steam_send_report_byte(steam, ID_CLEAR_DIGITAL_MAPPINGS);
  
@@ -8382,7 +8379,7 @@ index 80d2eabc930e..9cd07607d082 100644
  	}
  	mutex_unlock(&steam->report_mutex);
  }
-@@ -692,7 +920,7 @@ static int steam_input_open(struct input_dev *dev)
+@@ -692,7 +922,7 @@ static int steam_input_open(struct input_dev *dev)
  	 * Controller. On the Steam Deck, this is toggled manually by holding
  	 * the options button instead, handled by steam_mode_switch_cb.
  	 */
@@ -8391,7 +8388,7 @@ index 80d2eabc930e..9cd07607d082 100644
  		spin_lock_irqsave(&steam->lock, flags);
  		set_lizard_mode = !steam->client_opened && lizard_mode;
  		spin_unlock_irqrestore(&steam->lock, flags);
-@@ -709,7 +937,7 @@ static void steam_input_close(struct input_dev *dev)
+@@ -709,7 +939,7 @@ static void steam_input_close(struct input_dev *dev)
  	unsigned long flags;
  	bool set_lizard_mode;
  
@@ -8400,7 +8397,7 @@ index 80d2eabc930e..9cd07607d082 100644
  		spin_lock_irqsave(&steam->lock, flags);
  		set_lizard_mode = !steam->client_opened && lizard_mode;
  		spin_unlock_irqrestore(&steam->lock, flags);
-@@ -767,25 +995,40 @@ static int steam_battery_get_property(struct power_supply *psy,
+@@ -767,25 +997,40 @@ static int steam_battery_get_property(struct power_supply *psy,
  {
  	struct steam_device *steam = power_supply_get_drvdata(psy);
  	unsigned long flags;
@@ -8443,7 +8440,7 @@ index 80d2eabc930e..9cd07607d082 100644
  	case POWER_SUPPLY_PROP_CAPACITY:
  		val->intval = batt;
  		break;
-@@ -796,6 +1039,16 @@ static int steam_battery_get_property(struct power_supply *psy,
+@@ -796,6 +1041,16 @@ static int steam_battery_get_property(struct power_supply *psy,
  	return ret;
  }
  
@@ -8460,7 +8457,7 @@ index 80d2eabc930e..9cd07607d082 100644
  static int steam_battery_register(struct steam_device *steam)
  {
  	struct power_supply *battery;
-@@ -804,19 +1057,35 @@ static int steam_battery_register(struct steam_device *steam)
+@@ -804,19 +1059,35 @@ static int steam_battery_register(struct steam_device *steam)
  	int ret;
  
  	steam->battery_desc.type = POWER_SUPPLY_TYPE_BATTERY;
@@ -8502,7 +8499,7 @@ index 80d2eabc930e..9cd07607d082 100644
  	spin_unlock_irqrestore(&steam->lock, flags);
  
  	battery = power_supply_register(&steam->hdev->dev,
-@@ -887,7 +1156,7 @@ static int steam_input_register(struct steam_device *steam)
+@@ -887,7 +1158,7 @@ static int steam_input_register(struct steam_device *steam)
  	input_set_capability(input, EV_KEY, BTN_THUMB2);
  	input_set_capability(input, EV_KEY, BTN_GRIPL);
  	input_set_capability(input, EV_KEY, BTN_GRIPR);
@@ -8511,7 +8508,7 @@ index 80d2eabc930e..9cd07607d082 100644
  		input_set_capability(input, EV_KEY, BTN_BASE);
  		input_set_capability(input, EV_KEY, BTN_GRIPL2);
  		input_set_capability(input, EV_KEY, BTN_GRIPR2);
-@@ -901,7 +1170,7 @@ static int steam_input_register(struct steam_device *steam)
+@@ -901,7 +1172,7 @@ static int steam_input_register(struct steam_device *steam)
  	input_set_abs_params(input, ABS_HAT0Y, -32767, 32767,
  			STEAM_PAD_FUZZ, 0);
  
@@ -8520,7 +8517,7 @@ index 80d2eabc930e..9cd07607d082 100644
  		input_set_abs_params(input, ABS_HAT2Y, 0, 32767, 0, 0);
  		input_set_abs_params(input, ABS_HAT2X, 0, 32767, 0, 0);
  
-@@ -941,7 +1210,7 @@ static int steam_input_register(struct steam_device *steam)
+@@ -941,7 +1212,7 @@ static int steam_input_register(struct steam_device *steam)
  	input_abs_set_res(input, ABS_HAT0Y, STEAM_PAD_RESOLUTION);
  
  #ifdef CONFIG_STEAM_FF
@@ -8529,7 +8526,7 @@ index 80d2eabc930e..9cd07607d082 100644
  		input_set_capability(input, EV_FF, FF_RUMBLE);
  		ret = input_ff_create_memless(input, NULL, steam_play_effect);
  		if (ret)
-@@ -966,6 +1235,7 @@ static int steam_sensors_register(struct steam_device *steam)
+@@ -966,6 +1237,7 @@ static int steam_sensors_register(struct steam_device *steam)
  	struct hid_device *hdev = steam->hdev;
  	struct input_dev *sensors;
  	int ret;
@@ -8537,7 +8534,7 @@ index 80d2eabc930e..9cd07607d082 100644
  
  	rcu_read_lock();
  	sensors = rcu_dereference(steam->sensors);
-@@ -981,7 +1251,27 @@ static int steam_sensors_register(struct steam_device *steam)
+@@ -981,7 +1253,27 @@ static int steam_sensors_register(struct steam_device *steam)
  
  	input_set_drvdata(sensors, steam);
  	sensors->dev.parent = &hdev->dev;
@@ -8566,7 +8563,7 @@ index 80d2eabc930e..9cd07607d082 100644
  		sensors->open = steam_sensor_open;
  		sensors->close = steam_sensor_close;
  	}
-@@ -1087,8 +1377,6 @@ static void steam_battery_unregister(struct steam_device *steam)
+@@ -1087,8 +1379,6 @@ static void steam_battery_unregister(struct steam_device *steam)
  static int steam_register(struct steam_device *steam)
  {
  	int ret;
@@ -8575,7 +8572,7 @@ index 80d2eabc930e..9cd07607d082 100644
  
  	/*
  	 * This function can be called several times in a row with the
-@@ -1096,47 +1384,43 @@ static int steam_register(struct steam_device *steam)
+@@ -1096,47 +1386,43 @@ static int steam_register(struct steam_device *steam)
  	 * another client send a get_connection_status command, for example.
  	 * The battery and serial number are set just once per device.
  	 */
@@ -8654,7 +8651,7 @@ index 80d2eabc930e..9cd07607d082 100644
  	return 0;
  
  steam_register_sensors_fail:
-@@ -1147,38 +1431,42 @@ static int steam_register(struct steam_device *steam)
+@@ -1147,38 +1433,42 @@ static int steam_register(struct steam_device *steam)
  
  static void steam_unregister(struct steam_device *steam)
  {
@@ -8708,7 +8705,7 @@ index 80d2eabc930e..9cd07607d082 100644
  	} else {
  		steam_unregister(steam);
  	}
-@@ -1213,46 +1501,46 @@ static void steam_mode_switch_cb(struct work_struct *work)
+@@ -1213,46 +1503,46 @@ static void steam_mode_switch_cb(struct work_struct *work)
  	}
  }
  
@@ -8786,7 +8783,7 @@ index 80d2eabc930e..9cd07607d082 100644
  	rep_enum = &hdev->report_enum[HID_FEATURE_REPORT];
  	return !list_empty(&rep_enum->report_list);
  }
-@@ -1283,7 +1571,7 @@ static int steam_client_ll_open(struct hid_device *hdev)
+@@ -1283,7 +1573,7 @@ static int steam_client_ll_open(struct hid_device *hdev)
  	steam->client_opened++;
  	spin_unlock_irqrestore(&steam->lock, flags);
  
@@ -8795,7 +8792,7 @@ index 80d2eabc930e..9cd07607d082 100644
  
  	return 0;
  }
-@@ -1298,7 +1586,7 @@ static void steam_client_ll_close(struct hid_device *hdev)
+@@ -1298,7 +1588,7 @@ static void steam_client_ll_close(struct hid_device *hdev)
  	steam->client_opened--;
  	spin_unlock_irqrestore(&steam->lock, flags);
  
@@ -8804,7 +8801,7 @@ index 80d2eabc930e..9cd07607d082 100644
  }
  
  static int steam_client_ll_raw_request(struct hid_device *hdev,
-@@ -1312,6 +1600,14 @@ static int steam_client_ll_raw_request(struct hid_device *hdev,
+@@ -1312,6 +1602,14 @@ static int steam_client_ll_raw_request(struct hid_device *hdev,
  			report_type, reqtype);
  }
  
@@ -8819,7 +8816,7 @@ index 80d2eabc930e..9cd07607d082 100644
  static const struct hid_ll_driver steam_client_ll_driver = {
  	.parse = steam_client_ll_parse,
  	.start = steam_client_ll_start,
-@@ -1319,6 +1615,7 @@ static const struct hid_ll_driver steam_client_ll_driver = {
+@@ -1319,6 +1617,7 @@ static const struct hid_ll_driver steam_client_ll_driver = {
  	.open = steam_client_ll_open,
  	.close = steam_client_ll_close,
  	.raw_request = steam_client_ll_raw_request,
@@ -8827,7 +8824,7 @@ index 80d2eabc930e..9cd07607d082 100644
  };
  
  static struct hid_device *steam_create_client_hid(struct hid_device *hdev)
-@@ -1373,7 +1670,7 @@ static int steam_probe(struct hid_device *hdev,
+@@ -1373,7 +1672,7 @@ static int steam_probe(struct hid_device *hdev,
  	 * The non-valve interfaces (mouse and keyboard emulation) are
  	 * connected without changes.
  	 */
@@ -8836,7 +8833,7 @@ index 80d2eabc930e..9cd07607d082 100644
  		return hid_hw_start(hdev, HID_CONNECT_DEFAULT);
  
  	steam = devm_kzalloc(&hdev->dev, sizeof(*steam), GFP_KERNEL);
-@@ -1389,12 +1686,12 @@ static int steam_probe(struct hid_device *hdev,
+@@ -1389,12 +1688,12 @@ static int steam_probe(struct hid_device *hdev,
  	INIT_DELAYED_WORK(&steam->mode_switch, steam_mode_switch_cb);
  	INIT_LIST_HEAD(&steam->list);
  	INIT_WORK(&steam->rumble_work, steam_haptic_rumble_cb);
@@ -8850,7 +8847,7 @@ index 80d2eabc930e..9cd07607d082 100644
  
  	/*
  	 * With the real steam controller interface, do not connect hidraw.
-@@ -1412,14 +1709,21 @@ static int steam_probe(struct hid_device *hdev,
+@@ -1412,14 +1711,21 @@ static int steam_probe(struct hid_device *hdev,
  		goto err_hw_stop;
  	}
  
@@ -8876,7 +8873,7 @@ index 80d2eabc930e..9cd07607d082 100644
  		ret = steam_register(steam);
  		if (ret) {
  			hid_err(hdev,
-@@ -1455,7 +1759,7 @@ static int steam_probe(struct hid_device *hdev,
+@@ -1455,7 +1761,7 @@ static int steam_probe(struct hid_device *hdev,
  	cancel_work_sync(&steam->work_connect);
  	cancel_delayed_work_sync(&steam->mode_switch);
  	cancel_work_sync(&steam->rumble_work);
@@ -8885,7 +8882,7 @@ index 80d2eabc930e..9cd07607d082 100644
  
  	return ret;
  }
-@@ -1470,18 +1774,18 @@ static void steam_remove(struct hid_device *hdev)
+@@ -1470,18 +1776,18 @@ static void steam_remove(struct hid_device *hdev)
  	}
  
  	hid_destroy_device(steam->client_hdev);
@@ -8910,7 +8907,7 @@ index 80d2eabc930e..9cd07607d082 100644
  }
  
  static void steam_do_connect_event(struct steam_device *steam, bool connected)
-@@ -1595,9 +1899,9 @@ static void steam_map_axes(struct input_dev *input,
+@@ -1595,9 +1901,9 @@ static void steam_map_axes(struct input_dev *input,
   *  9.1  | BTN_DPAD_RIGHT | left-pad right
   *  9.2  | BTN_DPAD_LEFT  | left-pad left
   *  9.3  | BTN_DPAD_DOWN  | left-pad down
@@ -8922,7 +8919,7 @@ index 80d2eabc930e..9cd07607d082 100644
   *  9.7  | BTN_GRIPL  | left back lever
   * 10.0  | BTN_GRIPR  | right back lever
   * 10.1  | --         | left-pad clicked
-@@ -1747,9 +2051,9 @@ static void steam_do_sensors_event(struct steam_device *steam,
+@@ -1747,9 +2053,9 @@ static void steam_do_sensors_event(struct steam_device *steam,
   *  9.1  | BTN_DPAD_RIGHT | left-pad right
   *  9.2  | BTN_DPAD_LEFT  | left-pad left
   *  9.3  | BTN_DPAD_DOWN  | left-pad down
@@ -8934,7 +8931,7 @@ index 80d2eabc930e..9cd07607d082 100644
   *  9.7  | BTN_GRIPL2 | left bottom grip button
   *  10.0 | BTN_GRIPR2 | right bottom grip button
   *  10.1 | BTN_THUMB  | left pad pressed
-@@ -1931,7 +2235,7 @@ static void steam_do_battery_event(struct steam_device *steam,
+@@ -1931,7 +2237,7 @@ static void steam_do_battery_event(struct steam_device *steam,
  	battery = rcu_dereference(steam->battery);
  	if (likely(battery)) {
  		spin_lock_irqsave(&steam->lock, flags);
@@ -8943,7 +8940,7 @@ index 80d2eabc930e..9cd07607d082 100644
  		steam->battery_charge = batt;
  		spin_unlock_irqrestore(&steam->lock, flags);
  		power_supply_changed(battery);
-@@ -1939,6 +2243,216 @@ static void steam_do_battery_event(struct steam_device *steam,
+@@ -1939,6 +2245,216 @@ static void steam_do_battery_event(struct steam_device *steam,
  	rcu_read_unlock();
  }
  
@@ -9160,7 +9157,7 @@ index 80d2eabc930e..9cd07607d082 100644
  static int steam_raw_event(struct hid_device *hdev,
  			struct hid_report *report, u8 *data,
  			int size)
-@@ -1952,8 +2466,84 @@ static int steam_raw_event(struct hid_device *hdev,
+@@ -1952,8 +2468,84 @@ static int steam_raw_event(struct hid_device *hdev,
  		return 0;
  
  	if (steam->client_opened)
@@ -9247,7 +9244,7 @@ index 80d2eabc930e..9cd07607d082 100644
  	/*
  	 * All messages are size=64, all values little-endian.
  	 * The format is:
-@@ -2062,11 +2652,11 @@ MODULE_PARM_DESC(lizard_mode,
+@@ -2062,11 +2654,11 @@ MODULE_PARM_DESC(lizard_mode,
  	"Enable mouse and keyboard emulation (lizard mode) when the gamepad is not in use");
  
  static const struct hid_device_id steam_controllers[] = {
@@ -9261,7 +9258,7 @@ index 80d2eabc930e..9cd07607d082 100644
  	  HID_USB_DEVICE(USB_VENDOR_ID_VALVE,
  		USB_DEVICE_ID_STEAM_CONTROLLER_WIRELESS),
  	  .driver_data = STEAM_QUIRK_WIRELESS
-@@ -2076,6 +2666,26 @@ static const struct hid_device_id steam_controllers[] = {
+@@ -2076,6 +2668,26 @@ static const struct hid_device_id steam_controllers[] = {
  		USB_DEVICE_ID_STEAM_DECK),
  	  .driver_data = STEAM_QUIRK_DECK
  	},
@@ -14003,10 +14000,10 @@ index cf6fecea79b8..f4fe3d93e535 100644
  	if (disposition != INPUT_IGNORE_EVENT) {
  		if (type != EV_SYN)
 diff --git a/drivers/input/joystick/xpad.c b/drivers/input/joystick/xpad.c
-index 2da0b7f1722a..ac47326b5b70 100644
+index 6406ceab988a..479a926d3bf8 100644
 --- a/drivers/input/joystick/xpad.c
 +++ b/drivers/input/joystick/xpad.c
-@@ -331,7 +331,9 @@ static const struct xpad_device {
+@@ -338,7 +338,9 @@ static const struct xpad_device {
  	{ 0x1bad, 0xfa01, "MadCatz GamePad", 0, XTYPE_XBOX360 },
  	{ 0x1bad, 0xfd00, "Razer Onza TE", 0, XTYPE_XBOX360 },
  	{ 0x1bad, 0xfd01, "Razer Onza", 0, XTYPE_XBOX360 },
@@ -14016,7 +14013,7 @@ index 2da0b7f1722a..ac47326b5b70 100644
  	{ 0x20bc, 0x5134, "BETOP BTP-KP50B Xinput Dongle", 0, XTYPE_XBOX360 },
  	{ 0x20bc, 0x514a, "BETOP BTP-KP50C Xinput Dongle", 0, XTYPE_XBOX360 },
  	{ 0x20d6, 0x2001, "BDA Xbox Series X Wired Controller", 0, XTYPE_XBOXONE },
-@@ -538,7 +540,9 @@ static const struct usb_device_id xpad_table[] = {
+@@ -546,7 +548,9 @@ static const struct usb_device_id xpad_table[] = {
  	XPAD_XBOX360_VENDOR(0x1949),		/* Amazon controllers */
  	XPAD_XBOX360_VENDOR(0x1a86),		/* Nanjing Qinheng Microelectronics (WCH) */
  	XPAD_XBOX360_VENDOR(0x1bad),		/* Harmonix Rock Band guitar and drums */
@@ -15431,7 +15428,7 @@ index 54a923ba4f1e..6183758e8ac9 100644
  }
  
 diff --git a/drivers/mmc/core/host.c b/drivers/mmc/core/host.c
-index b7ce3137d452..2625d918081b 100644
+index 828078b3f962..b53909b3edd1 100644
 --- a/drivers/mmc/core/host.c
 +++ b/drivers/mmc/core/host.c
 @@ -22,6 +22,7 @@
@@ -15442,7 +15439,7 @@ index b7ce3137d452..2625d918081b 100644
  #include "core.h"
  #include "crypto.h"
  #include "host.h"
-@@ -703,3 +704,17 @@ void mmc_free_host(struct mmc_host *host)
+@@ -704,3 +705,17 @@ void mmc_free_host(struct mmc_host *host)
  }
  
  EXPORT_SYMBOL(mmc_free_host);
@@ -15512,7 +15509,7 @@ index 948948ca9b4a..5335220f651d 100644
  };
  
 diff --git a/drivers/mmc/host/rtsx_pci_sdmmc.c b/drivers/mmc/host/rtsx_pci_sdmmc.c
-index 8dfbc62f165b..a1502e7ab8a6 100644
+index d25d4cb59bc9..b9bfd1e6bfa4 100644
 --- a/drivers/mmc/host/rtsx_pci_sdmmc.c
 +++ b/drivers/mmc/host/rtsx_pci_sdmmc.c
 @@ -7,6 +7,7 @@
@@ -15695,8 +15692,8 @@ index 8dfbc62f165b..a1502e7ab8a6 100644
 +
  	mmc->caps2 = MMC_CAP2_NO_PRESCAN_POWERUP | MMC_CAP2_FULL_PWR_CYCLE |
  		MMC_CAP2_NO_SDIO;
- 	mmc->max_current_330 = 400;
-@@ -1492,6 +1626,7 @@ static int rtsx_pci_sdmmc_drv_probe(struct platform_device *pdev)
+ 
+@@ -1497,6 +1631,7 @@ static int rtsx_pci_sdmmc_drv_probe(struct platform_device *pdev)
  
  	ret = mmc_add_host(mmc);
  	if (ret) {
@@ -15704,7 +15701,7 @@ index 8dfbc62f165b..a1502e7ab8a6 100644
  		pm_runtime_dont_use_autosuspend(&pdev->dev);
  		pm_runtime_disable(&pdev->dev);
  		return ret;
-@@ -1507,10 +1642,15 @@ static void rtsx_pci_sdmmc_drv_remove(struct platform_device *pdev)
+@@ -1512,10 +1647,15 @@ static void rtsx_pci_sdmmc_drv_remove(struct platform_device *pdev)
  	struct mmc_host *mmc;
  
  	pcr = host->pcr;
@@ -15907,7 +15904,7 @@ index 93f9a03c48dc..e799f24754bc 100644
  
  static void ath11k_hw_ipq8074_reo_setup(struct ath11k_base *ab)
 diff --git a/drivers/net/wireless/ath/ath11k/mac.c b/drivers/net/wireless/ath/ath11k/mac.c
-index 2d55cdc4d165..325ced7055a5 100644
+index ae91b57c8422..3d806a5b5c1a 100644
 --- a/drivers/net/wireless/ath/ath11k/mac.c
 +++ b/drivers/net/wireless/ath/ath11k/mac.c
 @@ -9,6 +9,7 @@
@@ -15937,7 +15934,7 @@ index 2d55cdc4d165..325ced7055a5 100644
  enum nl80211_he_ru_alloc ath11k_mac_phy_he_ru_to_nl80211_he_ru_alloc(u16 ru_phy)
  {
  	enum nl80211_he_ru_alloc ret;
-@@ -3080,6 +3086,27 @@ static bool ath11k_mac_vif_recalc_sta_he_txbf(struct ath11k *ar,
+@@ -3097,6 +3103,27 @@ static bool ath11k_mac_vif_recalc_sta_he_txbf(struct ath11k *ar,
  			hemode |= FIELD_PREP(HE_MODE_SU_TX_BFER, HE_SU_BFER_ENABLE);
  	}
  
@@ -15965,7 +15962,7 @@ index 2d55cdc4d165..325ced7055a5 100644
  	ret = ath11k_wmi_vdev_set_param_cmd(ar, arvif->vdev_id, param, hemode);
  	if (ret) {
  		ath11k_warn(ar->ab, "failed to submit vdev param txbf 0x%x: %d\n",
-@@ -6541,6 +6568,10 @@ static void ath11k_mac_op_tx(struct ieee80211_hw *hw,
+@@ -6558,6 +6585,10 @@ static void ath11k_mac_op_tx(struct ieee80211_hw *hw,
  
  	ret = ath11k_dp_tx(ar, arvif, arsta, skb);
  	if (unlikely(ret)) {
@@ -15976,7 +15973,7 @@ index 2d55cdc4d165..325ced7055a5 100644
  		ath11k_warn(ar->ab, "failed to transmit frame %d\n", ret);
  		ieee80211_free_txskb(ar->hw, skb);
  	}
-@@ -9269,9 +9300,14 @@ ath11k_mac_op_reconfig_complete(struct ieee80211_hw *hw,
+@@ -9286,9 +9317,14 @@ ath11k_mac_op_reconfig_complete(struct ieee80211_hw *hw,
  			 * the recovery has to be done for each radio
  			 */
  			if (recovery_count == ab->num_radios) {
@@ -15991,7 +15988,7 @@ index 2d55cdc4d165..325ced7055a5 100644
  				atomic_set(&ab->fail_cont_count, 0);
  				ath11k_dbg(ab, ATH11K_DBG_BOOT, "reset success\n");
  			}
-@@ -10606,6 +10642,8 @@ static int __ath11k_mac_register(struct ath11k *ar)
+@@ -10617,6 +10653,8 @@ static int __ath11k_mac_register(struct ath11k *ar)
  	ar->hw->wiphy->iftype_ext_capab = ath11k_iftypes_ext_capa;
  	ar->hw->wiphy->num_iftype_ext_capab =
  		ARRAY_SIZE(ath11k_iftypes_ext_capa);
@@ -20352,10 +20349,10 @@ index b4e327877739..1d05f991f2ce 100644
  	unsigned int ctl_dev_id:1; /* old control element id build behaviour */
  	unsigned int eld_jack_detect:1;	/* Machine jack-detection by ELD */
 diff --git a/kernel/power/hibernate.c b/kernel/power/hibernate.c
-index d2479c69d71a..3911d76a40d9 100644
+index c13f68ab7f6e..bd28975b8cad 100644
 --- a/kernel/power/hibernate.c
 +++ b/kernel/power/hibernate.c
-@@ -672,9 +672,16 @@ int hibernation_platform_enter(void)
+@@ -674,9 +674,16 @@ int hibernation_platform_enter(void)
   * state corresponding to hibernation, or try to power it off or reboot,
   * depending on the value of hibernation_mode.
   */
@@ -20374,7 +20371,7 @@ index d2479c69d71a..3911d76a40d9 100644
  
  #ifdef CONFIG_SUSPEND
  	if (hibernation_mode == HIBERNATION_SUSPEND) {
-@@ -718,9 +725,9 @@ static void power_down(void)
+@@ -720,9 +727,9 @@ static void power_down(void)
  
  exit:
  	/* Restore swap signature. */
@@ -20386,7 +20383,7 @@ index d2479c69d71a..3911d76a40d9 100644
  }
  
  static int load_image_and_restore(void)
-@@ -842,7 +849,11 @@ int hibernate(void)
+@@ -844,7 +851,11 @@ int hibernate(void)
  			if (hibernation_mode == HIBERNATION_TEST_RESUME)
  				snapshot_test = true;
  			else
@@ -20516,7 +20513,7 @@ index c626e9dc3c1c..12cb21ee5cbc 100644
  			}
  			if (!off)
 diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
-index f346505c3f88..20c872da4e21 100644
+index 3ea5ea7267d9..f5dd7067be07 100644
 --- a/net/bluetooth/hci_core.c
 +++ b/net/bluetooth/hci_core.c
 @@ -517,7 +517,7 @@ int hci_dev_close(__u16 dev)
@@ -20546,15 +20543,15 @@ index f346505c3f88..20c872da4e21 100644
  	INIT_WORK(&hdev->error_reset, hci_error_reset);
  
  	hci_cmd_sync_init(hdev);
-@@ -2629,7 +2629,7 @@ int hci_register_dev(struct hci_dev *hdev)
- 	if (error)
- 		BT_WARN("register suspend notifier failed error:%d\n", error);
- 
--	queue_work(hdev->req_workqueue, &hdev->power_on);
-+	queue_delayed_work(hdev->req_workqueue, &hdev->power_on,HCI_AUTO_ON_TIMEOUT);
- 
+@@ -2632,7 +2632,7 @@ int hci_register_dev(struct hci_dev *hdev)
  	idr_init(&hdev->adv_monitors_idr);
  	msft_register(hdev);
+ 
+-	queue_work(hdev->req_workqueue, &hdev->power_on);
++	queue_delayed_work(hdev->req_workqueue, &hdev->power_on, HCI_AUTO_ON_TIMEOUT);
+ 
+ 	return id;
+ 
 @@ -2666,7 +2666,7 @@ void hci_unregister_dev(struct hci_dev *hdev)
  	disable_work_sync(&hdev->rx_work);
  	disable_work_sync(&hdev->cmd_work);
@@ -20565,7 +20562,7 @@ index f346505c3f88..20c872da4e21 100644
  	disable_delayed_work_sync(&hdev->cmd_timer);
  	disable_delayed_work_sync(&hdev->ncmd_timer);
 diff --git a/net/bluetooth/hci_sync.c b/net/bluetooth/hci_sync.c
-index a8d2a3f076e9..4809b3245ed1 100644
+index 9d9e270492f9..ec100b2a3f26 100644
 --- a/net/bluetooth/hci_sync.c
 +++ b/net/bluetooth/hci_sync.c
 @@ -2854,6 +2854,7 @@ static u8 hci_update_accept_list_sync(struct hci_dev *hdev)
@@ -20592,7 +20589,7 @@ index a8d2a3f076e9..4809b3245ed1 100644
  		num_entries++;
  	}
  
-@@ -6450,7 +6460,7 @@ int hci_suspend_sync(struct hci_dev *hdev)
+@@ -6452,7 +6462,7 @@ int hci_suspend_sync(struct hci_dev *hdev)
  
  	if (hci_conn_count(hdev)) {
  		/* Soft disconnect everything (power off) */
@@ -20602,10 +20599,10 @@ index a8d2a3f076e9..4809b3245ed1 100644
  			/* Set state to BT_RUNNING so resume doesn't notify */
  			hdev->suspend_state = BT_RUNNING;
 diff --git a/net/bluetooth/mgmt.c b/net/bluetooth/mgmt.c
-index deced8a5bc2d..4486ca7485cd 100644
+index 2a177cd17a9e..4bac0cf21cdd 100644
 --- a/net/bluetooth/mgmt.c
 +++ b/net/bluetooth/mgmt.c
-@@ -8234,7 +8234,7 @@ static int set_external_config(struct sock *sk, struct hci_dev *hdev,
+@@ -8241,7 +8241,7 @@ static int set_external_config(struct sock *sk, struct hci_dev *hdev,
  			hci_dev_set_flag(hdev, HCI_CONFIG);
  			hci_dev_set_flag(hdev, HCI_AUTO_OFF);
  
@@ -20614,7 +20611,7 @@ index deced8a5bc2d..4486ca7485cd 100644
  		} else {
  			set_bit(HCI_RAW, &hdev->flags);
  			mgmt_index_added(hdev);
-@@ -8290,7 +8290,7 @@ static int set_public_address(struct sock *sk, struct hci_dev *hdev,
+@@ -8297,7 +8297,7 @@ static int set_public_address(struct sock *sk, struct hci_dev *hdev,
  		hci_dev_set_flag(hdev, HCI_CONFIG);
  		hci_dev_set_flag(hdev, HCI_AUTO_OFF);
  
@@ -20624,7 +20621,7 @@ index deced8a5bc2d..4486ca7485cd 100644
  
  unlock:
 diff --git a/net/wireless/reg.c b/net/wireless/reg.c
-index 1e8214d6b6d8..0e13e4511ad1 100644
+index 3454afa038bf..931b15ace953 100644
 --- a/net/wireless/reg.c
 +++ b/net/wireless/reg.c
 @@ -231,7 +231,7 @@ static DECLARE_WORK(reg_work, reg_todo);
@@ -20671,7 +20668,7 @@ index a4a2f2f0540c..053c41d98028 100644
  	snd_hda_hdmi_check_presence_and_report(codec, pin_nid, dev_id);
  }
 diff --git a/sound/hda/codecs/realtek/alc269.c b/sound/hda/codecs/realtek/alc269.c
-index c8cc3f3299c1..394402b93bab 100644
+index 07328ae39036..47fe79f14a03 100644
 --- a/sound/hda/codecs/realtek/alc269.c
 +++ b/sound/hda/codecs/realtek/alc269.c
 @@ -2841,6 +2841,20 @@ static void alc294_gx502_toggle_output(struct hda_codec *codec,
@@ -20712,7 +20709,7 @@ index c8cc3f3299c1..394402b93bab 100644
  	ALC269_FIXUP_LIMIT_INT_MIC_BOOST_MUTE_LED,
  	ALC269VB_FIXUP_ORDISSIMO_EVE2,
  	ALC283_FIXUP_CHROME_BOOK,
-@@ -4282,6 +4299,30 @@ enum {
+@@ -4283,6 +4300,30 @@ enum {
  	ALC287_FIXUP_LENOVO_LEGION_AW88399,
  };
  
@@ -20743,7 +20740,7 @@ index c8cc3f3299c1..394402b93bab 100644
  /* A special fixup for Lenovo C940 and Yoga Duet 7;
   * both have the very same PCI SSID, and we need to apply different fixups
   * depending on the codec ID
-@@ -4802,6 +4843,13 @@ static const struct hda_fixup alc269_fixups[] = {
+@@ -4803,6 +4844,13 @@ static const struct hda_fixup alc269_fixups[] = {
  		.chained = true,
  		.chain_id = ALC269_FIXUP_HEADSET_MIC
  	},
@@ -20757,7 +20754,7 @@ index c8cc3f3299c1..394402b93bab 100644
  	[ALC269_FIXUP_LIMIT_INT_MIC_BOOST_MUTE_LED] = {
  		.type = HDA_FIXUP_FUNC,
  		.v.func = alc269_fixup_limit_int_mic_boost,
-@@ -5629,6 +5677,14 @@ static const struct hda_fixup alc269_fixups[] = {
+@@ -5630,6 +5678,14 @@ static const struct hda_fixup alc269_fixups[] = {
  			{ 0x1b, 0x90170152 } /* use as internal speaker (back) */
  		}
  	},
@@ -20772,7 +20769,7 @@ index c8cc3f3299c1..394402b93bab 100644
  	[ALC299_FIXUP_PREDATOR_SPK] = {
  		.type = HDA_FIXUP_PINS,
  		.v.pins = (const struct hda_pintbl[]) {
-@@ -8184,6 +8240,8 @@ static const struct hda_quirk alc269_fixup_tbl[] = {
+@@ -8191,6 +8247,8 @@ static const struct hda_quirk alc269_fixup_tbl[] = {
  	SND_PCI_QUIRK(0x1ee7, 0x2078, "HONOR BRB-X M1010", ALC2XX_FIXUP_HEADSET_MIC),
  	SND_PCI_QUIRK(0x1ee7, 0x2081, "HONOR MRB-XXX M1020", ALC256_FIXUP_HONOR_MRB_XXX_M1020_AUDIO),
  	SND_PCI_QUIRK(0x1f4c, 0xe001, "Minisforum V3 (SE)", ALC245_FIXUP_BASS_HP_DAC),
@@ -20781,7 +20778,7 @@ index c8cc3f3299c1..394402b93bab 100644
  	SND_PCI_QUIRK(0x1f66, 0x0105, "Ayaneo Portable Game Player", ALC287_FIXUP_CS35L41_I2C_2),
  	SND_PCI_QUIRK(0x2014, 0x800a, "Positivo ARN50", ALC269_FIXUP_LIMIT_INT_MIC_BOOST),
  	SND_PCI_QUIRK(0x2039, 0x0001, "Inspur S14-G1", ALC295_FIXUP_CHROME_BOOK),
-@@ -8329,6 +8387,7 @@ static const struct hda_model_fixup alc269_fixup_models[] = {
+@@ -8338,6 +8396,7 @@ static const struct hda_model_fixup alc269_fixup_models[] = {
  	{.id = ALC269VB_FIXUP_ASUS_ZENBOOK, .name = "asus-zenbook"},
  	{.id = ALC269VB_FIXUP_ASUS_ZENBOOK_UX31A, .name = "asus-zenbook-ux31a"},
  	{.id = ALC269VB_FIXUP_ORDISSIMO_EVE2, .name = "ordissimo"},
@@ -20790,10 +20787,10 @@ index c8cc3f3299c1..394402b93bab 100644
  	{.id = ALC283_FIXUP_INT_MIC, .name = "alc283-int-mic"},
  	{.id = ALC290_FIXUP_MONO_SPEAKERS_HSJACK, .name = "mono-speakers"},
 diff --git a/sound/hda/common/codec.c b/sound/hda/common/codec.c
-index ef533770179b..b9ded149ea11 100644
+index 33dbe21fa165..95319c0a9fda 100644
 --- a/sound/hda/common/codec.c
 +++ b/sound/hda/common/codec.c
-@@ -2967,8 +2967,11 @@ static void hda_codec_pm_complete(struct device *dev)
+@@ -2969,8 +2969,11 @@ static void hda_codec_pm_complete(struct device *dev)
  		dev->power.power_state = PMSG_RESUME;
  
  	if (pm_runtime_suspended(dev) && (codec->jackpoll_interval ||
@@ -41575,5 +41572,5 @@ index dd7cd87f1fa5..2052b35e1b50 100644
  
  	pm_state.event = target_state;
 -- 
-2.55.0
+2.56.0
 
