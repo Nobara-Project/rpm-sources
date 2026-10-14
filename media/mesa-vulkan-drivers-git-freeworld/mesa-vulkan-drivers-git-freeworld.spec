@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit ab0ab2209c4ea834168ec0d23da4d5edfc386015
+%global commit d44453ce07ba5e1e6b71f7960809c38f2526c1cd
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 7.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 8.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -299,7 +299,7 @@ rewrite_wrap_file rustc-hash
   -Dgallium-rusticl=true \
 %endif
   -Dvulkan-drivers=%{?vulkan_drivers} \
-  -Dvulkan-layers=device-select%{?with_vulkan_overlay:,overlay},anti-lag \
+  -Dvulkan-layers=device-select%{?with_vulkan_overlay:,overlay} \
   -Dgles1=enabled \
   -Dgles2=enabled \
   -Dopengl=true \
@@ -486,9 +486,7 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %{_libdir}/libvulkan_lvp.so
 %{_datadir}/vulkan/icd.d/lvp_icd.*.json
 %{_datadir}/drirc.d/00-lavapipe-defaults.conf
-%{_libdir}/libVkLayer_MESA_anti_lag.so
 %{_libdir}/libVkLayer_MESA_device_select.so
-%{_datadir}/vulkan/implicit_layer.d/VkLayer_MESA_anti_lag.json
 %{_datadir}/vulkan/implicit_layer.d/VkLayer_MESA_device_select.json
 %if 0%{?with_virtio}
 %{_libdir}/libvulkan_virtio.so
@@ -496,6 +494,7 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %{_datadir}/drirc.d/00-venus-defaults.conf
 %endif
 %if 0%{?with_vulkan_hw}
+%{_datadir}/drirc.d/01-radv-performance.conf
 %{_libdir}/libvulkan_radeon.so
 %ifarch aarch64 x86_64
 %{_datadir}/drirc.d/00-radv-defaults.conf
@@ -546,6 +545,10 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Wed Oct 14 2026 LionHeartP <LionHeartP@proton.me> - 26.3.0-8
+- Update to latest commit
+- Remove anti-lag build options since it's no longer an extra layer
+
 * Thu Oct 01 2026 LionHeartP <LionHeartP@proton.me> - 26.3.0-7
 - Update to latest commit
 
