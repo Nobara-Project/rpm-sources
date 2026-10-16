@@ -1123,7 +1123,7 @@ fi
 %files
 
 %changelog
-* Thu Oct 16 2026 LionHeartP <LionHeartP@proton.me> - 7.2.11-200
+* Fri Oct 16 2026 LionHeartP <LionHeartP@proton.me> - 7.2.11-200
 - Update to 7.2.11
 - Update linux-surface patches
 
