@@ -35,7 +35,7 @@ Provides:      rocm-meta
 
 Name:          rocm-meta
 Version:       %{ROCM_MAJOR_VERSION}.%{ROCM_MINOR_VERSION}.%{ROCM_PATCH_VERSION}
-Release:       2.copr%{?dist}
+Release:       5.copr%{?dist}
 License:       MIT
 Group:         System Environment/Libraries
 Summary:       Radeon Open Compute (ROCm) Runtime software stack
@@ -58,11 +58,6 @@ chmod +x %{buildroot}/etc/profile.d/rocm-meta.sh
 echo 'ADD_EXTRA_GROUPS=1' > %{buildroot}/etc/adduser.conf
 echo 'EXTRA_GROUPS=video' >> %{buildroot}/etc/adduser.conf
 echo 'EXTRA_GROUPS=render' >> %{buildroot}/etc/adduser.conf
-
-%pre
-if [[ ! -z $(dnf list installed | grep 5.2.3.50203) ]] && [[ ! -d "/opt/rocm" ]] ;then
-	rm -rf /opt/rocm*
-fi
 
 %post
 IFS=', ' read -r -a array <<< "$(getent group | grep wheel | cut -d ":" -f 4)"

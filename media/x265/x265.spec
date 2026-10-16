@@ -6,7 +6,7 @@
 Summary:    H.265/HEVC encoder
 Name:       x265
 Version:    4.1
-Release:    3%{?dist}
+Release:    4%{?dist}
 URL:        http://x265.org/
 # source/Lib/TLibCommon - BSD
 # source/Lib/TLibEncoder - BSD
@@ -21,6 +21,7 @@ Patch2:     x265-pkgconfig_path_fix.patch
 # https://bitbucket.org/multicoreware/x265_git/pull-requests/10
 Patch3:     https://bitbucket.org/harlancc/x265_git/commits/8454caf458c5f5d20cce711ff8ea8de55ec1ae50/raw#/x265-sei-length-crash-fix.patch
 Patch4:     add_missing_include.patch
+Patch5:     0001-bump-cmake-min-version-to-3.5.patch
 
 BuildRequires:  gcc-c++
 BuildRequires:  git
@@ -64,7 +65,14 @@ This package contains the shared library development files.
 %prep
 %autosetup -p1 -n %{name}_%{version}
 
+# Fix CMake 4.0+ policy errors by removing deprecated OLD behaviors
+sed -i '/cmake_policy(SET CMP0025 OLD)/d' source/CMakeLists.txt
+sed -i '/cmake_policy(SET CMP0054 OLD)/d' source/CMakeLists.txt
+
 %build
+%ifarch %{ix86}
+export LDFLAGS+=' -Wl,-z,notext'
+%endif
 # High depth libraries (from source/h265.h):
 #   If the requested bitDepth is not supported by the linked libx265,
 #   it will attempt to dynamically bind x265_api_get() from a shared
@@ -80,6 +88,7 @@ build() {
     -DENABLE_SHARED=ON \
     -DENABLE_TESTS:BOOL=ON \
     -DENABLE_HDR10_PLUS=YES \
+    -DENABLE_ASSEMBLY:BOOL=OFF \
     -DCMAKE_ASM_NASM_FLAGS=-w-macro-params-legacy \
     $* \
     ../source
@@ -155,6 +164,9 @@ done
 %{_libdir}/pkgconfig/x265.pc
 
 %changelog
+* Mon Feb 02 2026 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 4.1-4
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_44_Mass_Rebuild
+
 * Sun Jul 27 2025 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 4.1-3
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_43_Mass_Rebuild
 

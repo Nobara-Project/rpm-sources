@@ -1,0 +1,39 @@
+From 01d7dfc89bc40b16363d6a5a5fe6089866706e80 Mon Sep 17 00:00:00 2001
+From: Rolv Apneseth <rolv.apneseth@gmail.com>
+Date: Mon, 18 May 2026 10:07:03 +0100
+Subject: [PATCH] grub-install: use search.fs_uuid for RAID1 on IEEE1275
+
+On IEEE1275, grub-install hardcodes an mduuid prefix for RAID
+abstractions, requiring array assembly at boot. This fails on metadata
+1.0 partitions because detection is skipped due to a firmware issue.
+
+Since RAID1 mirrors are individually readable, use search.fs_uuid on
+IEEE1275 to find the boot filesystem on any member partition and avoid
+requiring array assembly.
+
+Signed-off-by: Rolv Apneseth <rolv.apneseth@gmail.com>
+---
+ util/grub-install.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/util/grub-install.c b/util/grub-install.c
+index 314b6143b..746fc7346 100644
+--- a/util/grub-install.c
++++ b/util/grub-install.c
+@@ -1422,7 +1422,12 @@ main (int argc, char *argv[])
+               debug_image);
+     }
+ 
+-  if (!have_abstractions)
++  int is_ieee1275_raid1 = have_abstractions
++    && (platform == GRUB_INSTALL_PLATFORM_POWERPC_IEEE1275)
++    && grub_dev->disk
++    && probe_raid_level (grub_dev->disk) == 1;
++
++  if (!have_abstractions || is_ieee1275_raid1)
+     {
+       if ((disk_module && grub_strcmp (disk_module, "biosdisk") != 0)
+ 	  || grub_drives[1]
+-- 
+2.54.0
+

@@ -2,7 +2,7 @@
 
 Name:           libfreeaptx
 Version:        %{sonamebase}.2.2
-Release:        8%{?dist}
+Release:        9%{?dist}
 Summary:        Open Source implementation of Audio Processing Technology codec (aptX)
 
 License:        LGPLv2+

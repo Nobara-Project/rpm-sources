@@ -1,0 +1,46 @@
+From 347e39843e2917b49b8d14196450fa602dd75d66 Mon Sep 17 00:00:00 2001
+From: Hans de Goede <johannes.goede@oss.qualcomm.com>
+Date: Sun, 11 Jan 2026 17:56:38 +0100
+Subject: [PATCH] ieee1275/ofnet: Fix hw_addr variable initialization
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The latest gcc does not like the initializer used for the
+grub_net_link_level_address_t hw_addr variable:
+
+../../grub-core/net/drivers/ieee1275/ofnet.c: In function ‘grub_ieee1275_parse_bootpath’:
+../../grub-core/net/drivers/ieee1275/ofnet.c:158:3: warning: braces around scalar initializer
+  158 |   grub_net_link_level_address_t hw_addr = {0, {{0, 0, 0, 0, 0, 0}}};
+      |   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+../../grub-core/net/drivers/ieee1275/ofnet.c:158:3: note: (near initialization for ‘hw_addr.len’)
+../../grub-core/net/drivers/ieee1275/ofnet.c:158:3: error: braces around scalar initializer
+../../grub-core/net/drivers/ieee1275/ofnet.c:158:3: note: (near initialization for ‘hw_addr.len’)
+../../grub-core/net/drivers/ieee1275/ofnet.c:158:52: warning: excess elements in scalar initializer
+  158 |   grub_net_link_level_address_t hw_addr = {0, {{0, 0, 0, 0, 0, 0}}};
+...
+
+Since we're zeroing it anyways switch to a simpler initializer
+to fix this.
+
+Signed-off-by: Hans de Goede <johannes.goede@oss.qualcomm.com>
+---
+ grub-core/net/drivers/ieee1275/ofnet.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/grub-core/net/drivers/ieee1275/ofnet.c b/grub-core/net/drivers/ieee1275/ofnet.c
+index ccec23d34..9b045ce70 100644
+--- a/grub-core/net/drivers/ieee1275/ofnet.c
++++ b/grub-core/net/drivers/ieee1275/ofnet.c
+@@ -155,7 +155,7 @@ grub_ieee1275_parse_bootpath (const char *devpath, char *bootpath,
+   char *equal_char = 0;
+   grub_size_t field_counter = 0;
+   grub_net_network_level_address_t client_addr = {0, {0}, 0}, gateway_addr = {0, {0}, 0}, subnet_mask = {0, {0}, 0};
+-  grub_net_link_level_address_t hw_addr = {0, {{0, 0, 0, 0, 0, 0}}};
++  grub_net_link_level_address_t hw_addr = {};
+   grub_net_interface_flags_t flags = 0;
+   struct grub_net_network_level_interface *inter = NULL;
+   grub_uint16_t vlantag = 0;
+-- 
+2.52.0
+

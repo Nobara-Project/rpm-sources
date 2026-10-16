@@ -1,0 +1,64 @@
+--- a/src/modules/partition/core/PartitionActions.cpp
++++ b/src/modules/partition/core/PartitionActions.cpp
+@@ -30,6 +30,32 @@
+ 
+ using namespace Calamares::Units;
+ 
++// Align a partition's first sector to a 4 KiB boundary.
++static quint64
++startSectorTo4KAlign( const qint64 logicalSize, const quint64 startSector )
++{
++    if ( logicalSize == 512 )
++    {
++        // With 512-byte logical sectors, sector numbers must be divisible by 8.
++        const quint64 remainder = ( startSector - 1 ) % 8;
++        return startSector - remainder + 7;
++    }
++    return startSector;
++}
++
++// Align a partition's last sector to a 4 KiB boundary.
++static quint64
++endSectorTo4KAlign( const qint64 logicalSize, const quint64 endSector )
++{
++    if ( logicalSize == 512 )
++    {
++        // The inclusive end sector plus one must be divisible by 8.
++        const quint64 remainder = ( endSector + 1 ) % 8;
++        return endSector - remainder;
++    }
++    return endSector;
++}
++
+ static quint64
+ swapSuggestion( const quint64 availableSpaceB, Config::SwapChoice swap )
+ {
+@@ -108,7 +134,9 @@ doAutopartition( PartitionCoreModule* core, Device* dev, Choices::AutoPartitionO
+         partType = isEfi ? PartitionTable::gpt : PartitionTable::msdos;
+     }
+     // last usable sector possibly allowing for secondary GPT using 66 sectors (256 entries)
+-    const qint64 lastUsableSector = dev->totalLogical() - ( partType == PartitionTable::gpt ? 67 : 1 );
++    const qint64 unalignedLastUsableSector
++        = dev->totalLogical() - ( partType == PartitionTable::gpt ? 67 : 1 );
++    const qint64 lastUsableSector = endSectorTo4KAlign( dev->logicalSize(), unalignedLastUsableSector );
+ 
+     // Looking up the defaultFsType (which should name a filesystem type)
+     // will log an error and set the type to Unknown if there's something wrong.
+@@ -169,6 +197,7 @@ doAutopartition( PartitionCoreModule* core, Device* dev, Choices::AutoPartitionO
+     if ( shouldCreateSwap )
+     {
+         lastSectorForRoot -= suggestedSwapSizeB / sectorSize + 1;
++        lastSectorForRoot = endSectorTo4KAlign( sectorSize, lastSectorForRoot );
+     }
+ 
+     core->layoutApply( dev, firstFreeSector, lastSectorForRoot, o.luksFsType, o.luksPassphrase );
+@@ -247,6 +276,9 @@ doReplacePartition( PartitionCoreModule* core, Device* dev, Partition* partition
+     // Save the first and last sector values as the partition will be deleted
+     firstSector = partition->firstSector();
+     lastSector = partition->lastSector();
++    firstSector = startSectorTo4KAlign( dev->logicalSize(), firstSector );
++    lastSector = endSectorTo4KAlign( dev->logicalSize(), lastSector );
++
+     if ( !partition->roles().has( PartitionRole::Unallocated ) )
+     {
+         core->deletePartition( dev, partition );

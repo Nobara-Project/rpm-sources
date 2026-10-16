@@ -1,0 +1,19 @@
+From: Sebastian Ramacher <sramacher@debian.org>
+Date: Fri, 20 Mar 2026 13:37:17 +0100
+Subject: Set extended_crf_qindex_offset only for SVT-AV1 >= 4
+
+---
+diff --git a/libhb/encsvtav1.c b/libhb/encsvtav1.c
+index 70913f2..e69100d 100644
+--- a/libhb/encsvtav1.c
++++ b/libhb/encsvtav1.c
+@@ -127,7 +127,9 @@ int encsvtInit(hb_work_object_t *w, hb_job_t *job)
+     else
+     {
+         param->qp                         = fmin(job->vquality, MAX_QP_VALUE); // truncated 
++#if SVT_AV1_VERSION_MAJOR >= 4
+         param->extended_crf_qindex_offset = (job->vquality - param->qp) * 4;
++#endif
+         param->rate_control_mode = SVT_AV1_RC_MODE_CQP_OR_CRF;
+         param->force_key_frames = 1;
+     }

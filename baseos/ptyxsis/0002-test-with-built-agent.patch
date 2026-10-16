@@ -1,0 +1,31 @@
+diff --git a/src/ptyxis-client.c b/src/ptyxis-client.c
+--- a/src/ptyxis-client.c
++++ b/src/ptyxis-client.c
+@@ -244,6 +244,16 @@
+ static char *
+ find_ptyxis_agent_path (gboolean in_sandbox)
+ {
++  /* Integration tests use the freshly built helper without installing it.
++   * The application does not initialize GLib's test framework.
++   */
++  if (g_test_initialized ())
++    {
++      const char *test_agent = g_getenv ("PTYXIS_TEST_AGENT");
++      if (test_agent != NULL && g_path_is_absolute (test_agent))
++        return g_strdup (test_agent);
++    }
++
+   if (!in_sandbox &&
+       ptyxis_get_process_kind () == PTYXIS_PROCESS_KIND_FLATPAK)
+     {
+diff --git a/testsuite/meson.build b/testsuite/meson.build
+--- a/testsuite/meson.build
++++ b/testsuite/meson.build
+@@ -41,6 +41,7 @@
+   c_args: testsuite_c_args,
+ )
+ split_env = environment()
++split_env.set('PTYXIS_TEST_AGENT', meson.project_build_root() / 'agent' / 'ptyxis-agent')
+ split_env.set('GSETTINGS_BACKEND', 'memory')
+ split_env.set('GSETTINGS_SCHEMA_DIR', meson.project_build_root() / 'src')
+ split_env.set('GSK_RENDERER', 'cairo')

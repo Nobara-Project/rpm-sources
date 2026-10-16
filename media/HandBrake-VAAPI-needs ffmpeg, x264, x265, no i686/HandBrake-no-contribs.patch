@@ -1,0 +1,26 @@
+From: Sebastian Ramacher <sramacher@debian.org>
+Date: Fri, 1 Dec 2023 23:22:16 +0100
+Subject: Do not use contribs
+
+---
+diff --git a/gtk/meson.build b/gtk/meson.build
+index 928db7c..1d6cbb7 100644
+--- a/gtk/meson.build
++++ b/gtk/meson.build
+@@ -20,7 +20,7 @@ if hb_dir == ''
+   hb_dir = meson.current_build_dir() / '..'
+ endif
+ 
+-hb_incdirs = include_directories(hb_dir / 'libhb', hb_dir / 'contrib/include')
++hb_incdirs = include_directories(hb_dir / 'libhb')
+ 
+ # External dependencies (required)
+ ghb_deps = [
+@@ -51,6 +51,7 @@ ghb_deps = [
+   dependency('vorbis'),
+   dependency('vorbisenc'),
+   dependency('x264'),
++  dependency('zlib'),
+ ]
+ 
+ if get_option('libdovi').enabled()

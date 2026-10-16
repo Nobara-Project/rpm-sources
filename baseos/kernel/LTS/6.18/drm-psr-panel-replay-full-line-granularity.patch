@@ -1,0 +1,53 @@
+From a99cac460ddeb3705cb54a8421339f351586b25d Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Jouni=20H=C3=B6gander?= <jouni.hogander@intel.com>
+Date: Wed, 25 Feb 2026 09:42:21 +0200
+Subject: [PATCH] drm/i915/psr: Fix for Panel Replay X granularity DPCD
+ register handling
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+DP specification is saying value 0xff 0xff in PANEL REPLAY SELECTIVE UPDATE
+X GRANULARITY CAPABILITY registers (0xb2 and 0xb3) means full-line
+granularity. Take this into account when handling Panel Replay X
+granularity informed by the panel.
+
+Fixes: 1cc854647450 ("drm/i915/psr: Use SU granularity information available in intel_connector")
+Closes: https://gitlab.freedesktop.org/drm/xe/kernel/-/issues/7284
+Tested-by: Mark Pearson <mpearson-lenovo@squebb.ca>
+Signed-off-by: Jouni Högander <jouni.hogander@intel.com>
+Reviewed-by: Uma Shankar <uma.shankar@intel.com>
+Link: https://patch.msgid.link/20260225074221.1744330-2-jouni.hogander@intel.com
+(cherry picked from commit f5c8f824a495e849492f09a43bd965a8f4d86cb2)
+Signed-off-by: Joonas Lahtinen <joonas.lahtinen@linux.intel.com>
+
+Backport of upstream a99cac460ddeb3705cb54a8421339f351586b25d to
+Nobara 6.18.52. Keep the existing intel_dp->psr capability storage and
+function signature instead of importing the connector-capability refactor.
+The pre-refactor code also treats 0xffff as a literal width, rejecting
+full-line Panel Replay selective updates. Normalize it to the mode width
+only for Panel Replay; PSR2 and all other granularity values are unchanged.
+
+---
+ drivers/gpu/drm/i915/display/intel_psr.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/i915/display/intel_psr.c b/drivers/gpu/drm/i915/display/intel_psr.c
+--- a/drivers/gpu/drm/i915/display/intel_psr.c
++++ b/drivers/gpu/drm/i915/display/intel_psr.c
+@@ -1281,9 +1281,14 @@
+ 	const int crtc_hdisplay = crtc_state->hw.adjusted_mode.crtc_hdisplay;
+ 	const int crtc_vdisplay = crtc_state->hw.adjusted_mode.crtc_vdisplay;
+ 	u16 y_granularity = 0;
++	u16 sink_w_granularity = intel_dp->psr.su_w_granularity;
++
++	if (crtc_state->has_panel_replay &&
++	    sink_w_granularity == DP_PANEL_REPLAY_FULL_LINE_GRANULARITY)
++		sink_w_granularity = crtc_hdisplay;
+ 
+ 	/* PSR2 HW only send full lines so we only need to validate the width */
+-	if (crtc_hdisplay % intel_dp->psr.su_w_granularity)
++	if (crtc_hdisplay % sink_w_granularity)
+ 		return false;
+ 
+ 	if (crtc_vdisplay % intel_dp->psr.su_y_granularity)

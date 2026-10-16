@@ -1,5 +1,5 @@
 Name:           gpu-screen-recorder
-Version:        5.14.0
+Version:        6.1.3
 Release:        1%{dist}
 Summary:        A shadowplay-like screen recorder for Linux. The fastest screen recorder for Linux.
 
@@ -58,15 +58,50 @@ setcap cap_sys_admin+ep %{_bindir}/gsr-kms-server
 %license LICENSE
 %doc README.md
 %{_bindir}/%{name}
+%{_bindir}/gsr-cli
 %{_bindir}/gsr-kms-server
 %{_datadir}/%{name}/scripts/*.sh
 %{_includedir}/gsr/plugin.h
 %{_prefix}/lib/systemd/user/%{name}.service
 %{_prefix}/lib/modprobe.d/gsr-nvidia.conf
 %{_mandir}/man1/%{name}.1*
+%{_mandir}/man1/gsr-cli.1*
 %{_mandir}/man1/gsr-kms-server.1*
 
 %changelog
+* Wed Sep 23 2026 LionHeartP <LionHeartP@proton.me> - 6.1.3-1
+- Update to 6.1.3
+
+* Sat Sep 12 2026 LionHeartP <LionHeartP@proton.me> - 6.1.2-1
+- Update to 6.1.2
+
+* Tue Sep 08 2026 LionHeartP <LionHeartP@proton.me> - 6.1.1-1
+- Update to 6.1.1
+
+* Tue Sep 01 2026 LionHeartP <LionHeartP@proton.me> - 6.1.0-1
+- Update to 6.1.0
+
+* Sat Aug 29 2026 LionHeartP <LionHeartP@proton.me> - 6.0.2-1
+- Update to 6.0.2
+
+* Sat Aug 22 2026 LionHeartP <LionHeartP@proton.me> - 6.0.1-1
+- Update to 6.0.1
+
+* Sun Aug 09 2026 LionHeartP <LionHeartP@proton.me> - 6.0.0-1
+- Update to 6.0.0
+
+* Sun Jul 26 2026 LionHeartP <LionHeartP@proton.me> - 5.15.3-1
+- Update to 5.15.3
+
+* Thu Jul 23 2026 LionHeartP <LionHeartP@proton.me> - 5.15.2-1
+- Update to 5.15.2
+
+* Thu Jul 16 2026 LionHeartP <LionHeartP@proton.me> - 5.15.1-1
+- Update to 5.15.1
+
+* Sat Jul 04 2026 LionHeartP <LionHeartP@proton.me> - 5.14.1-1
+- Update to 5.14.1
+
 * Fri Jul 03 2026 LionHeartP <LionHeartP@proton.me> - 5.14.0-1
 - Update to 5.14.0
 

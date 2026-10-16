@@ -1,0 +1,677 @@
+--- a/settings.conf
++++ b/settings.conf
+@@ -86,6 +86,9 @@
+ #
+ # YAML: list of maps of string:string key-value pairs.
+ instances:
++- id:       lvmconfigure
++  module:   nobaralvm
++  config:   nobaralvm-configure.conf
+ - id:       audio
+   module:   packagechooserq
+   config:   audio.conf
+@@ -136,6 +139,7 @@
+ #  - dummyprocess
+ #  - dummypython
+   - partition
++  - nobaralvm
+ #  - zfs
+   - mount
+   - unpackfs
+@@ -147,6 +151,7 @@
+ #  - luksopenswaphookcfg
+   - dracutlukscfg
+   - fstab
++  - nobaralvm@lvmconfigure
+ #  - zfshostid
+ #  - initcpiocfg
+ #  - hardwr
+--- a/src/modules/bootloader/main.py
++++ b/src/modules/bootloader/main.py
+@@ -167,6 +167,8 @@
+         if partition["mountPoint"] == "/" and has_luks:
+             if use_systemd_naming:
+                 cryptdevice_params = [f"rd.luks.uuid={partition['luksUuid']}"]
++                if partition.get("claimed"):
++                    cryptdevice_params.append(f"rd.luks.options={partition['luksUuid']}=discard,x-initrd.attach")
+             else:
+                 cryptdevice_params = [f"cryptdevice=UUID={partition['luksUuid']}:{partition['luksMapperName']}"]
+             cryptdevice_params.append(f"root=/dev/mapper/{partition['luksMapperName']}")
+@@ -189,6 +191,10 @@
+                 # Something is really broken if we get to this point
+                 libcalamares.utils.warning("Internal error handling zfs dataset")
+                 raise Exception("Internal zfs data missing, please contact your distribution")
++
++    # LVM lives inside the encrypted PV; the root LV itself is not a
++    # crypt device. Keep one password prompt and activate only our LVs.
++    kernel_params.extend(libcalamares.globalstorage.value("nobaraLvmKernelParams") or [])
+ 
+     if cryptdevice_params:
+         kernel_params.extend(cryptdevice_params)
+--- a/src/modules/fstab/fstab.conf
++++ b/src/modules/fstab/fstab.conf
+@@ -26,7 +26,7 @@
+ #        options: ""
+ #    ssd:
+ #        tmpfs: true
+-#        options: "defaults,noatime,mode=1777"
++#        options: "defaults,relatime,mode=1777"
+ #
+ tmpOptions:
+     default:
+@@ -34,4 +34,4 @@
+         options: ""
+     ssd:
+         tmpfs: true
+-        options: "defaults,noatime,mode=1777"
++        options: "defaults,relatime,mode=1777"
+--- a/src/modules/fstab/main.py
++++ b/src/modules/fstab/main.py
+@@ -172,6 +172,10 @@
+                    for p in self.partitions]):
+                 password = "none"
+                 crypttab_options = ""
++
++        if partition.get("claimed") and partition.get("fs") in {"ext4", "xfs", "btrfs", "lvm2 pv", "lvm2"}:
++            password = "none"
++            crypttab_options = "luks,discard,x-initrd.attach"
+ 
+         return dict(
+             name=mapper_name,
+--- a/src/modules/grubcfg/main.py
++++ b/src/modules/grubcfg/main.py
+@@ -190,6 +190,8 @@
+ 
+             if partition["mountPoint"] == "/" and has_luks:
+                 cryptdevice_params = [f"rd.luks.uuid={partition['luksUuid']}"]
++                if partition.get("claimed"):
++                    cryptdevice_params.append(f"rd.luks.options={partition['luksUuid']}=discard,x-initrd.attach")
+                 if not unencrypted_separate_boot and uses_systemd_hook:
+                     cryptdevice_params.append("rd.luks.key=/crypto_keyfile.bin")
+     else:
+@@ -218,6 +220,10 @@
+     # Currently, grub doesn't detect this properly so it must be set manually
+     if zfs_root_path:
+         kernel_params.insert(0, "zfs=" + zfs_root_path)
++
++    # LVM lives inside the encrypted PV; the root LV itself is not a
++    # crypt device. Keep one password prompt and activate only our LVs.
++    kernel_params.extend(libcalamares.globalstorage.value("nobaraLvmKernelParams") or [])
+ 
+     if cryptdevice_params:
+         kernel_params.extend(cryptdevice_params)
+--- a/src/modules/mount/mount.conf
++++ b/src/modules/mount/mount.conf
+@@ -103,16 +103,18 @@
+ #    - filesystem: default
+ #      options: [ defaults ]
+ #
++# Filesystem defaults apply regardless of how the block device is layered.
++# Weekly fstrim skips Btrfs, which uses asynchronous continuous discard.
+ mountOptions:
+     - filesystem: default
+-      options: [ defaults ]
++      options: [ defaults, relatime ]
+     - filesystem: efi
+-      options: [ defaults, umask=0077 ]
++      options: [ defaults, relatime, umask=0077 ]
++    - filesystem: ext4
++      options: [ defaults, relatime, nodiscard ]
++    - filesystem: xfs
++      options: [ defaults, relatime, nodiscard ]
+     - filesystem: btrfs
+-      options: [ compress=zstd:1,x-systemd.device-timeout=0 ]
++      options: [ defaults, relatime, compress=zstd:1, discard=async, X-fstrim.notrim, x-systemd.device-timeout=0 ]
+     - filesystem: btrfs_swap
+-      options: [ defaults, noatime ]
+-
+-
+-
+-
++      options: [ defaults, relatime, discard=async, X-fstrim.notrim ]
+--- /dev/null
++++ b/src/modules/nobaralvm/main.py
+@@ -0,0 +1,203 @@
++# SPDX-License-Identifier: GPL-3.0-or-later
++"""Provision only the NEW PV from Nobara's erase-disk plan.
++
++KPMcore owns disk partitioning and LUKS setup. This job runs before mount and
++exports real filesystem UUIDs/devices for mount, fstab and bootloader jobs.
++Never adopts an existing VG or formats a device based on a guessed disk name.
++"""
++from decimal import Decimal
++import json
++import os
++from pathlib import Path
++import re
++import shutil
++import stat
++import subprocess
++import uuid
++
++import libcalamares
++
++EXTENT = 4 * 1024**2
++GIB = 1024**3
++
++
++def output(args):
++    return subprocess.run(args, check=True, text=True, capture_output=True, env=dict(os.environ, LC_ALL="C")).stdout.strip()
++
++
++def report(kind, fields, device):
++    return json.loads(output(["lvm", kind + "s", "--reportformat", "json", "--units", "b", "--nosuffix", "-o", fields, device]))["report"][0][kind]
++
++
++def valid_plan(plan):
++    if set(plan) != {"rootBytes", "homeBytes", "reserveBytes", "swapBytes"}:
++        raise RuntimeError("The LVM layout is incomplete; return to the partition page.")
++    if any(type(n) is not int or n < 0 or n % EXTENT for n in plan.values()):
++        raise RuntimeError("Invalid LVM volume sizes.")
++    needed = (plan["rootBytes"] * 105 // 100 + 8 * 1024**2 + EXTENT - 1) // EXTENT * EXTENT
++    if plan["rootBytes"] < 16 * GIB or plan["homeBytes"] < 4 * GIB or plan["reserveBytes"] < needed:
++        raise RuntimeError("Insufficient system, home or rollback capacity.")
++
++
++def create():
++    gs = libcalamares.globalstorage
++    fs = gs.value("nobaraLvmFileSystem")
++    if not fs:
++        return
++    if fs not in {"ext4", "xfs"} or gs.value("nobaraLvmCreated"):
++        raise RuntimeError("Invalid or already executed LVM installation plan.")
++    if gs.value("nobaraLvmError"):
++        raise RuntimeError("The selected disk cannot hold this LVM layout.")
++    plan = gs.value("nobaraLvmPlan")
++    valid_plan(plan)
++    for program in ("lvm", "blkid", "udevadm", "mkfs." + fs, "mkswap", "lvmdevices"):
++        if not shutil.which(program):
++            raise RuntimeError("Missing LVM installation tool: " + program)
++    if fs == "ext4" and not shutil.which("tune2fs"):
++        raise RuntimeError("Missing ext4 feature verification tool: tune2fs")
++    partitions = gs.value("partitions")
++    roots = [p for p in partitions if p.get("mountPoint") == "/"]
++    if len(roots) != 1 or not roots[0].get("claimed"):
++        raise RuntimeError("The erase-disk plan did not create exactly one new root PV.")
++    root = roots[0]
++    mapper = root.get("luksMapperName")
++    if mapper and not re.fullmatch(r"[A-Za-z0-9_+.-]+", mapper):
++        raise RuntimeError("Invalid encrypted PV mapping.")
++    pv = "/dev/mapper/" + mapper if mapper else root["device"]
++    if not pv.startswith("/dev/") or not stat.S_ISBLK(os.stat(pv).st_mode):
++        raise RuntimeError("The new PV is not a block device.")
++    if output(["blkid", "-s", "TYPE", "-o", "value", pv]) != "LVM2_member":
++        raise RuntimeError("The partition job did not create the expected LVM PV.")
++    records = report("pv", "pv_name,pv_uuid,vg_name,pv_size", pv)
++    if len(records) != 1 or records[0]["vg_name"].strip():
++        raise RuntimeError("Refusing to use a PV that already belongs to a volume group.")
++    if os.path.realpath(records[0]["pv_name"].strip()) != os.path.realpath(pv):
++        raise RuntimeError("The PV device does not match the erase-disk plan.")
++    if int(Decimal(records[0]["pv_size"].strip())) < sum(plan.values()) + EXTENT:
++        raise RuntimeError("The actual PV is smaller than the reviewed layout.")
++    # A random name avoids colliding with any other installed system's VG.
++    vg = "nobara_" + uuid.uuid4().hex[:12]
++    output(["lvm", "vgcreate", "--physicalextentsize", "4M", "--devices", pv, vg, pv])
++    free = report("vg", "vg_free", vg)
++    if len(free) != 1 or int(Decimal(free[0]["vg_free"].strip())) < sum(plan.values()):
++        raise RuntimeError("The volume group cannot hold the reviewed layout.")
++    for name, key in (("root", "rootBytes"), ("home", "homeBytes"), ("swap", "swapBytes"), ("nobara_reserve", "reserveBytes")):
++        if not plan[key]:
++            continue
++        command = ["lvm", "lvcreate", "--yes", "--devices", pv, "--size", str(plan[key]) + "B", "--name", name]
++        if name == "nobara_reserve":
++            command += ["--permission", "r", "--zero", "n", "--wipesignatures", "n", "--addtag", "nobara.rollback.reserve"]
++        output(command + [vg])
++    output(["udevadm", "settle"])
++    new = []
++    for name, mount, fstype in (("root", "/", fs), ("home", "/home", fs), ("swap", "", "linuxswap")):
++        if name == "swap" and not plan["swapBytes"]:
++            continue
++        device = "/dev/" + vg + "/" + name
++        if name == "swap":
++            output(["mkswap", "-L", "swap", device])
++        else:
++            command = ["mkfs." + fs, "-L", "nobara_" + name]
++            if fs == "ext4":
++                command += ["-O", "metadata_csum"]
++            output(command + [device])
++            if fs == "ext4":
++                features = re.search(r"(?m)^Filesystem features:\s*(.*)$", output(["tune2fs", "-l", device]))
++                if not features or "metadata_csum" not in features[1].split():
++                    raise RuntimeError("The new ext4 volume is missing metadata checksums.")
++        fsuuid = output(["blkid", "-s", "UUID", "-o", "value", device])
++        if not re.fullmatch(r"[0-9a-fA-F-]{36}", fsuuid):
++            raise RuntimeError("Cannot identify the newly created filesystem.")
++        # Do not copy luksMapperName: mount would mount the PV instead of LV.
++        new.append(dict(device=device, mountPoint=mount, fs=fstype, fsName=fstype,
++                        uuid=fsuuid, claimed=True, features={}, partlabel="", partuuid="", parttype="", partattrs=0))
++    container = dict(root, mountPoint="")
++    container.pop("luksPassphrase", None)
++    gs.insert("partitions", [p for p in partitions if p is not root] + [container] + new)
++    filesystems = gs.value("filesystem_use") or {}
++    filesystems[fs] = 2
++    gs.insert("filesystem_use", filesystems)
++    params = ["rd.lvm.lv=" + vg + "/root"]
++    if plan["swapBytes"]:
++        params.append("rd.lvm.lv=" + vg + "/swap")
++    if mapper:
++        luks_uuid = root.get("luksUuid", "")
++        if not re.fullmatch(r"[0-9a-fA-F-]{36}", luks_uuid):
++            raise RuntimeError("The encrypted PV UUID is missing.")
++        params.append("rd.luks.uuid=" + luks_uuid)
++        params.append("rd.luks.options=" + luks_uuid + "=discard,x-initrd.attach")
++    gs.insert("nobaraLvmKernelParams", params)
++    gs.insert("nobaraLvmCreated", dict(vg=vg, pv=pv, fs=fs, encrypted=bool(mapper), **plan))
++    os.sync()
++
++
++def configure():
++    gs = libcalamares.globalstorage
++    lvm = bool(gs.value("nobaraLvmFileSystem"))
++    if not lvm and not gs.value("nobaraGuidedStorage"):
++        return
++    created = gs.value("nobaraLvmCreated")
++    if lvm and not created:
++        raise RuntimeError("The LVM volumes have not been created.")
++    root = Path(gs.value("rootMountPoint"))
++    if not root.is_absolute() or root == Path("/") or not root.is_mount():
++        raise RuntimeError("The installed target is not mounted.")
++    if lvm:
++        # The ISO may carry a device inventory from its build machine. Generate
++        # a target-specific inventory while /dev and the encrypted PV are open.
++        inventory = root / "etc/lvm/devices/system.devices"
++        inventory.unlink(missing_ok=True)
++        if libcalamares.utils.target_env_call(["lvmdevices", "--adddev", created["pv"]]) != 0:
++            raise RuntimeError("Could not configure the target LVM device inventory.")
++        conf = root / "etc/dracut.conf.d/90-nobara-lvm.conf"
++        conf.parent.mkdir(parents=True, exist_ok=True)
++        params = " ".join(gs.value("nobaraLvmKernelParams"))
++        conf.write_text('add_dracutmodules+=" lvm crypt systemd-cryptsetup "\nadd_drivers+=" dm_snapshot "\n'
++                        'kernel_cmdline+=" ' + params + ' "\n')
++        # Weekly fstrim batches discards. No synchronous discard mount option is
++        # needed; HDDs without discard support are skipped by the packaged unit.
++        if not (root / "usr/lib/systemd/system/fstrim.timer").is_file():
++            raise RuntimeError("The installed system is missing fstrim.timer.")
++        output(["systemctl", "--root=" + str(root), "enable", "fstrim.timer"])
++        if created["encrypted"]:
++            outer = next(p for p in gs.value("partitions") if p.get("luksMapperName")
++                         and "/dev/mapper/" + p["luksMapperName"] == created["pv"])
++            table = root / "etc/crypttab"
++            lines = table.read_text().splitlines()
++            matching = [i for i, line in enumerate(lines) if line.split() and line.split()[0] == outer["luksMapperName"]]
++            if len(matching) != 1:
++                raise RuntimeError("The encrypted LVM container is missing from crypttab.")
++            # The unencrypted boot partition must never contain an unlock key.
++            lines[matching[0]] = outer["luksMapperName"] + " UUID=" + outer["luksUuid"] + " none luks,discard,x-initrd.attach"
++            table.write_text("\n".join(lines) + "\n")
++    # Block an offline update before RPM writes if recovery becomes unavailable.
++    policy = root / "etc/nobara-updater/offline.json"
++    policy.parent.mkdir(parents=True, exist_ok=True)
++    settings = json.loads(policy.read_text()) if policy.exists() else {}
++    settings["require_offline_recovery"] = True
++    policy.write_text(json.dumps(settings, indent=2) + "\n")
++    (policy.parent / "storage.json").write_text(json.dumps(created or {"fs": "btrfs"}, indent=2) + "\n")
++    defaults = root / "etc/default/grub"
++    text = defaults.read_text() if defaults.exists() else ""
++    text = re.sub(r"(?m)^\s*GRUB_DEFAULT=.*\n?", "", text)
++    defaults.write_text(text.rstrip() + "\nGRUB_DEFAULT=saved\n")
++    os.sync()
++
++
++def pretty_name():
++    return "Configure automatic system recovery" if libcalamares.job.configuration.get("phase") == "configure" else "Create LVM system, home and rollback storage"
++
++
++def run():
++    try:
++        phase = libcalamares.job.configuration.get("phase", "create")
++        if phase == "create":
++            create()
++        elif phase == "configure":
++            configure()
++        else:
++            raise RuntimeError("Unknown LVM installation phase.")
++    except (OSError, ValueError, KeyError, RuntimeError, subprocess.CalledProcessError) as error:
++        # Passphrases never enter subprocess arguments or our persisted state.
++        return ("Unable to configure automatic rollback", str(error))
++    return None
+--- /dev/null
++++ b/src/modules/nobaralvm/module.desc
+@@ -0,0 +1,5 @@
++# SPDX-License-Identifier: GPL-3.0-or-later
++type: job
++name: nobaralvm
++interface: python
++script: main.py
+--- /dev/null
++++ b/src/modules/nobaralvm/nobaralvm-configure.conf
+@@ -0,0 +1 @@
++phase: configure
+--- /dev/null
++++ b/src/modules/nobaralvm/nobaralvm.conf
+@@ -0,0 +1 @@
++phase: create
+--- /dev/null
++++ b/src/modules/partition/core/NobaraLvmLayout.h
+@@ -0,0 +1,30 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#pragma once
++#include <algorithm>
++#include <cstdint>
++
++namespace NobaraLvm
++{
++constexpr std::uint64_t MiB = 1024ULL * 1024;
++constexpr std::uint64_t GiB = 1024ULL * MiB;
++constexpr std::uint64_t extent = 4 * MiB;
++constexpr std::uint64_t up( std::uint64_t n ) { return ( n + extent - 1 ) / extent * extent; }
++constexpr std::uint64_t down( std::uint64_t n ) { return n / extent * extent; }
++struct Layout { std::uint64_t root = 0, home = 0, reserve = 0, swap = 0; bool valid = false; };
++inline Layout plan( std::uint64_t pvBytes, std::uint64_t swapBytes, std::uint64_t requiredBytes )
++{
++    Layout p;
++    // Covers LUKS2 header, PV metadata, alignment and a little spare VG space.
++    constexpr auto overhead = 64 * MiB;
++    p.swap = up( swapBytes );
++    if ( pvBytes <= overhead + p.swap ) return p;
++    const auto available = down( pvBytes - overhead - p.swap );
++    const auto minimum = up( std::max( 16 * GiB, requiredBytes * 3 / 2 ) );
++    p.root = down( std::min( 96 * GiB, available * 45 / 100 ) );
++    p.reserve = up( p.root * 105 / 100 + 8 * MiB );
++    if ( p.root < minimum || available < p.root + p.reserve + 4 * GiB ) return p;
++    p.home = available - p.root - p.reserve;
++    p.valid = true;
++    return p;
++}
++}
+--- a/src/modules/partition/core/PartitionActions.cpp
++++ b/src/modules/partition/core/PartitionActions.cpp
+@@ -193,6 +193,18 @@
+         shouldCreateSwap = availableSpaceB > requiredSpaceB;
+     }
+ 
++    const bool nobaraLvm = type == FileSystem::Ext4 || type == FileSystem::Xfs;
++    gs->insert( "nobaraGuidedStorage", nobaraLvm || type == FileSystem::Btrfs );
++    gs->remove( "nobaraLvmFileSystem" );
++    gs->remove( "nobaraLvmPlan" );
++    gs->remove( "nobaraLvmError" );
++    if ( nobaraLvm )
++    {
++        gs->insert( "nobaraLvmFileSystem", o.defaultFsType );
++        gs->insert( "nobaraLvmSwapBytes", QVariant::fromValue( suggestedSwapSizeB ) );
++        gs->insert( "nobaraLvmRequiredBytes", QVariant::fromValue( o.requiredSpaceB ) );
++        shouldCreateSwap = false;
++    }
+     qint64 lastSectorForRoot = lastUsableSector;
+     if ( shouldCreateSwap )
+     {
+--- a/src/modules/partition/core/PartitionLayout.cpp
++++ b/src/modules/partition/core/PartitionLayout.cpp
+@@ -15,6 +15,7 @@
+ #include "utils/Logger.h"
+ 
+ #include "core/PartitionLayout.h"
++#include "core/NobaraLvmLayout.h"
+ 
+ #include "core/KPMHelpers.h"
+ #include "core/PartUtils.h"
+@@ -282,6 +283,9 @@
+         }
+     }
+ 
++    auto storage = Calamares::JobQueue::instance()->globalStorage();
++    const bool nobaraLvm = !storage->value( "nobaraLvmFileSystem" ).toString().isEmpty();
++    // Resolve per-entry, so /boot keeps its configured filesystem.
+     auto correctFS = [ d = m_defaultFsType ]( FileSystem::Type t ) { return t == FileSystem::Type::Unknown ? d : t; };
+ 
+     // Create the partitions.
+@@ -297,15 +301,34 @@
+             continue;
+         }
+ 
++        const bool lvmRoot = nobaraLvm && entry.partMountPoint == "/";
++        if ( lvmRoot )
++        {
++            auto plan = NobaraLvm::plan( quint64( sectors ) * dev->logicalSize(),
++                storage->value( "nobaraLvmSwapBytes" ).toULongLong(),
++                storage->value( "nobaraLvmRequiredBytes" ).toULongLong() );
++            if ( !plan.valid )
++            {
++                storage->insert( "nobaraLvmError", "insufficient-space" );
++                continue;
++            }
++            QVariantMap values;
++            values.insert( "rootBytes", QVariant::fromValue< qulonglong >( plan.root ) );
++            values.insert( "homeBytes", QVariant::fromValue< qulonglong >( plan.home ) );
++            values.insert( "reserveBytes", QVariant::fromValue< qulonglong >( plan.reserve ) );
++            values.insert( "swapBytes", QVariant::fromValue< qulonglong >( plan.swap ) );
++            storage->insert( "nobaraLvmPlan", values );
++        }
++        const auto filesystem = lvmRoot ? FileSystem::Lvm2_PV : correctFS( entry.partFileSystem );
+         Partition* part = nullptr;
+ 
+         // Encryption for zfs is handled in the zfs module, skip encryption on noEncrypt partitions
+-        if ( luksPassphrase.isEmpty() || correctFS( entry.partFileSystem ) == FileSystem::Zfs || entry.partNoEncrypt )
++        if ( luksPassphrase.isEmpty() || filesystem == FileSystem::Zfs || entry.partNoEncrypt )
+         {
+             part = KPMHelpers::createNewPartition( parent,
+                                                    *dev,
+                                                    role,
+-                                                   correctFS( entry.partFileSystem ),
++                                                   filesystem,
+                                                    entry.partLabel,
+                                                    currentSector,
+                                                    currentSector + sectors - 1,
+@@ -315,12 +338,12 @@
+         {                                          
+             if ( !luksPassphrase.isEmpty() )
+             {
+-               if ( entry.partMountPoint == "/boot" || correctFS( entry.partFileSystem ) == FileSystem::LinuxSwap)
++               if ( entry.partMountPoint == "/boot" || filesystem == FileSystem::LinuxSwap)
+                {
+                    part = KPMHelpers::createNewPartition( parent,
+                                                            *dev,
+                                                            role,
+-                                                           correctFS( entry.partFileSystem ),
++                                                           filesystem,
+                                                            entry.partLabel,
+                                                            currentSector,
+                                                            currentSector + sectors - 1,
+@@ -331,7 +354,7 @@
+                     part = KPMHelpers::createNewEncryptedPartition( parent,
+                                                                     *dev,
+                                                                     role,
+-                                                                    correctFS( entry.partFileSystem ),
++                                                                    filesystem,
+                                                                     entry.partLabel,
+                                                                     currentSector,
+                                                                     currentSector + sectors - 1,
+@@ -344,7 +367,7 @@
+         }
+ 
+         // For zfs, we need to make the passphrase available to later modules
+-        if ( correctFS( entry.partFileSystem ) == FileSystem::Zfs )
++        if ( filesystem == FileSystem::Zfs )
+         {
+             Calamares::GlobalStorage* storage = Calamares::JobQueue::instance()->globalStorage();
+             QList< QVariant > zfsInfoList;
+@@ -366,6 +389,10 @@
+         {
+             part->setLabel( entry.partLabel );
+             part->fileSystem().setLabel( entry.partLabel );
++        }
++        if ( lvmRoot )
++        {
++            part->setLabel( "Nobara LVM (system, home, rollback)" );
+         }
+         if ( !entry.partUUID.isEmpty() )
+         {
+--- a/src/modules/partition/gui/ChoicePage.cpp
++++ b/src/modules/partition/gui/ChoicePage.cpp
+@@ -283,9 +283,15 @@
+     if ( m_config->eraseFsTypes().count() > 1 )
+     {
+         m_eraseFsTypesChoiceComboBox = new QComboBox;
+-        m_eraseFsTypesChoiceComboBox->addItems( m_config->eraseFsTypes() );
+-        connect(
+-            m_eraseFsTypesChoiceComboBox, &QComboBox::currentTextChanged, m_config, &Config::setEraseFsTypeChoice );
++        for ( const QString& fs : m_config->eraseFsTypes() )
++        {
++            m_eraseFsTypesChoiceComboBox->addItem(
++                ( fs == "ext4" || fs == "xfs" ) ? tr( "%1 with LVM" ).arg( fs ) : fs, fs );
++        }
++        m_eraseFsTypesChoiceComboBox->setCurrentIndex( m_eraseFsTypesChoiceComboBox->findData( m_config->eraseFsType() ) );
++        connect( m_eraseFsTypesChoiceComboBox, &QComboBox::currentIndexChanged, this, [this]( int ) {
++            m_config->setEraseFsTypeChoice( m_eraseFsTypesChoiceComboBox->currentData().toString() );
++        } );
+         connect( m_config, &Config::eraseModeFilesystemChanged, this, &ChoicePage::onActionChanged );
+         m_eraseButton->addOptionsComboBox( m_eraseFsTypesChoiceComboBox );
+ 
+@@ -303,6 +309,11 @@
+     m_itemsLayout->addWidget( m_alongsideButton );
+     m_itemsLayout->addWidget( m_replaceButton );
+     m_itemsLayout->addWidget( m_eraseButton );
++    m_lvmSummary = new QLabel;
++    m_lvmSummary->setWordWrap( true );
++    m_lvmSummary->setTextFormat( Qt::PlainText );
++    m_lvmSummary->hide();
++    m_itemsLayout->addWidget( m_lvmSummary );
+ 
+     m_somethingElseButton = new PrettyRadioButton;
+     m_somethingElseButton->setIconSize( iconSize );
+@@ -463,7 +474,7 @@
+     {
+         if ( m_config->installChoice() == InstallChoice::Erase && m_eraseFsTypesChoiceComboBox )
+         {
+-            m_encryptWidget->setFilesystem( FileSystem::typeForName( m_eraseFsTypesChoiceComboBox->currentText() ) );
++            m_encryptWidget->setFilesystem( FileSystem::typeForName( m_eraseFsTypesChoiceComboBox->currentData().toString() ) );
+         }
+         else if ( m_config->installChoice() == InstallChoice::Replace && m_replaceFsTypesChoiceComboBox )
+         {
+@@ -493,6 +504,11 @@
+ void
+ ChoicePage::applyActionChoice( InstallChoice choice )
+ {
++    auto storage = Calamares::JobQueue::instance()->globalStorage();
++    storage->remove( "nobaraGuidedStorage" );
++    storage->remove( "nobaraLvmPlan" );
++    storage->remove( "nobaraLvmFileSystem" );
++    storage->remove( "nobaraLvmError" );
+     cDebug() << "InstallChoice" << choice << Config::installChoiceNames().find( choice );
+     m_beforePartitionBarsView->selectionModel()->disconnect( SIGNAL( currentRowChanged( QModelIndex, QModelIndex ) ) );
+     auto priorSelection = m_beforePartitionBarsView->selectionModel()->currentIndex();
+@@ -525,6 +541,7 @@
+                 [ = ]
+                 {
+                     PartitionActions::doAutopartition( m_core, selectedDevice(), options );
++                    updateNextEnabled();
+                     Q_EMIT deviceChosen();
+                 },
+                 this );
+@@ -1505,6 +1522,11 @@
+ bool
+ ChoicePage::calculateNextEnabled() const
+ {
++    if ( m_config->installChoice() == InstallChoice::Erase
++         && !Calamares::JobQueue::instance()->globalStorage()->value( "nobaraLvmError" ).toString().isEmpty() )
++    {
++        return false;
++    }
+     auto sm_p = m_beforePartitionBarsView ? m_beforePartitionBarsView->selectionModel() : nullptr;
+ 
+     switch ( m_config->installChoice() )
+@@ -1560,6 +1582,23 @@
+ void
+ ChoicePage::updateNextEnabled()
+ {
++    auto storage = Calamares::JobQueue::instance()->globalStorage();
++    auto plan = storage->value( "nobaraLvmPlan" ).toMap();
++    const QString error = storage->value( "nobaraLvmError" ).toString();
++    if ( m_lvmSummary )
++    {
++        m_lvmSummary->setVisible( m_config->installChoice() == InstallChoice::Erase
++                                 && ( !plan.isEmpty() || !error.isEmpty() ) );
++        m_lvmSummary->setText( error.isEmpty()
++            ? tr( "LVM: system %1 GiB, home %2 GiB, rollback reserve %3 GiB, swap %4 GiB. "
++                  "The reserve protects system updates; home files are kept separately." )
++                .arg( plan.value( "rootBytes" ).toDouble() / ( 1024 * 1024 * 1024 ), 0, 'f', 1 )
++                .arg( plan.value( "homeBytes" ).toDouble() / ( 1024 * 1024 * 1024 ), 0, 'f', 1 )
++                .arg( plan.value( "reserveBytes" ).toDouble() / ( 1024 * 1024 * 1024 ), 0, 'f', 1 )
++                .arg( plan.value( "swapBytes" ).toDouble() / ( 1024 * 1024 * 1024 ), 0, 'f', 1 )
++            : tr( "This disk is too small for LVM with automatic rollback and the selected swap. "
++                  "Choose a larger disk, reduce swap, or select Btrfs." ) );
++    }
+     bool enabled = calculateNextEnabled();
+ 
+     if ( enabled != m_nextEnabled )
+@@ -1717,7 +1756,7 @@
+     bool suitableFS = true;
+     if ( !m_config->allowZfsEncryption()
+          && ( ( m_eraseFsTypesChoiceComboBox && m_eraseFsTypesChoiceComboBox->isVisible()
+-                && m_eraseFsTypesChoiceComboBox->currentText() == "zfs" )
++                && m_eraseFsTypesChoiceComboBox->currentData().toString() == "zfs" )
+               || ( m_replaceFsTypesChoiceComboBox && m_replaceFsTypesChoiceComboBox->isVisible()
+                    && m_replaceFsTypesChoiceComboBox->currentText() == "zfs" ) ) )
+     {
+--- a/src/modules/partition/gui/ChoicePage.h
++++ b/src/modules/partition/gui/ChoicePage.h
+@@ -165,6 +165,7 @@
+     QPointer< PartitionLabelsView > m_afterPartitionLabelsView;
+     QPointer< PartitionSplitterWidget > m_afterPartitionSplitterWidget;
+     QPointer< QComboBox > m_bootloaderComboBox;
++    QPointer< QLabel > m_lvmSummary;
+     QPointer< QLabel > m_efiLabel;
+     QPointer< QComboBox > m_efiComboBox;
+ 
+--- a/src/modules/partition/jobs/FillGlobalStorageJob.cpp
++++ b/src/modules/partition/jobs/FillGlobalStorageJob.cpp
+@@ -290,6 +290,18 @@
+         }
+     }
+ 
++    auto storage = Calamares::JobQueue::instance()->globalStorage();
++    if ( !storage->value( "nobaraLvmPlan" ).toMap().isEmpty() )
++    {
++        const auto plan = storage->value( "nobaraLvmPlan" ).toMap();
++        lines.append( tr( "Create %1 with LVM: system %2 GiB, separate home %3 GiB, "
++                         "rollback reserve %4 GiB and swap %5 GiB." )
++            .arg( storage->value( "nobaraLvmFileSystem" ).toString() )
++            .arg( plan.value( "rootBytes" ).toDouble() / ( 1024 * 1024 * 1024 ), 0, 'f', 1 )
++            .arg( plan.value( "homeBytes" ).toDouble() / ( 1024 * 1024 * 1024 ), 0, 'f', 1 )
++            .arg( plan.value( "reserveBytes" ).toDouble() / ( 1024 * 1024 * 1024 ), 0, 'f', 1 )
++            .arg( plan.value( "swapBytes" ).toDouble() / ( 1024 * 1024 * 1024 ), 0, 'f', 1 ) );
++    }
+     QVariant bootloaderMap = createBootLoaderMap();
+     if ( !m_bootLoaderPath.isEmpty() )
+     {
+--- a/src/modules/partition/partition.conf
++++ b/src/modules/partition/partition.conf
+@@ -199,7 +199,7 @@
+ # If nothing is specified, Calamares defaults to "ext4".
+ #
+ # Names are case-sensitive and defined by KPMCore.
+-defaultFileSystemType:  "btrfs"
++defaultFileSystemType:  "ext4"
+ 
+ # Selectable filesystem type, used when "erase" is done.
+ #
+@@ -213,7 +213,7 @@
+ #
+ # If not specified at all, uses *defaultFileSystemType* without a
+ # warning (this matches traditional no-choice-available behavior best).
+-availableFileSystemTypes:  ["btrfs","xfs","ext4"]
++availableFileSystemTypes:  ["ext4","xfs","btrfs"]
+ 
+ # Per-directory filesystem restrictions.
+ #
+--- a/src/modules/services-systemd/services-systemd.conf
++++ b/src/modules/services-systemd/services-systemd.conf
+@@ -51,4 +51,7 @@
+ #     # because it is not specified
+ 
+ # By default, no changes are made.
+-units: []
++units:
++  - name: "fstrim.timer"
++    action: "enable"
++    mandatory: true

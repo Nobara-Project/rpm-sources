@@ -1,9 +1,11 @@
 %global build_timestamp %(date +"%Y%m%d")
 
 # use sed to replace these values
-%global build_version 2026.516.143833
+%global build_version 2026.914.233613
 %global branch master
-%global commit 14ffa6fdaa53f7b51512be2b3d24f3939695403c
+%global commit 63d35f702ee9e362e43263742981836ec0710384
+# Release matching Sunshine's pinned third-party/build-deps commit.
+%global ffmpeg_release_tag v2026.910.121303
 
 %undefine _hardened_build
 
@@ -20,7 +22,10 @@ Release: 1%{?dist}
 Summary: Self-hosted game stream host for Moonlight.
 License: GPLv3-only
 URL: https://github.com/LizardByte/Sunshine
-Source0: tarball.tar.gz
+# The GitHub tag archive omits the submodules required by CMake.
+# Generate this source with ./make-source.sh.
+Source0: sunshine-%{build_version}-vendored.tar.gz
+Patch0: sunshine-ffmpeg-release-tag.patch
 
 # Common BuildRequires
 BuildRequires: cmake >= 3.25.0
@@ -30,7 +35,6 @@ BuildRequires: libcap-devel
 BuildRequires: libcurl-devel
 BuildRequires: libdrm-devel
 BuildRequires: libevdev-devel
-BuildRequires: libnotify-devel
 BuildRequires: libva-devel
 BuildRequires: libX11-devel
 BuildRequires: libxcb-devel
@@ -57,8 +61,8 @@ BuildRequires: vulkan-loader-devel
 %if 0%{fedora} > 43
 # needed for npm from nvm
 BuildRequires: libatomic
+BuildRequires: xz
 %endif
-BuildRequires: libayatana-appindicator3-devel
 BuildRequires: libgudev
 BuildRequires: mesa-libGL-devel
 BuildRequires: mesa-libgbm-devel
@@ -71,9 +75,12 @@ BuildRequires: opus-devel
 BuildRequires: pulseaudio-libs-devel
 BuildRequires: python3-jinja2
 BuildRequires: python3-setuptools
+BuildRequires: qt6-qtbase-devel
+BuildRequires: qt6-qtsvg-devel
 BuildRequires: systemd-udev
 %{?sysusers_requires_compat}
 # for unit tests
+BuildRequires: ImageMagick
 BuildRequires: xorg-x11-server-Xvfb
 %endif
 
@@ -81,7 +88,6 @@ BuildRequires: xorg-x11-server-Xvfb
 # OpenSUSE-specific BuildRequires
 BuildRequires: AppStream
 BuildRequires: appstream-glib
-BuildRequires: libappindicator3-devel
 BuildRequires: libgudev-1_0-devel
 BuildRequires: Mesa-libGL-devel
 BuildRequires: libgbm-devel
@@ -93,6 +99,8 @@ BuildRequires: npm
 BuildRequires: python311
 BuildRequires: python311-Jinja2
 BuildRequires: python311-setuptools
+BuildRequires: qt6-base-devel
+BuildRequires: qt6-svg-devel
 %if !0%{?sle_version}
 BuildRequires: shaderc
 %endif
@@ -124,6 +132,9 @@ BuildRequires: gcc15-c++
 %global gcc_version 15
 %global cuda_version 13.1.1
 %global cuda_build 590.48.01
+%global cuda_redist_compiler_version 13.1.115
+%global cuda_redist_runtime_version 13.1.80
+%global cuda_use_redistributables 1
 %endif
 %endif
 
@@ -153,7 +164,6 @@ Requires: which >= 2.21
 
 %if 0%{?fedora}
 # Fedora runtime requirements
-Requires: libayatana-appindicator3 >= 0.5.3
 Requires: libcap >= 2.22
 Requires: libcurl >= 7.0
 Requires: libdrm > 2.4.97
@@ -165,12 +175,14 @@ Requires: libX11 >= 1.7.3.1
 Requires: numactl-libs >= 2.0.14
 Requires: openssl >= 3.0.2
 Requires: pulseaudio-libs >= 10.0
+Requires: qt6-qtbase
+# QIcon loads the SVG support as a plugin, so RPM cannot infer this dependency.
+Requires: qt6-qtsvg
 Requires: vulkan-loader
 %endif
 
 %if 0%{?suse_version}
 # OpenSUSE runtime requirements
-Requires: libappindicator3-1
 Requires: libcap2
 Requires: libcurl4
 Requires: libdrm2
@@ -182,6 +194,8 @@ Requires: libX11-6
 Requires: libnuma1
 Requires: libopenssl3
 Requires: libpulse0
+Requires: libQt6Svg6
+Requires: libQt6Widgets6
 %if !0%{?sle_version}
 Requires: libvulkan1
 %endif
@@ -195,11 +209,14 @@ Self-hosted game stream host for Moonlight.
 
 %prep
 # extract tarball to current directory
-mkdir -p %{_builddir}/Sunshine
-tar -xzf %{SOURCE0} -C %{_builddir}/Sunshine
+mkdir -p %{_builddir}/
+tar -xzf %{SOURCE0} -C %{_builddir}/
+mv %{_builddir}/Sunshine-%{build_version} %{_builddir}/Sunshine
 
 # list directory
 ls -a %{_builddir}/Sunshine
+cd %{_builddir}/Sunshine
+%autopatch -p1
 
 %build
 # exit on error
@@ -219,6 +236,7 @@ cmake_args=(
   "-DBUILD_WERROR=ON"
   "-DCMAKE_BUILD_TYPE=Release"
   "-DCMAKE_INSTALL_PREFIX=%{_prefix}"
+  "-DFFMPEG_RELEASE_TAG=%{ffmpeg_release_tag}"
   "-DSUNSHINE_ASSETS_DIR=%{_datadir}/sunshine"
   "-DSUNSHINE_EXECUTABLE_PATH=%{_bindir}/sunshine"
   "-DSUNSHINE_ENABLE_DRM=ON"
@@ -234,6 +252,63 @@ cmake_args=(
 export CC=gcc-%{gcc_version}
 export CXX=g++-%{gcc_version}
 
+%if 0%{?cuda_use_redistributables}
+function install_cuda_from_redistributables() {
+  local cuda_redist_arch="linux-x86_64"
+  local cuda_target_arch="x86_64-linux"
+  if [ "$architecture" == "aarch64" ]; then
+    cuda_redist_arch="linux-sbsa"
+    cuda_target_arch="sbsa-linux"
+  fi
+
+  local cuda_target_dir="%{cuda_dir}/targets/${cuda_target_arch}"
+  mkdir -p "%{cuda_dir}" "${cuda_target_dir}"
+
+  # NVIDIA's monolithic runfile installer requires libxml2.so.2, which current
+  # distributions no longer provide. Use the official redistributable archives
+  # for CUDA 13 builds so they share one installer-independent CUDA setup.
+  local cuda_components=(
+    "cuda_nvcc:%{cuda_redist_compiler_version}:root"
+    "libnvvm:%{cuda_redist_compiler_version}:root"
+    "cuda_cccl:%{cuda_redist_compiler_version}:target"
+    "cuda_crt:%{cuda_redist_compiler_version}:target"
+    "cuda_cudart:%{cuda_redist_runtime_version}:target"
+    "cuda_culibos:%{cuda_redist_compiler_version}:target"
+    "libnvptxcompiler:%{cuda_redist_compiler_version}:target"
+  )
+
+  local component_data
+  for component_data in "${cuda_components[@]}"; do
+    local component_name
+    local component_version
+    local component_destination
+    IFS=: read -r component_name component_version component_destination <<< "${component_data}"
+
+    local archive="${component_name}-${cuda_redist_arch}-${component_version}-archive.tar.xz"
+    local url="https://developer.download.nvidia.com/compute/cuda/redist/${component_name}/${cuda_redist_arch}/${archive}"
+    local extract_dir="${cuda_target_dir}"
+    if [ "${component_destination}" == "root" ]; then
+      extract_dir="%{cuda_dir}"
+    fi
+
+    echo "cuda component url: ${url}"
+    wget \
+      "${url}" \
+      --progress=bar:force:noscroll \
+      --retry-connrefused \
+      --tries=3 \
+      -q -O "%{_builddir}/${archive}"
+    tar -xJf "%{_builddir}/${archive}" \
+      --directory="${extract_dir}" \
+      --strip-components=1
+    rm "%{_builddir}/${archive}"
+  done
+
+  # nvcc expects this header in its target-specific include directory.
+  mv "%{cuda_dir}/include/fatbinary_section.h" "${cuda_target_dir}/include/"
+}
+%endif
+
 function install_cuda() {
   # check if we need to install cuda
   if [ -f "%{cuda_dir}/bin/nvcc" ]; then
@@ -241,6 +316,9 @@ function install_cuda() {
     return
   fi
 
+%if 0%{?cuda_use_redistributables}
+  install_cuda_from_redistributables
+%else
   local cuda_prefix="https://developer.download.nvidia.com/compute/cuda/"
   local cuda_suffix=""
   if [ "$architecture" == "aarch64" ]; then
@@ -265,6 +343,7 @@ function install_cuda() {
     --toolkit \
     --toolkitpath="%{cuda_dir}"
   rm "%{_builddir}/cuda.run"
+%endif
 
   # we need to patch math_functions.h depending on the CUDA major version
   # see https://forums.developer.nvidia.com/t/error-exception-specification-is-incompatible-for-cospi-sinpi-cospif-sinpif-with-glibc-2-41/323591/3
@@ -354,7 +433,7 @@ make -j$(nproc) -C "%{_builddir}/Sunshine/build"
 %check
 # validate the metainfo file
 appstreamcli validate %{buildroot}%{_metainfodir}/*.metainfo.xml
-appstream-util validate %{buildroot}%{_metainfodir}/*.metainfo.xml
+appstream-util validate --nonet %{buildroot}%{_metainfodir}/*.metainfo.xml
 desktop-file-validate %{buildroot}%{_datadir}/applications/*.desktop
 
 # run tests
@@ -424,7 +503,6 @@ fi
 
 # Icons
 %{_datadir}/icons/hicolor/scalable/apps/*.Sunshine.svg
-%{_datadir}/icons/hicolor/scalable/status/*.Sunshine-*.svg
 
 # Metainfo
 %{_datadir}/metainfo/*.metainfo.xml

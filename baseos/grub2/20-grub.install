@@ -84,9 +84,9 @@ case "$COMMAND" in
             # hmac is .vmlinuz-<version>.hmac so needs a special treatment
             i="$KERNEL_DIR/.${KERNEL_IMAGE##*/}.hmac"
             if [[ -e "$i" ]]; then
-                cp --remove-destination --preserve=timestamps "$i" "/boot/.${KERNEL_IMAGE##*/}-${KERNEL_VERSION}.hmac"
+                cp --remove-destination --preserve=timestamps "$i" "/boot/.vmlinuz-${KERNEL_VERSION}.hmac"
                 command -v restorecon &>/dev/null && \
-                    restorecon "/boot/.${KERNEL_IMAGE##*/}-${KERNEL_VERSION}.hmac"
+                    restorecon "/boot/.vmlinuz-${KERNEL_VERSION}.hmac"
             fi
             # OLD method using gzip'd file (will be deprecated and removed in the future)
             # symvers is symvers-<version>.gz symlink, needs a special treatment

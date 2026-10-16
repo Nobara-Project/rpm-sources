@@ -3,7 +3,7 @@
 Summary:        Nobara package repositories
 Name:           nobara-repos
 Version:        44
-Release:        1%{?eln:.eln%{eln}}
+Release:        5%{?eln:.eln%{eln}}
 License:        MIT
 URL:            https://fedoraproject.org/
 
@@ -21,7 +21,6 @@ BuildRequires:  gnupg sed
 
 Source2:       nobara.repo
 Source3:       nv-nvp.repo
-Source4:       nv-nvb.repo
 Source5:       nv-nvnf.repo
 Source6:       nobara-pikaos-additional.repo
 Source7:       brave-browser.repo
@@ -35,6 +34,12 @@ Source13:       brave-core.asc
 Source14:       RPM-GPG-KEY-nobara-rolling-pubkey
 Source15:       RPM-GPG-KEY-nobara-rocm-pubkey
 Source16:       RPM-GPG-KEY-terra44
+Source17:       RPM-GPG-KEY-nobara-kernel-mainline-pubkey
+Source18:       RPM-GPG-KEY-nobara-kernel-lts-pubkey
+
+Source19:       nobara-kernel-mainline.repo
+Source20:       nobara-kernel-lts.repo
+
 
 %description
 Nobara package repository files for yum and dnf along with gpg public keys.
@@ -71,14 +76,16 @@ fi
 if [[ -f /etc/yum.repos.d/nobara.repo.rpmnew ]]; then
   mv /etc/yum.repos.d/nobara.repo.rpmnew /etc/yum.repos.d/nobara.repo
 fi
-# Disable unused nvidia drivers
+
+# Disable unused repos
 dest_dir="%{_sysconfdir}/yum.repos.d/no-touch-disabled"
 mkdir -p "$dest_dir" || :
 
 for repo in \
     "%{_sysconfdir}/yum.repos.d/nv-nvp.repo" \
-    "%{_sysconfdir}/yum.repos.d/nv-nvb.repo" \
-    "%{_sysconfdir}/yum.repos.d/nv-nvnf.repo"
+    "%{_sysconfdir}/yum.repos.d/nv-nvnf.repo" \
+    "%{_sysconfdir}/yum.repos.d/nobara-kernel-mainline.repo" \
+    "%{_sysconfdir}/yum.repos.d/nobara-kernel-lts.repo"
 do
     [ -f "$repo" ] || continue
     if grep -qE '^[[:space:]]*enabled=0[[:space:]]*$' "$repo"; then
@@ -91,9 +98,10 @@ done
 %files
 %dir /etc/yum.repos.d
 /etc/yum.repos.d/nobara.repo
-%config(noreplace) /etc/yum.repos.d/nobara-pikaos-additional.repo
+/etc/yum.repos.d/nobara-kernel-mainline.repo
+/etc/yum.repos.d/nobara-kernel-lts.repo
+/etc/yum.repos.d/nobara-pikaos-additional.repo
 %config(noreplace) /etc/yum.repos.d/nv-nvp.repo
-%config(noreplace) /etc/yum.repos.d/nv-nvb.repo
 %config(noreplace) /etc/yum.repos.d/nv-nvnf.repo
 %config(noreplace) /etc/yum.repos.d/brave-browser.repo
 %config(noreplace) /etc/yum.repos.d/terra.repo

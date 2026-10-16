@@ -1,0 +1,59 @@
+From 193b9ce30b950daa4ca0e571d7c61918cb0fcea9 Mon Sep 17 00:00:00 2001
+From: CloudWells <151101453+CloudWells@users.noreply.github.com>
+Date: Wed, 26 Aug 2026 03:16:10 -0600
+Subject: [PATCH] xwayland: avoid RandR dot clock overflow in CVT modes
+
+Large high-refresh modes generated for scaled outputs can require a CVT
+pixel clock above the CARD32 limit used by RandR. Converting that clock
+to Hz overflows dotClock and makes X11 clients observe an incorrect
+refresh rate.
+
+Retry overflowing full-blanking modes with reduced blanking. If reduced
+blanking still cannot fit, synthesize zero-blanking timings so
+representable modes retain their requested refresh.
+
+Reported-and-tested-by: CloudWells <151101453+CloudWells@users.noreply.github.com>
+Link: https://github.com/Nobara-Project/nobara-core-packages/issues/133
+---
+ hw/xwayland/xwayland-cvt.c | 25 +++++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
+
+diff --git a/hw/xwayland/xwayland-cvt.c b/hw/xwayland/xwayland-cvt.c
+index 4248d38..42b8ff6 100644
+--- a/hw/xwayland/xwayland-cvt.c
++++ b/hw/xwayland/xwayland-cvt.c
+@@ -39,6 +39,31 @@ xwayland_modeinfo_from_cvt(xRRModeInfo *modeinfo,
+     libxcvt_mode_info =
+         libxcvt_gen_mode_info(hdisplay, vdisplay, vrefresh, reduced, interlaced);
+ 
++    /* RandR's dotClock is a CARD32 in Hz, a hard ceiling of ~4.295 GHz.
++     * A full-blanking CVT mode for a large, high-refresh mode (e.g. an
++     * emulated mode for a scaled 4K 240Hz output) can exceed it; the
++     * conversion below would then wrap around and advertise a garbage
++     * refresh rate (e.g. 19.92 Hz instead of 240 Hz) to X11 clients.
++     * Retry with reduced blanking; should even that overflow, fall back
++     * to synthetic zero-blanking timings preserving the refresh rate.
++     */
++    if (!reduced && libxcvt_mode_info->dot_clock > 0xffffffffull / 1000) {
++        free(libxcvt_mode_info);
++        libxcvt_mode_info =
++            libxcvt_gen_mode_info(hdisplay, vdisplay, vrefresh, TRUE, interlaced);
++    }
++
++    if (libxcvt_mode_info->dot_clock > 0xffffffffull / 1000) {
++        libxcvt_mode_info->hsync_start = hdisplay;
++        libxcvt_mode_info->hsync_end   = hdisplay;
++        libxcvt_mode_info->htotal      = hdisplay;
++        libxcvt_mode_info->vsync_start = vdisplay;
++        libxcvt_mode_info->vsync_end   = vdisplay;
++        libxcvt_mode_info->vtotal      = vdisplay;
++        libxcvt_mode_info->dot_clock   =
++            (uint64_t) ((double) hdisplay * vdisplay * vrefresh / 1000.0);
++    }
++
+     modeinfo->width      = libxcvt_mode_info->hdisplay;
+     modeinfo->height     = libxcvt_mode_info->vdisplay;
+     modeinfo->dotClock   = libxcvt_mode_info->dot_clock * 1000.0;
+-- 
+2.55.0
+

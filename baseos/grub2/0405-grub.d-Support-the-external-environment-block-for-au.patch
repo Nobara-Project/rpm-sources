@@ -1,0 +1,89 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Neal Gompa <ngompa@fedoraproject.org>
+Date: Wed, 26 Nov 2025 08:37:57 -0500
+Subject: [PATCH] grub.d: Support the external environment block for automatic
+ hidden menu
+
+This allows the automatic hidden menu (and boot counting) mechanism
+to use an external environment block if it exists and is configured
+to be used.
+
+This is particularly important for supporting this mechanism on
+systems with the operating system boot data on a Btrfs volume.
+
+This is unlikely to be upstreamable, as it depends on Fedora's GRUB
+hidden menu and boot counting patch sets.
+
+Signed-off-by: Neal Gompa <ngompa@fedoraproject.org>
+---
+ util/grub.d/08_fallback_counting.in  | 6 +++++-
+ util/grub.d/10_reset_boot_success.in | 6 +++++-
+ util/grub.d/12_menu_auto_hide.in     | 6 +++++-
+ util/grub.d/14_menu_show_once.in     | 6 +++++-
+ 4 files changed, 20 insertions(+), 4 deletions(-)
+
+diff --git a/util/grub.d/08_fallback_counting.in b/util/grub.d/08_fallback_counting.in
+index 2e2c3ff7d3..272cdb6533 100644
+--- a/util/grub.d/08_fallback_counting.in
++++ b/util/grub.d/08_fallback_counting.in
+@@ -19,6 +19,10 @@ if [ -n "\${boot_counter}" -a "\${boot_success}" = "0" ]; then
+   else
+     decrement boot_counter
+   fi
+-  save_env boot_counter
++  if [ "\${env_block}" ]; then
++    save_env -f "\${env_block}" boot_counter
++  else
++    save_env boot_counter
++  fi
+ fi
+ EOF
+diff --git a/util/grub.d/10_reset_boot_success.in b/util/grub.d/10_reset_boot_success.in
+index e73f4137b3..ca04f9b699 100644
+--- a/util/grub.d/10_reset_boot_success.in
++++ b/util/grub.d/10_reset_boot_success.in
+@@ -21,5 +21,9 @@ elif [ "\${boot_indeterminate}" = "1" ]; then
+ fi
+ # Reset boot_success for current boot 
+ set boot_success=0
+-save_env boot_success boot_indeterminate
++if [ "\${env_block}" ]; then
++  save_env -f "\${env_block}" boot_success boot_indeterminate
++else
++  save_env boot_success boot_indeterminate
++fi
+ EOF
+diff --git a/util/grub.d/12_menu_auto_hide.in b/util/grub.d/12_menu_auto_hide.in
+index 6a7c0fa0d4..c2c207232e 100644
+--- a/util/grub.d/12_menu_auto_hide.in
++++ b/util/grub.d/12_menu_auto_hide.in
+@@ -16,7 +16,11 @@ cat << EOF
+ if [ x\$feature_timeout_style = xy ] ; then
+   if [ "\${menu_show_once}" ]; then
+     unset menu_show_once
+-    save_env menu_show_once
++    if [ "\${env_block}" ]; then
++      save_env -f "\${env_block}" menu_show_once
++    else
++      save_env menu_show_once
++    fi
+     set timeout_style=menu
+     set timeout=60
+   elif [ "\${menu_auto_hide}" -a "\${menu_hide_ok}" = "1" ]; then
+diff --git a/util/grub.d/14_menu_show_once.in b/util/grub.d/14_menu_show_once.in
+index 1cd7f36142..41b37b5ec7 100755
+--- a/util/grub.d/14_menu_show_once.in
++++ b/util/grub.d/14_menu_show_once.in
+@@ -7,7 +7,11 @@ if [ x\$feature_timeout_style = xy ]; then
+     set timeout_style=menu
+     set timeout="\${menu_show_once_timeout}"
+     unset menu_show_once_timeout
+-    save_env menu_show_once_timeout
++    if [ "\${env_block}" ]; then
++      save_env -f "\${env_block}" menu_show_once_timeout
++    else
++      save_env menu_show_once_timeout
++    fi
+   fi
+ fi
+ EOF

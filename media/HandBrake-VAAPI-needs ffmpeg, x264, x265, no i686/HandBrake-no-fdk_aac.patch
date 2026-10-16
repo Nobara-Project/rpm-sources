@@ -1,0 +1,45 @@
+diff --git a/gtk/meson.build b/gtk/meson.build
+index e2ee93e..4ef4db2 100644
+--- a/gtk/meson.build
++++ b/gtk/meson.build
+@@ -57,10 +57,6 @@ if get_option('libdovi').enabled()
+   ghb_deps += dependency('dovi')
+ endif
+ 
+-if get_option('fdk-aac').enabled()
+-  ghb_deps += dependency('fdk-aac')
+-endif
+-
+ if get_option('qsv').enabled()
+   ghb_deps += dependency('vpl')
+ endif
+diff --git a/gtk/meson_options.txt b/gtk/meson_options.txt
+index 4c06e4a..dda736f 100644
+--- a/gtk/meson_options.txt
++++ b/gtk/meson_options.txt
+@@ -1,8 +1,3 @@
+-option('fdk-aac',
+-       type: 'feature',
+-       value: 'disabled',
+-       description: 'Enable FDK AAC encoder')
+-
+ option('flatpak',
+        type: 'boolean',
+        value: false,
+diff --git a/gtk/module.defs b/gtk/module.defs
+index 6fa5876..1e80d37 100644
+--- a/gtk/module.defs
++++ b/gtk/module.defs
+@@ -48,12 +48,6 @@ else
+     GTK.CONFIGURE.extra += -Db_lto=false
+ endif
+ 
+-ifeq (1,$(FEATURE.fdk_aac))
+-    GTK.CONFIGURE.extra += -Dfdk-aac=enabled
+-else
+-    GTK.CONFIGURE.extra += -Dfdk-aac=disabled
+-endif
+-
+ ifeq (1,$(FEATURE.x265))
+     GTK.CONFIGURE.extra += -Dx265=enabled
+ else

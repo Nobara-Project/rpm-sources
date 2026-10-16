@@ -1,0 +1,20 @@
+polkit.addRule(function(action, subject) {
+    if ((action.id == "org.projectatomic.rpmostree1.repo-refresh" ||
+         action.id == "org.projectatomic.rpmostree1.upgrade") &&
+        subject.active == true &&
+        subject.local == true) {
+            return polkit.Result.YES;
+    }
+
+    if ((action.id == "org.projectatomic.rpmostree1.install-uninstall-packages" ||
+         action.id == "org.projectatomic.rpmostree1.rollback" ||
+         action.id == "org.projectatomic.rpmostree1.reload-daemon" ||
+         action.id == "org.projectatomic.rpmostree1.cancel" ||
+         action.id == "org.projectatomic.rpmostree1.cleanup" ||
+         action.id == "org.projectatomic.rpmostree1.client-management") &&
+        subject.active == true &&
+        subject.local == true &&
+        subject.isInGroup("wheel")) {
+            return polkit.Result.YES;
+    }
+});

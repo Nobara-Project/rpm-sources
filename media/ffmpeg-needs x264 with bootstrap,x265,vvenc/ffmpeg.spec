@@ -11,9 +11,6 @@
 %global _lto_cflags %{nil}
 %endif
 
-# Cuda and others are only available on some arches
-%global cuda_arches x86_64
-
 # Disable because of gcc issue
 %global _without_lensfun  1
 # Disable due to undefined symbols in libavformat
@@ -52,31 +49,25 @@
 %global _with_vmaf        1
 %endif
 
-# flavor nonfree
-%if 0%{?_with_cuda:1}
-%global _with_cuvid      1
-%global _with_libnpp     1
-%endif
+# Cuda and others are only available on some arches
+%global cuda_arches x86_64 aarch64
 
 # Disable nvenc when not relevant
-%ifnarch %{cuda_arches} aarch64
-%global _without_nvenc    1
+%ifarch %{cuda_arches}
+%global _with_cuda      1
+%global _with_nvenc    1
+%global _with_cuvid     1
 %endif
 
 # extras flags
+%if 0%{?_with_cuda_nvcc:1}
 %if 0%{!?_cuda_version:1}
-%global _cuda_version 12.6
-%endif
+%global _cuda_version 13.2
 %global _cuda_version_rpm %(echo %{_cuda_version} | sed -e 's/\\./-/')
 %global _cuda_bindir %{_cuda_prefix}/bin
-%if 0%{?_with_cuda:1}
+%endif
 %global cuda_cflags $(pkg-config --cflags cuda-%{_cuda_version})
 %global cuda_ldflags $(pkg-config --libs cuda-%{_cuda_version})
-%endif
-
-%if 0%{?_with_libnpp:1}
-%global libnpp_cflags $(pkg-config --cflags nppi-%{_cuda_version} nppc-%{_cuda_version})
-%global libnpp_ldlags $(pkg-config --libs-only-L nppi-%{_cuda_version} nppc-%{_cuda_version})
 %endif
 
 %if 0%{?_with_rpi:1}
@@ -98,8 +89,8 @@ ExclusiveArch: armv7hnl
 
 Summary:        Digital VCR and streaming server
 Name:           ffmpeg%{?flavor}
-Version:        7.1.2
-Release:        12%{?dist}
+Version:        8.1.3
+Release:        1%{?dist}
 License:        %{ffmpeg_license}
 URL:            https://ffmpeg.org/
 %if 0%{?date}
@@ -111,23 +102,23 @@ Source2:        https://ffmpeg.org/ffmpeg-devel.asc
 %endif
 # We don't endorse adding this patch but fedora insists on breaking the ffmpeg ABI
 Patch0:         ffmpeg-chromium.patch
-Patch1:         https://git.ffmpeg.org/gitweb/ffmpeg.git/patch/7f9c7f9849a2155224711f0ff57ecdac6e4bfb57#/ffmpeg-CVE-2025-22921.patch
-Patch2:         0001-configure-rename-POSIX-ioctl-check.patch
+# Allow to build with fdk-aac-free
+# See https://bugzilla.redhat.com/show_bug.cgi?id=1501522#c112
+Patch2:         ffmpeg-allow-fdk-aac-free.patch
 Conflicts:      %{name}-free
 Provides:       %{name}-bin = %{version}-%{release}
 Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
 
 BuildRequires:  gcc
 BuildRequires:  make
-%{?_with_cuda:BuildRequires: cuda-minimal-build-%{_cuda_version_rpm} cuda-drivers-devel}
-%{?_with_cuda:%{?!_with_cuda_nvcc:BuildRequires: clang}}
-%{?_with_libnpp:BuildRequires: pkgconfig(nppc-%{_cuda_version})}
+%{?_with_cuda_nvcc:BuildRequires: cuda-minimal-build-%{_cuda_version_rpm} cuda-drivers-devel}
+%{?!_with_cuda_nvcc:BuildRequires: clang}
 BuildRequires:  alsa-lib-devel
 BuildRequires:  AMF-devel
 BuildRequires:  bzip2-devel
 %{?_with_codec2:BuildRequires: codec2-devel}
 %{?_with_faac:BuildRequires: faac-devel}
-%{?_with_fdk_aac:BuildRequires: fdk-aac-devel}
+BuildRequires: pkgconfig(fdk-aac)
 %{?_with_flite:BuildRequires: flite-devel}
 BuildRequires:  fontconfig-devel
 BuildRequires:  freetype-devel
@@ -194,13 +185,14 @@ BuildRequires:  nasm
 %{?_with_webp:BuildRequires: libwebp-devel}
 %{?_with_netcdf:BuildRequires: netcdf-devel}
 %{?_with_rpi:BuildRequires: raspberrypi-vc-devel}
-%{!?_without_nvenc:BuildRequires: nv-codec-headers}
+%{?_with_nvenc:BuildRequires: nv-codec-headers}
 %{!?_without_amr:BuildRequires: opencore-amr-devel vo-amrwbenc-devel}
 %{?_with_omx:BuildRequires: libomxil-bellagio-devel}
 BuildRequires:  libxcb-devel
 BuildRequires:  libxml2-devel
 %{!?_without_lv2:BuildRequires:  lilv-devel lv2-devel}
 %{!?_without_openal:BuildRequires: openal-soft-devel}
+BuildRequires:  openapv-devel
 %if 0%{!?_without_opencl:1}
 %if 0%{?fedora}
 BuildRequires:  opencl-headers OpenCL-ICD-Loader-devel
@@ -252,11 +244,11 @@ Conflicts:      libavcodec-free
 Conflicts:      libavfilter-free
 Conflicts:      libavformat-free
 Conflicts:      libavutil-free
-Conflicts:      libpostproc-free
 Conflicts:      libswresample-free
 Conflicts:      libswscale-free
 %{?_with_vmaf:Recommends:     vmaf-models}
-Provides: libavcodec-freeworld = %{version}-%{release}
+Provides: libavcodec-freeworld = %{version}-1
+Provides: libavcodec-freeworld%{?_isa} = %{version}-1
 
 %description    libs
 FFmpeg is a complete and free Internet live audio and video
@@ -313,8 +305,8 @@ Freeworld libavcodec to complement the distro counterparts
     --mandir=%{_mandir} \\\
     --arch=%{_target_cpu} \\\
     --optflags="%{optflags}" \\\
-    --extra-ldflags="%{?__global_ldflags} %{?cuda_ldflags} %{?libnpp_ldlags}" \\\
-    --extra-cflags="%{?cuda_cflags} %{?libnpp_cflags} -I%{_includedir}/rav1e" \\\
+    --extra-ldflags="%{?__global_ldflags} %{?cuda_ldflags}" \\\
+    --extra-cflags="%{?cuda_cflags} -I%{_includedir}/rav1e" \\\
     %{?flavor:--disable-manpages} \\\
     %{?progs_suffix:--progs-suffix=%{progs_suffix}} \\\
     %{?build_suffix:--build-suffix=%{build_suffix}} \\\
@@ -338,16 +330,17 @@ Freeworld libavcodec to complement the distro counterparts
     %{?_with_caca:--enable-libcaca} \\\
     %{?_with_codec2:--enable-libcodec2} \\\
     %{?_with_cuda_nvcc:--enable-cuda-nvcc --enable-nonfree} \\\
-    %{?_with_cuvid:--enable-cuvid --enable-nonfree} \\\
+    %{?_with_cuda:  --enable-cuda  --enable-cuda-llvm --enable-cuvid} \\\
     %{!?_without_cdio:--enable-libcdio} \\\
     %{?_with_ieee1394:--enable-libdc1394 --enable-libiec61883} \\\
     --enable-libdrm \\\
     %{?_with_dvddemuxer:--enable-libdvdnav --enable-libdvdread} \\\
     %{?_with_faac:--enable-libfaac --enable-nonfree} \\\
-    %{?_with_fdk_aac:--enable-libfdk-aac --enable-nonfree} \\\
+    --enable-libfdk-aac \\\
     %{?_with_flite:--enable-libflite} \\\
     %{!?_without_jack:--enable-libjack} \\\
     %{!?_without_jxl:--enable-libjxl} \\\
+    %{!?_without_libklvanc:--enable-libklvanc} \\\
     --enable-libfreetype \\\
     %{!?_without_fribidi:--enable-libfribidi} \\\
     %{?_with_gme:--enable-libgme} \\\
@@ -356,15 +349,15 @@ Freeworld libavcodec to complement the distro counterparts
     %{?_with_ilbc:--enable-libilbc} \\\
     %{?_with_lc3:--enable-liblc3} \\\
     %{!?_without_lensfun:--enable-liblensfun} \\\
-    %{?_with_libnpp:--enable-libnpp --enable-nonfree} \\\
     --enable-libmp3lame \\\
     --enable-libmysofa \\\
     %{?_with_netcdf:--enable-netcdf} \\\
     %{?_with_mmal:--enable-mmal} \\\
-    %{!?_without_nvenc:--enable-nvenc} \\\
+    %{?_with_nvenc:--enable-nvenc --enable-nvdec} \\\
     %{?_with_omx:--enable-omx} \\\
     %{?_with_omx_rpi:--enable-omx-rpi} \\\
     %{!?_without_openal:--enable-openal} \\\
+    --enable-liboapv \\\
     %{!?_without_opencl:--enable-opencl} \\\
     %{?_with_opencv:--enable-libopencv} \\\
     %{!?_without_opengl:--enable-opengl} \\\
@@ -408,7 +401,6 @@ Freeworld libavcodec to complement the distro counterparts
     %{!?_without_lv2:--enable-lv2} \\\
     --enable-avfilter \\\
     --enable-libmodplug \\\
-    --enable-postproc \\\
     --enable-pthreads \\\
     --disable-static \\\
     --enable-shared \\\
@@ -431,7 +423,10 @@ mkdir -p _doc/examples
 cp -pr doc/examples/{*.c,Makefile,README} _doc/examples/
 
 %build
-%{?_with_cuda:export PATH=${PATH}:%{_cuda_bindir}}
+%ifarch %{ix86}
+export LDFLAGS+=' -Wl,-z,notext'
+%endif
+%{?_with_cuda_nvcc:export PATH=${PATH}:%{_cuda_bindir}}
 %{ff_configure}\
     --shlibdir=%{_libdir} \
 %if 0%{?_without_tools:1}
@@ -548,6 +543,53 @@ cp -pa %{buildroot}%{_libdir}/libavcodec.so.* \
 
 
 %changelog
+* Wed Jul 01 2026 Nicolas Chauvet <kwizart@gmail.com> - 8.1.2-2
+- Rework cuda support using clang
+- Explicitely enable nvdec with nvenc
+- Drop deprecated libnpp
+- Switch to pkgconfig(fdk-aac)
+
+* Wed Jun 17 2026 Leigh Scott <leigh123linux@gmail.com> - 8.1.2-1
+- Update to 8.1.2
+
+* Tue May 12 2026 Dominik Mierzejewski <dominik@greysector.net> - 8.1.1-1
+- Update to 8.1.1 release (ABI compatible)
+- Drop merged patch
+- Enable FDK AAC using Fedora limited build
+
+* Tue May 05 2026 Leigh Scott <leigh123linux@gmail.com> - 8.0.2-1
+- Update to 8.0.2 release
+
+* Mon Apr 20 2026 Leigh Scott <leigh123linux@gmail.com> - 8.0.1-9
+- Rebuild for new x265
+
+* Thu Apr 16 2026 Nicolas Chauvet <kwizart@gmail.com> - 8.0.1-8
+- Rebuilt for vmaf
+
+* Wed Apr 01 2026 Leigh Scott <leigh123linux@gmail.com> - 8.0.1-6
+- Add hxvs demuxer for HXVS/HXVT IP camera format
+
+* Thu Mar 19 2026 Nicolas Chauvet <kwizart@gmail.com> - 8.0.1-5
+- Rebuilt for libvpx-1.6.0
+
+* Fri Mar 06 2026 Nicolas Chauvet <kwizart@gmail.com> - 8.0.1-4
+- Rework libavcodec-freeworld virtual provides
+
+* Mon Feb 02 2026 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 8.0.1-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_44_Mass_Rebuild
+
+* Fri Dec 12 2025 Nicolas Chauvet <kwizart@gmail.com> - 8.0.1-2
+- Rebuilt for libbluray
+
+* Thu Nov 20 2025 Leigh Scott <leigh123linux@gmail.com> - 8.0.1-1
+- Update to 8.0.1
+
+* Thu Nov 13 2025 Leigh Scott <leigh123linux@gmail.com> - 8.0-2
+- Rebuild for libbluray
+
+* Wed Nov 05 2025 Leigh Scott <leigh123linux@gmail.com> - 8.0-1
+- Update to 8.0 release
+
 * Sat Oct 04 2025 Robert-André Mauchin <zebob.m@gmail.com> - 7.1.2-7
 - Rebuild for svt-av1 soname bump
 

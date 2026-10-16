@@ -1,6 +1,6 @@
 %global _default_patch_fuzz 2
 
-%global commit bf5e221666e83723d950b874cb251415226a7ba7
+%global commit ab0ab2209c4ea834168ec0d23da4d5edfc386015
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
 %global rel_build 7.git.%{build_timestamp}.%{shortcommit}%{?dist}
@@ -62,7 +62,7 @@
 %if !0%{?rhel}
 %global with_libunwind 1
 %global with_lmsensors 1
-%global with_virtio    1
+%global with_virtio    0
 %endif
 
 %ifarch %{valgrind_arches}
@@ -72,7 +72,7 @@
 %endif
 
 %global with_vulkan_overlay 1
-%global vulkan_drivers swrast%{?base_vulkan}%{?intel_platform_vulkan}%{?asahi_platform_vulkan}%{?extra_platform_vulkan}%{?with_nvk:,nouveau}%{?with_virtio:,virtio}%{?with_d3d12:,microsoft-experimental}
+%global vulkan_drivers swrast%{?base_vulkan}%{?intel_platform_vulkan}%{?asahi_platform_vulkan}%{?extra_platform_vulkan}%{?with_nvk:,nouveau}%{?with_d3d12:,microsoft-experimental}
 
 %if 0%{?with_nvk} && 0%{?rhel}
 %global vendor_nvk_crates 1
@@ -80,7 +80,7 @@
 
 Name:           mesa-vulkan-drivers-git
 Summary:        The mesa graphics vulkan driver stack.
-%global ver 26.2.0
+%global ver 26.3.0
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %{rel_build}
 License:        MIT
@@ -485,6 +485,7 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 %{_libdir}/libvulkan_lvp.so
 %{_datadir}/vulkan/icd.d/lvp_icd.*.json
+%{_datadir}/drirc.d/00-lavapipe-defaults.conf
 %{_libdir}/libVkLayer_MESA_anti_lag.so
 %{_libdir}/libVkLayer_MESA_device_select.so
 %{_datadir}/vulkan/implicit_layer.d/VkLayer_MESA_anti_lag.json
@@ -545,6 +546,28 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Thu Oct 01 2026 LionHeartP <LionHeartP@proton.me> - 26.3.0-7
+- Update to latest commit
+
+* Thu Sep 17 2026 LionHeartP <LionHeartP@proton.me> - 26.3.0-6
+- Update to latest commit
+
+* Thu Sep 03 2026 LionHeartP <LionHeartP@proton.me> - 26.3.0-5
+- Update to latest commit
+
+* Sat Aug 22 2026 LionHeartP <LionHeartP@proton.me> - 26.3.0-4
+- Update to latest commit
+
+* Thu Aug 06 2026 LionHeartP <LionHeartP@proton.me> - 26.3.0-3
+- Update to latest commit
+- Disable virtio since the Venus library isn't yet packaged by Fedora
+
+* Thu Jul 30 2026 LionHeartP <LionHeartP@proton.me> - 26.3.0-2
+- Update to latest commit
+
+* Thu Jul 16 2026 LionHeartP <LionHeartP@proton.me> - 26.3.0-1
+- Update to latest commit
+
 * Fri Jul 03 2026 LionHeartP <LionHeartP@proton.me> - 26.2.0-7
 - Update to latest commit
 - Drop valve.patch

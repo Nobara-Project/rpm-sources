@@ -1,0 +1,47 @@
+From 84442e366d27113d23a770cc17d145b6042e95d7 Mon Sep 17 00:00:00 2001
+From: Rolv Apneseth <rolv.apneseth@gmail.com>
+Date: Mon, 18 May 2026 09:58:18 +0100
+Subject: [PATCH] mdraid: fix metadata 1.0 detection in userspace utilities on
+ IEEE1275
+
+The powerpc guard in grub_mdraid_detect skips metadata 1.0 to avoid a
+firmware block issue, but also ends up applying to userspace utilities
+where reads will be going through the kernel. Extend the conditional
+with !defined(GRUB_UTIL) so utilities like grub-install can detect
+metadata 1.0 arrays.
+
+Signed-off-by: Rolv Apneseth <rolv.apneseth@gmail.com>
+---
+ grub-core/disk/mdraid1x_linux.c | 2 +-
+ grub-core/disk/mdraid_linux.c   | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/grub-core/disk/mdraid1x_linux.c b/grub-core/disk/mdraid1x_linux.c
+index 3b5b6c423..f4cb048b4 100644
+--- a/grub-core/disk/mdraid1x_linux.c
++++ b/grub-core/disk/mdraid1x_linux.c
+@@ -130,7 +130,7 @@ grub_mdraid_detect (grub_disk_t disk,
+       struct grub_diskfilter_vg *array;
+       char *uuid;
+ 
+-#ifdef __powerpc__
++#if defined(__powerpc__) && !defined(GRUB_UTIL)
+       /* Firmware will yell at us for reading too far. */
+       if (minor_version == 0)
+         continue;
+diff --git a/grub-core/disk/mdraid_linux.c b/grub-core/disk/mdraid_linux.c
+index 98fcfb1be..79145f8e1 100644
+--- a/grub-core/disk/mdraid_linux.c
++++ b/grub-core/disk/mdraid_linux.c
+@@ -189,7 +189,7 @@ grub_mdraid_detect (grub_disk_t disk,
+   grub_uint32_t level;
+   struct grub_diskfilter_vg *ret;
+ 
+-#ifdef __powerpc__
++#if defined(__powerpc__) && !defined(GRUB_UTIL)
+   /* Firmware will yell at us for reading too far. */
+   return NULL;
+ #endif
+-- 
+2.54.0
+

@@ -1,0 +1,162 @@
+From 78a5b1a7948a8869445645425f5c5f3bbe09c00e Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Tue, 1 Sep 2026 23:42:07 -0600
+Subject: [PATCH] output: modeset and roll back live HDR changes
+
+HDR metadata and scanout bit-depth changes can require a modeset on DRM.
+Mark live HDR transitions as reconfigurations so wlroots performs a
+blocking ALLOW_MODESET commit, and test the image description together
+with its target render format.
+
+If the transition is rejected, discard the pending state and render
+another frame with the output's last known-good state instead of retrying
+an invalid atomic commit forever.
+
+Signed-off-by: GloriousEggroll <gloriouseggroll@gmail.com>
+---
+ include/common/scene-helpers.h |  3 +++
+ include/output.h               |  1 +
+ src/common/scene-helpers.c     | 10 +++++++++
+ src/output.c                   | 39 ++++++++++++++++++++++++++++------
+ 4 files changed, 47 insertions(+), 6 deletions(-)
+
+diff --git a/include/common/scene-helpers.h b/include/common/scene-helpers.h
+index 3b9b952..108dc1f 100644
+--- a/include/common/scene-helpers.h
++++ b/include/common/scene-helpers.h
+@@ -26,6 +26,9 @@ struct wlr_scene_buffer *lab_wlr_scene_buffer_create(
+  */
+ struct wlr_scene_node *lab_wlr_scene_get_prev_node(struct wlr_scene_node *node);
+ 
++/* Damage the entire scene output and its pending commit. */
++void lab_wlr_scene_output_damage_whole(struct wlr_scene_output *scene_output);
++
+ /* A variant of wlr_scene_output_commit() that respects wlr_output->pending */
+ bool lab_wlr_scene_output_commit(struct wlr_scene_output *scene_output,
+ 	struct wlr_output_state *state);
+diff --git a/include/output.h b/include/output.h
+index e88ee10..c156c96 100644
+--- a/include/output.h
++++ b/include/output.h
+@@ -11,6 +11,7 @@ struct output {
+ 	struct wl_list link; /* server.outputs */
+ 	struct wlr_output *wlr_output;
+ 	struct wlr_output_state pending;
++	bool hdr_reconfigure_pending;
+ 	struct wlr_scene_output *scene_output;
+ 	struct wlr_scene_tree *layer_tree[LAB_NR_LAYERS];
+ 	struct wlr_scene_tree *layer_popup_tree;
+diff --git a/src/common/scene-helpers.c b/src/common/scene-helpers.c
+index e9c80bb..64f342e 100644
+--- a/src/common/scene-helpers.c
++++ b/src/common/scene-helpers.c
+@@ -91,6 +91,16 @@ scene_output_damage(struct wlr_scene_output *scene_output,
+ 	pixman_region32_fini(&clipped);
+ }
+ 
++void
++lab_wlr_scene_output_damage_whole(struct wlr_scene_output *scene_output)
++{
++	struct wlr_output *output = scene_output->output;
++	pixman_region32_t damage;
++	pixman_region32_init_rect(&damage, 0, 0, output->width, output->height);
++	scene_output_damage(scene_output, &damage);
++	pixman_region32_fini(&damage);
++}
++
+ /*
+  * This is a copy of wlr_scene_output_commit()
+  * as it doesn't use the pending state at all.
+diff --git a/src/output.c b/src/output.c
+index 95071fa..2c45ead 100644
+--- a/src/output.c
++++ b/src/output.c
+@@ -177,8 +177,13 @@ output_state_setup_hdr(struct output *output, bool silent)
+ 		render_bit_depth = LAB_RENDER_BIT_DEPTH_8;
+ 	}
+ 
+-	if (render_bit_depth == LAB_RENDER_BIT_DEPTH_10 &&
+-			bit_depth_from_format(render_format) == render_bit_depth) {
++	if (render_bit_depth == LAB_RENDER_BIT_DEPTH_10) {
++		/* Test the render format together with the target image description. */
++		output_enable_hdr(output, &output->pending, true, silent);
++	}
++
++	if (render_bit_depth == LAB_RENDER_BIT_DEPTH_10
++			&& bit_depth_from_format(render_format) == render_bit_depth) {
+ 		/* 10-bit was set successfully before, try to save some
+ 		 * tests by reusing the format
+ 		 */
+@@ -191,6 +196,7 @@ output_state_setup_hdr(struct output *output, bool silent)
+ 				wlr_log(WLR_INFO, "No 10 bit color formats"
+ 					" supported, HDR disabled.");
+ 			}
++			output_enable_hdr(output, &output->pending, false, true);
+ 			if (!output_set_render_format(output, output_formats_8bit,
+ 					ARRAY_SIZE(output_formats_8bit), silent)) {
+ 				if (!silent) {
+@@ -200,13 +206,13 @@ output_state_setup_hdr(struct output *output, bool silent)
+ 			}
+ 		}
+ 	} else {
++		/* Test the render format together with the target image description. */
++		output_enable_hdr(output, &output->pending, false, silent);
+ 		if (!output_set_render_format(output, output_formats_8bit,
+ 				ARRAY_SIZE(output_formats_8bit), silent) && !silent) {
+ 			wlr_log(WLR_ERROR, "No 8 bit color formats supported!");
+ 		}
+ 	}
+-
+-	output_enable_hdr(output, &output->pending, hdr_succeeded, silent);
+ }
+ 
+ static bool
+@@ -237,12 +243,16 @@ output_reconfigure_hdr(void)
+ 			continue;
+ 		}
+ 
++		/* HDR metadata and scanout bit-depth changes may require a modeset. */
++		output->pending.allow_reconfiguration = true;
+ 		output_state_setup_hdr(output, false);
++		output->hdr_reconfigure_pending = true;
+ 		/*
+ 		 * Render-format and image-description changes must be committed with
+ 		 * a matching scene buffer. Defer the commit to the output's next frame
+ 		 * so it also cannot race an in-flight DRM page flip.
+ 		 */
++		lab_wlr_scene_output_damage_whole(output->scene_output);
+ 		wlr_output_schedule_frame(output->wlr_output);
+ 	}
+ }
+@@ -310,9 +320,26 @@ handle_output_frame(struct wl_listener *listener, void *data)
+ 	struct wlr_scene_output *scene_output = output->scene_output;
+ 	struct wlr_output_state *pending = &output->pending;
+ 
+-	pending->tearing_page_flip = output_get_tearing_allowance(output);
++	pending->tearing_page_flip = output->hdr_reconfigure_pending
++		? false : output_get_tearing_allowance(output);
+ 
+-	lab_wlr_scene_output_commit(scene_output, pending);
++	bool committed = lab_wlr_scene_output_commit(scene_output, pending);
++	if (output->hdr_reconfigure_pending) {
++		output->hdr_reconfigure_pending = false;
++		if (!committed) {
++			/*
++			 * A failed HDR modeset leaves pending state and the replacement
++			 * swapchain in place. Drop both by resetting the state and force a
++			 * frame in the output's last known-good format.
++			 */
++			wlr_log(WLR_ERROR, "HDR reconfiguration failed for output %s; "
++				"restoring its previous state", output->wlr_output->name);
++			wlr_output_state_finish(pending);
++			wlr_output_state_init(pending);
++			lab_wlr_scene_output_damage_whole(scene_output);
++			wlr_output_schedule_frame(output->wlr_output);
++		}
++	}
+ 
+ 	struct timespec now = { 0 };
+ 	clock_gettime(CLOCK_MONOTONIC, &now);
+-- 
+2.55.0
+

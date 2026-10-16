@@ -1,5 +1,5 @@
 Name:           gpu-screen-recorder-ui
-Version:        1.12.6
+Version:        1.13.10
 Release:        1%{dist}
 Summary:        A shadowplay-like screen recorder for Linux. The fastest screen recorder for Linux.
 License:        GPL-3.0-or-later
@@ -67,6 +67,30 @@ rm -rf %{_buildroot}%{_datadir}/gsr-ui/fonts
 %{_mandir}/man1/gsr-ui*.1*
 
 %changelog
+* Wed Sep 23 2026 LionHeartP <LionHeartP@proton.me> - 1.13.10-1
+- Update to 1.13.10
+
+* Sat Sep 12 2026 LionHeartP <LionHeartP@proton.me> - 1.13.9-1
+- Update to 1.13.9
+
+* Tue Sep 08 2026 LionHeartP <LionHeartP@proton.me> - 1.13.8-1
+- Update to 1.13.8
+
+* Tue Sep 01 2026 LionHeartP <LionHeartP@proton.me> - 1.13.7-1
+- Update to 1.13.7
+
+* Sat Aug 22 2026 LionHeartP <LionHeartP@proton.me> - 1.13.5-1
+- Update to 1.13.5
+
+* Sun Aug 09 2026 LionHeartP <LionHeartP@proton.me> - 1.13.3-1
+- Update to 1.13.3
+
+* Thu Jul 23 2026 LionHeartP <LionHeartP@proton.me> - 1.13.2-1
+- Update to 1.13.2
+
+* Thu Jul 16 2026 LionHeartP <LionHeartP@proton.me> - 1.13.0-1
+- Update to 1.13.0
+
 * Fri Jul 03 2026 LionHeartP <LionHeartP@proton.me> - 1.12.6-1
 - Update to 1.12.6
 

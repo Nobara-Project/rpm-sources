@@ -1,0 +1,32 @@
+Subject: [PATCH] libcalamaresui: retranslate QML view steps
+
+QML view steps are loaded asynchronously during startup, before the user can
+select a language on the welcome page. Their qsTr() bindings therefore keep
+the live session's language unless the QQmlEngine is explicitly told to
+retranslate them after Calamares installs a different translator.
+
+Connect each QmlViewStep engine to Calamares' retranslation signal, matching
+the existing behavior of the QML slideshow.
+
+Fixes: https://github.com/Nobara-Project/rpm-sources/issues/577
+
+diff --git a/src/libcalamaresui/viewpages/QmlViewStep.cpp b/src/libcalamaresui/viewpages/QmlViewStep.cpp
+--- a/src/libcalamaresui/viewpages/QmlViewStep.cpp
++++ b/src/libcalamaresui/viewpages/QmlViewStep.cpp
+@@ -17,6 +17,7 @@
+ #include "utils/Logger.h"
+ #include "utils/NamedEnum.h"
+ #include "utils/Qml.h"
++#include "utils/Retranslator.h"
+ #include "utils/Variant.h"
+ #include "widgets/WaitingWidget.h"
+ 
+@@ -88,6 +89,8 @@ QmlViewStep::QmlViewStep( QObject* parent )
+ 
+     m_qmlEngine->addImportPath( Calamares::qmlModulesDir().absolutePath() );
+ 
++    CALAMARES_RETRANSLATE( if ( m_qmlEngine ) { m_qmlEngine->retranslate(); } );
++
+     // QML Loading starts when the configuration for the module is set.
+ }
+ 

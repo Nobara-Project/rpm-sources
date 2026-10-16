@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Neal Gompa <ngompa@fedoraproject.org>
+Date: Wed, 26 Nov 2025 08:48:10 -0500
+Subject: [PATCH] grub-editenv: Make automatic hidden menu and boot counting
+ use envblk when available
+
+This ensures the automatic hidden menu and boot counting settings
+are set in the right place when an external environment block is used.
+
+This is unlikely to be upstreamable, as it depends on Fedora's GRUB
+hidden menu and boot counting patch sets.
+
+Signed-off-by: Neal Gompa <ngompa@fedoraproject.org>
+---
+ util/grub-editenv.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/util/grub-editenv.c b/util/grub-editenv.c
+index 3c3f9d09f3..48611e4e17 100644
+--- a/util/grub-editenv.c
++++ b/util/grub-editenv.c
+@@ -473,7 +473,13 @@ set_variables (const char *name, int argc, char *argv[])
+ 
+       *(p++) = 0;
+ 
+-      if ((strcmp (argv[0], "next_entry") == 0) && envblk_on_block != NULL)
++      if (((strcmp (argv[0], "next_entry") == 0) ||
++           (strcmp (argv[0], "boot_counter") == 0) ||
++           (strcmp (argv[0], "boot_indeterminate") == 0) ||
++           (strcmp (argv[0], "boot_success") == 0) ||
++           (strcmp (argv[0], "menu_show_once") == 0) ||
++           (strcmp (argv[0], "menu_show_once_timeout") == 0))
++          && envblk_on_block != NULL)
+ 	{
+ 	  if (grub_envblk_set (envblk_on_block, argv[0], p) == 0)
+ 	    grub_util_error ("%s", _("environment block too small"));

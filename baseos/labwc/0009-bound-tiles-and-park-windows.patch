@@ -1,0 +1,328 @@
+--- a/include/tiling.h
++++ b/include/tiling.h
+@@ -3,10 +3,12 @@
+ #define LABWC_TILING_H
+ #include <stdbool.h>
+ struct view;
++struct wlr_box;
+ void tiling_init(void);
+ void tiling_finish(void);
+ void tiling_schedule(void);
+ void tiling_update_outline(struct view *view);
++void tiling_constrain_geometry(struct view *view, struct wlr_box *box);
+ void tiling_forget(struct view *view);
+ void tiling_action(struct view *view, const char *command);
+ bool tiling_is_managed(struct view *view);
+--- a/src/tiling.c
++++ b/src/tiling.c
+@@ -16,6 +16,7 @@
+ #include <wlr/types/wlr_cursor.h>
+ #include <wlr/types/wlr_scene.h>
+ #include <wlr/types/wlr_output_layout.h>
++#include <wlr/types/wlr_xdg_shell.h>
+ #include <wlr/util/log.h>
+ #include "tiling.h"
+ #include "labwc.h"
+@@ -48,8 +49,10 @@
+     struct wl_list link;
+     struct view *view;
+     struct tile *tile;
+-    struct wlr_box original, floating_geo;
++    struct wlr_box original, floating_geo, bounds;
+     bool floating, pseudo, scratch, scratch_visible, clipped, group_active;
++    bool content_clipped;
++    uint64_t parked_order;
+     bool original_sticky;
+     enum view_layer original_layer;
+     unsigned group;
+@@ -60,6 +63,7 @@
+ static struct wl_list layouts, records;
+ static bool initialized, enabled, arranging;
+ static unsigned next_group = 1;
++static uint64_t next_parked_order = 1;
+ static struct wl_event_source *idle, *control_source;
+ static int control_fd = -1;
+ static char socket_path[sizeof(((struct sockaddr_un *)0)->sun_path)];
+@@ -69,6 +73,7 @@
+ static struct { char output[128]; float rgba[4]; } outline_colors[64];
+ static size_t outline_color_count;
+ static struct record *record_for(struct view *view);
++static void clip_content(struct record *r);
+ 
+ static bool outline_fullscreen(struct view *v) {
+     if (v->fullscreen) return true;
+@@ -127,7 +132,7 @@
+ void tiling_update_outline(struct view *view) {
+     if (!initialized) return;
+     struct record *r = record_for(view);
+-    if (r) update_outline(r);
++    if (r) { clip_content(r); update_outline(r); }
+ }
+ 
+ static struct record *record_for(struct view *view) {
+@@ -242,20 +247,55 @@
+     wlr_scene_node_set_enabled(&r->view->scene_tree->node,
+         !hidden && r->view->mapped && !r->view->minimized);
+ }
+-static void configure(struct record *r, struct wlr_box outer) {
++/* Client hints are preferences within a tile, never permission to cover another
++ * tile or output. Some clients also commit a larger buffer than configured;
++ * constrain their displayed geometry and input region to the same allocation. */
++static bool bounded(struct record *r) {
++    return enabled && r && available(r) && !wlr_box_empty(&r->bounds)
++        && !(server.grabbed_view == r->view
++             && server.input_mode != LAB_INPUT_STATE_PASSTHROUGH);
++}
++void tiling_constrain_geometry(struct view *v, struct wlr_box *box) {
++    struct record *r = initialized ? record_for(v) : NULL;
++    if (!bounded(r)) return;
++    box->x = r->bounds.x; box->y = r->bounds.y;
++    box->width = fmin(box->width, r->bounds.width);
++    box->height = fmin(box->height, r->bounds.height);
++}
++static void clip_content(struct record *r) {
++    struct view *v = r->view;
++    if (!v->content_tree) { r->content_clipped = false; return; }
++    if (bounded(r)) {
++        struct wlr_box clip = {0, 0, fmin(v->current.width, r->bounds.width),
++                              fmin(v->current.height, r->bounds.height)};
++        struct wlr_xdg_surface *xdg = wlr_xdg_surface_try_from_wlr_surface(v->surface);
++        if (xdg) { clip.x = xdg->geometry.x; clip.y = xdg->geometry.y; }
++        wlr_scene_subsurface_tree_set_clip(&v->content_tree->node, &clip);
++        r->content_clipped = true;
++    } else if (r->content_clipped) {
++        wlr_scene_subsurface_tree_set_clip(&v->content_tree->node, NULL);
++        r->content_clipped = false;
++    }
++}
++static bool configure(struct record *r, struct wlr_box outer) {
+     struct view *v = r->view;
+     struct border margin = ssd_get_margin(v->ssd);
+     struct wlr_box box = {outer.x + margin.left, outer.y + margin.top,
+         outer.width - margin.left - margin.right, outer.height - margin.top - margin.bottom};
+-    if (box.width < 1 || box.height < 1) return;
++    if (box.width < 1 || box.height < 1) return false;
+     if (r->pseudo) {
+         int w = r->floating_geo.width < box.width ? r->floating_geo.width : box.width;
+         int h = r->floating_geo.height < box.height ? r->floating_geo.height : box.height;
+         box.x += (box.width - w) / 2; box.y += (box.height - h) / 2;
+         box.width = w; box.height = h;
+     }
++    int width = box.width, height = box.height;
+     view_adjust_size(v, &box.width, &box.height);
++    box.width = fmin(box.width, width); box.height = fmin(box.height, height);
++    r->bounds = box;
+     if (memcmp(&v->pending, &box, sizeof(box))) view_move_resize(v, box);
++    clip_content(r);
++    return true;
+ }
+ static void place_leaf(struct tile *t, struct wlr_box box, bool hidden) {
+     struct record *r = record_for(t->view), *active = group_visible(r), *other;
+@@ -264,34 +304,59 @@
+         if (other != r && (!r->group || other->group != r->group)) continue;
+         if (!available(other)) continue;
+         set_hidden(other, hidden || other != active);
+-        if (!hidden) configure(other, box);
+-    }
++        if (!hidden && !configure(other, box)) set_hidden(other, true);
++    }
++}
++static int minimum(struct tile *t, bool vertical) {
++    if (!t || !count(t)) return 0;
++    if (t->view) {
++        struct record *r = group_visible(record_for(t->view));
++        struct border margin = ssd_get_margin(r->view->ssd);
++        int width = 1, height = 1;
++        view_adjust_size(r->view, &width, &height);
++        return vertical ? height + margin.top + margin.bottom
++                        : width + margin.left + margin.right;
++    }
++    int a = minimum(t->a, vertical), b = minimum(t->b, vertical);
++    if (!a || !b) return a + b;
++    return t->vertical == vertical ? a + b + rc.gap : fmax(a, b);
++}
++static void hide_layout(struct tile *t) {
++    if (!t) return;
++    if (t->view) place_leaf(t, (struct wlr_box){0}, true);
++    else { hide_layout(t->a); hide_layout(t->b); }
+ }
+ static void split_layout(struct tile *t, struct wlr_box box) {
+     if (!t || !count(t)) return;
++    if (wlr_box_empty(&box)) { hide_layout(t); return; }
+     t->box = box;
+-    if (t->view) { place_leaf(t, box, false); return; }
++    if (t->view) { place_leaf(t, box, wlr_box_empty(&box)); return; }
+     if (!count(t->a)) { split_layout(t->b, box); return; }
+     if (!count(t->b)) { split_layout(t->a, box); return; }
+-    int gap = rc.gap;
+-    int extent = (t->vertical ? box.height : box.width) - gap;
+-    if (extent < 2) extent = 2;
++    int total = t->vertical ? box.height : box.width;
++    int gap = fmin(rc.gap, fmax(0, total - 2));
++    int extent = total - gap;
+     int first = (int)(extent * t->ratio);
+     if (first < 1) first = 1;
+     if (first >= extent) first = extent - 1;
++    int min_a = minimum(t->a, t->vertical), min_b = minimum(t->b, t->vertical);
++    if (min_a + min_b <= extent)
++        first = fmax(min_a, fmin(first, extent - min_b));
+     struct wlr_box a = box, b = box;
+     if (t->vertical) { a.height = first; b.y += first + gap; b.height = extent - first; }
+     else { a.width = first; b.x += first + gap; b.width = extent - first; }
+     split_layout(t->a, a); split_layout(t->b, b);
+ }
++static int column_width(struct tile *t, int area_width) {
++    struct record *r = record_for(t->view);
++    int width = r->width ? r->width : (area_width - rc.gap) / 2;
++    if (count(t->layout->root) == 1) width = area_width;
++    return fmin(area_width, fmax(fmax(width, 100), minimum(t, false)));
++}
+ static void scroll_layout(struct tile *t, struct wlr_box area, double *x, struct layout *l) {
+     if (!t || !count(t)) return;
+     if (!t->view) { scroll_layout(t->a, area, x, l); scroll_layout(t->b, area, x, l); return; }
+-    struct record *r = record_for(t->view);
+-    int width = r->width ? r->width : (area.width - rc.gap) / 2;
+-    if (count(l->root) == 1) width = area.width;
+-    if (width > area.width) width = area.width;
+-    if (width < 100) width = 100;
++    int width = column_width(t, area.width);
+     struct wlr_box box = {area.x + (int)(*x - l->scroll), area.y, width, area.height};
+     /* Keep windows entirely within this output, never leaking onto a neighbour.
+      * Offscreen columns are hidden until focused; edge columns remain full size. */
+@@ -299,16 +364,16 @@
+     place_leaf(t, box, hidden);
+     *x += width + rc.gap;
+ }
+-static double column_position(struct tile *t, struct view *v, int width, double *x) {
++static double column_position(struct tile *t, struct view *v, int area_width, double *x) {
+     if (!t || !count(t)) return -1;
+     if (t->view) {
+         struct record *r = record_for(t->view), *active = record_for(v);
+         double pos = *x;
+-        *x += (r->width ? r->width : width) + rc.gap;
++        *x += column_width(t, area_width) + rc.gap;
+         return t->view == v || (active && active->group && active->group == r->group) ? pos : -1;
+     }
+-    double a = column_position(t->a, v, width, x);
+-    double b = column_position(t->b, v, width, x);
++    double a = column_position(t->a, v, area_width, x);
++    double b = column_position(t->b, v, area_width, x);
+     return a >= 0 ? a : b;
+ }
+ static void arrange(void *unused) {
+@@ -337,6 +402,8 @@
+     wl_list_for_each_safe(r, tmp, &records, link) {
+         v = r->view;
+         if (!v->mapped && !v->minimized) { tiling_forget(v); continue; }
++        /* A taskbar/application activation also takes a window out of storage. */
++        if (!v->minimized) r->parked_order = 0;
+         if (r->tile && (r->floating || r->scratch || r->tile->layout->output != v->output
+             || r->tile->layout->workspace != v->workspace)) detach(r);
+         /* Drop group membership when a window leaves the group's workspace/output. */
+@@ -363,7 +430,7 @@
+                 if (other->group == r->group) other->group_active = other == r;
+         }
+         if (available(r) && !r->tile && !follower && output_is_usable(v->output)) attach(r);
+-        if (!available(r)) set_hidden(r, false);
++        if (!available(r)) { set_hidden(r, false); clip_content(r); }
+     }
+     struct layout *l, *next;
+     wl_list_for_each_safe(l, next, &layouts, link) {
+@@ -375,9 +442,9 @@
+         if (!l->scrolling) split_layout(l->root, area);
+         else {
+             double x = 0;
+-            double pos = column_position(l->root, server.active_view, (area.width - rc.gap) / 2, &x);
+-            struct record *focus = record_for(server.active_view);
+-            int width = focus && focus->width ? focus->width : (area.width - rc.gap) / 2;
++            double pos = column_position(l->root, server.active_view, area.width, &x);
++            struct record *focus = tile_owner(record_for(server.active_view));
++            int width = focus && focus->tile ? column_width(focus->tile, area.width) : area.width;
+             if (pos >= 0) {
+                 if (pos < l->scroll) l->scroll = pos;
+                 if (pos + width > l->scroll + area.width) l->scroll = pos + width - area.width;
+@@ -402,6 +469,7 @@
+     struct record *r = record_for(v);
+     if (!r) return;
+     detach(r); set_hidden(r, false);
++    r->bounds = (struct wlr_box){0}; clip_content(r);
+     if (r->outline) wlr_scene_node_destroy(&r->outline->node);
+     v->auto_tiled = false;
+     wl_list_remove(&r->link); free(r);
+@@ -419,7 +487,7 @@
+         v->auto_tiled = false;
+         if (v->impl->notify_tiled) v->impl->notify_tiled(v);
+         set_hidden(r, false);
+-        if (r->scratch) view_minimize(v, false);
++        if (r->scratch || r->parked_order) view_minimize(v, false);
+         if (v->visible_on_all_workspaces != r->original_sticky) view_toggle_visible_on_all_workspaces(v);
+         if (v->layer != r->original_layer) view_set_layer(v, r->original_layer);
+         if (v->mapped && !special(v) && !r->floating) view_move_resize(v, r->original);
+@@ -506,6 +574,17 @@
+         unsigned long id = strtoul(arg, NULL, 10);
+         wl_list_for_each(other, &server.views, link)
+             if (other->creation_id == id) { focus(other); break; }
++    } else if (!strcmp(op, "restore-parked")) {
++        struct record *latest = NULL, *other;
++        wl_list_for_each(other, &records, link)
++            if (other->parked_order && other->view->minimized
++                && (!latest || other->parked_order > latest->parked_order)) latest = other;
++        if (latest) {
++            latest->parked_order = 0;
++            if (!latest->view->visible_on_all_workspaces)
++                workspaces_switch_to(latest->view->workspace, true);
++            focus(latest->view);
++        }
+     } else if (!strcmp(op, "scratch-show")) {
+         bool show = true; struct record *other;
+         wl_list_for_each(other, &records, link) if (other->scratch && other->scratch_visible) show = false;
+@@ -579,6 +658,16 @@
+     } else if (!strcmp(op, "fullscreen")) view_toggle_fullscreen(v);
+     else if (!strcmp(op, "maximize") || !strcmp(op, "tiled-fullscreen")) view_toggle_maximize(v, VIEW_AXIS_BOTH);
+     else if (!strcmp(op, "close")) view_close(v);
++    else if (!strcmp(op, "park")) {
++        /* Minimize the whole dialog hierarchy, retaining tile, workspace,
++         * output and floating/fullscreen state. Never terminate a parked app. */
++        struct view *root = v->impl->get_root ? v->impl->get_root(v) : v;
++        struct record *target = record_for(root ? root : v);
++        if (target && !target->view->minimized) {
++            target->parked_order = next_parked_order++;
++            view_minimize(target->view, true);
++        }
++    }
+     else if (!strcmp(op, "scratch-send")) {
+         detach(r); r->group = 0; r->scratch = true; r->scratch_visible = false; v->auto_tiled = false;
+         if (v->impl->notify_tiled) v->impl->notify_tiled(v);
+@@ -668,18 +757,21 @@
+     char *text = NULL; size_t length = 0;
+     FILE *stream = open_memstream(&text, &length);
+     if (!stream) return 0;
+-    fprintf(stream, "{\"version\":1,\"ready\":true,\"compositor_pid\":%ld,\"enabled\":%s,\"outline_supported\":true,\"outline_enabled\":%s,\"error\":\"%s\",\"windows\":[", (long)getpid(), enabled ? "true" : "false", outline_enabled ? "true" : "false", error);
++    fprintf(stream, "{\"version\":1,\"ready\":true,\"compositor_pid\":%ld,\"enabled\":%s,\"parking_supported\":true,\"tile_bounds_supported\":true,\"outline_supported\":true,\"outline_enabled\":%s,\"error\":\"%s\",\"windows\":[", (long)getpid(), enabled ? "true" : "false", outline_enabled ? "true" : "false", error);
+     if (!strcmp(request, "windows") && !locked) {
+         struct view *v; bool first = true;
+         wl_list_for_each(v, &server.views, link) {
+             if (!v->mapped && !v->minimized) continue;
+             struct record *r = record_for(v);
++            struct wlr_box area = output_is_usable(v->output) ? output_usable_area_in_layout_coords(v->output) : (struct wlr_box){0};
+             bool outlined = r && r->outline && r->outline->node.enabled && v->scene_tree->node.enabled;
+-            fprintf(stream, "%s{\"id\":%lu,\"active\":%s,\"tiled\":%s,\"visible\":%s,\"output\":%lu,\"x\":%d,\"y\":%d,\"width\":%d,\"height\":%d,\"fullscreen\":%s,\"minimized\":%s,\"outlined\":%s}",
++            fprintf(stream, "%s{\"id\":%lu,\"active\":%s,\"tiled\":%s,\"visible\":%s,\"output\":%lu,\"x\":%d,\"y\":%d,\"width\":%d,\"height\":%d,\"fullscreen\":%s,\"minimized\":%s,\"outlined\":%s,\"parked\":%s,\"current\":{\"x\":%d,\"y\":%d,\"width\":%d,\"height\":%d},\"workarea\":{\"x\":%d,\"y\":%d,\"width\":%d,\"height\":%d}}",
+                 first ? "" : ",", (unsigned long)v->creation_id, server.active_view == v ? "true" : "false",
+                 v->auto_tiled ? "true" : "false", v->scene_tree->node.enabled ? "true" : "false",
+                 (unsigned long)(v->output ? v->output->id_bit : 0), v->pending.x, v->pending.y, v->pending.width, v->pending.height,
+-                v->fullscreen ? "true" : "false", v->minimized ? "true" : "false", outlined ? "true" : "false"); first = false;
++                v->fullscreen ? "true" : "false", v->minimized ? "true" : "false", outlined ? "true" : "false", r && r->parked_order ? "true" : "false",
++                v->current.x, v->current.y, v->current.width, v->current.height,
++                area.x, area.y, area.width, area.height); first = false;
+         }
+     }
+     fputs("]}", stream); fclose(stream);
+--- a/src/view-impl-common.c
++++ b/src/view-impl-common.c
+@@ -118,4 +118,5 @@
+ 
+ 	current->width = w;
+ 	current->height = h;
++	tiling_constrain_geometry(view, current);
+ }

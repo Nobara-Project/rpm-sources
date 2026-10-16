@@ -1,0 +1,46 @@
+From 18f2fb6c29752bc82ae89449bd4764d4d88c0ba1 Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Fri, 3 Jul 2026 19:39:12 -0600
+Subject: [PATCH] bump cmake min version to 3.5
+
+---
+ source/CMakeLists.txt              | 2 +-
+ source/dynamicHDR10/CMakeLists.txt | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/source/CMakeLists.txt b/source/CMakeLists.txt
+index 5c6dda9..738af12 100755
+--- a/source/CMakeLists.txt
++++ b/source/CMakeLists.txt
+@@ -17,7 +17,7 @@ if(POLICY CMP0054)
+ endif()
+ 
+ project (x265)
+-cmake_minimum_required (VERSION 2.8.8) # OBJECT libraries require 2.8.8
++cmake_minimum_required (VERSION 3.5) # OBJECT libraries require 2.8.8
+ include(CheckIncludeFiles)
+ include(CheckFunctionExists)
+ include(CheckSymbolExists)
+diff --git a/source/dynamicHDR10/CMakeLists.txt b/source/dynamicHDR10/CMakeLists.txt
+index 22fb79d..43cf2f0 100644
+--- a/source/dynamicHDR10/CMakeLists.txt
++++ b/source/dynamicHDR10/CMakeLists.txt
+@@ -10,7 +10,7 @@ add_library(dynamicHDR10 OBJECT
+     hdr10plus.h
+     api.cpp )
+ 
+-cmake_minimum_required (VERSION 2.8.11)
++cmake_minimum_required (VERSION 3.5)
+ project(dynamicHDR10)
+ include(CheckIncludeFiles)
+ include(CheckFunctionExists)
+@@ -150,4 +150,4 @@ set(BIN_INSTALL_DIR bin CACHE STRING "Install location of executables")
+ option(ENABLE_SHARED "Build shared library" OFF)
+ 
+ install(FILES hdr10plus.h DESTINATION include)
+-endif()
+\ No newline at end of file
++endif()
+-- 
+2.54.0
+

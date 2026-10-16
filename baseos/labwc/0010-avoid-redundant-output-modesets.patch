@@ -1,0 +1,150 @@
+--- a/src/output.c
++++ b/src/output.c
+@@ -478,14 +478,12 @@
+ 			wlr_log(WLR_ERROR, "unable to create scene output");
+ 			return;
+ 		}
+-		/*
+-		 * Note: wlr_scene_output_layout_add_output() is safe to
+-		 * call multiple times, but we only need to add the output
+-		 * when initially creating the scene_output.
+-		 */
+-		wlr_scene_output_layout_add_output(server.scene_layout,
+-			layout_output, output->scene_output);
+-	}
++	}
++	/* A re-enabled output may already have a scene created for its first
++	 * atomic frame. Attaching it to the layout is safe more than once.
++	 */
++	wlr_scene_output_layout_add_output(server.scene_layout,
++		layout_output, output->scene_output);
+ 
+ 	wlr_ext_workspace_group_handle_v1_output_enter(
+ 		server.workspaces.ext_group, output->wlr_output);
+@@ -900,52 +898,83 @@
+ 		struct wlr_output_state *os = &output->pending;
+ 		bool output_enabled = head->state.enabled;
+ 
+-		wlr_output_state_set_enabled(os, output_enabled);
++		bool mode_changed = head->state.mode
++			? head->state.mode != o->current_mode
++			: o->current_mode || o->width != head->state.custom_mode.width
++				|| o->height != head->state.custom_mode.height
++				|| o->refresh != head->state.custom_mode.refresh;
++		bool enabled_changed = output_enabled != o->enabled;
++		bool hdr_changed = output_enabled && !output_hdr_matches_config(output);
++
++		/* A position/scale update must not retrain every display link. Output
++		 * management includes unchanged heads, and setting enabled/mode even
++		 * to their current values grants the DRM backend a blocking modeset.
++		 */
++		if (enabled_changed) {
++			wlr_output_state_set_enabled(os, output_enabled);
++		}
+ 		if (output_enabled) {
+-			/* Output specific actions only */
+-			if (head->state.mode) {
+-				wlr_output_state_set_mode(os, head->state.mode);
++			if (mode_changed || enabled_changed) {
++				if (head->state.mode) {
++					wlr_output_state_set_mode(os, head->state.mode);
++				} else {
++					wlr_output_state_set_custom_mode(os,
++						head->state.custom_mode.width,
++						head->state.custom_mode.height,
++						head->state.custom_mode.refresh);
++				}
++			}
++			if (mode_changed || enabled_changed) {
++				(void)output_test_auto(o, os, /* is_client_request */ true);
++			}
++			if (head->state.scale != o->scale) {
++				wlr_output_state_set_scale(os, head->state.scale);
++			}
++			if (head->state.transform != o->transform) {
++				wlr_output_state_set_transform(os, head->state.transform);
++			}
++			bool vrr_enabled = o->adaptive_sync_status != WLR_OUTPUT_ADAPTIVE_SYNC_DISABLED;
++			if (head->state.adaptive_sync_enabled != vrr_enabled) {
++				os->allow_reconfiguration = true;
++				output_enable_adaptive_sync(output, head->state.adaptive_sync_enabled);
++			}
++			if (mode_changed || enabled_changed || hdr_changed) {
++				os->allow_reconfiguration = true;
++				output_state_setup_hdr(output, false);
++			}
++		}
++		if (os->committed) {
++			bool committed;
++			wlr_log(WLR_DEBUG, "Applying changed output state: %s (modeset %s)",
++				o->name, os->allow_reconfiguration ? "yes" : "no");
++			if (output_enabled && os->allow_reconfiguration) {
++				/* Commit the mode, HDR metadata, and matching scene buffer
++				 * together. A bare commit followed by an HDR frame can send
++				 * an intermediate SDR/old-format frame over the new link.
++				 */
++				bool created_scene = !output->scene_output;
++				if (created_scene) {
++					output->scene_output = wlr_scene_output_create(server.scene, o);
++				}
++				committed = false;
++				if (output->scene_output) {
++					lab_wlr_scene_output_damage_whole(output->scene_output);
++					wlr_output_schedule_frame(o);
++					committed = lab_wlr_scene_output_commit(output->scene_output, os);
++					if (!committed && created_scene) {
++						wlr_scene_output_destroy(output->scene_output);
++						output->scene_output = NULL;
++					}
++				}
+ 			} else {
+-				wlr_output_state_set_custom_mode(os,
+-					head->state.custom_mode.width,
+-					head->state.custom_mode.height,
+-					head->state.custom_mode.refresh);
++				committed = output_state_commit(output);
+ 			}
+-			/*
+-			 * Try to ensure a valid mode. Ignore failures
+-			 * here and just check the commit below.
+-			 */
+-			(void)output_test_auto(o, os,
+-				/* is_client_request */ true);
+-			wlr_output_state_set_scale(os, head->state.scale);
+-			wlr_output_state_set_transform(os, head->state.transform);
+-			output_enable_adaptive_sync(output,
+-				head->state.adaptive_sync_enabled);
+-			output_state_setup_hdr(output, false);
+-		}
+-		if (!output_state_commit(output)) {
+-			/*
+-			 * FIXME: This is only part of the story, we should revert
+-			 *        all previously committed outputs as well here.
+-			 *
+-			 *        See https://github.com/labwc/labwc/pull/1528
+-			 */
+-			wlr_log(WLR_INFO, "Output config commit failed: %s", o->name);
+-			success = false;
+-			break;
+-		}
+-
+-		if (output_enabled) {
+-			/*
+-			 * The above commit was likely made without an image
+-			 * buffer attached. This will break applying HDR color
+-			 * transformation, since image descriptions must be
+-			 * committed with a buffer attached. Queue the HDR mode
+-			 * again if output is enabled, but make it silent,
+-			 * since it would have emitted messages already when
+-			 * called above.
+-			 */
+-			output_state_setup_hdr(output, true);
++			if (!committed) {
++				/* FIXME: Previously committed heads also need rollback. */
++				wlr_log(WLR_INFO, "Output config commit failed: %s", o->name);
++				success = false;
++				break;
++			}
+ 		}
+ 
+ 		/*

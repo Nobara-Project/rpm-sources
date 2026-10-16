@@ -1,0 +1,20 @@
+--- a/cmake/dependencies/ffmpeg.cmake
++++ b/cmake/dependencies/ffmpeg.cmake
+@@ -18,6 +18,9 @@
+     # Determine download location
+     set(FFMPEG_DOWNLOAD_DIR "${CMAKE_BINARY_DIR}/_deps")
+ 
++    # Source archives can supply the tag without requiring Git metadata.
++    if(NOT FFMPEG_RELEASE_TAG)
++
+     # Fetch tags for the build-deps submodule so tag lookups work in CI shallow clones
+     execute_process(
+         COMMAND git -C "${CMAKE_SOURCE_DIR}/third-party/build-deps" fetch --tags --depth=1
+@@ -50,6 +53,7 @@
+             ERROR_QUIET
+         )
+     endif()
++    endif()
+ 
+     # Set GitHub release URL
+     set(FFMPEG_GITHUB_REPO "LizardByte/build-deps")

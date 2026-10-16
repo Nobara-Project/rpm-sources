@@ -1,0 +1,13 @@
+--- a/src/modules/packages/main.py
++++ b/src/modules/packages/main.py
+@@ -74,6 +74,10 @@ def pretty_status_message():
+         # No mode, generic description
+         s = _("Install packages.")
+ 
++    # Keep stale translation catalogs from reintroducing the historical
++    # "pckage" typo even though the English source string is correct.
++    s = s.replace("pckage", "package")
++
+     return s % {"num": group_packages,
+                 "count": completed_packages,
+                 "total": total_packages}

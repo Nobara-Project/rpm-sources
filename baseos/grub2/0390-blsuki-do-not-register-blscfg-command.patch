@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Leo Sandoval <lsandova@redhat.com>
+Date: Thu, 13 Nov 2025 11:57:52 -0600
+Subject: [PATCH] blsuki: do not register blscfg command
+
+The blscfg command is already defined on commands/blscfg.c so do not
+register it on blsuki.c. Also, the 'uki' command is only intended for
+EFI system so remove the other platforms from the module.
+
+Signed-off-by: Leo Sandoval <lsandova@redhat.com>
+---
+ grub-core/Makefile.core.def | 2 --
+ grub-core/commands/blsuki.c | 4 ----
+ 2 files changed, 6 deletions(-)
+
+diff --git a/grub-core/Makefile.core.def b/grub-core/Makefile.core.def
+index 885dd436de..a545ee430b 100644
+--- a/grub-core/Makefile.core.def
++++ b/grub-core/Makefile.core.def
+@@ -893,8 +893,6 @@ module = {
+   common = lib/gnulib/filevercmp.c;
+   enable = powerpc_ieee1275;
+   enable = efi;
+-  enable = i386_pc;
+-  enable = emu;
+   cflags = '$(CFLAGS_POSIX) $(CFLAGS_GNULIB)';
+   cppflags = '$(CPPFLAGS_POSIX) $(CPPFLAGS_GNULIB)';
+ };
+diff --git a/grub-core/commands/blsuki.c b/grub-core/commands/blsuki.c
+index cb00f936a7..bcd0114d85 100644
+--- a/grub-core/commands/blsuki.c
++++ b/grub-core/commands/blsuki.c
+@@ -1475,10 +1475,6 @@ static grub_extcmd_t uki_cmd;
+ 
+ GRUB_MOD_INIT(blsuki)
+ {
+-  bls_cmd = grub_register_extcmd ("blscfg", grub_cmd_blscfg, 0,
+-				  N_("[-p|--path] [-f|--enable-fallback] DIR [-d|--show-default] [-n|--show-non-default] [-e|--entry] FILE"),
+-				  N_("Import Boot Loader Specification snippets."),
+-				  bls_opt);
+ #ifdef GRUB_MACHINE_EFI
+   uki_cmd = grub_register_extcmd ("uki", grub_cmd_uki, 0,
+ 				  N_("[-p|--path] DIR [-f|--enable-fallback] [-d|--show-default] [-n|--show-non-default] [-e|--entry] FILE"),

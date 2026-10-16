@@ -1,0 +1,2101 @@
+--- a/backend/drm/atomic.c
++++ b/backend/drm/atomic.c
+@@ -1,4 +1,5 @@
+ #include <drm_fourcc.h>
++#include <math.h>
+ #include <stdlib.h>
+ #include <stdio.h>
+ #include <unistd.h>
+@@ -235,7 +236,7 @@
+ 				.y = convert_cta861_color_coord(img_desc->mastering_display_primaries.white.y),
+ 			},
+ 			.max_display_mastering_luminance = img_desc->mastering_luminance.max,
+-			.min_display_mastering_luminance = img_desc->mastering_luminance.min * 0.0001,
++			.min_display_mastering_luminance = round(fmin(fmax(img_desc->mastering_luminance.min * 10000, 0), UINT16_MAX)),
+ 			.max_cll = img_desc->max_cll,
+ 			.max_fall = img_desc->max_fall,
+ 		},
+--- a/backend/drm/drm.c
++++ b/backend/drm/drm.c
+@@ -1736,6 +1736,8 @@
+ 	output->adaptive_sync_supported = vrr_capable;
+ 
+ 	size_t edid_len = 0;
++	memset(&output->hdr_metadata, 0, sizeof(output->hdr_metadata));
++	output->display_id = 0;
+ 	uint8_t *edid = get_drm_prop_blob(drm->fd,
+ 		wlr_conn->id, wlr_conn->props.edid, &edid_len);
+ 	if (edid_len > 0) {
+--- a/backend/drm/util.c
++++ b/backend/drm/util.c
+@@ -52,6 +52,11 @@
+ 
+ void parse_edid(struct wlr_drm_connector *conn, size_t len, const uint8_t *data) {
+ 	struct wlr_output *output = &conn->output;
++	// Stable fingerprint only; this is not an authentication primitive.
++	output->display_id = UINT64_C(14695981039346656037);
++	for (size_t i = 0; i < len; i++) {
++		output->display_id = (output->display_id ^ data[i]) * UINT64_C(1099511628211);
++	}
+ 
+ 	free(output->make);
+ 	free(output->model);
+@@ -62,6 +67,7 @@
+ 
+ 	struct di_info *info = di_info_parse_edid(data, len);
+ 	if (info == NULL) {
++		output->display_id = 0;
+ 		wlr_log(WLR_ERROR, "Failed to parse EDID");
+ 		return;
+ 	}
+@@ -101,6 +107,10 @@
+ 	}
+ 
+ 	const struct di_hdr_static_metadata *hdr_static_metadata = di_info_get_hdr_static_metadata(info);
++	if (hdr_static_metadata->type1 && hdr_static_metadata->pq) {
++		output->hdr_metadata.max_luminance = hdr_static_metadata->desired_content_max_luminance;
++		output->hdr_metadata.max_frame_average_luminance = hdr_static_metadata->desired_content_max_frame_avg_luminance;
++	}
+ 	if (conn->props.hdr_output_metadata != 0 && hdr_static_metadata->type1 && hdr_static_metadata->pq) {
+ 		output->supported_transfer_functions |= WLR_COLOR_TRANSFER_FUNCTION_ST2084_PQ;
+ 	}
+--- a/include/render/color.h
++++ b/include/render/color.h
+@@ -8,6 +8,7 @@
+ enum wlr_color_transform_type {
+ 	COLOR_TRANSFORM_INVERSE_EOTF,
+ 	COLOR_TRANSFORM_LCMS2,
++	COLOR_TRANSFORM_LUT_3D,
+ 	COLOR_TRANSFORM_LUT_3X1D,
+ 	COLOR_TRANSFORM_MATRIX,
+ 	COLOR_TRANSFORM_PIPELINE,
+@@ -18,6 +19,7 @@
+ 	struct wlr_addon_set addons; // per-renderer helper state
+ 
+ 	enum wlr_color_transform_type type;
++	bool input; // LUT domain is encoded source RGB, not the blending space
+ };
+ 
+ struct wlr_color_transform_inverse_eotf {
+@@ -39,6 +41,12 @@
+ 
+ 	uint16_t *lut_3x1d;
+ 	size_t dim;
++};
++
++struct wlr_color_transform_lut_3d {
++	struct wlr_color_transform base;
++	size_t dim;
++	float *values; // RGB triplets, red index varies fastest
+ };
+ 
+ struct wlr_color_transform_matrix {
+@@ -102,10 +110,4 @@
+  */
+ void wlr_color_primaries_to_xyz(const struct wlr_color_primaries *primaries, float matrix[static 9]);
+ 
+-/**
+- * Get default luminances for a transfer function.
+- */
+-void wlr_color_transfer_function_get_default_luminance(enum wlr_color_transfer_function tf,
+-	struct wlr_color_luminances *lum);
+-
+ #endif
+--- a/include/render/vulkan.h
++++ b/include/render/vulkan.h
+@@ -156,6 +156,7 @@
+ // Constants used to pick the color transform for the texture drawing
+ // fragment shader. Must match those in shaders/texture.frag
+ enum wlr_vk_texture_transform {
++	WLR_VK_TEXTURE_TRANSFORM_ICC = 5,
+ 	WLR_VK_TEXTURE_TRANSFORM_IDENTITY = 0,
+ 	WLR_VK_TEXTURE_TRANSFORM_SRGB = 1,
+ 	WLR_VK_TEXTURE_TRANSFORM_ST2084_PQ = 2,
+@@ -368,12 +369,15 @@
+ 	float matrix[4][4]; // only a 3x3 subset is used
+ 	float alpha;
+ 	float luminance_multiplier;
++	float icc_lut_offset, icc_lut_scale;
+ };
+ 
+ struct wlr_vk_frag_output_pcr_data {
+ 	float matrix[4][4]; // only a 3x3 subset is used
+ 	float lut_3d_offset;
+ 	float lut_3d_scale;
++	int lut_is_1d;
++	int lut_after_pq;
+ };
+ 
+ struct wlr_vk_texture_view {
+@@ -558,6 +562,8 @@
+ 	// if populated, carries the entire transform, other parameters are to be ignored
+ 	struct {
+ 		size_t dim;
++		bool is_1d;
++		bool after_pq;
+ 		VkImage image;
+ 		VkImageView image_view;
+ 		VkDeviceMemory memory;
+--- a/include/wlr/render/color.h
++++ b/include/wlr/render/color.h
+@@ -19,6 +19,8 @@
+ enum wlr_color_named_primaries {
+ 	WLR_COLOR_NAMED_PRIMARIES_SRGB = 1 << 0,
+ 	WLR_COLOR_NAMED_PRIMARIES_BT2020 = 1 << 1,
++	WLR_COLOR_NAMED_PRIMARIES_DISPLAY_P3 = 1 << 2,
++	WLR_COLOR_NAMED_PRIMARIES_ADOBE_RGB = 1 << 3,
+ };
+ 
+ /**
+@@ -103,6 +105,13 @@
+ struct wlr_color_luminances {
+ 	float min, max, reference;
+ };
++
++/**
++ * Get the luminance defaults used by the renderer for this transfer function.
++ * The maximum is the encoding limit, not the connected display's peak luminance.
++ */
++void wlr_color_transfer_function_get_default_luminance(enum wlr_color_transfer_function tf,
++	struct wlr_color_luminances *lum);
+ 
+ /**
+  * A color transformation formula, which maps a linear color space with
+@@ -120,10 +129,19 @@
+  */
+ struct wlr_color_transform;
+ 
++/* Encoded RGB [0,1] cube, red index fastest. Values copied; dim 2..65. */
++struct wlr_color_transform *wlr_color_transform_init_lut_3d(size_t dim,
++	const float *values);
++
+ /**
+  * Initialize a color transformation to convert linear
+  * (with sRGB(?) primaries) to an ICC profile. Returns NULL on failure.
+  */
++/* ICC source pixels to the linear-sRGB blending space; no VCGT applied. */
++struct wlr_color_transform *wlr_color_transform_init_icc_to_linear(const void *data, size_t size);
++/* Original immutable ICC bytes for an ICC input transform, or NULL. */
++const void *wlr_color_transform_get_icc(struct wlr_color_transform *tr, size_t *size);
++
+ struct wlr_color_transform *wlr_color_transform_init_linear_to_icc(
+ 	const void *data, size_t size);
+ 
+--- a/include/wlr/render/pass.h
++++ b/include/wlr/render/pass.h
+@@ -101,6 +101,8 @@
+ 	enum wlr_scale_filter_mode filter_mode;
+ 	/* Blend mode */
+ 	enum wlr_render_blend_mode blend_mode;
++	/* ICC conversion to linear sRGB, replacing transfer_function/primaries. */
++	struct wlr_color_transform *color_transform;
+ 	/* Transfer function the source texture is encoded with */
+ 	enum wlr_color_transfer_function transfer_function;
+ 	/* Primaries describing the color volume of the source texture */
+--- a/include/wlr/types/wlr_color_management_v1.h
++++ b/include/wlr/types/wlr_color_management_v1.h
+@@ -16,10 +16,14 @@
+ 
+ struct wlr_renderer;
+ struct wlr_surface;
++struct wlr_output;
+ 
+ struct wlr_image_description_v1_data {
++	/* Borrowed ICC input transform. Non-NULL replaces all parametric fields. */
++	struct wlr_color_transform *icc;
+ 	uint32_t tf_named; // enum wp_color_manager_v1_transfer_function, zero if unset
+ 	uint32_t primaries_named; // enum wp_color_manager_v1_primaries, zero if unset
++	float reference_luminance; // compositor descriptions only, zero uses TF default
+ 
+ 	bool has_mastering_display_primaries;
+ 	struct wlr_color_primaries mastering_display_primaries;
+@@ -87,6 +91,10 @@
+ struct wlr_color_manager_v1 *wlr_color_manager_v1_create(struct wl_display *display,
+ 	uint32_t version, const struct wlr_color_manager_v1_options *options);
+ 
++/* Publish the active SDR display characterization; NULL removes it. */
++void wlr_color_manager_v1_set_output_icc(struct wlr_color_manager_v1 *manager,
++	struct wlr_output *output, struct wlr_color_transform *transform);
++
+ const struct wlr_image_description_v1_data *
+ wlr_surface_get_image_description_v1_data(struct wlr_surface *surface);
+ 
+--- a/include/wlr/types/wlr_output.h
++++ b/include/wlr/types/wlr_output.h
+@@ -99,6 +99,11 @@
+ struct wlr_output_image_description {
+ 	enum wlr_color_named_primaries primaries;
+ 	enum wlr_color_transfer_function transfer_function;
++	// SDR reference white on an HDR output. Zero uses the transfer default.
++	float reference_luminance;
++	// Display target volume advertised to clients; not content mastering metadata.
++	struct { float min, max; } target_luminance;
++	float target_max_fall;
+ 
+ 	struct wlr_color_primaries mastering_display_primaries;
+ 	struct {
+@@ -198,6 +203,14 @@
+ 
+ 	uint32_t supported_primaries; // bitfield of enum wlr_color_named_primaries
+ 	uint32_t supported_transfer_functions; // bitfield of enum wlr_color_transfer_function
++
++	// Desired content limits from the display's HDR static metadata, in cd/m².
++	// Zero means unspecified. These are reported capabilities, not measurements.
++	struct {
++		float max_luminance;
++		float max_frame_average_luminance;
++	} hdr_metadata;
++	uint64_t display_id; // EDID fingerprint for matching local calibration, zero if unknown
+ 
+ 	bool enabled;
+ 	float scale;
+--- a/include/wlr/types/wlr_scene.h
++++ b/include/wlr/types/wlr_scene.h
+@@ -198,6 +198,7 @@
+ 	// Copied scene-buffer-local coordinates. Use the setter to update these.
+ 	pixman_region32_t background_blur_region;
+ 	int background_blur_radius;
++	struct wlr_color_transform *input_color_transform;
+ 	enum wlr_color_transfer_function transfer_function;
+ 	enum wlr_color_named_primaries primaries;
+ 	enum wlr_color_encoding color_encoding;
+@@ -258,6 +259,7 @@
+ 		bool prev_scanout;
+ 
+ 		bool gamma_lut_changed;
++		bool prev_disable_gamma_lut;
+ 		struct wlr_gamma_control_v1 *gamma_lut;
+ 		struct wlr_color_transform *gamma_lut_color_transform;
+ 
+@@ -584,6 +586,8 @@
+ void wlr_scene_buffer_set_transfer_function(struct wlr_scene_buffer *scene_buffer,
+ 	enum wlr_color_transfer_function transfer_function);
+ 
++void wlr_scene_buffer_set_input_color_transform(struct wlr_scene_buffer *buffer, struct wlr_color_transform *transform);
++
+ void wlr_scene_buffer_set_primaries(struct wlr_scene_buffer *scene_buffer,
+ 	enum wlr_color_named_primaries primaries);
+ 
+@@ -617,6 +621,8 @@
+ 	int lx, int ly);
+ 
+ struct wlr_scene_output_state_options {
++	/* Ignore external gamma controls when calibrated color is required. */
++	bool disable_gamma_lut;
+ 	struct wlr_scene_timer *timer;
+ 
+ 	/**
+--- a/meson.build
++++ b/meson.build
+@@ -197,3 +197,10 @@
+ 	)
+ 	test('background-blur', blur_test, env: ['WLR_RENDERER=pixman'])
+ endif
++
++if get_option('background-blur-tests') and lcms2.found()
++	executable('test-hdr-pattern-server', 'tests/hdr_pattern_server.c', dependencies: [wlroots, xkbcommon], include_directories: wlr_inc)
++	color_test = executable('test-color-management', 'tests/color_management.c',
++		dependencies: [wlroots, lcms2], include_directories: wlr_inc)
++	test('color-management-cpu', color_test, args: ['--cpu'])
++endif
+--- a/render/color.c
++++ b/render/color.c
+@@ -42,6 +42,9 @@
+ 
+ struct wlr_color_transform *wlr_color_transform_init_lut_3x1d(size_t dim,
+ 		const uint16_t *r, const uint16_t *g, const uint16_t *b) {
++	if (dim < 2 || dim > SIZE_MAX / (3 * sizeof(uint16_t)) || !r || !g || !b) {
++		return NULL;
++	}
+ 	uint16_t *lut_3x1d = malloc(3 * dim * sizeof(lut_3x1d[0]));
+ 	if (lut_3x1d == NULL) {
+ 		return NULL;
+@@ -99,8 +102,47 @@
+ 	return &tx->base;
+ }
+ 
++struct wlr_color_transform *wlr_color_transform_init_lut_3d(size_t dim,
++        const float *values) {
++    if (dim < 2 || dim > 65 || !values) return NULL;
++    size_t count = dim * dim * dim * 3;
++    for (size_t i = 0; i < count; i++) {
++        if (!isfinite(values[i]) || values[i] < 0 || values[i] > 1) return NULL;
++    }
++    struct wlr_color_transform_lut_3d *lut = calloc(1, sizeof(*lut));
++    if (!lut) return NULL;
++    lut->values = malloc(count * sizeof(float));
++    if (!lut->values) { free(lut); return NULL; }
++    memcpy(lut->values, values, count * sizeof(float));
++    wlr_color_transform_init(&lut->base, COLOR_TRANSFORM_LUT_3D);
++    lut->base.input = true; // The LUT domain is encoded RGB, including PQ.
++    lut->dim = dim;
++    return &lut->base;
++}
++
++static void lut_3d_eval(struct wlr_color_transform *tr, float out[static 3],
++        const float in[static 3]) {
++    struct wlr_color_transform_lut_3d *lut = wl_container_of(tr, lut, base);
++    size_t lo[3]; float f[3], result[3] = {0};
++    for (int c = 0; c < 3; c++) {
++        float x = fminf(1, fmaxf(0, in[c])) * (lut->dim - 1);
++        lo[c] = fminf(floorf(x), lut->dim - 2);
++        f[c] = x - lo[c];
++    }
++    for (int b = 0; b < 2; b++) for (int g = 0; g < 2; g++) for (int r = 0; r < 2; r++) {
++        size_t i = ((lo[2]+b)*lut->dim*lut->dim + (lo[1]+g)*lut->dim + lo[0]+r)*3;
++        float weight = (r ? f[0] : 1-f[0])*(g ? f[1] : 1-f[1])*(b ? f[2] : 1-f[2]);
++        for (int c = 0; c < 3; c++) result[c] += weight * lut->values[i+c];
++    }
++    memcpy(out, result, sizeof(result));
++}
++
+ static void color_transform_destroy(struct wlr_color_transform *tr) {
+ 	switch (tr->type) {
++    case COLOR_TRANSFORM_LUT_3D:;
++        struct wlr_color_transform_lut_3d *cube = wl_container_of(tr, cube, base);
++        free(cube->values);
++        break;
+ 	case COLOR_TRANSFORM_INVERSE_EOTF:
+ 	case COLOR_TRANSFORM_MATRIX:
+ 		break;
+@@ -221,7 +263,7 @@
+ }
+ 
+ static float lut_1d_eval(const uint16_t *lut, size_t len, float x) {
+-	double pos = x * (len - 1);
++	double pos = fmax(0.0, fmin(1.0, x)) * (len - 1);
+ 	double int_part;
+ 	double frac_part = modf(pos, &int_part);
+ 	size_t i = (size_t) int_part;
+@@ -242,6 +284,9 @@
+ void wlr_color_transform_eval(struct wlr_color_transform *tr,
+ 		float out[static 3], const float in[static 3]) {
+ 	switch (tr->type) {
++    case COLOR_TRANSFORM_LUT_3D:
++        lut_3d_eval(tr, out, in);
++        break;
+ 	case COLOR_TRANSFORM_INVERSE_EOTF:
+ 		color_transform_inverse_eotf_eval(wlr_color_transform_inverse_eotf_from_base(tr), out, in);
+ 		break;
+@@ -280,8 +325,14 @@
+ 		if (transform->type == COLOR_TRANSFORM_PIPELINE) {
+ 			struct wlr_color_transform_pipeline *pipeline = wl_container_of(transform,
+ 				pipeline, base);
+-			count += color_transform_compose_collect(out, out_capacity,
++			size_t collected = color_transform_compose_collect(out, out_capacity,
+ 				pipeline->transforms, pipeline->len);
++			size_t written = collected < out_capacity ? collected : out_capacity;
++			if (written > 0) {
++				out += written;
++				out_capacity -= written;
++			}
++			count += collected;
+ 		} else {
+ 			if (out_capacity > 0) {
+ 				*out = wlr_color_transform_ref(transform);
+@@ -341,6 +392,18 @@
+ 		return;
+ 	case WLR_COLOR_NAMED_PRIMARIES_BT2020:
+ 		*out = COLOR_PRIMARIES_BT2020;
++		return;
++	case WLR_COLOR_NAMED_PRIMARIES_DISPLAY_P3:
++		*out = (struct wlr_color_primaries){
++			.red = {0.680, 0.320}, .green = {0.265, 0.690},
++			.blue = {0.150, 0.060}, .white = {0.3127, 0.3290},
++		};
++		return;
++	case WLR_COLOR_NAMED_PRIMARIES_ADOBE_RGB:
++		*out = (struct wlr_color_primaries){
++			.red = {0.640, 0.330}, .green = {0.210, 0.710},
++			.blue = {0.150, 0.060}, .white = {0.3127, 0.3290},
++		};
+ 		return;
+ 	}
+ 	abort();
+--- a/render/color_fallback.c
++++ b/render/color_fallback.c
+@@ -22,3 +22,10 @@
+ 		float out[static 3], const float in[static 3]) {
+ 	abort(); // unreachable
+ }
++
++struct wlr_color_transform *wlr_color_transform_init_icc_to_linear(const void *data, size_t size) {
++	return NULL;
++}
++const void *wlr_color_transform_get_icc(struct wlr_color_transform *tr, size_t *size) {
++	return NULL;
++}
+--- a/render/color_lcms2.c
++++ b/render/color_lcms2.c
+@@ -1,18 +1,22 @@
+ #include <assert.h>
+ #include <lcms2.h>
+ #include <stdlib.h>
++#include <string.h>
+ #include <wlr/util/log.h>
+ #include <wlr/render/color.h>
+ #include "render/color.h"
++#include "util/matrix.h"
+ 
+ struct wlr_color_transform_lcms2 {
+ 	struct wlr_color_transform base;
+ 
+ 	cmsContext ctx;
+ 	cmsHTRANSFORM lcms;
++	void *icc_data;
++	size_t icc_size;
+ };
+ 
+-static const cmsCIExyY srgb_whitepoint = { 0.3127, 0.3291, 1 };
++static const cmsCIExyY srgb_whitepoint = { 0.3127, 0.3290, 1 };
+ 
+ static const cmsCIExyYTRIPLE srgb_primaries = {
+ 	.Red = { 0.64, 0.33, 1 },
+@@ -24,9 +28,63 @@
+ 	wlr_log(WLR_ERROR, "[lcms] %s", text);
+ }
+ 
+-struct wlr_color_transform *wlr_color_transform_init_linear_to_icc(
+-		const void *data, size_t size) {
++/* Keep matrix/TRC profiles analytic through gamut conversion. A 3D LUT
++ * otherwise interpolates across the destination gamut boundary, creating
++ * large near-black errors even for an identity sRGB conversion. */
++static struct wlr_color_transform *matrix_shaper_transform(cmsHPROFILE source,
++		cmsHPROFILE destination) {
++	if (!cmsIsMatrixShaper(destination) || cmsIsTag(destination, cmsSigBToA0Tag)
++			|| cmsIsTag(destination, cmsSigBToA1Tag) || cmsIsTag(destination, cmsSigBToA2Tag)) {
++		return NULL;
++	}
++	cmsTagSignature tags[] = {cmsSigRedColorantTag, cmsSigGreenColorantTag, cmsSigBlueColorantTag};
++	cmsTagSignature trcs[] = {cmsSigRedTRCTag, cmsSigGreenTRCTag, cmsSigBlueTRCTag};
++	float src[9], dst[9], inverse[9], matrix[9];
++	uint16_t samples[3][4096];
++	for (size_t c = 0; c < 3; c++) {
++		cmsCIEXYZ *a = cmsReadTag(source, tags[c]);
++		cmsCIEXYZ *b = cmsReadTag(destination, tags[c]);
++		cmsToneCurve *curve = cmsReadTag(destination, trcs[c]);
++		if (!a || !b || !curve || !cmsIsToneCurveMonotonic(curve)) {
++			return NULL;
++		}
++		src[c] = a->X; src[3+c] = a->Y; src[6+c] = a->Z;
++		dst[c] = b->X; dst[3+c] = b->Y; dst[6+c] = b->Z;
++		cmsToneCurve *reverse = cmsReverseToneCurveEx(4096, curve);
++		if (!reverse) {
++			return NULL;
++		}
++		for (size_t i = 0; i < 4096; i++) {
++			samples[c][i] = cmsEvalToneCurve16(reverse, (i * 65535u) / 4095);
++		}
++		cmsFreeToneCurve(reverse);
++	}
++	float determinant = dst[0]*(dst[4]*dst[8]-dst[5]*dst[7])
++		- dst[1]*(dst[3]*dst[8]-dst[5]*dst[6]) + dst[2]*(dst[3]*dst[7]-dst[4]*dst[6]);
++	if (!isfinite(determinant) || fabsf(determinant) < 1e-8) {
++		return NULL;
++	}
++	matrix_invert(inverse, dst);
++	wlr_matrix_multiply(matrix, inverse, src);
++	struct wlr_color_transform *steps[] = {
++		wlr_color_transform_init_matrix(matrix),
++		wlr_color_transform_init_lut_3x1d(4096, samples[0], samples[1], samples[2]),
++	};
++	struct wlr_color_transform *result = NULL;
++	if (steps[0] && steps[1]) {
++		result = wlr_color_transform_init_pipeline(steps, 2);
++	}
++	wlr_color_transform_unref(steps[0]);
++	wlr_color_transform_unref(steps[1]);
++	return result;
++}
++
++static struct wlr_color_transform *init_icc(
++		const void *data, size_t size, bool input) {
+ 	struct wlr_color_transform_lcms2 *tx = NULL;
++	if (!data || size > UINT32_MAX || size < 128) {
++		return NULL;
++	}
+ 
+ 	cmsContext ctx = cmsCreateContext(NULL, NULL);
+ 	if (ctx == NULL) {
+@@ -42,7 +100,13 @@
+ 		goto error_ctx;
+ 	}
+ 
+-	if (cmsGetDeviceClass(icc_profile) != cmsSigDisplayClass) {
++	double version = cmsGetProfileVersion(icc_profile);
++	if (size > UINT32_MAX || (version < 2.0 || version >= 5.0)
++			|| (version >= 3.0 && version < 4.0)
++			|| cmsGetColorSpace(icc_profile) != cmsSigRgbData
++			|| (cmsGetPCS(icc_profile) != cmsSigXYZData && cmsGetPCS(icc_profile) != cmsSigLabData)
++			|| (cmsGetDeviceClass(icc_profile) != cmsSigDisplayClass
++				&& !(input && cmsGetDeviceClass(icc_profile) == cmsSigColorSpaceClass))) {
+ 		wlr_log(WLR_ERROR, "ICC profile must have the Display device class");
+ 		goto error_icc_profile;
+ 	}
+@@ -66,8 +130,17 @@
+ 		goto error_icc_profile;
+ 	}
+ 
++	struct wlr_color_transform *matrix_shaper = input ? NULL : matrix_shaper_transform(srgb_profile, icc_profile);
++	if (matrix_shaper) {
++		cmsCloseProfile(srgb_profile);
++		cmsCloseProfile(icc_profile);
++		cmsDeleteContext(ctx);
++		return matrix_shaper;
++	}
++
+ 	cmsHTRANSFORM lcms_tr = cmsCreateTransformTHR(ctx,
+-		srgb_profile, TYPE_RGB_FLT, icc_profile, TYPE_RGB_FLT,
++		input ? icc_profile : srgb_profile, TYPE_RGB_FLT,
++		input ? srgb_profile : icc_profile, TYPE_RGB_FLT,
+ 		INTENT_RELATIVE_COLORIMETRIC, 0);
+ 	cmsCloseProfile(srgb_profile);
+ 	cmsCloseProfile(icc_profile);
+@@ -83,6 +156,17 @@
+ 	}
+ 	wlr_color_transform_init(&tx->base, COLOR_TRANSFORM_LCMS2);
+ 
++	if (input) {
++		tx->icc_data = malloc(size);
++		if (!tx->icc_data) {
++			cmsDeleteTransform(lcms_tr);
++			free(tx);
++			goto error_ctx;
++		}
++		memcpy(tx->icc_data, data, size);
++		tx->icc_size = size;
++		tx->base.input = true;
++	}
+ 	tx->ctx = ctx;
+ 	tx->lcms = lcms_tr;
+ 
+@@ -95,7 +179,25 @@
+ 	return NULL;
+ }
+ 
++struct wlr_color_transform *wlr_color_transform_init_linear_to_icc(const void *data, size_t size) {
++	return init_icc(data, size, false);
++}
++
++struct wlr_color_transform *wlr_color_transform_init_icc_to_linear(const void *data, size_t size) {
++	return init_icc(data, size, true);
++}
++
++const void *wlr_color_transform_get_icc(struct wlr_color_transform *tr, size_t *size) {
++	if (!tr || tr->type != COLOR_TRANSFORM_LCMS2 || !tr->input) {
++		return NULL;
++	}
++	struct wlr_color_transform_lcms2 *icc = color_transform_lcms2_from_base(tr);
++	*size = icc->icc_size;
++	return icc->icc_data;
++}
++
+ void color_transform_lcms2_finish(struct wlr_color_transform_lcms2 *tr) {
++	free(tr->icc_data);
+ 	cmsDeleteTransform(tr->lcms);
+ 	cmsDeleteContext(tr->ctx);
+ }
+--- a/render/vulkan/pass.c
++++ b/render/vulkan/pass.c
+@@ -214,6 +214,7 @@
+ 		*tf = eotf->tf;
+ 		return true;
+ 	case COLOR_TRANSFORM_LCMS2:
++	case COLOR_TRANSFORM_LUT_3D:
+ 	case COLOR_TRANSFORM_LUT_3X1D:
+ 		return false;
+ 	}
+@@ -272,13 +273,15 @@
+ 			memcpy(matrix, transform->color_matrix, sizeof(matrix));
+ 			tf = transform->inverse_eotf;
+ 		}
+-		if (pass->color_transform == NULL || need_lut) {
++		if (pass->color_transform == NULL) {
+ 			wlr_matrix_identity(matrix);
+ 		}
+ 
+ 		struct wlr_vk_frag_output_pcr_data frag_pcr_data = {
+ 			.lut_3d_offset = 0.5f / dim,
+ 			.lut_3d_scale = (float)(dim - 1) / dim,
++			.lut_is_1d = transform && transform->lut_3d.is_1d,
++			.lut_after_pq = transform && transform->lut_3d.after_pq,
+ 		};
+ 
+ 		encode_color_matrix(matrix, frag_pcr_data.matrix);
+@@ -783,6 +786,9 @@
+ 	pixman_region32_fini(&clip);
+ }
+ 
++static struct wlr_vk_color_transform *vk_color_transform_create(
++	struct wlr_vk_renderer *renderer, struct wlr_color_transform *transform);
++
+ static void render_pass_add_texture(struct wlr_render_pass *wlr_pass,
+ 		const struct wlr_render_texture_options *options) {
+ 	struct wlr_vk_render_pass *pass = get_render_pass(wlr_pass);
+@@ -833,6 +839,18 @@
+ 		tf = WLR_COLOR_TRANSFER_FUNCTION_GAMMA22;
+ 	}
+ 
++	struct wlr_vk_color_transform *icc = NULL;
++	if (options->color_transform) {
++		icc = get_color_transform(options->color_transform, renderer);
++		if (!icc) {
++			icc = vk_color_transform_create(renderer, options->color_transform);
++		}
++		if (!icc) {
++			pass->failed = true;
++			return;
++		}
++		tf = WLR_COLOR_TRANSFER_FUNCTION_EXT_LINEAR;
++	}
+ 	bool srgb_image_view = false;
+ 	enum wlr_vk_texture_transform tex_transform = 0;
+ 	switch (tf) {
+@@ -869,6 +887,9 @@
+ 		color_range = WLR_COLOR_RANGE_LIMITED;
+ 	}
+ 
++	if (icc) {
++		tex_transform = WLR_VK_TEXTURE_TRANSFORM_ICC;
++	}
+ 	struct wlr_vk_pipeline *pipe = setup_get_or_create_pipeline(
+ 		pass->render_setup,
+ 		&(struct wlr_vk_pipeline_key) {
+@@ -898,7 +919,7 @@
+ 	}
+ 
+ 	float color_matrix[9];
+-	if (options->primaries != NULL) {
++	if (!icc && options->primaries != NULL) {
+ 		struct wlr_color_primaries srgb;
+ 		wlr_color_primaries_from_named(&srgb, WLR_COLOR_NAMED_PRIMARIES_SRGB);
+ 
+@@ -916,13 +937,16 @@
+ 	struct wlr_vk_frag_texture_pcr_data frag_pcr_data = {
+ 		.alpha = alpha,
+ 		.luminance_multiplier = luminance_multiplier,
++		.icc_lut_offset = icc ? 0.5f / icc->lut_3d.dim : 0,
++		.icc_lut_scale = icc ? (float)(icc->lut_3d.dim - 1) / icc->lut_3d.dim : 0,
+ 	};
+ 	encode_color_matrix(color_matrix, frag_pcr_data.matrix);
+ 
+ 	bind_pipeline(pass, pipe->vk);
+ 
++	VkDescriptorSet texture_sets[] = {view->ds, icc ? icc->lut_3d.ds : renderer->output_ds_lut3d_dummy};
+ 	vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS,
+-		pipe->layout->vk, 0, 1, &view->ds, 0, NULL);
++		pipe->layout->vk, 0, 2, texture_sets, 0, NULL);
+ 
+ 	vkCmdPushConstants(cb, pipe->layout->vk,
+ 		VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(vert_pcr_data), &vert_pcr_data);
+@@ -993,9 +1017,11 @@
+ 	struct wlr_vk_color_transform *transform = wl_container_of(addon, transform, addon);
+ 
+ 	VkDevice dev = renderer->dev->dev;
++	// Color profile replacement can precede completion of the previous frame.
++	vkDeviceWaitIdle(dev);
+ 	if (transform->lut_3d.image) {
++		vkDestroyImageView(dev, transform->lut_3d.image_view, NULL);
+ 		vkDestroyImage(dev, transform->lut_3d.image, NULL);
+-		vkDestroyImageView(dev, transform->lut_3d.image_view, NULL);
+ 		vkFreeMemory(dev, transform->lut_3d.memory, NULL);
+ 		vulkan_free_ds(renderer, transform->lut_3d.ds_pool, transform->lut_3d.ds);
+ 	}
+@@ -1005,8 +1031,27 @@
+ 	free(transform);
+ }
+ 
++static struct wlr_color_transform *unwrap_matrix_curves(struct wlr_color_transform *tr,
++		float matrix[static 9]) {
++	if (tr->type != COLOR_TRANSFORM_PIPELINE) {
++		return NULL;
++	}
++	struct wlr_color_transform_pipeline *pipeline = wl_container_of(tr, pipeline, base);
++	if (pipeline->len < 2 || pipeline->transforms[0]->type != COLOR_TRANSFORM_MATRIX) {
++		return NULL;
++	}
++	for (size_t i = 1; i < pipeline->len; i++) {
++		if (pipeline->transforms[i]->type != COLOR_TRANSFORM_LUT_3X1D) {
++			return NULL;
++		}
++	}
++	struct wlr_color_transform_matrix *m = wl_container_of(pipeline->transforms[0], m, base);
++	memcpy(matrix, m->matrix, sizeof(float[9]));
++	return wlr_color_transform_init_pipeline(&pipeline->transforms[1], pipeline->len - 1);
++}
++
+ static bool create_3d_lut_image(struct wlr_vk_renderer *renderer,
+-		struct wlr_color_transform *tr, size_t dim_len,
++		struct wlr_color_transform *tr, size_t dim_len, bool is_1d,
+ 		VkImage *image, VkImageView *image_view,
+ 		VkDeviceMemory *memory, VkDescriptorSet *ds,
+ 		struct wlr_vk_descriptor_pool **ds_pool) {
+@@ -1032,7 +1077,7 @@
+ 		.samples = VK_SAMPLE_COUNT_1_BIT,
+ 		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+ 		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+-		.extent = (VkExtent3D) { dim_len, dim_len, dim_len },
++		.extent = (VkExtent3D) { dim_len, is_1d ? 1 : dim_len, is_1d ? 1 : dim_len },
+ 		.tiling = VK_IMAGE_TILING_OPTIMAL,
+ 		.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+ 	};
+@@ -1093,7 +1138,8 @@
+ 	}
+ 
+ 	size_t bytes_per_block = 4 * sizeof(float);
+-	size_t size = dim_len * dim_len * dim_len * bytes_per_block;
++	size_t side_len = is_1d ? 1 : dim_len;
++	size_t size = dim_len * side_len * side_len * bytes_per_block;
+ 	struct wlr_vk_buffer_span span = vulkan_get_stage_span(renderer,
+ 		size, bytes_per_block);
+ 	if (!span.buffer || span.alloc.size != size) {
+@@ -1101,11 +1147,16 @@
+ 		goto fail_imageview;
+ 	}
+ 
++	struct wlr_color_primaries srgb, bt2020;
++	wlr_color_primaries_from_named(&srgb, WLR_COLOR_NAMED_PRIMARIES_SRGB);
++	wlr_color_primaries_from_named(&bt2020, WLR_COLOR_NAMED_PRIMARIES_BT2020);
++	float to_srgb[9];
++	wlr_color_primaries_transform_absolute_colorimetric(&bt2020, &srgb, to_srgb);
+ 	float sample_range = 1.0f / (dim_len - 1);
+ 	char *map = (char *)span.buffer->cpu_mapping + span.alloc.start;
+ 	float *dst = (float *)map;
+-	for (size_t b_index = 0; b_index < dim_len; b_index++) {
+-		for (size_t g_index = 0; g_index < dim_len; g_index++) {
++	for (size_t b_index = 0; b_index < side_len; b_index++) {
++		for (size_t g_index = 0; g_index < side_len; g_index++) {
+ 			for (size_t r_index = 0; r_index < dim_len; r_index++) {
+ 				size_t sample_index = r_index + dim_len * g_index + dim_len * dim_len * b_index;
+ 				size_t dst_offset = 4 * sample_index;
+@@ -1115,6 +1166,18 @@
+ 					g_index * sample_range,
+ 					b_index * sample_range,
+ 				};
++				if (is_1d) {
++					rgb_in[1] = rgb_in[2] = rgb_in[0];
++				} else if (!tr->input) {
++				float linear[3];
++				for (size_t c = 0; c < 3; c++) {
++					linear[c] = powf(rgb_in[c], 2.2f);
++				}
++				for (size_t c = 0; c < 3; c++) {
++					rgb_in[c] = to_srgb[3*c] * linear[0] + to_srgb[3*c+1] * linear[1]
++						+ to_srgb[3*c+2] * linear[2];
++				}
++				}
+ 				float rgb_out[3];
+ 				wlr_color_transform_eval(tr, rgb_out, rgb_in);
+ 
+@@ -1134,8 +1197,8 @@
+ 	VkBufferImageCopy copy = {
+ 		.bufferOffset = span.alloc.start,
+ 		.imageExtent.width = dim_len,
+-		.imageExtent.height = dim_len,
+-		.imageExtent.depth = dim_len,
++		.imageExtent.height = side_len,
++		.imageExtent.depth = side_len,
+ 		.imageSubresource.layerCount = 1,
+ 		.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+ 	};
+@@ -1189,15 +1252,51 @@
+ 	bool need_lut = !unwrap_color_transform(transform, vk_transform->color_matrix,
+ 		&vk_transform->inverse_eotf);
+ 
++    /* Keep HDR conversion analytic. Sampling the whole HDR pipeline in an SDR
++     * [0,1] blend-space LUT would clip highlights and lose dark precision. */
++    if (need_lut && transform->type == COLOR_TRANSFORM_PIPELINE) {
++        struct wlr_color_transform_pipeline *p = wl_container_of(transform, p, base);
++        if (p->len == 3 && p->transforms[0]->type == COLOR_TRANSFORM_MATRIX
++                && p->transforms[1]->type == COLOR_TRANSFORM_INVERSE_EOTF
++                && wlr_color_transform_inverse_eotf_from_base(p->transforms[1])->tf == WLR_COLOR_TRANSFER_FUNCTION_ST2084_PQ
++                && p->transforms[2]->type == COLOR_TRANSFORM_LUT_3D) {
++            struct wlr_color_transform_matrix *m = wl_container_of(p->transforms[0], m, base);
++            struct wlr_color_transform_lut_3d *cube = wl_container_of(p->transforms[2], cube, base);
++            memcpy(vk_transform->color_matrix, m->matrix, sizeof(m->matrix));
++            /* Upsample small cubes to avoid coarse hardware interpolation weights. */
++            vk_transform->lut_3d.dim = 65;
++            vk_transform->lut_3d.after_pq = true;
++            if (!create_3d_lut_image(renderer, &cube->base, 65, false,
++                    &vk_transform->lut_3d.image, &vk_transform->lut_3d.image_view,
++                    &vk_transform->lut_3d.memory, &vk_transform->lut_3d.ds,
++                    &vk_transform->lut_3d.ds_pool)) {
++                free(vk_transform); return NULL;
++            }
++            need_lut = false;
++        }
++    }
+ 	if (need_lut) {
+-		vk_transform->lut_3d.dim = 33;
+-		if (!create_3d_lut_image(renderer, transform,
+-				vk_transform->lut_3d.dim,
++		struct wlr_color_primaries srgb, bt2020;
++		wlr_color_primaries_from_named(&srgb, WLR_COLOR_NAMED_PRIMARIES_SRGB);
++		wlr_color_primaries_from_named(&bt2020, WLR_COLOR_NAMED_PRIMARIES_BT2020);
++		wlr_color_primaries_transform_absolute_colorimetric(&srgb, &bt2020,
++			vk_transform->color_matrix);
++		struct wlr_color_transform *curves = unwrap_matrix_curves(transform, vk_transform->color_matrix);
++		vk_transform->lut_3d.is_1d = curves != NULL;
++		VkPhysicalDeviceProperties properties;
++		vkGetPhysicalDeviceProperties(renderer->dev->phdev, &properties);
++		// A 3D image's width limit also applies when height/depth are one.
++		vk_transform->lut_3d.dim = curves ?
++			fmin(4096, properties.limits.maxImageDimension3D) : 65;
++		bool created = create_3d_lut_image(renderer, curves ? curves : transform,
++				vk_transform->lut_3d.dim, curves != NULL,
+ 				&vk_transform->lut_3d.image,
+ 				&vk_transform->lut_3d.image_view,
+ 				&vk_transform->lut_3d.memory,
+ 				&vk_transform->lut_3d.ds,
+-				&vk_transform->lut_3d.ds_pool)) {
++				&vk_transform->lut_3d.ds_pool);
++		wlr_color_transform_unref(curves);
++		if (!created) {
+ 			free(vk_transform);
+ 			return NULL;
+ 		}
+--- a/render/vulkan/renderer.c
++++ b/render/vulkan/renderer.c
+@@ -1534,10 +1534,11 @@
+ 		},
+ 	};
+ 
++	VkDescriptorSetLayout layouts[] = {*out_ds_layout, renderer->output_ds_lut3d_layout};
+ 	VkPipelineLayoutCreateInfo pl_info = {
+ 		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+-		.setLayoutCount = 1,
+-		.pSetLayouts = out_ds_layout,
++		.setLayoutCount = 2,
++		.pSetLayouts = layouts,
+ 		.pushConstantRangeCount = sizeof(pc_ranges) / sizeof(pc_ranges[0]),
+ 		.pPushConstantRanges = pc_ranges,
+ 	};
+--- a/render/vulkan/shaders/output.frag
++++ b/render/vulkan/shaders/output.frag
+@@ -12,6 +12,8 @@
+ 	layout(offset = 80) mat4 matrix;
+ 	float lut_3d_offset;
+ 	float lut_3d_scale;
++	int lut_is_1d;
++	int lut_after_pq;
+ } data;
+ 
+ layout (constant_id = 0) const int OUTPUT_TRANSFORM = 0;
+@@ -77,8 +79,19 @@
+ 	}
+ 	if (OUTPUT_TRANSFORM == OUTPUT_TRANSFORM_LUT_3D) {
+ 		// Apply 3D LUT
+-		vec3 pos = data.lut_3d_offset + rgb * data.lut_3d_scale;
++        if (data.lut_after_pq != 0) {
++            vec3 pos = data.lut_3d_offset + linear_color_to_pq(rgb) * data.lut_3d_scale;
++            rgb = texture(lut_3d, pos).rgb;
++        } else if (data.lut_is_1d != 0) {
++			vec3 pos = data.lut_3d_offset + clamp(rgb, vec3(0), vec3(1)) * data.lut_3d_scale;
++			rgb = vec3(texture(lut_3d, vec3(pos.r, 0.5, 0.5)).r,
++				texture(lut_3d, vec3(pos.g, 0.5, 0.5)).g,
++				texture(lut_3d, vec3(pos.b, 0.5, 0.5)).b);
++		} else {
++		vec3 shaped = pow(clamp(rgb, vec3(0), vec3(1)), vec3(1.0 / 2.2));
++		vec3 pos = data.lut_3d_offset + shaped * data.lut_3d_scale;
+ 		rgb = texture(lut_3d, pos).rgb;
++		}
+ 	} else if (OUTPUT_TRANSFORM == OUTPUT_TRANSFORM_INVERSE_ST2084_PQ) {
+ 		rgb = linear_color_to_pq(rgb);
+ 	} else if (OUTPUT_TRANSFORM == OUTPUT_TRANSFORM_INVERSE_SRGB) {
+--- a/render/vulkan/shaders/texture.frag
++++ b/render/vulkan/shaders/texture.frag
+@@ -1,6 +1,7 @@
+ #version 450
+ 
+ layout(set = 0, binding = 0) uniform sampler2D tex;
++layout(set = 1, binding = 0) uniform sampler3D icc_lut;
+ 
+ layout(location = 0) in vec2 uv;
+ layout(location = 0) out vec4 out_color;
+@@ -10,6 +11,7 @@
+ 	layout(offset = 80) mat4 matrix;
+ 	float alpha;
+ 	float luminance_multiplier;
++	float icc_lut_offset, icc_lut_scale;
+ } data;
+ 
+ layout (constant_id = 0) const int TEXTURE_TRANSFORM = 0;
+@@ -20,6 +22,7 @@
+ #define TEXTURE_TRANSFORM_ST2084_PQ 2
+ #define TEXTURE_TRANSFORM_GAMMA22 3
+ #define TEXTURE_TRANSFORM_BT1886 4
++#define TEXTURE_TRANSFORM_ICC 5
+ 
+ float srgb_channel_to_linear(float x) {
+ 	return mix(x / 12.92,
+@@ -72,7 +75,9 @@
+ 	if (TEXTURE_TRANSFORM != TEXTURE_TRANSFORM_IDENTITY) {
+ 		rgb = max(rgb, vec3(0));
+ 	}
+-	if (TEXTURE_TRANSFORM == TEXTURE_TRANSFORM_SRGB) {
++	if (TEXTURE_TRANSFORM == TEXTURE_TRANSFORM_ICC) {
++		rgb = texture(icc_lut, data.icc_lut_offset + clamp(rgb, vec3(0), vec3(1)) * data.icc_lut_scale).rgb;
++	} else if (TEXTURE_TRANSFORM == TEXTURE_TRANSFORM_SRGB) {
+ 		rgb = srgb_color_to_linear(rgb);
+ 	} else if (TEXTURE_TRANSFORM == TEXTURE_TRANSFORM_ST2084_PQ) {
+ 		rgb = pq_color_to_linear(rgb);
+--- /dev/null
++++ b/tests/color_management.c
+@@ -0,0 +1,314 @@
++#include <assert.h>
++#include <drm_fourcc.h>
++#include <lcms2.h>
++#include <math.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <wlr/backend/headless.h>
++#include <wlr/render/allocator.h>
++#include <wlr/render/drm_format_set.h>
++#include <wlr/types/wlr_buffer.h>
++#include <wlr/types/wlr_scene.h>
++#include <wlr/util/log.h>
++#include "render/allocator/shm.h"
++#include "render/color.h"
++
++#define WIDTH 64
++#define HEIGHT 8
++
++static cmsHPROFILE make_profile(bool p3) {
++	cmsHPROFILE srgb = cmsCreate_sRGBProfile();
++	if (!p3) {
++		return srgb;
++	}
++	cmsCIExyY white = {0.3127, 0.3290, 1};
++	cmsCIExyYTRIPLE primaries = {
++		.Red = {0.680, 0.320, 1}, .Green = {0.265, 0.690, 1}, .Blue = {0.150, 0.060, 1},
++	};
++	cmsToneCurve *curves[3] = {
++		cmsReadTag(srgb, cmsSigRedTRCTag), cmsReadTag(srgb, cmsSigGreenTRCTag),
++		cmsReadTag(srgb, cmsSigBlueTRCTag),
++	};
++	cmsHPROFILE profile = cmsCreateRGBProfile(&white, &primaries, curves);
++	cmsCloseProfile(srgb);
++	assert(profile);
++	return profile;
++}
++
++static struct wlr_color_transform *icc_transform(cmsHPROFILE profile, bool input) {
++	cmsUInt32Number size = 0;
++	assert(cmsSaveProfileToMem(profile, NULL, &size));
++	void *data = malloc(size);
++	assert(cmsSaveProfileToMem(profile, data, &size));
++	struct wlr_color_transform *transform = input ? wlr_color_transform_init_icc_to_linear(data, size)
++		: wlr_color_transform_init_linear_to_icc(data, size);
++	free(data);
++	assert(transform);
++	return transform;
++}
++
++static unsigned char pixel_value(int x, int y, int c) {
++	if (y == 0) {
++		return (x * 255) / (WIDTH - 1); // Neutral ramp including dark values.
++	}
++	if (x < 8) {
++		return x & (1 << c) ? 255 : 0; // Cube corners, saturated wide-gamut colors.
++	}
++	return (x * (37 + c * 20) + y * (11 + c * 26)) % 256;
++}
++
++static double encode_pq(double nits) {
++	double p = pow(nits / 10000, 2610.0 / 16384);
++	return pow((3424.0 / 4096 + 2413.0 / 128 * p) / (1 + 2392.0 / 128 * p), 2523.0 / 32);
++}
++
++int main(int argc, char **argv) {
++	setbuf(stdout, NULL);
++	wlr_log_init(WLR_ERROR, NULL);
++	if (argc == 2 && strncmp(argv[1], "--", 2)) {
++		cmsHPROFILE profile = make_profile(true);
++		assert(cmsSaveProfileToFile(profile, argv[1]));
++		cmsCloseProfile(profile);
++		return 0;
++	}
++	assert(!wlr_color_transform_init_linear_to_icc("bad", 3));
++	uint16_t ramp[] = {0, 65535};
++	assert(!wlr_color_transform_init_lut_3x1d(0, ramp, ramp, ramp));
++	struct wlr_color_transform *lut = wlr_color_transform_init_lut_3x1d(2, ramp, ramp, ramp);
++	float outside[] = {-1, 2, 0.5}, clamped[3];
++	wlr_color_transform_eval(lut, clamped, outside);
++	assert(clamped[0] == 0 && clamped[1] == 1 && clamped[2] == 0.5);
++	struct wlr_color_transform *nested = wlr_color_transform_init_pipeline(&lut, 1);
++	struct wlr_color_transform *steps[] = {nested, lut}, *composed = NULL;
++	assert(color_transform_compose(&composed, steps, 2));
++	wlr_color_transform_eval(composed, clamped, outside);
++	assert(clamped[0] == 0 && clamped[1] == 1 && clamped[2] == 0.5);
++	wlr_color_transform_unref(composed);
++	wlr_color_transform_unref(nested);
++	wlr_color_transform_unref(lut);
++
++	if (argc == 2 && !strcmp(argv[1], "--cpu")) {
++		cmsHPROFILE profile = make_profile(false);
++		struct wlr_color_transform *input = icc_transform(profile, true);
++		struct wlr_color_transform *output = icc_transform(profile, false);
++		for (int i = 0; i < 256; i++) {
++			float encoded[3] = {i / 255.f, i / 255.f, i / 255.f}, linear[3], roundtrip[3];
++			float x = encoded[0];
++			float expected = x <= 0.04045f ? x / 12.92f : powf((x + 0.055f) / 1.055f, 2.4f);
++			wlr_color_transform_eval(input, linear, encoded);
++			wlr_color_transform_eval(output, roundtrip, linear);
++			for (int c = 0; c < 3; c++) {
++				assert(fabsf(linear[c] - expected) < 0.0001f);
++				assert(fabsf(roundtrip[c] - encoded[c]) < 0.001f);
++			}
++		}
++		wlr_color_transform_unref(input);
++		wlr_color_transform_unref(output);
++		cmsCloseProfile(profile);
++		puts("PASS: CPU ICC conversion, round trips and calibration bounds");
++		return 0;
++	}
++
++	bool ten_bit = argc == 2 && !strcmp(argv[1], "--10bit");
++	int channel_max = ten_bit ? 1023 : 255;
++	struct wl_display *display = wl_display_create();
++	struct wlr_backend *backend = wlr_headless_backend_create(wl_display_get_event_loop(display));
++	struct wlr_renderer *renderer = wlr_renderer_autocreate(backend);
++	assert(renderer && renderer->features.output_color_transform);
++	struct wlr_allocator *allocator = wlr_allocator_autocreate(backend, renderer);
++	struct wlr_allocator *shm = wlr_shm_allocator_create();
++	assert(allocator && shm);
++	struct wlr_scene *scene = wlr_scene_create();
++	struct wlr_output *outputs[2];
++	struct wlr_scene_output *scene_outputs[2];
++	cmsHPROFILE profiles[2] = {make_profile(false), make_profile(true)};
++	struct wlr_color_transform *transforms[2] = {icc_transform(profiles[0], false), icc_transform(profiles[1], false)};
++	uint16_t curves[3][4096];
++	for (int c = 0; c < 3; c++) {
++		for (int i = 0; i < 4096; i++) {
++			curves[c][i] = lroundf(powf(i / 4095.f, 1.1f + c * 0.2f) * (0.9f - c * 0.05f) * 65535);
++		}
++	}
++	struct wlr_color_transform *calibration = wlr_color_transform_init_lut_3x1d(4096, curves[0], curves[1], curves[2]);
++	struct wlr_color_transform *calibrated[2];
++	for (int i = 0; i < 2; i++) {
++		struct wlr_color_transform *steps[] = {transforms[i], calibration};
++		calibrated[i] = wlr_color_transform_init_pipeline(steps, 2);
++		assert(calibrated[i]);
++	}
++	wlr_color_transform_unref(calibration);
++	for (size_t i = 0; i < 2; i++) {
++		outputs[i] = wlr_headless_add_output(backend, WIDTH, HEIGHT);
++		assert(wlr_output_init_render(outputs[i], allocator, renderer));
++		scene_outputs[i] = wlr_scene_output_create(scene, outputs[i]);
++		struct wlr_output_state initial;
++		wlr_output_state_init(&initial);
++		wlr_output_state_set_enabled(&initial, true);
++		if (ten_bit) { wlr_output_state_set_render_format(&initial, DRM_FORMAT_XRGB2101010); }
++		assert(wlr_output_commit_state(outputs[i], &initial));
++		wlr_output_state_finish(&initial);
++	}
++	assert(wlr_backend_start(backend));
++	uint64_t modifier = DRM_FORMAT_MOD_LINEAR;
++	struct wlr_drm_format format = {.format = DRM_FORMAT_ARGB8888, .len = 1, .modifiers = &modifier};
++	struct wlr_buffer *buffer = wlr_allocator_create_buffer(shm, WIDTH, HEIGHT, &format);
++	void *data;
++	uint32_t fourcc;
++	size_t stride;
++	assert(wlr_buffer_begin_data_ptr_access(buffer, WLR_BUFFER_DATA_PTR_ACCESS_WRITE, &data, &fourcc, &stride));
++	for (int y = 0; y < HEIGHT; y++) {
++		uint32_t *row = (uint32_t *)((char *)data + y * stride);
++		for (int x = 0; x < WIDTH; x++) {
++			row[x] = 0xff000000 | (pixel_value(x, y, 0) << 16) | (pixel_value(x, y, 1) << 8) | pixel_value(x, y, 2);
++		}
++	}
++	wlr_buffer_end_data_ptr_access(buffer);
++	struct wlr_scene_buffer *node = wlr_scene_buffer_create(&scene->tree, buffer);
++	wlr_scene_buffer_set_transfer_function(node, WLR_COLOR_TRANSFER_FUNCTION_SRGB);
++
++	int max_error = 0;
++	for (size_t source = 0; source < 8; source++) {
++		struct wlr_color_transform *input = source % 4 >= 2 ? icc_transform(profiles[source % 2], true) : NULL;
++		wlr_scene_buffer_set_input_color_transform(node, input);
++		wlr_color_transform_unref(input);
++		wlr_scene_buffer_set_primaries(node, source % 2 ? WLR_COLOR_NAMED_PRIMARIES_DISPLAY_P3 : WLR_COLOR_NAMED_PRIMARIES_SRGB);
++		for (size_t target = 0; target < 2; target++) {
++			cmsHTRANSFORM reference = cmsCreateTransform(profiles[source % 2], TYPE_RGB_8,
++				profiles[target], TYPE_RGB_FLT, INTENT_RELATIVE_COLORIMETRIC, cmsFLAGS_NOOPTIMIZE);
++			assert(reference);
++			struct wlr_output_state state;
++			wlr_output_state_init(&state);
++			assert(wlr_scene_output_build_state(scene_outputs[target], &state,
++				&(struct wlr_scene_output_state_options){.color_transform = source >= 4 ? calibrated[target] : transforms[target], .disable_gamma_lut = true}));
++			struct wlr_texture *texture = wlr_texture_from_buffer(renderer, state.buffer);
++			assert(texture);
++			uint32_t pixels[WIDTH * HEIGHT];
++			assert(wlr_texture_read_pixels(texture, &(struct wlr_texture_read_pixels_options){
++				.data = pixels, .format = ten_bit ? DRM_FORMAT_XRGB2101010 : DRM_FORMAT_ARGB8888, .stride = WIDTH * 4,
++			}));
++			wlr_texture_destroy(texture);
++			int pair_error = 0;
++			for (int y = 0; y < HEIGHT; y++) {
++				for (int x = 0; x < WIDTH; x++) {
++					unsigned char in[3];
++					float expected[3];
++					for (int c = 0; c < 3; c++) {
++						in[c] = pixel_value(x, y, c);
++					}
++					cmsDoTransform(reference, in, expected, 1);
++					for (int c = 0; c < 3; c++) {
++						int shift = (2 - c) * (ten_bit ? 10 : 8);
++						int actual = (pixels[y * WIDTH + x] >> shift) & channel_max;
++						float value = fminf(1, fmaxf(0, expected[c]));
++						if (source >= 4) { value = powf(value, 1.1f + c * 0.2f) * (0.9f - c * 0.05f); }
++						int reference_value = lroundf(value * channel_max);
++						int error = abs(actual - reference_value);
++						if (error > pair_error) {
++							pair_error = error;
++						}
++					}
++				}
++			}
++			printf("%s -> %s%s: max channel error %d/%d\n", source % 4 >= 2 ? (source % 2 ? "ICC P3" : "ICC sRGB") : (source % 2 ? "P3" : "sRGB"), target ? "P3" : "sRGB", source >= 4 ? " + calibration" : "", pair_error, channel_max);
++			if (pair_error > max_error) {
++				max_error = pair_error;
++			}
++			assert(wlr_output_commit_state(outputs[target], &state));
++			wlr_output_state_finish(&state);
++			cmsDeleteTransform(reference);
++		}
++	}
++	assert(max_error <= 3);
++	if (ten_bit) {
++		// Exercise the real scene renderer with synthetic HDR output descriptions.
++		// Virtual output capabilities are changed only in this test process.
++		struct wlr_drm_format hdr_format = {.format = DRM_FORMAT_XRGB2101010, .len = 1, .modifiers = &modifier};
++		struct wlr_buffer *hdr_buffer = wlr_allocator_create_buffer(shm, WIDTH, HEIGHT, &hdr_format);
++		assert(hdr_buffer);
++		wlr_scene_buffer_set_input_color_transform(node, NULL);
++		float identity_cube[24], correction_cube[24];
++        for (int i = 0; i < 8; i++) for (int c = 0; c < 3; c++) {
++            identity_cube[i*3+c] = !!(i & (1 << c));
++            correction_cube[i*3+c] = identity_cube[i*3+c] * (0.9 - c*.1) + .01*c;
++        }
++        struct wlr_color_transform *hdr_corrections[] = {NULL,
++            wlr_color_transform_init_lut_3d(2, identity_cube),
++            wlr_color_transform_init_lut_3d(2, correction_cube)};
++        assert(hdr_corrections[1] && hdr_corrections[2]);
++        for (int correction = 0; correction < 3; correction++)
++        for (int source = 0; source < 4; source++) {
++            bool source_hdr = source == 1;
++			assert(wlr_buffer_begin_data_ptr_access(hdr_buffer, WLR_BUFFER_DATA_PTR_ACCESS_WRITE, &data, &fourcc, &stride));
++			for (int y = 0; y < HEIGHT; y++) {
++				uint32_t *row = (uint32_t *)((char *)data + y * stride);
++				for (int x = 0; x < WIDTH; x++) {
++					int v = source_hdr ? lround(encode_pq(x * 10000.0 / (WIDTH - 1)) * 1023) : source >= 2 ? lround(x * 1023.0 / (WIDTH - 1)) : 1023;
++					row[x] = (v << 20) | (v << 10) | v;
++				}
++			}
++			wlr_buffer_end_data_ptr_access(hdr_buffer);
++			wlr_scene_buffer_set_buffer(node, hdr_buffer);
++			wlr_scene_buffer_set_transfer_function(node, source_hdr ? WLR_COLOR_TRANSFER_FUNCTION_ST2084_PQ : source == 3 ? WLR_COLOR_TRANSFER_FUNCTION_BT1886 : WLR_COLOR_TRANSFER_FUNCTION_SRGB);
++			wlr_scene_buffer_set_primaries(node, source_hdr ? WLR_COLOR_NAMED_PRIMARIES_BT2020 : WLR_COLOR_NAMED_PRIMARIES_SRGB);
++			const float whites[] = {100, 120, 400};
++			for (int w = 0; w < 3; w++) {
++				struct wlr_output_image_description description = {
++					.primaries = WLR_COLOR_NAMED_PRIMARIES_BT2020,
++					.transfer_function = WLR_COLOR_TRANSFER_FUNCTION_ST2084_PQ,
++					.reference_luminance = whites[w],
++				};
++				outputs[0]->image_description = &description;
++				outputs[0]->supported_primaries = WLR_COLOR_NAMED_PRIMARIES_BT2020;
++				outputs[0]->supported_transfer_functions = WLR_COLOR_TRANSFER_FUNCTION_ST2084_PQ;
++				wlr_damage_ring_add_whole(&scene_outputs[0]->damage_ring);
++				struct wlr_output_state state;
++				wlr_output_state_init(&state);
++				assert(wlr_output_state_set_image_description(&state, &description));
++				assert(wlr_scene_output_build_state(scene_outputs[0], &state,
++					&(struct wlr_scene_output_state_options){.disable_gamma_lut = true, .swapchain = outputs[0]->swapchain, .color_transform = hdr_corrections[correction]}));
++				struct wlr_texture *texture = wlr_texture_from_buffer(renderer, state.buffer);
++				uint32_t pixels[WIDTH * HEIGHT];
++				assert(texture && wlr_texture_read_pixels(texture, &(struct wlr_texture_read_pixels_options){
++					.data = pixels, .format = DRM_FORMAT_XRGB2101010, .stride = WIDTH * 4}));
++				wlr_texture_destroy(texture);
++				int error = 0;
++				for (int x = 0; x < WIDTH; x++) {
++					double encoded = lround(x * 1023.0 / (WIDTH - 1)) / 1023.0;
++                    // Protocol BT.1886 defaults use 0.01/100 cd/m² black/white,
++                    // with normalized emitted light mapped into the blend space.
++                    double black_root = pow(.0001, 1.0 / 2.4);
++                    double linear = source == 3 ? (pow(black_root + encoded * (1 - black_root), 2.4) - .0001) / .9999
++                        : encoded <= .04045 ? encoded / 12.92 : pow((encoded + .055) / 1.055, 2.4);
++                    int expected = lround(encode_pq(source_hdr ? x * 10000.0 / (WIDTH - 1) : whites[w] * (source >= 2 ? linear : 1)) * 1023);
++					for (int c = 0; c < 3; c++) {
++						int actual = (pixels[x] >> (c * 10)) & 1023;
++                        int channel_expected = correction == 2 ? lround((expected/1023.0 * (0.9-(2-c)*.1) + .01*(2-c))*1023) : expected;
++						if (abs(actual - channel_expected) > error) error = abs(actual - channel_expected);
++					}
++				}
++				printf("HDR correction %d white %.0f nits, %s: max error %d/1023\n", correction, whites[w], (const char *[]){"SDR white", "absolute PQ ramp", "sRGB ramp", "BT.1886 ramp"}[source], error);
++				assert(error <= 1);
++				outputs[0]->image_description = NULL;
++				state.committed &= ~WLR_OUTPUT_STATE_IMAGE_DESCRIPTION;
++				assert(wlr_output_commit_state(outputs[0], &state));
++				wlr_output_state_finish(&state);
++			}
++		}
++		for (int i = 0; i < 3; i++) wlr_color_transform_unref(hdr_corrections[i]);
++		wlr_buffer_drop(hdr_buffer);
++	}
++	wlr_scene_node_destroy(&scene->tree.node);
++	wlr_buffer_drop(buffer);
++	wlr_backend_destroy(backend);
++	wlr_allocator_destroy(shm);
++	wlr_allocator_destroy(allocator);
++	wlr_renderer_destroy(renderer);
++	wl_display_destroy(display);
++	for (size_t i = 0; i < 2; i++) {
++		wlr_color_transform_unref(calibrated[i]);
++		wlr_color_transform_unref(transforms[i]);
++		cmsCloseProfile(profiles[i]);
++	}
++	puts("PASS: ICC validation, calibration bounds, ramps and wide gamut across two outputs");
++}
+--- /dev/null
++++ b/tests/hdr_pattern_server.c
+@@ -0,0 +1,125 @@
++/* Private test fixture: synthetic HDR output, never a physical display. */
++#include <assert.h>
++#include <drm_fourcc.h>
++#include <linux/input-event-codes.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <unistd.h>
++#include <wlr/backend/headless.h>
++#include <wlr/interfaces/wlr_keyboard.h>
++#include <wlr/render/allocator.h>
++#include <wlr/types/wlr_compositor.h>
++#include <wlr/types/wlr_color_management_v1.h>
++#include <wlr/types/wlr_output_layout.h>
++#include <wlr/types/wlr_scene.h>
++#include <wlr/types/wlr_seat.h>
++#include <wlr/types/wlr_xdg_shell.h>
++#include <wlr/types/wlr_subcompositor.h>
++#include <wlr/util/log.h>
++#include <xkbcommon/xkbcommon.h>
++
++static struct wl_display *display;
++static struct wlr_scene *scene;
++static struct wlr_output *output;
++static struct wlr_seat *seat;
++static struct wlr_keyboard keyboard;
++static int reference_kind;
++struct view { struct wlr_xdg_toplevel *top; struct wl_listener commit, map, destroy; };
++static void commit(struct wl_listener *listener, void *data) {
++    struct view *view = wl_container_of(listener, view, commit);
++    if (view->top->base->initial_commit) {
++        wlr_xdg_toplevel_set_size(view->top, 1280, 720);
++        wlr_xdg_toplevel_set_fullscreen(view->top, true);
++    }
++}
++static void mapped(struct wl_listener *listener, void *data) {
++    struct view *view = wl_container_of(listener, view, map);
++    struct wlr_surface *surface = view->top->base->surface;
++    const struct wlr_image_description_v1_data *desc = wlr_surface_get_image_description_v1_data(surface);
++    assert(desc && desc->tf_named == (reference_kind ? (reference_kind == 2 ? WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_BT1886 : WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_COMPOUND_POWER_2_4) : WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_ST2084_PQ));
++    assert(desc->primaries_named == (reference_kind ? WP_COLOR_MANAGER_V1_PRIMARIES_SRGB : WP_COLOR_MANAGER_V1_PRIMARIES_BT2020));
++    struct wlr_texture *texture = surface->buffer->texture;
++    uint32_t pixel;
++    assert(wlr_texture_read_pixels(texture, &(struct wlr_texture_read_pixels_options){
++        .data = &pixel, .format = DRM_FORMAT_XRGB2101010, .stride = 4,
++        .src_box = {.x = 680, .y = 400, .width = 1, .height = 1}}));
++    // 400 nit ST 2084 is code 668 at 10-bit. Directly verify the client's patch.
++    if (reference_kind) assert(pixel == 1023);
++    else assert(abs((int)(pixel & 1023) - 668) <= 1);
++    wlr_surface_send_enter(surface, output);
++    wlr_seat_keyboard_notify_enter(seat, surface, NULL, 0, &keyboard.modifiers);
++    puts(reference_kind ? "MAPPED SDR reference" : "MAPPED PQ10 400 nits"); fflush(stdout);
++}
++static void destroyed(struct wl_listener *listener, void *data) {
++    struct view *view = wl_container_of(listener, view, destroy);
++    wl_list_remove(&view->commit.link); wl_list_remove(&view->map.link); wl_list_remove(&view->destroy.link); free(view);
++}
++static void new_top(struct wl_listener *listener, void *data) {
++    struct view *view = calloc(1, sizeof(*view)); view->top = data;
++    wlr_scene_xdg_surface_create(&scene->tree, view->top->base);
++    view->commit.notify = commit; wl_signal_add(&view->top->base->surface->events.commit, &view->commit);
++    view->map.notify = mapped; wl_signal_add(&view->top->base->surface->events.map, &view->map);
++    view->destroy.notify = destroyed; wl_signal_add(&view->top->events.destroy, &view->destroy);
++}
++static int command(int fd, uint32_t mask, void *data) {
++    char c;
++    if (read(fd, &c, 1) != 1) { wl_display_terminate(display); return 0; }
++    if (c == 'q') wl_display_terminate(display);
++    else if (c == 'd') { wlr_output_destroy_global(output); }
++    else if (c == 'm') {
++        output->image_description = NULL;
++        struct wlr_output_event_commit event = {.output = output, .state = &(struct wlr_output_state){.committed = WLR_OUTPUT_STATE_IMAGE_DESCRIPTION}};
++        wl_signal_emit_mutable(&output->events.commit, &event);
++    } else {
++        uint32_t key = c == 'a' ? KEY_ENTER : c == 'h' ? KEY_H : c == '+' ? KEY_RIGHT : KEY_ESC;
++        wlr_seat_keyboard_notify_key(seat, 1, key, WL_KEYBOARD_KEY_STATE_PRESSED);
++        wlr_seat_keyboard_notify_key(seat, 2, key, WL_KEYBOARD_KEY_STATE_RELEASED);
++    }
++    return 0;
++}
++int main(int argc, char **argv) {
++    reference_kind = argc > 1 && !strcmp(argv[1], "sdr-srgb") ? 1 : argc > 1 && !strcmp(argv[1], "sdr-709") ? 2 : 0;
++    setbuf(stdout, NULL); wlr_log_init(WLR_ERROR, NULL);
++    display = wl_display_create();
++    struct wlr_backend *backend = wlr_headless_backend_create(wl_display_get_event_loop(display));
++    struct wlr_renderer *renderer = wlr_renderer_autocreate(backend); assert(renderer);
++    struct wlr_allocator *allocator = wlr_allocator_autocreate(backend, renderer); assert(allocator);
++    assert(wlr_renderer_init_wl_display(renderer, display));
++    wlr_compositor_create(display, 6, renderer); wlr_subcompositor_create(display);
++    scene = wlr_scene_create();
++    const enum wp_color_manager_v1_render_intent intents[] = {WP_COLOR_MANAGER_V1_RENDER_INTENT_RELATIVE, WP_COLOR_MANAGER_V1_RENDER_INTENT_PERCEPTUAL};
++    const enum wp_color_manager_v1_transfer_function tfs[] = {WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_ST2084_PQ, WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_BT1886, WP_COLOR_MANAGER_V1_TRANSFER_FUNCTION_COMPOUND_POWER_2_4};
++    const enum wp_color_manager_v1_primaries primaries[] = {WP_COLOR_MANAGER_V1_PRIMARIES_BT2020, WP_COLOR_MANAGER_V1_PRIMARIES_SRGB};
++    struct wlr_color_manager_v1 *cm = wlr_color_manager_v1_create(display, 2, &(struct wlr_color_manager_v1_options){
++        .features.parametric = true, .render_intents = intents, .render_intents_len = 2,
++        .transfer_functions = tfs, .transfer_functions_len = sizeof(tfs) / sizeof(tfs[0]),
++        .primaries = primaries, .primaries_len = sizeof(primaries) / sizeof(primaries[0])});
++    assert(cm); wlr_scene_set_color_manager_v1(scene, cm);
++    output = wlr_headless_add_output(backend, 1280, 720);
++    assert(wlr_output_init_render(output, allocator, renderer));
++    struct wlr_output_state initial; wlr_output_state_init(&initial);
++    wlr_output_state_set_enabled(&initial, true); wlr_output_state_set_render_format(&initial, DRM_FORMAT_XRGB2101010);
++    assert(wlr_output_commit_state(output, &initial)); wlr_output_state_finish(&initial);
++    // Only this fixture advertises HDR on a virtual monitor.
++    output->image_description_value = (struct wlr_output_image_description){
++        .primaries = WLR_COLOR_NAMED_PRIMARIES_BT2020, .transfer_function = WLR_COLOR_TRANSFER_FUNCTION_ST2084_PQ,
++        .reference_luminance = 203, .target_luminance = {.min = .001, .max = 1000}, .target_max_fall = 400};
++    if (argc < 2 || strcmp(argv[1], "sdr")) output->image_description = &output->image_description_value;
++    wlr_output_create_global(output, display);
++    seat = wlr_seat_create(display, "test-seat");
++    static const struct wlr_keyboard_impl impl = {.name = "test"};
++    wlr_keyboard_init(&keyboard, &impl, "test");
++    struct xkb_context *context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
++    struct xkb_keymap *keymap = xkb_keymap_new_from_names(context, NULL, XKB_KEYMAP_COMPILE_NO_FLAGS);
++    assert(wlr_keyboard_set_keymap(&keyboard, keymap)); xkb_keymap_unref(keymap); xkb_context_unref(context);
++    wlr_seat_set_keyboard(seat, &keyboard); wlr_seat_set_capabilities(seat, WL_SEAT_CAPABILITY_KEYBOARD);
++    struct wlr_xdg_shell *shell = wlr_xdg_shell_create(display, 3);
++    struct wl_listener top = {.notify = new_top}; wl_signal_add(&shell->events.new_toplevel, &top);
++    wl_event_loop_add_fd(wl_display_get_event_loop(display), STDIN_FILENO, WL_EVENT_READABLE, command, NULL);
++    assert(wlr_backend_start(backend));
++    const char *socket = wl_display_add_socket_auto(display); assert(socket); puts(socket);
++    wl_display_run(display);
++    wl_display_destroy_clients(display); wl_list_remove(&top.link); wlr_scene_node_destroy(&scene->tree.node);
++    wlr_keyboard_finish(&keyboard); wlr_backend_destroy(backend); wlr_allocator_destroy(allocator); wlr_renderer_destroy(renderer); wl_display_destroy(display);
++}
+--- a/types/output/cursor.c
++++ b/types/output/cursor.c
+@@ -516,6 +516,9 @@
+ 	// Source is sRGB, which has reference == max
+ 	struct wlr_color_luminances dst_lum;
+ 	wlr_color_transfer_function_get_default_luminance(img_desc->transfer_function, &dst_lum);
++	if (img_desc->reference_luminance > 0) {
++		dst_lum.reference = img_desc->reference_luminance;
++	}
+ 	float luminance_multiplier = dst_lum.reference / dst_lum.max;
+ 	for (int i = 0; i < 9; ++i) {
+ 		matrix[i] *= luminance_multiplier;
+--- a/types/scene/surface.c
++++ b/types/scene/surface.c
+@@ -1,4 +1,5 @@
+ #include <assert.h>
++#include <math.h>
+ #include <stdlib.h>
+ #include <wlr/types/wlr_alpha_modifier_v1.h>
+ #include <wlr/types/wlr_color_management_v1.h>
+@@ -57,7 +58,11 @@
+ 	case WLR_COLOR_NAMED_PRIMARIES_SRGB:
+ 		return 0;
+ 	case WLR_COLOR_NAMED_PRIMARIES_BT2020:
++		return 3;
++	case WLR_COLOR_NAMED_PRIMARIES_DISPLAY_P3:
+ 		return 1;
++	case WLR_COLOR_NAMED_PRIMARIES_ADOBE_RGB:
++		return 2;
+ 	}
+ 	abort(); // unreachable
+ }
+@@ -77,7 +82,7 @@
+ 			continue;
+ 		}
+ 		if (get_tf_preference(preferred.transfer_function) < get_tf_preference(img_desc->transfer_function)) {
+-			preferred.transfer_function = img_desc->transfer_function;
++			preferred = *img_desc;
+ 		}
+ 		if (get_primaries_preference(preferred.primaries) < get_primaries_preference(img_desc->primaries)) {
+ 			preferred.primaries = img_desc->primaries;
+@@ -87,6 +92,11 @@
+ 	*out = (struct wlr_image_description_v1_data){
+ 		.tf_named = wlr_color_manager_v1_transfer_function_from_wlr(preferred.transfer_function),
+ 		.primaries_named = wlr_color_manager_v1_primaries_from_wlr(preferred.primaries),
++		.reference_luminance = preferred.reference_luminance,
++		.has_mastering_luminance = preferred.target_luminance.max > 0,
++		.mastering_luminance = { .min = preferred.target_luminance.min, .max = preferred.target_luminance.max },
++		.max_cll = lroundf(preferred.target_luminance.max),
++		.max_fall = lroundf(preferred.target_max_fall),
+ 	};
+ }
+ 
+@@ -291,7 +301,7 @@
+ 	enum wlr_color_named_primaries primaries = WLR_COLOR_NAMED_PRIMARIES_SRGB;
+ 	const struct wlr_image_description_v1_data *img_desc =
+ 		wlr_surface_get_image_description_v1_data(surface);
+-	if (img_desc != NULL) {
++	if (img_desc != NULL && !img_desc->icc) {
+ 		tf = wlr_color_manager_v1_transfer_function_to_wlr(img_desc->tf_named);
+ 		primaries = wlr_color_manager_v1_primaries_to_wlr(img_desc->primaries_named);
+ 	}
+@@ -314,6 +324,7 @@
+ 	wlr_scene_buffer_set_dest_size(scene_buffer, width, height);
+ 	wlr_scene_buffer_set_transform(scene_buffer, state->transform);
+ 	wlr_scene_buffer_set_opacity(scene_buffer, opacity);
++	wlr_scene_buffer_set_input_color_transform(scene_buffer, img_desc ? img_desc->icc : NULL);
+ 	wlr_scene_buffer_set_transfer_function(scene_buffer, tf);
+ 	wlr_scene_buffer_set_primaries(scene_buffer, primaries);
+ 	wlr_scene_buffer_set_color_encoding(scene_buffer, color_encoding);
+--- a/types/scene/wlr_scene.c
++++ b/types/scene/wlr_scene.c
+@@ -125,6 +125,7 @@
+ 			}
+ 		}
+ 
++		wlr_color_transform_unref(scene_buffer->input_color_transform);
+ 		scene_buffer_set_buffer(scene_buffer, NULL);
+ 		scene_buffer_set_texture(scene_buffer, NULL);
+ 		pixman_region32_fini(&scene_buffer->opaque_region);
+@@ -325,6 +326,7 @@
+ }
+ 
+ struct render_data {
++	float hdr_reference_luminance;
+ 	enum wl_output_transform transform;
+ 	float scale;
+ 	struct wlr_box logical;
+@@ -1190,6 +1192,16 @@
+ 	scene_node_update(&scene_buffer->node, NULL);
+ }
+ 
++void wlr_scene_buffer_set_input_color_transform(struct wlr_scene_buffer *buffer,
++		struct wlr_color_transform *transform) {
++	if (buffer->input_color_transform == transform) {
++		return;
++	}
++	wlr_color_transform_unref(buffer->input_color_transform);
++	buffer->input_color_transform = transform ? wlr_color_transform_ref(transform) : NULL;
++	scene_node_update(&buffer->node, NULL);
++}
++
+ void wlr_scene_buffer_set_primaries(struct wlr_scene_buffer *scene_buffer,
+ 		enum wlr_color_named_primaries primaries) {
+ 	if (scene_buffer->primaries == primaries) {
+@@ -1568,7 +1580,10 @@
+ 	case WLR_SCENE_NODE_BUFFER:;
+ 		struct wlr_scene_buffer *scene_buffer = wlr_scene_buffer_from_node(node);
+ 
+-		if (scene_buffer->is_single_pixel_buffer) {
++		if (scene_buffer->is_single_pixel_buffer && !scene_buffer->input_color_transform
++				&& (scene_buffer->transfer_function == 0
++					|| scene_buffer->transfer_function == WLR_COLOR_TRANSFER_FUNCTION_GAMMA22)
++				&& (scene_buffer->primaries == 0 || scene_buffer->primaries == WLR_COLOR_NAMED_PRIMARIES_SRGB)) {
+ 			// Render the buffer as a rect, this is likely to be more efficient
+ 			wlr_render_pass_add_rect(data->render_pass, &(struct wlr_render_rect_options){
+ 				.box = dst_box,
+@@ -1603,6 +1618,12 @@
+ 		struct wlr_color_luminances src_lum, srgb_lum;
+ 		wlr_color_transfer_function_get_default_luminance(
+ 			scene_buffer->transfer_function, &src_lum);
++		// PQ describes absolute luminance. Changing SDR white must not change
++		// an HDR video's or calibration pattern's encoded light levels.
++		if (scene_buffer->transfer_function == WLR_COLOR_TRANSFER_FUNCTION_ST2084_PQ
++				&& data->hdr_reference_luminance > 0) {
++			src_lum.reference = data->hdr_reference_luminance;
++		}
+ 		wlr_color_transfer_function_get_default_luminance(
+ 			WLR_COLOR_TRANSFER_FUNCTION_SRGB, &srgb_lum);
+ 		float luminance_multiplier = get_luminance_multiplier(&src_lum, &srgb_lum);
+@@ -1618,6 +1639,7 @@
+ 			.blend_mode = data->background_blur || !data->output->scene->calculate_visibility ||
+ 					!pixman_region32_empty(&opaque) ?
+ 				WLR_RENDER_BLEND_MODE_PREMULTIPLIED : WLR_RENDER_BLEND_MODE_NONE,
++			.color_transform = scene_buffer->input_color_transform,
+ 			.transfer_function = scene_buffer->transfer_function,
+ 			.primaries = scene_buffer->primaries != 0 ? &primaries : NULL,
+ 			.color_encoding = scene_buffer->color_encoding,
+@@ -1786,6 +1808,7 @@
+ 	}
+ 
+ 	bool force_update = state->committed & (
++		WLR_OUTPUT_STATE_IMAGE_DESCRIPTION |
+ 		WLR_OUTPUT_STATE_TRANSFORM |
+ 		WLR_OUTPUT_STATE_SCALE |
+ 		WLR_OUTPUT_STATE_SUBPIXEL);
+@@ -2103,6 +2126,9 @@
+ 
+ static bool color_management_is_scanout_allowed(const struct wlr_output_image_description *img_desc,
+ 		const struct wlr_scene_buffer *buffer) {
++	if (buffer->input_color_transform) {
++		return false;
++	}
+ 	// Disallow scanout if the output has colorimetry information but buffer
+ 	// doesn't; allow it only if the output also lacks it.
+ 	if (buffer->transfer_function == 0 && buffer->primaries == 0) {
+@@ -2323,7 +2349,7 @@
+ 	struct wlr_color_transform *user_gamma = NULL;
+ 
+ 	if (img_desc != NULL) {
+-		assert(supplied == NULL);
++		/* HDR supplied transforms correct PQ code values after encoding. */
+ 		struct wlr_color_primaries primaries_srgb;
+ 		wlr_color_primaries_from_named(&primaries_srgb, WLR_COLOR_NAMED_PRIMARIES_SRGB);
+ 		struct wlr_color_primaries primaries;
+@@ -2335,6 +2361,9 @@
+ 		wlr_color_transfer_function_get_default_luminance(
+ 			WLR_COLOR_TRANSFER_FUNCTION_SRGB, &srgb_lum);
+ 		wlr_color_transfer_function_get_default_luminance(img_desc->transfer_function, &dst_lum);
++		if (img_desc->reference_luminance > 0) {
++			dst_lum.reference = img_desc->reference_luminance;
++		}
+ 		float luminance_multiplier = get_luminance_multiplier(&srgb_lum, &dst_lum);
+ 		for (int i = 0; i < 9; ++i) {
+ 			matrix[i] *= luminance_multiplier;
+@@ -2364,6 +2393,7 @@
+ 	struct wlr_color_transform *transforms[] = {
+ 		color_matrix,
+ 		inv_eotf,
++		img_desc ? supplied : NULL,
+ 		user_gamma,
+ 	};
+ 	const size_t transforms_len = sizeof(transforms) / sizeof(transforms[0]);
+@@ -2410,8 +2440,14 @@
+ 	enum wlr_scene_debug_damage_option debug_damage =
+ 		scene_output->scene->debug_damage_option;
+ 
++	bool gamma_policy_changed = options->disable_gamma_lut != scene_output->prev_disable_gamma_lut;
++	if (gamma_policy_changed) {
++		scene_output->gamma_lut_changed = true;
++		scene_output->prev_disable_gamma_lut = options->disable_gamma_lut;
++		scene_output_damage_whole(scene_output);
++	}
+ 	bool render_gamma_lut = false;
+-	if (wlr_output_get_gamma_size(output) == 0 && output->renderer->features.output_color_transform) {
++	if (!options->disable_gamma_lut && wlr_output_get_gamma_size(output) == 0 && output->renderer->features.output_color_transform) {
+ 		if (scene_output->gamma_lut_color_transform != scene_output->prev_gamma_lut_color_transform) {
+ 			scene_output_damage_whole(scene_output);
+ 		}
+@@ -2426,6 +2462,14 @@
+ 		.logical = { .x = scene_output->x, .y = scene_output->y },
+ 		.output = scene_output,
+ 	};
++	const struct wlr_output_image_description *pending_description =
++		output_pending_image_description(output, state);
++	if (pending_description && pending_description->transfer_function == WLR_COLOR_TRANSFER_FUNCTION_ST2084_PQ) {
++		struct wlr_color_luminances luminance;
++		wlr_color_transfer_function_get_default_luminance(pending_description->transfer_function, &luminance);
++		render_data.hdr_reference_luminance = pending_description->reference_luminance > 0
++			? pending_description->reference_luminance : luminance.reference;
++	}
+ 
+ 	int resolution_width, resolution_height;
+ 	output_pending_resolution(output, state,
+@@ -2575,7 +2619,14 @@
+ 	}
+ 
+ 	if (scanout) {
+-		scene_output_state_attempt_gamma(scene_output, state);
++		if (options->disable_gamma_lut) {
++			if (wlr_output_get_gamma_size(output) > 0) {
++				wlr_output_state_set_color_transform(state, NULL);
++			}
++			scene_output->gamma_lut_changed = false;
++		} else {
++			scene_output_state_attempt_gamma(scene_output, state);
++		}
+ 
+ 		if (timer) {
+ 			struct timespec end_time, duration;
+@@ -2611,7 +2662,7 @@
+ 		timer->pre_render_duration = timespec_to_nsec(&duration);
+ 	}
+ 
+-	if ((render_gamma_lut
++	if (gamma_policy_changed || (render_gamma_lut
+ 			&& scene_output->gamma_lut_color_transform != scene_output->prev_gamma_lut_color_transform)
+ 			|| scene_output->prev_supplied_color_transform != options->color_transform
+ 			|| (state->committed & WLR_OUTPUT_STATE_IMAGE_DESCRIPTION)) {
+@@ -2780,7 +2831,12 @@
+ 			scene_output->out_point);
+ 	}
+ 
+-	if (!render_gamma_lut) {
++	if (options->disable_gamma_lut) {
++		if (wlr_output_get_gamma_size(output) > 0) {
++			wlr_output_state_set_color_transform(state, NULL);
++		}
++		scene_output->gamma_lut_changed = false;
++	} else if (!render_gamma_lut) {
+ 		scene_output_state_attempt_gamma(scene_output, state);
+ 	}
+ 
+--- a/types/wlr_color_management_v1.c
++++ b/types/wlr_color_management_v1.c
+@@ -1,4 +1,9 @@
++#define _POSIX_C_SOURCE 200809L
+ #include <assert.h>
++#include <errno.h>
++#include <fcntl.h>
++#include <sys/stat.h>
++#include <unistd.h>
+ #include <stdlib.h>
+ #include <string.h>
+ 
+@@ -11,6 +16,7 @@
+ #include "color-management-v1-protocol.h"
+ #include "render/color.h"
+ #include "util/mem.h"
++#include "util/shm.h"
+ 
+ #define COLOR_MANAGEMENT_V1_VERSION 2
+ 
+@@ -21,6 +27,7 @@
+ 	struct wl_list link;
+ 
+ 	struct wl_listener output_destroy;
++	struct wl_listener output_commit;
+ };
+ 
+ struct wlr_color_management_surface_v1_state {
+@@ -89,7 +96,8 @@
+ 
+ static bool img_desc_data_equal(const struct wlr_image_description_v1_data *a,
+ 		const struct wlr_image_description_v1_data *b) {
+-	if (a->tf_named != b->tf_named ||
++	if (a->icc != b->icc || a->tf_named != b->tf_named ||
++			a->reference_luminance != b->reference_luminance ||
+ 			a->primaries_named != b->primaries_named ||
+ 			a->has_mastering_display_primaries != b->has_mastering_display_primaries ||
+ 			a->has_mastering_luminance != b->has_mastering_luminance ||
+@@ -107,6 +115,48 @@
+ 		return false;
+ 	}
+ 	return true;
++}
++
++struct output_icc {
++	struct wlr_addon addon;
++	struct wlr_color_transform *transform;
++};
++static void output_icc_destroy(struct wlr_addon *addon) {
++	struct output_icc *icc = wl_container_of(addon, icc, addon);
++	wlr_color_transform_unref(icc->transform);
++	wlr_addon_finish(addon);
++	free(icc);
++}
++static const struct wlr_addon_interface output_icc_impl = {
++	.name = "color-management-output-icc", .destroy = output_icc_destroy,
++};
++static struct output_icc *get_output_icc(struct wlr_output *output) {
++	struct wlr_addon *addon = wlr_addon_find(&output->addons, NULL, &output_icc_impl);
++	struct output_icc *icc = NULL;
++	return addon ? wl_container_of(addon, icc, addon) : NULL;
++}
++void wlr_color_manager_v1_set_output_icc(struct wlr_color_manager_v1 *manager,
++		struct wlr_output *output, struct wlr_color_transform *transform) {
++	struct output_icc *icc = get_output_icc(output);
++	if ((!icc && !transform) || (icc && icc->transform == transform)) {
++		return;
++	}
++	if (!icc) {
++		icc = calloc(1, sizeof(*icc));
++		if (!icc) {
++			return;
++		}
++		wlr_addon_init(&icc->addon, &output->addons, NULL, &output_icc_impl);
++	}
++	wlr_color_transform_unref(icc->transform);
++	icc->transform = transform ? wlr_color_transform_ref(transform) : NULL;
++	struct wlr_color_management_output_v1 *cm_output;
++	wl_list_for_each(cm_output, &manager->outputs, link) {
++		if (cm_output->output == output) {
++			wp_color_management_output_v1_send_image_description_changed(cm_output->resource);
++		}
++	}
++	wlr_output_schedule_done(output);
+ }
+ 
+ static const struct wp_image_description_v1_interface image_desc_impl;
+@@ -141,6 +191,36 @@
+ 		return;
+ 	}
+ 
++	if (image_desc->data.icc) {
++		size_t size;
++		const char *data = wlr_color_transform_get_icc(image_desc->data.icc, &size);
++		int rw_fd, ro_fd;
++		if (!data || !allocate_shm_file_pair(size, &rw_fd, &ro_fd)) {
++			wl_resource_destroy(resource);
++			wl_client_post_no_memory(client);
++			return;
++		}
++		size_t pos = 0;
++		while (pos < size) {
++			ssize_t n = pwrite(rw_fd, data + pos, size - pos, pos);
++			if (n < 0 && errno == EINTR) {
++				continue;
++			}
++			if (n <= 0) {
++				close(rw_fd); close(ro_fd);
++				wl_resource_destroy(resource);
++				wl_client_post_no_memory(client);
++				return;
++			}
++			pos += n;
++		}
++		wp_image_description_info_v1_send_icc_file(resource, ro_fd, size);
++		close(rw_fd); close(ro_fd);
++		wp_image_description_info_v1_send_done(resource);
++		wl_resource_destroy(resource);
++		return;
++	}
++
+ 	struct wlr_color_primaries primaries;
+ 	wlr_color_primaries_from_named(&primaries,
+ 		wlr_color_manager_v1_primaries_to_wlr(image_desc->data.primaries_named));
+@@ -148,6 +228,9 @@
+ 	struct wlr_color_luminances luminances;
+ 	wlr_color_transfer_function_get_default_luminance(
+ 		wlr_color_manager_v1_transfer_function_to_wlr(image_desc->data.tf_named), &luminances);
++	if (image_desc->data.reference_luminance > 0) {
++		luminances.reference = image_desc->data.reference_luminance;
++	}
+ 
+ 	wp_image_description_info_v1_send_primaries_named(resource, image_desc->data.primaries_named);
+ 	wp_image_description_info_v1_send_primaries(resource,
+@@ -167,8 +250,14 @@
+ 		encode_cie1931_coord(primaries.blue.x), encode_cie1931_coord(primaries.blue.y),
+ 		encode_cie1931_coord(primaries.white.x), encode_cie1931_coord(primaries.white.y));
+ 	wp_image_description_info_v1_send_target_luminance(resource,
+-		round(luminances.min * 10000), round(luminances.max));
+-	// TODO: send target_max_cll and target_max_fall
++		round((image_desc->data.has_mastering_luminance ? image_desc->data.mastering_luminance.min : luminances.min) * 10000),
++		round(image_desc->data.has_mastering_luminance ? image_desc->data.mastering_luminance.max : luminances.max));
++	if (image_desc->data.max_cll > 0) {
++		wp_image_description_info_v1_send_target_max_cll(resource, image_desc->data.max_cll);
++	}
++	if (image_desc->data.max_fall > 0) {
++		wp_image_description_info_v1_send_target_max_fall(resource, image_desc->data.max_fall);
++	}
+ 	wp_image_description_info_v1_send_done(resource);
+ 	wl_resource_destroy(resource);
+ }
+@@ -180,6 +269,9 @@
+ 
+ static void image_desc_handle_resource_destroy(struct wl_resource *resource) {
+ 	struct wlr_image_description_v1 *image_desc = image_desc_from_resource(resource);
++	if (image_desc) {
++		wlr_color_transform_unref(image_desc->data.icc);
++	}
+ 	free(image_desc);
+ }
+ 
+@@ -202,11 +294,15 @@
+ 	}
+ 
+ 	image_desc->data = *data;
++	if (data->icc) {
++		wlr_color_transform_ref(data->icc);
++	}
+ 	image_desc->get_info_allowed = get_info_allowed;
+ 
+ 	image_desc->resource = image_desc_create_resource(parent_resource, id);
+ 	if (!image_desc->resource) {
+ 		wl_resource_post_no_memory(parent_resource);
++		wlr_color_transform_unref(image_desc->data.icc);
+ 		free(image_desc);
+ 		return;
+ 	}
+@@ -214,7 +310,7 @@
+ 		image_desc, image_desc_handle_resource_destroy);
+ 
+ 	uint32_t version = wl_resource_get_version(image_desc->resource);
+-	if (!wp_color_manager_v1_transfer_function_is_valid(data->tf_named, version)) {
++	if (!data->icc && !wp_color_manager_v1_transfer_function_is_valid(data->tf_named, version)) {
+ 		wp_image_description_v1_send_failed(image_desc->resource,
+ 			WP_IMAGE_DESCRIPTION_V1_CAUSE_LOW_VERSION, "unhandled value for tf_named");
+ 		return;
+@@ -269,6 +365,18 @@
+ 	if (image_desc != NULL) {
+ 		data.tf_named = wlr_color_manager_v1_transfer_function_from_wlr(image_desc->transfer_function);
+ 		data.primaries_named = wlr_color_manager_v1_primaries_from_wlr(image_desc->primaries);
++		data.reference_luminance = image_desc->reference_luminance;
++		if (image_desc->target_luminance.max > 0) {
++			data.has_mastering_luminance = true;
++			data.mastering_luminance.min = image_desc->target_luminance.min;
++			data.mastering_luminance.max = image_desc->target_luminance.max;
++			data.max_cll = lroundf(image_desc->target_luminance.max);
++			data.max_fall = lroundf(image_desc->target_max_fall);
++		}
++	}
++	struct output_icc *icc = get_output_icc(cm_output->output);
++	if (!image_desc && icc) {
++		data.icc = icc->transform;
+ 	}
+ 	image_desc_create_ready(cm_output->manager, cm_output_resource, id, &data, true);
+ }
+@@ -284,6 +392,7 @@
+ 	}
+ 	wl_resource_set_user_data(cm_output->resource, NULL); // make inert
+ 	wl_list_remove(&cm_output->output_destroy.link);
++	wl_list_remove(&cm_output->output_commit.link);
+ 	wl_list_remove(&cm_output->link);
+ 	free(cm_output);
+ }
+@@ -291,6 +400,15 @@
+ static void cm_output_handle_output_destroy(struct wl_listener *listener, void *data) {
+ 	struct wlr_color_management_output_v1 *cm_output = wl_container_of(listener, cm_output, output_destroy);
+ 	cm_output_destroy(cm_output);
++}
++
++static void cm_output_handle_commit(struct wl_listener *listener, void *data) {
++	struct wlr_color_management_output_v1 *cm = wl_container_of(listener, cm, output_commit);
++	struct wlr_output_event_commit *event = data;
++	if (event->state->committed & WLR_OUTPUT_STATE_IMAGE_DESCRIPTION) {
++		wp_color_management_output_v1_send_image_description_changed(cm->resource);
++		wlr_output_schedule_done(cm->output);
++	}
+ }
+ 
+ static void cm_output_handle_resource_destroy(struct wl_resource *resource) {
+@@ -308,8 +426,24 @@
+ 	free(cm_surface);
+ }
+ 
++static void cm_state_finish(void *data) {
++	struct wlr_color_management_surface_v1_state *state = data;
++	wlr_color_transform_unref(state->image_desc_data.icc);
++}
++static void cm_state_move(void *dst_data, void *src_data) {
++	struct wlr_color_management_surface_v1_state *dst = dst_data, *src = src_data;
++	cm_state_finish(dst);
++	*dst = *src;
++	// Color state persists after each commit, unlike an attached buffer.
++	if (dst->image_desc_data.icc) {
++		wlr_color_transform_ref(dst->image_desc_data.icc);
++	}
++}
++
+ static const struct wlr_surface_synced_impl cm_surface_synced_impl = {
+ 	.state_size = sizeof(struct wlr_color_management_surface_v1_state),
++	.finish_state = cm_state_finish,
++	.move_state = cm_state_move,
+ };
+ 
+ static void cm_surface_handle_addon_destroy(struct wlr_addon *addon) {
+@@ -364,7 +498,11 @@
+ 	}
+ 
+ 	cm_surface->pending.has_image_desc_data = true;
++	wlr_color_transform_unref(cm_surface->pending.image_desc_data.icc);
+ 	cm_surface->pending.image_desc_data = image_desc->data;
++	if (image_desc->data.icc) {
++		wlr_color_transform_ref(image_desc->data.icc);
++	}
+ }
+ 
+ static void cm_surface_handle_unset_image_description(struct wl_client *client,
+@@ -377,6 +515,8 @@
+ 		return;
+ 	}
+ 
++	wlr_color_transform_unref(cm_surface->pending.image_desc_data.icc);
++	cm_surface->pending.image_desc_data = (struct wlr_image_description_v1_data){0};
+ 	cm_surface->pending.has_image_desc_data = false;
+ }
+ 
+@@ -425,6 +565,11 @@
+ 		return;
+ 	}
+ 
++	if (surface_feedback->data.icc) {
++		image_desc_create_failed(surface_feedback_resource, id, WP_IMAGE_DESCRIPTION_V1_CAUSE_UNSUPPORTED,
++			"No parametric approximation of this ICC description");
++		return;
++	}
+ 	image_desc_create_ready(surface_feedback->manager,
+ 		surface_feedback_resource, id, &surface_feedback->data, true);
+ }
+@@ -442,6 +587,7 @@
+ 	wl_resource_set_user_data(surface_feedback->resource, NULL); // make inert
+ 	wl_list_remove(&surface_feedback->surface_destroy.link);
+ 	wl_list_remove(&surface_feedback->link);
++	wlr_color_transform_unref(surface_feedback->data.icc);
+ 	free(surface_feedback);
+ }
+ 
+@@ -744,6 +890,8 @@
+ 
+ 	cm_output->output_destroy.notify = cm_output_handle_output_destroy;
+ 	wl_signal_add(&output->events.destroy, &cm_output->output_destroy);
++	cm_output->output_commit.notify = cm_output_handle_commit;
++	wl_signal_add(&output->events.commit, &cm_output->output_commit);
+ 
+ 	wl_list_insert(&manager->outputs, &cm_output->link);
+ 	wl_resource_set_user_data(cm_output->resource, cm_output);
+@@ -839,11 +987,103 @@
+ 	wl_list_insert(&manager->surface_feedbacks, &surface_feedback->link);
+ }
+ 
++struct icc_creator {
++	struct wlr_color_manager_v1 *manager;
++	char *data;
++	uint32_t size;
++	bool set, io_failed;
++};
++static void icc_creator_destroy(struct wl_resource *resource) {
++	struct icc_creator *creator = wl_resource_get_user_data(resource);
++	free(creator->data);
++	free(creator);
++}
++static void icc_creator_set_file(struct wl_client *client, struct wl_resource *resource,
++		int32_t fd, uint32_t offset, uint32_t length) {
++	struct icc_creator *creator = wl_resource_get_user_data(resource);
++	struct stat st;
++	int flags = fcntl(fd, F_GETFL);
++	if (creator->set) {
++		wl_resource_post_error(resource, WP_IMAGE_DESCRIPTION_CREATOR_ICC_V1_ERROR_ALREADY_SET,
++			"ICC file already set");
++	} else if (length == 0 || length > 32 * 1024 * 1024) {
++		wl_resource_post_error(resource, WP_IMAGE_DESCRIPTION_CREATOR_ICC_V1_ERROR_BAD_SIZE,
++			"ICC profile size must be between 1 and 32 MiB");
++	} else if (flags < 0 || (flags & O_ACCMODE) == O_WRONLY || fstat(fd, &st)
++			|| !S_ISREG(st.st_mode)) {
++		wl_resource_post_error(resource, WP_IMAGE_DESCRIPTION_CREATOR_ICC_V1_ERROR_BAD_FD,
++			"ICC file must be readable and seekable");
++	} else if ((uint64_t)offset + length > (uint64_t)st.st_size) {
++		wl_resource_post_error(resource, WP_IMAGE_DESCRIPTION_CREATOR_ICC_V1_ERROR_OUT_OF_FILE,
++			"ICC range exceeds file size");
++	} else {
++		creator->set = true;
++		creator->size = length;
++		creator->data = malloc(length);
++		if (!creator->data) {
++			wl_resource_post_no_memory(resource);
++		} else {
++			size_t pos = 0;
++			while (pos < length) {
++				ssize_t n = pread(fd, creator->data + pos, length - pos, (off_t)offset + pos);
++				if (n < 0 && errno == EINTR) {
++					continue;
++				}
++				if (n <= 0) {
++					creator->io_failed = true;
++					break;
++				}
++				pos += n;
++			}
++		}
++	}
++	close(fd);
++}
++static void icc_creator_create(struct wl_client *client, struct wl_resource *resource, uint32_t id) {
++	struct icc_creator *creator = wl_resource_get_user_data(resource);
++	if (!creator->set) {
++		wl_resource_post_error(resource, WP_IMAGE_DESCRIPTION_CREATOR_ICC_V1_ERROR_INCOMPLETE_SET,
++			"ICC profile was not set");
++		return;
++	}
++	struct wlr_color_transform *transform = creator->io_failed ? NULL :
++		wlr_color_transform_init_icc_to_linear(creator->data, creator->size);
++	if (transform) {
++		struct wlr_image_description_v1_data data = {.icc = transform};
++		image_desc_create_ready(creator->manager, resource, id, &data, false);
++		wlr_color_transform_unref(transform);
++	} else {
++		image_desc_create_failed(resource, id, creator->io_failed
++			? WP_IMAGE_DESCRIPTION_V1_CAUSE_OPERATING_SYSTEM : WP_IMAGE_DESCRIPTION_V1_CAUSE_UNSUPPORTED,
++			"Cannot read or convert ICC profile");
++	}
++	wl_resource_destroy(resource);
++}
++static const struct wp_image_description_creator_icc_v1_interface icc_creator_impl = {
++	.set_icc_file = icc_creator_set_file, .create = icc_creator_create,
++};
+ static void manager_handle_create_icc_creator(struct wl_client *client,
+ 		struct wl_resource *manager_resource, uint32_t id) {
+-	wl_resource_post_error(manager_resource,
+-		WP_COLOR_MANAGER_V1_ERROR_UNSUPPORTED_FEATURE,
+-		"new_icc_creator is not supported");
++	struct wlr_color_manager_v1 *manager = manager_from_resource(manager_resource);
++	if (!manager->features.icc_v2_v4) {
++		wl_resource_post_error(manager_resource, WP_COLOR_MANAGER_V1_ERROR_UNSUPPORTED_FEATURE,
++			"ICC image descriptions are unavailable");
++		return;
++	}
++	struct icc_creator *creator = calloc(1, sizeof(*creator));
++	if (!creator) {
++		wl_client_post_no_memory(client);
++		return;
++	}
++	creator->manager = manager;
++	struct wl_resource *resource = wl_resource_create(client, &wp_image_description_creator_icc_v1_interface,
++		wl_resource_get_version(manager_resource), id);
++	if (!resource) {
++		free(creator);
++		wl_client_post_no_memory(client);
++		return;
++	}
++	wl_resource_set_implementation(resource, &icc_creator_impl, creator, icc_creator_destroy);
+ }
+ 
+ static void manager_handle_create_parametric_creator(struct wl_client *client,
+@@ -969,7 +1209,7 @@
+ 	}
+ 
+ 	// TODO: add support for all of these features
+-	assert(!options->features.icc_v2_v4);
++
+ 	assert(!options->features.set_primaries);
+ 	assert(!options->features.set_tf_power);
+ 	assert(!options->features.set_luminances);
+@@ -1042,6 +1282,10 @@
+ 			continue;
+ 		}
+ 
++		if (data->icc) {
++			wlr_color_transform_ref(data->icc);
++		}
++		wlr_color_transform_unref(surface_feedback->data.icc);
+ 		surface_feedback->data = *data;
+ 
+ 		uint32_t version = wl_resource_get_version(surface_feedback->resource);
+@@ -1095,6 +1339,10 @@
+ 	switch (primaries) {
+ 	case WP_COLOR_MANAGER_V1_PRIMARIES_SRGB:
+ 		return WLR_COLOR_NAMED_PRIMARIES_SRGB;
++	case WP_COLOR_MANAGER_V1_PRIMARIES_DISPLAY_P3:
++		return WLR_COLOR_NAMED_PRIMARIES_DISPLAY_P3;
++	case WP_COLOR_MANAGER_V1_PRIMARIES_ADOBE_RGB:
++		return WLR_COLOR_NAMED_PRIMARIES_ADOBE_RGB;
+ 	case WP_COLOR_MANAGER_V1_PRIMARIES_BT2020:
+ 		return WLR_COLOR_NAMED_PRIMARIES_BT2020;
+ 	default:
+@@ -1107,6 +1355,10 @@
+ 	switch (primaries) {
+ 	case WLR_COLOR_NAMED_PRIMARIES_SRGB:
+ 		return WP_COLOR_MANAGER_V1_PRIMARIES_SRGB;
++	case WLR_COLOR_NAMED_PRIMARIES_DISPLAY_P3:
++		return WP_COLOR_MANAGER_V1_PRIMARIES_DISPLAY_P3;
++	case WLR_COLOR_NAMED_PRIMARIES_ADOBE_RGB:
++		return WP_COLOR_MANAGER_V1_PRIMARIES_ADOBE_RGB;
+ 	case WLR_COLOR_NAMED_PRIMARIES_BT2020:
+ 		return WP_COLOR_MANAGER_V1_PRIMARIES_BT2020;
+ 	}
+@@ -1147,6 +1399,8 @@
+ 
+ 	const enum wp_color_manager_v1_primaries list[] = {
+ 		WP_COLOR_MANAGER_V1_PRIMARIES_SRGB,
++		WP_COLOR_MANAGER_V1_PRIMARIES_DISPLAY_P3,
++		WP_COLOR_MANAGER_V1_PRIMARIES_ADOBE_RGB,
+ 		WP_COLOR_MANAGER_V1_PRIMARIES_BT2020,
+ 	};
+ 

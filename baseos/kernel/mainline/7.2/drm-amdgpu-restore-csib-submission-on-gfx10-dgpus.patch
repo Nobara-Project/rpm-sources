@@ -1,0 +1,33 @@
+From 7b2d7d759224eb6fb193bd8d9aa017bd73afa749 Mon Sep 17 00:00:00 2001
+From: Matthew Schwartz <matthew.schwartz@linux.dev>
+Date: Fri, 4 Sep 2026 18:05:06 -0700
+Subject: [PATCH] [NOT-FOR-UPSTREAM] drm/amdgpu: restore CSIB submission on
+ GFX10 dGPUs
+
+The once-only CSIB workaround skips initialization after dGPU resets,
+which can break suspend/resume on RDNA1 and RDNA2 cards.
+
+Submit CSIB on every dGPU initialization while preserving the existing
+APU behavior.
+
+Fixes: adf506cf85aa ("drm/amdgpu: remove duplicated CSIB command when system resumes from S3")
+Closes: https://github.com/ValveSoftware/steamos/issues/2503
+Signed-off-by: Matthew Schwartz <matthew.schwartz@linux.dev>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+index cbac8449e5bf5a..eddb6dfb24a142 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+@@ -6457,7 +6457,8 @@ static int gfx_v10_0_cp_gfx_start(struct amdgpu_device *adev)
+ 
+ 	gfx_v10_0_cp_gfx_enable(adev, true);
+ 
+-	if (!adev->csib_initialized)
++	/* Only use the CSIB workaround on APUs. dGPUs need it after reset. */
++	if (!(adev->flags & AMD_IS_APU) || !adev->csib_initialized)
+ 		gfx_v10_csib_submit(adev);
+ 
+ 	return 0;

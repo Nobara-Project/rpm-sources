@@ -1,7 +1,7 @@
-%global amtk_version 5.9
+%global amtk_version 5.10
 %global glib2_version 2.76
-%global gtk3_version 3.22
-%global gtksourceview_version 299.6
+%global gtk3_version 3.24
+%global gtksourceview_version 299.7
 %global libpeas_version 1.14.1
 %global gspell_version 1.0
 %global tepl_version 6.14
@@ -15,7 +15,7 @@
 
 Name:		gedit
 Epoch:		2
-Version:	49.0
+Version:	50.0
 Release:	%autorelease
 Summary:	Text editor for the GNOME desktop
 License:	GPL-3.0-or-later AND LGPL-3.0-or-later

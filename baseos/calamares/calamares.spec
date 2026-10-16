@@ -1,6 +1,6 @@
 Name:           calamares
 Version:        3.3.14
-Release:        125%{?dist}
+Release:        136%{?dist}
 Summary:        Installer from a live CD/DVD/USB to disk
 
 License:        GPL-3.0-or-later
@@ -35,6 +35,22 @@ Patch1006:       0005-rebase-over-kaos-calamares.patch
 Patch1008:       calamares-3.3.3-kdesu.patch
 # plasmalogin
 Patch1009:       2470.patch
+# Refresh QML translations after changing the installer language
+Patch1010:       0006-retranslate-qml-viewsteps.patch
+# Allow individual shell-process commands to report progress text
+Patch1011:       0007-shellprocess-command-status.patch
+# Build the final rescue image with the Nobara kernel manager backend
+Patch1012:       0008-use-kernel-manager-rescue.patch
+# Select or remove the preloaded NVIDIA driver stack based on detected hardware
+Patch1013:       0009-nvidia-driver-selection.patch
+# Correct a typo returned by stale package-module translation catalogs
+Patch1014:       0010-fix-package-status-typo.patch
+# Run installer updates without inherited live-session identity variables
+Patch1015:       0011-run-nobara-sync-as-target-root.patch
+# Align partition boundaries for KPMcore's 4 KiB LUKS2 sector size
+Patch1016:       0012-align-partitions-to-4k.patch
+# Guided ext4/XFS on LVM, recovery storage, and SSD mount defaults.
+Patch1017:       0013-guided-lvm-recovery.patch
 #Patch1007:       fixup_branding.patch
 
 # Fedora-specific changes
@@ -125,6 +141,7 @@ Requires:       util-linux
 Requires:       upower
 Requires:       NetworkManager
 Requires:       dracut
+Requires:       nobara-kernel-manager >= 0.1.1
 Requires:       grub2
 %ifarch x86_64 aarch64 riscv64
 %ifarch x86_64
@@ -141,6 +158,10 @@ Requires:       console-setup
 Requires:       setxkbmap
 Requires:       os-prober
 Requires:       e2fsprogs
+Requires:       xfsprogs
+Requires:       lvm2
+Requires:       cryptsetup
+Requires:       nobara-updater >= 2.0.1-46
 Requires:       dosfstools
 Requires:       ntfsprogs
 Requires:       gawk
@@ -232,6 +253,14 @@ cd ../../
 %patch 1006 -p1
 %patch 1008 -p1
 %patch 1009 -p1
+%patch 1010 -p1
+%patch 1011 -p1
+%patch 1012 -p1
+%patch 1013 -p1
+%patch 1014 -p1
+%patch 1015 -p1
+%patch 1016 -p1
+%patch 1017 -p1
 
 mv %{SOURCE1009} src/branding/nobara_branding/
 mv %{SOURCE1010} src/branding/nobara_branding/
@@ -405,6 +434,12 @@ EOF
 
 
 %changelog
+* Mon Sep 28 2026 Nobara Project <support@nobaraproject.org> - 3.3.14-136
+- Default guided installs to ext4 on LVM, with XFS on LVM and Btrfs options.
+- Reserve full-root rollback capacity and isolate home data, including under LUKS.
+- Enable ext4 metadata checksums and relatime; use async discard for Btrfs
+  and periodic TRIM for ext4/XFS without redundant Btrfs trimming.
+
 * Sat Dec 14 2024 Neal Gompa <ngompa@fedoraproject.org> - 3.3.12-2
 - Adjust unpackfs config to use /run/rootfsbase
 

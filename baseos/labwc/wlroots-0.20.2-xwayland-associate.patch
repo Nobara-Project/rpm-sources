@@ -1,0 +1,170 @@
+Map buffered XWayland surfaces after association.
+
+The initial commit may arrive before the X11 association message. Waiting
+for another commit deadlocks clients awaiting the first frame callback.
+Includes regressions for both event orders and surface reuse.
+
+--- a/meson.build
++++ b/meson.build
+@@ -204,3 +204,10 @@
+ 		dependencies: [wlroots, lcms2], include_directories: wlr_inc)
+ 	test('color-management-cpu', color_test, args: ['--cpu'])
+ endif
++
++if get_option('xwayland-tests') and features['xwayland']
++	xwayland_test = executable('test-xwayland-associate', 'tests/xwayland_associate.c',
++		dependencies: wlroots, include_directories: wlr_inc,
++		c_args: ['-UNDEBUG'])
++	test('xwayland-associate', xwayland_test)
++endif
+--- a/meson.options
++++ b/meson.options
+@@ -12,3 +12,4 @@
+ 
+ option('install', type: 'boolean', value: true, description: 'Install wlroots library and development files')
+ option('background-blur-tests', type: 'boolean', value: false, description: 'Build isolated background blur pixel regression')
++option('xwayland-tests', type: 'boolean', value: false, description: 'Build Xwayland surface association regressions')
+--- a/xwayland/xwm.c
++++ b/xwayland/xwm.c
+@@ -1237,6 +1237,16 @@
+ 	}
+ 
+ 	wl_signal_emit_mutable(&xsurface->events.associate, NULL);
++
++	/* X11 window association and Wayland commits arrive on separate sockets.
++	 * The first buffer may already have been committed before the association
++	 * listener was installed. Map it now, after the compositor has installed
++	 * its own map listener, rather than waiting for another commit which may
++	 * depend on a frame callback from this still-unmapped surface.
++	 */
++	if (wlr_surface_has_buffer(surface)) {
++		wlr_surface_map(surface);
++	}
+ }
+ 
+ static void xwm_handle_create_notify(struct wlr_xwm *xwm,
+--- /dev/null
++++ b/tests/xwayland_associate.c
+@@ -0,0 +1,122 @@
++/* Exercise both X11/Wayland event orderings without a real X server or GPU.
++ * Include the XWM implementation to test association without exporting a
++ * test-only API. The static library supplies its other translation units.
++ */
++#include <sys/socket.h>
++#include "../xwayland/xwm.c"
++
++struct observer {
++	struct wlr_xwayland_surface *xsurface;
++	struct wl_listener associate, dissociate, map, unmap;
++	unsigned int associations, maps, unmaps;
++};
++
++static void handle_map(struct wl_listener *listener, void *data) {
++	struct observer *observer = wl_container_of(listener, observer, map);
++	assert(observer->associations == observer->maps + 1);
++	assert(observer->xsurface->surface->mapped);
++	observer->maps++;
++}
++
++static void handle_unmap(struct wl_listener *listener, void *data) {
++	struct observer *observer = wl_container_of(listener, observer, unmap);
++	observer->unmaps++;
++}
++
++static void handle_associate(struct wl_listener *listener, void *data) {
++	struct observer *observer = wl_container_of(listener, observer, associate);
++	struct wlr_surface *surface = observer->xsurface->surface;
++	/* A compositor must be able to install its listeners before mapping. */
++	assert(!surface->mapped);
++	observer->associations++;
++	wl_signal_add(&surface->events.map, &observer->map);
++	wl_signal_add(&surface->events.unmap, &observer->unmap);
++}
++
++static void handle_dissociate(struct wl_listener *listener, void *data) {
++	struct observer *observer = wl_container_of(listener, observer, dissociate);
++	assert(!observer->xsurface->surface->mapped);
++	wl_list_remove(&observer->map.link);
++	wl_list_remove(&observer->unmap.link);
++}
++
++static void test_association(bool buffer_first) {
++	struct wl_display *display = wl_display_create();
++	assert(display);
++	struct wlr_xwayland xwayland = {.wl_display = display};
++	wl_signal_init(&xwayland.events.new_surface);
++	xcb_screen_t screen = {.root = 1};
++	/* A disconnected socket makes property requests fail immediately and
++	 * guarantees this regression cannot touch the user's X server. */
++	int sockets[2];
++	assert(socketpair(AF_UNIX, SOCK_STREAM, 0, sockets) == 0);
++	close(sockets[1]);
++	xcb_connection_t *connection = xcb_connect_to_fd(sockets[0], NULL);
++	assert(connection && xcb_connection_has_error(connection));
++	struct wlr_xwm xwm = {
++		.xwayland = &xwayland, .xcb_conn = connection, .screen = &screen,
++	};
++	wl_list_init(&xwm.surfaces);
++	wl_list_init(&xwm.surfaces_in_stack_order);
++	wl_list_init(&xwm.unpaired_surfaces);
++	struct wlr_xwayland_surface *xsurface =
++		xwayland_surface_create(&xwm, 2, 0, 0, 842, 601, false);
++	assert(xsurface);
++	struct wlr_surface surface = {0};
++	wlr_addon_set_init(&surface.addons);
++	wl_signal_init(&surface.events.commit);
++	wl_signal_init(&surface.events.map);
++	wl_signal_init(&surface.events.unmap);
++	wl_list_init(&surface.current.subsurfaces_below);
++	wl_list_init(&surface.current.subsurfaces_above);
++	struct observer observer = {
++		.xsurface = xsurface,
++		.associate.notify = handle_associate,
++		.dissociate.notify = handle_dissociate,
++		.map.notify = handle_map,
++		.unmap.notify = handle_unmap,
++	};
++	wl_signal_add(&xsurface->events.associate, &observer.associate);
++	wl_signal_add(&xsurface->events.dissociate, &observer.dissociate);
++	if (buffer_first) {
++		/* Committed dimensions are wlr_surface_has_buffer()'s criterion. */
++		surface.current.buffer_width = 842;
++		surface.current.buffer_height = 601;
++		wl_signal_emit_mutable(&surface.events.commit, &surface);
++	}
++	xwayland_surface_associate(&xwm, xsurface, &surface);
++	assert(observer.associations == 1);
++	if (!buffer_first) {
++		assert(!surface.mapped && observer.maps == 0);
++		/* An empty commit must not map a bufferless surface either. */
++		wl_signal_emit_mutable(&surface.events.commit, &surface);
++		assert(!surface.mapped && observer.maps == 0);
++		surface.current.buffer_width = 842;
++		surface.current.buffer_height = 601;
++		wl_signal_emit_mutable(&surface.events.commit, &surface);
++	}
++	assert(surface.mapped && observer.maps == 1);
++	/* Later commits must not emit map again. */
++	wl_signal_emit_mutable(&surface.events.commit, &surface);
++	assert(observer.maps == 1);
++	xwayland_surface_dissociate(xsurface);
++	assert(!surface.mapped && observer.unmaps == 1);
++	/* Reusing a buffered surface must work too (Steam reopens dialogs). */
++	xwayland_surface_associate(&xwm, xsurface, &surface);
++	assert(surface.mapped && observer.maps == 2);
++	xwayland_surface_dissociate(xsurface);
++	assert(observer.unmaps == 2);
++	wl_list_remove(&observer.associate.link);
++	wl_list_remove(&observer.dissociate.link);
++	xwayland_surface_destroy(xsurface);
++	wlr_addon_set_finish(&surface.addons);
++	xcb_disconnect(connection);
++	wl_display_destroy(display);
++}
++
++int main(void) {
++	wlr_log_init(WLR_SILENT, NULL);
++	test_association(true);
++	test_association(false);
++	return 0;
++}

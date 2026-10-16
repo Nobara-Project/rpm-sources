@@ -75,7 +75,7 @@ algorithms and decoding only VC1 algorithm.
 
 Name:           %{srcname}-freeworld
 Summary:        Mesa graphics libraries
-Version:        26.1.4
+Version:        26.2.4
 Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
 URL:            http://www.mesa3d.org
@@ -402,6 +402,27 @@ rm -fr %{buildroot}%{_libdir}/libteflon*
 %endif
 
 %changelog
+* Thu Oct 01 2026 LionHeartP <LionHeartP@proton.me> - 26.2.4-1
+- Update to 26.2.4
+
+* Thu Sep 17 2026 LionHeartP <LionHeartP@proton.me> - 26.2.3-1
+- Update to 26.2.3
+
+* Thu Sep 03 2026 LionHeartP <LionHeartP@proton.me> - 26.2.2-1
+- Update to 26.2.2
+
+* Sat Aug 22 2026 LionHeartP <LionHeartP@proton.me> - 26.2.1-1
+- Update to 26.2.1
+
+* Thu Aug 06 2026 LionHeartP <LionHeartP@proton.me> - 26.2.0-1
+- Update to 26.2.0
+
+* Thu Jul 30 2026 LionHeartP <LionHeartP@proton.me> - 26.1.6-1
+- Update to 26.1.6
+
+* Thu Jul 16 2026 LionHeartP <LionHeartP@proton.me> - 26.1.5-1
+- Update to 26.1.5
+
 * Fri Jul 03 2026 LionHeartP <LionHeartP@proton.me> - 26.1.4-1
 - Update to 26.1.4
 

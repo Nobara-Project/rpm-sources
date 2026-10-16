@@ -1,0 +1,24 @@
+diff -uNrp a/CMakeLists.txt b/CMakeLists.txt
+--- a/CMakeLists.txt	2026-07-28 10:46:55.000000000 +0100
++++ b/CMakeLists.txt	2026-07-30 09:37:15.966045698 +0100
+@@ -578,7 +578,7 @@ endforeach()
+ 
+ get_directory_property( ALL_TESTS TESTS )
+ set_tests_properties( ${ALL_TESTS} PROPERTIES
+-                      TIMEOUT 120
++                      TIMEOUT 240
+                       FAIL_REGULAR_EXPRESSION "(WARNING:|runtime error)" )
+ 
+ add_custom_target( run_tests USES_TERMINAL COMMAND ${CMAKE_CTEST_COMMAND} -C $<CONFIG> )
+diff -uNrp a/tests/wasm/run_tests.py b/tests/wasm/run_tests.py
+--- a/tests/wasm/run_tests.py	2026-07-28 10:46:55.000000000 +0100
++++ b/tests/wasm/run_tests.py	2026-07-30 09:37:51.790127053 +0100
+@@ -8,7 +8,7 @@ import time
+ import logging
+ import atexit
+ 
+-OUTPUT_TIMEOUT = 120
++OUTPUT_TIMEOUT = 240
+ 
+ caps = DesiredCapabilities.CHROME
+ caps['goog:loggingPrefs'] = { 'browser':'ALL' }

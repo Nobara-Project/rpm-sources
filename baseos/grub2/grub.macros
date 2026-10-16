@@ -1,6 +1,12 @@
 # vim:filetype=spec
 # Modules always contain just 32-bit code
+%global evr %{epoch}:%{version}-%{release}
 %global _libdir %{_exec_prefix}/lib
+
+%global os_id %(eval echo $(grep ^ID= /etc/os-release | sed -e 's/^ID=//' -e 's/rhel/redhat/'))
+%global grub_evr_dir %{_libdir}/efi/grub2/%{evr}
+%global grub_efi_dir %{grub_evr_dir}/EFI/%{os_id}
+
 %global _binaries_in_noarch_packages_terminate_build 0
 #%%undefine _missing_build_ids_terminate_build
 %{expand:%%{!?buildsubdir:%%global buildsubdir grub-%{tarversion}}}
@@ -280,8 +286,6 @@
 %global grubelfname core.elf
 %endif
 
-%global evr %{epoch}:%{version}-%{release}
-
 %ifarch x86_64
 %global with_efi_common 1
 %global with_legacy_modules 1
@@ -514,7 +518,7 @@ install -m 644 %{1}.conf ${RPM_BUILD_ROOT}/etc/dnf/protected.d/ \
 rm -f %{1}.conf							\
 %{nil}
 
-%global grub_modules  " all_video boot blscfg btrfs		\\\
+%global grub_modules  " all_video boot blscfg btrfs blsuki	\\\
 			cat configfile cryptodisk		\\\
 			echo ext2 f2fs fat font			\\\
 			gcry_rijndael gcry_rsa gcry_serpent	\\\
@@ -704,8 +708,9 @@ find . '(' -iname gdb_grub					\\\
 	')'							\\\
 	-exec cp {} $RPM_BUILD_ROOT/usr/lib/grub/%{grubaltefiarch}/ \\\; \
 find $RPM_BUILD_ROOT -type f -iname "*.mod*" -exec chmod a-x {} '\;'	\
-install -m 700 %{2} $RPM_BUILD_ROOT%{efi_esp_dir}/%{2}	\
-install -m 700 %{3} $RPM_BUILD_ROOT%{efi_esp_dir}/%{3} \
+install -d -m 0700 ${RPM_BUILD_ROOT}%{grub_efi_dir}/		\
+install -m 700 %{2} $RPM_BUILD_ROOT%{grub_efi_dir}/%{2} \
+install -m 700 %{3} $RPM_BUILD_ROOT%{grub_efi_dir}/%{3} \
 %{expand:%%do_install_protected_file grub2-%{alt_package_arch}} \
 cd ..								\
 %{nil}
@@ -722,8 +727,9 @@ fi								\
 find $RPM_BUILD_ROOT -iname "*.module" -exec chmod a-x {} '\;'	\
 ln -s ../boot/grub2/grub.cfg					\\\
 	$RPM_BUILD_ROOT%{_sysconfdir}/grub2-efi.cfg		\
-install -m 700 %{2} $RPM_BUILD_ROOT%{efi_esp_dir}/%{2}		\
-install -m 700 %{3} $RPM_BUILD_ROOT%{efi_esp_dir}/%{3}		\
+install -d -m 0700 ${RPM_BUILD_ROOT}%{grub_efi_dir}/		\
+install -m 700 %{2} $RPM_BUILD_ROOT%{grub_efi_dir}/%{2}	\
+install -m 700 %{3} $RPM_BUILD_ROOT%{grub_efi_dir}/%{3}	\
 %ifarch %{arm}							\
 install -D -m 700 %{2} $RPM_BUILD_ROOT%{efi_esp_boot}/BOOTARM.EFI \
 %endif								\
@@ -873,7 +879,9 @@ ln -s ../boot/grub2/grub.cfg					\\\
 %defattr(-,root,root,-)						\
 %config(noreplace) %{_sysconfdir}/grub2.cfg			\
 %config(noreplace) %{_sysconfdir}/grub2-efi.cfg		\
-%attr(0700,root,root) %verify(not mtime) %{efi_esp_dir}/%{2} 	\
+%ghost %attr(0700,root,root) %{efi_esp_dir}/%{2} \
+%dir %attr(0700,root,root) %{grub_efi_dir}                      \
+%attr(0700,root,root) %{grub_efi_dir}/%{2} 	\
 %ifarch %{arm}							\
 %attr(0700,root,root) %verify(not mtime) %{efi_esp_boot}/BOOTARM.EFI \
 %endif								\
@@ -881,7 +889,8 @@ ln -s ../boot/grub2/grub.cfg					\\\
 %attr(0700,root,root)/usr/bin/gen_grub_cfgstub			\
 %dir %attr(0700,root,root)/boot/loader/entries			\
 %ghost %config(noreplace) %attr(0600,root,root)/boot/grub2/grub.cfg	\
-%ghost %config(noreplace) %verify(not mtime) %attr(0700,root,root)%{efi_esp_dir}/grub.cfg	\
+%ghost %config(noreplace) %attr(0700,root,root)%{efi_esp_dir}/grub.cfg	\
+%ghost %config(noreplace) %attr(0600,root,root)%{grub_efi_dir}/grub.cfg	\
 %config(noreplace) %verify(not size mode md5 mtime) /boot/grub2/grubenv	\
 %attr(0644,root,root) %config(noreplace) /etc/dnf/protected.d/grub2-%{1}.conf \
 %{expand:%if 0%{?without_efi_modules}				\
@@ -899,7 +908,8 @@ ln -s ../boot/grub2/grub.cfg					\\\
 								\
 %{expand:%%files %{1}-cdboot}					\
 %defattr(-,root,root,-)						\
-%attr(0700,root,root) %verify(not mtime) %{efi_esp_dir}/%{3}	\
+%ghost %attr(0700,root,root) %{efi_esp_dir}/%{3}	\
+%attr(0700,root,root) %{grub_efi_dir}/%{3}	\
 %attr(0700,root,root)/boot/grub2/fonts			\
 %{nil}
 

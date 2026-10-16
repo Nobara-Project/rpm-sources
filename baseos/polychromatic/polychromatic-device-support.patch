@@ -1,0 +1,1858 @@
+diff --git a/data/devices/naga-v3-pro-with-side-plates.md b/data/devices/naga-v3-pro-with-side-plates.md
+new file mode 100644
+index 0000000..a1a2f0b
+--- /dev/null
++++ b/data/devices/naga-v3-pro-with-side-plates.md
+@@ -0,0 +1,15 @@
++# Naga V3 Pro device illustration
++
++User-requested AI-assisted composite for this downstream test build, created
++with the built-in imagegen tool on 2026-09-26. This is an edited illustration,
++not an unmodified official Razer photograph. The V2 model image is unchanged.
++The PNG retains transparency and is packaged locally, independent of image caches.
++
++Inputs:
++
++- V3 mouse: https://medias-p1.phoenix.razer.com/sys-master-phoenix-images-container/hf7/he7/10268566880286/naga-v3-pro-500x500.png
++- V2 spare-plate/composition reference: https://dl.razerzone.com/src2/6292/6292-1-en-v1.png
++
++Final prompt:
++
++> Use case: compositing. Asset type: transparent PNG device illustration for Polychromatic's hardware panel. Image 1 is the edit target: the actual Razer Naga V3 Pro mouse. Image 2 is a composition reference and supporting insert: the two detached interchangeable side plates at the left of the Naga V2 Pro. Create the V3 equivalent of that presentation: retain the V3 mouse from Image 1, with its exact silhouette, buttons, wheel, green markings, logo, proportions and existing viewing angle unchanged; add the two detached side plates from Image 2 to its left, six-button plate at far left and two-button plate next, at a matching physical scale. There should be exactly one V3 mouse with its installed twelve-button side, plus exactly two separate spare plates. Do not substitute the V2 mouse body, redesign the V3, add cables or a dongle, or add labels/text/watermark. Reframe the canvas only as needed to fit all three objects, keeping generous even margins and the object group centered like Image 2. Preserve the photographed matte-black materials and fine details. Deliver a genuinely transparent background with alpha, not a white or checkerboard background.
+diff --git a/data/devices/openrazer.json b/data/devices/openrazer.json
+index 0d31c15..48fcb4f 100644
+--- a/data/devices/openrazer.json
++++ b/data/devices/openrazer.json
+@@ -659,6 +659,12 @@
+         "name": "Razer Basilisk V3 Pro 35K (Wireless)",
+         "since": "3.10.0"
+     },
++    "1532:00CF": {
++        "form_factor": "mousemat",
++        "matrix": null,
++        "name": "Razer HyperFlux V2",
++        "since": "3.12.4"
++    },
+     "1532:00D0": {
+         "form_factor": "mouse",
+         "matrix": null,
+@@ -695,6 +701,18 @@
+         "name": "Razer Basilisk V3 Pro 35K Phantom Green Edition (Wireless)",
+         "since": "3.11.0"
+     },
++    "1532:00E7": {
++        "form_factor": "mouse",
++        "matrix": "3,1",
++        "name": "Razer Naga V3 Pro (Wired)",
++        "since": "3.12.4"
++    },
++    "1532:00E8": {
++        "form_factor": "mouse",
++        "matrix": "3,1",
++        "name": "Razer Naga V3 Pro (Wireless)",
++        "since": "3.12.4"
++    },
+     "1532:010D": {
+         "form_factor": "keyboard",
+         "matrix": null,
+diff --git a/polychromatic-controller b/polychromatic-controller
+index 67032f2..7ff6e22 100755
+--- a/polychromatic-controller
++++ b/polychromatic-controller
+@@ -39,6 +39,7 @@ import polychromatic.controller.shared as shared
+ import polychromatic.preferences as pref
+ import polychromatic.procpid as procpid
+ from polychromatic.base import PolychromaticBase
++from polychromatic.controller.devicewatcher import DeviceWatcher
+ 
+ VERSION = "0.9.8"
+ 
+@@ -334,6 +335,15 @@ class MainWindow(QMainWindow):
+ 
+         tabs.currentChanged.connect(_change_tab)
+ 
++        def _devices_changed():
++            app.middleman.invalidate_cache()
++            # Keep an effect editor open; refresh its device cache on demand.
++            if tabs.currentIndex() == 0:
++                _change_tab()
++
++        self.device_watcher = DeviceWatcher(self)
++        self.device_watcher.devices_changed.connect(_devices_changed)
++
+         # Press F5 to refresh tab
+         self.findChild(QAction, "actionRefreshTab").triggered.connect(_refresh_tab)
+ 
+diff --git a/polychromatic/backends/_backend.py b/polychromatic/backends/_backend.py
+index 247b94e..c2deba2 100644
+--- a/polychromatic/backends/_backend.py
++++ b/polychromatic/backends/_backend.py
+@@ -223,6 +223,13 @@ class Backend(BackendBase):
+             # If applicable, a string describing the firmware version, e.g. "v1.0"
+             self.firmware_version = ""
+ 
++            # Read-only receiver metadata, separate from a routed mouse.
++            self.receiver_info = None
++            self.receiver_actions = {}
++            # Registered device whose current feature reads are unavailable.
++            self.access_error = ""
++            self.access_state = ""
++
+             # If applicable, a string describing the keyboard locale, e.g. "en_GB"
+             # This will be used for determining graphics in the effect editor.
+             self.keyboard_layout = ""
+@@ -555,6 +562,10 @@ class Backend(BackendBase):
+         def __init__(self):
+             super().__init__()
+ 
++    def is_device_connected(self, device):
++        """Return True/False if known, or None if presence cannot be checked."""
++        return None
++
+     def get_devices(self):
+         """
+         Return:
+diff --git a/polychromatic/backends/openrazer.py b/polychromatic/backends/openrazer.py
+index c3f6a75..f3809de 100644
+--- a/polychromatic/backends/openrazer.py
++++ b/polychromatic/backends/openrazer.py
+@@ -10,7 +10,9 @@ and parses this for Polychromatic to use.
+ Project URL: https://github.com/openrazer/openrazer
+ """
+ import glob
++import errno
+ import os
++import re
+ 
+ import openrazer.client as rclient  # pylint: disable=import-error
+ 
+@@ -18,6 +20,33 @@ from .. import common
+ from ._backend import Backend as Backend
+ 
+ 
++def _wireless_access_state(error):
++    # dbus-python embeds the daemon's OSError and errno in its traceback.
++    code = getattr(error, 'errno', None)
++    matches = re.findall(r'\[Errno (\d+)\]', str(error))
++    if matches:
++        code = int(matches[-1])
++    if code == errno.EBUSY:
++        return 'busy'
++    if code == errno.ETIMEDOUT or isinstance(error, TimeoutError):
++        return 'asleep'
++    if code == errno.ENODEV:
++        return 'unavailable'  # A stale binding is not proof of sleep.
++    return 'error'
++
++
++def _receiver_pairing_actions(device, rdevice):
++    if device.receiver_info.get('driver_auto_pair_control') and callable(getattr(rdevice, 'set_receiver_driver_auto_pair', None)):
++        device.receiver_actions['driver_auto_pair'] = rdevice.set_receiver_driver_auto_pair
++        device.receiver_actions['pairing_status'] = lambda: rdevice.receiver_pairing_status
++    methods = {'scan': 'scan_receiver_devices', 'pair': 'pair_receiver_device',
++               'unpair': 'unpair_receiver_device'}
++    if device.receiver_info.get('pairing_control') and all(callable(getattr(rdevice, name, None))
++                                                          for name in methods.values()):
++        device.receiver_actions.update({key: getattr(rdevice, name) for key, name in methods.items()})
++        device.receiver_actions['pairing_status'] = lambda: rdevice.receiver_pairing_status
++
++
+ class OpenRazerBackend(Backend):
+     """
+     Integration with the OpenRazer 3.x Python library.
+@@ -150,9 +179,21 @@ class OpenRazerBackend(Backend):
+         except Exception:
+             return []
+         for rdevice in self.devman.devices:
+-            devices.append(self._get_device(rdevice))
++            try:
++                devices.append(self._get_device_or_unavailable(rdevice))
++            except Exception:
++                # It can disappear between the inventory and property reads.
++                if self.is_device_connected(rdevice) is not False:
++                    raise
+         return devices
+ 
++    def is_device_connected(self, device):
++        try:
++            # DeviceManager.devices is a snapshot, not the daemon's live list.
++            return str(device.serial) in self.devman._dbus_devices.getDevices()
++        except Exception:
++            return None
++
+     def get_device_by_name(self, name):
+         """
+         See Backend.get_device_by_name()
+@@ -160,7 +201,7 @@ class OpenRazerBackend(Backend):
+         try:
+             for rdevice in self.devman.devices:
+                 if rdevice.name == name:
+-                    return self._get_device(rdevice)
++                    return self._get_device_or_unavailable(rdevice)
+         except Exception as e:
+             return self.get_exception_as_string(e)
+ 
+@@ -173,10 +214,55 @@ class OpenRazerBackend(Backend):
+                 if not rdevice.has("serial"):
+                     continue
+                 if rdevice.serial == serial:
+-                    return self._get_device(rdevice)
++                    return self._get_device_or_unavailable(rdevice)
+         except Exception as e:
+             return self.get_exception_as_string(e)
+ 
++    def _get_device_or_unavailable(self, rdevice):
++        try:
++            return self._get_device(rdevice)
++        except Exception as error:
++            # Keep the receiver/other children usable when one paired device
++            # is asleep, busy or fails a feature query. Do not hide the failure.
++            if not str(rdevice.name).endswith(' (HyperFlux V2)'):
++                raise
++            if self.is_device_connected(rdevice) is not True:
++                raise
++            backend = self
++
++            class UnavailableDevice(Backend.DeviceItem):
++                def refresh(self):
++                    try:
++                        restored = backend._get_device(self._rdevice)
++                    except Exception as retry_error:
++                        self.access_error = str(retry_error)
++                        self.access_state = _wireless_access_state(retry_error)
++                        return
++                    owner = self.backend
++                    self.__dict__.update(restored.__dict__)
++                    self.backend = owner
++
++            device = UnavailableDevice()
++            device._rdevice = rdevice
++            device.name = str(rdevice.name)
++            device.serial = str(rdevice.serial)
++            device.form_factor = self._get_form_factor(rdevice)
++            device.real_image = self._get_device_image(rdevice)
++            ids = self._get_device_vid_pid(rdevice)
++            device.vid, device.pid = ids['vid'], ids['pid']
++            device.access_error = str(error)
++            device.access_state = _wireless_access_state(error)
++            return device
++
++    def mark_device_unavailable(self, device, error):
++        """Expected wireless I/O loss is a device state, not an error dialog."""
++        state = _wireless_access_state(error)
++        if (state == 'error' or not str(device.name).endswith(' (HyperFlux V2)') or
++                self.is_device_connected(device) is not True):
++            return False
++        device.access_error, device.access_state = str(error), state
++        return True
++
+     def _get_device(self, rdevice):
+         """
+         Returns a Backend.DeviceItem() from OpenRazer's device object.
+@@ -190,8 +276,32 @@ class OpenRazerBackend(Backend):
+             self.debug("Got bad serial for {0}! Using dummy serial: {1}".format(rdevice.name, serial))
+ 
+         # Device details
++        backend = self
++
+         class OpenRazerDeviceItem(Backend.DeviceItem):
+             def refresh(self):
++                try:
++                    if self.access_error:
++                        restored = backend._get_device(self._rdevice)
++                        owner = self.backend
++                        self.__dict__.update(restored.__dict__)
++                        self.backend = owner
++                    else:
++                        self._refresh_controls()
++                except Exception as error:
++                    if not backend.mark_device_unavailable(self, error):
++                        raise
++                    self.zones = []
++                    self.dpi = self.battery = self.matrix = None
++
++            def _refresh_controls(self):
++                if self.receiver_info is not None:
++                    self.receiver_info = self._rdevice.receiver_info
++                    self.receiver_actions = {}
++                    if self.receiver_info.get("auto_pair_control") and hasattr(self._rdevice, "set_receiver_auto_pair"):
++                        self.receiver_actions["auto_pair"] = self._rdevice.set_receiver_auto_pair
++                    _receiver_pairing_actions(self, self._rdevice)
++                    return
+                 for zone in self.zones:
+                     zone._persistence.refresh()
+                     for option in zone.options:
+@@ -214,6 +324,13 @@ class OpenRazerBackend(Backend):
+         if rdevice.has("firmware_version"):
+             device.firmware_version = str(rdevice.firmware_version)
+ 
++        if rdevice.has("hyperflux_receiver"):
++            device.receiver_info = rdevice.receiver_info
++            if device.receiver_info.get("auto_pair_control") and hasattr(rdevice, "set_receiver_auto_pair"):
++                device.receiver_actions["auto_pair"] = rdevice.set_receiver_auto_pair
++            _receiver_pairing_actions(device, rdevice)
++            return device
++
+         if rdevice.has("keyboard_layout"):
+             device.keyboard_layout = str(rdevice.keyboard_layout)
+ 
+@@ -559,8 +676,17 @@ class OpenRazerBackend(Backend):
+ 
+     def _get_device_image(self, rdevice):
+         """
+-        OpenRazer doesn't store device images, they are referenced by a URL.
++        Use bundled model artwork when available, otherwise the daemon's URL.
+         """
++        if str(rdevice.name) in (
++            "Razer Naga V3 Pro (Wired)",
++            "Razer Naga V3 Pro (Wireless)",
++            "Razer Naga V3 Pro (HyperFlux V2)",
++        ):
++            image = os.path.join(self._base.paths.data_dir, "devices", "naga-v3-pro-with-side-plates.png")
++            if os.path.isfile(image):
++                return image
++
+         try:
+             # OpenRazer >= 2.9.0 (openrazer/openrazer#1127)
+             return rdevice.device_image
+@@ -1488,14 +1614,21 @@ class OpenRazerBackend(Backend):
+         options = []
+ 
+         if rdevice.has("scroll_mode"):
+-            tactile = Backend.Option.Parameter()
+-            tactile.data = 0
+-            tactile.label = self._("Tactile")
+-            tactile.default = True
+-
+-            free_spin = Backend.Option.Parameter()
+-            free_spin.data = 1
+-            free_spin.label = self._("Free Spin")
++            modes = ["tactile", "free_spin"]
++            if rdevice.has("scroll_mode_options"):
++                modes = rdevice.scroll_mode_options
++            labels = {
++                "tactile": self._("Tactile"),
++                "free_spin": self._("Free Spin"),
++                "precision_tactile": self._("Precision Tactile"),
++            }
++            parameters = []
++            for index, mode in enumerate(modes):
++                parameter = Backend.Option.Parameter()
++                parameter.data = index
++                parameter.label = labels.get(mode, mode)
++                parameter.default = index == 0
++                parameters.append(parameter)
+ 
+             class ScrollMode(Backend.MultipleChoiceOption):
+                 def __init__(self, rdevice):
+@@ -1503,8 +1636,9 @@ class OpenRazerBackend(Backend):
+                     self._rdevice = rdevice
+ 
+                 def refresh(self):
+-                    tactile.active = rdevice.scroll_mode == 0
+-                    free_spin.active = rdevice.scroll_mode == 1
++                    current_mode = self._rdevice.scroll_mode
++                    for parameter in self.parameters:
++                        parameter.active = current_mode == parameter.data
+ 
+                 def apply(self, value):
+                     self._rdevice.scroll_mode = int(value)
+@@ -1513,7 +1647,7 @@ class OpenRazerBackend(Backend):
+             scroll_mode.uid = "scroll_mode"
+             scroll_mode.label = self._("Scroll Mode")
+             scroll_mode.icon = self.get_icon("devices", "mouse")
+-            scroll_mode.parameters = [tactile, free_spin]
++            scroll_mode.parameters = parameters
+             scroll_mode.refresh()
+             options.append(scroll_mode)
+ 
+diff --git a/polychromatic/controller/devices.py b/polychromatic/controller/devices.py
+index 5eb5eb8..1aa6f5a 100644
+--- a/polychromatic/controller/devices.py
++++ b/polychromatic/controller/devices.py
+@@ -27,6 +27,7 @@ from .. import bulkapply, common
+ from ..backends._backend import Backend as Backend
+ from ..qt.flowlayout import FlowLayout as QFlowLayout
+ from . import shared
++from .receiver import ReceiverOverview
+ 
+ # Error codes
+ ERROR_NO_DEVICE = 0
+@@ -62,6 +63,8 @@ class DevicesTab(shared.TabData):
+         Device tab opened. Populate the device and task lists, and open the
+         properties for the first device (if applicable)
+         """
++        selected_key = self._device_key(self.current_device)
++        self.current_device = None
+         self.set_title(self._("Devices"))
+ 
+         # Open all 'sidebar' tree branches
+@@ -79,6 +82,7 @@ class DevicesTab(shared.TabData):
+ 
+         # Recache the device list
+         self.SidebarTree.parent().show()
++        self.middleman.invalidate_cache()
+         device_list = self.middleman.get_devices()
+         unknown_device_list = self.middleman.get_unsupported_devices()
+ 
+@@ -97,7 +101,8 @@ class DevicesTab(shared.TabData):
+         devices_branch.sortChildren(0, Qt.SortOrder.AscendingOrder)
+ 
+         # For unknown devices, check support status using local index
+-        device_index = json.loads(open(f"{self.paths.data_dir}/devices/openrazer.json", "r").read())
++        with open(f"{self.paths.data_dir}/devices/openrazer.json", "r") as handle:
++            device_index = json.load(handle)
+         supported_pids = device_index.keys()
+         openrazer = self.middleman.get_backend("openrazer")
+         if openrazer:
+@@ -150,12 +155,28 @@ class DevicesTab(shared.TabData):
+         elif len(device_list) == 0:
+             self._open_no_backend_found(ERROR_NO_DEVICE)
+ 
+-        # Open the first device initially
++        # Preserve the current device when another device is added/removed.
+         if len(device_list) > 0:
+             first_item = devices_branch.child(0)
++            for index in range(devices_branch.childCount()):
++                item = devices_branch.child(index)
++                if item.section == "device" and self._device_key(item.device_item) == selected_key:
++                    first_item = item
++                    break
+             first_item.setSelected(True)
+             self.open_device(first_item.device_item)
+ 
++    @staticmethod
++    def _device_key(device):
++        if device is None:
++            return None
++        return (device.backend.backend_id, device.serial)
++
++    def _refresh_after_disconnect(self):
++        self.middleman.invalidate_cache()
++        if self.Contents.isVisible():
++            self.set_tab()
++
+     def _sidebar_changed(self, item):
+         """
+         User chooses an item on the sidebar. The "section" variable is appended
+@@ -300,7 +321,9 @@ class DevicesTab(shared.TabData):
+         except Exception as e:
+             # State may have changed, reload the device tab.
+             self.middleman.invalidate_cache()
+-            self._catch_command_error(device, e)
++            if self._catch_command_error(device, e):
++                self.set_cursor_normal()
++                return
+ 
+             shared.clear_layout(layout)
+             self.widgets.populate_empty_state(layout, common.get_icon("empty", "nobackend"), self._("Unable to open device"), self._("The last line of the exception was:") + "\n" + str(e), buttons=[
+@@ -308,7 +331,7 @@ class DevicesTab(shared.TabData):
+                     "label": self._("Retry"),
+                     "icon_folder": "general",
+                     "icon_name": "refresh",
+-                    "action": lambda: self.open_device(device)
++                    "action": self.set_tab
+                 },
+                 {
+                     "label": self._("Troubleshoot"),
+@@ -317,10 +340,22 @@ class DevicesTab(shared.TabData):
+                     "action": self._start_troubleshooter
+                 }
+             ])
++            self.set_cursor_normal()
+             return
+ 
+         layout.addWidget(self._get_device_summary_widget(device))
+ 
++        if device.access_error:
++            self._show_unavailable_device(layout, device)
++            self.set_cursor_normal()
++            return
++
++        if device.receiver_info is not None:
++            self._show_receiver_status(layout, device.receiver_info)
++            layout.addStretch()
++            self.set_cursor_normal()
++            return
++
+         for zone in device.zones:
+             widgets = []
+             first_zone = True if device.zones[0] == zone else False
+@@ -403,6 +438,40 @@ class DevicesTab(shared.TabData):
+         layout.addStretch()
+         self.set_cursor_normal()
+ 
++    def _show_unavailable_device(self, layout, device):
++        if device.access_state == 'asleep':
++            message = self._("Connected through HyperFlux V2. This device may have fallen asleep. "
++                             "Wake the device, then retry to access its controls.")
++        elif device.access_state == 'busy':
++            message = self._("Connected through HyperFlux V2. The receiver is busy discovering or pairing a device. "
++                             "Wait for it to finish, then retry to access device controls.")
++        elif device.access_state == 'unavailable':
++            message = self._("This device is no longer available through HyperFlux V2. "
++                             "The device list will update when the receiver confirms its pairing status.")
++        else:
++            message = self._("Device controls are unavailable. Retry, or open technical details if this continues.")
++        label = QLabel(message)
++        label.setWordWrap(True)
++        layout.addWidget(label)
++        retry = QPushButton(self._("Retry device controls"))
++        retry.clicked.connect(self.reload_device)
++        layout.addWidget(retry)
++        details = QPushButton(self._("Show technical details"))
++        details.setCheckable(True)
++        layout.addWidget(details)
++        error = QLabel(device.access_error)
++        error.setTextFormat(Qt.TextFormat.PlainText)
++        error.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
++        error.setWordWrap(True)
++        error.hide()
++        details.toggled.connect(error.setVisible)
++        layout.addWidget(error)
++        layout.addStretch()
++
++    def _show_receiver_status(self, layout, info):
++        layout.addWidget(ReceiverOverview(self.current_device, info, self._,
++                                         self.reload_device, self.widgets))
++
+     def reload_device(self):
+         """
+         Reloads the current device page.
+@@ -642,6 +711,18 @@ class DevicesTab(shared.TabData):
+         """
+         Shows a error message when a command sent to a device was unsuccessful.
+         """
++        if device.backend.is_device_connected(device) is False:
++            self.middleman.invalidate_cache()
++            QTimer.singleShot(0, self._refresh_after_disconnect)
++            return True
++
++        mark_unavailable = getattr(device.backend, 'mark_device_unavailable', None)
++        if callable(mark_unavailable) and mark_unavailable(device, err):
++            # Never retry a failed settings write. Reload only the read-only
++            # controls page, after the current widget callback has returned.
++            QTimer.singleShot(0, self.reload_device)
++            return True
++
+         backend_name = device.backend.name
+         exception = common.get_exception_as_string(err)
+         my_fault = common.is_exception_fault_by_app(err)
+@@ -1278,11 +1359,14 @@ class SpecialControls(shared.TabData):
+ 
+         # Send request once dropped
+         def _slider_dropped():
++            if device.access_error:
++                return
+             self.dbg.stdout(f"{device.name}: Setting DPI to {slider_x.value()}, {slider_y.value()}", self.dbg.action, 1)
+             try:
+                 device.dpi.set(slider_x.value(), slider_y.value())
+             except Exception as e:
+-                DevicesTab._catch_command_error(self, device=device, err=e)
++                self.appdata.tab_devices._catch_command_error(device=device, err=e)
++                return
+ 
+             # Sync state with stages buttons
+             for button in self.stage_buttons_group.buttons():
+diff --git a/polychromatic/controller/devicewatcher.py b/polychromatic/controller/devicewatcher.py
+new file mode 100644
+index 0000000..b80dd53
+--- /dev/null
++++ b/polychromatic/controller/devicewatcher.py
+@@ -0,0 +1,41 @@
++# Polychromatic is licensed under the GPLv3.
++"""Deliver OpenRazer hotplug notifications on the Qt event loop."""
++from PyQt6.QtCore import QObject, QTimer, pyqtSignal, pyqtSlot
++from PyQt6.QtDBus import QDBusConnection, QDBusServiceWatcher
++from PyQt6.QtWidgets import QApplication
++
++
++class DeviceWatcher(QObject):
++    devices_changed = pyqtSignal()
++
++    def __init__(self, parent=None, bus=None):
++        super().__init__(parent)
++        self.timer = QTimer(self)
++        self.timer.setSingleShot(True)
++        self.timer.setInterval(200)
++        self.timer.timeout.connect(self._deliver)
++        self.bus = bus if bus is not None else QDBusConnection.sessionBus()
++        for event in ('device_added', 'device_removed'):
++            self.bus.connect('org.razer', '/org/razer', 'razer.devices',
++                             event, self.schedule)
++        self.service_watcher = QDBusServiceWatcher(
++            'org.razer', self.bus,
++            QDBusServiceWatcher.WatchModeFlag.WatchForOwnerChange, self)
++        self.service_watcher.serviceOwnerChanged.connect(self._owner_changed)
++
++    @pyqtSlot()
++    def schedule(self):
++        self.timer.start()
++
++    @pyqtSlot(str, str, str)
++    def _owner_changed(self, service, old_owner, new_owner):
++        self.schedule()
++
++    @pyqtSlot()
++    def _deliver(self):
++        # Dialogs run nested event loops. Do not destroy controls while their
++        # colour picker/error dialog still has callbacks on the stack.
++        if QApplication.activeModalWidget() is not None:
++            self.timer.start()
++            return
++        self.devices_changed.emit()
+diff --git a/polychromatic/controller/receiver.py b/polychromatic/controller/receiver.py
+new file mode 100644
+index 0000000..b4ed54b
+--- /dev/null
++++ b/polychromatic/controller/receiver.py
+@@ -0,0 +1,363 @@
++# Polychromatic is licensed under the GPLv3.
++"""Explicit HyperFlux pairing actions; long work runs in the OpenRazer daemon."""
++from PyQt6.QtCore import QTimer, Qt
++from PyQt6.QtWidgets import QApplication, QCheckBox, QLabel, QMessageBox, QPushButton, QVBoxLayout, QWidget
++from .shared import PolychromaticWidgets
++
++
++class ReceiverPanel(QWidget):
++    """Use the same rows and themed, default-No dialogs as other devices."""
++    def row(self, title, *controls):
++        return PolychromaticWidgets.create_row_widget(self.widgets, title, list(controls))
++
++    def confirm(self, title, text):
++        if self.widgets is None:
++            return False  # No unthemed/implicit confirmation in headless clients.
++        accepted = []
++        self.widgets.open_dialog(self.widgets.dialog_warning, title, text,
++            buttons=[QMessageBox.StandardButton.Yes, QMessageBox.StandardButton.No],
++            default_button=QMessageBox.StandardButton.No,
++            actions={QMessageBox.StandardButton.Yes: lambda: accepted.append(True)})
++        return bool(accepted)
++
++    def label(self, text=''):
++        label = QLabel(text)
++        label.setWordWrap(True)
++        label.setTextFormat(Qt.TextFormat.PlainText)
++        return label
++
++    def refresh_allowed(self):
++        # Do not destroy a page while its modal confirmation is still open.
++        return QApplication.activeModalWidget() is None
++
++
++class ReceiverOverview(ReceiverPanel):
++    def __init__(self, device, info, translate, completed, widgets, parent=None):
++        super().__init__(parent)
++        self.device, self.info, self._ = device, info, translate
++        self.widgets, self.completed = widgets, completed
++        self.auto_panel = self.manual_panel = None
++        layout = QVBoxLayout(self)
++        layout.setContentsMargins(0, 0, 0, 0)
++        layout.setSpacing(4)
++        layout.addWidget(self.row(self._('Connection'), self.label(self._('USB · Wireless receiver and charging pad'))))
++        actions = device.receiver_actions
++        if 'driver_auto_pair' in actions:
++            self.auto_panel = DriverAutoPairPanel(device, info, translate, completed, widgets=widgets)
++            layout.addWidget(self.auto_panel)
++        if info.get('pairing_control') and all(k in actions for k in ('scan', 'pair', 'unpair', 'pairing_status')):
++            self.manual_panel = ReceiverPairingPanel(device, info, translate, completed, widgets=widgets)
++            layout.addWidget(self.manual_panel)
++        else:
++            live = info.get('inventory_source') == 'live-receiver-report'
++            for target in ('mouse', 'keyboard'):
++                pid = info.get(target + '_pid')
++                name = (info.get(target + '_name') or ReceiverPairingPanel.NAMES.get(pid, pid)) if pid and live else None
++                value = name or (self._('Not paired') if live else self._('Unavailable'))
++                layout.addWidget(self.row(self._('Mouse' if target == 'mouse' else 'Keyboard'), self.label(value)))
++            layout.addWidget(self.row(self._('Pairing'), self.label(self._('Unavailable · Check OpenRazer setup'))))
++
++        refresh = QPushButton(self._('Refresh'))
++        refresh.clicked.connect(completed)
++        layout.addWidget(self.row('', refresh))
++
++
++class DriverAutoPairPanel(ReceiverPanel):
++    """Read-only polling; only explicit Apply/Stop changes kernel policy."""
++    def __init__(self, device, info, translate, completed, parent=None, widgets=None):
++        super().__init__(parent)
++        self.widgets = widgets
++        self.actions, self._, self.completed = device.receiver_actions, translate, completed
++        self.status = info.get('pairing_status', {})
++        self.dirty = False
++        self.revision = self.status.get('kernel', {}).get('driver_auto_pair', {}).get('revision')
++        layout = QVBoxLayout(self)
++        layout.setContentsMargins(0, 0, 0, 0)
++        layout.setSpacing(4)
++        self.message = self.label()
++        self.slots = {}
++        for target, label in (('mouse', 'Mouse'), ('keyboard', 'Keyboard')):
++            box = QCheckBox(self._(label))
++            box.clicked.connect(self.mark_dirty)
++            self.slots[target] = box
++        self.apply_button = QPushButton(self._('Apply'))
++        self.apply_button.clicked.connect(self.apply)
++        self.stop_button = QPushButton(self._('Stop'))
++        self.stop_button.clicked.connect(lambda: self.configure(False, False))
++        layout.addWidget(self.row(self._('Auto-pair'), *self.slots.values(), self.apply_button, self.stop_button))
++        layout.addWidget(self.row(self._('Status'), self.message))
++        self.timer = QTimer(self)
++        self.timer.setInterval(1000)
++        self.timer.timeout.connect(self.poll)
++        self.render()
++        self.timer.start()
++
++    def mark_dirty(self):
++        self.dirty = True
++
++    def render(self):
++        kernel = self.status.get('kernel', {})
++        auto = kernel.get('driver_auto_pair', {})
++        self.message.setToolTip('')
++        available = bool(kernel.get('ready') and kernel.get('protocol_version', 1) >= 3 and auto)
++        if not self.dirty:
++            for target, box in self.slots.items():
++                box.setChecked(bool(auto.get(target)))
++        for box in self.slots.values():
++            box.setEnabled(available and not kernel.get('busy'))
++        self.apply_button.setEnabled(available and not kernel.get('busy') and not kernel.get('blocked'))
++        self.stop_button.setEnabled(bool(auto.get('mouse') or auto.get('keyboard') or
++                                         (auto.get('phase', 'idle') != 'idle')))
++        if not available:
++            message = self._('Unavailable · Check OpenRazer setup')
++        elif auto.get('error'):
++            message = self._('Stopped · Receiver error: ') + str(auto['error'])
++        elif auto.get('phase', 'idle') != 'idle':
++            keyboard = auto.get('target') == 'keyboard'
++            if auto['phase'] == 'scanning':
++                message = self._('Searching for a keyboard…' if keyboard else 'Searching for a mouse…')
++            elif auto['phase'] == 'pairing':
++                message = self._('Pairing discovered keyboard…' if keyboard else 'Pairing discovered mouse…')
++            else:
++                message = self._('Checking receiver…')
++            if not auto.get('mouse') and not auto.get('keyboard'):
++                message += self._(' · Stopping')
++        else:
++            enabled = [self._(target) for target in ('mouse', 'keyboard') if auto.get(target)]
++            message = self._('On · Waiting for a device') if enabled else self._('Off')
++            if enabled and 'empty_slots' in auto:
++                selected = (1 if auto.get('mouse') else 0) | (2 if auto.get('keyboard') else 0)
++                if not auto['empty_slots'] & selected:
++                    message = self._('On · Waiting for an empty slot')
++                elif auto.get('scans') and not auto.get('last_scan_candidate'):
++                    message = self._('No keyboard found · Will search again' if auto.get('last_scan_target') == 'keyboard'
++                                     else 'No mouse found · Will search again')
++        if 'scans' in auto and 'pair_attempts' in auto:
++            self.message.setToolTip(self._('Discovery scans: ') + str(auto['scans']) +
++                                    self._(' · Pairing attempts: ') + str(auto['pair_attempts']))
++        if kernel.get('blocked'):
++            message = self._('Stopped · Reconnect the mat to retry')
++        self.message.setText(message)
++
++    def poll(self):
++        try:
++            self.status = self.actions['pairing_status']()
++        except Exception as error:
++            self.status = {'error': str(error)}
++            self.render()
++            self.message.setText(self._('Receiver unavailable · Refresh to retry'))
++            self.message.setToolTip(str(error))
++            self.timer.stop()
++            return
++        self.render()
++        revision = self.status.get('kernel', {}).get('driver_auto_pair', {}).get('revision')
++        if self.revision is not None and revision is not None and revision != self.revision:
++            if not self.refresh_allowed():
++                return
++            self.timer.stop()
++            self.completed()
++        self.revision = revision
++
++    def apply(self):
++        self.render()
++        if not self.apply_button.isEnabled():
++            return
++        mouse, keyboard = (self.slots[t].isChecked() for t in ('mouse', 'keyboard'))
++        if mouse or keyboard:
++            if not self.confirm(self._('Enable auto-pairing?'), self._(
++                'Pair nearby devices into the selected empty slots?\n\n'
++                'This continues after closing the app and may replace a device’s previous dongle connection. '
++                'Keep other unpaired devices off.')):
++                return
++        self.configure(mouse, keyboard)
++
++    def configure(self, mouse, keyboard):
++        try:
++            self.actions['driver_auto_pair'](mouse, keyboard)
++            self.dirty = False
++            self.poll()
++        except Exception as error:
++            self.last_error = str(error)
++            self.status['setting_error'] = str(error)
++            self.message.setText(self._('Setting not changed'))
++            self.message.setToolTip(str(error))
++
++
++class ReceiverPairingPanel(ReceiverPanel):
++    NAMES = {'00a8': 'Razer Naga V2 Pro', '00e8': 'Razer Naga V3 Pro',
++             '02d5': 'Razer BlackWidow V4 Tenkeyless HyperSpeed'}
++    TESTED_PIDS = ('00a8', '00e8', '02d5')  # Capture coverage, never an allowlist.
++
++    def __init__(self, device, info, translate, completed, parent=None, widgets=None):
++        super().__init__(parent)
++        self.widgets = widgets
++        self.device, self.info, self._, self.completed = device, info, translate, completed
++        self.actions = device.receiver_actions
++        self.active_job = None
++        self.status = info.get('pairing_status', {})
++        layout = QVBoxLayout(self)
++        layout.setContentsMargins(0, 0, 0, 0)
++        layout.setSpacing(4)
++        self.message = self.label()
++        self.scan_buttons, self.unpair_buttons = {}, {}
++        # This page is recreated when receiver inventory is refreshed. Build
++        # controls from this receiver's live slots, never from the model list.
++        if self._live_inventory():
++            for target in ('mouse', 'keyboard'):
++                pid = self.info.get(target + '_pid')
++                if pid is None:
++                    scan = QPushButton(self._('Discover'))
++                    scan.setToolTip(self._('Discover mouse') if target == 'mouse' else self._('Discover keyboard'))
++                    scan.clicked.connect(lambda checked=False, target=target: self.start('scan', target))
++                    layout.addWidget(self.row(self._('Mouse' if target == 'mouse' else 'Keyboard'),
++                                             self.label(self._('Not paired')), scan))
++                    self.scan_buttons[target] = scan
++                elif self._valid_pid(pid):
++                    unpair = QPushButton(self._('Unpair'))
++                    unpair.setToolTip(self._('Unpair ') + self._device_name(pid, target))
++                    unpair.clicked.connect(lambda checked=False, pid=pid: self.confirm_unpair(pid))
++                    layout.addWidget(self.row(self._('Mouse' if target == 'mouse' else 'Keyboard'),
++                                             self.label(self._device_name(pid, target)), unpair))
++                    self.unpair_buttons[pid] = unpair
++                else:
++                    layout.addWidget(self.row(self._(target.title()), self.label(self._('Unknown · Refresh receiver'))))
++        else:
++            for target in ('Mouse', 'Keyboard'):
++                layout.addWidget(self.row(self._(target), self.label(self._('Status unavailable'))))
++        self.pair_button = QPushButton(self._('Pair'))
++        self.pair_button.clicked.connect(self.confirm_pair)
++        self.candidate_label = self.label()
++        self.candidate_row = self.row(self._('Discovered'), self.candidate_label, self.pair_button)
++        layout.addWidget(self.candidate_row)
++        layout.addWidget(self.row(self._('Manual pairing'), self.message))
++        self.timer = QTimer(self)
++        self.timer.setInterval(1000)
++        self.timer.timeout.connect(self.poll)
++        self.render()
++        self.timer.start()  # Status queries only; never a write on opening.
++
++    def _live_inventory(self):
++        # A failed query/snapshot is not evidence that either slot is empty.
++        return (self.info.get('inventory_source') == 'live-receiver-report' and
++                all(target + '_pid' in self.info for target in ('mouse', 'keyboard')))
++
++    @staticmethod
++    def _valid_pid(pid):
++        return (isinstance(pid, str) and len(pid) == 4 and
++                all(c in '0123456789abcdef' for c in pid) and pid not in ('0000', 'ffff'))
++
++    def _device_name(self, pid, target):
++        if (target == 'keyboard' and self.info.get('keyboard_pid') == pid and
++                self.info.get('keyboard_name')):
++            return self.info['keyboard_name']
++        return self.NAMES.get(pid, self._('Razer keyboard' if target == 'keyboard' else 'Razer mouse') +
++                              ' (1532:' + pid + ')')
++
++    def _candidate_target(self, kernel):
++        return kernel.get('candidate_type', '')
++
++    def _test_notice(self, pid):
++        if pid in self.TESTED_PIDS:
++            return ''
++        return '\n\n' + self._('This model has not been individually tested. The shared receiver-slot protocol will be used.')
++
++    def render(self):
++        kernel = self.status.get('kernel', {})
++        job = self.status.get('job') or {}
++        self.message.setToolTip(str(job.get('error') or kernel.get('error_message') or ''))
++        busy = bool(kernel.get('busy') or job.get('state') == 'running')
++        auto = kernel.get('driver_auto_pair', {})
++        auto_enabled = auto.get('mouse') or auto.get('keyboard')
++        current_protocol = kernel.get('protocol_version', 1) >= 2
++        enabled = (kernel.get('ready') and current_protocol and not kernel.get('blocked') and
++                   not busy and not auto_enabled and self._live_inventory())
++        if busy:
++            self.active_job = job.get('id') or self.active_job
++            message = self._('Receiver busy · Keep the device awake')
++        elif kernel.get('blocked'):
++            message = self._('Reconnect the mat to retry')
++        elif auto_enabled:
++            message = self._('Stop auto-pairing to use manual controls')
++        elif not kernel.get('ready'):
++            message = self._('Unavailable · Check OpenRazer setup')
++        elif job.get('state') == 'error':
++            message = self._('Operation failed')
++        elif not current_protocol:
++            message = self._('Unavailable · Update the OpenRazer kernel module')
++        elif not self._live_inventory():
++            message = self._('Pairing status unavailable · Refresh receiver')
++        elif job.get('result') == 'empty':
++            message = self._('Nothing found · Wake the device and retry')
++        elif job.get('result') in ('paired', 'unpaired'):
++            message = self._('Paired' if job['result'] == 'paired' else 'Unpaired')
++        else:
++            message = self._('Discover a device, then select Pair')
++        candidate = '{:04x}'.format(kernel.get('candidate', 0))
++        target = self._candidate_target(kernel)
++        valid = (self._valid_pid(candidate) and target in ('mouse', 'keyboard') and
++                 kernel.get('token', '0' * 16) != '0' * 16)
++        self.candidate_row.setVisible(valid)
++        self.candidate_label.setText(self._device_name(candidate, target) if valid else '')
++        self.message.setText(message)
++        for target, button in self.scan_buttons.items():
++            # Do not offer an unqualified replacement of an occupied slot.
++            button.setEnabled(bool(enabled and not self.info.get(target + '_pid')))
++        for pid, button in self.unpair_buttons.items():
++            matches = sum(self.info.get(slot + '_pid') == pid for slot in ('mouse', 'keyboard'))
++            button.setEnabled(bool(enabled and matches == 1))
++        target = self._candidate_target(kernel)
++        self.pair_button.setEnabled(bool(enabled and valid and not self.info.get(target + '_pid')))
++
++    def poll(self):
++        try:
++            self.status = self.actions['pairing_status']()
++        except Exception as error:
++            self.status = {'kernel': {'ready': False, 'error_message': str(error)}}
++            self.timer.stop()
++        self.render()
++        job = self.status.get('job') or {}
++        if self.active_job and job.get('id') == self.active_job and job.get('state') != 'running':
++            if not self.refresh_allowed():
++                return
++            self.active_job = None
++            self.timer.stop()
++            self.completed()  # Reload inventory through the normal device-load worker.
++        elif (not self._live_inventory() and self.info.get('inventory_source') == 'operation-in-progress'
++              and self.status.get('kernel', {}).get('ready') and not self.status['kernel'].get('busy')
++              and self.refresh_allowed() and self.timer.isActive()):
++            self.timer.stop()
++            self.completed()  # Recover the slot rows after opening during a scan.
++
++    def start(self, operation, *args):
++        try:
++            self.active_job = self.actions[operation](*args)
++            self.poll()
++        except Exception as error:
++            self.last_error = str(error)
++            self.status['start_error'] = str(error)
++            self.message.setText(self._('Operation not started'))
++            self.message.setToolTip(str(error))
++
++    def confirm_pair(self):
++        self.render()
++        if not self.pair_button.isEnabled():
++            return
++        kernel = self.status.get('kernel', {})
++        pid = '{:04x}'.format(kernel.get('candidate', 0))
++        target = self._candidate_target(kernel)
++        if not self._valid_pid(pid) or target not in ('mouse', 'keyboard'):
++            return
++        token = kernel.get('token', '')
++        if self.confirm(self._('Pair device?'), self._device_name(pid, target) + '\n\n' +
++            self._('Its previous dongle connection will be replaced.') + self._test_notice(pid)):
++            self.start('pair', pid, token)  # Kernel rejects expired/stale candidates.
++
++    def confirm_unpair(self, pid):
++        self.render()
++        button = self.unpair_buttons.get(pid)
++        if button is None or not button.isEnabled():
++            return
++        target = 'keyboard' if self.info.get('keyboard_pid') == pid else 'mouse'
++        if self.confirm(self._('Unpair device?'), self._device_name(pid, target) + '\n\n' +
++            self._('Input through this mat will stop. Have another input device available.') + self._test_notice(pid)):
++            self.start('unpair', pid)
+diff --git a/tests/test_device_artwork.py b/tests/test_device_artwork.py
+new file mode 100644
+index 0000000..2d058e5
+--- /dev/null
++++ b/tests/test_device_artwork.py
+@@ -0,0 +1,37 @@
++"""Model-specific artwork selection; no hardware, DBus or downloads."""
++from pathlib import Path
++from types import SimpleNamespace
++import unittest
++from unittest.mock import patch
++
++from polychromatic.backends.openrazer import OpenRazerBackend
++
++
++class ArtworkTest(unittest.TestCase):
++    def setUp(self):
++        self.data = Path(__file__).resolve().parents[1] / 'data'
++        self.backend = SimpleNamespace(_base=SimpleNamespace(paths=SimpleNamespace(data_dir=str(self.data))))
++
++    def test_all_v3_transports_use_bundled_image(self):
++        for transport in ('Wired', 'Wireless', 'HyperFlux V2'):
++            with self.subTest(transport=transport):
++                device = SimpleNamespace(name=f'Razer Naga V3 Pro ({transport})', device_image='remote')
++                path = OpenRazerBackend._get_device_image(self.backend, device)
++                self.assertEqual(path, str(self.data / 'devices/naga-v3-pro-with-side-plates.png'))
++                self.assertTrue(Path(path).is_file())
++
++    def test_v2_and_hyperflux_parent_are_unchanged(self):
++        for name in ('Razer Naga V2 Pro (Wired)', 'Razer Naga V2 Pro (Wireless)',
++                     'Razer Naga V2 Pro (HyperFlux V2)', 'Razer HyperFlux V2'):
++            with self.subTest(name=name):
++                device = SimpleNamespace(name=name, device_image='original-image')
++                self.assertEqual(OpenRazerBackend._get_device_image(self.backend, device), 'original-image')
++
++    def test_missing_asset_falls_back_to_daemon(self):
++        device = SimpleNamespace(name='Razer Naga V3 Pro (Wired)', device_image='original-image')
++        with patch('polychromatic.backends.openrazer.os.path.isfile', return_value=False):
++            self.assertEqual(OpenRazerBackend._get_device_image(self.backend, device), 'original-image')
++
++
++if __name__ == '__main__':
++    unittest.main()
+diff --git a/tests/test_hotplug.py b/tests/test_hotplug.py
+new file mode 100644
+index 0000000..0f0b650
+--- /dev/null
++++ b/tests/test_hotplug.py
+@@ -0,0 +1,160 @@
++"""Hardware-free regression tests. Run under dbus-run-session with offscreen Qt."""
++import os
++from pathlib import Path
++from types import SimpleNamespace
++import unittest
++from unittest.mock import Mock, patch
++
++from PyQt6.QtDBus import QDBusConnection, QDBusMessage
++from PyQt6.QtTest import QTest
++from PyQt6.QtWidgets import QApplication, QDialog, QTreeWidget, QTreeWidgetItem, QWidget
++from PyQt6.QtWidgets import QLabel, QVBoxLayout
++
++from polychromatic.backends._backend import Backend
++from polychromatic.backends.openrazer import OpenRazerBackend
++from polychromatic.controller.devices import DevicesTab
++from polychromatic.controller.devicewatcher import DeviceWatcher
++
++
++class HotplugTest(unittest.TestCase):
++    @classmethod
++    def setUpClass(cls):
++        cls.app = QApplication.instance() or QApplication([])
++
++    @unittest.skipUnless(os.environ.get('POLY_TEST_PRIVATE_BUS') == '1', 'Requires isolated test bus')
++    def test_real_dbus_signals_and_restart(self):
++        # The explicit guard prevents this test claiming the user's live service.
++        self.assertEqual(os.environ.get('POLY_TEST_PRIVATE_BUS'), '1')
++        bus = QDBusConnection.sessionBus()
++        self.assertTrue(bus.registerService('org.razer'))
++        self.addCleanup(bus.unregisterService, 'org.razer')
++        watcher = DeviceWatcher(bus=bus)
++        received = Mock()
++        watcher.devices_changed.connect(received)
++        for name in ('device_removed', 'device_added'):
++            self.assertTrue(bus.send(QDBusMessage.createSignal('/org/razer', 'razer.devices', name)))
++        QTest.qWait(450)
++        self.assertEqual(received.call_count, 1)  # coalesced
++        bus.unregisterService('org.razer')
++        QTest.qWait(450)
++        self.assertEqual(received.call_count, 2)
++        self.assertTrue(bus.registerService('org.razer'))
++        QTest.qWait(450)
++        self.assertEqual(received.call_count, 3)
++        watcher.deleteLater()
++        self.app.processEvents()
++
++    def test_dialog_defers_refresh(self):
++        watcher = DeviceWatcher()
++        received = Mock()
++        watcher.devices_changed.connect(received)
++        dialog = QDialog()
++        dialog.setModal(True)
++        dialog.show()
++        watcher.schedule()
++        QTest.qWait(400)
++        received.assert_not_called()
++        dialog.close()
++        QTest.qWait(400)
++        received.assert_called_once()
++        watcher.deleteLater()
++
++    def test_presence_uses_live_registry_not_cached_devices(self):
++        backend = SimpleNamespace(devman=SimpleNamespace(
++            devices=[SimpleNamespace(serial='V2')],
++            _dbus_devices=SimpleNamespace(getDevices=Mock(return_value=['V3']))))
++        self.assertFalse(OpenRazerBackend.is_device_connected(backend, SimpleNamespace(serial='V2')))
++        self.assertTrue(OpenRazerBackend.is_device_connected(backend, SimpleNamespace(serial='V3')))
++        backend.devman._dbus_devices.getDevices.side_effect = RuntimeError('bus unavailable')
++        self.assertIsNone(OpenRazerBackend.is_device_connected(backend, SimpleNamespace(serial='V3')))
++
++    def test_removed_device_error_refreshes_without_dialog(self):
++        tab = SimpleNamespace(middleman=Mock(), _refresh_after_disconnect=Mock(), widgets=Mock())
++        device = SimpleNamespace(backend=SimpleNamespace(is_device_connected=lambda d: False))
++        self.assertTrue(DevicesTab._catch_command_error(tab, device, RuntimeError('UnknownMethod')))
++        QTest.qWait(10)
++        tab._refresh_after_disconnect.assert_called_once()
++        tab.widgets.open_dialog.assert_not_called()
++
++    def test_connected_device_error_is_not_suppressed(self):
++        tab = SimpleNamespace(widgets=Mock(), dbg=Mock(), _=lambda s: s)
++        device = SimpleNamespace(backend=SimpleNamespace(name='OpenRazer', is_device_connected=lambda d: True))
++        try:
++            raise RuntimeError('real protocol failure')
++        except RuntimeError as err:
++            DevicesTab._catch_command_error(tab, device, err)
++        tab.widgets.open_dialog.assert_called_once()
++
++    def test_sidebar_refresh_and_selection(self):
++        container = QWidget()
++        tree = QTreeWidget(container)
++        tasks = QTreeWidgetItem(tree)
++        QTreeWidgetItem(tasks)
++        branch = QTreeWidgetItem(tree)
++        backend = SimpleNamespace(backend_id='openrazer', version='3.12.4')
++        devices = []
++        for serial in ('V2', 'V3'):
++            device = Backend.DeviceItem()
++            device.serial = serial
++            device.name = serial
++            device.backend = backend
++            device.form_factor = {'icon': ''}
++            devices.append(device)
++        middleman = SimpleNamespace(
++            invalidate_cache=Mock(), get_devices=lambda: devices,
++            get_unsupported_devices=lambda: [], get_backend=lambda _: backend,
++            backends=[backend], import_errors={}, not_installed=[])
++        tab = SimpleNamespace(
++            current_device=devices[1], _device_key=DevicesTab._device_key,
++            set_title=Mock(), _=lambda s: s, SidebarTree=tree, middleman=middleman,
++            paths=SimpleNamespace(data_dir=str(Path(__file__).resolve().parents[1] / 'data')))
++        def open_device(device):
++            tab.current_device = device
++        tab.open_device = Mock(side_effect=open_device)
++        DevicesTab.set_tab(tab)
++        self.assertEqual(tab.current_device.serial, 'V3')
++        devices.pop(0)
++        DevicesTab.set_tab(tab)
++        self.assertEqual(branch.childCount(), 1)
++        self.assertEqual(tab.current_device.serial, 'V3')
++        self.assertEqual(middleman.invalidate_cache.call_count, 2)
++
++    def test_disconnect_during_enumeration(self):
++        backend = SimpleNamespace(
++            _reload_device_manager=Mock(), devman=SimpleNamespace(devices=[SimpleNamespace(serial='V2')]),
++            _get_device_or_unavailable=Mock(side_effect=RuntimeError('UnknownMethod')),
++            is_device_connected=lambda d: False)
++        self.assertEqual(OpenRazerBackend.get_devices(backend), [])
++        backend.is_device_connected = lambda d: True
++        with self.assertRaises(RuntimeError):
++            OpenRazerBackend.get_devices(backend)
++
++    def test_receiver_status_does_not_advertise_mouse_controls(self):
++        backend = object.__new__(OpenRazerBackend)
++        backend._get_form_factor = lambda d: {'icon': '', 'id': 'mousemat'}
++        backend._get_device_image = lambda d: ''
++        backend._is_device_monochromatic = lambda d: False
++        backend._get_device_vid_pid = lambda d: {'vid': '1532', 'pid': '00cf'}
++        raw = SimpleNamespace(
++            has=lambda cap: cap in ('serial', 'firmware_version', 'hyperflux_receiver'),
++            serial='HYPERFLUXV2_TEST', name='Razer HyperFlux V2', firmware_version='Not reported',
++            receiver_info={'mouse_pid': '00e8', 'pairing_control': False,
++                           'inventory_source': 'live-receiver-report'})
++        device = backend._get_device(raw)
++        device.refresh()
++        self.assertEqual(device.zones, [])
++        self.assertIsNone(device.dpi)
++        self.assertIsNone(device.battery)
++        container = QWidget()
++        layout = QVBoxLayout(container)
++        tab = SimpleNamespace(_=lambda s: s, current_device=device, reload_device=Mock(), widgets=SimpleNamespace(
++            create_row_widget=lambda title, labels: QLabel(title + ': ' + labels[0].text())))
++        DevicesTab._show_receiver_status(tab, layout, device.receiver_info)
++        text = '\n'.join(widget.text() for widget in container.findChildren(QLabel))
++        self.assertIn('Razer Naga V3 Pro', text)
++        self.assertIn('Check OpenRazer setup', text)
++        self.assertNotIn('Manual pairing controls require', text)
++
++
++if __name__ == '__main__':
++    unittest.main()
+diff --git a/tests/test_hyperflux_controls.py b/tests/test_hyperflux_controls.py
+new file mode 100644
+index 0000000..72a0103
+--- /dev/null
++++ b/tests/test_hyperflux_controls.py
+@@ -0,0 +1,117 @@
++"""Hardware-free checks for the receiver's explicit, acknowledged commands."""
++import unittest
++from types import SimpleNamespace
++from unittest.mock import Mock, patch
++from PyQt6.QtGui import QPalette
++from PyQt6.QtWidgets import QApplication, QLabel, QMessageBox, QPushButton, QVBoxLayout, QWidget
++from polychromatic.controller.devices import DevicesTab
++from polychromatic.controller.receiver import ReceiverOverview, ReceiverPanel
++from polychromatic.controller.shared import PolychromaticWidgets
++
++
++class ReceiverControlsTest(unittest.TestCase):
++    @classmethod
++    def setUpClass(cls):
++        cls.app = QApplication.instance() or QApplication([])
++
++    def make_page(self, action, info):
++        page = QWidget()
++        layout = QVBoxLayout(page)
++        def row(title, children):
++            widget = QWidget()
++            row_layout = QVBoxLayout(widget)
++            row_layout.addWidget(QLabel(title))
++            for child in children:
++                row_layout.addWidget(child)
++            return widget
++        device = SimpleNamespace(receiver_actions={'auto_pair': action} if action else {})
++        tab = SimpleNamespace(_=lambda s: s, current_device=device, reload_device=Mock(),
++                              widgets=SimpleNamespace(create_row_widget=row, open_dialog=Mock(),
++                                                      dialog_error=QMessageBox.Icon.Critical))
++        DevicesTab._show_receiver_status(tab, layout, info)
++        return page, tab
++
++    def test_firmware_controls_are_absent_regardless_of_last_command(self):
++        for last_ack in (None, True, False):
++            with self.subTest(last_ack=last_ack):
++                action = Mock()
++                page, tab = self.make_page(action, {'auto_pair_control': True, 'auto_pair_last_ack': last_ack})
++                self.addCleanup(page.deleteLater)
++                buttons = {b.text(): b for b in page.findChildren(QPushButton)}
++                self.assertEqual(set(buttons), {'Refresh'})
++                labels = ' '.join(label.text() for label in page.findChildren(QLabel))
++                self.assertNotIn('Firmware', labels)
++                self.assertNotIn('Last command', labels)
++                buttons['Refresh'].click()
++                action.assert_not_called()
++                tab.reload_device.assert_called_once()
++
++    def test_removed_firmware_action_is_never_called_even_if_it_would_fail(self):
++        action = Mock(side_effect=OSError('Operation not supported'))
++        page, tab = self.make_page(action, {'auto_pair_control': True})
++        self.addCleanup(page.deleteLater)
++        next(b for b in page.findChildren(QPushButton) if b.text() == 'Refresh').click()
++        action.assert_not_called()
++        tab.widgets.open_dialog.assert_not_called()
++        tab.reload_device.assert_called_once()
++
++    def test_old_kernel_and_missing_client_method_have_only_refresh(self):
++        for action, info in ((Mock(), {}), (None, {'auto_pair_control': True})):
++            page, tab = self.make_page(action, info)
++            self.addCleanup(page.deleteLater)
++            self.assertEqual([b.text() for b in page.findChildren(QPushButton)], ['Refresh'])
++
++    def test_overview_has_only_pairing_controls_and_refresh_without_writes(self):
++        status = {'kernel': {'ready': True, 'protocol_version': 3, 'busy': False,
++            'blocked': False, 'candidate': 0, 'token': '0' * 16,
++            'driver_auto_pair': {'mouse': True, 'keyboard': True, 'phase': 'idle', 'target': '',
++                'error': 0, 'revision': 0, 'scans': 10, 'pair_attempts': 0,
++                'empty_slots': 1, 'last_scan_target': 'mouse', 'last_scan_candidate': 0}}}
++        info = {'pairing_status': status, 'mouse_pid': None, 'keyboard_pid': '02d5',
++                'inventory_source': 'live-receiver-report', 'pairing_control': True}
++        actions = {name: Mock() for name in ('auto_pair', 'driver_auto_pair', 'scan', 'pair', 'unpair')}
++        actions['pairing_status'] = Mock(return_value=status)
++        page = ReceiverOverview(SimpleNamespace(receiver_actions=actions), info, lambda s: s, Mock(), Mock())
++        self.addCleanup(page.deleteLater)
++        page.resize(580, 440)
++        page.show()
++        self.app.processEvents()
++        text = ' '.join(label.text() for label in page.findChildren(QLabel) if label.isVisibleTo(page))
++        self.assertLess(len(text), 450, text)
++        self.assertLess(page.minimumSizeHint().width(), 580)
++        self.assertLess(page.sizeHint().height(), 400)
++        self.assertFalse(hasattr(page, 'advanced'))
++        self.assertFalse(hasattr(page, 'set_firmware_auto'))
++        self.assertEqual({b.text() for b in page.findChildren(QPushButton)},
++                         {'Apply', 'Stop', 'Discover', 'Unpair', 'Pair', 'Refresh'})
++        self.assertNotIn('Firmware', text)
++        for name in ('auto_pair', 'driver_auto_pair', 'scan', 'pair', 'unpair'):
++            actions[name].assert_not_called()
++        page.widgets.open_dialog.assert_not_called()
++        page.auto_panel.timer.stop()
++        page.manual_panel.timer.stop()
++        page.close()
++
++    def test_real_confirmation_uses_application_theme_and_defaults_to_no(self):
++        appdata = SimpleNamespace(system_qt_theme=False, dbg=Mock(),
++            normal_colour='#DED9CB', disabled_colour='#828282', active_colour='#00FF00',
++            selected_colour='#FFFFFF', secondary_colour_active='#008000', secondary_colour_inactive='#323232')
++        widget = ReceiverPanel()
++        widget.widgets = PolychromaticWidgets(appdata)
++        self.addCleanup(widget.deleteLater)
++        def reject(dialog):
++            self.assertTrue(dialog.styleSheet())
++            self.assertEqual(dialog.defaultButton(), dialog.button(QMessageBox.StandardButton.No))
++            self.assertLess(dialog.palette().color(QPalette.ColorRole.Window).lightness(), 80)
++            self.assertGreater(dialog.palette().color(QPalette.ColorRole.WindowText).lightness(), 180)
++            dialog.button(QMessageBox.StandardButton.No).click()
++        with patch.object(QMessageBox, 'exec', reject):
++            self.assertFalse(widget.confirm('Enable auto-pairing?', 'Pair nearby devices?'))
++        def accept(dialog):
++            dialog.button(QMessageBox.StandardButton.Yes).click()
++        with patch.object(QMessageBox, 'exec', accept):
++            self.assertTrue(widget.confirm('Pair device?', 'A test device'))
++
++
++if __name__ == '__main__':
++    unittest.main()
+diff --git a/tests/test_hyperflux_driver_auto.py b/tests/test_hyperflux_driver_auto.py
+new file mode 100644
+index 0000000..96d3ad1
+--- /dev/null
++++ b/tests/test_hyperflux_driver_auto.py
+@@ -0,0 +1,152 @@
++"""No hardware I/O: explicit opt-in, real kernel state and manual exclusion."""
++import unittest
++from types import SimpleNamespace
++from unittest.mock import Mock, patch
++from PyQt6.QtWidgets import QApplication, QMessageBox
++from polychromatic.controller.receiver import DriverAutoPairPanel, ReceiverPairingPanel
++
++
++class DriverAutoPanelTest(unittest.TestCase):
++    @classmethod
++    def setUpClass(cls):
++        cls.app = QApplication.instance() or QApplication([])
++
++    def panel(self):
++        kernel = {'ready': True, 'busy': False, 'blocked': False, 'protocol_version': 3,
++                  'candidate': 0, 'candidate_type': '', 'token': '0' * 16,
++                  'driver_auto_pair': {'mouse': False, 'keyboard': False, 'phase': 'idle',
++                                       'target': '', 'error': 0, 'revision': 0}}
++        status = {'kernel': kernel, 'job': None}
++        actions = {'driver_auto_pair': Mock(), 'pairing_status': Mock(return_value=status)}
++        info = {'pairing_status': status, 'inventory_source': 'live-receiver-report',
++                'mouse_pid': None, 'keyboard_pid': None}
++        widget = DriverAutoPairPanel(SimpleNamespace(receiver_actions=actions), info, lambda s: s, Mock())
++        widget.timer.stop()
++        self.addCleanup(widget.deleteLater)
++        return widget, actions, kernel
++
++    def test_open_poll_and_select_do_not_enable(self):
++        widget, actions, kernel = self.panel()
++        widget.poll()
++        widget.slots['keyboard'].click()
++        widget.poll()
++        self.assertTrue(widget.slots['keyboard'].isChecked())  # Poll cannot discard edits.
++        actions['driver_auto_pair'].assert_not_called()
++        with patch.object(widget, 'confirm', return_value=False):
++            widget.apply()
++        actions['driver_auto_pair'].assert_not_called()
++
++    def test_mouse_keyboard_and_both_require_explicit_confirmation(self):
++        for mouse, keyboard in ((True, False), (False, True), (True, True)):
++            widget, actions, kernel = self.panel()
++            for target, enabled in (('mouse', mouse), ('keyboard', keyboard)):
++                if enabled:
++                    widget.slots[target].click()
++            with patch.object(widget, 'confirm', return_value=True):
++                widget.apply()
++            actions['driver_auto_pair'].assert_called_once_with(mouse, keyboard)
++            # Mock has not acknowledged new state: do not invent enabled state.
++            self.assertFalse(widget.slots['mouse'].isChecked())
++            self.assertFalse(widget.slots['keyboard'].isChecked())
++
++    def test_stop_remains_available_during_scan(self):
++        widget, actions, kernel = self.panel()
++        kernel['driver_auto_pair'].update(keyboard=True, phase='scanning', target='keyboard')
++        kernel['busy'] = True
++        widget.poll()
++        self.assertFalse(widget.apply_button.isEnabled())
++        self.assertTrue(widget.stop_button.isEnabled())
++        widget.stop_button.click()
++        actions['driver_auto_pair'].assert_called_once_with(False, False)
++
++    def test_error_and_disconnect_do_not_retry_or_claim_success(self):
++        widget, actions, kernel = self.panel()
++        actions['driver_auto_pair'].side_effect = OSError('busy')
++        widget.configure(True, True)
++        actions['driver_auto_pair'].assert_called_once_with(True, True)
++        self.assertIn('not changed', widget.message.text())
++        self.assertNotIn('Diagnostics', widget.message.text())
++        self.assertEqual(widget.message.toolTip(), 'busy')
++        actions['pairing_status'].side_effect = OSError('disconnected')
++        widget.poll()
++        self.assertEqual(widget.message.text(), 'Receiver unavailable · Refresh to retry')
++        self.assertEqual(widget.message.toolTip(), 'disconnected')
++        self.assertFalse(widget.timer.isActive())
++        self.assertFalse(widget.apply_button.isEnabled())
++        self.assertFalse(widget.stop_button.isEnabled())
++
++    def test_successful_poll_clears_obsolete_error_tooltip(self):
++        widget, actions, kernel = self.panel()
++        actions['driver_auto_pair'].side_effect = OSError('busy')
++        widget.configure(True, False)
++        self.assertEqual(widget.message.toolTip(), 'busy')
++        widget.poll()
++        self.assertEqual(widget.message.toolTip(), '')
++        self.assertEqual(widget.message.text(), 'Off')
++
++    def test_completed_driver_pair_refreshes_inventory(self):
++        widget, actions, kernel = self.panel()
++        kernel['driver_auto_pair']['revision'] = 1
++        widget.poll()
++        widget.poll()
++        widget.completed.assert_called_once()
++        actions['driver_auto_pair'].assert_not_called()
++
++    def test_manual_pairing_is_disabled_while_either_auto_slot_is_on(self):
++        for target in ('mouse', 'keyboard'):
++            widget, actions, kernel = self.panel()
++            kernel['driver_auto_pair'][target] = True
++            actions.update({k: Mock() for k in ('scan', 'pair', 'unpair')})
++            info = {'pairing_status': {'kernel': kernel, 'job': None},
++                    'mouse_pid': None, 'keyboard_pid': None, 'inventory_source': 'live-receiver-report'}
++            manual = ReceiverPairingPanel(SimpleNamespace(receiver_actions=actions), info, lambda s: s, Mock())
++            manual.timer.stop()
++            self.addCleanup(manual.deleteLater)
++            self.assertTrue(all(not b.isEnabled() for b in manual.scan_buttons.values()))
++            self.assertIn('Stop auto-pairing', manual.message.text())
++            self.assertFalse(manual.pair_button.isEnabled())
++
++    def test_two_pads_do_not_share_mode(self):
++        first, first_actions, first_kernel = self.panel()
++        second, second_actions, second_kernel = self.panel()
++        first_kernel['driver_auto_pair'].update(mouse=True, keyboard=True)
++        first.poll()
++        second.poll()
++        self.assertTrue(first.slots['keyboard'].isChecked())
++        self.assertFalse(second.slots['keyboard'].isChecked())
++        first.stop_button.click()
++        first_actions['driver_auto_pair'].assert_called_once_with(False, False)
++        second_actions['driver_auto_pair'].assert_not_called()
++
++    def test_empty_scans_are_not_labelled_pairing(self):
++        widget, actions, kernel = self.panel()
++        auto = kernel['driver_auto_pair']
++        auto.update(mouse=True, keyboard=True, phase='scanning', target='mouse',
++                    scans=2, pair_attempts=0, empty_slots=1,
++                    last_scan_target='mouse', last_scan_candidate=0)
++        widget.poll()
++        self.assertEqual('Searching for a mouse…', widget.message.text())
++        auto.update(phase='idle', target='')
++        widget.poll()
++        self.assertIn('No mouse found', widget.message.text())
++        self.assertIn('Pairing attempts: 0', widget.message.toolTip())
++        auto.update(phase='pairing', target='mouse', pair_attempts=1)
++        widget.poll()
++        self.assertEqual('Pairing discovered mouse…', widget.message.text())
++        auto.update(phase='idle', target='', empty_slots=0)
++        widget.poll()
++        self.assertIn('Waiting for an empty slot', widget.message.text())
++        actions['driver_auto_pair'].assert_not_called()
++
++    def test_confirmation_dialog_defers_page_replacement(self):
++        widget, actions, kernel = self.panel()
++        kernel['driver_auto_pair']['revision'] = 1
++        with patch.object(QApplication, 'activeModalWidget', return_value=object()):
++            widget.poll()
++        widget.completed.assert_not_called()
++        widget.poll()
++        widget.completed.assert_called_once()
++
++
++if __name__ == '__main__':
++    unittest.main()
+diff --git a/tests/test_hyperflux_pairing.py b/tests/test_hyperflux_pairing.py
+new file mode 100644
+index 0000000..f23b098
+--- /dev/null
++++ b/tests/test_hyperflux_pairing.py
+@@ -0,0 +1,214 @@
++"""No device I/O: explicit consent, nonblocking jobs, stale/disconnected UI."""
++import unittest
++from types import SimpleNamespace
++from unittest.mock import Mock, patch
++from PyQt6.QtWidgets import QApplication, QLabel, QMessageBox, QPushButton
++from polychromatic.controller.receiver import ReceiverPairingPanel
++
++
++class PairingPanelTest(unittest.TestCase):
++    @classmethod
++    def setUpClass(cls):
++        cls.app = QApplication.instance() or QApplication([])
++
++    def panel(self, pid=None, mouse_pid='00a8', inventory_source='live-receiver-report'):
++        kernel = {'ready': True, 'busy': False, 'blocked': False, 'candidate': 0x02d5,
++                  'protocol_version': 2, 'candidate_type': 'keyboard',
++                  'token': '0123456789abcdef', 'error': 0}
++        status = {'kernel': kernel, 'job': None}
++        actions = {key: Mock(return_value='job1') for key in ('scan', 'pair', 'unpair')}
++        actions['pairing_status'] = Mock(return_value=status)
++        info = {'pairing_status': status, 'mouse_pid': mouse_pid, 'keyboard_pid': pid,
++                'inventory_source': inventory_source}
++        widget = ReceiverPairingPanel(SimpleNamespace(receiver_actions=actions), info, lambda s: s, Mock())
++        self.addCleanup(widget.deleteLater)
++        widget.timer.stop()
++        return widget, actions, status
++
++    def test_open_and_poll_do_not_write(self):
++        widget, actions, status = self.panel()
++        widget.poll()
++        for action in ('scan', 'pair', 'unpair'):
++            actions[action].assert_not_called()
++        self.assertTrue(widget.pair_button.isEnabled())
++        self.assertNotIn('mouse', widget.scan_buttons)
++
++    def test_pair_requires_confirmation_and_exact_candidate(self):
++        widget, actions, status = self.panel()
++        with patch.object(widget, 'confirm', return_value=False):
++            widget.confirm_pair()
++        actions['pair'].assert_not_called()
++        with patch.object(widget, 'confirm', return_value=True):
++            widget.confirm_pair()
++        actions['pair'].assert_called_once_with('02d5', '0123456789abcdef')
++
++    def test_unpair_requires_confirmation_and_does_not_target_mouse(self):
++        widget, actions, status = self.panel('02d5')
++        with patch.object(widget, 'confirm', return_value=False):
++            widget.confirm_unpair('02d5')
++        actions['unpair'].assert_not_called()
++        with patch.object(widget, 'confirm', return_value=True):
++            widget.confirm_unpair('02d5')
++        actions['unpair'].assert_called_once_with('02d5')
++
++    def test_busy_then_completed_reloads_once(self):
++        widget, actions, status = self.panel()
++        status['job'] = {'id': 'job1', 'state': 'running'}
++        widget.start('scan', 'keyboard')
++        self.assertFalse(widget.pair_button.isEnabled())
++        self.assertFalse(widget.scan_buttons['keyboard'].isEnabled())
++        widget.completed.assert_not_called()
++        status['job'].update(state='complete', result='found')
++        widget.poll()
++        widget.poll()
++        widget.completed.assert_called_once()
++
++    def test_expired_candidate_blocked_and_disconnect_disable_controls(self):
++        widget, actions, status = self.panel()
++        status['kernel'].update(candidate=0, token='0' * 16)
++        widget.poll()
++        self.assertFalse(widget.pair_button.isEnabled())
++        status['kernel']['blocked'] = True
++        widget.poll()
++        self.assertFalse(widget.scan_buttons['keyboard'].isEnabled())
++        actions['pairing_status'].side_effect = OSError('disconnected')
++        widget.poll()
++        self.assertFalse(widget.timer.isActive())
++        self.assertFalse(widget.unpair_buttons['00a8'].isEnabled())
++
++    def test_v3_only_pad_has_no_unpair_buttons_for_test_lab_devices(self):
++        widget, actions, status = self.panel(mouse_pid='00e8')
++        self.assertEqual(set(widget.unpair_buttons), {'00e8'})
++        self.assertTrue(widget.unpair_buttons['00e8'].isEnabled())
++        self.assertEqual(set(widget.scan_buttons), {'keyboard'})
++        self.assertTrue(widget.scan_buttons['keyboard'].isEnabled())
++        self.assertEqual([b.toolTip() for b in widget.findChildren(QPushButton) if b.text() == 'Unpair'],
++                         ['Unpair Razer Naga V3 Pro'])
++        widget.poll()
++        for action in ('scan', 'pair', 'unpair'):
++            actions[action].assert_not_called()
++
++    def test_only_present_supported_devices_have_unpair_controls(self):
++        for mouse, keyboard, expected in (('00a8', None, {'00a8'}),
++                                          (None, '02d5', {'02d5'}),
++                                          ('00a8', '02d5', {'00a8', '02d5'}),
++                                          (None, None, set())):
++            with self.subTest(mouse=mouse, keyboard=keyboard):
++                widget, actions, status = self.panel(keyboard, mouse_pid=mouse)
++                self.assertEqual(set(widget.unpair_buttons), expected)
++                self.assertTrue(all(b.isEnabled() for b in widget.unpair_buttons.values()))
++                self.assertEqual(set(widget.scan_buttons),
++                                 {slot for slot, pid in (('mouse', mouse), ('keyboard', keyboard)) if pid is None})
++
++    def test_model_independent_slots_have_unpair_controls(self):
++        for mouse, keyboard in (('abcd', '1234'), ('02d5', '00a8')):
++            with self.subTest(mouse=mouse, keyboard=keyboard):
++                widget, actions, status = self.panel(keyboard, mouse_pid=mouse)
++                self.assertEqual(set(widget.unpair_buttons), {mouse, keyboard})
++                self.assertTrue(all(b.isEnabled() for b in widget.unpair_buttons.values()))
++                self.assertEqual(widget.scan_buttons, {})
++
++    def test_failed_inventory_is_not_an_empty_or_paired_slot(self):
++        for source in ('unavailable', 'driver-binding-snapshot', 'operation-in-progress', None):
++            for mouse in (None, '00a8'):
++                with self.subTest(source=source, mouse=mouse):
++                    widget, actions, status = self.panel(mouse_pid=mouse, inventory_source=source)
++                    self.assertEqual(widget.unpair_buttons, {})
++                    self.assertEqual(widget.scan_buttons, {})
++                    self.assertFalse(widget.pair_button.isEnabled())
++                    self.assertIn('Pairing status unavailable', widget.message.text())
++
++    def test_unpair_absent_device_cannot_prompt_or_write(self):
++        widget, actions, status = self.panel(mouse_pid='00e8')
++        with patch.object(widget, 'confirm') as question:
++            for pid in ('00a8', '02d5', 'abcd'):
++                widget.confirm_unpair(pid)
++        question.assert_not_called()
++        actions['unpair'].assert_not_called()
++
++    def test_v3_candidate_can_pair_using_mouse_slot(self):
++        widget, actions, status = self.panel(mouse_pid=None)
++        status['kernel'].update(candidate=0x00e8, candidate_type='mouse')
++        widget.poll()
++        self.assertTrue(widget.pair_button.isEnabled())
++        with patch.object(widget, 'confirm', return_value=True) as question:
++            widget.confirm_pair()
++        self.assertNotIn('not been individually tested', question.call_args.args[1])
++        actions['pair'].assert_called_once_with('00e8', '0123456789abcdef')
++
++    def test_two_receiver_pages_do_not_share_devices_or_actions(self):
++        lab, lab_actions, lab_status = self.panel('02d5')
++        local, local_actions, local_status = self.panel(mouse_pid='00e8')
++        self.assertEqual(set(lab.unpair_buttons), {'00a8', '02d5'})
++        self.assertEqual(set(local.unpair_buttons), {'00e8'})
++        local.scan_buttons['keyboard'].click()
++        local_actions['scan'].assert_called_once_with('keyboard')
++        lab_actions['scan'].assert_not_called()
++        # A newly refreshed empty page must not inherit the old page's buttons.
++        refreshed, actions, status = self.panel(mouse_pid=None)
++        self.assertEqual(refreshed.unpair_buttons, {})
++        self.assertEqual(set(refreshed.scan_buttons), {'mouse', 'keyboard'})
++
++    def test_other_keyboard_uses_keyboard_slot_and_warns_without_blocking(self):
++        widget, actions, status = self.panel('02ba', mouse_pid='00e8')
++        with patch.object(widget, 'confirm', return_value=True) as question:
++            widget.confirm_unpair('02ba')
++        self.assertIn('not been individually tested', question.call_args.args[1])
++        actions['unpair'].assert_called_once_with('02ba')
++        fresh, actions, status = self.panel(mouse_pid='00e8')
++        status['kernel'].update(candidate=0x02ba, candidate_type='keyboard')
++        fresh.poll()
++        self.assertTrue(fresh.pair_button.isEnabled())
++        status['kernel']['candidate_type'] = 'mouse'
++        fresh.poll()
++        self.assertFalse(fresh.pair_button.isEnabled())  # Existing mouse, not PID heuristic.
++
++    def test_old_kernel_and_ambiguous_inventory_fail_closed(self):
++        widget, actions, status = self.panel('00e8', mouse_pid='00e8')
++        self.assertFalse(widget.unpair_buttons['00e8'].isEnabled())
++        status['kernel'].pop('protocol_version')
++        widget.poll()
++        self.assertIn('Update the OpenRazer kernel module', widget.message.text())
++        self.assertFalse(widget.pair_button.isEnabled())
++
++    def test_open_during_scan_recovers_slot_rows_when_idle(self):
++        widget, actions, status = self.panel(inventory_source='operation-in-progress')
++        widget.timer.start()
++        status['kernel']['busy'] = True
++        widget.poll()
++        widget.completed.assert_not_called()
++        status['kernel']['busy'] = False
++        widget.poll()
++        widget.poll()
++        widget.completed.assert_called_once()
++        for key in ('scan', 'pair', 'unpair'):
++            actions[key].assert_not_called()
++
++    def test_errors_use_status_tooltips_without_removed_diagnostics_link(self):
++        widget, actions, status = self.panel()
++        status['job'] = {'id': 'old', 'state': 'error', 'error': 'Receiver rejected discovery'}
++        widget.poll()
++        self.assertEqual(widget.message.text(), 'Operation failed')
++        self.assertEqual(widget.message.toolTip(), 'Receiver rejected discovery')
++        status['job'] = None
++        widget.poll()
++        self.assertEqual(widget.message.toolTip(), '')
++        actions['pairing_status'].side_effect = OSError('disconnected')
++        widget.poll()
++        self.assertEqual(widget.message.text(), 'Unavailable · Check OpenRazer setup')
++        self.assertEqual(widget.message.toolTip(), 'disconnected')
++        self.assertFalse(widget.timer.isActive())
++
++    def test_failed_start_keeps_error_details_without_extra_buttons(self):
++        widget, actions, status = self.panel()
++        actions['scan'].side_effect = OSError('Receiver busy')
++        widget.start('scan', 'keyboard')
++        self.assertEqual(widget.message.text(), 'Operation not started')
++        self.assertEqual(widget.message.toolTip(), 'Receiver busy')
++        actions['scan'].assert_called_once_with('keyboard')
++        actions['pair'].assert_not_called()
++        actions['unpair'].assert_not_called()
++
++
++if __name__ == '__main__':
++    unittest.main()
+diff --git a/tests/test_hyperflux_unavailable.py b/tests/test_hyperflux_unavailable.py
+new file mode 100644
+index 0000000..6954a5e
+--- /dev/null
++++ b/tests/test_hyperflux_unavailable.py
+@@ -0,0 +1,135 @@
++"""An unresponsive wireless child must not take out the receiver page/list."""
++from types import SimpleNamespace
++import errno
++import unittest
++from unittest.mock import Mock
++from PyQt6.QtTest import QTest
++from PyQt6.QtWidgets import QApplication, QLabel, QPushButton, QVBoxLayout, QWidget
++from polychromatic.backends._backend import Backend
++from polychromatic.backends.openrazer import OpenRazerBackend
++from polychromatic.controller.devices import DevicesTab
++
++
++class HyperFluxUnavailableTest(unittest.TestCase):
++    @classmethod
++    def setUpClass(cls):
++        cls.app = QApplication.instance() or QApplication([])
++
++    def setUp(self):
++        self.backend = object.__new__(OpenRazerBackend)
++        self.backend._get_form_factor = lambda d: {'id': 'mouse', 'icon': ''}
++        self.backend._get_device_image = lambda d: ''
++        self.backend._get_device_vid_pid = lambda d: {'vid': '1532', 'pid': '00cf'}
++        self.backend.is_device_connected = lambda d: True
++        self.backend._reload_device_manager = Mock()
++        self.child = SimpleNamespace(serial='HYPERFLUXV2_BOOT_MOUSE_00A8', name='Razer Naga V2 Pro (HyperFlux V2)')
++        self.receiver = SimpleNamespace(serial='HYPERFLUXV2_BOOT', name='Razer HyperFlux V2')
++
++    def test_failed_child_does_not_discard_other_devices_and_can_recover(self):
++        healthy = Backend.DeviceItem()
++        healthy.name, healthy.serial = self.receiver.name, self.receiver.serial
++        self.backend._get_device = Mock(side_effect=[TimeoutError('timed out'), healthy])
++        self.backend.devman = SimpleNamespace(devices=[self.child, self.receiver])
++        devices = self.backend.get_devices()
++        self.assertEqual(len(devices), 2)
++        missing = devices[0]
++        self.assertEqual(missing.name, self.child.name)
++        self.assertEqual(missing.access_error, 'timed out')
++        self.assertEqual(missing.zones, [])
++        self.assertIsNone(missing.battery)
++        self.assertIs(devices[1], healthy)
++        self.backend._get_device = Mock(side_effect=OSError('busy'))
++        missing.refresh()
++        self.assertEqual(missing.access_error, 'busy')
++        restored = Backend.DeviceItem()
++        restored.name, restored.serial = missing.name, missing.serial
++        restored.zones = ['restored controls']
++        self.backend._get_device = Mock(return_value=restored)
++        owner = object()
++        missing.backend = owner
++        missing.refresh()
++        self.assertEqual(missing.access_error, '')
++        self.assertEqual(missing.zones, ['restored controls'])
++        self.assertIs(missing.backend, owner)
++
++    def test_keyboard_is_also_isolated(self):
++        self.child.name = 'Razer BlackWidow V4 Tenkeyless HyperSpeed (HyperFlux V2)'
++        self.backend._get_device = Mock(side_effect=TimeoutError('keyboard sleeping'))
++        device = self.backend._get_device_or_unavailable(self.child)
++        self.assertEqual(device.name, self.child.name)
++        self.assertEqual(device.access_error, 'keyboard sleeping')
++
++    def test_no_placeholder_for_removed_child_or_unrelated_errors(self):
++        self.backend._get_device = Mock(side_effect=TimeoutError('timed out'))
++        self.backend.is_device_connected = lambda d: False
++        self.backend.devman = SimpleNamespace(devices=[self.child])
++        self.assertEqual(self.backend.get_devices(), [])
++        self.backend.is_device_connected = lambda d: True
++        with self.assertRaises(TimeoutError):
++            self.backend._get_device_or_unavailable(self.receiver)
++
++    def test_offline_page_explains_failure_and_retry_does_not_write(self):
++        self.backend._get_device = Mock(side_effect=TimeoutError('error <110>'))
++        missing = self.backend._get_device_or_unavailable(self.child)
++        page = QWidget()
++        layout = QVBoxLayout(page)
++        retry = Mock()
++        tab = SimpleNamespace(_=lambda s: s, reload_device=retry)
++        DevicesTab._show_unavailable_device(tab, layout, missing)
++        text = '\n'.join(label.text() for label in page.findChildren(QLabel))
++        self.assertIn('Connected through HyperFlux V2', text)
++        self.assertIn('may have fallen asleep', text)
++        self.assertIn('Wake the device', text)
++        self.assertIn('error <110>', text)
++        technical = next(label for label in page.findChildren(QLabel) if label.text() == 'error <110>')
++        self.assertTrue(technical.isHidden())
++        retry.assert_not_called()
++        buttons = page.findChildren(QPushButton)
++        buttons[1].click()
++        self.assertFalse(technical.isHidden())
++        retry.assert_not_called()
++        buttons[0].click()
++        retry.assert_called_once()
++
++    def test_dbus_timeout_busy_missing_and_real_failure_are_distinct(self):
++        for error, state in ((RuntimeError('Traceback... TimeoutError: [Errno 110] Connection timed out'), 'asleep'),
++                             (OSError(errno.EBUSY, 'busy'), 'busy'),
++                             (OSError(errno.ENODEV, 'not paired'), 'unavailable'),
++                             (ValueError('bad protocol'), 'error')):
++            self.backend._get_device = Mock(side_effect=error)
++            device = self.backend._get_device_or_unavailable(self.child)
++            self.assertEqual(device.access_state, state)
++
++    def test_sleep_during_controls_refresh_recovers_without_replaying_a_write(self):
++        self.backend._is_device_monochromatic = lambda d: False
++        raw = SimpleNamespace(name=self.child.name, serial=self.child.serial,
++                              has=lambda cap: cap == 'serial', _available_features={})
++        zone = SimpleNamespace(options=[], _persistence=Mock())
++        self.backend._get_zone_objects = lambda d: [zone]
++        self.backend._map_zone_id_to_rzone = lambda *a: None
++        self.backend._get_persistence = lambda *a: zone._persistence
++        self.backend._get_brightness_option = lambda *a: None
++        self.backend._get_effect_options = lambda *a: []
++        # Keep the real refresh method, skipping unrelated capability builders.
++        device = self.backend._get_device(raw)
++        zone._persistence.refresh.side_effect = TimeoutError('asleep')
++        device.refresh()
++        self.assertEqual(device.access_state, 'asleep')
++        self.assertFalse(device.zones)
++        restored = Backend.DeviceItem()
++        restored.name, restored.serial = device.name, device.serial
++        restored.zones = ['awake controls']
++        self.backend._get_device = Mock(return_value=restored)
++        device.refresh()
++        self.assertEqual(device.access_error, '')
++        self.assertEqual(device.zones, ['awake controls'])
++
++    def test_sleep_during_setting_shows_wake_page_without_repeating_command(self):
++        device = Backend.DeviceItem()
++        device.name, device.backend = self.child.name, self.backend
++        tab = SimpleNamespace(reload_device=Mock(), widgets=Mock())
++        self.assertTrue(DevicesTab._catch_command_error(tab, device, TimeoutError('asleep')))
++        QTest.qWait(10)
++        tab.reload_device.assert_called_once()
++        tab.widgets.open_dialog.assert_not_called()
++        self.assertEqual(device.access_state, 'asleep')
+diff --git a/tests/test_scroll_modes.py b/tests/test_scroll_modes.py
+new file mode 100644
+index 0000000..2d8f349
+--- /dev/null
++++ b/tests/test_scroll_modes.py
+@@ -0,0 +1,29 @@
++"""Standalone, hardware-free test for the Nobara scroll-mode backport."""
++import unittest
++from types import SimpleNamespace
++
++from polychromatic.backends.openrazer import OpenRazerBackend
++
++
++class ScrollModeTest(unittest.TestCase):
++    def test_legacy_and_v3_options(self):
++        for modes in (None, ['tactile', 'free_spin', 'precision_tactile']):
++            backend = SimpleNamespace(_=lambda text: text, get_icon=lambda *args: '')
++            device = SimpleNamespace(
++                has=lambda name: name == 'scroll_mode' or (name == 'scroll_mode_options' and modes is not None),
++                scroll_mode=0, scroll_mode_options=modes,
++            )
++            option, = OpenRazerBackend._get_scroll_options(backend, device)
++            self.assertEqual(len(option.parameters), 3 if modes else 2)
++            self.assertTrue(option.parameters[0].active)
++            option.apply(2 if modes else 1)
++            option.refresh()
++            self.assertEqual(device.scroll_mode, 2 if modes else 1)
++            self.assertTrue(option.parameters[-1].active)
++            self.assertFalse(option.parameters[0].active)
++            if modes:
++                self.assertEqual(option.parameters[-1].label, 'Precision Tactile')
++
++
++if __name__ == '__main__':
++    unittest.main()

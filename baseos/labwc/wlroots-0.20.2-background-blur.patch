@@ -1,0 +1,1029 @@
+--- a/include/meson.build
++++ b/include/meson.build
+@@ -24,10 +24,12 @@
+ 	exclude_files += 'backend/session.h'
+ endif
+ 
+-install_subdir('wlr',
+-	install_dir: get_option('includedir') / versioned_name,
+-	exclude_files: exclude_files,
+-)
++if get_option('install')
++	install_subdir('wlr',
++		install_dir: get_option('includedir') / versioned_name,
++		exclude_files: exclude_files,
++	)
++endif
+ 
+ foreach name, have : internal_features
+ 	internal_config.set10('HAVE_' + name.underscorify().to_upper(), have)
+--- /dev/null
++++ b/include/types/scene_background_blur.h
+@@ -0,0 +1,16 @@
++#ifndef TYPES_SCENE_BACKGROUND_BLUR_H
++#define TYPES_SCENE_BACKGROUND_BLUR_H
++
++#include <wlr/types/wlr_scene.h>
++
++struct scene_background_blur;
++bool scene_background_blur_prepare(struct wlr_scene_output *output, int width, int height);
++void scene_background_blur_destroy(struct wlr_scene_output *output);
++struct wlr_render_pass *scene_background_blur_begin(struct scene_background_blur *blur);
++/* Consumes pass, including on failure. Returns the resumed composition pass. */
++struct wlr_render_pass *scene_background_blur_apply(struct scene_background_blur *blur,
++	struct wlr_render_pass *pass, const pixman_region32_t *region, float radius);
++void scene_background_blur_finish(struct scene_background_blur *blur,
++	struct wlr_render_pass *output_pass);
++
++#endif
+--- a/include/wlr/meson.build
++++ b/include/wlr/meson.build
+@@ -22,4 +22,6 @@
+ 	configuration: version_data,
+ )
+ 
+-install_headers(conf_h, ver_h, subdir: versioned_name / 'wlr')
++if get_option('install')
++	install_headers(conf_h, ver_h, subdir: versioned_name / 'wlr')
++endif
+--- a/include/wlr/types/wlr_scene.h
++++ b/include/wlr/types/wlr_scene.h
+@@ -29,6 +29,7 @@
+ #include <wlr/util/box.h>
+ 
+ struct wlr_output;
++struct wlr_allocator;
+ struct wlr_output_layout;
+ struct wlr_output_layout_output;
+ struct wlr_xdg_surface;
+@@ -39,6 +40,7 @@
+ struct wlr_scene_node;
+ struct wlr_scene_buffer;
+ struct wlr_scene_output_layout;
++struct scene_background_blur;
+ 
+ struct wlr_presentation;
+ struct wlr_linux_dmabuf_v1;
+@@ -193,6 +195,9 @@
+ 	int dst_width, dst_height;
+ 	enum wl_output_transform transform;
+ 	pixman_region32_t opaque_region;
++	// Copied scene-buffer-local coordinates. Use the setter to update these.
++	pixman_region32_t background_blur_region;
++	int background_blur_radius;
+ 	enum wlr_color_transfer_function transfer_function;
+ 	enum wlr_color_named_primaries primaries;
+ 	enum wlr_color_encoding color_encoding;
+@@ -238,6 +243,8 @@
+ 
+ 	struct {
+ 		pixman_region32_t pending_commit_damage;
++		struct scene_background_blur *background_blur;
++		bool background_blur_active;
+ 
+ 		uint8_t index;
+ 
+@@ -516,6 +523,20 @@
+ void wlr_scene_buffer_set_buffer_with_options(struct wlr_scene_buffer *scene_buffer,
+ 	struct wlr_buffer *buffer, const struct wlr_scene_buffer_set_buffer_options *options);
+ 
++/** Whether the renderer/allocator support background-blur scratch buffers. */
++bool wlr_scene_background_blur_supported(struct wlr_renderer *renderer,
++	struct wlr_allocator *allocator);
++
++/**
++ * Blur already-composed content behind this buffer inside region, expressed in
++ * scene-buffer-local coordinates. The region is copied and clipped to the
++ * buffer's destination. Radius is in logical pixels and clamped to [0, 64].
++ * A NULL/empty region or radius 0 disables the effect. Foreground content is
++ * not blurred. Unsupported renderers retain normal unblurred composition.
++ */
++void wlr_scene_buffer_set_background_blur(struct wlr_scene_buffer *buffer,
++	const pixman_region32_t *region, int radius);
++
+ /**
+  * Sets the buffer's opaque region. This is an optimization hint used to
+  * determine if buffers which reside under this one need to be rendered or not.
+--- a/meson.build
++++ b/meson.build
+@@ -152,7 +152,7 @@
+ 	versioned_name, wlr_files,
+ 	dependencies: wlr_deps,
+ 	include_directories: [wlr_inc],
+-	install: true,
++	install: get_option('install'),
+ 	link_args: symbols_flag,
+ 	link_depends: symbols_file,
+ )
+@@ -178,12 +178,22 @@
+ 	subdir('tinywl')
+ endif
+ 
+-pkgconfig = import('pkgconfig')
+-pkgconfig.generate(
+-	lib_wlr,
+-	name: versioned_name,
+-	description: 'Wayland compositor library',
+-	subdirs: versioned_name,
+-	url: 'https://gitlab.freedesktop.org/wlroots/wlroots',
+-	variables: wlr_vars,
+-)
++if get_option('install')
++	pkgconfig = import('pkgconfig')
++	pkgconfig.generate(
++		lib_wlr,
++		name: versioned_name,
++		description: 'Wayland compositor library',
++		subdirs: versioned_name,
++		url: 'https://gitlab.freedesktop.org/wlroots/wlroots',
++		variables: wlr_vars,
++	)
++endif
++
++if get_option('background-blur-tests')
++	blur_test = executable('test-background-blur', 'tests/background_blur.c',
++		dependencies: wlroots,
++		include_directories: wlr_inc,
++	)
++	test('background-blur', blur_test, env: ['WLR_RENDERER=pixman'])
++endif
+--- a/meson.options
++++ b/meson.options
+@@ -9,3 +9,6 @@
+ option('session', type: 'feature', value: 'auto', description: 'Enable session support')
+ option('color-management', type: 'feature', value: 'auto', description: 'Enable support for color management')
+ option('libliftoff', type: 'feature', value: 'auto', description: 'Enable support for libliftoff')
++
++option('install', type: 'boolean', value: true, description: 'Install wlroots library and development files')
++option('background-blur-tests', type: 'boolean', value: false, description: 'Build isolated background blur pixel regression')
+--- /dev/null
++++ b/tests/background_blur.c
+@@ -0,0 +1,260 @@
++#include <assert.h>
++#include <drm_fourcc.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <time.h>
++#include <wlr/backend/headless.h>
++#include <wlr/render/allocator.h>
++#include <wlr/render/drm_format_set.h>
++#include <wlr/render/pixman.h>
++#include <wlr/types/wlr_buffer.h>
++#include <wlr/types/wlr_scene.h>
++#include <wlr/util/log.h>
++#include "render/allocator/shm.h"
++
++#ifndef WIDTH
++#define WIDTH 128
++#endif
++#ifndef HEIGHT
++#define HEIGHT 96
++#endif
++static bool readback = true;
++static struct wlr_color_transform *test_transform;
++static uint32_t pixels[WIDTH * HEIGHT];
++
++static struct wlr_buffer *image(struct wlr_allocator *allocator, int width, int height,
++		bool foreground) {
++	uint64_t modifier = DRM_FORMAT_MOD_LINEAR;
++	struct wlr_drm_format format = {
++		.format = DRM_FORMAT_ARGB8888, .len = 1, .modifiers = &modifier,
++	};
++	struct wlr_buffer *buffer = wlr_allocator_create_buffer(allocator, width, height, &format);
++	assert(buffer);
++	void *data;
++	uint32_t fourcc;
++	size_t stride;
++	assert(wlr_buffer_begin_data_ptr_access(buffer, WLR_BUFFER_DATA_PTR_ACCESS_WRITE,
++		&data, &fourcc, &stride));
++	for (int y = 0; y < height; y++) {
++		uint32_t *row = (uint32_t *)((char *)data + stride * y);
++		for (int x = 0; x < width; x++) {
++			row[x] = foreground ? 0 : (x / 4 % 2 ? 0xffffffff : 0xff000000);
++			if (foreground && x >= 24 && x < 28 && y >= 24 && y < 32) {
++				row[x] = 0xffff0000;
++			}
++		}
++	}
++	wlr_buffer_end_data_ptr_access(buffer);
++	return buffer;
++}
++
++static void render(struct wlr_scene_output *scene_output) {
++	struct wlr_output_state state;
++	wlr_output_state_init(&state);
++	assert(wlr_scene_output_build_state(scene_output, &state,
++		&(struct wlr_scene_output_state_options){ .color_transform = test_transform }));
++	void *data;
++	uint32_t fourcc;
++	size_t stride;
++	if (!readback) {
++		// Benchmark avoids CPU readback until the final frame.
++	} else if (wlr_buffer_begin_data_ptr_access(state.buffer, WLR_BUFFER_DATA_PTR_ACCESS_READ,
++			&data, &fourcc, &stride)) {
++		assert(fourcc == DRM_FORMAT_XRGB8888 || fourcc == DRM_FORMAT_ARGB8888);
++		for (int y = 0; y < HEIGHT; y++) {
++			memcpy(pixels + y * WIDTH, (char *)data + y * stride, WIDTH * 4);
++		}
++		wlr_buffer_end_data_ptr_access(state.buffer);
++	} else {
++		struct wlr_texture *texture = wlr_texture_from_buffer(scene_output->output->renderer,
++			state.buffer);
++		assert(texture);
++		assert(wlr_texture_read_pixels(texture, &(struct wlr_texture_read_pixels_options){
++			.data = pixels, .format = DRM_FORMAT_ARGB8888, .stride = WIDTH * 4,
++		}));
++		wlr_texture_destroy(texture);
++	}
++	assert(wlr_output_commit_state(scene_output->output, &state));
++	wlr_output_state_finish(&state);
++	assert(!wlr_scene_output_needs_frame(scene_output));
++}
++
++static uint32_t rgb(int x, int y) {
++	return pixels[y * WIDTH + x] & 0xffffff;
++}
++
++int main(void) {
++	wlr_log_init(WLR_ERROR, NULL);
++	struct wl_display *display = wl_display_create();
++	assert(display);
++	struct wlr_backend *backend = wlr_headless_backend_create(wl_display_get_event_loop(display));
++	assert(backend);
++	struct wlr_renderer *renderer = getenv("WLR_RENDERER") ?
++		wlr_renderer_autocreate(backend) : wlr_pixman_renderer_create();
++	assert(renderer);
++	struct wlr_allocator *allocator = wlr_allocator_autocreate(backend, renderer);
++	struct wlr_allocator *source_allocator = wlr_shm_allocator_create();
++	assert(renderer && allocator);
++	assert(wlr_scene_background_blur_supported(renderer, allocator));
++	struct wlr_output *output = wlr_headless_add_output(backend, WIDTH, HEIGHT);
++	assert(output && wlr_output_init_render(output, allocator, renderer));
++	assert(wlr_backend_start(backend));
++	struct wlr_output_state initial;
++	wlr_output_state_init(&initial);
++	wlr_output_state_set_enabled(&initial, true);
++	assert(wlr_output_commit_state(output, &initial));
++	wlr_output_state_finish(&initial);
++
++	struct wlr_scene *scene = wlr_scene_create();
++	struct wlr_scene_output *scene_output = wlr_scene_output_create(scene, output);
++	struct wlr_buffer *back = image(source_allocator, WIDTH, HEIGHT, false);
++	struct wlr_scene_buffer *back_node = wlr_scene_buffer_create(&scene->tree, back);
++	struct wlr_buffer *front = image(source_allocator, WIDTH, HEIGHT, true);
++	struct wlr_scene_buffer *front_node = wlr_scene_buffer_create(&scene->tree, front);
++	render(scene_output);
++	assert(rgb(40, 40) == 0x000000 && rgb(44, 40) == 0xffffff);
++	assert(!scene_output->background_blur_active);
++
++	pixman_region32_t region;
++	pixman_region32_init_rect(&region, 16, 16, 96, 64);
++	wlr_scene_buffer_set_background_blur(front_node, &region, 12);
++	// The setter must copy, not borrow, client-owned regions.
++	pixman_region32_clear(&region);
++	render(scene_output);
++	assert(scene_output->background_blur_active);
++	void *scratch = scene_output->background_blur;
++	assert(rgb(40, 40) > 0x202020 && rgb(40, 40) < 0xe0e0e0);
++	assert(rgb(44, 40) > 0x202020 && rgb(44, 40) < 0xe0e0e0);
++	assert(rgb(8, 40) == 0 && rgb(12, 40) == 0xffffff);
++	assert(rgb(24, 24) == 0xff0000 && rgb(27, 31) == 0xff0000);
++	assert(rgb(23, 24) != 0xff0000 && rgb(28, 31) != 0xff0000);
++
++	const char *benchmark = getenv("BLUR_BENCHMARK");
++	if (benchmark) {
++		int frames = atoi(benchmark);
++		assert(frames > 0 && frames <= 1000);
++		pixman_region32_union_rect(&region, &region, 0, 0, WIDTH, HEIGHT);
++		struct timespec start, stop;
++		clock_gettime(CLOCK_MONOTONIC, &start);
++		for (int i = 0; i < frames; i++) {
++			readback = i == frames - 1;
++			wlr_scene_buffer_set_background_blur(front_node, &region, 10 + i % 2);
++			render(scene_output);
++		}
++		clock_gettime(CLOCK_MONOTONIC, &stop);
++		double elapsed = stop.tv_sec - start.tv_sec + (stop.tv_nsec - start.tv_nsec) / 1e9;
++		printf("blur benchmark: %dx%d, %d frames, %.2f ms/frame (final readback synchronized)\n",
++			WIDTH, HEIGHT, frames, elapsed * 1000 / frames);
++		goto cleanup;
++	}
++
++	// Changes to lower content must update the blur, including geometry damage.
++	const float green[] = {0, 1, 0, 1};
++	struct wlr_scene_rect *lower = wlr_scene_rect_create(&scene->tree, WIDTH, HEIGHT, green);
++	wlr_scene_node_place_below(&lower->node, &front_node->node);
++	render(scene_output);
++	assert(rgb(40, 40) == 0x00ff00);
++	assert(scene_output->background_blur == scratch);
++	wlr_scene_node_destroy(&lower->node);
++	render(scene_output);
++	assert(rgb(40, 40) > 0x202020 && rgb(40, 40) < 0xe0e0e0);
++
++	// A fully opaque covering window returns to the stock rendering path.
++	const float blue[] = {0, 0, 1, 1};
++	struct wlr_scene_rect *cover = wlr_scene_rect_create(&scene->tree, WIDTH, HEIGHT, blue);
++	render(scene_output);
++	assert(!scene_output->background_blur_active && rgb(40, 40) == 0x0000ff);
++	assert(scene_output->background_blur == NULL);
++	wlr_scene_node_destroy(&cover->node);
++	render(scene_output);
++	assert(scene_output->background_blur_active);
++
++	// Moving an opted-in surface moves its region, leaving no stale blur.
++	wlr_scene_node_set_position(&front_node->node, 16, 0);
++	render(scene_output);
++	assert(rgb(24, 40) == 0 && rgb(28, 40) == 0xffffff);
++	assert(rgb(48, 40) > 0x202020 && rgb(48, 40) < 0xe0e0e0);
++	assert(rgb(40, 24) == 0xff0000);
++	wlr_scene_buffer_set_background_blur(front_node, NULL, 0);
++	render(scene_output);
++	assert(!scene_output->background_blur_active);
++	assert(rgb(48, 40) == 0 && rgb(52, 40) == 0xffffff);
++	assert(scene_output->background_blur == NULL);
++
++	// Buffer commits behind active blur must damage and repaint the output.
++	wlr_scene_node_set_position(&front_node->node, 0, 0);
++	pixman_region32_union_rect(&region, &region, 0, 0, WIDTH, HEIGHT);
++	wlr_scene_buffer_set_background_blur(front_node, &region, 12);
++	render(scene_output);
++	wlr_scene_buffer_set_buffer(back_node, back);
++	assert(wlr_scene_output_needs_frame(scene_output));
++	render(scene_output);
++
++	// A rotated fractional-scale output clips the effect in physical output
++	// coordinates, while the API remains in logical surface coordinates.
++	if (WIDTH == 128 && HEIGHT == 96) {
++		wlr_scene_buffer_set_background_blur(front_node, NULL, 0);
++		struct wlr_output_state geometry;
++		wlr_output_state_init(&geometry);
++		wlr_output_state_set_scale(&geometry, 1.5f);
++		wlr_output_state_set_transform(&geometry, WL_OUTPUT_TRANSFORM_90);
++		assert(wlr_output_commit_state(output, &geometry));
++		wlr_output_state_finish(&geometry);
++		render(scene_output);
++		uint32_t baseline[WIDTH * HEIGHT];
++		memcpy(baseline, pixels, sizeof(pixels));
++		pixman_region32_clear(&region);
++		pixman_region32_union_rect(&region, &region, 16, 12, 32, 20);
++		wlr_scene_buffer_set_background_blur(front_node, &region, 12);
++		render(scene_output);
++		int changed = 0;
++		for (int y = 0; y < HEIGHT; y++) {
++			for (int x = 0; x < WIDTH; x++) {
++				if (rgb(x, y) != (baseline[y * WIDTH + x] & 0xffffff)) {
++					assert(x >= 18 && x < 48 && y >= 24 && y < 72);
++					changed++;
++				}
++			}
++		}
++		assert(changed > 100);
++		wlr_output_state_init(&geometry);
++		wlr_output_state_set_scale(&geometry, 1.0f);
++		wlr_output_state_set_transform(&geometry, WL_OUTPUT_TRANSFORM_NORMAL);
++		assert(wlr_output_commit_state(output, &geometry));
++		wlr_output_state_finish(&geometry);
++	}
++
++	if (renderer->features.output_color_transform) {
++		// HDR output conversion is applied exactly once. Starting a blur pass
++		// must not alter sharp foreground/outside pixels under a PQ transform.
++		test_transform = wlr_color_transform_init_linear_to_inverse_eotf(
++			WLR_COLOR_TRANSFER_FUNCTION_ST2084_PQ);
++		assert(test_transform);
++		wlr_scene_buffer_set_background_blur(front_node, NULL, 0);
++		render(scene_output);
++		uint32_t sharp_red = rgb(24, 24), sharp_white = rgb(12, 40);
++		pixman_region32_clear(&region);
++		pixman_region32_union_rect(&region, &region, 32, 16, 64, 64);
++		wlr_scene_buffer_set_background_blur(front_node, &region, 12);
++		render(scene_output);
++		assert(rgb(24, 24) == sharp_red && rgb(12, 40) == sharp_white);
++		assert(rgb(40, 40) != 0 && rgb(40, 40) != sharp_white);
++		wlr_color_transform_unref(test_transform);
++		test_transform = NULL;
++		puts("background blur: PQ output conversion preserves sharp foreground and outside pixels");
++	}
++
++cleanup:
++	pixman_region32_fini(&region);
++	wlr_scene_node_destroy(&scene->tree.node);
++	wlr_buffer_drop(back);
++	wlr_buffer_drop(front);
++	wlr_backend_destroy(backend);
++	wlr_allocator_destroy(source_allocator);
++	wlr_allocator_destroy(allocator);
++	wlr_renderer_destroy(renderer);
++	wl_display_destroy(display);
++	puts("background blur: backdrop, foreground, clipping, movement, occlusion, damage, reuse and idle checks passed");
++	return 0;
++}
+--- /dev/null
++++ b/tests/run-background-blur.py
+@@ -0,0 +1,37 @@
++#!/usr/bin/env python3
++"""Build/run isolated headless pixel regression; never connects to the live display.
++
++Default builds a minimal Pixman wlroots. --build ../../build uses the full private
++Labwc build; --renderer gles2/vulkan exercises its GPU path (requires a render node).
++"""
++from pathlib import Path
++import argparse
++import os
++import shlex
++import subprocess
++
++root = Path(__file__).resolve().parents[1]
++parser = argparse.ArgumentParser(description=__doc__)
++parser.add_argument("--build", type=Path)
++parser.add_argument("--renderer", choices=("pixman", "gles2", "vulkan"), default="pixman")
++parser.add_argument("--compile-only", action="store_true")
++parser.add_argument("--size", default="128x96")
++parser.add_argument("--benchmark", type=int)
++args = parser.parse_args()
++build = args.build.resolve() if args.build else root / "build-pixman"
++if not args.build:
++    subprocess.run(["meson", "setup", str(build), str(root), "-Drenderers=[]", "-Dbackends=[]",
++                    "-Dallocators=[]", "-Dxwayland=disabled", "-Dsession=disabled", "-Dexamples=false",
++                    "-Dcolor-management=disabled", "-Ddefault_library=static"], check=True)
++subprocess.run(["meson", "compile", "-C", str(build), "-j", "4"], check=True)
++env = dict(os.environ, PKG_CONFIG_PATH=str(build / "meson-uninstalled"), WLR_RENDERER=args.renderer)
++width, height = (int(value) for value in args.size.split("x"))
++if args.benchmark:
++    env["BLUR_BENCHMARK"] = str(args.benchmark)
++flags = shlex.split(subprocess.check_output(["pkg-config", "--static", "--cflags", "--libs",
++    "wlroots-0.20"], env=env, text=True))
++subprocess.run(["cc", "-g", "-Wall", "-Wextra", "-DWLR_USE_UNSTABLE", "-DWLR_PRIVATE=",
++    f"-DWIDTH={width}", f"-DHEIGHT={height}", str(root / "tests/background_blur.c"), "-o", str(build / "test-background-blur"),
++    *flags], check=True)
++if not args.compile_only:
++    subprocess.run([str(build / "test-background-blur")], env=env, check=True)
+--- a/types/meson.build
++++ b/types/meson.build
+@@ -16,6 +16,7 @@
+ 	'scene/subsurface_tree.c',
+ 	'scene/surface.c',
+ 	'scene/wlr_scene.c',
++	'scene/background_blur.c',
+ 	'scene/output_layout.c',
+ 	'scene/xdg_shell.c',
+ 	'scene/layer_shell_v1.c',
+--- /dev/null
++++ b/types/scene/background_blur.c
+@@ -0,0 +1,241 @@
++#include <drm_fourcc.h>
++#include <math.h>
++#include <stdlib.h>
++#include <wlr/render/allocator.h>
++#include <wlr/render/color.h>
++#include <wlr/render/drm_format_set.h>
++#include <wlr/render/wlr_texture.h>
++#include <wlr/types/wlr_buffer.h>
++#include <wlr/types/wlr_output.h>
++#include <wlr/util/log.h>
++#include "render/drm_format_set.h"
++#include "render/wlr_renderer.h"
++#include "types/scene_background_blur.h"
++
++#define BLUR_LEVELS 7
++#define BLUR_MEMORY_LIMIT (256u * 1024u * 1024u)
++
++struct blur_target {
++	struct wlr_buffer *buffer;
++	struct wlr_texture *texture;
++};
++
++struct scene_background_blur {
++	struct wlr_scene_output *output;
++	struct wlr_renderer *renderer;
++	struct wlr_allocator *allocator;
++	struct wl_listener renderer_destroy, allocator_destroy;
++	struct wlr_color_transform *linear_transform;
++	struct blur_target targets[BLUR_LEVELS + 1];
++	int width, height;
++	bool ready;
++};
++
++void scene_background_blur_destroy(struct wlr_scene_output *output) {
++	struct scene_background_blur *blur = output->background_blur;
++	if (!blur) {
++		return;
++	}
++	output->background_blur = NULL;
++	output->background_blur_active = false;
++	wl_list_remove(&blur->renderer_destroy.link);
++	wl_list_remove(&blur->allocator_destroy.link);
++	for (size_t i = 0; i <= BLUR_LEVELS; i++) {
++		wlr_texture_destroy(blur->targets[i].texture);
++		if (blur->targets[i].buffer) {
++			wlr_buffer_drop(blur->targets[i].buffer);
++		}
++	}
++	wlr_color_transform_unref(blur->linear_transform);
++	free(blur);
++}
++
++static void handle_renderer_destroy(struct wl_listener *listener, void *data) {
++	struct scene_background_blur *blur = wl_container_of(listener, blur, renderer_destroy);
++	scene_background_blur_destroy(blur->output);
++}
++
++static void handle_allocator_destroy(struct wl_listener *listener, void *data) {
++	struct scene_background_blur *blur = wl_container_of(listener, blur, allocator_destroy);
++	scene_background_blur_destroy(blur->output);
++}
++
++static bool scratch_format(struct wlr_renderer *renderer, struct wlr_allocator *allocator,
++		struct wlr_drm_format *format) {
++	if (!renderer || !allocator) {
++		return false;
++	}
++	uint32_t fourcc = renderer->features.output_color_transform ?
++		DRM_FORMAT_ABGR16161616F : DRM_FORMAT_ARGB8888;
++	const struct wlr_drm_format_set *render_formats = wlr_renderer_get_render_formats(renderer);
++	const struct wlr_drm_format_set *texture_formats =
++		wlr_renderer_get_texture_formats(renderer, allocator->buffer_caps);
++	const struct wlr_drm_format *render_format = render_formats ?
++		wlr_drm_format_set_get(render_formats, fourcc) : NULL;
++	const struct wlr_drm_format *texture_format = texture_formats ?
++		wlr_drm_format_set_get(texture_formats, fourcc) : NULL;
++	return render_format && texture_format &&
++		wlr_drm_format_intersect(format, render_format, texture_format);
++}
++
++bool wlr_scene_background_blur_supported(struct wlr_renderer *renderer,
++		struct wlr_allocator *allocator) {
++	struct wlr_drm_format format = {0};
++	bool supported = scratch_format(renderer, allocator, &format);
++	wlr_drm_format_finish(&format);
++	return supported;
++}
++
++bool scene_background_blur_prepare(struct wlr_scene_output *output, int width, int height) {
++	struct scene_background_blur *blur = output->background_blur;
++	struct wlr_renderer *renderer = output->output->renderer;
++	struct wlr_allocator *allocator = output->output->allocator;
++	if (blur && blur->renderer == renderer && blur->allocator == allocator &&
++			blur->width == width && blur->height == height) {
++		return blur->ready;
++	}
++	scene_background_blur_destroy(output);
++	if (!allocator || width <= 0 || height <= 0) {
++		return false;
++	}
++	blur = calloc(1, sizeof(*blur));
++	if (!blur) {
++		return false;
++	}
++	output->background_blur = blur;
++	blur->output = output;
++	blur->renderer = renderer;
++	blur->allocator = allocator;
++	blur->width = width;
++	blur->height = height;
++	blur->renderer_destroy.notify = handle_renderer_destroy;
++	wl_signal_add(&renderer->events.destroy, &blur->renderer_destroy);
++	blur->allocator_destroy.notify = handle_allocator_destroy;
++	wl_signal_add(&allocator->events.destroy, &blur->allocator_destroy);
++
++	// HDR-capable renderers compose into linear half-float buffers. No tone
++	// mapping or output transform occurs until the final output pass.
++	bool linear = renderer->features.output_color_transform;
++	struct wlr_drm_format format = {0};
++	if (!scratch_format(renderer, allocator, &format)) {
++		wlr_log(WLR_INFO, "Background blur unavailable: no compatible scratch format");
++		return false;
++	}
++	if ((uint64_t)width * height * (linear ? 8 : 4) * 4 / 3 > BLUR_MEMORY_LIMIT) {
++		wlr_log(WLR_INFO, "Background blur scratch buffers exceed memory budget");
++		wlr_drm_format_finish(&format);
++		return false;
++	}
++	if (linear) {
++		blur->linear_transform = wlr_color_transform_init_linear_to_inverse_eotf(
++			WLR_COLOR_TRANSFER_FUNCTION_EXT_LINEAR);
++		if (!blur->linear_transform) {
++			wlr_drm_format_finish(&format);
++			return false;
++		}
++	}
++	for (size_t i = 0; i <= BLUR_LEVELS; i++) {
++		struct blur_target *target = &blur->targets[i];
++		target->buffer = wlr_allocator_create_buffer(allocator, width, height, &format);
++		if (!target->buffer) {
++			break;
++		}
++		target->texture = wlr_texture_from_buffer(renderer, target->buffer);
++		if (!target->texture) {
++			break;
++		}
++		if (i == BLUR_LEVELS) {
++			blur->ready = true;
++		}
++		width = (width + 1) / 2;
++		height = (height + 1) / 2;
++	}
++	wlr_drm_format_finish(&format);
++	if (!blur->ready) {
++		// Cache failure for this output configuration, but release allocations.
++		for (size_t i = 0; i <= BLUR_LEVELS; i++) {
++			wlr_texture_destroy(blur->targets[i].texture);
++			blur->targets[i].texture = NULL;
++			if (blur->targets[i].buffer) {
++				wlr_buffer_drop(blur->targets[i].buffer);
++				blur->targets[i].buffer = NULL;
++			}
++		}
++		wlr_log(WLR_ERROR, "Failed to allocate background blur buffers");
++	}
++	return blur->ready;
++}
++
++struct wlr_render_pass *scene_background_blur_begin(struct scene_background_blur *blur) {
++	return wlr_renderer_begin_buffer_pass(blur->renderer, blur->targets[0].buffer,
++		&(struct wlr_buffer_pass_options){ .color_transform = blur->linear_transform });
++}
++
++static void add_target(struct scene_background_blur *blur, struct wlr_render_pass *pass,
++		struct blur_target *source, int width, int height, const pixman_region32_t *clip,
++		float alpha) {
++	wlr_render_pass_add_texture(pass, &(struct wlr_render_texture_options){
++		.texture = source->texture,
++		.dst_box = { .width = width, .height = height },
++		.clip = clip,
++		.alpha = &alpha,
++		.blend_mode = alpha == 1.0f ? WLR_RENDER_BLEND_MODE_NONE :
++			WLR_RENDER_BLEND_MODE_PREMULTIPLIED,
++		.filter_mode = WLR_SCALE_FILTER_BILINEAR,
++		.transfer_function = blur->linear_transform ?
++			WLR_COLOR_TRANSFER_FUNCTION_EXT_LINEAR : WLR_COLOR_TRANSFER_FUNCTION_SRGB,
++	});
++}
++
++static bool scale_target(struct scene_background_blur *blur, int source, int destination, float alpha) {
++	struct blur_target *target = &blur->targets[destination];
++	struct wlr_render_pass *pass = wlr_renderer_begin_buffer_pass(blur->renderer,
++		target->buffer, &(struct wlr_buffer_pass_options){
++			.color_transform = blur->linear_transform,
++		});
++	if (!pass) {
++		return false;
++	}
++	add_target(blur, pass, &blur->targets[source], target->buffer->width,
++		target->buffer->height, NULL, alpha);
++	return wlr_render_pass_submit(pass);
++}
++
++struct wlr_render_pass *scene_background_blur_apply(struct scene_background_blur *blur,
++		struct wlr_render_pass *pass, const pixman_region32_t *region, float radius) {
++	// Submit the already composed lower scene before sampling it. These passes
++	// use implicit synchronization, including when the final output uses an
++	// explicit timeline. No client foreground is included in its own backdrop.
++	if (!wlr_render_pass_submit(pass)) {
++		return NULL;
++	}
++	radius = fmaxf(1.0f, fminf(1 << BLUR_LEVELS, radius));
++	int levels = fmaxf(1, ceilf(log2f(radius)));
++	if (levels > BLUR_LEVELS) {
++		levels = BLUR_LEVELS;
++	}
++	// Blend the two neighboring pyramid strengths, avoiding abrupt jumps
++	// when the radius crosses a power of two while reusing the same targets.
++	float strength = radius / (1 << (levels - 1)) - 1;
++	for (int i = 1; i <= levels; i++) {
++		if (!scale_target(blur, i - 1, i, 1.0f)) {
++			return NULL;
++		}
++	}
++	for (int i = levels - 1; i >= 1; i--) {
++		if (!scale_target(blur, i + 1, i, i == levels - 1 ? strength : 1.0f)) {
++			return NULL;
++		}
++	}
++	pass = scene_background_blur_begin(blur);
++	if (pass) {
++		add_target(blur, pass, &blur->targets[1], blur->width, blur->height, region,
++			levels == 1 ? strength : 1.0f);
++	}
++	return pass;
++}
++
++void scene_background_blur_finish(struct scene_background_blur *blur,
++		struct wlr_render_pass *output_pass) {
++	add_target(blur, output_pass, &blur->targets[0], blur->width, blur->height, NULL, 1.0f);
++}
+--- a/types/scene/wlr_scene.c
++++ b/types/scene/wlr_scene.c
+@@ -18,6 +18,7 @@
+ #include "render/color.h"
+ #include "types/wlr_output.h"
+ #include "types/wlr_scene.h"
++#include "types/scene_background_blur.h"
+ #include "util/array.h"
+ #include "util/env.h"
+ #include "util/time.h"
+@@ -127,6 +128,7 @@
+ 		scene_buffer_set_buffer(scene_buffer, NULL);
+ 		scene_buffer_set_texture(scene_buffer, NULL);
+ 		pixman_region32_fini(&scene_buffer->opaque_region);
++		pixman_region32_fini(&scene_buffer->background_blur_region);
+ 		wlr_drm_syncobj_timeline_unref(scene_buffer->wait_timeline);
+ 
+ 		assert(wl_list_empty(&scene_buffer->events.output_leave.listener_list));
+@@ -332,6 +334,7 @@
+ 
+ 	struct wlr_render_pass *render_pass;
+ 	pixman_region32_t damage;
++	bool background_blur;
+ };
+ 
+ static void logical_to_buffer_coords(pixman_region32_t *region, const struct render_data *data,
+@@ -723,6 +726,15 @@
+ 		pixman_region32_t *damage) {
+ 	struct wlr_scene *scene = scene_node_get_root(node);
+ 
++	// Visibility does not include occluded backdrop pixels sampled by blur.
++	// A geometry/stacking update may affect either its old or its new position.
++	struct wlr_scene_output *blur_output;
++	wl_list_for_each(blur_output, &scene->outputs, link) {
++		if (blur_output->background_blur_active) {
++			scene_output_damage_whole(blur_output);
++		}
++	}
++
+ 	int x, y;
+ 	if (!wlr_scene_node_coords(node, &x, &y)) {
+ 		// We assume explicit damage on a disabled tree means the node was just
+@@ -883,6 +895,7 @@
+ 	wl_signal_init(&scene_buffer->events.frame_done);
+ 
+ 	pixman_region32_init(&scene_buffer->opaque_region);
++	pixman_region32_init(&scene_buffer->background_blur_region);
+ 	wl_list_init(&scene_buffer->buffer_release.link);
+ 	wl_list_init(&scene_buffer->renderer_destroy.link);
+ 	scene_buffer->opacity = 1;
+@@ -1026,13 +1039,16 @@
+ 		wlr_region_expand(&output_damage, &output_damage,
+ 			dist_x >= dist_y ? dist_x : dist_y);
+ 
+-		pixman_region32_t cull_region;
+-		pixman_region32_init(&cull_region);
+-		pixman_region32_copy(&cull_region, &scene_buffer->node.visible);
+-		scale_region(&cull_region, output_scale, true);
+-		pixman_region32_translate(&cull_region, -lx * output_scale, -ly * output_scale);
+-		pixman_region32_intersect(&output_damage, &output_damage, &cull_region);
+-		pixman_region32_fini(&cull_region);
++		if (!scene_output->background_blur_active) {
++			pixman_region32_t cull_region;
++			pixman_region32_init(&cull_region);
++			pixman_region32_copy(&cull_region, &scene_buffer->node.visible);
++			scale_region(&cull_region, output_scale, true);
++			pixman_region32_translate(&cull_region, -lx * output_scale, -ly * output_scale);
++			pixman_region32_intersect(&output_damage, &output_damage, &cull_region);
++			pixman_region32_fini(&cull_region);
++		}
++
+ 
+ 		pixman_region32_translate(&output_damage,
+ 			(int)round((lx - scene_output->x) * output_scale),
+@@ -1057,6 +1073,25 @@
+ void wlr_scene_buffer_set_buffer(struct wlr_scene_buffer *scene_buffer,
+ 		struct wlr_buffer *buffer)  {
+ 	wlr_scene_buffer_set_buffer_with_options(scene_buffer, buffer, NULL);
++}
++
++void wlr_scene_buffer_set_background_blur(struct wlr_scene_buffer *buffer,
++		const pixman_region32_t *region, int radius) {
++	radius = radius < 0 ? 0 : radius > 64 ? 64 : radius;
++	if (!region || pixman_region32_empty(region)) {
++		radius = 0;
++	}
++	if (buffer->background_blur_radius == radius &&
++			(radius == 0 || pixman_region32_equal(&buffer->background_blur_region, region))) {
++		return;
++	}
++	buffer->background_blur_radius = radius;
++	if (radius > 0) {
++		pixman_region32_copy(&buffer->background_blur_region, region);
++	} else {
++		pixman_region32_clear(&buffer->background_blur_region);
++	}
++	scene_node_update(&buffer->node, NULL);
+ }
+ 
+ void wlr_scene_buffer_set_opaque_region(struct wlr_scene_buffer *scene_buffer,
+@@ -1443,6 +1478,33 @@
+ 	int x, y;
+ };
+ 
++static void scene_entry_blur_region(struct render_list_entry *entry,
++		const struct render_data *data, pixman_region32_t *region) {
++	if (entry->node->type != WLR_SCENE_NODE_BUFFER) {
++		return;
++	}
++	struct wlr_scene_buffer *buffer = wlr_scene_buffer_from_node(entry->node);
++	if (buffer->background_blur_radius <= 0 || buffer->opacity <= 0) {
++		return;
++	}
++	int width, height;
++	scene_node_get_size(entry->node, &width, &height);
++	pixman_region32_intersect_rect(region, &buffer->background_blur_region,
++		0, 0, width, height);
++	pixman_region32_translate(region, entry->x, entry->y);
++	pixman_region32_intersect(region, region, &entry->node->visible);
++	// Blurring fully opaque client pixels cannot affect the displayed image.
++	pixman_region32_t opaque;
++	pixman_region32_init(&opaque);
++	scene_node_opaque_region(entry->node, entry->x, entry->y, &opaque);
++	pixman_region32_subtract(region, region, &opaque);
++	pixman_region32_fini(&opaque);
++	pixman_region32_intersect_rect(region, region, data->logical.x, data->logical.y,
++		data->logical.width, data->logical.height);
++	pixman_region32_translate(region, -data->logical.x, -data->logical.y);
++	logical_to_buffer_coords(region, data, false);
++}
++
+ static float get_luminance_multiplier(const struct wlr_color_luminances *src_lum,
+ 		const struct wlr_color_luminances *dst_lum) {
+ 	return (dst_lum->reference / src_lum->reference) * (src_lum->max / dst_lum->max);
+@@ -1453,7 +1515,14 @@
+ 
+ 	pixman_region32_t render_region;
+ 	pixman_region32_init(&render_region);
+-	pixman_region32_copy(&render_region, &node->visible);
++	if (data->background_blur) {
++		int width, height;
++		scene_node_get_size(node, &width, &height);
++		pixman_region32_union_rect(&render_region, &render_region,
++			entry->x, entry->y, width, height);
++	} else {
++		pixman_region32_copy(&render_region, &node->visible);
++	}
+ 	pixman_region32_translate(&render_region, -data->logical.x, -data->logical.y);
+ 	logical_to_buffer_coords(&render_region, data, true);
+ 	pixman_region32_intersect(&render_region, &render_region, &data->damage);
+@@ -1546,7 +1615,7 @@
+ 			.clip = &render_region,
+ 			.alpha = &scene_buffer->opacity,
+ 			.filter_mode = scene_buffer->filter_mode,
+-			.blend_mode = !data->output->scene->calculate_visibility ||
++			.blend_mode = data->background_blur || !data->output->scene->calculate_visibility ||
+ 					!pixman_region32_empty(&opaque) ?
+ 				WLR_RENDER_BLEND_MODE_PREMULTIPLIED : WLR_RENDER_BLEND_MODE_NONE,
+ 			.transfer_function = scene_buffer->transfer_function,
+@@ -1866,6 +1935,7 @@
+ 	wlr_color_transform_unref(scene_output->prev_supplied_color_transform);
+ 	wlr_color_transform_unref(scene_output->combined_color_transform);
+ 	wl_array_release(&scene_output->render_list);
++	scene_background_blur_destroy(scene_output);
+ 	free(scene_output);
+ }
+ 
+@@ -1915,6 +1985,7 @@
+ 	bool calculate_visibility;
+ 	bool highlight_transparent_region;
+ 	bool fractional_scale;
++	bool ignore_occlusion;
+ };
+ 
+ static bool scene_buffer_is_black_opaque(struct wlr_scene_buffer *scene_buffer) {
+@@ -1960,9 +2031,15 @@
+ 
+ 	pixman_region32_t intersection;
+ 	pixman_region32_init(&intersection);
+-	pixman_region32_intersect_rect(&intersection, &node->visible,
+-			data->box.x, data->box.y,
+-			data->box.width, data->box.height);
++	if (data->ignore_occlusion) {
++		int width, height;
++		scene_node_get_size(node, &width, &height);
++		pixman_region32_union_rect(&intersection, &intersection, lx, ly, width, height);
++	} else {
++		pixman_region32_copy(&intersection, &node->visible);
++	}
++	pixman_region32_intersect_rect(&intersection, &intersection,
++		data->box.x, data->box.y, data->box.width, data->box.height);
+ 	if (pixman_region32_empty(&intersection)) {
+ 		pixman_region32_fini(&intersection);
+ 		return false;
+@@ -2393,6 +2470,37 @@
+ 
+ 	struct render_list_entry *list_data = list_con.render_list->data;
+ 	int list_len = list_con.render_list->size / sizeof(*list_data);
++
++	bool needs_blur = false;
++	for (int i = 0; i < list_len && !needs_blur; i++) {
++		pixman_region32_t region;
++		pixman_region32_init(&region);
++		scene_entry_blur_region(&list_data[i], &render_data, &region);
++		needs_blur = !pixman_region32_empty(&region);
++		pixman_region32_fini(&region);
++	}
++	if (needs_blur && scene_background_blur_prepare(scene_output,
++			resolution_width, resolution_height)) {
++		render_data.background_blur = true;
++		list_con.ignore_occlusion = true;
++		list_con.calculate_visibility = false;
++		list_con.render_list->size = 0;
++		scene_nodes_in_box(&scene_output->scene->tree.node, &list_con.box,
++			construct_render_list_iterator, &list_con);
++		list_data = list_con.render_list->data;
++		list_len = list_con.render_list->size / sizeof(*list_data);
++		// Conservative damage for non-local sampling. Do not schedule another
++		// frame here: blur must not keep an otherwise idle desktop repainting.
++		wlr_damage_ring_add_whole(&scene_output->damage_ring);
++		pixman_region32_union_rect(&scene_output->pending_commit_damage,
++			&scene_output->pending_commit_damage, 0, 0, resolution_width, resolution_height);
++	}
++	if (!needs_blur) {
++		// Release GPU scratch storage when all effects are hidden/disabled,
++		// including when an opaque fullscreen window covers the desktop.
++		scene_background_blur_destroy(scene_output);
++	}
++	scene_output->background_blur_active = render_data.background_blur;
+ 
+ 	if (debug_damage == WLR_SCENE_DEBUG_DAMAGE_RERENDER) {
+ 		scene_output_damage_whole(scene_output);
+@@ -2443,7 +2551,7 @@
+ 	// - There are no color transforms that need to be applied
+ 	// - Damage highlight debugging is not enabled
+ 	enum scene_direct_scanout_result scanout_result = SCANOUT_INELIGIBLE;
+-	if (options->color_transform == NULL && !render_gamma_lut && list_len == 1
++	if (!render_data.background_blur && options->color_transform == NULL && !render_gamma_lut && list_len == 1
+ 			&& debug_damage != WLR_SCENE_DEBUG_DAMAGE_HIGHLIGHT) {
+ 		scanout_result = scene_entry_try_direct_scanout(&list_data[0], state, &render_data);
+ 	}
+@@ -2517,13 +2625,15 @@
+ 	}
+ 
+ 	scene_output->in_point++;
+-	struct wlr_render_pass *render_pass = wlr_renderer_begin_buffer_pass(output->renderer, buffer,
+-			&(struct wlr_buffer_pass_options){
++	struct wlr_buffer_pass_options output_pass_options = {
+ 		.timer = timer ? timer->render_timer : NULL,
+ 		.color_transform = scene_output->combined_color_transform,
+ 		.signal_timeline = scene_output->in_timeline,
+ 		.signal_point = scene_output->in_point,
+-	});
++	};
++	struct wlr_render_pass *render_pass = render_data.background_blur ?
++		scene_background_blur_begin(scene_output->background_blur) :
++		wlr_renderer_begin_buffer_pass(output->renderer, buffer, &output_pass_options);
+ 	if (render_pass == NULL) {
+ 		wlr_buffer_unlock(buffer);
+ 		return false;
+@@ -2542,7 +2652,7 @@
+ 	// Cull areas of the background that are occluded by opaque regions of
+ 	// scene nodes above. Those scene nodes will just render atop having us
+ 	// never see the background.
+-	if (scene_output->scene->calculate_visibility) {
++	if (!render_data.background_blur && scene_output->scene->calculate_visibility) {
+ 		for (int i = list_len - 1; i >= 0; i--) {
+ 			struct render_list_entry *entry = &list_data[i];
+ 
+@@ -2580,6 +2690,24 @@
+ 
+ 	for (int i = list_len - 1; i >= 0; i--) {
+ 		struct render_list_entry *entry = &list_data[i];
++		if (render_data.background_blur) {
++			pixman_region32_t region;
++			pixman_region32_init(&region);
++			scene_entry_blur_region(entry, &render_data, &region);
++			if (!pixman_region32_empty(&region)) {
++				struct wlr_scene_buffer *surface = wlr_scene_buffer_from_node(entry->node);
++				render_pass = scene_background_blur_apply(scene_output->background_blur,
++					render_pass, &region, surface->background_blur_radius * render_data.scale);
++				render_data.render_pass = render_pass;
++			}
++			pixman_region32_fini(&region);
++			if (!render_pass) {
++				pixman_region32_fini(&render_data.damage);
++				wlr_buffer_unlock(buffer);
++				wlr_damage_ring_add_whole(&scene_output->damage_ring);
++				return false;
++			}
++		}
+ 		scene_entry_render(entry, &render_data);
+ 
+ 		if (entry->node->type == WLR_SCENE_NODE_BUFFER) {
+@@ -2614,6 +2742,19 @@
+ 				.clip = &damage->region,
+ 			});
+ 		}
++	}
++
++	if (render_data.background_blur) {
++		bool submitted = wlr_render_pass_submit(render_pass);
++		render_pass = submitted ? wlr_renderer_begin_buffer_pass(output->renderer,
++			buffer, &output_pass_options) : NULL;
++		if (!render_pass) {
++			pixman_region32_fini(&render_data.damage);
++			wlr_buffer_unlock(buffer);
++			wlr_damage_ring_add_whole(&scene_output->damage_ring);
++			return false;
++		}
++		scene_background_blur_finish(scene_output->background_blur, render_pass);
+ 	}
+ 
+ 	wlr_output_add_software_cursors_to_render_pass(output, render_pass, &render_data.damage);

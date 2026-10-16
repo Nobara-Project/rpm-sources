@@ -2,7 +2,7 @@
 pbcli is a command line client which allows to upload and download pastes from privatebin directly from the command line.}
 
 Name:           pbcli
-Version:        2.9.0
+Version:        2.10.0
 Release:        1%?dist
 Summary:        A PrivateBin commandline upload and download utility
 SourceLicense:  Unlicense OR MIT
@@ -10,7 +10,6 @@ License:        ((Apache-2.0 OR MIT) AND BSD-3-Clause) AND (0BSD OR MIT OR Apach
 URL:            https://github.com/Mydayyy/%{name}
 Source0:        %{url}/archive/refs/tags/v%{version}.tar.gz
 Source1:	config
-Patch0:     0001-add-url-shortener-support.patch
 ExclusiveArch:	x86_64 aarch64
 
 BuildRequires:  cargo-rpm-macros >= 24
@@ -120,6 +119,10 @@ ln -sf %_bindir/pbcli %{buildroot}%{_bindir}/npaste
 %_bindir/npaste
 
 %changelog
+* Mon Sep 21 2026 LionHeartP <LionHeartP@proton.me> - 2.10.0-1
+- Update to 2.10.0
+- Remove URL shortener patch (upstreamed)
+
 * Tue Apr 14 2026 LionHeartP <LionHeartP@proton.me> - 2.9.0-1
 - Update to 2.9.0
 
