@@ -1,6 +1,6 @@
 %global majorversion 1
 %global minorversion 6
-%global microversion 8
+%global microversion 9
 
 %global apiversion   0.3
 %global spaversion   0.2
@@ -936,6 +936,9 @@ systemctl --no-reload preset --global pipewire.socket >/dev/null 2>&1 || :
 %{_datadir}/pipewire/pipewire.conf.d/50-raop.conf
 
 %changelog
+* Fri Oct 16 2026 LionHeartP <LionHeartP@proton.me> - 1.6.9-1
+- Update version to 1.6.9
+
 * Thu Jul 09 2026 LionHeartP <LionHeartP@proton.me> - 1.6.8-1
 - Update version to 1.6.8
 
