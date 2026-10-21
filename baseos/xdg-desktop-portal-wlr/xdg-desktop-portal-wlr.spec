@@ -1,6 +1,6 @@
 Name:           xdg-desktop-portal-wlr
 Version:        0.8.4
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        xdg-desktop-portal backend for wlroots
 
 License:        MIT
@@ -14,6 +14,8 @@ Source3:        wlroots-portals.conf
 
 # Preserve the selected monitor's Wayland image description in PipeWire
 Patch0:         0001-screencast-publish-Wayland-output-colorimetry.patch
+# Implement the RemoteDesktop portal with wlroots virtual pointer/keyboard
+Patch1:         0002-remotedesktop-implement-RemoteDesktop-portal.patch
 
 BuildRequires:  gcc
 BuildRequires:  gnupg2
@@ -31,6 +33,7 @@ BuildRequires:  pkgconfig(systemd)
 BuildRequires:  pkgconfig(wayland-client)
 BuildRequires:  pkgconfig(wayland-protocols) >= 1.47
 BuildRequires:  pkgconfig(wayland-scanner)
+BuildRequires:  pkgconfig(xkbcommon) >= 1.0.0
 
 Requires:       dbus
 # required for Screenshot portal implementation
@@ -46,8 +49,8 @@ Supplements:    (sway and (flatpak or snapd))
 
 %description
 %{summary}.
-This project seeks to add support for the screenshot, screencast, and possibly
-remote-desktop xdg-desktop-portal interfaces for wlroots based compositors.
+This project adds support for the screenshot, screencast, and remote-desktop
+xdg-desktop-portal interfaces for wlroots based compositors.
 
 
 %prep
@@ -86,6 +89,10 @@ install -D -pv -m644 %{SOURCE3} \
 
 
 %changelog
+* Wed Oct 21 2026 Nobara Project <nobara@protonmail.com> - 0.8.4-3
+- Implement the RemoteDesktop portal using wlroots virtual pointer and
+  virtual keyboard protocols
+
 * Tue Sep 01 2026 Nobara Project <nobara@protonmail.com> - 0.8.4-2
 - Publish Wayland output colorimetry on PipeWire monitor-capture streams
 
