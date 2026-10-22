@@ -1,0 +1,86 @@
+Subject: [PATCH] igc: disable ASPM L1 on ASUS I226-V rev 6 controllers
+
+An ASUS ROG STRIX X870-A GAMING WIFI with I226-V revision 06,
+subsystem 1043:8867 and NVM 2023:889d repeatedly loses its PCIe link
+on Nobara 7.2.4. The driver detaches the interface after an MMIO read
+fails, logging "PCIe link lost, device now detached" followed by
+"Failed to read reg 0xc030!". Rebooting restores connectivity.
+
+A report for an ASUS ProArt X870E on Linux 6.12.41 identifies the same
+controller revision, subsystem and NVM. Intel attributed the reported
+behavior to an unexpected PCIe link state change and recommended
+motherboard-vendor investigation. This is not established as a 7.2
+regression, and this downstream mitigation still needs hardware soak
+testing.
+
+The affected system has ASPM L1 enabled despite the existing I226 L1.2
+workaround. Extend that workaround to disable L1 on the reported ASUS
+revision and subsystem only. The PCI core also disables dependent L1
+substates. Preserve the existing L1.2 mask for all other I226 hardware.
+
+Use the same mask during probe, resume and PCI error recovery, keeping
+the locked PCI API in the recovery path. This does not change global
+PCIe policy, runtime PM, or the Intel Bluetooth sleep patches.
+
+Link: https://lists.openwall.net/netdev/2025/09/01/324
+Link: https://lists.openwall.net/netdev/2025/09/05/17
+Link: https://lists.openwall.net/netdev/2025/09/07/41
+---
+diff --git a/drivers/net/ethernet/intel/igc/igc_main.c b/drivers/net/ethernet/intel/igc/igc_main.c
+--- a/drivers/net/ethernet/intel/igc/igc_main.c
++++ b/drivers/net/ethernet/intel/igc/igc_main.c
+@@ -7105,6 +7105,24 @@
+ 	return HRTIMER_NORESTART;
+ }
+ 
++static int igc_aspm_disable_mask(const struct igc_hw *hw)
++{
++	/* Disable ASPM L1.2 on I226 devices to avoid packet loss. */
++	int state = PCIE_LINK_STATE_L1_2;
++
++	/*
++	 * ASUS I226-V rev 6 controllers can lose their PCIe link with L1
++	 * enabled, even when L1.2 is disabled. Keep the workaround scoped
++	 * to the reported hardware; the PCI core also disables L1 substates.
++	 */
++	if (hw->device_id == IGC_DEV_ID_I226_V && hw->revision_id == 0x06 &&
++	    hw->subsystem_vendor_id == PCI_VENDOR_ID_ASUSTEK &&
++	    hw->subsystem_device_id == 0x8867)
++		state |= PCIE_LINK_STATE_L1;
++
++	return state;
++}
++
+ /**
+  * igc_probe - Device Initialization Routine
+  * @pdev: PCI device information struct
+@@ -7171,9 +7189,9 @@
+ 	hw->subsystem_vendor_id = pdev->subsystem_vendor;
+ 	hw->subsystem_device_id = pdev->subsystem_device;
+ 
+-	/* Disable ASPM L1.2 on I226 devices to avoid packet loss */
++	/* Apply the I226 ASPM workarounds before saving PCI state. */
+ 	if (igc_is_device_id_i226(hw))
+-		pci_disable_link_state(pdev, PCIE_LINK_STATE_L1_2);
++		pci_disable_link_state(pdev, igc_aspm_disable_mask(hw));
+ 
+ 	err = pci_save_state(pdev);
+ 	if (err)
+@@ -7559,7 +7577,7 @@
+ 	pci_enable_wake(pdev, PCI_D3cold, 0);
+ 
+ 	if (igc_is_device_id_i226(hw))
+-		pci_disable_link_state(pdev, PCIE_LINK_STATE_L1_2);
++		pci_disable_link_state(pdev, igc_aspm_disable_mask(hw));
+ 
+ 	if (igc_init_interrupt_scheme(adapter, true)) {
+ 		netdev_err(netdev, "Unable to allocate memory for queues\n");
+@@ -7688,7 +7706,7 @@
+ 		pci_enable_wake(pdev, PCI_D3cold, 0);
+ 
+ 		if (igc_is_device_id_i226(hw))
+-			pci_disable_link_state_locked(pdev, PCIE_LINK_STATE_L1_2);
++			pci_disable_link_state_locked(pdev, igc_aspm_disable_mask(hw));
+ 
+ 		/* In case of PCI error, adapter loses its HW address
+ 		 * so we should re-assign it here.
