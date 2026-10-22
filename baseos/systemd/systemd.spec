@@ -76,7 +76,7 @@ Url:            https://systemd.io
 # But don't do that on OBS, otherwise the version subst fails, and will be
 # like 257-123-gabcd257.1 instead of 257-123-gabcd
 %if %{without obs}
-Version:        %{?version_override}%{!?version_override:259.9}
+Version:        %{?version_override}%{!?version_override:259.10}
 %else
 Version:        %{?version_override}%{!?version_override:%(cat meson.version)}
 %endif
@@ -1580,6 +1580,9 @@ rm -rf \
     elfbins.list
 
 %changelog
+* Thu Oct 22 2026 LionHeartP <LionHeartP@proton.me> - 259.10-1
+- Version 259.10
+
 * Thu Oct 01 2026 LionHeartP <LionHeartP@proton.me> - 259.9-1
 - Version 259.9
 
