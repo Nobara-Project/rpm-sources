@@ -1,59 +1,60 @@
-From 193b9ce30b950daa4ca0e571d7c61918cb0fcea9 Mon Sep 17 00:00:00 2001
-From: CloudWells <151101453+CloudWells@users.noreply.github.com>
-Date: Wed, 26 Aug 2026 03:16:10 -0600
-Subject: [PATCH] xwayland: avoid RandR dot clock overflow in CVT modes
+From da906596bd307e62bcb4aa68e24ec778d1471048 Mon Sep 17 00:00:00 2001
+From: Chris Sawczuk <chris@sawcz.uk>
+Date: Fri, 16 Oct 2026 19:39:40 +0100
+Subject: [PATCH] xwayland: Avoid RandR dotClock overflow for high pixel clock
+ modes
 
-Large high-refresh modes generated for scaled outputs can require a CVT
-pixel clock above the CARD32 limit used by RandR. Converting that clock
-to Hz overflows dotClock and makes X11 clients observe an incorrect
-refresh rate.
+xRRModeInfo.dotClock is a 32-bit value in Hz. With standard CVT blanking,
+5120x2160@240 needs ~4.34 GHz, which wraps to ~41.5 MHz, so X11 clients
+compute a ~2.3 Hz refresh rate and throttle (e.g. Chromium/CEF).
 
-Retry overflowing full-blanking modes with reduced blanking. If reduced
-blanking still cannot fit, synthesize zero-blanking timings so
-representable modes retain their requested refresh.
+Fall back to CVT reduced blanking when the clock would not fit, and reject
+the mode if it still overflows.
 
-Reported-and-tested-by: CloudWells <151101453+CloudWells@users.noreply.github.com>
-Link: https://github.com/Nobara-Project/nobara-core-packages/issues/133
+Signed-off-by: Chris Sawczuk <chris@sawcz.uk>
 ---
- hw/xwayland/xwayland-cvt.c | 25 +++++++++++++++++++++++++
- 1 file changed, 25 insertions(+)
+ hw/xwayland/xwayland-cvt.c | 22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
 
 diff --git a/hw/xwayland/xwayland-cvt.c b/hw/xwayland/xwayland-cvt.c
-index 4248d38..42b8ff6 100644
+index 80c67e9..4cb9e79 100644
 --- a/hw/xwayland/xwayland-cvt.c
 +++ b/hw/xwayland/xwayland-cvt.c
-@@ -39,6 +39,31 @@ xwayland_modeinfo_from_cvt(xRRModeInfo *modeinfo,
-     libxcvt_mode_info =
-         libxcvt_gen_mode_info(hdisplay, vdisplay, vrefresh, reduced, interlaced);
+@@ -23,6 +23,7 @@
  
-+    /* RandR's dotClock is a CARD32 in Hz, a hard ceiling of ~4.295 GHz.
-+     * A full-blanking CVT mode for a large, high-refresh mode (e.g. an
-+     * emulated mode for a scaled 4K 240Hz output) can exceed it; the
-+     * conversion below would then wrap around and advertise a garbage
-+     * refresh rate (e.g. 19.92 Hz instead of 240 Hz) to X11 clients.
-+     * Retry with reduced blanking; should even that overflow, fall back
-+     * to synthetic zero-blanking timings preserving the refresh rate.
+ #include <xwayland-config.h>
+ 
++#include <stdint.h>
+ #include <string.h>
+ #include <randrstr.h>
+ #include <libxcvt/libxcvt.h>
+@@ -42,6 +43,27 @@ xwayland_modeinfo_from_cvt(xRRModeInfo *modeinfo,
+     if (!libxcvt_mode_info)
+         return FALSE;
+ 
++    /* xRRModeInfo.dotClock is a CARD32 in Hz, so standard CVT blanking
++     * overflows it for large high-refresh modes (e.g. 5120x2160@240 needs
++     * ~4.34 GHz), and clients compute a bogus refresh rate from the wrapped
++     * value. Fall back to reduced blanking, which keeps the same refresh
++     * rate with a much lower pixel clock.
 +     */
-+    if (!reduced && libxcvt_mode_info->dot_clock > 0xffffffffull / 1000) {
-+        free(libxcvt_mode_info);
-+        libxcvt_mode_info =
++    if (!reduced && libxcvt_mode_info->dot_clock * 1000.0 > UINT32_MAX) {
++        struct libxcvt_mode_info *rb_mode_info =
 +            libxcvt_gen_mode_info(hdisplay, vdisplay, vrefresh, TRUE, interlaced);
++
++        if (rb_mode_info) {
++            free(libxcvt_mode_info);
++            libxcvt_mode_info = rb_mode_info;
++        }
 +    }
 +
-+    if (libxcvt_mode_info->dot_clock > 0xffffffffull / 1000) {
-+        libxcvt_mode_info->hsync_start = hdisplay;
-+        libxcvt_mode_info->hsync_end   = hdisplay;
-+        libxcvt_mode_info->htotal      = hdisplay;
-+        libxcvt_mode_info->vsync_start = vdisplay;
-+        libxcvt_mode_info->vsync_end   = vdisplay;
-+        libxcvt_mode_info->vtotal      = vdisplay;
-+        libxcvt_mode_info->dot_clock   =
-+            (uint64_t) ((double) hdisplay * vdisplay * vrefresh / 1000.0);
++    if (libxcvt_mode_info->dot_clock * 1000.0 > UINT32_MAX) {
++        free(libxcvt_mode_info);
++        return FALSE;
 +    }
 +
      modeinfo->width      = libxcvt_mode_info->hdisplay;
      modeinfo->height     = libxcvt_mode_info->vdisplay;
      modeinfo->dotClock   = libxcvt_mode_info->dot_clock * 1000.0;
 -- 
-2.55.0
-
+2.56.0
