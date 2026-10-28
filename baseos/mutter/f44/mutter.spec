@@ -18,7 +18,7 @@
 %global major_version %%(echo %%{tarball_version} | cut -d "." -f 1)
 
 Name:          mutter
-Version:       50.5
+Version:       50.6
 Release:       %autorelease
 Summary:       Window and compositing manager based on Clutter
 
@@ -36,7 +36,10 @@ Source1:       org.gnome.mutter.fedora.gschema.override
 Patch:         mutter-42.alpha-disable-tegra.patch
 
 # Nobara additions
-Patch:	mutter_increase_check_alive_timeout.patch
+Patch:	       mutter_increase_check_alive_timeout.patch
+
+# Backport crash fix
+Patch:         0001-wayland-touch-Do-not-crash-on-empty-focus-surface.patch
 
 BuildRequires: cvt
 BuildRequires: desktop-file-utils

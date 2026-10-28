@@ -1,0 +1,30 @@
+From c057ad331ea02f5ca015b2235ced8617feb4f9a1 Mon Sep 17 00:00:00 2001
+From: Alessandro Astone <alessandro.astone@canonical.com>
+Date: Wed, 7 Oct 2026 14:46:48 +0200
+Subject: [PATCH] wayland/touch: Do not crash on empty focus surface
+
+Fixes: fb7baffd41 ("wayland/touch: Expose the current touch surface")
+Closes: https://gitlab.gnome.org/GNOME/mutter/-/work_items/4871
+Part-of: <https://gitlab.gnome.org/GNOME/mutter/-/merge_requests/5375>
+(cherry picked from commit 13ed6caed4580d6d1ee8812a4d180ea8b5035ddc)
+---
+ src/wayland/meta-wayland-touch.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/src/wayland/meta-wayland-touch.c b/src/wayland/meta-wayland-touch.c
+index 0aff982661..3d6ccde564 100644
+--- a/src/wayland/meta-wayland-touch.c
++++ b/src/wayland/meta-wayland-touch.c
+@@ -656,6 +656,9 @@ touch_can_grab_surface (MetaWaylandTouchInfo *touch_info,
+ {
+   MetaWaylandSurface *subsurface;
+ 
++  if (!touch_info->focus_surface)
++    return FALSE;
++
+   if (touch_info->focus_surface->surface == surface)
+     return TRUE;
+ 
+-- 
+2.54.0
+
