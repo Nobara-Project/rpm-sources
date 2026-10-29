@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit d44453ce07ba5e1e6b71f7960809c38f2526c1cd
+%global commit 1c3a936490f9f0951188218e136cd03bca497386
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 8.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -80,7 +80,7 @@
 
 Name:           mesa-vulkan-drivers-git
 Summary:        The mesa graphics vulkan driver stack.
-%global ver 26.3.0
+%global ver 26.4.0
 Version:        %{lua:ver = string.gsub(rpm.expand("%{ver}"), "-", "~"); print(ver)}
 Release:        %{rel_build}
 License:        MIT
@@ -96,23 +96,31 @@ Source1:        Mesa-MLAA-License-Clarification-Email.txt
 # The minimum target versions are obtained from the .wrap files
 # https://gitlab.freedesktop.org/mesa/mesa/-/tree/main/subprojects
 # but we generally want the latest compatible versions
+%global rust_bitflags_ver 2.9.1
 %global rust_paste_ver 1.0.15
 %global rust_proc_macro2_ver 1.0.106
 %global rust_quote_ver 1.0.44
 %global rust_syn_ver 2.0.115
 %global rust_unicode_ident_ver 1.0.23
 %global rustc_hash_ver 2.1.1
+%global rust_xml_ver 1.2.1
 Source10:       https://crates.io/api/v1/crates/paste/%{rust_paste_ver}/download#/paste-%{rust_paste_ver}.tar.gz
 Source11:       https://crates.io/api/v1/crates/proc-macro2/%{rust_proc_macro2_ver}/download#/proc-macro2-%{rust_proc_macro2_ver}.tar.gz
 Source12:       https://crates.io/api/v1/crates/quote/%{rust_quote_ver}/download#/quote-%{rust_quote_ver}.tar.gz
 Source13:       https://crates.io/api/v1/crates/syn/%{rust_syn_ver}/download#/syn-%{rust_syn_ver}.tar.gz
 Source14:       https://crates.io/api/v1/crates/unicode-ident/%{rust_unicode_ident_ver}/download#/unicode-ident-%{rust_unicode_ident_ver}.tar.gz
 Source15:       https://crates.io/api/v1/crates/rustc-hash/%{rustc_hash_ver}/download#/rustc-hash-%{rustc_hash_ver}.tar.gz
+Source16:       https://static.crates.io/crates/bitflags/%{rust_bitflags_ver}/download#/bitflags-%{rust_bitflags_ver}.tar.gz
+Source17:       https://static.crates.io/crates/xml/%{rust_xml_ver}/download#/xml-%{rust_xml_ver}.tar.gz
 
 BuildRequires:  meson >= 1.3.0
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
 BuildRequires:  gettext
+BuildRequires:  rust-bitflags-devel >= 2.9.1
+%if !0%{?rhel}
+BuildRequires:  rust-xml-devel >= 1.2.1
+%endif
 %if 0%{?with_hardware}
 BuildRequires:  kernel-headers
 BuildRequires:  systemd-devel
@@ -223,6 +231,8 @@ tar -xvf %{SOURCE12} -C subprojects/packagecache/
 tar -xvf %{SOURCE13} -C subprojects/packagecache/
 tar -xvf %{SOURCE14} -C subprojects/packagecache/
 tar -xvf %{SOURCE15} -C subprojects/packagecache/
+tar -xvf %{SOURCE16} -C subprojects/packagecache/
+tar -xvf %{SOURCE17} -C subprojects/packagecache/
 for d in subprojects/packagecache/*-*; do
     echo '{"files":{}}' > $d/.cargo-checksum.json
 done
@@ -264,15 +274,19 @@ export RUSTFLAGS="%build_rustflags"
 export MESON_PACKAGE_CACHE_DIR="%{cargo_registry}/"
 %endif
 rewrite_wrap_file() {
-  sed -e "/source.*/d" -e "s/^directory = ${1}-.*/directory = $(basename ${MESON_PACKAGE_CACHE_DIR:-subprojects/packagecache}/${1}-*)/" -i subprojects/${1}*.wrap
+  wrap_name="$1"
+  crate_name="${2:-$1}"
+  sed -e "/source.*/d" -e "s/^directory = ${crate_name}-.*/directory = $(basename ${MESON_PACKAGE_CACHE_DIR:-subprojects/packagecache}/${crate_name}-*)/" -i subprojects/${wrap_name}*.wrap
 }
 
+rewrite_wrap_file bitflags
 rewrite_wrap_file proc-macro2
 rewrite_wrap_file quote
 rewrite_wrap_file syn
 rewrite_wrap_file unicode-ident
 rewrite_wrap_file paste
 rewrite_wrap_file rustc-hash
+rewrite_wrap_file xml-rs xml
 %endif
 
 # We've gotten a report that enabling LTO for mesa breaks some games. See
@@ -545,6 +559,9 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Thu Oct 29 2026 LionHeartP <LionHeartP@proton.me> - 26.4.0-1
+- Update to latest commit
+
 * Wed Oct 14 2026 LionHeartP <LionHeartP@proton.me> - 26.3.0-8
 - Update to latest commit
 - Remove anti-lag build options since it's no longer an extra layer
