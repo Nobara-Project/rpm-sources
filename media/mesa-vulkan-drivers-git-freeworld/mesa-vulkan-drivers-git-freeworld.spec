@@ -430,6 +430,7 @@ rm -Rf %{buildroot}%{_libdir}/dri/r600_drv_video.so
 rm -Rf %{buildroot}%{_libdir}/dri/radeonsi_drv_video.so
 rm -Rf %{buildroot}%{_libdir}/dri/iris_dri.so
 rm -Rf %{buildroot}%{_libdir}/dri/zink_dri.so
+rm -Rf %{buildroot}%{_libdir}/dri/zink_drv_video.so
 rm -Rf %{buildroot}%{_libdir}/gallium-pipe
 rm -Rf %{buildroot}%{_libdir}/gallium-pipe/*.so
 rm -Rf %{buildroot}%{_libdir}/dri/armada-drm_dri.so
