@@ -43,7 +43,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 6.18
-%define _stablekver 52
+%define _stablekver 55
 %define _PKGBUILD 1
 %define _rcver rc7
 %define _tarkver %{_basekver}.%{_stablekver}
@@ -56,7 +56,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 201
+%define customver 200
 %endif
 
 Release:%{customver}.lts.nobara%{?dist}
@@ -75,7 +75,7 @@ Vendor: The Linux Community and CachyOS maintainer(s)
 URL: https://github.com/CachyOS/linux
 Source0: %{url}/archive/refs/tags/cachyos-%{_tarkver}-%{_PKGBUILD}.tar.gz
 
-%define config_commit 661da6f123bf3984e462fe9f932a38e643d6e081
+%define config_commit ee39638ff003ef2def73671ec1677d48218e7c03
 
 %if 0%{?_is_rc}
 Source1: https://raw.githubusercontent.com/CachyOS/linux-cachyos/%{config_commit}/linux-cachyos-rc/config
@@ -147,7 +147,7 @@ Patch15: 0002-Bluetooth-btintel_pcie-refresh-state-on-timeout.patch
 # https://www.spinics.net/lists/netdev/msg1121863.html
 Patch16: igc-disable-aspm-l1-asus-i226-v.patch
 
-# Framework Laptop 13 Pro / Intel Panther Lake backports for 6.18.52.
+# Framework Laptop 13 Pro / Intel Panther Lake backports for 6.18.55.
 # Framework currently specifies 6.19 minimum and recommends 7.0+; these are
 # targeted backports, not a claim of full 7.1 feature parity or certification.
 # https://frame.work/laptop13pro?tab=linux
@@ -169,7 +169,7 @@ Patch32: perf-intel-cstate-panther-lake.patch
 # https://github.com/torvalds/linux/commit/169934ba2b73f07df59c3371acdc26f45eb99c5e
 Patch33: intel-tcc-cooling-panther-lake.patch
 # Hybrid energy model: distinguish LP-E/E/P cores by CPU type and L3 cache.
-# The CPU-type helper prerequisite is already present in CachyOS 6.18.52.
+# The CPU-type helper prerequisite is already present in CachyOS 6.18.55.
 # https://github.com/torvalds/linux/commit/c17add73498245bd94cb8a05345c73366606e671
 # https://github.com/torvalds/linux/commit/d852b6f67b71dd22cd2af8ee29306eccbd6c06bf
 Patch34: intel-pstate-hybrid-l3-helper.patch
@@ -1173,6 +1173,10 @@ fi
 %files
 
 %changelog
+* Fri Oct 30 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 6.18.55-200
+- Update to CachyOS 6.18.55-1 and the matching linux-cachyos-lts config
+- Renumber Surface hid-multitouch quirk bits and classes to avoid upstream collisions
+
 * Fri Sep 18 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 6.18.52-201
 - Backport Framework Panther Lake microphone gain and Intel idle/power support
 - Backport Panel Replay full-line granularity and Xe3 display clock fixes
