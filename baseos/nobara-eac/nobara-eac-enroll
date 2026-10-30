@@ -1,0 +1,82 @@
+#!/usr/bin/bash
+#
+# nobara-eac-enroll - enroll the keys the Easy Anti-Cheat boot entry needs
+#
+# The EAC entry boots with enforced module signatures. GRUB and the kernels
+# are signed by the Nobara Secure Boot CA, while DKMS and akmods sign the
+# modules they build on this machine (NVIDIA, xone, ...) with local keys.
+# Shim and the kernel trust all of them once they are enrolled as MOKs:
+#   /usr/share/nobara/eac/nobara-sb-ca.der  Nobara Secure Boot CA
+#   /var/lib/dkms/mok.pub                   DKMS modules
+#   /etc/pki/akmods/certs/public_key.der    akmods modules
+# The DKMS and akmods keys are created first when those are installed.
+#
+# Usage: nobara-eac-enroll          enroll the keys that are not enrolled yet
+#        nobara-eac-enroll --check  exit 0 if all keys are enrolled
+
+NOBARA_CA=/usr/share/nobara/eac/nobara-sb-ca.der
+DKMS_CERT=/var/lib/dkms/mok.pub
+AKMODS_CERT=/etc/pki/akmods/certs/public_key.der
+
+log() { echo "nobara-eac-enroll: $*" >&2; }
+
+keys() {
+    echo "$NOBARA_CA"
+    [[ -s "$DKMS_CERT" ]] && echo "$DKMS_CERT"
+    [[ -s "$AKMODS_CERT" ]] && echo "$AKMODS_CERT"
+}
+
+enrolled() {
+    mokutil --test-key "$1" 2>/dev/null | grep -qxF "$1 is already enrolled"
+}
+
+pending() {
+    mokutil --test-key "$1" 2>/dev/null | grep -qxF "$1 is already in the enrollment request"
+}
+
+if [[ "$1" = "--check" ]]; then
+    command -v mokutil &>/dev/null || exit 1
+    while read -r key; do
+        enrolled "$key" || exit 1
+    done < <(keys)
+    exit 0
+fi
+
+[[ $EUID -eq 0 ]] || { log "run this as root: sudo $0"; exit 1; }
+[[ -d /sys/firmware/efi ]] || { log "this system was not booted with UEFI"; exit 1; }
+
+# The local signing keys, as DKMS and akmods would create them on first use
+if command -v dkms &>/dev/null && [[ ! -s "$DKMS_CERT" ]]; then
+    dkms generate_mok || { log "could not create the DKMS signing key"; exit 1; }
+fi
+if command -v kmodgenca &>/dev/null && [[ ! -s "$AKMODS_CERT" ]]; then
+    kmodgenca -a || { log "could not create the akmods signing key"; exit 1; }
+fi
+
+new=()
+while read -r key; do
+    if enrolled "$key"; then
+        log "$key is already enrolled"
+    elif pending "$key"; then
+        log "$key is already waiting for confirmation on the next boot"
+    else
+        new+=("$key")
+    fi
+done < <(keys)
+
+if [[ ${#new[@]} -eq 0 ]]; then
+    log "nothing to enroll"
+    exit 0
+fi
+
+echo "Enrolling ${new[*]}"
+echo "Choose a one-time password. You will type it again in MokManager on the next boot."
+mokutil --import "${new[@]}" || { log "mokutil --import failed"; exit 1; }
+
+cat <<EOF
+
+Reboot now. In the blue MokManager screen choose "Enroll MOK", "Continue",
+"Yes", type the password you just chose and then "Reboot".
+Once the keys are enrolled and Secure Boot is enabled, the Easy Anti-Cheat
+entry becomes the default boot entry.
+EOF

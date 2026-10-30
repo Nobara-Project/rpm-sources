@@ -1,0 +1,13 @@
+[Unit]
+Description=Update the Easy Anti-Cheat boot entries
+Documentation=file:///etc/sysconfig/nobara-eac
+# Secure Boot and the enrolled MOKs can change between boots
+After=local-fs.target
+ConditionPathIsDirectory=/boot/loader/entries
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/kernel/install.d/95-nobara-eac.install apply-all
+
+[Install]
+WantedBy=multi-user.target
