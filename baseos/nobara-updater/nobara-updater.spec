@@ -1,6 +1,6 @@
 Name:          nobara-updater
 Version:       2.0.1
-Release:       72%{?dist}
+Release:       81%{?dist}
 License:       GPL-3.0-or-later
 Summary:       Nobara System Updater
 
@@ -89,6 +89,7 @@ done
 %doc %{_datadir}/nobara-updater/RECOVERY.md
 %doc %{_datadir}/nobara-updater/UPDATES.md
 %{_libexecdir}/nobara-update-worker
+%{_libexecdir}/nobara-update-reboot
 %{_libexecdir}/nobara-codec-guard
 %{_sysconfdir}/dnf/libdnf5-plugins/actions.d/nobara-codecs.actions
 %{_libexecdir}/nobara-update-notice
