@@ -1,0 +1,175 @@
+Fix byte-sized LVM plans overflowing the Boost.Python GlobalStorage bridge.
+Preserve 32-bit QVariant integers and promote larger values without loss.
+Exercise the native conversion, nested state, and 64-bit boundaries.
+
+--- a/src/libcalamares/pyboost/PythonHelper.cpp
++++ b/src/libcalamares/pyboost/PythonHelper.cpp
+@@ -19,6 +19,8 @@
+ #include <QDir>
+ #include <QFileInfo>
+ 
++#include <limits>
++
+ namespace bp = boost::python;
+ 
+ namespace CalamaresPython
+@@ -40,7 +42,36 @@
+ 
+     else if ( pyType == "int" )
+     {
+-        return QVariant( bp::extract< int >( pyObject ) );
++        // Python integers are not limited to C++ int. In particular, storage
++        // sizes arrive from QVariant::ULongLong and must survive being written
++        // back through GlobalStorage, including inside dictionaries and lists.
++        int overflow = 0;
++        const auto value = PyLong_AsLongLongAndOverflow( pyObject.ptr(), &overflow );
++        if ( PyErr_Occurred() )
++        {
++            bp::throw_error_already_set();
++        }
++        if ( overflow == 0 )
++        {
++            // Preserve the existing QVariant type for ordinary small integers.
++            if ( value >= std::numeric_limits< int >::min() && value <= std::numeric_limits< int >::max() )
++            {
++                return QVariant( static_cast< int >( value ) );
++            }
++            return QVariant::fromValue< qlonglong >( value );
++        }
++        if ( overflow > 0 )
++        {
++            const auto unsignedValue = PyLong_AsUnsignedLongLong( pyObject.ptr() );
++            if ( PyErr_Occurred() )
++            {
++                bp::throw_error_already_set();
++            }
++            return QVariant::fromValue< qulonglong >( unsignedValue );
++        }
++        PyErr_SetString( PyExc_OverflowError, "Python integer is below QVariant's signed 64-bit range" );
++        bp::throw_error_already_set();
++        return QVariant();  // Unreachable; throw_error_already_set() throws.
+     }
+ 
+     else if ( pyType == "float" )
+--- a/src/libcalamares/CMakeLists.txt
++++ b/src/libcalamares/CMakeLists.txt
+@@ -220,6 +220,13 @@
+ #
+ calamares_add_test(libcalamarestest SOURCES Tests.cpp)
+ 
++if(WITH_PYTHON AND NOT WITH_PYBIND11)
++    calamares_add_test(libcalamarespyboosttest
++        SOURCES pyboost/VariantTests.cpp
++        LIBRARIES Python::Python Boost::python
++    )
++endif()
++
+ calamares_add_test(libcalamaresgeoiptest SOURCES geoip/GeoIPTests.cpp ${_geoip_src})
+ 
+ calamares_add_test(libcalamareslocaletest SOURCES locale/Tests.cpp ${localetest_qrc})
+--- /dev/null
++++ b/src/libcalamares/pyboost/VariantTests.cpp
+@@ -0,0 +1,103 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++// Regression coverage for Python-to-QVariant integers in installer state.
++#include "GlobalStorage.h"
++#include "pyboost/PythonHelper.h"
++
++#include <QtTest/QtTest>
++
++namespace bp = boost::python;
++
++class TestPythonVariants : public QObject
++{
++    Q_OBJECT
++private Q_SLOTS:
++    void initTestCase() { Py_Initialize(); }
++    void cleanupTestCase() { Py_Finalize(); }
++
++    void integers_data()
++    {
++        QTest::addColumn< QString >( "number" );
++        QTest::addColumn< int >( "type" );
++        QTest::newRow( "zero" ) << QString( "0" ) << int( QMetaType::Int );
++        QTest::newRow( "int-min" ) << QString( "-2147483648" ) << int( QMetaType::Int );
++        QTest::newRow( "int-max" ) << QString( "2147483647" ) << int( QMetaType::Int );
++        QTest::newRow( "above-int" ) << QString( "2147483648" ) << int( QMetaType::LongLong );
++        QTest::newRow( "below-int" ) << QString( "-2147483649" ) << int( QMetaType::LongLong );
++        QTest::newRow( "root-16GiB" ) << QString( "17179869184" ) << int( QMetaType::LongLong );
++        QTest::newRow( "disk-4TiB" ) << QString( "4398046511104" ) << int( QMetaType::LongLong );
++        QTest::newRow( "signed-min" ) << QString( "-9223372036854775808" ) << int( QMetaType::LongLong );
++        QTest::newRow( "signed-max" ) << QString( "9223372036854775807" ) << int( QMetaType::LongLong );
++        QTest::newRow( "unsigned" ) << QString( "9223372036854775808" ) << int( QMetaType::ULongLong );
++        QTest::newRow( "unsigned-max" ) << QString( "18446744073709551615" ) << int( QMetaType::ULongLong );
++    }
++
++    void integers()
++    {
++        QFETCH( QString, number );
++        QFETCH( int, type );
++        try
++        {
++            auto globals = bp::import( "__main__" ).attr( "__dict__" );
++            auto value = CalamaresPython::variantFromPyObject( bp::eval( number.toLatin1().constData(), globals ) );
++            QCOMPARE( value.userType(), type );
++            QCOMPARE( value.toString(), number );
++        }
++        catch ( const bp::error_already_set& )
++        {
++            PyErr_Print();
++            QFAIL( "A representable Python integer overflowed during QVariant conversion" );
++        }
++    }
++
++    void nestedStoragePlan()
++    {
++        try
++        {
++            auto globals = bp::import( "__main__" ).attr( "__dict__" );
++            auto plan = bp::eval( "{'rootBytes': 16*2**30, 'homeBytes': 4*2**30, 'reserveBytes': 18*2**30, "
++                                 "'swapBytes': 8*2**30, 'encrypted': True, 'fs': 'ext4', 'nested': [2**40, -2**40]}",
++                                 globals );
++            Calamares::GlobalStorage storage;
++            storage.insert( "nobaraLvmCreated", CalamaresPython::variantFromPyObject( plan ) );
++            const auto saved = storage.value( "nobaraLvmCreated" ).toMap();
++            QCOMPARE( saved.value( "rootBytes" ).toLongLong(), qlonglong( 16 ) << 30 );
++            QCOMPARE( saved.value( "homeBytes" ).toLongLong(), qlonglong( 4 ) << 30 );
++            QCOMPARE( saved.value( "reserveBytes" ).toLongLong(), qlonglong( 18 ) << 30 );
++            QCOMPARE( saved.value( "swapBytes" ).toLongLong(), qlonglong( 8 ) << 30 );
++            QCOMPARE( saved.value( "encrypted" ).userType(), int( QMetaType::Bool ) );
++            QVERIFY( saved.value( "encrypted" ).toBool() );
++            QCOMPARE( saved.value( "fs" ).toString(), QString( "ext4" ) );
++            const auto nested = saved.value( "nested" ).toList();
++            QCOMPARE( nested.size(), 2 );
++            QCOMPARE( nested.at( 0 ).toLongLong(), qlonglong( 1 ) << 40 );
++            QCOMPARE( nested.at( 1 ).toLongLong(), -( qlonglong( 1 ) << 40 ) );
++        }
++        catch ( const bp::error_already_set& )
++        {
++            PyErr_Print();
++            QFAIL( "Saving an LVM plan to GlobalStorage overflowed" );
++        }
++    }
++
++    void outOfRangeIntegers()
++    {
++        for ( const auto* number : { "-9223372036854775809", "18446744073709551616", "2**100" } )
++        {
++            bool rejected = false;
++            try
++            {
++                auto globals = bp::import( "__main__" ).attr( "__dict__" );
++                CalamaresPython::variantFromPyObject( bp::eval( number, globals ) );
++            }
++            catch ( const bp::error_already_set& )
++            {
++                rejected = PyErr_ExceptionMatches( PyExc_OverflowError );
++                PyErr_Clear();
++            }
++            QVERIFY2( rejected, number );
++        }
++    }
++};
++
++QTEST_GUILESS_MAIN( TestPythonVariants )
++#include "VariantTests.moc"

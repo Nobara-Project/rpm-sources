@@ -1,6 +1,6 @@
 Name:           calamares
 Version:        3.3.14
-Release:        136%{?dist}
+Release:        138%{?dist}
 Summary:        Installer from a live CD/DVD/USB to disk
 
 License:        GPL-3.0-or-later
@@ -51,6 +51,8 @@ Patch1015:       0011-run-nobara-sync-as-target-root.patch
 Patch1016:       0012-align-partitions-to-4k.patch
 # Guided ext4/XFS on LVM, recovery storage, and SSD mount defaults.
 Patch1017:       0013-guided-lvm-recovery.patch
+# Preserve 64-bit LVM byte counts in the Boost.Python GlobalStorage bridge
+Patch1018:       0014-fix-python-integer-overflow.patch
 #Patch1007:       fixup_branding.patch
 
 # Fedora-specific changes
@@ -261,6 +263,7 @@ cd ../../
 %patch 1015 -p1
 %patch 1016 -p1
 %patch 1017 -p1
+%patch 1018 -p1
 
 mv %{SOURCE1009} src/branding/nobara_branding/
 mv %{SOURCE1010} src/branding/nobara_branding/
@@ -434,6 +437,10 @@ EOF
 
 
 %changelog
+* Tue Oct 13 2026 Nobara Project <support@nobaraproject.org> - 3.3.14-137
+- Fix Python integer overflow while saving ext4/XFS LVM installation state.
+- Preserve signed and unsigned 64-bit sizes and add native conversion tests.
+
 * Mon Sep 28 2026 Nobara Project <support@nobaraproject.org> - 3.3.14-136
 - Default guided installs to ext4 on LVM, with XFS on LVM and Btrfs options.
 - Reserve full-root rollback capacity and isolate home data, including under LUKS.
