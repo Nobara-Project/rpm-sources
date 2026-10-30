@@ -73,7 +73,7 @@
 
 Name:           mesa
 Summary:        Mesa graphics libraries
-Version:        26.2.4
+Version:        26.2.6
 Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
 URL:            http://www.mesa3d.org
@@ -740,6 +740,12 @@ ln -s libGLX_mesa.so.0 %{buildroot}%{_libdir}/libGLX_system.so.0
 %endif
 
 %changelog
+* Thu Oct 29 2026 LionHeartP <LionHeartP@proton.me> - 26.2.6-1
+- Update to 26.2.6
+
+* Wed Oct 14 2026 LionHeartP <LionHeartP@proton.me> - 26.2.5-1
+- Update to 26.2.5
+
 * Thu Oct 01 2026 LionHeartP <LionHeartP@proton.me> - 26.2.4-1
 - Update to 26.2.4
 
