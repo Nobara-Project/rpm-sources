@@ -56,7 +56,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 202
+%define customver 203
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -197,6 +197,19 @@ BuildRequires: openssl
 BuildRequires: openssl-devel
 BuildRequires: pciutils-devel
 BuildRequires: pesign >= 0.10-4
+# Secure Boot signing of the kernel image. Easy Anti-Cheat Linux v2 only
+# accepts kernels signed with a key on Epic's well-known list.
+# Pass the key and certificate at build time, e.g.:
+#   --define 'nobara_sb_key /path/to/nobara-sb.key'
+#   --define 'nobara_sb_cert /path/to/nobara-sb.crt'
+# The key is a PEM file or a PKCS#11 URI such as
+# "pkcs11:token=Nobara;object=secureboot;type=private".
+# Without both the kernel image stays unsigned. The tools are always
+# required, as mock installs the BuildRequires of the unsigned SRPM.
+BuildRequires: sbsigntools
+BuildRequires: openssl-pkcs11
+# Public Nobara signer certificate, trusted for module signatures
+BuildRequires: nobara-eac-certs
 BuildRequires: python3
 BuildRequires: python3-devel
 BuildRequires: python3-docutils
@@ -254,6 +267,8 @@ Requires: /usr/bin/kernel-install
 Requires: drm-awaiter >= 1
 Requires: kernel-modules-%{rpmver} = %{kverstr}
 Supplements: %{name} = %{rpmver}
+# Easy Anti-Cheat Linux v2 boot entries
+Recommends: nobara-eac
 Provides: kernel-bore-eevdf-core >= 6.5.7-%{customver}
 Provides: kernel-bore-core >= 6.5.7-%{customver}
 Obsoletes: kernel-bore-eevdf-core <= 6.5.10-%{customver}
@@ -483,6 +498,18 @@ find . -name "localversion*" -delete
 # Set kernel version string as build salt
 scripts/config --set-str BUILD_SALT "%{kverstr}"
 
+# Embed an SBAT section, so shim can revoke vulnerable kernels by generation
+cat > nobara-sbat.csv <<EOF
+sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
+linux,1,The Linux Developers,linux,%{version},https://linux.org
+linux.nobara,1,Nobara,kernel,%{version}-%{release},https://nobaraproject.org
+EOF
+scripts/config --set-str EFI_SBAT_FILE "$PWD/nobara-sbat.csv"
+
+# Trust the Nobara signer for modules, so Nobara-signed out-of-tree modules
+# (NVIDIA) load in the Easy Anti-Cheat boot entry with enforced signatures
+scripts/config --set-str SYSTEM_TRUSTED_KEYS "%{_datadir}/nobara/eac/nobara-sb-signer.crt"
+
 # Finalize the patched config
 make %{?_smp_mflags} %{?llvm_build_env_vars} EXTRAVERSION=-%{krelstr} olddefconfig
 
@@ -582,6 +609,18 @@ cp -a %{buildroot}/boot/dtb-%{kverstr}/. %{buildroot}/lib/modules/%{kverstr}/dtb
 %endif
 
 ImageName=$(make KERNELRELEASE=%{kverstr} image_name | tail -n 1)
+
+%if %{defined nobara_sb_key} && %{defined nobara_sb_cert}
+# Sign the kernel image for Secure Boot
+SbsignEngine=
+case '%{nobara_sb_key}' in pkcs11:*) SbsignEngine="--engine pkcs11" ;; esac
+sbsign $SbsignEngine --key '%{nobara_sb_key}' --cert '%{nobara_sb_cert}' \
+    --output vmlinuz.signed $ImageName
+sbverify --cert '%{nobara_sb_cert}' vmlinuz.signed
+ImageName=vmlinuz.signed
+%else
+echo "WARNING: nobara_sb_key/nobara_sb_cert not defined, the kernel image is not signed"
+%endif
 
 mkdir -p %{buildroot}/boot
 
@@ -1119,6 +1158,12 @@ fi
 %files
 
 %changelog
+* Fri Oct 30 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 7.3.0-203
+- Easy Anti-Cheat Linux v2: embed SBAT, sign the kernel image when
+  nobara_sb_key/nobara_sb_cert are defined, enable the early lockdown LSM
+  and the Intel IOMMU by default, recommend nobara-eac for the boot entries
+- Trust the Nobara Secure Boot signer certificate for module signatures
+
 * Fri Oct 23 2026 LionHeartP <LionHeartP@proton.me> - 7.3.0-202
 - Update to new cachyos release
 
