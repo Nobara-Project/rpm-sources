@@ -1,0 +1,52 @@
+From	lespink
+Subject	[PATCH] Signed-off-by: lespink <> Bluetooth: btusb: Add support for Mercusys MA530 (2c4e:0115)
+Date	Fri, 3 Oct 2025 03:40:49 +0200
+Add support for the Realtek-based Mercusys MA530 Bluetooth 5.3 USB dongle
+which was previously unrecognized by the kernel and thus non-functional.
+
+The device is identified as USB ID 2c4e:0115 and shows up with no
+manufacturer string and product "Mercusys MA530 Adapter".
+
+The following is the relevant output from /sys/kernel/debug/usb/devices:
+
+T:  Bus=01 Lev=01 Prnt=01 Port=08 Cnt=05 Dev#= 10 Spd=12   MxCh= 0
+D:  Ver= 1.10 Cls=e0(wlcon) Sub=01 Prot=01 MxPS=64 #Cfgs=  1
+P:  Vendor=2c4e ProdID=0115 Rev= 2.00
+S:  Manufacturer=
+S:  Product=Mercusys MA530 Adapter
+S:  SerialNumber=30169DA2555D
+C:* #Ifs= 2 Cfg#= 1 Atr=e0 MxPwr=500mA
+I:* If#= 0 Alt= 0 #EPs= 3 Cls=e0(wlcon) Sub=01 Prot=01 Driver=btusb
+...
+
+The kernel dmesg log shows the firmware loading sequence works fine:
+
+[  +0.002087] Bluetooth: hci0: RTL: examining hci_ver=0a hci_rev=000b
+[  +0.001000] Bluetooth: hci0: RTL: rom_version status=0 version=1
+[  +0.000009] Bluetooth: hci0: RTL: loading rtl_bt/rtl8761bu_fw.bin
+[  +0.002938] Bluetooth: hci0: RTL: loading rtl_bt/rtl8761bu_config.bin
+[  +0.000242] Bluetooth: hci0: RTL: cfg_sz 6, total sz 30210
+[  +0.148802] Bluetooth: hci0: RTL: fw version 0xdfc6d922
+
+Signed-off-by: lespink <lespinks9@gmail.com>
+---
+ drivers/bluetooth/btusb.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/bluetooth/btusb.c b/drivers/bluetooth/btusb.c
+index 5e9ebf0c5312..2c6dace7f0b1 100644
+--- a/drivers/bluetooth/btusb.c
++++ b/drivers/bluetooth/btusb.c
+@@ -605,6 +605,10 @@ static const struct usb_device_id quirks_table[] = {
+ 	  .driver_info = BTUSB_MEDIATEK |
+ 			 BTUSB_WIDEBAND_SPEECH },
+ 
++    /* Mercusys MA530 Adapter */
++    { USB_DEVICE(0x2c4e, 0x0115), .driver_info = BTUSB_REALTEK |
++                             BTUSB_WIDEBAND_SPEECH },
++
+ 	/* Additional MediaTek MT7615E Bluetooth devices */
+ 	{ USB_DEVICE(0x13d3, 0x3560), .driver_info = BTUSB_MEDIATEK},
+ 
+-- 
+2.51.0
