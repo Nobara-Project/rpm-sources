@@ -15,7 +15,7 @@ generate() {
     # -c includes modprobe.d and modprobe.blacklist from the kernel command line.
     while read -r kind module rest; do
         [[ $kind == blacklist ]] && blocked[${module//-/_}]=1
-    done < <(modprobe -c)
+    done < <(modprobe -c | grep "^blacklist[[:space:]]")
     # The kernel's own blacklist must also be respected.
     for word in $(</proc/cmdline); do
         case $word in

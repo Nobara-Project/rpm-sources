@@ -90,6 +90,16 @@ generate "$2"
             with self.subTest(config=config, cmdline=cmdline):
                 self.assertEqual(self.run_fixture([{'modules': ['nvidia']}], config, cmdline), {})
 
+    def test_blacklists_among_full_config(self):
+        config = '\n'.join(['alias pci:v000010DEd*sv*sd*bc03sc*i* nouveau',
+                            'alias symbol:rtw89_fw_blacklist_default rtw89_core',
+                            'options nvidia_drm modeset=1', 'softdep nvidia pre: nvidia_modeset',
+                            'blacklist nouveau', 'blacklist nvidia_modeset_unused'])
+        files = self.run_fixture([{'modules': ['nvidia', 'nouveau']}, {'modules': ['nouveau']}], config)
+        service = files['drm-module-load.service']
+        self.assertIn('modprobe -b nvidia_drm', service)
+        self.assertNotIn('modprobe -b nouveau', service)
+
     def test_missing_dkms_module(self):
         self.assertEqual(self.run_fixture([{'modules': ['nvidia']}], missing=True), {})
 
