@@ -43,8 +43,8 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 7.2
-%define _stablekver 9
-%define _PKGBUILD 2
+%define _stablekver 11
+%define _PKGBUILD 1
 %define _rcver rc7
 %define _tarkver %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
@@ -129,11 +129,8 @@ Patch11: vfio-amd-passthrough.patch
 # ASUS Laptop keyboard fix
 Patch12: 0001-skip-interrupt-in-polling-for-devices.patch
 
-# Qualcomm Atheros QCA9377 Bluetooth adapter
-Patch13: add-QCA9377.patch
-
 # AMDGPU GFX10 fix sleep/suspend
-Patch14: drm-amdgpu-restore-csib-submission-on-gfx10-dgpus.patch
+Patch13: drm-amdgpu-restore-csib-submission-on-gfx10-dgpus.patch
 
 # ASUS I226-V rev 06 (8086:125c, subsystem 1043:8867) PCIe detach workaround.
 # Seen locally on X870-A with NIC firmware 2023:889d and kernel 7.2.4:
@@ -148,7 +145,7 @@ Patch14: drm-amdgpu-restore-csib-submission-on-gfx10-dgpus.patch
 # https://lists.openwall.net/netdev/2025/09/01/324
 # https://lists.openwall.net/netdev/2025/09/05/17
 # https://www.spinics.net/lists/netdev/msg1121863.html
-Patch15: igc-disable-aspm-l1-asus-i226-v.patch
+Patch14: igc-disable-aspm-l1-asus-i226-v.patch
 
 # aarch64 patches
 Patch21: 0001-arm64-mm-Handle-alignment-faults.patch
@@ -462,7 +459,6 @@ patch -p1 -i %{PATCH11}
 patch -p1 -i %{PATCH12}
 patch -p1 -i %{PATCH13}
 patch -p1 -i %{PATCH14}
-patch -p1 -i %{PATCH15}
 
 # Apply aarch64 patches
 %ifarch aarch64
@@ -1127,6 +1123,13 @@ fi
 %files
 
 %changelog
+* Fri Oct 16 2026 LionHeartP <LionHeartP@proton.me> - 7.2.11-200
+- Update to 7.2.11
+- Update linux-surface patches
+
+* Tue Oct 13 2026 LionHeartP <LionHeartP@proton.me> - 7.2.10-200
+- Update to 7.2.10
+
 * Sun Oct 04 2026 LionHeartP <LionHeartP@proton.me> - 7.2.9-200
 - Update to 7.2.9
 
