@@ -1,0 +1,117 @@
+XWayland: retain tiled placement intent for fullscreen output selection
+
+Wine can request a different monitor before entering fullscreen. Keep the
+requested destination while rejecting geometry changes to normal tiles,
+then consume it for the client fullscreen transition. Also honor monitor
+changes requested after fullscreen, using compositor output geometry.
+Resize-only requests, offscreen targets, and ignoreConfigureRequest rules
+do not override placement. Do not change Proton rendering or scaling.
+
+--- a/include/xwayland.h
++++ b/include/xwayland.h
+@@ -40,6 +40,13 @@
+ 	struct wlr_xwayland_surface *xwayland_surface;
+ 	bool focused_before_map;
+ 	bool initial_geometry_set;
++
++	/* Last tiled client placement request, consumed when entering fullscreen.
++	 * Store coordinates rather than an output pointer to survive hot-unplug.
++	 * A changed source output invalidates the request (e.g. a user move).
++	 */
++	struct wlr_box fullscreen_request_geometry;
++	uint64_t fullscreen_request_from_output;
+ 
+ 	/* Events unique to XWayland views */
+ 	struct wl_listener associate;
+--- a/src/xwayland.c
++++ b/src/xwayland.c
+@@ -20,6 +20,7 @@
+ #include "labwc.h"
+ #include "node.h"
+ #include "output.h"
++#include "tiling.h"
+ #include "view.h"
+ #include "view-impl-common.h"
+ #include "window-rules.h"
+@@ -469,6 +470,17 @@
+ 	}
+ }
+ 
++/* Pick an actual output, not the nearest monitor to an offscreen request. */
++static struct output *
++output_for_client_geometry(const struct wlr_box *box)
++{
++	struct wlr_output *wlr_output = wlr_output_layout_output_at(
++		server.output_layout, box->x + box->width / 2.0,
++		box->y + box->height / 2.0);
++	struct output *output = wlr_output ? output_from_wlr_output(wlr_output) : NULL;
++	return output_is_usable(output) ? output : NULL;
++}
++
+ static void
+ handle_request_configure(struct wl_listener *listener, void *data)
+ {
+@@ -478,6 +490,33 @@
+ 	struct wlr_xwayland_surface_configure_event *event = data;
+ 	bool ignore_configure_requests = window_rules_get_property(
+ 		view, "ignoreConfigureRequest") == LAB_PROP_TRUE;
++
++	if (event->mask & (XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y)) {
++		xwayland_view->fullscreen_request_from_output = 0;
++		/* Unspecified fields come from pending, which is newer than the
++		 * X surface geometry while ConfigureNotify replies are in flight. */
++		struct wlr_box requested = {
++			.x = event->mask & XCB_CONFIG_WINDOW_X ? event->x : view->pending.x,
++			.y = event->mask & XCB_CONFIG_WINDOW_Y ? event->y : view->pending.y,
++			.width = event->mask & XCB_CONFIG_WINDOW_WIDTH ? event->width : view->pending.width,
++			.height = event->mask & XCB_CONFIG_WINDOW_HEIGHT ? event->height : view->pending.height,
++		};
++		if (!ignore_configure_requests && view->fullscreen) {
++			struct output *output = output_for_client_geometry(&requested);
++			if (output && output != view->output) {
++				/* Fullscreen may arrive before Wine's placement request.
++				 * Change the output, but retain compositor fullscreen size. */
++				view_move_to_output(view, output);
++				return;
++			}
++		} else if (!ignore_configure_requests && tiling_is_managed(view)
++				&& view->maximized == VIEW_AXIS_NONE && output_is_usable(view->output)) {
++			/* A game can ask to move before requesting fullscreen. Keep
++			 * that destination without letting a normal window escape its tile. */
++			xwayland_view->fullscreen_request_geometry = requested;
++			xwayland_view->fullscreen_request_from_output = view->output->id_bit;
++		}
++	}
+ 
+ 	if (view_is_floating(view) && !ignore_configure_requests) {
+ 		/* Honor client configure requests for floating views */
+@@ -567,10 +606,21 @@
+ handle_request_fullscreen(struct wl_listener *listener, void *data)
+ {
+ 	struct view *view = wl_container_of(listener, view, request_fullscreen);
++	struct xwayland_view *xwayland_view = xwayland_view_from_view(view);
+ 	bool fullscreen = xwayland_surface_from_view(view)->fullscreen;
+ 	if (!view->mapped) {
+ 		ensure_initial_geometry_and_output(view);
+ 	}
++	if (fullscreen && tiling_is_managed(view) && output_is_usable(view->output)
++			&& xwayland_view->fullscreen_request_from_output == view->output->id_bit
++			&& window_rules_get_property(view, "ignoreConfigureRequest") != LAB_PROP_TRUE) {
++		struct output *output = output_for_client_geometry(
++			&xwayland_view->fullscreen_request_geometry);
++		if (output) {
++			view_set_output(view, output);
++		}
++	}
++	xwayland_view->fullscreen_request_from_output = 0;
+ 	view_set_fullscreen(view, fullscreen);
+ }
+ 
+@@ -829,6 +879,7 @@
+ handle_unmap(struct wl_listener *listener, void *data)
+ {
+ 	struct view *view = wl_container_of(listener, view, mappable.unmap);
++	xwayland_view_from_view(view)->fullscreen_request_from_output = 0;
+ 	if (!view->mapped) {
+ 		return;
+ 	}

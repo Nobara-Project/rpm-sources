@@ -4,7 +4,7 @@
 Name:           labwc
 Version:        0.20.2
 %forgemeta
-Release:        17%{?dist}
+Release:        19%{?dist}
 Summary:        A Wayland window-stacking compositor
 
 License:        GPL-2.0-only AND MIT
@@ -26,6 +26,8 @@ Patch:          0008-add-color-management.patch
 Patch:          0009-bound-tiles-and-park-windows.patch
 Patch:          0010-avoid-redundant-output-modesets.patch
 Patch:          0011-query-capture-window-output.patch
+Patch:          0012-preserve-xwayland-fullscreen-output.patch
+Patch:          0013-add-csd-shadows-offset-and-titlebar-highlight.patch
 
 BuildRequires:  gcc
 BuildRequires:  meson >= 0.59.0
@@ -194,6 +196,16 @@ cp subprojects/wlroots/LICENSE WLROOTS-LICENSE
 %{_userunitdir}/labwc-session.target
 
 %changelog
+* Sun Oct 25 2026 Nobara Project - 0.20.2-19
+- Draw drop-shadows behind client-side decorated windows too.
+- Add window.*.shadow.offset.y so shadows fall below windows as if lit from above.
+- Add window.*.title.highlight.color for a 1px shine along the top of the titlebar.
+
+* Sun Oct 11 2026 Nobara Project - 0.20.2-18
+- Preserve tiled XWayland client placement requests for fullscreen monitor selection.
+- Support monitor moves before or after fullscreen without releasing normal tiles.
+- Keep fullscreen geometry in logical output coordinates, including fractional scale.
+
 * Thu Oct 08 2026 Nobara Project - 0.20.2-17
 - Reoffer Wayland clipboard and primary selections when XWayland gains focus.
 - Fix Wine/Proton caching an empty clipboard after an unfocused format request.

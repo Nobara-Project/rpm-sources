@@ -1,0 +1,424 @@
+From 87856abcdf5632a9425510c7f7e582eb3d871599 Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <tcrider84@gmail.com>
+Date: Sun, 25 Oct 2026 21:17:46 -0600
+Subject: [PATCH] Add CSD drop-shadows, shadow offset and titlebar highlight
+
+---
+ include/ssd-internal.h |   1 +
+ include/ssd.h          |   5 ++
+ include/theme.h        |   4 +
+ include/view.h         |   3 +
+ src/ssd/ssd-shadow.c   | 181 +++++++++++++++++++++++++++++++++++++----
+ src/ssd/ssd-titlebar.c |  13 +++
+ src/theme.c            |  18 ++++
+ src/view.c             |   7 ++
+ 8 files changed, 214 insertions(+), 18 deletions(-)
+
+diff --git a/include/ssd-internal.h b/include/ssd-internal.h
+index 600b907..0c62b34 100644
+--- a/include/ssd-internal.h
++++ b/include/ssd-internal.h
+@@ -103,6 +103,7 @@ struct ssd {
+ 			struct wlr_scene_buffer *corner_left;
+ 			struct wlr_scene_buffer *corner_right;
+ 			struct wlr_scene_buffer *bar;
++			struct wlr_scene_rect *highlight;
+ 			struct scaled_font_buffer *title;
+ 			struct wl_list buttons_left; /* ssd_button.link */
+ 			struct wl_list buttons_right; /* ssd_button.link */
+diff --git a/include/ssd.h b/include/ssd.h
+index 9c61747..1b1365d 100644
+--- a/include/ssd.h
++++ b/include/ssd.h
+@@ -39,6 +39,11 @@ struct wlr_scene_node;
+  * NULL scene/view arguments are not allowed.
+  */
+ struct ssd *ssd_create(struct view *view, bool active);
++
++/* Drop-shadows for client-side decorated views (ssd-shadow.c) */
++void csd_shadow_update(struct view *view);
++void csd_shadow_set_active(struct view *view, bool active);
++void csd_shadow_destroy(struct view *view);
+ struct border ssd_get_margin(const struct ssd *ssd);
+ int ssd_get_corner_width(void);
+ void ssd_update_margin(struct ssd *ssd);
+diff --git a/include/theme.h b/include/theme.h
+index 2fb499a..c692d74 100644
+--- a/include/theme.h
++++ b/include/theme.h
+@@ -100,6 +100,10 @@ struct theme {
+ 		/* window drop-shadows */
+ 		int shadow_size;
+ 		float shadow_color[4];
++		/* moves the shadow down, as if lit from above */
++		int shadow_offset_y;
++		/* 1px line along the top of the titlebar; clear disables it */
++		float title_highlight_color[4];
+ 
+ 		/*
+ 		 * The texture of a window buttons for each hover/toggled/rounded
+diff --git a/include/view.h b/include/view.h
+index cac133a..7ecc9c0 100644
+--- a/include/view.h
++++ b/include/view.h
+@@ -11,6 +11,8 @@
+ #include "config.h"
+ #include "config/types.h"
+ 
++struct csd_shadow;
++
+ /*
+  * Default minimal window size. Clients can explicitly set smaller values via
+  * e.g. xdg_toplevel::set_min_size.
+@@ -248,6 +250,7 @@ struct view {
+ 	struct wl_event_source *pending_configure_timeout;
+ 
+ 	struct ssd *ssd;
++	struct csd_shadow *csd_shadow;
+ 	struct resize_indicator {
+ 		int width, height;
+ 		struct wlr_scene_tree *tree;
+diff --git a/src/ssd/ssd-shadow.c b/src/ssd/ssd-shadow.c
+index 9a45612..9ce477a 100644
+--- a/src/ssd/ssd-shadow.c
++++ b/src/ssd/ssd-shadow.c
+@@ -3,6 +3,7 @@
+ #include <assert.h>
+ #include <wlr/types/wlr_scene.h>
+ #include "buffer.h"
++#include "common/mem.h"
+ #include "common/scene-helpers.h"
+ #include "config/rcxml.h"
+ #include "labwc.h"
+@@ -141,11 +142,44 @@ set_shadow_parts_geometry(struct ssd_shadow_subtree *subtree,
+ 	wlr_scene_node_set_enabled(&subtree->top->node, show_topbottom);
+ }
+ 
++/*
++ * Lay out one active-state shadow around a width x height window whose top
++ * edge is titlebar_height above the subtree's parent origin.
++ */
++static void
++set_subtree_geometry(struct ssd_shadow_subtree *subtree,
++		enum ssd_active_state active, int width, int height,
++		int titlebar_height)
++{
++	struct theme *theme = rc.theme;
++	int visible_shadow_width = theme->window[active].shadow_size;
++	/* inset in actual pixels, as a proportion of shadow width */
++	int inset = SSD_SHADOW_INSET * (double)visible_shadow_width;
++	/*
++	 * Total size of corner buffers including inset and visible portion.
++	 * The buffers are square so width == height.
++	 */
++	int corner_size =
++		theme->window[active].shadow_corner_top->logical_height;
++	int offset_y = MIN(theme->window[active].shadow_offset_y,
++		visible_shadow_width);
++
++	/*
++	 * A light source above the window casts its shadow downwards: lay the
++	 * shadow out for the window with its top edge offset_y lower. The
++	 * bottom stays on the real bottom edge, so it never leaves a gap, and
++	 * the top and upper sides show less shadow than the bottom.
++	 */
++	offset_y = MIN(offset_y, MAX(height - 1, 0));
++	wlr_scene_node_set_position(&subtree->tree->node, 0, offset_y);
++	set_shadow_parts_geometry(subtree, width, height - offset_y,
++		titlebar_height, corner_size, inset, visible_shadow_width);
++}
++
+ static void
+ set_shadow_geometry(struct ssd *ssd)
+ {
+ 	struct view *view = ssd->view;
+-	struct theme *theme = rc.theme;
+ 	int titlebar_height = ssd->titlebar.height;
+ 	int width = view->current.width;
+ 	int height = view_effective_height(view, false) + titlebar_height;
+@@ -158,23 +192,8 @@ set_shadow_geometry(struct ssd *ssd)
+ 			continue;
+ 		}
+ 
+-		int visible_shadow_width = theme->window[active].shadow_size;
+-		/* inset as a proportion of shadow width */
+-		double inset_proportion = SSD_SHADOW_INSET;
+-		/* inset in actual pixels */
+-		int inset = inset_proportion * (double)visible_shadow_width;
+-
+-		/*
+-		 * Total size of corner buffers including inset and visible
+-		 * portion.  Top and bottom are the same size (only the cutout
+-		 * is different).  The buffers are square so width == height.
+-		 */
+-		int corner_size =
+-			theme->window[active].shadow_corner_top->logical_height;
+-
+-		set_shadow_parts_geometry(subtree, width, height,
+-			titlebar_height, corner_size, inset,
+-			visible_shadow_width);
++		set_subtree_geometry(subtree, active, width, height,
++			titlebar_height);
+ 	}
+ }
+ 
+@@ -284,3 +303,129 @@ ssd_shadow_destroy(struct ssd *ssd)
+ 	wlr_scene_node_destroy(&ssd->shadow.tree->node);
+ 	ssd->shadow = (struct ssd_shadow_scene){0};
+ }
++
++/*
++ * Drop-shadows for client-side decorated windows.
++ *
++ * These views have no ssd, so the shadow lives in its own subtree at the
++ * bottom of the view's scene tree, whose origin is the window geometry.
++ * All four corners use the bottom corner buffer: its fully erased inner
++ * square never shows through a translucent client-drawn titlebar.
++ */
++struct csd_shadow {
++	struct wlr_scene_tree *tree;
++	struct ssd_shadow_subtree subtrees[2]; /* indexed by ssd_active_state */
++	bool active;
++};
++
++static bool
++csd_shadow_wanted(struct view *view)
++{
++	if (!rc.shadows_enabled || view->ssd_mode != LAB_SSD_MODE_NONE
++			|| view->fullscreen || view->maximized == VIEW_AXIS_BOTH
++			|| !view->scene_tree || view->current.width <= 0
++			|| view->current.height <= 0) {
++		return false;
++	}
++	if (view_is_tiled(view)) {
++		struct theme *theme = rc.theme;
++		return rc.shadows_on_tiled
++			&& rc.gap >= theme->window[SSD_ACTIVE].shadow_size
++			&& rc.gap >= theme->window[SSD_INACTIVE].shadow_size;
++	}
++	return true;
++}
++
++static struct csd_shadow *
++csd_shadow_create(struct view *view)
++{
++	struct theme *theme = rc.theme;
++	struct csd_shadow *shadow = znew(*shadow);
++	shadow->tree = lab_wlr_scene_tree_create(view->scene_tree);
++	wlr_scene_node_lower_to_bottom(&shadow->tree->node);
++	shadow->active = view == server.active_view;
++
++	enum ssd_active_state active;
++	FOR_EACH_ACTIVE_STATE(active) {
++		if (theme->window[active].shadow_size == 0) {
++			continue;
++		}
++		struct ssd_shadow_subtree *subtree = &shadow->subtrees[active];
++		subtree->tree = lab_wlr_scene_tree_create(shadow->tree);
++		struct wlr_scene_tree *parent = subtree->tree;
++		struct wlr_buffer *corner =
++			&theme->window[active].shadow_corner_bottom->base;
++		struct wlr_buffer *edge = &theme->window[active].shadow_edge->base;
++
++		subtree->bottom_right = make_shadow(view, parent, corner,
++			WL_OUTPUT_TRANSFORM_NORMAL);
++		subtree->bottom_left = make_shadow(view, parent, corner,
++			WL_OUTPUT_TRANSFORM_FLIPPED);
++		subtree->top_left = make_shadow(view, parent, corner,
++			WL_OUTPUT_TRANSFORM_180);
++		subtree->top_right = make_shadow(view, parent, corner,
++			WL_OUTPUT_TRANSFORM_FLIPPED_180);
++		subtree->right = make_shadow(view, parent, edge,
++			WL_OUTPUT_TRANSFORM_NORMAL);
++		subtree->bottom = make_shadow(view, parent, edge,
++			WL_OUTPUT_TRANSFORM_90);
++		subtree->left = make_shadow(view, parent, edge,
++			WL_OUTPUT_TRANSFORM_180);
++		subtree->top = make_shadow(view, parent, edge,
++			WL_OUTPUT_TRANSFORM_270);
++	}
++	return shadow;
++}
++
++void
++csd_shadow_update(struct view *view)
++{
++	assert(view);
++	if (!csd_shadow_wanted(view)) {
++		if (view->csd_shadow) {
++			wlr_scene_node_set_enabled(
++				&view->csd_shadow->tree->node, false);
++		}
++		return;
++	}
++	if (!view->csd_shadow) {
++		view->csd_shadow = csd_shadow_create(view);
++	}
++	struct csd_shadow *shadow = view->csd_shadow;
++	wlr_scene_node_set_enabled(&shadow->tree->node, true);
++	int height = view_effective_height(view, false);
++
++	enum ssd_active_state active;
++	FOR_EACH_ACTIVE_STATE(active) {
++		struct ssd_shadow_subtree *subtree = &shadow->subtrees[active];
++		if (!subtree->tree) {
++			continue;
++		}
++		wlr_scene_node_set_enabled(&subtree->tree->node,
++			(active == SSD_ACTIVE) == shadow->active);
++		set_subtree_geometry(subtree, active, view->current.width,
++			height, 0);
++	}
++}
++
++void
++csd_shadow_set_active(struct view *view, bool active)
++{
++	assert(view);
++	if (!view->csd_shadow) {
++		return;
++	}
++	view->csd_shadow->active = active;
++	csd_shadow_update(view);
++}
++
++void
++csd_shadow_destroy(struct view *view)
++{
++	assert(view);
++	if (!view->csd_shadow) {
++		return;
++	}
++	wlr_scene_node_destroy(&view->csd_shadow->tree->node);
++	zfree(view->csd_shadow);
++}
+diff --git a/src/ssd/ssd-titlebar.c b/src/ssd/ssd-titlebar.c
+index d1a0881..38e934b 100644
+--- a/src/ssd/ssd-titlebar.c
++++ b/src/ssd/ssd-titlebar.c
+@@ -64,6 +64,12 @@ ssd_titlebar_create(struct ssd *ssd)
+ 		}
+ 		wlr_scene_node_set_position(&subtree->bar->node, corner_width, 0);
+ 
++		/* A 1px shine along the top edge, between the rounded corners */
++		float *shine = theme->window[active].title_highlight_color;
++		subtree->highlight = lab_wlr_scene_rect_create(parent, 0, 1, shine);
++		wlr_scene_node_set_position(&subtree->highlight->node, corner_width, 0);
++		wlr_scene_node_set_enabled(&subtree->highlight->node, shine[3] > 0);
++
+ 		subtree->corner_left = lab_wlr_scene_buffer_create(parent, corner_top_left);
+ 		wlr_scene_node_set_position(&subtree->corner_left->node,
+ 			-rc.theme->border_width, -rc.theme->border_width);
+@@ -80,6 +86,9 @@ ssd_titlebar_create(struct ssd *ssd)
+ 		node_descriptor_create(&subtree->title->scene_buffer->node,
+ 			LAB_NODE_TITLE, view, /*data*/ NULL);
+ 
++		/* The shine stays visible above the title text */
++		wlr_scene_node_raise_to_top(&subtree->highlight->node);
++
+ 		/* Buttons */
+ 		int x = theme->window_titlebar_padding_width;
+ 
+@@ -171,6 +180,8 @@ set_squared_corners(struct ssd *ssd, bool enable)
+ 		wlr_scene_node_set_position(&subtree->bar->node, x, 0);
+ 		wlr_scene_buffer_set_dest_size(subtree->bar,
+ 			MAX(width - 2 * x, 0), theme->titlebar_height);
++		wlr_scene_node_set_position(&subtree->highlight->node, x, 0);
++		wlr_scene_rect_set_size(subtree->highlight, MAX(width - 2 * x, 0), 1);
+ 
+ 		wlr_scene_node_set_enabled(&subtree->corner_left->node, !enable);
+ 
+@@ -315,6 +326,8 @@ ssd_titlebar_update(struct ssd *ssd)
+ 		struct ssd_titlebar_subtree *subtree = &ssd->titlebar.subtrees[active];
+ 		wlr_scene_buffer_set_dest_size(subtree->bar,
+ 			MAX(width - bg_offset * 2, 0), theme->titlebar_height);
++		wlr_scene_rect_set_size(subtree->highlight,
++			MAX(width - bg_offset * 2, 0), 1);
+ 
+ 		x = theme->window_titlebar_padding_width;
+ 		struct ssd_button *button;
+diff --git a/src/theme.c b/src/theme.c
+index 71e577c..ad974ab 100644
+--- a/src/theme.c
++++ b/src/theme.c
+@@ -574,6 +574,10 @@ theme_builtin(struct theme *theme)
+ 	theme->window[SSD_INACTIVE].shadow_size = 40;
+ 	parse_hexstr("#00000060", theme->window[SSD_ACTIVE].shadow_color);
+ 	parse_hexstr("#00000040", theme->window[SSD_INACTIVE].shadow_color);
++	theme->window[SSD_ACTIVE].shadow_offset_y = 0;
++	theme->window[SSD_INACTIVE].shadow_offset_y = 0;
++	parse_hexstr("#00000000", theme->window[SSD_ACTIVE].title_highlight_color);
++	parse_hexstr("#00000000", theme->window[SSD_INACTIVE].title_highlight_color);
+ 
+ 	theme->menu_overlap_x = 0;
+ 	theme->menu_overlap_y = 0;
+@@ -882,6 +886,20 @@ entry(struct theme *theme, const char *key, const char *value)
+ 	if (match_glob(key, "window.inactive.shadow.color")) {
+ 		parse_color(value, theme->window[SSD_INACTIVE].shadow_color);
+ 	}
++	if (match_glob(key, "window.active.shadow.offset.y")) {
++		theme->window[SSD_ACTIVE].shadow_offset_y = get_int_if_positive(
++			value, "window.active.shadow.offset.y");
++	}
++	if (match_glob(key, "window.inactive.shadow.offset.y")) {
++		theme->window[SSD_INACTIVE].shadow_offset_y = get_int_if_positive(
++			value, "window.inactive.shadow.offset.y");
++	}
++	if (match_glob(key, "window.active.title.highlight.color")) {
++		parse_color(value, theme->window[SSD_ACTIVE].title_highlight_color);
++	}
++	if (match_glob(key, "window.inactive.title.highlight.color")) {
++		parse_color(value, theme->window[SSD_INACTIVE].title_highlight_color);
++	}
+ 
+ 	if (match_glob(key, "menu.overlap.x")) {
+ 		theme->menu_overlap_x = atoi(value);
+diff --git a/src/view.c b/src/view.c
+index 9bc23dc..0bbc2ef 100644
+--- a/src/view.c
++++ b/src/view.c
+@@ -466,6 +466,7 @@ view_set_activated(struct view *view, bool activated)
+ 	tiling_schedule();
+ 	assert(view);
+ 	ssd_set_active(view->ssd, activated);
++	csd_shadow_set_active(view, activated);
+ 	if (view->impl->set_activated) {
+ 		view->impl->set_activated(view, activated);
+ 	}
+@@ -566,6 +567,7 @@ view_moved(struct view *view)
+ 	}
+ 	view_update_outputs(view);
+ 	ssd_update_geometry(view->ssd);
++	csd_shadow_update(view);
+ 	tiling_update_outline(view);
+ 	cursor_update_focus();
+ 	if (rc.resize_indicator && server.grabbed_view == view) {
+@@ -1656,6 +1658,7 @@ view_set_ssd_mode(struct view *view, enum lab_ssd_mode mode)
+ 	if (!view_is_floating(view)) {
+ 		view_apply_special_geometry(view);
+ 	}
++	csd_shadow_update(view);
+ }
+ 
+ void
+@@ -2337,6 +2340,9 @@ view_reload_ssd(struct view *view)
+ 		undecorate(view);
+ 		decorate(view);
+ 	}
++	/* The theme's shadow buffers were replaced; rebuild from them */
++	csd_shadow_destroy(view);
++	csd_shadow_update(view);
+ }
+ 
+ void
+@@ -2555,6 +2561,7 @@ view_destroy(struct view *view)
+ 	cycle_reinitialize();
+ 
+ 	undecorate(view);
++	csd_shadow_destroy(view);
+ 
+ 	clear_last_placement(view);
+ 	view_set_icon(view, NULL, NULL);
+-- 
+2.55.0
+
