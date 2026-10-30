@@ -3,7 +3,11 @@
 %global evr %{epoch}:%{version}-%{release}
 %global _libdir %{_exec_prefix}/lib
 
-%global os_id %(eval echo $(grep ^ID= /etc/os-release | sed -e 's/^ID=//' -e 's/rhel/redhat/'))
+# Nobara boots through Fedora's shim in EFI/fedora, which only loads the
+# grubx64.efi next to it. Keep that directory whatever the build root's
+# os-release or efi-srpm-macros say.
+%global os_id fedora
+%global efi_vendor fedora
 %global grub_evr_dir %{_libdir}/efi/grub2/%{evr}
 %global grub_efi_dir %{grub_evr_dir}/EFI/%{os_id}
 

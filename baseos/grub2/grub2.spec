@@ -17,7 +17,7 @@
 Name:		grub2
 Epoch:		1
 Version:	2.12
-Release:	63%{?dist}
+Release:	64%{?dist}
 Summary:	Bootloader with support for Linux, Multiboot and more
 License:	GPL-3.0-or-later
 URL:		http://www.gnu.org/software/grub/
@@ -69,6 +69,20 @@ BuildRequires:	systemd-rpm-macros
 
 %ifarch %{efi_arch}
 BuildRequires:	pesign >= 0.99-8
+%endif
+
+# Secure Boot signing of the EFI images with the Nobara key, so shim loads
+# them once the Nobara certificate is enrolled. Pass the key and certificate
+# at build time, e.g.:
+#   --define 'nobara_sb_key /path/to/nobara-sb.key'
+#   --define 'nobara_sb_cert /path/to/nobara-sb.crt'
+# The key is a PEM file or a PKCS#11 URI such as
+# "pkcs11:token=Nobara;object=secureboot;type=private".
+# The tools are always required, as mock installs the BuildRequires of the
+# unsigned SRPM.
+%ifarch %{efi_arch}
+BuildRequires:	sbsigntools
+BuildRequires:	openssl-pkcs11
 %endif
 
 %if %{?_with_ccache: 1}%{?!_with_ccache: 0}
@@ -239,6 +253,26 @@ git commit -m "After making subdirs"
 %endif
 %if 0%{with_alt_efi_arch}
 %{expand:%do_alt_efi_build %%{grubaltefiarch} %%{grubaltefiname} %%{grubalteficdname} %%{_alt_target_platform} %%{alt_efi_target_cflags} %%{alt_efi_host_cflags}}
+%endif
+%if %{defined nobara_sb_key} && %{defined nobara_sb_cert}
+SbsignEngine=
+case '%{nobara_sb_key}' in pkcs11:*) SbsignEngine="--engine pkcs11" ;; esac
+nobara_sbsign() {
+	sbsign $SbsignEngine --key '%{nobara_sb_key}' --cert '%{nobara_sb_cert}' \
+		--output "$1.signed" "$1"
+	sbverify --cert '%{nobara_sb_cert}' "$1.signed"
+	mv -f "$1.signed" "$1"
+}
+%if 0%{with_efi_arch}
+nobara_sbsign grub-%{grubefiarch}-%{tarversion}/%{grubefiname}
+nobara_sbsign grub-%{grubefiarch}-%{tarversion}/%{grubeficdname}
+%endif
+%if 0%{with_alt_efi_arch}
+nobara_sbsign grub-%{grubaltefiarch}-%{tarversion}/%{grubaltefiname}
+nobara_sbsign grub-%{grubaltefiarch}-%{tarversion}/%{grubalteficdname}
+%endif
+%else
+echo "WARNING: nobara_sb_key/nobara_sb_cert not defined, the EFI images are not signed"
 %endif
 %if 0%{with_legacy_arch}
 %{expand:%do_legacy_build %%{grublegacyarch}}
@@ -621,6 +655,11 @@ fi
 %endif
 
 %changelog
+* Fri Oct 30 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 2.12-64
+- Add a Nobara SBAT entry
+- Sign the EFI images when nobara_sb_key/nobara_sb_cert are defined
+- Always install the EFI images to EFI/fedora, next to Fedora's shim
+
 * Thu Jun 25 2026 Leo Sandoval <lsandova@redhat.com> - 2.12-63
 - spec efi postttrans: remove mountpoint check
 - Related: #2492140
