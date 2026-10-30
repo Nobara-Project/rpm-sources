@@ -12,6 +12,12 @@
 # for the other mode, so both are one GRUB menu selection away:
 #   <machine-id>-<version>~noeac.conf  when EAC is the default
 #   <machine-id>-<version>~eac.conf    when EAC is not the default
+# Only kernels built for EAC get an EAC entry: their image carries the
+# linux.nobara SBAT entry, and only those are signed with the Nobara key.
+# Older kernels cannot boot with Secure Boot and keep their plain entry.
+#
+# EAC entries start their title with "[EAC] ", where it stays visible even
+# when the release name fills the GRUB menu. Other entries are not marked.
 #
 # EAC_DEFAULT in /etc/sysconfig/nobara-eac selects the default:
 #   auto - EAC when Secure Boot is enabled and nobara-eac-enroll has enrolled
@@ -44,8 +50,7 @@ EAC_ARGS=(
     iommu.passthrough=0
     intel_iommu=on
 )
-EAC_TITLE=" (Easy Anti-Cheat)"
-NOEAC_TITLE=" (without Easy Anti-Cheat)"
+EAC_TITLE="[EAC] "
 
 # Same conditions as 20-grub.install: BLS entries managed by GRUB only
 [[ -n "$MACHINE_ID" ]] || exit 0
@@ -53,7 +58,7 @@ NOEAC_TITLE=" (without Easy Anti-Cheat)"
 [[ "x${GRUB_ENABLE_BLSCFG}" = "xtrue" ]] || [[ ! -f /sbin/new-kernel-pkg ]] || exit 0
 
 secure_boot_enabled() {
-    local var=/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d0-aa0d-00e098032b8c
+    local var=/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c
     [[ -r "$var" ]] && [[ "$(od -An -t u1 -j4 -N1 "$var" | tr -d ' ')" = 1 ]]
 }
 
@@ -138,14 +143,17 @@ eac_options() {
     echo "${out[*]} ${EAC_ARGS[*]}"
 }
 
-# render <entry> <options> <title suffix>
+# render <entry> <options> <title prefix>
 render() {
-    OPTS="$2" SUFFIX="$3" awk '
+    OPTS="$2" PREFIX="$3" awk '
         /^options[ \t]/ { print "options " ENVIRON["OPTS"]; next }
         /^title[ \t]/ {
             t = $0
+            sub(/^title[ \t]+/, "", t)
+            # Marks of this and earlier versions
+            sub(/^\[EAC\] /, "", t)
             sub(/ \(Easy Anti-Cheat\)$| \(without Easy Anti-Cheat\)$/, "", t)
-            print t ENVIRON["SUFFIX"]
+            print "title " ENVIRON["PREFIX"] t
             next
         }
         { print }' "$1"
@@ -158,17 +166,30 @@ write_entry() {
     # Runs on every boot, so only touch /boot when something changed
     if cmp -s "$tmp" "$target"; then
         rm -f "$tmp"
+        chmod 644 "$target"
         return 0
     fi
-    mv -f "$tmp" "$target" || { rm -f "$tmp"; return 1; }
+    # mktemp creates 0600, the entries of 20-grub.install are 0644
+    chmod 644 "$tmp" && mv -f "$tmp" "$target" || { rm -f "$tmp"; return 1; }
     command -v restorecon &>/dev/null && restorecon "$target"
     return 0
+}
+
+# Whether the kernel was built for EAC, see above
+eac_kernel() {
+    local image="/lib/modules/$1/vmlinuz"
+    [[ -f "$image" ]] || image="/boot/vmlinuz-$1"
+    [[ -f "$image" ]] && grep -qa '^linux\.nobara,' "$image"
 }
 
 add_entries() {
     local kver="$1"
     local entry="${BLS_DIR}/${MACHINE_ID}-${kver}.conf"
     [[ -f "$entry" ]] || return 0
+    if ! eac_kernel "$kver"; then
+        restore_entry "$kver"
+        return 0
+    fi
 
     local options base eac
     base="$(user_options "$kver")"
@@ -176,8 +197,8 @@ add_entries() {
     eac="$(eac_options "$(kernel_lsm "$kver")" "${options[@]}")"
 
     if eac_is_default; then
-        render "$entry" "$base" "$NOEAC_TITLE" | write_entry "${entry%.conf}~noeac.conf"
-        render "$entry" "$eac" "" | write_entry "$entry"
+        render "$entry" "$base" "" | write_entry "${entry%.conf}~noeac.conf"
+        render "$entry" "$eac" "$EAC_TITLE" | write_entry "$entry"
         rm -f "${entry%.conf}~eac.conf"
     else
         render "$entry" "$eac" "$EAC_TITLE" | write_entry "${entry%.conf}~eac.conf"

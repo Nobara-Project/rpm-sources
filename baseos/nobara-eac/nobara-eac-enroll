@@ -70,13 +70,19 @@ if [[ ${#new[@]} -eq 0 ]]; then
 fi
 
 echo "Enrolling ${new[*]}"
-echo "Choose a one-time password. You will type it again in MokManager on the next boot."
+echo "Choose a one-time password. You will type it again in MokManager on the next restart."
 mokutil --import "${new[@]}" || { log "mokutil --import failed"; exit 1; }
 
 cat <<EOF
 
-Reboot now. In the blue MokManager screen choose "Enroll MOK", "Continue",
-"Yes", type the password you just chose and then "Reboot".
+The keys are enrolled on your next restart. You don't need to restart now:
+first prepare your system update in DNF App Center (Updates, Update System),
+so the same restart confirms the keys and installs the update.
+
+On that restart, a blue MokManager screen appears right after the firmware
+logo and waits about 10 seconds. Press a key, then choose "Enroll MOK",
+"Continue", "Yes", type the password you just chose and choose "Reboot".
+
 Once the keys are enrolled and Secure Boot is enabled, the Easy Anti-Cheat
 entry becomes the default boot entry.
 EOF
