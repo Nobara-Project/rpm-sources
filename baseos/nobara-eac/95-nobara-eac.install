@@ -1,0 +1,230 @@
+#!/usr/bin/bash
+#
+# 95-nobara-eac.install - Easy Anti-Cheat Linux v2 boot entries for GRUB
+#
+# EAC Linux v2 reads the measured kernel command line and requires kernel
+# lockdown in integrity mode, enforced module signatures, kexec disabled,
+# the IOMMU enabled without passthrough and the BPF LSM active:
+# https://onlineservices.epicgames.com/news/introducing-easy-anti-cheat-linux-v2
+#
+# For every kernel, 20-grub.install writes <machine-id>-<version>.conf. This
+# plugin rewrites that entry for the default mode and adds a second entry
+# for the other mode, so both are one GRUB menu selection away:
+#   <machine-id>-<version>~noeac.conf  when EAC is the default
+#   <machine-id>-<version>~eac.conf    when EAC is not the default
+#
+# EAC_DEFAULT in /etc/sysconfig/nobara-eac selects the default:
+#   auto - EAC when Secure Boot is enabled. EAC cannot pass without Secure
+#          Boot, and enforced module signatures would block akmods that are
+#          signed with a key the kernel does not trust.
+#   yes  - always EAC
+#   no   - never EAC
+#
+# Besides the add and remove commands of kernel-install, this script accepts
+#   apply-all  - (re)create the entries of all installed kernels
+#   remove-all - remove the EAC entries and options from all kernels
+
+COMMAND="$1"
+KERNEL_VERSION="$2"
+BOOT_DIR_ABS="$3"
+
+EAC_DEFAULT=auto
+[[ -f /etc/sysconfig/nobara-eac ]] && . /etc/sysconfig/nobara-eac
+[[ -f /etc/default/grub ]] && . /etc/default/grub
+
+BLS_DIR="/boot/loader/entries"
+MACHINE_ID="${KERNEL_INSTALL_MACHINE_ID:-$(cat /etc/machine-id 2>/dev/null)}"
+
+EAC_ARGS=(
+    lockdown=integrity
+    module.sig_enforce=1
+    sysctl.kernel.kexec_load_disabled=1
+    iommu.passthrough=0
+    intel_iommu=on
+)
+EAC_TITLE=" (Easy Anti-Cheat)"
+NOEAC_TITLE=" (without Easy Anti-Cheat)"
+
+# Same conditions as 20-grub.install: BLS entries managed by GRUB only
+[[ -n "$MACHINE_ID" ]] || exit 0
+[[ "x$KERNEL_INSTALL_LAYOUT" != "xuki" ]] || exit 0
+[[ "x${GRUB_ENABLE_BLSCFG}" = "xtrue" ]] || [[ ! -f /sbin/new-kernel-pkg ]] || exit 0
+
+secure_boot_enabled() {
+    local var=/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d0-aa0d-00e098032b8c
+    [[ -r "$var" ]] && [[ "$(od -An -t u1 -j4 -N1 "$var" | tr -d ' ')" = 1 ]]
+}
+
+eac_is_default() {
+    case "$EAC_DEFAULT" in
+        yes|true|1) return 0 ;;
+        no|false|0) return 1 ;;
+        *) secure_boot_enabled ;;
+    esac
+}
+
+# The LSM order the kernel was built with, so lsm= changes nothing but
+# makes the BPF LSM explicit on the measured command line
+kernel_lsm() {
+    local lsm
+    lsm="$(sed -n 's/^CONFIG_LSM="\(.*\)"$/\1/p' "/lib/modules/$1/config" 2>/dev/null)"
+    echo "${lsm:-lockdown,yama,integrity,apparmor,bpf,landlock}"
+}
+
+entry_options() {
+    sed -n 's/^options[ \t]*//p' "$1" | head -n 1
+}
+
+# Whether the options carry all EAC options
+is_eac() {
+    local opt
+    for opt in "${EAC_ARGS[@]}"; do
+        [[ " $* " = *" $opt "* ]] || return 1
+    done
+    return 0
+}
+
+# The user's own command line for a kernel. An entry without the EAC options
+# is the user's own. If the main entry is the EAC one, the ~noeac entry keeps
+# the user's options unchanged. Without one, the main entry was copied from
+# /proc/cmdline of an EAC boot, and only the EAC options can be removed.
+user_options() {
+    local kver="$1"
+    local entry="${BLS_DIR}/${MACHINE_ID}-${kver}.conf"
+    local -a options
+    read -r -a options <<< "$(entry_options "$entry")"
+    if is_eac "${options[@]}" && [[ -f "${entry%.conf}~noeac.conf" ]]; then
+        entry_options "${entry%.conf}~noeac.conf"
+        return
+    fi
+    strip_eac "$(kernel_lsm "$kver")" "${options[@]}"
+}
+
+# Command line without the options this script adds, if it has all of them
+strip_eac() {
+    local lsm="$1" opt
+    shift
+    local -a opts=("$@")
+    is_eac "${opts[@]}" || { echo "${opts[*]}"; return; }
+    local -a out=()
+    for opt in "${opts[@]}"; do
+        [[ " ${EAC_ARGS[*]} lsm=$lsm " = *" $opt "* ]] && continue
+        out+=("$opt")
+    done
+    echo "${out[*]}"
+}
+
+# Command line for EAC: options that weaken the requirements are dropped,
+# a custom lsm= keeps its order but gets the lockdown and BPF LSMs added
+eac_options() {
+    local lsm="$1" opt have_lsm=
+    shift
+    local -a out=()
+    for opt in "$@"; do
+        case "$opt" in
+            lockdown=*|module.sig_enforce=*|sysctl.kernel.kexec_load_disabled=*) continue ;;
+            iommu.passthrough=*|intel_iommu=*|amd_iommu=off|iommu=pt|iommu=off) continue ;;
+            lsm=*)
+                have_lsm=1
+                [[ ",${opt#lsm=}," = *,lockdown,* ]] || opt="$opt,lockdown"
+                [[ ",${opt#lsm=}," = *,bpf,* ]] || opt="$opt,bpf"
+                ;;
+        esac
+        out+=("$opt")
+    done
+    [[ -n "$have_lsm" ]] || out+=("lsm=$lsm")
+    echo "${out[*]} ${EAC_ARGS[*]}"
+}
+
+# render <entry> <options> <title suffix>
+render() {
+    OPTS="$2" SUFFIX="$3" awk '
+        /^options[ \t]/ { print "options " ENVIRON["OPTS"]; next }
+        /^title[ \t]/ {
+            t = $0
+            sub(/ \(Easy Anti-Cheat\)$| \(without Easy Anti-Cheat\)$/, "", t)
+            print t ENVIRON["SUFFIX"]
+            next
+        }
+        { print }' "$1"
+}
+
+write_entry() {
+    local target="$1" tmp
+    tmp="$(mktemp "${target}.XXXXXX")" || return 1
+    cat > "$tmp" && mv -f "$tmp" "$target" || { rm -f "$tmp"; return 1; }
+    command -v restorecon &>/dev/null && restorecon "$target"
+    return 0
+}
+
+add_entries() {
+    local kver="$1"
+    local entry="${BLS_DIR}/${MACHINE_ID}-${kver}.conf"
+    [[ -f "$entry" ]] || return 0
+
+    local options base eac
+    base="$(user_options "$kver")"
+    read -r -a options <<< "$base"
+    eac="$(eac_options "$(kernel_lsm "$kver")" "${options[@]}")"
+
+    if eac_is_default; then
+        render "$entry" "$base" "$NOEAC_TITLE" | write_entry "${entry%.conf}~noeac.conf"
+        render "$entry" "$eac" "" | write_entry "$entry"
+        rm -f "${entry%.conf}~eac.conf"
+    else
+        render "$entry" "$eac" "$EAC_TITLE" | write_entry "${entry%.conf}~eac.conf"
+        render "$entry" "$base" "" | write_entry "$entry"
+        rm -f "${entry%.conf}~noeac.conf"
+    fi
+}
+
+remove_entries() {
+    local kver="$1"
+    local entry="${BLS_DIR}/${MACHINE_ID}-${kver}.conf"
+    rm -f "${entry%.conf}~eac.conf" "${entry%.conf}~noeac.conf"
+}
+
+# Restore the plain entry, used when this package is removed
+restore_entry() {
+    local kver="$1"
+    local entry="${BLS_DIR}/${MACHINE_ID}-${kver}.conf"
+    if [[ -f "$entry" ]]; then
+        render "$entry" "$(user_options "$kver")" "" | write_entry "$entry"
+    fi
+    remove_entries "$kver"
+}
+
+installed_kernels() {
+    local entry kver
+    for entry in "${BLS_DIR}/${MACHINE_ID}"-*.conf; do
+        [[ -f "$entry" ]] || continue
+        kver="${entry##*/${MACHINE_ID}-}"
+        kver="${kver%.conf}"
+        [[ "$kver" = *~* ]] && continue
+        [[ -d "/lib/modules/$kver" ]] && echo "$kver"
+    done
+}
+
+case "$COMMAND" in
+    add)
+        # If ${BOOT_DIR_ABS} exists, some other boot loader is active.
+        [[ -d "$BOOT_DIR_ABS" ]] && exit 0
+        add_entries "$KERNEL_VERSION"
+        ;;
+    remove)
+        [[ -d "$BOOT_DIR_ABS" ]] && exit 0
+        remove_entries "$KERNEL_VERSION"
+        ;;
+    apply-all)
+        for kver in $(installed_kernels); do
+            add_entries "$kver"
+        done
+        ;;
+    remove-all)
+        for kver in $(installed_kernels); do
+            restore_entry "$kver"
+        done
+        ;;
+esac
+
+exit 0
