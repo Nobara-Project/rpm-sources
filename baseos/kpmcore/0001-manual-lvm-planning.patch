@@ -1,0 +1,71 @@
+diff --git a/src/core/lvmdevice.cpp b/src/core/lvmdevice.cpp
+index 6951eb8..e5d7803 100644
+--- a/src/core/lvmdevice.cpp
++++ b/src/core/lvmdevice.cpp
+@@ -70,6 +70,25 @@ LvmDevice::LvmDevice(const QString& vgName, const QString& iconName)
+     initPartitions();
+ }
+ 
++LvmDevice::LvmDevice(const QString& vgName, qint64 peSize, qint64 totalPE, const QString& iconName)
++    : VolumeManagerDevice(std::make_shared<LvmDevicePrivate>(),
++                          vgName,
++                          (QStringLiteral("/dev/") + vgName),
++                          peSize,
++                          totalPE,
++                          iconName,
++                          Device::Type::LVM_Device)
++{
++    // Nothing is queried from the system: the volume group is not created yet.
++    d_ptr->m_peSize  = peSize;
++    d_ptr->m_totalPE = totalPE;
++    d_ptr->m_freePE  = totalPE;
++    d_ptr->m_allocPE = 0;
++    d_ptr->m_LVSizeMap  = std::make_unique<QHash<QString, qint64>>();
++
++    initPartitions();
++}
++
+ /**
+  * shared list of PV's paths that will be added to any VGs.
+  * (have been added to an operation, but not yet applied)
+diff --git a/src/core/lvmdevice.h b/src/core/lvmdevice.h
+index 72dabb5..063d1ee 100644
+--- a/src/core/lvmdevice.h
++++ b/src/core/lvmdevice.h
+@@ -39,6 +39,11 @@ class LIBKPMCORE_EXPORT LvmDevice : public VolumeManagerDevice
+ 
+ public:
+     explicit LvmDevice(const QString& name, const QString& iconName = QString());
++    /** A volume group that is planned but does not exist yet. All of its
++        extents are free, so logical volumes can be planned inside it.
++        @param peSize physical extent size in bytes
++        @param totalPE number of usable physical extents */
++    LvmDevice(const QString& name, qint64 peSize, qint64 totalPE, const QString& iconName = QString());
+     ~LvmDevice() override;
+ 
+ public:
+diff --git a/src/core/partitionalignment.cpp b/src/core/partitionalignment.cpp
+index 0955aaf..2bcd65a 100644
+--- a/src/core/partitionalignment.cpp
++++ b/src/core/partitionalignment.cpp
+@@ -10,6 +10,8 @@
+ 
+ #include "core/partitionalignment.h"
+ 
++#include <algorithm>
++
+ #include "core/partition.h"
+ #include "core/partitiontable.h"
+ #include "core/device.h"
+@@ -84,7 +86,10 @@ qint64 PartitionAlignment::sectorAlignment(const Device& d)
+     if (alignmentFactor == 0)
+         return s_sectorAlignment;
+ 
+-    return s_sectorAlignment / alignmentFactor;
++    // LVM devices use extents (e.g. 4 MiB) as sectors. When one sector is
++    // larger than the alignment, every sector boundary is already aligned;
++    // never return 0, which callers use as a divisor.
++    return std::max<qint64>(1, s_sectorAlignment / alignmentFactor);
+ }
+ 
+ void PartitionAlignment::setSectorAlignment(int sectorAlignment)
