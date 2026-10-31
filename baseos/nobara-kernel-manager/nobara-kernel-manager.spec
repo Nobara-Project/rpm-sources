@@ -1,5 +1,5 @@
 Name:           nobara-kernel-manager
-Version:        0.1.3
+Version:        0.1.4
 Release:        1%{?dist}
 Summary:        Graphical manager for Nobara Mainline, LTS, and rescue kernels
 License:        MPL-2.0
