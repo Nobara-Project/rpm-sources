@@ -43,8 +43,8 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 7.3
-%define _stablekver 0
-%define _PKGBUILD 4
+%define _stablekver 1
+%define _PKGBUILD 1
 %define _rcver rc7
 %define _tarkver %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
@@ -56,7 +56,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 203
+%define customver 200
 %endif
 
 Release:%{customver}.nobara%{?dist}
@@ -1158,6 +1158,9 @@ fi
 %files
 
 %changelog
+* Sat Oct 31 2026 LionHeartP <LionHeartP@proton.me> - 7.3.1-200
+- Update to 7.3.1
+
 * Fri Oct 30 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 7.3.0-203
 - Easy Anti-Cheat Linux v2: embed SBAT, sign the kernel image when
   nobara_sb_key/nobara_sb_cert are defined, enable the early lockdown LSM
