@@ -1,6 +1,6 @@
 Name:           calamares
 Version:        3.3.14
-Release:        138%{?dist}
+Release:        139%{?dist}
 Summary:        Installer from a live CD/DVD/USB to disk
 
 License:        GPL-3.0-or-later
@@ -53,6 +53,10 @@ Patch1016:       0012-align-partitions-to-4k.patch
 Patch1017:       0013-guided-lvm-recovery.patch
 # Preserve 64-bit LVM byte counts in the Boost.Python GlobalStorage bridge
 Patch1018:       0014-fix-python-integer-overflow.patch
+# Manual LVM: creating a volume group crashed or reverted all manual edits
+Patch1019:       0015-fix-manual-lvm-volume-group.patch
+# 32 GiB disk requirement; manual partitioning hint names the real EFI mount point
+Patch1020:       0016-installer-size-and-efi-hint.patch
 #Patch1007:       fixup_branding.patch
 
 # Fedora-specific changes
@@ -117,6 +121,9 @@ BuildRequires:  cmake(PolkitQt6-1)
 
 # KPMcore
 BuildRequires:  cmake(KPMcore) >= 4.2.0
+# Planned LVM volume groups in manual partitioning (patch 0015)
+BuildRequires:  kpmcore-devel >= 26.08.1-1.nobara
+Requires:       kpmcore%{?_isa} >= 26.08.1-1.nobara
 
 # Python 3
 BuildRequires:  python3-devel >= 3.3
@@ -264,6 +271,8 @@ cd ../../
 %patch 1016 -p1
 %patch 1017 -p1
 %patch 1018 -p1
+%patch 1019 -p1
+%patch 1020 -p1
 
 mv %{SOURCE1009} src/branding/nobara_branding/
 mv %{SOURCE1010} src/branding/nobara_branding/
@@ -437,6 +446,18 @@ EOF
 
 
 %changelog
+* Fri Oct 30 2026 Nobara Project <support@nobaraproject.org> - 3.3.14-139
+- Fix manual partitioning crash when creating an LVM volume group.
+- Keep manual partitioning edits when a volume group is added or removed.
+- Size new volume groups from their PVs so logical volumes can be planned
+  in them (requires kpmcore 26.08.1-1.nobara).
+- Reduce a volume group's free space as logical volumes are planned, so
+  LVs larger than the volume group can't be planned.
+- Require 32 GiB of disk (a fresh install uses about 20 GiB) and give guided
+  LVM at least a 40 GiB root; smaller disks are offered Btrfs instead.
+- Describe the EFI system partition's configured size and mount point
+  (/boot/efi) in the manual partitioning hint instead of "512Mb /boot".
+
 * Tue Oct 13 2026 Nobara Project <support@nobaraproject.org> - 3.3.14-137
 - Fix Python integer overflow while saving ext4/XFS LVM installation state.
 - Preserve signed and unsigned 64-bit sizes and add native conversion tests.

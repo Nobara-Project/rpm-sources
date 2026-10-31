@@ -1,0 +1,239 @@
+diff --git a/src/modules/partition/core/DeviceModel.cpp b/src/modules/partition/core/DeviceModel.cpp
+index 160cc7b..c7ef196 100644
+--- a/src/modules/partition/core/DeviceModel.cpp
++++ b/src/modules/partition/core/DeviceModel.cpp
+@@ -131,20 +131,32 @@ DeviceModel::swapDevice( Device* oldDevice, Device* newDevice )
+     Q_EMIT dataChanged( index( indexOfOldDevice ), index( indexOfOldDevice ) );
+ }
+ 
++// Insert/remove single rows instead of resetting the model: a reset makes every
++// combo box sharing this model jump to row 0, which pages treat as the user
++// picking another device (reverting manual partitioning edits).
+ void
+ DeviceModel::addDevice( Device* device )
+ {
+-    beginResetModel();
+-    m_devices << device;
+-    sortDevices( m_devices );
+-    endResetModel();
++    const auto position = std::upper_bound( m_devices.cbegin(),
++                                            m_devices.cend(),
++                                            device,
++                                            []( const Device* dev1, const Device* dev2 )
++                                            { return dev1->deviceNode() < dev2->deviceNode(); } );
++    const int row = static_cast< int >( position - m_devices.cbegin() );
++    beginInsertRows( QModelIndex(), row, row );
++    m_devices.insert( row, device );
++    endInsertRows();
+ }
+ 
+ void
+ DeviceModel::removeDevice( Device* device )
+ {
+-    beginResetModel();
+-    m_devices.removeAll( device );
+-    sortDevices( m_devices );
+-    endResetModel();
++    const int row = static_cast< int >( m_devices.indexOf( device ) );
++    if ( row < 0 )
++    {
++        return;
++    }
++    beginRemoveRows( QModelIndex(), row, row );
++    m_devices.removeAt( row );
++    endRemoveRows();
+ }
+diff --git a/src/modules/partition/core/KPMHelpers.cpp b/src/modules/partition/core/KPMHelpers.cpp
+index 50fd11d..9cad003 100644
+--- a/src/modules/partition/core/KPMHelpers.cpp
++++ b/src/modules/partition/core/KPMHelpers.cpp
+@@ -19,6 +19,7 @@
+ 
+ #include <kpmcore/backend/corebackendmanager.h>
+ #include <kpmcore/core/device.h>
++#include <kpmcore/core/lvmdevice.h>
+ #include <kpmcore/core/partition.h>
+ #include <kpmcore/fs/filesystem.h>
+ #include <kpmcore/fs/filesystemfactory.h>
+@@ -336,4 +337,14 @@ execute( Operation& operation, const QString& failureMessage )
+ }
+ 
+ 
++void
++adjustLvmFreeExtents( Device* device, qint64 delta )
++{
++    if ( device && device->type() == Device::Type::LVM_Device )
++    {
++        const auto* lvm = static_cast< const LvmDevice* >( device );
++        lvm->setFreePE( lvm->freePE() + delta );
++    }
++}
++
+ }  // namespace KPMHelpers
+diff --git a/src/modules/partition/core/KPMHelpers.h b/src/modules/partition/core/KPMHelpers.h
+index b8e6fca..b95ff7c 100644
+--- a/src/modules/partition/core/KPMHelpers.h
++++ b/src/modules/partition/core/KPMHelpers.h
+@@ -138,6 +138,15 @@ FileSystem::Type luksGenerationToFSName( Config::LuksGeneration luksGeneration )
+  * of the error, and details obtained from the operation.
+  */
+ Calamares::JobResult execute( Operation& operation, const QString& failureMessage );
++
++/** @brief Track planned logical volumes in an LVM volume group's free extents
++ *
++ * KPMcore lays out a volume group's free space from its free-extent count.
++ * Its own operations update that count; Calamares' preview jobs must as well,
++ * or the free space shown (and offered for new LVs) never shrinks.
++ * Does nothing for devices that are not LVM volume groups.
++ */
++void adjustLvmFreeExtents( Device* device, qint64 delta );
+ /** @brief Return a result for an @p operation
+  *
+  * It's acceptable to use an rvalue: the operation-running is the effect
+diff --git a/src/modules/partition/core/PartitionCoreModule.cpp b/src/modules/partition/core/PartitionCoreModule.cpp
+index d92c66f..1840fc0 100644
+--- a/src/modules/partition/core/PartitionCoreModule.cpp
++++ b/src/modules/partition/core/PartitionCoreModule.cpp
+@@ -436,7 +436,27 @@ PartitionCoreModule::createVolumeGroup( QString& vgName, QVector< const Partitio
+         vgName.append( '_' );
+     }
+ 
+-    LvmDevice* device = new LvmDevice( vgName );
++    // The volume group is only created when the install runs, so LVM cannot
++    // report its size yet. Plan with the extents its PVs will provide: the
++    // data area starts 1 MiB into each PV (pvcreate's default), after a 16 MiB
++    // LUKS2 header for encrypted PVs. Overestimating would make lvcreate fail.
++    const qint64 MiB = 1024 * 1024;
++    const qint64 extentBytes = qint64( peSize ) * MiB;
++    qint64 totalExtents = 0;
++    for ( const Partition* p : pvList )
++    {
++        qint64 usable = p->capacity() - MiB;
++        if ( p->fileSystem().type() == FileSystem::Type::Luks || p->fileSystem().type() == FileSystem::Type::Luks2 )
++        {
++            usable -= 16 * MiB;
++        }
++        if ( usable > 0 && extentBytes > 0 )
++        {
++            totalExtents += usable / extentBytes;
++        }
++    }
++
++    LvmDevice* device = new LvmDevice( vgName, extentBytes, totalExtents );
+     for ( const Partition* p : pvList )
+     {
+         device->physicalVolumes() << p;
+@@ -444,8 +464,10 @@ PartitionCoreModule::createVolumeGroup( QString& vgName, QVector< const Partitio
+ 
+     DeviceInfo* deviceInfo = new DeviceInfo( device );
+     deviceInfo->partitionModel->init( device, osproberEntries() );
+-    m_deviceModel->addDevice( device );
++    // Views react to the model change synchronously and look up the device's
++    // info; register it first so that lookup cannot return nullptr.
+     m_deviceInfos << deviceInfo;
++    m_deviceModel->addDevice( device );
+ 
+     deviceInfo->makeJob< CreateVolumeGroupJob >( vgName, pvList, peSize );
+     refreshAfterModelChange();
+@@ -540,6 +562,7 @@ PartitionCoreModule::deletePartition( Device* device, Partition* partition )
+             cDebug() << "Failed to remove partition from preview";
+             return;
+         }
++        KPMHelpers::adjustLvmFreeExtents( device, partition->length() );
+ 
+         device->partitionTable()->updateUnallocated( *device );
+         // The partition is no longer referenced by either a job or the device
+diff --git a/src/modules/partition/gui/ChoicePage.cpp b/src/modules/partition/gui/ChoicePage.cpp
+index b439328..eb4bbc8 100644
+--- a/src/modules/partition/gui/ChoicePage.cpp
++++ b/src/modules/partition/gui/ChoicePage.cpp
+@@ -418,6 +418,15 @@ ChoicePage::applyDeviceChoice()
+         return;
+     }
+ 
++    // A device added or removed elsewhere (e.g. an LVM volume group created in
++    // manual partitioning) can move the selected disk to another row. That is
++    // not a new choice; re-applying it would revert the pending edits.
++    if ( m_core->isDirty() && selectedDevice()->deviceNode() == m_lastSelectedDeviceNode )
++    {
++        m_lastSelectedDeviceIndex = m_drivesCombo->currentIndex();
++        return;
++    }
++
+     if ( m_core->isDirty() )
+     {
+         ScanningDialog::run(
+@@ -455,10 +464,11 @@ ChoicePage::continueApplyDeviceChoice()
+     // Preview setup done. Now we show/hide choices as needed.
+     setupActions();
+ 
+-    cDebug() << "Previous device" << m_lastSelectedDeviceIndex << "new device" << m_drivesCombo->currentIndex();
+-    if ( m_lastSelectedDeviceIndex != m_drivesCombo->currentIndex() )
++    cDebug() << "Previous device" << m_lastSelectedDeviceNode << "new device" << currd->deviceNode();
++    m_lastSelectedDeviceIndex = m_drivesCombo->currentIndex();
++    if ( m_lastSelectedDeviceNode != currd->deviceNode() )
+     {
+-        m_lastSelectedDeviceIndex = m_drivesCombo->currentIndex();
++        m_lastSelectedDeviceNode = currd->deviceNode();
+         m_config->setInstallChoice( m_config->initialInstallChoice() );
+         checkInstallChoiceRadioButton( m_config->installChoice() );
+     }
+diff --git a/src/modules/partition/gui/ChoicePage.h b/src/modules/partition/gui/ChoicePage.h
+index 55e4386..90b5c63 100644
+--- a/src/modules/partition/gui/ChoicePage.h
++++ b/src/modules/partition/gui/ChoicePage.h
+@@ -170,6 +170,7 @@ private:
+     QPointer< QComboBox > m_efiComboBox;
+ 
+     int m_lastSelectedDeviceIndex = -1;
++    QString m_lastSelectedDeviceNode;
+     int m_osproberEntriesCount = -1;
+     QString m_osproberOneEntryName;
+ 
+diff --git a/src/modules/partition/jobs/CreatePartitionJob.cpp b/src/modules/partition/jobs/CreatePartitionJob.cpp
+index 429bf26..56f910a 100644
+--- a/src/modules/partition/jobs/CreatePartitionJob.cpp
++++ b/src/modules/partition/jobs/CreatePartitionJob.cpp
+@@ -278,6 +278,9 @@ void
+ CreatePartitionJob::updatePreview()
+ {
+     m_device->partitionTable()->removeUnallocated();
+-    m_partition->parent()->insert( m_partition );
++    if ( m_partition->parent()->insert( m_partition ) )
++    {
++        KPMHelpers::adjustLvmFreeExtents( m_device, -m_partition->length() );
++    }
+     m_device->partitionTable()->updateUnallocated( *m_device );
+ }
+diff --git a/src/modules/partition/jobs/DeletePartitionJob.cpp b/src/modules/partition/jobs/DeletePartitionJob.cpp
+index f806dab..53f67b3 100644
+--- a/src/modules/partition/jobs/DeletePartitionJob.cpp
++++ b/src/modules/partition/jobs/DeletePartitionJob.cpp
+@@ -102,7 +102,10 @@ DeletePartitionJob::exec()
+ void
+ DeletePartitionJob::updatePreview()
+ {
+-    m_partition->parent()->remove( m_partition );
++    if ( m_partition->parent()->remove( m_partition ) )
++    {
++        KPMHelpers::adjustLvmFreeExtents( m_device, m_partition->length() );
++    }
+     m_device->partitionTable()->updateUnallocated( *m_device );
+ 
+     // Copied from PM DeleteOperation::checkAdjustLogicalNumbers():
+diff --git a/src/modules/partition/jobs/ResizePartitionJob.cpp b/src/modules/partition/jobs/ResizePartitionJob.cpp
+index 3aec413..ba554d7 100644
+--- a/src/modules/partition/jobs/ResizePartitionJob.cpp
++++ b/src/modules/partition/jobs/ResizePartitionJob.cpp
+@@ -77,9 +77,11 @@ ResizePartitionJob::updatePreview()
+ {
+     m_device->partitionTable()->removeUnallocated();
+     m_partition->parent()->remove( m_partition );
++    const qint64 oldLength = m_partition->length();
+     m_partition->setFirstSector( m_newFirstSector );
+     m_partition->setLastSector( m_newLastSector );
+     m_partition->parent()->insert( m_partition );
++    KPMHelpers::adjustLvmFreeExtents( m_device, oldLength - m_partition->length() );
+     m_device->partitionTable()->updateUnallocated( *m_device );
+ }
+ 

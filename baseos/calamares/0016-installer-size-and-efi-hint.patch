@@ -1,0 +1,62 @@
+diff --git a/src/modules/partition/gui/ChoicePage.cpp b/src/modules/partition/gui/ChoicePage.cpp
+index eb4bbc8..1428333 100644
+--- a/src/modules/partition/gui/ChoicePage.cpp
++++ b/src/modules/partition/gui/ChoicePage.cpp
+@@ -1670,11 +1670,22 @@ ChoicePage::updateChoiceButtonsTr()
+ {
+     if ( m_somethingElseButton )
+     {
+-        m_somethingElseButton->setText( tr( "<strong>Manual partitioning</strong><br/>"
+-                                            "You can create or resize partitions yourself.<br/>"
+-                                            "Having a GPT partition table and <strong>fat32 512Mb /boot partition "
+-                                            "is a must for UEFI installs</strong>,<br/>"
+-                                            "either use an existing without formatting or create one." ) );
++        QString text = tr( "<strong>Manual partitioning</strong><br/>"
++                           "You can create or resize partitions yourself." );
++        // m_isEfi is not set yet when the page is first translated.
++        if ( PartUtils::isEfiSystem() )
++        {
++            // Describe the configured EFI system partition; it is not /boot.
++            const QString mountPoint
++                = Calamares::JobQueue::instance()->globalStorage()->value( "efiSystemPartition" ).toString();
++            text += QStringLiteral( "<br/>" )
++                + tr( "UEFI installs need a GPT partition table and a <strong>fat32 EFI system partition "
++                      "of %1 MiB mounted at %2</strong>.<br/>"
++                      "Use an existing one without formatting, or create one." )
++                      .arg( PartUtils::efiFilesystemRecommendedSize() / ( 1024 * 1024 ) )
++                      .arg( mountPoint.isEmpty() ? QStringLiteral( "/boot/efi" ) : mountPoint );
++        }
++        m_somethingElseButton->setText( text );
+     }
+ }
+ 
+diff --git a/src/modules/welcome/welcome.conf b/src/modules/welcome/welcome.conf
+index e0e111e..7987814 100644
+--- a/src/modules/welcome/welcome.conf
++++ b/src/modules/welcome/welcome.conf
+@@ -27,7 +27,9 @@ requirements:
+     # Amount of available disk, in GiB. Floating-point is allowed here.
+     # Note that this does not account for *usable* disk, so it is possible
+     # to pass this requirement, yet have no space to install to.
+-    requiredStorage:    10.5
++    # A fresh Nobara install uses about 20 GiB, plus EFI, /boot and room
++    # for the first full system update.
++    requiredStorage:    32
+ 
+     # Amount of available RAM, in GiB. Floating-point is allowed here.
+     requiredRam:        1.0
+diff --git a/src/modules/welcomeq/welcomeq.conf b/src/modules/welcomeq/welcomeq.conf
+index 69a8e36..04b6013 100644
+--- a/src/modules/welcomeq/welcomeq.conf
++++ b/src/modules/welcomeq/welcomeq.conf
+@@ -19,7 +19,9 @@ showReleaseNotesUrl:    false
+ showDonateUrl:          false
+ 
+ requirements:
+-    requiredStorage:    10.5
++    # A fresh Nobara install uses about 20 GiB, plus EFI, /boot and room
++    # for the first full system update.
++    requiredStorage:    32
+     requiredRam:        1.0
+     internetCheckUrl:   https://nobaraproject.org/hotspot/
+     check:

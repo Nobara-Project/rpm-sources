@@ -169,7 +169,7 @@
 +    if any(type(n) is not int or n < 0 or n % EXTENT for n in plan.values()):
 +        raise RuntimeError("Invalid LVM volume sizes.")
 +    needed = (plan["rootBytes"] * 105 // 100 + 8 * 1024**2 + EXTENT - 1) // EXTENT * EXTENT
-+    if plan["rootBytes"] < 16 * GIB or plan["homeBytes"] < 4 * GIB or plan["reserveBytes"] < needed:
++    if plan["rootBytes"] < 40 * GIB or plan["homeBytes"] < 4 * GIB or plan["reserveBytes"] < needed:
 +        raise RuntimeError("Insufficient system, home or rollback capacity.")
 +
 +
@@ -375,10 +375,10 @@
 +    p.swap = up( swapBytes );
 +    if ( pvBytes <= overhead + p.swap ) return p;
 +    const auto available = down( pvBytes - overhead - p.swap );
-+    const auto minimum = up( std::max( 16 * GiB, requiredBytes * 3 / 2 ) );
-+    p.root = down( std::min( 96 * GiB, available * 45 / 100 ) );
++    const auto minimum = up( std::max( 40 * GiB, requiredBytes ) );  // a fresh install uses ~20 GiB
++    p.root = std::max( minimum, down( std::min( 96 * GiB, available * 45 / 100 ) ) );
 +    p.reserve = up( p.root * 105 / 100 + 8 * MiB );
-+    if ( p.root < minimum || available < p.root + p.reserve + 4 * GiB ) return p;
++    if ( available < p.root + p.reserve + 4 * GiB ) return p;
 +    p.home = available - p.root - p.reserve;
 +    p.valid = true;
 +    return p;
