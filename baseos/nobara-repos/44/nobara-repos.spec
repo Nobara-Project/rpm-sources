@@ -3,7 +3,7 @@
 Summary:        Nobara package repositories
 Name:           nobara-repos
 Version:        44
-Release:        7%{?eln:.eln%{eln}}
+Release:        8%{?eln:.eln%{eln}}
 License:        MIT
 URL:            https://fedoraproject.org/
 
@@ -18,6 +18,7 @@ Requires:       nobara-gpg-keys >= %{version}-%{release}
 BuildArch:      noarch
 # Required by %%check
 BuildRequires:  gnupg sed
+Requires(posttrans): coreutils grep sed
 
 Source2:       nobara.repo
 Source3:       nv-nvp.repo
@@ -78,14 +79,63 @@ if [[ -f /etc/yum.repos.d/nobara.repo.rpmnew ]]; then
 fi
 
 # Disable unused repos
-dest_dir="%{_sysconfdir}/yum.repos.d/no-touch-disabled"
+repo_dir="%{_sysconfdir}/yum.repos.d"
+dest_dir="${repo_dir}/no-touch-disabled"
 mkdir -p "$dest_dir" || :
 
+# Keep the kernel family chosen in Nobara Kernel Manager. RPM replaces the
+# packaged kernel repo files (Mainline enabled) on every upgrade; without this
+# an LTS system would be switched to Mainline kernels by its next update.
+family_state="%{_sysconfdir}/nobara/kernel-family"
+family=""
+[ -f "$family_state" ] && family=$(tr -d '[:space:]' < "$family_state")
+case "$family" in
+    mainline|lts) recorded=1 ;;
+    *)
+        recorded=0
+        family=""
+        lts_kernels=0
+        mainline_kernels=0
+        for image in /usr/lib/modules/*/vmlinuz; do
+            [ -f "$image" ] || continue
+            version=${image%/vmlinuz}
+            case "${version##*/}" in
+                *.lts.nobara.*) lts_kernels=1 ;;
+                *.nobara.*) mainline_kernels=1 ;;
+            esac
+        done
+        if [ "$lts_kernels" = 1 ] && [ "$mainline_kernels" = 0 ]; then
+            family=lts
+        elif [ "$mainline_kernels" = 1 ] && [ "$lts_kernels" = 0 ]; then
+            family=mainline
+        elif [ "$lts_kernels" = 1 ] && [ -f "$dest_dir/nobara-kernel-mainline.repo" ]; then
+            # Kernel Manager had moved Mainline aside before an older
+            # nobara-repos update restored it and Mainline kernels arrived.
+            family=lts
+        fi
+        ;;
+esac
+if [ -n "$family" ] && [ "$recorded" = 0 ]; then
+    mkdir -p "${family_state%/*}" && printf '%s\n' "$family" > "$family_state" || :
+fi
+[ -n "$family" ] || family=mainline
+
+for name in mainline lts; do
+    repo="${repo_dir}/nobara-kernel-${name}.repo"
+    [ -f "$repo" ] || continue
+    # The packaged copy has the current keys and URLs; drop moved-aside copies.
+    rm -f -- "${dest_dir}/${repo##*/}" || :
+    if [ "$name" = "$family" ]; then
+        sed -i -E 's/^[[:space:]]*enabled[[:space:]]*=.*/enabled=1/' "$repo" || :
+    else
+        sed -i -E 's/^[[:space:]]*enabled[[:space:]]*=.*/enabled=0/' "$repo" || :
+        mv -f -- "$repo" "$dest_dir/" || :
+    fi
+done
+
 for repo in \
-    "%{_sysconfdir}/yum.repos.d/nv-nvp.repo" \
-    "%{_sysconfdir}/yum.repos.d/nv-nvnf.repo" \
-    "%{_sysconfdir}/yum.repos.d/nobara-kernel-mainline.repo" \
-    "%{_sysconfdir}/yum.repos.d/nobara-kernel-lts.repo"
+    "${repo_dir}/nv-nvp.repo" \
+    "${repo_dir}/nv-nvnf.repo"
 do
     [ -f "$repo" ] || continue
     if grep -qE '^[[:space:]]*enabled=0[[:space:]]*$' "$repo"; then
