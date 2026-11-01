@@ -3,7 +3,7 @@
 Summary:        Nobara package repositories
 Name:           nobara-repos
 Version:        44
-Release:        8%{?eln:.eln%{eln}}
+Release:        10%{?eln:.eln%{eln}}
 License:        MIT
 URL:            https://fedoraproject.org/
 
@@ -18,7 +18,7 @@ Requires:       nobara-gpg-keys >= %{version}-%{release}
 BuildArch:      noarch
 # Required by %%check
 BuildRequires:  gnupg sed
-Requires(posttrans): coreutils grep sed
+Requires(posttrans): coreutils gawk grep sed
 
 Source2:       nobara.repo
 Source3:       nv-nvp.repo
@@ -133,14 +133,89 @@ for name in mainline lts; do
     fi
 done
 
-for repo in \
-    "${repo_dir}/nv-nvp.repo" \
-    "${repo_dir}/nv-nvnf.repo"
-do
-    [ -f "$repo" ] || continue
-    if grep -qE '^[[:space:]]*enabled=0[[:space:]]*$' "$repo"; then
+# Keep the NVIDIA driver branch chosen in Nobara Driver Manager. It moves the
+# other branch's repo file aside and enables its own with a dnf config-manager
+# override, so the new-feature file itself says enabled=0. RPM restores the
+# moved production file (enabled) on every upgrade; without this a new-feature
+# system is switched to production and its next update downgrades the driver.
+branch_state="%{_sysconfdir}/nobara/nvidia-branch"
+override_dir="%{_sysconfdir}/dnf/repos.override.d"
+branch=""
+[ -f "$branch_state" ] && branch=$(tr -d '[:space:]' < "$branch_state")
+case "$branch" in
+    production|new-feature) recorded=1 ;;
+    *)
+        recorded=0
+        branch=""
+        # The enabled override DNF applies: files in name order, last wins
+        override() {
+            cat "$override_dir"/*.repo 2>/dev/null | awk -v id="$1" '
+                /^[[:space:]]*\[/ { section = $0; gsub(/[][[:space:]]/, "", section); next }
+                section == id && /^[[:space:]]*enabled[[:space:]]*=/ {
+                    value = tolower($0); sub(/^[^=]*=/, "", value); gsub(/[[:space:]]/, "", value)
+                }
+                END { print (value == "1" || value == "true" || value == "yes" || value == "on") ? 1 : value == "" ? "" : 0 }'
+        }
+        production=$(override nobara-nvidia-production)
+        new_feature=$(override nobara-nvidia-new-feature)
+        if [ "$new_feature" = 1 ] && [ "$production" != 1 ]; then
+            branch=new-feature
+        elif [ "$production" = 1 ] && [ "$new_feature" != 1 ]; then
+            branch=production
+        elif command -v python3 >/dev/null; then
+            # Driver Manager leaves both overrides enabled after a switch:
+            # use the repository the installed driver came from.
+            branch=$(python3 -I - 2>/dev/null <<'EOF' || :
+import sqlite3
+db = sqlite3.connect("file:/usr/lib/sysimage/libdnf5/transaction_history.sqlite?mode=ro", uri=True)
+row = db.execute("""
+    SELECT repo.repoid FROM trans_item
+    JOIN rpm ON rpm.item_id = trans_item.item_id
+    JOIN pkg_name ON pkg_name.id = rpm.name_id
+    JOIN repo ON repo.id = trans_item.repo_id
+    JOIN trans_item_action ON trans_item_action.id = trans_item.action_id
+    WHERE pkg_name.name = 'nvidia-driver'
+      AND trans_item_action.name IN ('Install', 'Upgrade', 'Downgrade', 'Reinstall')
+    ORDER BY trans_item.trans_id DESC, trans_item.id DESC LIMIT 1""").fetchone()
+print({"nobara-nvidia-production": "production",
+       "nobara-nvidia-new-feature": "new-feature"}.get(row[0] if row else "", ""))
+EOF
+)
+        fi
+        if [ -z "$branch" ] && grep -qE '^[[:space:]]*enabled[[:space:]]*=[[:space:]]*1[[:space:]]*$' \
+                "${repo_dir}/nv-nvnf.repo" 2>/dev/null; then
+            branch=new-feature
+        fi
+        ;;
+esac
+if [ -n "$branch" ] && [ "$recorded" = 0 ]; then
+    mkdir -p "${branch_state%/*}" && printf '%s\n' "$branch" > "$branch_state" || :
+fi
+[ -n "$branch" ] || branch=production
+
+for name in nvp nvnf; do
+    repo="${repo_dir}/nv-${name}.repo"
+    aside="${dest_dir}/nv-${name}.repo"
+    case "$name" in nvp) id=production ;; nvnf) id=new-feature ;; esac
+    if [ "$id" = "$branch" ]; then
+        if [ -f "$repo" ]; then
+            rm -f -- "$aside" || :
+        elif [ -f "$aside" ]; then
+            mv -f -- "$aside" "$repo" || :
+        fi
+        [ -f "$repo" ] && sed -i -E 's/^[[:space:]]*enabled[[:space:]]*=.*/enabled=1/' "$repo" || :
+    elif [ -f "$repo" ]; then
+        sed -i -E 's/^[[:space:]]*enabled[[:space:]]*=.*/enabled=0/' "$repo" || :
         mv -f -- "$repo" "$dest_dir/" || :
     fi
+done
+# The repo files now carry the choice; a stale override would undo it.
+for file in "$override_dir"/*.repo; do
+    [ -f "$file" ] && grep -qE '^[[:space:]]*\[nobara-nvidia-(production|new-feature)\]' "$file" || continue
+    awk '
+        /^[[:space:]]*\[/ { skip = ($0 ~ /^[[:space:]]*\[nobara-nvidia-(production|new-feature)\]/) }
+        !skip' "$file" > "$file.nobara-repos" && cat "$file.nobara-repos" > "$file" || :
+    rm -f -- "$file.nobara-repos" || :
 done
 
 :
