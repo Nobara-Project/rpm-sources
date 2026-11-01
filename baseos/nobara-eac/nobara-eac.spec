@@ -1,6 +1,6 @@
 Name:           nobara-eac
 Version:        1.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Easy Anti-Cheat Linux v2 boot entries for Nobara kernels
 License:        MIT
 URL:            https://onlineservices.epicgames.com/news/introducing-easy-anti-cheat-linux-v2
@@ -82,6 +82,11 @@ fi
 %{_datadir}/nobara/eac/nobara-sb-signer.crt
 
 %changelog
+* Sun Nov 01 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 1.0-4
+- Add EAC_ENTRIES to /etc/sysconfig/nobara-eac. EAC_ENTRIES=no keeps only
+  the normal boot entry for every kernel; EAC_DEFAULT=no still adds the
+  EAC entry and only keeps it from being the default
+
 * Fri Oct 30 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 1.0-3
 - nobara-eac-enroll: don't ask for an immediate restart, so the keys are
   confirmed on the restart that installs the system update

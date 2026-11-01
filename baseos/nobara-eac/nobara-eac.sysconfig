@@ -1,8 +1,8 @@
 # Easy Anti-Cheat Linux v2 boot entries
 #
-# Every kernel gets two GRUB entries: one with the kernel command line
-# Easy Anti-Cheat Linux v2 requires and one without it. EAC_DEFAULT selects
-# which one is the default:
+# By default, every kernel gets two GRUB entries: one with the kernel
+# command line Easy Anti-Cheat Linux v2 requires and one without it.
+# EAC_DEFAULT selects which one is the default:
 #   auto - EAC when Secure Boot is enabled and the keys are enrolled with
 #          sudo nobara-eac-enroll (re-checked on every boot)
 #   yes  - always EAC
@@ -11,3 +11,9 @@
 # Apply a change to the installed kernels with:
 #   sudo /usr/lib/kernel/install.d/95-nobara-eac.install apply-all
 EAC_DEFAULT=auto
+
+# EAC_ENTRIES turns the EAC entries on or off:
+#   yes - every kernel built for EAC gets both entries
+#   no  - no EAC entries: every kernel keeps only its normal entry, and
+#         EAC_DEFAULT has no effect
+EAC_ENTRIES=yes

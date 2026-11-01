@@ -28,6 +28,10 @@
 #   yes  - always EAC
 #   no   - never EAC
 #
+# EAC_ENTRIES=no in the same file turns the EAC entries off: every kernel
+# keeps only its plain entry, whatever EAC_DEFAULT says. The default, yes,
+# gives each EAC kernel both entries.
+#
 # Besides the add and remove commands of kernel-install, this script accepts
 #   apply-all  - (re)create the entries of all installed kernels
 #   remove-all - remove the EAC entries and options from all kernels
@@ -37,6 +41,7 @@ KERNEL_VERSION="$2"
 BOOT_DIR_ABS="$3"
 
 EAC_DEFAULT=auto
+EAC_ENTRIES=yes
 [[ -f /etc/sysconfig/nobara-eac ]] && . /etc/sysconfig/nobara-eac
 [[ -f /etc/default/grub ]] && . /etc/default/grub
 
@@ -60,6 +65,13 @@ EAC_TITLE="[EAC] "
 secure_boot_enabled() {
     local var=/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c
     [[ -r "$var" ]] && [[ "$(od -An -t u1 -j4 -N1 "$var" | tr -d ' ')" = 1 ]]
+}
+
+eac_entries_enabled() {
+    case "$EAC_ENTRIES" in
+        no|false|0|never) return 1 ;;
+        *) return 0 ;;
+    esac
 }
 
 eac_is_default() {
@@ -186,7 +198,7 @@ add_entries() {
     local kver="$1"
     local entry="${BLS_DIR}/${MACHINE_ID}-${kver}.conf"
     [[ -f "$entry" ]] || return 0
-    if ! eac_kernel "$kver"; then
+    if ! eac_entries_enabled || ! eac_kernel "$kver"; then
         restore_entry "$kver"
         return 0
     fi
