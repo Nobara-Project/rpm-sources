@@ -1,0 +1,26 @@
+From: Nobara Project <nobara@protonmail.com>
+Date: Mon, 2 Nov 2026 00:00:00 +0000
+Subject: [PATCH] screencast: tell the chooser which session it is choosing for
+
+The chooser runs synchronously for one ScreenCast session. Export that
+session's handle as XDPW_CHOOSER_SESSION while it runs, so a chooser can
+ask the requesting application's session for an explicit target instead
+of relying on a global "next request" selection that a concurrent
+request from another application could consume.
+---
+--- a/src/screencast/screencast.c
++++ b/src/screencast/screencast.c
+@@ -163,7 +163,13 @@ bool setup_target(struct xdpw_screencast_context *ctx, struct xdpw_session *sess, st
+ 		target_initialized = xdpw_wlr_target_from_data(ctx, target, data);
+ 	}
+ 	if (!target_initialized) {
++		/* The chooser can ask this request's owner for an explicit target.
++		 * Never use a global "next request" selection: another application's
++		 * portal request may be queued concurrently. Selection is synchronous
++		 * here; the child inherits only this session's context. */
++		setenv("XDPW_CHOOSER_SESSION", sess->session_handle, 1);
+ 		target_initialized = xdpw_wlr_target_chooser(ctx, target, type_mask);
++		unsetenv("XDPW_CHOOSER_SESSION");
+ 		//TODO: Chooser option to confirm the persist mode
+ 		const char *env_persist_str = getenv("XDPW_PERSIST_MODE");
+ 		if (env_persist_str) {

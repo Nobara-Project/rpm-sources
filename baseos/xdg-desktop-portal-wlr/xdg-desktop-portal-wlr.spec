@@ -1,6 +1,6 @@
 Name:           xdg-desktop-portal-wlr
 Version:        0.8.4
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        xdg-desktop-portal backend for wlroots
 
 License:        MIT
@@ -16,6 +16,8 @@ Source3:        wlroots-portals.conf
 Patch0:         0001-screencast-publish-Wayland-output-colorimetry.patch
 # Implement the RemoteDesktop portal with wlroots virtual pointer/keyboard
 Patch1:         0002-remotedesktop-implement-RemoteDesktop-portal.patch
+# Tell the chooser which ScreenCast session it is selecting for
+Patch2:         0003-screencast-chooser-session-context.patch
 
 BuildRequires:  gcc
 BuildRequires:  gnupg2
@@ -89,6 +91,10 @@ install -D -pv -m644 %{SOURCE3} \
 
 
 %changelog
+* Mon Nov 02 2026 Nobara Project <nobara@protonmail.com> - 0.8.4-4
+- Export XDPW_CHOOSER_SESSION to the chooser so it can match its
+  selection to the requesting ScreenCast session
+
 * Wed Oct 21 2026 Nobara Project <nobara@protonmail.com> - 0.8.4-3
 - Implement the RemoteDesktop portal using wlroots virtual pointer and
   virtual keyboard protocols
