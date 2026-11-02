@@ -1,0 +1,256 @@
+diff --git a/src/modules/partition/core/DeviceModel.cpp b/src/modules/partition/core/DeviceModel.cpp
+index c7ef196..f2a4ffd 100644
+--- a/src/modules/partition/core/DeviceModel.cpp
++++ b/src/modules/partition/core/DeviceModel.cpp
+@@ -25,12 +25,28 @@
+ // STL
+ #include <algorithm>
+ 
++/** @brief Disks first, then volume groups, each by device node
++ *
++ * A volume group's node is /dev/<vg name>, so an earlier LVM install
++ * (/dev/nobara_...) sorted before /dev/nvme* and /dev/sd* and became the
++ * device the installer selects by default.
++ */
++static bool
++deviceLess( const Device* dev1, const Device* dev2 )
++{
++    const bool vg1 = dev1->type() == Device::Type::LVM_Device;
++    const bool vg2 = dev2->type() == Device::Type::LVM_Device;
++    if ( vg1 != vg2 )
++    {
++        return vg2;
++    }
++    return dev1->deviceNode() < dev2->deviceNode();
++}
++
+ static void
+ sortDevices( DeviceModel::DeviceList& l )
+ {
+-    std::sort( l.begin(),
+-               l.end(),
+-               []( const Device* dev1, const Device* dev2 ) { return dev1->deviceNode() < dev2->deviceNode(); } );
++    std::sort( l.begin(), l.end(), deviceLess );
+ }
+ 
+ DeviceModel::DeviceModel( QObject* parent )
+@@ -137,11 +153,7 @@ DeviceModel::swapDevice( Device* oldDevice, Device* newDevice )
+ void
+ DeviceModel::addDevice( Device* device )
+ {
+-    const auto position = std::upper_bound( m_devices.cbegin(),
+-                                            m_devices.cend(),
+-                                            device,
+-                                            []( const Device* dev1, const Device* dev2 )
+-                                            { return dev1->deviceNode() < dev2->deviceNode(); } );
++    const auto position = std::upper_bound( m_devices.cbegin(), m_devices.cend(), device, deviceLess );
+     const int row = static_cast< int >( position - m_devices.cbegin() );
+     beginInsertRows( QModelIndex(), row, row );
+     m_devices.insert( row, device );
+diff --git a/src/modules/partition/gui/ChoicePage.cpp b/src/modules/partition/gui/ChoicePage.cpp
+index 1428333..77fa999 100644
+--- a/src/modules/partition/gui/ChoicePage.cpp
++++ b/src/modules/partition/gui/ChoicePage.cpp
+@@ -45,7 +45,9 @@
+ #include "widgets/PrettyRadioButton.h"
+ 
+ #include <kpmcore/core/device.h>
++#include <kpmcore/core/lvmdevice.h>
+ #include <kpmcore/core/softwareraid.h>
++#include <kpmcore/fs/filesystem.h>
+ 
+ #include <QBoxLayout>
+ #include <QButtonGroup>
+@@ -1327,6 +1329,47 @@ describePartitionTypes( const QStringList& types )
+  *      device picker. Sets up the text and visibility of the partitioning actions based
+  *      on the currently selected Device*, bootloader and os-prober output.
+  */
++/** @brief Whether the LVM PV @p partition of @p disk keeps the disk from being erased
++ *
++ * KPMcore reports every PV that belongs to a volume group as mounted, so any
++ * disk with an earlier LVM install looked in use and "Erase disk" was hidden.
++ * The PV only stands in the way when one of its volume group's logical
++ * volumes is mounted, or when the volume group also has PVs on another disk:
++ * erasing this one would destroy the data there too. An inactive volume
++ * group is deactivated and wiped by the partitioning jobs.
++ */
++static bool
++lvmPVInUse( const DeviceModel* model, const Device* disk, const Partition* partition )
++{
++    for ( int row = 0; row < model->rowCount(); ++row )
++    {
++        auto* vg = dynamic_cast< LvmDevice* >( model->deviceForIndex( model->index( row ) ) );
++        if ( !vg || !vg->physicalVolumes().contains( partition ) )
++        {
++            continue;
++        }
++        for ( const Partition* pv : vg->physicalVolumes() )
++        {
++            if ( pv->devicePath() != disk->deviceNode() )
++            {
++                cDebug() << Logger::SubEntry << "volume group" << vg->name() << "also uses" << pv->partitionPath();
++                return true;
++            }
++        }
++        for ( auto it = PartitionIterator::begin( vg ); it != PartitionIterator::end( vg ); ++it )
++        {
++            if ( ( *it )->isMounted() )
++            {
++                cDebug() << Logger::SubEntry << "volume group" << vg->name() << "has mounted" << ( *it )->partitionPath();
++                return true;
++            }
++        }
++        return false;
++    }
++    // Not part of a volume group KPMcore could set up, nothing of it is mounted
++    return false;
++}
++
+ void
+ ChoicePage::setupActions()
+ {
+@@ -1390,10 +1433,26 @@ ChoicePage::setupActions()
+         }
+         if ( ( *it )->isMounted() )
+         {
+-            atLeastOneIsMounted = true;
++            if ( ( *it )->fileSystem().type() == FileSystem::Type::Lvm2_PV
++                 && !lvmPVInUse( m_core->deviceModel(), currentDevice, *it ) )
++            {
++                cDebug() << Logger::SubEntry << "contains LVM PV of an unused volume group" << it;
++            }
++            else
++            {
++                atLeastOneIsMounted = true;
++            }
+         }
+     }
+ 
++    // A volume group is not a disk: erasing it would put a partition table
++    // on it rather than giving the new system a disk of its own
++    if ( currentDevice->type() == Device::Type::LVM_Device )
++    {
++        cDebug() << Logger::SubEntry << "is an LVM volume group, not offering erase";
++        atLeastOneIsMounted = true;
++    }
++
+     m_osproberEntriesCount = osproberEntriesForCurrentDevice.count();
+     if ( m_osproberEntriesCount == 0 )
+     {
+diff --git a/src/modules/partition/jobs/CreatePartitionTableJob.cpp b/src/modules/partition/jobs/CreatePartitionTableJob.cpp
+index f75e647..e343a31 100644
+--- a/src/modules/partition/jobs/CreatePartitionTableJob.cpp
++++ b/src/modules/partition/jobs/CreatePartitionTableJob.cpp
+@@ -60,6 +60,94 @@ CreatePartitionTableJob::prettyStatusMessage() const
+         .arg( m_device->deviceNode() );
+ }
+ 
++/** @brief Release and wipe what the old partitions of @p diskNode held
++ *
++ * A new partition table replaces every partition, but sfdisk only wipes the
++ * signatures at the start of the disk. A new partition at the offset of an
++ * old one, as when reinstalling with the same layout, still carries the old
++ * LVM PV label: pvcreate then refuses it as part of the old volume group, and
++ * an active volume group or open LUKS mapping keeps the disk busy.
++ * ClearMountsJob only deactivates volume groups whose PV path names the disk,
++ * which misses PVs inside LUKS.
++ *
++ * Returns an empty string, or what could not be released.
++ */
++static QString
++releaseOldContents( const QString& diskNode )
++{
++    using std::chrono::seconds;
++    auto run = []( const QStringList& args ) { return Calamares::System::runCommand( args, seconds( 60 ) ); };
++
++    const auto lsblk = run( { "lsblk", "-nrpo", "NAME,TYPE", diskNode } );
++    if ( lsblk.getExitCode() != 0 )
++    {
++        return QStringLiteral( "lsblk %1: %2" ).arg( diskNode, lsblk.getOutput() );
++    }
++    QStringList partitions, mappings, volumeGroups;
++    for ( const QString& line : lsblk.getOutput().split( '\n', Qt::SkipEmptyParts ) )
++    {
++        const QStringList fields = line.simplified().split( ' ' );
++        if ( fields.count() != 2 )
++        {
++            continue;
++        }
++        const QString& node = fields.at( 0 );
++        const QString& type = fields.at( 1 );
++        if ( type == "part" )
++        {
++            partitions << node;
++        }
++        else if ( type == "crypt" )
++        {
++            mappings << node;
++        }
++        else if ( type == "lvm" )
++        {
++            const auto vg = run( { "lvm", "lvs", "--noheadings", "-o", "vg_name", node } );
++            if ( vg.getExitCode() == 0 && !vg.getOutput().trimmed().isEmpty() )
++            {
++                volumeGroups << vg.getOutput().trimmed();
++            }
++        }
++    }
++    volumeGroups.removeDuplicates();
++    mappings.removeDuplicates();
++    partitions.removeDuplicates();
++
++    QStringList failed;
++    for ( const QString& vg : std::as_const( volumeGroups ) )
++    {
++        cDebug() << Logger::SubEntry << "deactivating volume group" << vg;
++        if ( run( { "lvm", "vgchange", "-an", vg } ).getExitCode() != 0 )
++        {
++            failed << QStringLiteral( "volume group %1" ).arg( vg );
++        }
++    }
++    // lsblk lists parents first, so close nested mappings first
++    for ( auto it = mappings.crbegin(); it != mappings.crend(); ++it )
++    {
++        cDebug() << Logger::SubEntry << "closing" << *it;
++        if ( run( { "cryptsetup", "close", *it } ).getExitCode() != 0 )
++        {
++            failed << *it;
++        }
++    }
++    if ( !failed.isEmpty() )
++    {
++        return failed.join( ", " );
++    }
++    for ( const QString& partition : std::as_const( partitions ) )
++    {
++        cDebug() << Logger::SubEntry << "wiping signatures on" << partition;
++        if ( run( { "wipefs", "--all", partition } ).getExitCode() != 0 )
++        {
++            failed << partition;
++        }
++    }
++    run( { "udevadm", "settle" } );
++    return failed.join( ", " );
++}
++
+ Calamares::JobResult
+ CreatePartitionTableJob::exec()
+ {
+@@ -81,6 +169,17 @@ CreatePartitionTableJob::exec()
+         cDebug() << Logger::SubEntry << "mount output:\n" << Logger::NoQuote << mountResult.getOutput();
+     }
+ 
++    if ( m_device->type() == Device::Type::Disk_Device || m_device->type() == Device::Type::SoftwareRAID_Device )
++    {
++        const QString busy = releaseOldContents( m_device->deviceNode() );
++        if ( !busy.isEmpty() )
++        {
++            return Calamares::JobResult::error(
++                tr( "The installer failed to create a partition table on %1." ).arg( m_device->name() ),
++                tr( "The old contents of %1 are still in use: %2" ).arg( m_device->deviceNode(), busy ) );
++        }
++    }
++
+     return KPMHelpers::execute(
+         CreatePartitionTableOperation( *m_device, table ),
+         tr( "The installer failed to create a partition table on %1." ).arg( m_device->name() ) );

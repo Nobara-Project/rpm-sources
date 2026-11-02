@@ -1,6 +1,6 @@
 Name:           calamares
 Version:        3.3.14
-Release:        139%{?dist}
+Release:        140%{?dist}
 Summary:        Installer from a live CD/DVD/USB to disk
 
 License:        GPL-3.0-or-later
@@ -57,6 +57,9 @@ Patch1018:       0014-fix-python-integer-overflow.patch
 Patch1019:       0015-fix-manual-lvm-volume-group.patch
 # 32 GiB disk requirement; manual partitioning hint names the real EFI mount point
 Patch1020:       0016-installer-size-and-efi-hint.patch
+# Erase disk: list disks before LVM volume groups, allow erasing a disk with an
+# unused volume group, and wipe its old LVM/LUKS signatures before repartitioning
+Patch1021:       0017-erase-disk-with-old-lvm.patch
 #Patch1007:       fixup_branding.patch
 
 # Fedora-specific changes
@@ -273,6 +276,7 @@ cd ../../
 %patch 1018 -p1
 %patch 1019 -p1
 %patch 1020 -p1
+%patch 1021 -p1
 
 mv %{SOURCE1009} src/branding/nobara_branding/
 mv %{SOURCE1010} src/branding/nobara_branding/
@@ -446,6 +450,14 @@ EOF
 
 
 %changelog
+* Sun Nov 01 2026 Nobara Project <support@nobaraproject.org> - 3.3.14-140
+- Erase disk works on disks with an earlier LVM install: the PVs of an unused
+  volume group no longer count as mounted.
+- Select a disk by default instead of the LVM volume group of an earlier install.
+- Deactivate old volume groups, close old LUKS mappings and wipe old
+  signatures before writing a new partition table, so the new LVM PV can be
+  created where the old one was.
+
 * Fri Oct 30 2026 Nobara Project <support@nobaraproject.org> - 3.3.14-139
 - Fix manual partitioning crash when creating an LVM volume group.
 - Keep manual partitioning edits when a volume group is added or removed.
