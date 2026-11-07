@@ -4,7 +4,7 @@
 Name:           labwc
 Version:        0.20.2
 %forgemeta
-Release:        19%{?dist}
+Release:        20%{?dist}
 Summary:        A Wayland window-stacking compositor
 
 License:        GPL-2.0-only AND MIT
@@ -15,6 +15,7 @@ Source2:        wlroots-0.20.2-background-blur.patch
 Source3:        wlroots-0.20.2-color-management.patch
 Source4:        wlroots-0.20.2-xwayland-associate.patch
 Source5:        wlroots-0.20.2-xwayland-clipboard-focus.patch
+Source6:        wlroots-0.20.2-scene-corner-clip.patch
 Patch:          0001-add-per-output-hdr-overrides.patch
 Patch:          0002-allow-moving-fullscreen-views-between-outputs.patch
 Patch:          0003-defer-live-hdr-changes-to-next-frame.patch
@@ -28,6 +29,7 @@ Patch:          0010-avoid-redundant-output-modesets.patch
 Patch:          0011-query-capture-window-output.patch
 Patch:          0012-preserve-xwayland-fullscreen-output.patch
 Patch:          0013-add-csd-shadows-offset-and-titlebar-highlight.patch
+Patch:          0014-add-opt-in-rounded-window-content.patch
 
 BuildRequires:  gcc
 BuildRequires:  meson >= 0.59.0
@@ -149,6 +151,7 @@ mv subprojects/wlroots-0.20.2 subprojects/wlroots
 %{__patch} -d subprojects/wlroots -p1 < %{SOURCE3}
 %{__patch} -d subprojects/wlroots -p1 < %{SOURCE4}
 %{__patch} -d subprojects/wlroots -p1 < %{SOURCE5}
+%{__patch} -d subprojects/wlroots -p1 < %{SOURCE6}
 cp subprojects/wlroots/LICENSE WLROOTS-LICENSE
 
 
@@ -196,6 +199,9 @@ cp subprojects/wlroots/LICENSE WLROOTS-LICENSE
 %{_userunitdir}/labwc-session.target
 
 %changelog
+* Fri Nov 06 2026 Nobara Project - 0.20.2-20
+- Add opt-in <theme><roundWindowContent> to round the corners of every window.
+
 * Sun Oct 25 2026 Nobara Project - 0.20.2-19
 - Draw drop-shadows behind client-side decorated windows too.
 - Add window.*.shadow.offset.y so shadows fall below windows as if lit from above.

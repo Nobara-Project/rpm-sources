@@ -1,0 +1,639 @@
+--- a/include/wlr/types/wlr_scene.h	2026-11-06 18:08:04.571911318 -0700
++++ b/include/wlr/types/wlr_scene.h	2026-11-06 18:01:20.854433382 -0700
+@@ -94,6 +94,21 @@
+ 	struct wlr_scene_node node;
+ 
+ 	struct wl_list children; // wlr_scene_node.link
++
++	struct {
++		struct wlr_box box; // relative to this tree
++		int radius;
++		uint32_t corners; // enum wlr_scene_corner
++	} corner_clip;
++};
++
++/** Which corners wlr_scene_tree_set_corner_clip() rounds. */
++enum wlr_scene_corner {
++	WLR_SCENE_CORNER_TOP_LEFT = 1 << 0,
++	WLR_SCENE_CORNER_TOP_RIGHT = 1 << 1,
++	WLR_SCENE_CORNER_BOTTOM_RIGHT = 1 << 2,
++	WLR_SCENE_CORNER_BOTTOM_LEFT = 1 << 3,
++	WLR_SCENE_CORNER_ALL = (1 << 4) - 1,
+ };
+ 
+ /** The root scene-graph node. */
+@@ -540,6 +555,16 @@
+ 	const pixman_region32_t *region, int radius);
+ 
+ /**
++ * Round the given corners of a box for every buffer and rectangle below this
++ * tree, with antialiased edges. It needs nothing of the renderer beyond clip
++ * regions and alpha, so every renderer and color pipeline supports it.
++ *
++ * The box is relative to the tree. A radius of 0 or no corners disables it.
++ */
++void wlr_scene_tree_set_corner_clip(struct wlr_scene_tree *tree,
++	const struct wlr_box *box, int radius, uint32_t corners);
++
++/**
+  * Sets the buffer's opaque region. This is an optimization hint used to
+  * determine if buffers which reside under this one need to be rendered or not.
+  */
+--- a/meson.build	2026-11-06 18:08:04.574162384 -0700
++++ b/meson.build	2026-11-06 18:06:33.408308121 -0700
+@@ -196,6 +196,12 @@
+ 		include_directories: wlr_inc,
+ 	)
+ 	test('background-blur', blur_test, env: ['WLR_RENDERER=pixman'])
++	corner_clip_test = executable('test-corner-clip', 'tests/corner_clip.c',
++		dependencies: wlroots,
++		include_directories: wlr_inc,
++		c_args: ['-UNDEBUG'],
++	)
++	test('corner-clip', corner_clip_test)
+ endif
+ 
+ if get_option('background-blur-tests') and lcms2.found()
+--- a/tests/corner_clip.c	1969-12-31 17:00:00.000000000 -0700
++++ b/tests/corner_clip.c	2026-11-06 18:06:33.402113800 -0700
+@@ -0,0 +1,165 @@
++// Pixel regression for wlr_scene_tree_set_corner_clip().
++#include <assert.h>
++#include <drm_fourcc.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <wlr/backend/headless.h>
++#include <wlr/render/allocator.h>
++#include <wlr/render/drm_format_set.h>
++#include <wlr/render/pixman.h>
++#include <wlr/types/wlr_buffer.h>
++#include <wlr/types/wlr_scene.h>
++#include <wlr/util/log.h>
++#include "render/allocator/shm.h"
++
++#define WIDTH 96
++#define HEIGHT 96
++#define RED 0xff0000
++#define GREEN 0x00ff00
++
++static uint32_t pixels[WIDTH * HEIGHT];
++
++static struct wlr_buffer *opaque_red(struct wlr_allocator *allocator, int width, int height) {
++	uint64_t modifier = DRM_FORMAT_MOD_LINEAR;
++	struct wlr_drm_format format = {
++		.format = DRM_FORMAT_XRGB8888, .len = 1, .modifiers = &modifier,
++	};
++	struct wlr_buffer *buffer = wlr_allocator_create_buffer(allocator, width, height, &format);
++	assert(buffer);
++	void *data;
++	uint32_t fourcc;
++	size_t stride;
++	assert(wlr_buffer_begin_data_ptr_access(buffer, WLR_BUFFER_DATA_PTR_ACCESS_WRITE,
++		&data, &fourcc, &stride));
++	for (int y = 0; y < height; y++) {
++		uint32_t *row = (uint32_t *)((char *)data + stride * y);
++		for (int x = 0; x < width; x++) {
++			row[x] = 0xffff0000;
++		}
++	}
++	wlr_buffer_end_data_ptr_access(buffer);
++	return buffer;
++}
++
++static void render(struct wlr_scene_output *scene_output) {
++	struct wlr_output_state state;
++	wlr_output_state_init(&state);
++	assert(wlr_scene_output_build_state(scene_output, &state, NULL));
++	struct wlr_texture *texture = wlr_texture_from_buffer(scene_output->output->renderer,
++		state.buffer);
++	assert(texture);
++	assert(wlr_texture_read_pixels(texture, &(struct wlr_texture_read_pixels_options){
++		.data = pixels, .format = DRM_FORMAT_ARGB8888, .stride = WIDTH * 4,
++	}));
++	wlr_texture_destroy(texture);
++	assert(wlr_output_commit_state(scene_output->output, &state));
++	wlr_output_state_finish(&state);
++}
++
++static uint32_t rgb(int x, int y) {
++	return pixels[y * WIDTH + x] & 0xffffff;
++}
++
++// A blend of the window over the backdrop, not either color alone.
++static bool blended(int x, int y) {
++	uint32_t color = rgb(x, y);
++	uint32_t red = color >> 16 & 0xff, green = color >> 8 & 0xff;
++	return red > 0 && green > 0 && (color & 0xff) == 0;
++}
++
++int main(void) {
++	wlr_log_init(WLR_ERROR, NULL);
++	struct wl_display *display = wl_display_create();
++	struct wlr_backend *backend = wlr_headless_backend_create(wl_display_get_event_loop(display));
++	assert(backend);
++	struct wlr_renderer *renderer = getenv("WLR_RENDERER") ?
++		wlr_renderer_autocreate(backend) : wlr_pixman_renderer_create();
++	assert(renderer);
++	struct wlr_allocator *allocator = wlr_allocator_autocreate(backend, renderer);
++	struct wlr_allocator *source_allocator = wlr_shm_allocator_create();
++	assert(allocator && source_allocator);
++	struct wlr_output *output = wlr_headless_add_output(backend, WIDTH, HEIGHT);
++	assert(output && wlr_output_init_render(output, allocator, renderer));
++	assert(wlr_backend_start(backend));
++	struct wlr_output_state initial;
++	wlr_output_state_init(&initial);
++	wlr_output_state_set_enabled(&initial, true);
++	assert(wlr_output_commit_state(output, &initial));
++	wlr_output_state_finish(&initial);
++
++	struct wlr_scene *scene = wlr_scene_create();
++	struct wlr_scene_output *scene_output = wlr_scene_output_create(scene, output);
++	const float green[] = {0, 1, 0, 1};
++	wlr_scene_rect_create(&scene->tree, WIDTH, HEIGHT, green);
++
++	struct wlr_scene_tree *window = wlr_scene_tree_create(&scene->tree);
++	wlr_scene_node_set_position(&window->node, 16, 16);
++	struct wlr_buffer *image = opaque_red(source_allocator, 64, 64);
++	struct wlr_scene_buffer *content = wlr_scene_buffer_create(window, image);
++
++	// Without a clip: a plain opaque square.
++	render(scene_output);
++	assert(rgb(16, 16) == RED && rgb(79, 79) == RED && rgb(15, 16) == GREEN);
++
++	// All corners: cut, with what lies below showing through. The opaque
++	// window must not have culled it.
++	struct wlr_box box = {0, 0, 64, 64};
++	wlr_scene_tree_set_corner_clip(window, &box, 12, WLR_SCENE_CORNER_ALL);
++	render(scene_output);
++	int corners[4][2] = {{16, 16}, {79, 16}, {16, 79}, {79, 79}};
++	for (int i = 0; i < 4; i++) {
++		assert(rgb(corners[i][0], corners[i][1]) == GREEN);
++	}
++	// Edges and interior stay; only corners change.
++	assert(rgb(48, 16) == RED && rgb(16, 48) == RED && rgb(79, 48) == RED && rgb(48, 79) == RED);
++	assert(rgb(48, 48) == RED);
++	// Just inside the arc is whole, the arc itself antialiased, on every corner.
++	int blends = 0;
++	for (int i = 0; i < 12; i++) {
++		blends += blended(16 + i, 16 + i) + blended(79 - i, 16 + i)
++			+ blended(16 + i, 79 - i) + blended(79 - i, 79 - i);
++	}
++	assert(blends >= 4);
++	assert(rgb(16 + 8, 16 + 8) == RED);
++
++	// The opaque shortcut of a later frame must not bring corners back.
++	wlr_scene_node_set_position(&content->node, 0, 0);
++	wlr_scene_buffer_set_opacity(content, 1);
++	render(scene_output);
++	assert(rgb(16, 16) == GREEN);
++
++	// The clip moves with its tree, and what it revealed goes with it.
++	wlr_scene_node_set_position(&window->node, 20, 20);
++	render(scene_output);
++	assert(rgb(20, 20) == GREEN && rgb(16, 16) == GREEN && rgb(48, 20) == RED);
++	wlr_scene_node_set_position(&window->node, 16, 16);
++
++	// Only the requested corners change.
++	wlr_scene_tree_set_corner_clip(window, &box,
++		12, WLR_SCENE_CORNER_BOTTOM_LEFT | WLR_SCENE_CORNER_BOTTOM_RIGHT);
++	render(scene_output);
++	assert(rgb(16, 16) == RED && rgb(79, 16) == RED);
++	assert(rgb(16, 79) == GREEN && rgb(79, 79) == GREEN);
++
++	// Rectangles below the tree are cut too, a box larger than the content is
++	// respected, and content outside it is left alone.
++	const float red[] = {1, 0, 0, 1};
++	struct wlr_scene_rect *border = wlr_scene_rect_create(window, 4, 4, red);
++	wlr_scene_node_set_position(&border->node, 0, 60);
++	struct wlr_box outer = {-1, -1, 66, 66};
++	wlr_scene_tree_set_corner_clip(window, &outer, 13, WLR_SCENE_CORNER_ALL);
++	render(scene_output);
++	assert(rgb(16, 79) == GREEN && rgb(48, 16) == RED);
++	wlr_scene_node_destroy(&border->node);
++
++	// Disabling restores the square, with damage over the old corners.
++	wlr_scene_tree_set_corner_clip(window, NULL, 0, 0);
++	render(scene_output);
++	assert(rgb(16, 16) == RED && rgb(79, 79) == RED);
++
++	wlr_scene_output_destroy(scene_output);
++	wlr_buffer_drop(image);
++	puts("corner clip: cut, blend, move, select, rect and restore checks passed");
++	return 0;
++}
+--- a/types/scene/wlr_scene.c	2026-11-06 18:08:04.573194137 -0700
++++ b/types/scene/wlr_scene.c	2026-11-06 18:06:49.287230540 -0700
+@@ -15,6 +15,7 @@
+ #include <wlr/util/log.h>
+ #include <wlr/util/region.h>
+ #include <wlr/util/transform.h>
++#include <sys/param.h>
+ #include "render/color.h"
+ #include "types/wlr_output.h"
+ #include "types/wlr_scene.h"
+@@ -259,7 +260,30 @@
+ 	return _scene_nodes_in_box(node, box, iterator, user_data, x, y);
+ }
+ 
+-static void scene_node_opaque_region(struct wlr_scene_node *node, int x, int y,
++/**
++ * The corner clip that applies to a node, with its box relative to the node.
++ */
++static bool scene_node_corner_clip(const struct wlr_scene_node *node,
++		struct wlr_box *box, int *radius, uint32_t *corners) {
++	int x = node->x, y = node->y;
++	for (const struct wlr_scene_tree *tree = node->parent; tree != NULL;
++			tree = tree->node.parent) {
++		if (tree->corner_clip.radius > 0 && tree->corner_clip.corners != 0) {
++			*box = tree->corner_clip.box;
++			box->x -= x;
++			box->y -= y;
++			*radius = MIN(tree->corner_clip.radius,
++				MIN(box->width, box->height) / 2);
++			*corners = tree->corner_clip.corners;
++			return *radius > 0;
++		}
++		x += tree->node.x;
++		y += tree->node.y;
++	}
++	return false;
++}
++
++static void scene_node_opaque_region_unclipped(struct wlr_scene_node *node, int x, int y,
+ 		pixman_region32_t *opaque) {
+ 	int width, height;
+ 	scene_node_get_size(node, &width, &height);
+@@ -292,6 +316,38 @@
+ 	pixman_region32_init_rect(opaque, x, y, width, height);
+ }
+ 
++static void scene_node_opaque_region(struct wlr_scene_node *node, int x, int y,
++		pixman_region32_t *opaque) {
++	scene_node_opaque_region_unclipped(node, x, y, opaque);
++
++	struct wlr_box box;
++	int radius;
++	uint32_t corners;
++	if (pixman_region32_empty(opaque) ||
++			!scene_node_corner_clip(node, &box, &radius, &corners)) {
++		return;
++	}
++
++	int left = x + box.x, top = y + box.y;
++	int right = left + box.width - radius, bottom = top + box.height - radius;
++	pixman_region32_t cut;
++	pixman_region32_init(&cut);
++	if (corners & WLR_SCENE_CORNER_TOP_LEFT) {
++		pixman_region32_union_rect(&cut, &cut, left, top, radius, radius);
++	}
++	if (corners & WLR_SCENE_CORNER_TOP_RIGHT) {
++		pixman_region32_union_rect(&cut, &cut, right, top, radius, radius);
++	}
++	if (corners & WLR_SCENE_CORNER_BOTTOM_RIGHT) {
++		pixman_region32_union_rect(&cut, &cut, right, bottom, radius, radius);
++	}
++	if (corners & WLR_SCENE_CORNER_BOTTOM_LEFT) {
++		pixman_region32_union_rect(&cut, &cut, left, bottom, radius, radius);
++	}
++	pixman_region32_subtract(opaque, opaque, &cut);
++	pixman_region32_fini(&cut);
++}
++
+ struct scene_update_data {
+ 	pixman_region32_t *visible;
+ 	const pixman_region32_t *update_region;
+@@ -1077,6 +1133,25 @@
+ 	wlr_scene_buffer_set_buffer_with_options(scene_buffer, buffer, NULL);
+ }
+ 
++void wlr_scene_tree_set_corner_clip(struct wlr_scene_tree *tree,
++		const struct wlr_box *box, int radius, uint32_t corners) {
++	radius = box != NULL ? MAX(radius, 0) : 0;
++	struct wlr_box clip = radius > 0 && corners != 0 ? *box : (struct wlr_box){0};
++	if (clip.width <= 0 || clip.height <= 0) {
++		clip = (struct wlr_box){0};
++		radius = 0;
++		corners = 0;
++	}
++	if (tree->corner_clip.radius == radius && tree->corner_clip.corners == corners &&
++			wlr_box_equal(&tree->corner_clip.box, &clip)) {
++		return;
++	}
++	tree->corner_clip.box = clip;
++	tree->corner_clip.radius = radius;
++	tree->corner_clip.corners = corners;
++	scene_node_update(&tree->node, NULL);
++}
++
+ void wlr_scene_buffer_set_background_blur(struct wlr_scene_buffer *buffer,
+ 		const pixman_region32_t *region, int radius) {
+ 	radius = radius < 0 ? 0 : radius > 64 ? 64 : radius;
+@@ -1522,6 +1597,221 @@
+ 	return (dst_lum->reference / src_lum->reference) * (src_lum->max / dst_lum->max);
+ }
+ 
++#define SCENE_CORNER_LEVELS 8
++
++/**
++ * The part of a node's render region inside clipped corners, in buffer
++ * coordinates: inner is drawn as usual, levels[k] at (k + 1) / LEVELS alpha,
++ * and everything else in the corners not at all.
++ */
++struct scene_corner_mask {
++	bool active;
++	pixman_region32_t inner;
++	pixman_region32_t levels[SCENE_CORNER_LEVELS];
++};
++
++/**
++ * Coverage of each pixel of a top-left corner of the given radius, in
++ * SCENE_CORNER_LEVELS steps. Outputs share a scale in nearly all setups, so
++ * one cached table is enough.
++ */
++static const uint8_t *scene_corner_coverage(int radius) {
++	static uint8_t *table = NULL;
++	static int table_radius = 0;
++	if (table_radius == radius) {
++		return table;
++	}
++	uint8_t *resized = realloc(table, (size_t)radius * radius);
++	if (resized == NULL) {
++		return NULL;
++	}
++	table = resized;
++	table_radius = radius;
++
++	const int samples = 4;
++	int limit = radius * samples * 2;
++	for (int py = 0; py < radius; py++) {
++		for (int px = 0; px < radius; px++) {
++			int inside = 0;
++			for (int sy = 0; sy < samples; sy++) {
++				for (int sx = 0; sx < samples; sx++) {
++					// Doubled sample positions keep this in integers.
++					int dx = limit - (px * samples * 2 + sx * 2 + 1);
++					int dy = limit - (py * samples * 2 + sy * 2 + 1);
++					inside += dx * dx + dy * dy <= limit * limit;
++				}
++			}
++			table[py * radius + px] = (inside * SCENE_CORNER_LEVELS +
++				samples * samples / 2) / (samples * samples);
++		}
++	}
++	return table;
++}
++
++static void scene_corner_mask_add(struct scene_corner_mask *mask, const uint8_t *coverage,
++		int radius, int origin_x, int origin_y, bool mirror_x, bool mirror_y) {
++	for (int py = 0; py < radius; py++) {
++		int row = mirror_y ? origin_y - py - 1 : origin_y + py;
++		int run_start = 0;
++		for (int px = 1; px <= radius; px++) {
++			uint8_t level = coverage[py * radius + run_start];
++			if (px < radius && coverage[py * radius + px] == level) {
++				continue;
++			}
++			if (level > 0) {
++				int run = px - run_start;
++				int column = mirror_x ? origin_x - px : origin_x + run_start;
++				pixman_region32_union_rect(&mask->levels[level - 1],
++					&mask->levels[level - 1], column, row, run, 1);
++			}
++			run_start = px;
++		}
++	}
++}
++
++static void scene_corner_mask_init(struct scene_corner_mask *mask,
++		const struct wlr_scene_node *node, int x, int y,
++		const pixman_region32_t *render_region, const struct render_data *data) {
++	mask->active = false;
++
++	struct wlr_box box;
++	int logical_radius;
++	uint32_t corners;
++	if (!scene_node_corner_clip(node, &box, &logical_radius, &corners)) {
++		return;
++	}
++
++	int left = round((x + box.x) * data->scale);
++	int top = round((y + box.y) * data->scale);
++	int right = round((x + box.x + box.width) * data->scale);
++	int bottom = round((y + box.y + box.height) * data->scale);
++	int radius = MIN(round(logical_radius * data->scale),
++		MIN(right - left, bottom - top) / 2);
++	const uint8_t *coverage = radius > 0 ? scene_corner_coverage(radius) : NULL;
++	if (coverage == NULL) {
++		return;
++	}
++
++	enum wl_output_transform transform = wlr_output_transform_invert(data->transform);
++	pixman_region32_t square;
++	pixman_region32_init(&square);
++	if (corners & WLR_SCENE_CORNER_TOP_LEFT) {
++		pixman_region32_union_rect(&square, &square, left, top, radius, radius);
++	}
++	if (corners & WLR_SCENE_CORNER_TOP_RIGHT) {
++		pixman_region32_union_rect(&square, &square, right - radius, top, radius, radius);
++	}
++	if (corners & WLR_SCENE_CORNER_BOTTOM_RIGHT) {
++		pixman_region32_union_rect(&square, &square,
++			right - radius, bottom - radius, radius, radius);
++	}
++	if (corners & WLR_SCENE_CORNER_BOTTOM_LEFT) {
++		pixman_region32_union_rect(&square, &square, left, bottom - radius, radius, radius);
++	}
++	wlr_region_transform(&square, &square, transform, data->trans_width, data->trans_height);
++
++	pixman_region32_t touched;
++	pixman_region32_init(&touched);
++	pixman_region32_intersect(&touched, &square, render_region);
++	bool visible = !pixman_region32_empty(&touched);
++	pixman_region32_fini(&touched);
++	if (!visible) {
++		// Nothing is drawn in the corners: most frames of a focused window.
++		pixman_region32_fini(&square);
++		return;
++	}
++
++	mask->active = true;
++	pixman_region32_init(&mask->inner);
++	pixman_region32_subtract(&mask->inner, render_region, &square);
++	pixman_region32_fini(&square);
++	for (int i = 0; i < SCENE_CORNER_LEVELS; i++) {
++		pixman_region32_init(&mask->levels[i]);
++	}
++	if (corners & WLR_SCENE_CORNER_TOP_LEFT) {
++		scene_corner_mask_add(mask, coverage, radius, left, top, false, false);
++	}
++	if (corners & WLR_SCENE_CORNER_TOP_RIGHT) {
++		scene_corner_mask_add(mask, coverage, radius, right, top, true, false);
++	}
++	if (corners & WLR_SCENE_CORNER_BOTTOM_RIGHT) {
++		scene_corner_mask_add(mask, coverage, radius, right, bottom, true, true);
++	}
++	if (corners & WLR_SCENE_CORNER_BOTTOM_LEFT) {
++		scene_corner_mask_add(mask, coverage, radius, left, bottom, false, true);
++	}
++	for (int i = 0; i < SCENE_CORNER_LEVELS; i++) {
++		wlr_region_transform(&mask->levels[i], &mask->levels[i], transform,
++			data->trans_width, data->trans_height);
++		pixman_region32_intersect(&mask->levels[i], &mask->levels[i], render_region);
++	}
++}
++
++static void scene_corner_mask_finish(struct scene_corner_mask *mask) {
++	if (!mask->active) {
++		return;
++	}
++	pixman_region32_fini(&mask->inner);
++	for (int i = 0; i < SCENE_CORNER_LEVELS; i++) {
++		pixman_region32_fini(&mask->levels[i]);
++	}
++}
++
++static void scene_render_rect(struct wlr_render_pass *pass,
++		const struct wlr_render_rect_options *options,
++		const struct scene_corner_mask *mask) {
++	if (!mask->active) {
++		wlr_render_pass_add_rect(pass, options);
++		return;
++	}
++	struct wlr_render_rect_options part = *options;
++	part.clip = &mask->inner;
++	if (!pixman_region32_empty(&mask->inner)) {
++		wlr_render_pass_add_rect(pass, &part);
++	}
++	for (int i = 0; i < SCENE_CORNER_LEVELS; i++) {
++		if (pixman_region32_empty(&mask->levels[i])) {
++			continue;
++		}
++		float alpha = (float)(i + 1) / SCENE_CORNER_LEVELS;
++		part.clip = &mask->levels[i];
++		part.color.r = options->color.r * alpha;
++		part.color.g = options->color.g * alpha;
++		part.color.b = options->color.b * alpha;
++		part.color.a = options->color.a * alpha;
++		part.blend_mode = WLR_RENDER_BLEND_MODE_PREMULTIPLIED;
++		wlr_render_pass_add_rect(pass, &part);
++	}
++}
++
++static void scene_render_texture(struct wlr_render_pass *pass,
++		const struct wlr_render_texture_options *options,
++		const struct scene_corner_mask *mask) {
++	if (!mask->active) {
++		wlr_render_pass_add_texture(pass, options);
++		return;
++	}
++	struct wlr_render_texture_options part = *options;
++	float opacity = options->alpha != NULL ? *options->alpha : 1.0f;
++	// Only the first draw of the buffer waits for its acquire point.
++	if (!pixman_region32_empty(&mask->inner)) {
++		part.clip = &mask->inner;
++		wlr_render_pass_add_texture(pass, &part);
++		part.wait_timeline = NULL;
++	}
++	for (int i = 0; i < SCENE_CORNER_LEVELS; i++) {
++		if (pixman_region32_empty(&mask->levels[i])) {
++			continue;
++		}
++		float alpha = opacity * (i + 1) / SCENE_CORNER_LEVELS;
++		part.clip = &mask->levels[i];
++		part.alpha = &alpha;
++		part.blend_mode = WLR_RENDER_BLEND_MODE_PREMULTIPLIED;
++		wlr_render_pass_add_texture(pass, &part);
++		part.wait_timeline = NULL;
++	}
++}
++
+ static void scene_entry_render(struct render_list_entry *entry, const struct render_data *data) {
+ 	struct wlr_scene_node *node = entry->node;
+ 
+@@ -1559,6 +1849,9 @@
+ 	logical_to_buffer_coords(&opaque, data, false);
+ 	pixman_region32_subtract(&opaque, &render_region, &opaque);
+ 
++	struct scene_corner_mask corner_mask;
++	scene_corner_mask_init(&corner_mask, node, x, y, &render_region, data);
++
+ 	switch (node->type) {
+ 	case WLR_SCENE_NODE_TREE:
+ 		assert(false);
+@@ -1566,7 +1859,7 @@
+ 	case WLR_SCENE_NODE_RECT:;
+ 		struct wlr_scene_rect *scene_rect = wlr_scene_rect_from_node(node);
+ 
+-		wlr_render_pass_add_rect(data->render_pass, &(struct wlr_render_rect_options){
++		scene_render_rect(data->render_pass, &(struct wlr_render_rect_options){
+ 			.box = dst_box,
+ 			.color = {
+ 				.r = scene_rect->color[0],
+@@ -1575,7 +1868,7 @@
+ 				.a = scene_rect->color[3],
+ 			},
+ 			.clip = &render_region,
+-		});
++		}, &corner_mask);
+ 		break;
+ 	case WLR_SCENE_NODE_BUFFER:;
+ 		struct wlr_scene_buffer *scene_buffer = wlr_scene_buffer_from_node(node);
+@@ -1585,7 +1878,7 @@
+ 					|| scene_buffer->transfer_function == WLR_COLOR_TRANSFER_FUNCTION_GAMMA22)
+ 				&& (scene_buffer->primaries == 0 || scene_buffer->primaries == WLR_COLOR_NAMED_PRIMARIES_SRGB)) {
+ 			// Render the buffer as a rect, this is likely to be more efficient
+-			wlr_render_pass_add_rect(data->render_pass, &(struct wlr_render_rect_options){
++			scene_render_rect(data->render_pass, &(struct wlr_render_rect_options){
+ 				.box = dst_box,
+ 				.color = {
+ 					.r = (float)scene_buffer->single_pixel_buffer_color[0] / (float)UINT32_MAX,
+@@ -1595,7 +1888,7 @@
+ 						(float)UINT32_MAX * scene_buffer->opacity,
+ 				},
+ 				.clip = &render_region,
+-			});
++			}, &corner_mask);
+ 			break;
+ 		}
+ 
+@@ -1628,7 +1921,7 @@
+ 			WLR_COLOR_TRANSFER_FUNCTION_SRGB, &srgb_lum);
+ 		float luminance_multiplier = get_luminance_multiplier(&src_lum, &srgb_lum);
+ 
+-		wlr_render_pass_add_texture(data->render_pass, &(struct wlr_render_texture_options) {
++		scene_render_texture(data->render_pass, &(struct wlr_render_texture_options) {
+ 			.texture = texture,
+ 			.src_box = scene_buffer->src_box,
+ 			.dst_box = dst_box,
+@@ -1647,7 +1940,7 @@
+ 			.luminance_multiplier = &luminance_multiplier,
+ 			.wait_timeline = scene_buffer->wait_timeline,
+ 			.wait_point = scene_buffer->wait_point,
+-		});
++		}, &corner_mask);
+ 
+ 		struct wlr_scene_output_sample_event sample_event = {
+ 			.output = data->output,
+@@ -1668,6 +1961,7 @@
+ 		break;
+ 	}
+ 
++	scene_corner_mask_finish(&corner_mask);
+ 	pixman_region32_fini(&opaque);
+ 	pixman_region32_fini(&render_region);
+ }
+@@ -2186,6 +2480,13 @@
+ 		return SCANOUT_INELIGIBLE;
+ 	}
+ 
++	struct wlr_box clip_box;
++	int clip_radius;
++	uint32_t clip_corners;
++	if (scene_node_corner_clip(node, &clip_box, &clip_radius, &clip_corners)) {
++		return SCANOUT_INELIGIBLE;
++	}
++
+ 	struct wlr_scene_buffer *buffer = wlr_scene_buffer_from_node(node);
+ 	if (buffer->buffer == NULL) {
+ 		return SCANOUT_INELIGIBLE;

@@ -1,0 +1,364 @@
+diff --git a/docs/labwc-config.5.scd b/docs/labwc-config.5.scd
+index d6078d2..304e59f 100644
+--- a/docs/labwc-config.5.scd
++++ b/docs/labwc-config.5.scd
+@@ -709,6 +709,12 @@ extending outward from the snapped edge.
+ *<theme><cornerRadius>*
+ 	The radius of server side decoration top corners. Default is 8.
+ 
++*<theme><roundWindowContent>* [yes|no]
++	Cut window contents to <cornerRadius>, including applications that draw
++	square windows and the bottom corners of server-side decorated windows.
++	Maximized, tiled and fullscreen windows stay square.
++	Default is no.
++
+ *<theme><keepBorder>* [yes|no]
+ 	Even when disabling server side decorations via ToggleDecorations,
+ 	keep a small border (and resize area) around the window. Default is yes.
+diff --git a/docs/rc.xml.all b/docs/rc.xml.all
+index 57cb564..2d86a5c 100644
+--- a/docs/rc.xml.all
++++ b/docs/rc.xml.all
+@@ -55,6 +55,7 @@
+       <showTitle>yes</showTitle>
+     </titlebar>
+     <cornerRadius>8</cornerRadius>
++    <roundWindowContent>no</roundWindowContent>
+     <keepBorder>yes</keepBorder>
+     <maximizedDecoration>titlebar</maximizedDecoration>
+     <dropShadows>no</dropShadows>
+diff --git a/include/config/rcxml.h b/include/config/rcxml.h
+index 3fd9670..369b766 100644
+--- a/include/config/rcxml.h
++++ b/include/config/rcxml.h
+@@ -117,6 +117,7 @@ struct rcxml {
+ 	int nr_title_buttons_right;
+ 
+ 	int corner_radius;
++	bool round_window_content;
+ 	bool show_title;
+ 	bool title_layout_loaded;
+ 	bool ssd_keep_border;
+diff --git a/include/ssd.h b/include/ssd.h
+index 1b1365d..afb00f8 100644
+--- a/include/ssd.h
++++ b/include/ssd.h
+@@ -2,6 +2,7 @@
+ #ifndef LABWC_SSD_H
+ #define LABWC_SSD_H
+ 
++#include <stdint.h>
+ #include "common/node-type.h"
+ #include "config/types.h"
+ 
+@@ -12,6 +13,7 @@ enum ssd_active_state {
+ 
+ #define FOR_EACH_ACTIVE_STATE(active) for (active = SSD_INACTIVE; active <= SSD_ACTIVE; active++)
+ 
++struct wlr_box;
+ struct wlr_cursor;
+ 
+ /*
+@@ -45,6 +47,9 @@ void csd_shadow_update(struct view *view);
+ void csd_shadow_set_active(struct view *view, bool active);
+ void csd_shadow_destroy(struct view *view);
+ struct border ssd_get_margin(const struct ssd *ssd);
++/* Round the borders' outer corners; box in layout coordinates, NULL disables */
++void ssd_set_corner_clip(struct ssd *ssd, const struct wlr_box *box, int radius,
++	uint32_t corners);
+ int ssd_get_corner_width(void);
+ void ssd_update_margin(struct ssd *ssd);
+ void ssd_set_active(struct ssd *ssd, bool active);
+diff --git a/include/view.h b/include/view.h
+index 7ecc9c0..66f7c28 100644
+--- a/include/view.h
++++ b/include/view.h
+@@ -499,6 +499,10 @@ void view_resize_relative(struct view *view,
+ void view_move_relative(struct view *view, int x, int y);
+ void view_move(struct view *view, int x, int y);
+ void view_moved(struct view *view);
++/* Apply rc.round_window_content for the view's current state */
++void view_update_corner_clip(struct view *view);
++/* The client draws outside its window geometry, like a shadow or an outline */
++bool view_draws_own_margins(struct view *view);
+ void view_minimize(struct view *view, bool minimized);
+ bool view_compute_centered_position(struct view *view,
+ 	const struct wlr_box *ref, int w, int h, int *x, int *y);
+diff --git a/src/config/rcxml.c b/src/config/rcxml.c
+index 2578e57..a66e6b6 100644
+--- a/src/config/rcxml.c
++++ b/src/config/rcxml.c
+@@ -1231,6 +1231,8 @@ entry(xmlNode *node, char *nodename, char *content)
+ 		rc.show_title = parse_bool(content, true);
+ 	} else if (!strcmp(nodename, "cornerradius.theme")) {
+ 		rc.corner_radius = atoi(content);
++	} else if (!strcasecmp(nodename, "roundWindowContent.theme")) {
++		set_bool(content, &rc.round_window_content);
+ 	} else if (!strcasecmp(nodename, "keepBorder.theme")) {
+ 		set_bool(content, &rc.ssd_keep_border);
+ 	} else if (!strcasecmp(nodename, "maximizedDecoration.theme")) {
+@@ -1567,6 +1569,7 @@ rcxml_init(void)
+ 	rc.title_layout_loaded = false;
+ 	rc.ssd_keep_border = true;
+ 	rc.corner_radius = 8;
++	rc.round_window_content = false;
+ 	rc.shadows_enabled = false;
+ 	rc.shadows_on_tiled = false;
+ 
+diff --git a/src/ssd/ssd.c b/src/ssd/ssd.c
+index e2ab637..148aa41 100644
+--- a/src/ssd/ssd.c
++++ b/src/ssd/ssd.c
+@@ -179,6 +179,24 @@ ssd_create(struct view *view, bool active)
+ 	return ssd;
+ }
+ 
++void
++ssd_set_corner_clip(struct ssd *ssd, const struct wlr_box *box, int radius,
++		uint32_t corners)
++{
++	if (!ssd || !ssd->border.tree) {
++		return;
++	}
++	struct wlr_box local = {0};
++	if (box) {
++		int lx = 0, ly = 0;
++		wlr_scene_node_coords(&ssd->border.tree->node, &lx, &ly);
++		local = *box;
++		local.x -= lx;
++		local.y -= ly;
++	}
++	wlr_scene_tree_set_corner_clip(ssd->border.tree, box ? &local : NULL, radius, corners);
++}
++
+ struct border
+ ssd_get_margin(const struct ssd *ssd)
+ {
+diff --git a/src/theme.c b/src/theme.c
+index ad974ab..5f87517 100644
+--- a/src/theme.c
++++ b/src/theme.c
+@@ -1559,7 +1559,16 @@ shadow_corner_gradient(struct lab_data_buffer *buffer, int visible_size,
+ 			 */
+ 			bool in1 = x < inset && y < inset - titlebar_height;
+ 			bool in2 = x < inset - titlebar_height && y < inset;
+-			if (in1 || in2) {
++			/*
++			 * A rounded window leaves the area outside its corner
++			 * uncovered, where the shadow still has to show.
++			 */
++			int radius = rc.round_window_content ? rc.corner_radius : 0;
++			double arc_x = x + 0.5 - (inset - radius);
++			double arc_y = y + 0.5 - (inset - radius);
++			bool outside_arc = radius > 0 && arc_x > 0 && arc_y > 0
++				&& arc_x * arc_x + arc_y * arc_y > radius * radius;
++			if ((in1 || in2) && !outside_arc) {
+ 				alpha = 0.0;
+ 			}
+ 
+diff --git a/src/tiling.c b/src/tiling.c
+index 19965b9..81461aa 100644
+--- a/src/tiling.c
++++ b/src/tiling.c
+@@ -422,7 +422,7 @@ static void arrange(void *unused) {
+         }
+         bool tiled = !r->floating && !r->scratch;
+         if (v->auto_tiled != tiled) {
+-            v->auto_tiled = tiled;
++            v->auto_tiled = tiled; view_update_corner_clip(v);
+             if (v->impl->notify_tiled) v->impl->notify_tiled(v);
+         }
+         if (r->group && server.active_view == v) {
+@@ -472,7 +472,7 @@ void tiling_forget(struct view *v) {
+     detach(r); set_hidden(r, false);
+     r->bounds = (struct wlr_box){0}; clip_content(r);
+     if (r->outline) wlr_scene_node_destroy(&r->outline->node);
+-    v->auto_tiled = false;
++    v->auto_tiled = false; view_update_corner_clip(v);
+     wl_list_remove(&r->link); free(r);
+     if (last_active == v) last_active = NULL;
+     tiling_schedule();
+@@ -485,7 +485,7 @@ static void set_enabled(bool value) {
+     struct record *r, *tmp;
+     wl_list_for_each_safe(r, tmp, &records, link) {
+         struct view *v = r->view;
+-        v->auto_tiled = false;
++        v->auto_tiled = false; view_update_corner_clip(v);
+         if (v->impl->notify_tiled) v->impl->notify_tiled(v);
+         set_hidden(r, false);
+         if (r->scratch || r->parked_order) view_minimize(v, false);
+@@ -637,7 +637,7 @@ void tiling_action(struct view *v, const char *command) {
+             view_toggle_visible_on_all_workspaces(v);
+             r->floating = v->visible_on_all_workspaces;
+         }
+-        v->auto_tiled = !r->floating;
++        v->auto_tiled = !r->floating; view_update_corner_clip(v);
+         if (v->impl->notify_tiled) v->impl->notify_tiled(v);
+         if (r->floating) { detach(r); set_hidden(r, false); view_move_resize(v, r->floating_geo); }
+         else { r->floating_geo = v->pending; view_set_untiled(v); }
+@@ -670,7 +670,7 @@ void tiling_action(struct view *v, const char *command) {
+         }
+     }
+     else if (!strcmp(op, "scratch-send")) {
+-        detach(r); r->group = 0; r->scratch = true; r->scratch_visible = false; v->auto_tiled = false;
++        detach(r); r->group = 0; r->scratch = true; r->scratch_visible = false; v->auto_tiled = false; view_update_corner_clip(v);
+         if (v->impl->notify_tiled) v->impl->notify_tiled(v);
+         view_minimize(v, true);
+     } else if (!strcmp(op, "group")) {
+diff --git a/src/view.c b/src/view.c
+index 0bbc2ef..c036dc3 100644
+--- a/src/view.c
++++ b/src/view.c
+@@ -550,6 +550,63 @@ view_move(struct view *view, int x, int y)
+ 	});
+ }
+ 
++void
++view_update_corner_clip(struct view *view)
++{
++	assert(view);
++	if (!view->content_tree) {
++		return;
++	}
++
++	struct wlr_box box = view->current;
++	box.height = view_effective_height(view, /* use_pending */ false);
++	uint32_t corners = WLR_SCENE_CORNER_ALL;
++	int radius = rc.corner_radius;
++	bool rounded = rc.round_window_content && !view->fullscreen && !view->shaded
++		&& view->maximized == VIEW_AXIS_NONE && !view_is_tiled(view)
++		&& !tiling_is_managed(view) && box.width > 0 && box.height > 0;
++
++	if (rounded && view->ssd) {
++		/* The title bar rounds the top; only the bottom needs cutting */
++		struct border margin = ssd_get_margin(view->ssd);
++		box.x -= margin.left;
++		box.width += margin.left + margin.right;
++		box.height += margin.bottom;
++		if (view_titlebar_visible(view)) {
++			corners = WLR_SCENE_CORNER_BOTTOM_LEFT | WLR_SCENE_CORNER_BOTTOM_RIGHT;
++		} else {
++			box.y -= margin.top;
++			box.height += margin.top;
++		}
++	} else if (rounded && view_draws_own_margins(view)) {
++		/*
++		 * Toolkits that draw past their window geometry may also draw an
++		 * outline around it, with corners of the same size. Cut just
++		 * outside that outline: it survives, and frames that left some
++		 * of their corners square (Chromium) still come out round.
++		 */
++		box.x -= 1;
++		box.y -= 1;
++		box.width += 2;
++		box.height += 2;
++		radius += 1;
++	}
++
++	if (!rounded) {
++		wlr_scene_tree_set_corner_clip(view->content_tree, NULL, 0, 0);
++		ssd_set_corner_clip(view->ssd, NULL, 0, 0);
++		return;
++	}
++
++	int lx = 0, ly = 0;
++	wlr_scene_node_coords(&view->content_tree->node, &lx, &ly);
++	struct wlr_box local = box;
++	local.x -= lx;
++	local.y -= ly;
++	wlr_scene_tree_set_corner_clip(view->content_tree, &local, radius, corners);
++	ssd_set_corner_clip(view->ssd, &box, radius, corners);
++}
++
+ void
+ view_moved(struct view *view)
+ {
+@@ -569,6 +626,7 @@ view_moved(struct view *view)
+ 	ssd_update_geometry(view->ssd);
+ 	csd_shadow_update(view);
+ 	tiling_update_outline(view);
++	view_update_corner_clip(view);
+ 	cursor_update_focus();
+ 	if (rc.resize_indicator && server.grabbed_view == view) {
+ 		resize_indicator_update(view);
+@@ -1349,6 +1407,7 @@ view_set_maximized(struct view *view, enum view_axis maximized)
+ 	}
+ 
+ 	view->maximized = maximized;
++	view_update_corner_clip(view);
+ 	wl_signal_emit_mutable(&view->events.maximized, NULL);
+ 
+ 	/*
+@@ -1399,6 +1458,7 @@ view_notify_tiled(struct view *view)
+ 	if (view->impl->notify_tiled) {
+ 		view->impl->notify_tiled(view);
+ 	}
++	view_update_corner_clip(view);
+ }
+ 
+ /* Reset tiled state of view without changing geometry */
+@@ -1654,6 +1714,7 @@ view_set_ssd_mode(struct view *view, enum lab_ssd_mode mode)
+ 	} else {
+ 		undecorate(view);
+ 	}
++	view_update_corner_clip(view);
+ 
+ 	if (!view_is_floating(view)) {
+ 		view_apply_special_geometry(view);
+@@ -1688,6 +1749,7 @@ set_fullscreen(struct view *view, bool fullscreen)
+ 	}
+ 
+ 	view->fullscreen = fullscreen;
++	view_update_corner_clip(view);
+ 	wl_signal_emit_mutable(&view->events.fullscreened, NULL);
+ 
+ 	/* Re-show decorations when no longer fullscreen */
+@@ -2343,6 +2405,7 @@ view_reload_ssd(struct view *view)
+ 	/* The theme's shadow buffers were replaced; rebuild from them */
+ 	csd_shadow_destroy(view);
+ 	csd_shadow_update(view);
++	view_update_corner_clip(view);
+ }
+ 
+ void
+@@ -2455,6 +2518,7 @@ view_set_shade(struct view *view, bool shaded)
+ 		wlr_scene_node_set_enabled(&view->content_tree->node,
+ 			!view->shaded);
+ 	}
++	view_update_corner_clip(view);
+ }
+ 
+ void
+diff --git a/src/xdg.c b/src/xdg.c
+index ccba0de..14c50e5 100644
+--- a/src/xdg.c
++++ b/src/xdg.c
+@@ -841,6 +841,16 @@ xdg_toplevel_view_notify_tiled(struct view *view)
+ 	}
+ }
+ 
++bool
++view_draws_own_margins(struct view *view)
++{
++	if (view->type != LAB_XDG_SHELL_VIEW) {
++		return false;
++	}
++	struct wlr_xdg_surface *base = xdg_toplevel_from_view(view)->base;
++	return base->initialized && (base->geometry.x > 0 || base->geometry.y > 0);
++}
++
+ static void
+ handle_map(struct wl_listener *listener, void *data)
+ {
+diff --git a/src/xwayland.c b/src/xwayland.c
+index 4b8e024..47c4ebf 100644
+--- a/src/xwayland.c
++++ b/src/xwayland.c
+@@ -835,6 +835,7 @@ handle_map(struct wl_listener *listener, void *data)
+ 	}
+ 
+ 	wlr_scene_node_set_enabled(&view->content_tree->node, !view->shaded);
++	view_update_corner_clip(view);
+ 
+ 	if (!view->been_mapped) {
+ 		check_natural_geometry(view);
