@@ -4,7 +4,7 @@
 Name:           labwc
 Version:        0.20.2
 %forgemeta
-Release:        20%{?dist}
+Release:        21%{?dist}
 Summary:        A Wayland window-stacking compositor
 
 License:        GPL-2.0-only AND MIT
@@ -199,6 +199,9 @@ cp subprojects/wlroots/LICENSE WLROOTS-LICENSE
 %{_userunitdir}/labwc-session.target
 
 %changelog
+* Sun Nov 08 2026 Nobara Project - 0.20.2-21
+- Rename the private blur protocol to tessel_blur_v1 and the tiling socket to tessel-tiling-.
+
 * Fri Nov 06 2026 Nobara Project - 0.20.2-20
 - Add opt-in <theme><roundWindowContent> to round the corners of every window.
 

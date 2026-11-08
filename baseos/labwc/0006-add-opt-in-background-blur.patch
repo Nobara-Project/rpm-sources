@@ -150,17 +150,17 @@
  
  server_protocols = [
 +	'ext-background-effect-v1.xml',
-+	'waydock-blur-v1.xml',
++	'tessel-blur-v1.xml',
  	'wlr-layer-shell-unstable-v1.xml',
  	'wlr-output-power-management-unstable-v1.xml',
  ]
 --- /dev/null
-+++ b/protocols/waydock-blur-v1.xml
++++ b/protocols/tessel-blur-v1.xml
 @@ -0,0 +1,67 @@
 +<?xml version="1.0" encoding="UTF-8"?>
-+<protocol name="waydock_blur_v1">
++<protocol name="tessel_blur_v1">
 +  <copyright>
-+    Copyright (C) 2026 Waydock contributors
++    Copyright (C) 2026 Tessel contributors
 +
 +    Permission is hereby granted, free of charge, to any person obtaining a
 +    copy of this software and associated documentation files (the "Software"),
@@ -180,7 +180,7 @@
 +    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 +    DEALINGS IN THE SOFTWARE.
 +  </copyright>
-+  <interface name="waydock_blur_manager_v1" version="1">
++  <interface name="tessel_blur_manager_v1" version="1">
 +    <description summary="optional blur radius policy for desktop clients">
 +      This extension selects a per-surface blur radius for the standard
 +      ext-background-effect-v1 protocol. It does not enable blur or define
@@ -192,11 +192,11 @@
 +      <entry name="surface_exists" value="0" summary="surface already has a blur radius object"/>
 +    </enum>
 +    <request name="get_surface">
-+      <arg name="id" type="new_id" interface="waydock_blur_surface_v1"/>
++      <arg name="id" type="new_id" interface="tessel_blur_surface_v1"/>
 +      <arg name="surface" type="object" interface="wl_surface"/>
 +    </request>
 +  </interface>
-+  <interface name="waydock_blur_surface_v1" version="1">
++  <interface name="tessel_blur_surface_v1" version="1">
 +    <description summary="double-buffered blur radius for a surface">
 +      The initial radius is 10 logical surface pixels. State takes effect on
 +      wl_surface.commit, including synchronization of subsurfaces. This object
@@ -237,7 +237,7 @@
 +#include <wlr/util/addon.h>
 +#include "background-blur.h"
 +#include "ext-background-effect-v1-protocol.h"
-+#include "waydock-blur-v1-protocol.h"
++#include "tessel-blur-v1-protocol.h"
 +#include "labwc.h"
 +
 +/* Compositor policy, measured in logical surface pixels. */
@@ -546,18 +546,18 @@
 +	struct blur_effect *effect = wl_resource_get_user_data(resource);
 +	if (!effect) {
 +		wl_resource_post_error(resource,
-+			WAYDOCK_BLUR_SURFACE_V1_ERROR_SURFACE_DESTROYED,
++			TESSEL_BLUR_SURFACE_V1_ERROR_SURFACE_DESTROYED,
 +			"The associated wl_surface has been destroyed");
 +	} else if (radius > 40) {
 +		wl_resource_post_error(resource,
-+			WAYDOCK_BLUR_SURFACE_V1_ERROR_INVALID_RADIUS,
++			TESSEL_BLUR_SURFACE_V1_ERROR_INVALID_RADIUS,
 +			"Blur radius must be between 0 and 40 logical pixels");
 +	} else {
 +		effect->pending.radius = radius;
 +	}
 +}
 +
-+static const struct waydock_blur_surface_v1_interface radius_impl = {
++static const struct tessel_blur_surface_v1_interface radius_impl = {
 +	.destroy = resource_destroy,
 +	.set_radius = radius_set,
 +};
@@ -575,12 +575,12 @@
 +	}
 +	if (effect->radius_resource) {
 +		wl_resource_post_error(resource,
-+			WAYDOCK_BLUR_MANAGER_V1_ERROR_SURFACE_EXISTS,
++			TESSEL_BLUR_MANAGER_V1_ERROR_SURFACE_EXISTS,
 +			"The wl_surface already has a blur radius object");
 +		return;
 +	}
 +	struct wl_resource *radius_resource = wl_resource_create(client,
-+		&waydock_blur_surface_v1_interface, wl_resource_get_version(resource), id);
++		&tessel_blur_surface_v1_interface, wl_resource_get_version(resource), id);
 +	if (!radius_resource) {
 +		wl_client_post_no_memory(client);
 +		return;
@@ -590,7 +590,7 @@
 +		radius_resource_destroy);
 +}
 +
-+static const struct waydock_blur_manager_v1_interface radius_manager_impl = {
++static const struct tessel_blur_manager_v1_interface radius_manager_impl = {
 +	.destroy = resource_destroy,
 +	.get_surface = radius_manager_get_surface,
 +};
@@ -623,7 +623,7 @@
 +{
 +	struct blur_manager *blur = data;
 +	struct wl_resource *resource = wl_resource_create(client,
-+		&waydock_blur_manager_v1_interface, version, id);
++		&tessel_blur_manager_v1_interface, version, id);
 +	if (!resource) {
 +		wl_client_post_no_memory(client);
 +		return;
@@ -676,7 +676,7 @@
 +		return;
 +	}
 +	manager->radius_global = wl_global_create(server.wl_display,
-+		&waydock_blur_manager_v1_interface, 1, manager, radius_manager_bind);
++		&tessel_blur_manager_v1_interface, 1, manager, radius_manager_bind);
 +	if (!manager->radius_global) {
 +		wlr_log(WLR_ERROR, "Unable to create optional blur radius global");
 +	}
