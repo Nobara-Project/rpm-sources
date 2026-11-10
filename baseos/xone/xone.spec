@@ -2,7 +2,7 @@
 %global debug_package %{nil}
 %global dkms_source_dir %{_usrsrc}/%{name}-%{version}
 # Nobara's fork: xone_mtnet runs the new dongle on MediaTek's firmware, with wake on wireless
-%global commit bf8b5a31b2b3a5627f662f8ddc9ffd7742cd39a5
+%global commit a8781c1e1ed53509fb117a9461ebf2f236347b47
 
 Name:     xone
 Version:  0.5.8
@@ -54,8 +54,6 @@ install -D -m 0644 %{SOURCE1} %{buildroot}%{_modulesloaddir}/%{name}.conf
 # its interface into monitor mode so xone_mtnet attaches.
 install -D -m 0644 install/mtnet/70-xone-mtnet.rules %{buildroot}%{_udevrulesdir}/70-xone-mtnet.rules
 install -D -m 0755 install/mtnet/xone-mtnet-setup %{buildroot}%{_libexecdir}/xone-mtnet-setup
-# Controller wake needs s2idle: the S3 path powers the dongle down
-install -D -m 0644 install/mtnet/sleep.conf %{buildroot}%{_prefix}/lib/systemd/sleep.conf.d/60-xone-mtnet.conf
 
 %post
 %udev_rules_update
@@ -74,7 +72,6 @@ dkms remove -m %{name} -v %{version} --all --rpm_safe_upgrade || :
 %{_modulesloaddir}/%{name}.conf
 %{_udevrulesdir}/70-xone-mtnet.rules
 %{_libexecdir}/xone-mtnet-setup
-%{_prefix}/lib/systemd/sleep.conf.d/60-xone-mtnet.conf
 
 %changelog
 * Tue Nov 10 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 0.5.8-4
@@ -83,8 +80,7 @@ dkms remove -m %{name} -v %{version} --all --rpm_safe_upgrade || :
   firmware instead of xone_dongle and Microsoft's firmware; the old and
   built-in dongles stay on xone_dongle
 - Add wake on wireless to xone_mtnet: a controller turning on wakes the host
-- Install a systemd sleep drop-in setting SuspendState=freeze, needed for the
-  wake (machines that used S3 now use s2idle)
+  from s2idle or S3; the system's sleep mode is left as it is
 
 * Tue Feb 10 2026 LionHeartP <LionHeartP@proton.me> - 0.5.8-3
 - Add xpad-noone as a dependency

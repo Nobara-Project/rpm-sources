@@ -42,7 +42,7 @@
 %global nvidia_epoch          3
 %global xone_version          0.5.8
 # Same fork commit as baseos/xone (xone_mtnet: new dongle on MediaTek's firmware, wake on wireless)
-%global xone_commit           bf8b5a31b2b3a5627f662f8ddc9ffd7742cd39a5
+%global xone_commit           a8781c1e1ed53509fb117a9461ebf2f236347b47
 %global xpad_noone_commit     c3d1610
 %global openrazer_version     3.12.4
 # Terra's dkms-/akmod-hid-tmff2, -hid-fanatecff and -new-lg4ff
@@ -303,7 +303,7 @@ find %{buildroot}/lib/modules -name '*.ko' -exec strip --strip-debug {} +
 - xone: build from the GloriousEggroll/xone fork (same commit as baseos/xone
   0.5.8-4), which adds xone_mtnet with wake on wireless and moves the new
   dongle (045e:02fe) off Microsoft's firmware; require xone >= 0.5.8-4 for
-  its udev rule, sleep drop-in and modprobe changes
+  its udev rule and modprobe changes
 
 * Thu Nov 05 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 1-5
 - r8125: remove rtltool (the SIOCRTLTOOL ioctl), which gives root raw access
