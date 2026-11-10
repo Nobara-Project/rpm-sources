@@ -1,0 +1,120 @@
+From: Tessel <noreply@nobaraproject.org>
+Subject: [PATCH] add keyboard-shortcuts-inhibit
+
+Shortcut editors and remote desktops ask the compositor not to act on keys
+while they have keyboard focus. Honour every inhibitor while its surface
+has focus; ToggleKeybinds and overrideInhibition keybinds still work.
+---
+diff --git a/include/labwc.h b/include/labwc.h
+index 0ac4aed..395bf9e 100644
+--- a/include/labwc.h
++++ b/include/labwc.h
+@@ -306,6 +306,10 @@ struct server {
+ 	struct wlr_pointer_constraints_v1 *constraints;
+ 	struct wl_listener new_constraint;
+ 
++	/* Clients that need every key, such as a shortcut editor */
++	struct wlr_keyboard_shortcuts_inhibit_manager_v1 *keyboard_shortcuts_inhibit;
++	struct wl_listener new_keyboard_shortcuts_inhibitor;
++
+ 	struct wlr_tearing_control_manager_v1 *tearing_control;
+ 	struct wl_listener tearing_new_object;
+ 
+diff --git a/src/input/keyboard.c b/src/input/keyboard.c
+index 3688414..645625c 100644
+--- a/src/input/keyboard.c
++++ b/src/input/keyboard.c
+@@ -6,6 +6,7 @@
+ #include <wlr/config.h>
+ #include <wlr/interfaces/wlr_keyboard.h>
+ #include <wlr/types/wlr_keyboard_group.h>
++#include <wlr/types/wlr_keyboard_shortcuts_inhibit_v1.h>
+ #include <wlr/types/wlr_seat.h>
+ #include "action.h"
+ #include "common/macros.h"
+@@ -194,10 +195,30 @@ handle_modifiers(struct wl_listener *listener, void *data)
+ 	}
+ }
+ 
++/* Whether the surface with keyboard focus has an active shortcuts inhibitor */
++static bool
++focused_surface_inhibits_shortcuts(void)
++{
++	struct wlr_seat *wlr_seat = server.seat.wlr_seat;
++	struct wlr_surface *focused = wlr_seat->keyboard_state.focused_surface;
++	if (!focused || !server.keyboard_shortcuts_inhibit) {
++		return false;
++	}
++	struct wlr_keyboard_shortcuts_inhibitor_v1 *inhibitor;
++	wl_list_for_each(inhibitor, &server.keyboard_shortcuts_inhibit->inhibitors, link) {
++		if (inhibitor->active && inhibitor->seat == wlr_seat
++				&& inhibitor->surface == focused) {
++			return true;
++		}
++	}
++	return false;
++}
++
+ static struct keybind *
+ match_keybinding_for_sym(uint32_t modifiers,
+ 		xkb_keysym_t sym, xkb_keycode_t xkb_keycode)
+ {
++	bool inhibited = focused_surface_inhibits_shortcuts();
+ 	struct keybind *keybind;
+ 	wl_list_for_each(keybind, &rc.keybinds, link) {
+ 		if (modifiers ^ keybind->modifiers) {
+@@ -207,6 +228,9 @@ match_keybinding_for_sym(uint32_t modifiers,
+ 			if (view_inhibits_actions(server.active_view, &keybind->actions)) {
+ 				continue;
+ 			}
++			if (inhibited && !actions_contain_toggle_keybinds(&keybind->actions)) {
++				continue;
++			}
+ 		}
+ 		if (sym == XKB_KEY_NoSymbol) {
+ 			/* Use keycodes */
+diff --git a/src/server.c b/src/server.c
+index 5b88b82..a1d21bc 100644
+--- a/src/server.c
++++ b/src/server.c
+@@ -28,6 +28,7 @@
+ #include <wlr/types/wlr_input_method_v2.h>
+ #include <wlr/types/wlr_linux_drm_syncobj_v1.h>
+ #include <wlr/types/wlr_output_power_management_v1.h>
++#include <wlr/types/wlr_keyboard_shortcuts_inhibit_v1.h>
+ #include <wlr/types/wlr_pointer_constraints_v1.h>
+ #include <wlr/types/wlr_presentation_time.h>
+ #include <wlr/types/wlr_primary_selection_v1.h>
+@@ -256,6 +257,18 @@ handle_drm_lease_request(struct wl_listener *listener, void *data)
+ }
+ #endif
+ 
++/*
++ * Honour every inhibitor. It only takes effect while its surface has
++ * keyboard focus (see keyboard.c), and ToggleKeybinds and keybinds with
++ * overrideInhibition="yes" still work.
++ */
++static void
++handle_new_keyboard_shortcuts_inhibitor(struct wl_listener *listener, void *data)
++{
++	struct wlr_keyboard_shortcuts_inhibitor_v1 *inhibitor = data;
++	wlr_keyboard_shortcuts_inhibitor_v1_activate(inhibitor);
++}
++
+ static bool
+ allow_for_sandbox(const struct wlr_security_context_v1_state *security_state,
+ 		const struct wl_interface *iface)
+@@ -798,6 +811,13 @@ server_init(void)
+ 	wl_signal_add(&server.constraints->events.new_constraint,
+ 		&server.new_constraint);
+ 
++	server.keyboard_shortcuts_inhibit =
++		wlr_keyboard_shortcuts_inhibit_v1_create(server.wl_display);
++	server.new_keyboard_shortcuts_inhibitor.notify =
++		handle_new_keyboard_shortcuts_inhibitor;
++	wl_signal_add(&server.keyboard_shortcuts_inhibit->events.new_inhibitor,
++		&server.new_keyboard_shortcuts_inhibitor);
++
+ 	server.foreign_toplevel_manager =
+ 		wlr_foreign_toplevel_manager_v1_create(server.wl_display);
+ 

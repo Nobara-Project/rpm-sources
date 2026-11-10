@@ -4,7 +4,7 @@
 Name:           labwc
 Version:        0.20.2
 %forgemeta
-Release:        21%{?dist}
+Release:        22%{?dist}
 Summary:        A Wayland window-stacking compositor
 
 License:        GPL-2.0-only AND MIT
@@ -30,6 +30,7 @@ Patch:          0011-query-capture-window-output.patch
 Patch:          0012-preserve-xwayland-fullscreen-output.patch
 Patch:          0013-add-csd-shadows-offset-and-titlebar-highlight.patch
 Patch:          0014-add-opt-in-rounded-window-content.patch
+Patch:          0015-add-keyboard-shortcuts-inhibit.patch
 
 BuildRequires:  gcc
 BuildRequires:  meson >= 0.59.0
@@ -199,6 +200,9 @@ cp subprojects/wlroots/LICENSE WLROOTS-LICENSE
 %{_userunitdir}/labwc-session.target
 
 %changelog
+* Tue Nov 10 2026 Nobara Project - 0.20.2-22
+- Add keyboard-shortcuts-inhibit, so shortcut editors receive bound keys.
+
 * Sun Nov 08 2026 Nobara Project - 0.20.2-21
 - Rename the private blur protocol to tessel_blur_v1 and the tiling socket to tessel-tiling-.
 
