@@ -8,7 +8,7 @@ Name:     xone
 # A new version (not just a release) for every source change: DKMS keys builds on
 # the version, so the same version over different source is never rebuilt
 Version:  0.5.8.2
-Release:  1%{?dist}
+Release:  2%{?dist}
 Summary:  Linux kernel driver for Xbox One and Xbox Series X|S accessories
 License:  GPLv2
 URL:      https://github.com/GloriousEggroll/xone
@@ -62,6 +62,18 @@ install -D -m 0755 install/mtnet/xone-mtnet-setup %{buildroot}%{_libexecdir}/xon
 
 %post
 %udev_rules_update
+# xone's own install.sh writes /etc/modprobe.d/xone-blacklist.conf, and older
+# versions of it blacklisted mt76x2u there. /etc overrides this package's
+# /usr/lib/modprobe.d/60-xone.conf, so that line keeps the new dongle (045e:02fe)
+# from binding any driver. Drop it, and drop the file if all that's left is the
+# xpad blacklist that 60-xone.conf already has; anything else the user added stays.
+f=/etc/modprobe.d/xone-blacklist.conf
+if [ -f "$f" ] && grep -qE '^[[:space:]]*blacklist[[:space:]]+mt76x2u[[:space:]]*$' "$f"; then
+    sed -i -E '/^[[:space:]]*blacklist[[:space:]]+mt76x2u[[:space:]]*$/d' "$f"
+    if ! grep -vE '^[[:space:]]*(#.*)?$|^[[:space:]]*blacklist[[:space:]]+xpad[[:space:]]*$' "$f" | grep -q .; then
+        rm -f "$f"
+    fi
+fi
 # Builds before 0.5.8.1 left MODULE_VERSION as "#VERSION#", which DKMS ranks above
 # any real version, so it would never replace them. Remove those xone modules from
 # every kernel first; DKMS then installs this version for each kernel as usual.
@@ -92,6 +104,12 @@ dkms remove -m %{name} -v %{version} --all --rpm_safe_upgrade || :
 %{_libexecdir}/xone-mtnet-setup
 
 %changelog
+* Wed Nov 11 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 0.5.8.2-2
+- Remove "blacklist mt76x2u" from /etc/modprobe.d/xone-blacklist.conf (left
+  by xone's install.sh), which overrode 60-xone.conf and left the new dongle
+  (045e:02fe) with no driver; remove the file if nothing else is left in it
+  (rpm-sources#659)
+
 * Wed Nov 11 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 0.5.8.2-1
 - xone_mtnet: stop enabling wakeup on the USB root hub. It armed wake on
   connect/disconnect for every port on the bus, so another device there
