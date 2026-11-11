@@ -1,7 +1,7 @@
 Name:		nobara-logos
 Summary:	Nobara-related icons and pictures
 Version:	44.0.0
-Release:	1%{?dist}
+Release:	2%{?dist}
 URL:            https://github.com/nobara-project/nobara-core-packages
 Source0:        %{URL}/releases/download/1.0/nobara-logos.tar.gz
 License:	Licensed only for approved usage, see COPYING for details.
@@ -114,6 +114,12 @@ done
 mkdir -p $RPM_BUILD_ROOT%{_datadir}/plymouth/themes/spinner
 touch watermark.png
 install -p -m 644 watermark.png $RPM_BUILD_ROOT%{_datadir}/plymouth/themes/spinner/watermark.png
+
+# The Nobara script theme (not the default; needs plymouth-plugin-script)
+mkdir -p $RPM_BUILD_ROOT%{_datadir}/plymouth/themes/nobara
+for i in plymouth/nobara/* ; do
+  install -p -m 644 $i $RPM_BUILD_ROOT%{_datadir}/plymouth/themes/nobara
+done
 
 
 # Fedora logo icons
@@ -253,6 +259,7 @@ hardlink -vv %{buildroot}/usr
 %license COPYING
 %config(noreplace) %{_sysconfdir}/favicon.png
 %{_datadir}/plymouth/themes/spinner/
+%{_datadir}/plymouth/themes/nobara/
 %if ! 0%{?eln}
 # No one else before us owns this, so we shall.
 %dir %{_kde4_sharedir}/kde4/
@@ -395,6 +402,14 @@ hardlink -vv %{buildroot}/usr
 
 
 %changelog
+* Wed Nov 11 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 44.0.0-2
+- New Nobara logo: tanzanite letters with a blue zircon eye, drawn as paths
+- The *_classic files are unchanged and keep the old logo
+- Files named "white" show the new logo in one-color white
+- The installer logos on the colored sidebars and header are white, as before
+- The 256x256 icons are now really 256 px (they were 128 px)
+- Add the Nobara boot theme (plymouth/themes/nobara); not the default theme
+
 * Mon Jan 29 2024 Tom Callaway <spot@fedoraproject.org> - 38.1.0-5
 - fix BR to reflect new macro provides for kde4 macros
 
