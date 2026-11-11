@@ -1,0 +1,347 @@
+From: Tessel <noreply@nobaraproject.org>
+Subject: [PATCH] tile into a grid and resize tiles live
+
+Turning tiling on attached every open window before any tile had a size,
+so each split was made across the whole (wide) screen and the windows
+ended up as one row of narrow, full-height columns. Measure the layout
+before each split, and when several windows arrive at once split the
+largest tile, which gives a grid. A window opened later splits the focused
+tile, or the largest one when the focused tile is less than half its size.
+
+Resizing a tile with the mouse let the window cover its neighbours until
+the button was released, and then moved the nearest divider of the right
+orientation, which was not always the one under the dragged edge. Move the
+divider under the dragged edge while the pointer moves, so the neighbours
+follow.
+
+With a gap between tiles, the gap is a handle: hovering it shows a resize
+cursor and dragging it with the left button moves that divider.
+---
+diff --git a/include/tiling.h b/include/tiling.h
+index de61433..f017bde 100644
+--- a/include/tiling.h
++++ b/include/tiling.h
+@@ -2,6 +2,7 @@
+ #ifndef LABWC_TILING_H
+ #define LABWC_TILING_H
+ #include <stdbool.h>
++#include "common/edge.h"
+ struct view;
+ struct wlr_box;
+ void tiling_init(void);
+@@ -13,4 +14,7 @@ void tiling_forget(struct view *view);
+ void tiling_action(struct view *view, const char *command);
+ bool tiling_is_managed(struct view *view);
+ bool tiling_drag_finish(struct view *view);
++bool tiling_resize_motion(struct view *view, double dx, double dy);
++enum lab_edge tiling_divider_edge(double x, double y);
++bool tiling_begin_divider_drag(double x, double y);
+ #endif
+diff --git a/src/input/cursor.c b/src/input/cursor.c
+index 2fecdf9..7f069fd 100644
+--- a/src/input/cursor.c
++++ b/src/input/cursor.c
+@@ -2,6 +2,7 @@
+ #define _POSIX_C_SOURCE 200809L
+ #include "input/cursor.h"
+ #include <assert.h>
++#include <linux/input-event-codes.h>
+ #include <time.h>
+ #include <wlr/config.h>
+ #include <wlr/types/wlr_cursor.h>
+@@ -36,6 +37,7 @@
+ #include "resize-outlines.h"
+ #include "ssd.h"
+ #include "view.h"
++#include "tiling.h"
+ #include "xwayland.h"
+ 
+ #if WLR_HAS_LIBINPUT_BACKEND
+@@ -345,6 +347,9 @@ process_cursor_resize(uint32_t time)
+ 	double dy = server.seat.cursor->y - server.grab_y;
+ 
+ 	struct view *view = server.grabbed_view;
++	if (tiling_resize_motion(view, dx, dy)) {
++		return;
++	}
+ 	struct wlr_box new_view_geo = view->current;
+ 
+ 	if (server.resize_edges & LAB_EDGE_TOP) {
+@@ -540,6 +545,25 @@ update_pressed_surface(struct seat *seat, const struct cursor_context *ctx)
+ 	return false;
+ }
+ 
++static struct wlr_layer_surface_v1 *get_root_layer(struct wlr_surface *wlr_surface);
++
++/* Pointer over the desktop behind windows: the root or a background/bottom layer. */
++static bool
++behind_windows(const struct cursor_context *ctx)
++{
++	if (ctx->view) {
++		return false;
++	}
++	if (ctx->type == LAB_NODE_ROOT) {
++		return true;
++	}
++	if (ctx->type != LAB_NODE_LAYER_SURFACE || !ctx->surface) {
++		return false;
++	}
++	struct wlr_layer_surface_v1 *layer = get_root_layer(ctx->surface);
++	return layer && layer->current.layer <= ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM;
++}
++
+ /*
+  * Common logic shared by cursor_update_focus(), process_cursor_motion()
+  * and process_cursor_axis()
+@@ -583,6 +607,16 @@ cursor_update_common(const struct cursor_context *ctx,
+ 		return;
+ 	}
+ 
++	/* The gap between two tiles resizes them. */
++	if (!seat->drag.active && behind_windows(ctx)) {
++		enum lab_edge edge = tiling_divider_edge(seat->cursor->x, seat->cursor->y);
++		if (edge != LAB_EDGE_NONE) {
++			wlr_seat_pointer_notify_clear_focus(wlr_seat);
++			cursor_set(seat, cursor_get_from_edge(edge));
++			return;
++		}
++	}
++
+ 	if (notified_ctx) {
+ 		*notified_ctx = *ctx;
+ 	}
+@@ -1152,6 +1186,13 @@ cursor_process_button_press(struct seat *seat, uint32_t button, uint32_t time_ms
+ 	/* Used on next button release to check if it can close menu or select menu item */
+ 	press_msec = time_msec;
+ 
++	if (server.input_mode == LAB_INPUT_STATE_PASSTHROUGH && button == BTN_LEFT
++			&& !wlr_seat_pointer_has_grab(seat->wlr_seat) && behind_windows(&ctx)
++			&& tiling_begin_divider_drag(seat->cursor->x, seat->cursor->y)) {
++		lab_set_add(&seat->bound_buttons, button);
++		return false;
++	}
++
+ 	if (ctx.view || ctx.surface) {
+ 		/* Store cursor context for later action processing */
+ 		cursor_context_save(&seat->pressed, &ctx);
+diff --git a/src/tiling.c b/src/tiling.c
+index cea4a59..cea4ab4 100644
+--- a/src/tiling.c
++++ b/src/tiling.c
+@@ -219,7 +219,20 @@ static struct tile *last_leaf(struct tile *t) {
+     while (!t->view) t = t->b;
+     return t;
+ }
+-static void attach(struct record *r) {
++static bool layout_area(struct layout *l, struct wlr_box *area);
++static void split_layout(struct tile *t, struct wlr_box box, bool place);
++static struct tile *largest_leaf(struct tile *t) {
++    if (!t || !count(t)) return NULL;
++    if (t->view) return t;
++    struct tile *a = largest_leaf(t->a), *b = largest_leaf(t->b);
++    if (!a || !b) return a ? a : b;
++    return (long)b->box.width * b->box.height > (long)a->box.width * a->box.height ? b : a;
++}
++/* A new window splits the focused tile across its longer side, unless the
++ * focused tile is less than half the size of the largest one. When several
++ * windows arrive together (tiling was just turned on), each splits the largest
++ * tile, so they form a grid rather than one row of slivers. */
++static void attach(struct record *r, bool several) {
+     struct layout *l = layout_for(r->view);
+     if (!l) return;
+     struct tile *t = calloc(1, sizeof(*t));
+@@ -227,8 +240,16 @@ static void attach(struct record *r) {
+     t->view = r->view; t->layout = l; t->ratio = .5;
+     if (!l->root) l->root = t;
+     else {
++        /* Tiles attached earlier in this pass have no size yet: measure them. */
++        struct wlr_box area;
++        if (layout_area(l, &area)) split_layout(l->root, area, false);
+         struct record *focus = record_for(last_active);
+-        struct tile *old = focus && focus->tile && focus->tile->layout == l ? focus->tile : last_leaf(l->root);
++        struct tile *old = !several && focus && focus->tile && focus->tile->layout == l ? focus->tile : NULL;
++        /* Halving an already small tile would leave two unusable ones. */
++        struct tile *largest = largest_leaf(l->root);
++        if (!old || (largest && 2L * old->box.width * old->box.height
++                     < (long)largest->box.width * largest->box.height)) old = largest;
++        if (!old) old = last_leaf(l->root);
+         struct tile *p = calloc(1, sizeof(*p));
+         if (!p) { free(t); return; }
+         p->layout = l; p->parent = old->parent; p->a = old; p->b = t; p->ratio = .5;
+@@ -327,13 +348,13 @@ static void hide_layout(struct tile *t) {
+     if (t->view) place_leaf(t, (struct wlr_box){0}, true);
+     else { hide_layout(t->a); hide_layout(t->b); }
+ }
+-static void split_layout(struct tile *t, struct wlr_box box) {
++static void split_layout(struct tile *t, struct wlr_box box, bool place) {
+     if (!t || !count(t)) return;
+-    if (wlr_box_empty(&box)) { hide_layout(t); return; }
++    if (wlr_box_empty(&box)) { if (place) hide_layout(t); return; }
+     t->box = box;
+-    if (t->view) { place_leaf(t, box, wlr_box_empty(&box)); return; }
+-    if (!count(t->a)) { split_layout(t->b, box); return; }
+-    if (!count(t->b)) { split_layout(t->a, box); return; }
++    if (t->view) { if (place) place_leaf(t, box, wlr_box_empty(&box)); return; }
++    if (!count(t->a)) { split_layout(t->b, box, place); return; }
++    if (!count(t->b)) { split_layout(t->a, box, place); return; }
+     int total = t->vertical ? box.height : box.width;
+     int gap = fmin(rc.gap, fmax(0, total - 2));
+     int extent = total - gap;
+@@ -346,7 +367,13 @@ static void split_layout(struct tile *t, struct wlr_box box) {
+     struct wlr_box a = box, b = box;
+     if (t->vertical) { a.height = first; b.y += first + gap; b.height = extent - first; }
+     else { a.width = first; b.x += first + gap; b.width = extent - first; }
+-    split_layout(t->a, a); split_layout(t->b, b);
++    split_layout(t->a, a, place); split_layout(t->b, b, place);
++}
++static bool layout_area(struct layout *l, struct wlr_box *area) {
++    if (!output_is_usable(l->output)) return false;
++    *area = output_usable_area_in_layout_coords(l->output);
++    area->x += rc.gap; area->y += rc.gap; area->width -= 2 * rc.gap; area->height -= 2 * rc.gap;
++    return area->width > 0 && area->height > 0;
+ }
+ static int column_width(struct tile *t, int area_width) {
+     struct record *r = record_for(t->view);
+@@ -400,6 +427,9 @@ static void arrange(void *unused) {
+                 r->group = focus->group;
+         }
+     }
++    int arriving = 0;
++    wl_list_for_each(r, &records, link)
++        if (available(r) && !r->tile && !r->group && output_is_usable(r->view->output)) arriving++;
+     wl_list_for_each_safe(r, tmp, &records, link) {
+         v = r->view;
+         if (!v->mapped && !v->minimized) { tiling_forget(v); continue; }
+@@ -430,17 +460,15 @@ static void arrange(void *unused) {
+             wl_list_for_each(other, &records, link)
+                 if (other->group == r->group) other->group_active = other == r;
+         }
+-        if (available(r) && !r->tile && !follower && output_is_usable(v->output)) attach(r);
++        if (available(r) && !r->tile && !follower && output_is_usable(v->output)) attach(r, arriving > 1);
+         if (!available(r)) { set_hidden(r, false); clip_content(r); }
+     }
+     struct layout *l, *next;
+     wl_list_for_each_safe(l, next, &layouts, link) {
+         if (!l->root) { wl_list_remove(&l->link); free(l); continue; }
+-        if (!output_is_usable(l->output)) continue;
+-        struct wlr_box area = output_usable_area_in_layout_coords(l->output);
+-        area.x += rc.gap; area.y += rc.gap; area.width -= 2 * rc.gap; area.height -= 2 * rc.gap;
+-        if (area.width <= 0 || area.height <= 0) continue;
+-        if (!l->scrolling) split_layout(l->root, area);
++        struct wlr_box area;
++        if (!layout_area(l, &area)) continue;
++        if (!l->scrolling) split_layout(l->root, area, true);
+         else {
+             double x = 0;
+             double pos = column_position(l->root, server.active_view, area.width, &x);
+@@ -694,12 +722,108 @@ void tiling_action(struct view *v, const char *command) {
+     }
+     tiling_schedule();
+ }
++/* The split whose divider is this tile's left/top (before) or right/bottom
++ * (after) edge. */
++static struct tile *edge_split(struct tile *t, bool vertical, bool after) {
++    for (; t->parent; t = t->parent) {
++        struct tile *p = t->parent;
++        if (p->vertical == vertical && (after ? p->a : p->b) == t && count(p->a) && count(p->b)) return p;
++    }
++    return NULL;
++}
++static void move_divider(struct tile *p, int edge, bool after) {
++    int start = p->vertical ? p->box.y : p->box.x;
++    int total = p->vertical ? p->box.height : p->box.width;
++    int gap = fmin(rc.gap, fmax(0, total - 2));
++    int extent = total - gap;
++    if (extent <= 0) return;
++    int first = after ? edge - start : edge - start - gap;
++    p->ratio = fmax(.05, fmin(.95, (double)first / extent));
++}
++/* Mouse resize of a tile moves the divider under the dragged edge, and the
++ * neighbouring tiles follow while the pointer moves. */
++bool tiling_resize_motion(struct view *v, double dx, double dy) {
++    struct record *r = initialized ? tile_owner(record_for(v)) : NULL;
++    if (!enabled || !r || !r->tile || special(v) || r->tile->layout->scrolling) return false;
++    struct border margin = ssd_get_margin(v->ssd);
++    struct wlr_box grab = server.grab_box;
++    enum lab_edge edges = server.resize_edges;
++    struct tile *p;
++    if ((edges & LAB_EDGE_LEFT) && (p = edge_split(r->tile, false, false)))
++        move_divider(p, grab.x - margin.left + (int)dx, false);
++    else if ((edges & LAB_EDGE_RIGHT) && (p = edge_split(r->tile, false, true)))
++        move_divider(p, grab.x + grab.width + margin.right + (int)dx, true);
++    if ((edges & LAB_EDGE_TOP) && (p = edge_split(r->tile, true, false)))
++        move_divider(p, grab.y - margin.top + (int)dy, false);
++    else if ((edges & LAB_EDGE_BOTTOM) && (p = edge_split(r->tile, true, true)))
++        move_divider(p, grab.y + grab.height + margin.bottom + (int)dy, true);
++    struct layout *l = r->tile->layout;
++    struct wlr_box area;
++    if (layout_area(l, &area)) split_layout(l->root, area, true);
++    return true;
++}
++/* The split whose gap between its two halves contains (x, y). */
++static struct tile *divider_in(struct tile *t, double x, double y) {
++    if (!t || t->view || !count(t)) return NULL;
++    if (!count(t->a)) return divider_in(t->b, x, y);
++    if (!count(t->b)) return divider_in(t->a, x, y);
++    struct wlr_box a = t->a->box, b = t->b->box, gap = t->box;
++    if (t->vertical) { gap.y = a.y + a.height; gap.height = b.y - gap.y; }
++    else { gap.x = a.x + a.width; gap.width = b.x - gap.x; }
++    if (!wlr_box_empty(&gap) && wlr_box_contains_point(&gap, x, y)) return t;
++    struct tile *inner = divider_in(t->a, x, y);
++    return inner ? inner : divider_in(t->b, x, y);
++}
++static struct tile *divider_at(double x, double y) {
++    if (!initialized || !enabled || rc.gap <= 0
++        || (server.session_lock_manager && server.session_lock_manager->locked)) return NULL;
++    struct layout *l;
++    wl_list_for_each(l, &layouts, link) {
++        if (l->scrolling || l->workspace != server.workspaces.current || !output_is_usable(l->output)) continue;
++        struct wlr_box area = output_usable_area_in_layout_coords(l->output);
++        if (!wlr_box_contains_point(&area, x, y)) continue;
++        return divider_in(l->root, x, y);
++    }
++    return NULL;
++}
++static struct tile *leaf_at(struct tile *t, double x, double y) {
++    if (!t || !count(t)) return NULL;
++    if (t->view) return wlr_box_contains_point(&t->box, x, y) ? t : NULL;
++    struct tile *a = leaf_at(t->a, x, y);
++    return a ? a : leaf_at(t->b, x, y);
++}
++/* The gap between two tiles is a handle for the divider there. */
++enum lab_edge tiling_divider_edge(double x, double y) {
++    struct tile *p = divider_at(x, y);
++    return !p ? LAB_EDGE_NONE : p->vertical ? LAB_EDGE_BOTTOM : LAB_EDGE_RIGHT;
++}
++bool tiling_begin_divider_drag(double x, double y) {
++    if (server.input_mode != LAB_INPUT_STATE_PASSTHROUGH) return false;
++    struct tile *p = divider_at(x, y);
++    if (!p) return false;
++    struct wlr_box a = p->a->box;
++    struct tile *leaf = p->vertical ? leaf_at(p->a, x, a.y + a.height - 1) : leaf_at(p->a, a.x + a.width - 1, y);
++    struct record *r = leaf ? group_visible(record_for(leaf->view)) : NULL;
++    if (!r) return false;
++    struct view *v = r->view;
++    enum lab_edge edges = p->vertical ? LAB_EDGE_BOTTOM : LAB_EDGE_RIGHT;
++    server.grabbed_view = v;
++    server.grabbed_view_snap_to_output = false;
++    server.grab_x = x; server.grab_y = y;
++    server.grab_box = v->current;
++    server.resize_edges = edges;
++    interactive_begin(v, LAB_INPUT_STATE_RESIZE, edges);
++    if (server.input_mode == LAB_INPUT_STATE_RESIZE) return true;
++    server.grabbed_view = NULL;
++    return false;
++}
+ bool tiling_drag_finish(struct view *v) {
+     struct record *r = initialized ? record_for(v) : NULL;
+     if (!enabled || !r || !r->tile || special(v)) return false;
+     if (server.input_mode == LAB_INPUT_STATE_RESIZE) {
+-        resize_tile(r, false, v->pending.width - server.grab_box.width);
+-        resize_tile(r, true, v->pending.height - server.grab_box.height);
++        /* Split tiles were resized live (tiling_resize_motion). */
++        if (r->tile->layout->scrolling)
++            resize_tile(r, false, v->pending.width - server.grab_box.width);
+     } else {
+         struct output *output = output_nearest_to_cursor();
+         if (output_is_usable(output) && output != v->output) { detach(r); view_set_output(v, output); }
