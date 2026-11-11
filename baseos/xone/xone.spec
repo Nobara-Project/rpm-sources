@@ -2,12 +2,12 @@
 %global debug_package %{nil}
 %global dkms_source_dir %{_usrsrc}/%{name}-%{version}
 # Nobara's fork: xone_mtnet runs the new dongle on MediaTek's firmware, with wake on wireless
-%global commit a8781c1e1ed53509fb117a9461ebf2f236347b47
+%global commit ad0d17e74ccd5447e33e37c5952e73ed3ca6bb2d
 
 Name:     xone
 # A new version (not just a release) for every source change: DKMS keys builds on
 # the version, so the same version over different source is never rebuilt
-Version:  0.5.8.1
+Version:  0.5.8.2
 Release:  1%{?dist}
 Summary:  Linux kernel driver for Xbox One and Xbox Series X|S accessories
 License:  GPLv2
@@ -92,6 +92,13 @@ dkms remove -m %{name} -v %{version} --all --rpm_safe_upgrade || :
 %{_libexecdir}/xone-mtnet-setup
 
 %changelog
+* Wed Nov 11 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 0.5.8.2-1
+- xone_mtnet: stop enabling wakeup on the USB root hub. It armed wake on
+  connect/disconnect for every port on the bus, so another device there
+  (a Framework laptop webcam that drops off as the system suspends) woke
+  the system at once, controller on or off. The dongle and any external
+  hubs above it still get wakeup, which is all the controller wake needs
+
 * Tue Nov 10 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 0.5.8.1-1
 - Bump the version so DKMS rebuilds: 0.5.8-4 kept DKMS version 0.5.8, so
   upgrades reported the old build as installed and never built the new

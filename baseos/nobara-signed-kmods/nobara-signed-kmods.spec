@@ -40,9 +40,9 @@
 %global nvidia_prod_version   595.112.07
 %global nvidia_nf_version     615.78.08
 %global nvidia_epoch          3
-%global xone_version          0.5.8.1
+%global xone_version          0.5.8.2
 # Same fork commit as baseos/xone (xone_mtnet: new dongle on MediaTek's firmware, wake on wireless)
-%global xone_commit           a8781c1e1ed53509fb117a9461ebf2f236347b47
+%global xone_commit           ad0d17e74ccd5447e33e37c5952e73ed3ca6bb2d
 %global xpad_noone_commit     c3d1610
 %global openrazer_version     3.12.4
 # Terra's dkms-/akmod-hid-tmff2, -hid-fanatecff and -new-lg4ff
@@ -65,7 +65,7 @@
 
 Name:           nobara-signed-kmods
 Version:        1
-Release:        7%{?dist}
+Release:        8%{?dist}
 Summary:        Nobara-signed kernel modules for the Easy Anti-Cheat kernel
 License:        GPL-2.0-only AND GPL-2.0-or-later AND MIT AND CDDL-1.0 AND NVIDIA License
 URL:            https://nobaraproject.org
@@ -300,6 +300,11 @@ done
 find %{buildroot}/lib/modules -name '*.ko' -exec strip --strip-debug {} +
 
 %changelog
+* Wed Nov 11 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 1-8
+- xone: version 0.5.8.2 (fork ad0d17e), matching baseos/xone: xone_mtnet
+  no longer enables wakeup on the USB root hub, which let other devices on
+  the bus (e.g. a laptop webcam) wake the system as soon as it suspended
+
 * Tue Nov 10 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 1-7
 - xone: version 0.5.8.1, matching baseos/xone (same source), with
   MODULE_VERSION filled in instead of "#VERSION#"
