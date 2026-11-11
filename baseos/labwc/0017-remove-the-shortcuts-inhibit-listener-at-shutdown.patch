@@ -1,0 +1,21 @@
+From: Tessel <noreply@nobaraproject.org>
+Subject: [PATCH] remove the shortcuts-inhibit listener at shutdown
+
+The keyboard-shortcuts-inhibit patch added a new_inhibitor listener and
+never removed it. wlroots asserts that a manager's signals have no
+listeners left when the display is destroyed, so every exit of the
+compositor (signing out, the greeter handing over to a session) ended in
+SIGABRT.
+---
+diff --git a/src/server.c b/src/server.c
+index a1d21bc..b188477 100644
+--- a/src/server.c
++++ b/src/server.c
+@@ -930,6 +930,7 @@ server_finish(void)
+ 	kde_server_decoration_finish();
+ 	xdg_server_decoration_finish();
+ 	wl_list_remove(&server.new_constraint.link);
++	wl_list_remove(&server.new_keyboard_shortcuts_inhibitor.link);
+ 	wl_list_remove(&server.output_power_manager_set_mode.link);
+ 	wl_list_remove(&server.tearing_new_object.link);
+ 	if (server.drm_lease_request.notify) {
