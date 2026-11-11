@@ -1,0 +1,56 @@
+From: Tessel <noreply@nobaraproject.org>
+Subject: [PATCH] survive a client-decorated window destroyed in its tile
+
+With tiling and rounded window content on, destroying a window that has
+no server-side decoration while it still held a tile aborted the
+compositor: tiling releases the tile from view_destroy() and updates the
+corner clip, which asks view_draws_own_margins(), which asserted that the
+xdg_surface still exists. It is cleared just before view_destroy(). Most
+clients unmap first and lose their tile on the next arrange; Discord's
+updater window and any GTK window with a header bar do not.
+
+Also skip a window shadow whose theme buffer is missing instead of
+reading through a NULL pointer (seen as a segfault in
+set_subtree_geometry).
+---
+diff --git a/src/ssd/ssd-shadow.c b/src/ssd/ssd-shadow.c
+index 9ce477a..c827239 100644
+--- a/src/ssd/ssd-shadow.c
++++ b/src/ssd/ssd-shadow.c
+@@ -152,6 +152,15 @@ set_subtree_geometry(struct ssd_shadow_subtree *subtree,
+ 		int titlebar_height)
+ {
+ 	struct theme *theme = rc.theme;
++	if (!theme->window[active].shadow_corner_top) {
++		/*
++		 * The theme has no shadow for this state (any more): a shadow
++		 * made for a window without server-side decoration outlives a
++		 * reconfigure that turned its size to zero.
++		 */
++		wlr_scene_node_set_enabled(&subtree->tree->node, false);
++		return;
++	}
+ 	int visible_shadow_width = theme->window[active].shadow_size;
+ 	/* inset in actual pixels, as a proportion of shadow width */
+ 	int inset = SSD_SHADOW_INSET * (double)visible_shadow_width;
+diff --git a/src/xdg.c b/src/xdg.c
+index 14c50e5..257eab9 100644
+--- a/src/xdg.c
++++ b/src/xdg.c
+@@ -847,8 +847,14 @@ view_draws_own_margins(struct view *view)
+ 	if (view->type != LAB_XDG_SHELL_VIEW) {
+ 		return false;
+ 	}
+-	struct wlr_xdg_surface *base = xdg_toplevel_from_view(view)->base;
+-	return base->initialized && (base->geometry.x > 0 || base->geometry.y > 0);
++	/*
++	 * Asked while the view is destroyed too (tiling releases its tile and
++	 * updates the corner clip), when the xdg_surface is already gone.
++	 */
++	struct wlr_xdg_surface *base =
++		((struct xdg_toplevel_view *)view)->xdg_surface;
++	return base && base->initialized
++		&& (base->geometry.x > 0 || base->geometry.y > 0);
+ }
+ 
+ static void

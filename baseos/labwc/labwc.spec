@@ -4,7 +4,7 @@
 Name:           labwc
 Version:        0.20.2
 %forgemeta
-Release:        24%{?dist}
+Release:        25%{?dist}
 Summary:        A Wayland window-stacking compositor
 
 License:        GPL-2.0-only AND MIT
@@ -33,6 +33,7 @@ Patch:          0014-add-opt-in-rounded-window-content.patch
 Patch:          0015-add-keyboard-shortcuts-inhibit.patch
 Patch:          0016-tile-into-a-grid-and-resize-tiles-live.patch
 Patch:          0017-remove-the-shortcuts-inhibit-listener-at-shutdown.patch
+Patch:          0018-survive-a-client-decorated-window-destroyed-in-its-tile.patch
 
 BuildRequires:  gcc
 BuildRequires:  meson >= 0.59.0
@@ -202,6 +203,10 @@ cp subprojects/wlroots/LICENSE WLROOTS-LICENSE
 %{_userunitdir}/labwc-session.target
 
 %changelog
+* Tue Nov 10 2026 Nobara Project - 0.20.2-25
+- Fix a compositor crash when a window with its own title bar (Discord, GTK header bars) closes while tiled
+- Fix a segfault in window shadows when the theme has no shadow image
+
 * Tue Nov 10 2026 Nobara Project - 0.20.2-24
 - Fix an abort every time the compositor exits (0.20.2-22 and -23)
 
