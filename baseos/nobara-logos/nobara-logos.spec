@@ -13,6 +13,10 @@ Provides: 	fedora-logos
 Obsoletes: 	fedora-logos
 BuildArch:	noarch
 BuildRequires:	hardlink
+# The Nobara boot theme: the script module runs it, the label plugin draws
+# its text (password prompt, messages, update progress)
+Requires:	plymouth-plugin-script
+Requires:	plymouth-plugin-label
 
 %if ! 0%{?eln}
 # For _kde4_* macros:
@@ -115,7 +119,8 @@ mkdir -p $RPM_BUILD_ROOT%{_datadir}/plymouth/themes/spinner
 touch watermark.png
 install -p -m 644 watermark.png $RPM_BUILD_ROOT%{_datadir}/plymouth/themes/spinner/watermark.png
 
-# The Nobara script theme (not the default; needs plymouth-plugin-script)
+# The Nobara script theme. The installer and nobara-updater select it;
+# this package only ships it.
 mkdir -p $RPM_BUILD_ROOT%{_datadir}/plymouth/themes/nobara
 for i in plymouth/nobara/* ; do
   install -p -m 644 $i $RPM_BUILD_ROOT%{_datadir}/plymouth/themes/nobara
@@ -408,7 +413,9 @@ hardlink -vv %{buildroot}/usr
 - Files named "white" show the new logo in one-color white
 - The installer logos on the colored sidebars and header are white, as before
 - The 256x256 icons are now really 256 px (they were 128 px)
-- Add the Nobara boot theme (plymouth/themes/nobara); not the default theme
+- Add the Nobara boot theme (plymouth/themes/nobara). The installer and
+  nobara-updater select it on standard installs; HTPC and handheld keep theirs
+- Require plymouth-plugin-script and plymouth-plugin-label, which the theme needs
 
 * Mon Jan 29 2024 Tom Callaway <spot@fedoraproject.org> - 38.1.0-5
 - fix BR to reflect new macro provides for kde4 macros
