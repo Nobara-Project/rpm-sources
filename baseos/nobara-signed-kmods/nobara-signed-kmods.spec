@@ -40,7 +40,7 @@
 %global nvidia_prod_version   595.112.07
 %global nvidia_nf_version     615.78.08
 %global nvidia_epoch          3
-%global xone_version          0.5.8
+%global xone_version          0.5.8.1
 # Same fork commit as baseos/xone (xone_mtnet: new dongle on MediaTek's firmware, wake on wireless)
 %global xone_commit           a8781c1e1ed53509fb117a9461ebf2f236347b47
 %global xpad_noone_commit     c3d1610
@@ -65,7 +65,7 @@
 
 Name:           nobara-signed-kmods
 Version:        1
-Release:        6%{?dist}
+Release:        7%{?dist}
 Summary:        Nobara-signed kernel modules for the Easy Anti-Cheat kernel
 License:        GPL-2.0-only AND GPL-2.0-or-later AND MIT AND CDDL-1.0 AND NVIDIA License
 URL:            https://nobaraproject.org
@@ -147,7 +147,7 @@ local modules = {
             "Conflicts:      kmod-nvidia-prod-signed-KVER\n" },
   { name = "xone", dir = "xone", version = rpm.expand("%{xone_version}"),
     summary = "xone (Xbox One and Series X|S accessories) kernel modules",
-    extra = "Requires:       xone >= %{xone_version}-4\n" },
+    extra = "Requires:       xone >= %{xone_version}\n" },
   { name = "xpad-noone", dir = "xpad-noone", version = "1",
     summary = "xpad-noone (Xbox 360 controller) kernel module",
     extra = "Requires:       xpad-noone\n" },
@@ -212,6 +212,7 @@ mkdir nvidia-prod nvidia-nf xone xpad-noone openrazer hid-tmff2 hid-fanatecff ne
 tar -xf %{SOURCE0} -C nvidia-prod --strip-components=1
 tar -xf %{SOURCE1} -C nvidia-nf --strip-components=1
 tar -xf %{SOURCE2} -C xone --strip-components=1
+find xone -type f -name '*.c' -exec sed -i 's/#VERSION#/%{xone_version}/' {} +
 tar -xf %{SOURCE3} -C xpad-noone --strip-components=1
 tar -xf %{SOURCE5} -C openrazer --strip-components=1
 tar -xf %{SOURCE6} -C hid-tmff2 --strip-components=1
@@ -299,6 +300,10 @@ done
 find %{buildroot}/lib/modules -name '*.ko' -exec strip --strip-debug {} +
 
 %changelog
+* Tue Nov 10 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 1-7
+- xone: version 0.5.8.1, matching baseos/xone (same source), with
+  MODULE_VERSION filled in instead of "#VERSION#"
+
 * Tue Nov 10 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 1-6
 - xone: build from the GloriousEggroll/xone fork (same commit as baseos/xone
   0.5.8-4), which adds xone_mtnet with wake on wireless and moves the new

@@ -5,8 +5,10 @@
 %global commit a8781c1e1ed53509fb117a9461ebf2f236347b47
 
 Name:     xone
-Version:  0.5.8
-Release:  4%{?dist}
+# A new version (not just a release) for every source change: DKMS keys builds on
+# the version, so the same version over different source is never rebuilt
+Version:  0.5.8.1
+Release:  1%{?dist}
 Summary:  Linux kernel driver for Xbox One and Xbox Series X|S accessories
 License:  GPLv2
 URL:      https://github.com/GloriousEggroll/xone
@@ -41,7 +43,10 @@ xone is a Linux kernel driver for Xbox One and Xbox Series X|S dongle.
 
 %prep
 %autosetup -p1 -n %{name}-%{commit}
-sed -i 's/#VERSION#/%{version}/' dkms.conf
+# Fill the version into dkms.conf and the modules (as upstream's install.sh does):
+# with MODULE_VERSION left at "#VERSION#", DKMS sees every build as the same
+# version and won't replace installed modules on upgrade
+find . -type f \( -name dkms.conf -o -name '*.c' \) -exec sed -i 's/#VERSION#/%{version}/' {} +
 
 %build
 
@@ -57,9 +62,22 @@ install -D -m 0755 install/mtnet/xone-mtnet-setup %{buildroot}%{_libexecdir}/xon
 
 %post
 %udev_rules_update
+# Builds before 0.5.8.1 left MODULE_VERSION as "#VERSION#", which DKMS ranks above
+# any real version, so it would never replace them. Remove those xone modules from
+# every kernel first; DKMS then installs this version for each kernel as usual.
+for k in /lib/modules/*; do
+    stale=
+    for m in "$k"/extra/xone_*.ko*; do
+        [ -e "$m" ] || continue
+        if [ "$(modinfo -F version "$m" 2>/dev/null)" = "#VERSION#" ]; then
+            rm -f "$m"; stale=1
+        fi
+    done
+    [ -n "$stale" ] && depmod -a "${k##*/}" 2>/dev/null || :
+done
 dkms add -m %{name} -v %{version} --rpm_safe_upgrade || :
 dkms build -m %{name} -v %{version} || :
-dkms install -m %{name} -v %{version} || :
+dkms install -m %{name} -v %{version} --force || :
 
 %preun
 dkms remove -m %{name} -v %{version} --all --rpm_safe_upgrade || :
@@ -74,6 +92,14 @@ dkms remove -m %{name} -v %{version} --all --rpm_safe_upgrade || :
 %{_libexecdir}/xone-mtnet-setup
 
 %changelog
+* Tue Nov 10 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 0.5.8.1-1
+- Bump the version so DKMS rebuilds: 0.5.8-4 kept DKMS version 0.5.8, so
+  upgrades reported the old build as installed and never built the new
+  source (dkms status: "Built modules are missing" for xone_mtnet)
+- Fill in MODULE_VERSION (was left as "#VERSION#"). DKMS ranks "#VERSION#"
+  above real versions, so %post removes the old xone modules carrying it and
+  installs with --force; otherwise upgrades kept the old modules
+
 * Tue Nov 10 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 0.5.8-4
 - Build from the GloriousEggroll/xone fork
 - Run the new dongle (045e:02fe) on mt76x2u and xone_mtnet with MediaTek's
