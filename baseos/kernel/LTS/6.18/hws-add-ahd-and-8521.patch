@@ -1,0 +1,53 @@
+Subject: [PATCH] media: hws: add the AHD capture cards and 8888:8521
+
+ACASIS's vendor drivers support cards this driver doesn't list: the 2- and
+4-input AHD analog camera cards (8888:5502 and 8888:5504, subsystem 8888:0008)
+and a single-input card (8888:8521). The AHD driver always runs as hardware
+version 0 and never programs the DMA size limit, so do the same here.
+
+Not yet run on these cards.
+
+--- a/drivers/media/pci/hws/hws_pci.c
++++ b/drivers/media/pci/hws/hws_pci.c
+@@ -81,6 +81,13 @@
+ 	/* HWS 2x2 HDMI family (alternate vendor ID). */
+ 	MAKE_ENTRY(0x1F33, 0x8524, 0x8888, 0x0007, NULL),
+ 
++	/* HWS single-input family, from ACASIS's vendor driver. */
++	MAKE_ENTRY(0x8888, 0x8521, 0x8888, 0x0007, NULL),
++
++	/* HWS AHD analog camera family (note the subsystem ID). */
++	MAKE_ENTRY(0x8888, 0x5504, 0x8888, 0x0008, NULL),
++	MAKE_ENTRY(0x8888, 0x5502, 0x8888, 0x0008, NULL),
++
+ 	{}
+ };
+ 
+@@ -107,9 +114,11 @@
+ 		break;
+ 	case 0x8512:
+ 	case 0x6502:
++	case 0x5502:
+ 		hdev->cur_max_video_ch = 2;
+ 		break;
+ 	case 0x8501:
++	case 0x8521:
+ 		hdev->cur_max_video_ch = 1;
+ 		break;
+ 	default:
+@@ -120,8 +129,13 @@
+ 	/* universal buffer capacity */
+ 	hdev->max_hw_video_buf_sz = MAX_MM_VIDEO_SIZE;
+ 
+-	/* decide hardware-version and program DMA max size if needed */
+-	if (hdev->device_ver > 121) {
++	/*
++	 * decide hardware-version and program DMA max size if needed; the vendor's
++	 * AHD driver always runs those cards as version 0, without the register
++	 */
++	if (id == 0x5502 || id == 0x5504) {
++		hdev->hw_ver = 0;
++	} else if (hdev->device_ver > 121) {
+ 		if (id == 0x8501 && hdev->device_ver == 122) {
+ 			hdev->hw_ver = 0;
+ 		} else {

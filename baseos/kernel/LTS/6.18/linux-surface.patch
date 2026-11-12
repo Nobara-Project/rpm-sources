@@ -623,7 +623,7 @@ index a543d4822..99d024f3d 100644
 +	}
 +
 +	unregister_pm_notifier(&td->pm_notifier);
- 	timer_delete_sync(&td->release_timer);
+ 	timer_shutdown_sync(&td->release_timer);
  
  	sysfs_remove_group(&hdev->dev.kobj, &mt_attribute_group);
 @@ -2086,6 +2279,11 @@ static void mt_remove(struct hid_device *hdev)

@@ -1,0 +1,3094 @@
+Subject: [PATCH] media: hws: support the rest of the HWS family, with audio
+
+Add what the out-of-tree vendor drivers do and this driver doesn't, for every
+card they cover:
+
+- The 4K family (8888:8581, 85A1, 8591, 1F33:8581): four DMA quarters, inputs up
+  to 4096x2160, and register 9 following the input.
+- Audio: one ALSA card per input, except on the AHD cards, which have none.
+- A copy capture path, the default: the card writes only to the driver's own DMA
+  buffers, and the IRQ thread copies each half into a vb2 buffer. The audio ring
+  shares an address window with video, and the direct path moves that window and
+  writes registers 26-29, which on these cards include audio ring addresses.
+  direct_dma=1 keeps the direct path, without audio, for 1080p YUYV cards.
+- YV12/NV12 cards, converted to YUYV with the vendor's code.
+- Black frames while the source uses HDCP, on the copy path.
+- Line-doubled interlaced input, and frame rates measured on version-0 cards.
+- MSI, as the vendor drivers use, with INTx as the fallback.
+
+- A capture that survives a mode change: its buffers keep their size, and a small
+  scaler fits each frame to them with black bars, as programs like OBS don't
+  recover from a queue error. Restarting capture gets the input's own size, with no
+  scaling. S_DV_TIMINGS always accepts what the input is sending.
+- VIDIOC_ENUM_FRAMESIZES, VIDIOC_ENUM_FRAMEINTERVALS and VIDIOC_S_PARM.
+- Names that say what the card is: the PCI ID database's make and model where it
+  has one (AVMatrix VC12-4K, AVMatrix VC42), otherwise the family, and the input
+  number on multi-input cards, for the V4L2 card, node and input names and ALSA.
+
+Tested on a VC12-4K with FPGA 121 (8888:8581), kernel 7.2.9, from an Intel Arc
+A310: 1280x720, 1920x1080 and 2560x1440 at 60 Hz and 3840x2160 at 30 Hz with no
+sequence gaps, and a 1 kHz tone over HDMI audio intact. 3840x2160 at 60 Hz, 2560x1440
+at 144 Hz and 1920x1080 at 240 Hz need its PCIe link at 5 GT/s: at 2.5 GT/s, 3840x2160
+at 60 Hz gives no frames, with the out-of-tree driver too. At 5 GT/s it runs at 59.7
+fps, about one frame in 200 skipped, cause unknown. One capture ran through
+1280x720, 1280x1024, 2560x1440, 3840x2160 at 30 Hz and 1920x1080 with no errors.
+
+Tested on a VC42 with FPGA 121 (8888:8504), each of its four inputs in turn, at
+1920x1080 at 60 Hz: picture, a 1 kHz tone with no sound on another input, loss and
+return of the signal, and mode changes during a capture. Inputs 2 and 3 deliver
+59.996 fps. With the same cable and source, inputs 1 and 4 miss about 3.5% and 0.5%
+of frames: the driver gets no frame for them, and a VDONE with an unchanged toggle
+in their place. Cause unknown; the driver accepts every frame it is given.
+
+--- a/drivers/media/pci/hws/hws_audio.c
++++ b/drivers/media/pci/hws/hws_audio.c
+@@ -0,0 +1,358 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Audio capture: one ALSA card per input, 48 kHz stereo 16-bit. The card fills
++ * two 4096-byte packets in the ring at the end of the channel's DMA buffer, in
++ * turn, and interrupts after each (21.3 ms). The sources don't offer anything
++ * else: these cards' EDID only advertises 48 kHz LPCM.
++ */
++#include <linux/delay.h>
++#include <linux/ktime.h>
++#include <linux/workqueue.h>
++
++#include <sound/core.h>
++#include <sound/initval.h>
++#include <sound/pcm.h>
++
++#include "hws.h"
++#include "hws_audio.h"
++#include "hws_reg.h"
++
++#define HWS_AUDIO_FRAMES	(HWS_AUDIO_PKT_SIZE / 4)
++/* no packet for this long means the source sends none: packets come every 21.3 ms */
++#define HWS_AUDIO_GAP_NS	(40 * NSEC_PER_MSEC)
++#define HWS_AUDIO_GAP_POLL_MS	5
++/* After an enable the card first sends packets it captured before the last disable. */
++#define HWS_AUDIO_STALE_PKTS	2
++
++static const u8 hws_audio_silence[HWS_AUDIO_PKT_SIZE];
++
++/*
++ * BATCH: the pointer only moves when a whole packet lands. Without it,
++ * PipeWire's timer scheduling reads the jumps as clock drift and resamples,
++ * which makes a low-latency loopback sound robotic.
++ */
++static const struct snd_pcm_hardware hws_pcm_hw = {
++	.info = SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_INTERLEAVED |
++		SNDRV_PCM_INFO_BLOCK_TRANSFER | SNDRV_PCM_INFO_BATCH |
++		SNDRV_PCM_INFO_MMAP_VALID,
++	.formats = SNDRV_PCM_FMTBIT_S16_LE,
++	.rates = SNDRV_PCM_RATE_48000,
++	.rate_min = 48000,
++	.rate_max = 48000,
++	.channels_min = 2,
++	.channels_max = 2,
++	.buffer_bytes_max = 64 * 1024,
++	.period_bytes_min = HWS_AUDIO_PKT_SIZE,	/* a shorter period could never complete */
++	.period_bytes_max = 16 * 1024,
++	.periods_min = 2,
++	.periods_max = 16,
++};
++
++static void hws_audio_enable(struct hws_audio *a, bool on)
++{
++	struct hws_pcie_dev *hws = a->hws;
++	unsigned long flags;
++	u32 reg;
++
++	if (hws->pci_lost)
++		return;
++	spin_lock_irqsave(&hws->audio_en_lock, flags);
++	reg = readl(hws->bar0_base + HWS_REG_ACAP_ENABLE);
++	if (on)
++		reg |= BIT(a->ch);
++	else
++		reg &= ~BIT(a->ch);
++	writel(reg, hws->bar0_base + HWS_REG_ACAP_ENABLE);
++	(void)readl(hws->bar0_base + HWS_REG_ACAP_ENABLE);
++	spin_unlock_irqrestore(&hws->audio_en_lock, flags);
++}
++
++/*
++ * Put one packet in the stream's buffer. Only while running: trigger STOP clears
++ * that under the lock, before hw_free can drop the buffer. snd_pcm_period_elapsed()
++ * takes the stream lock, which trigger holds while taking a->lock, so it runs after
++ * a->lock is released.
++ */
++static void hws_audio_deliver(struct hws_audio *a, const void *data, bool from_card)
++{
++	struct snd_pcm_substream *ss = NULL;
++	unsigned long flags;
++
++	spin_lock_irqsave(&a->lock, flags);
++	if (a->running && a->substream && a->ring_frames) {
++		struct snd_pcm_runtime *rt = a->substream->runtime;
++		u32 first = min_t(u32, HWS_AUDIO_FRAMES, a->ring_frames - a->wpos);
++
++		memcpy(rt->dma_area + frames_to_bytes(rt, a->wpos), data, first * 4);
++		if (first < HWS_AUDIO_FRAMES)
++			memcpy(rt->dma_area, (const u8 *)data + first * 4,
++			       (HWS_AUDIO_FRAMES - first) * 4);
++		a->wpos = (a->wpos + HWS_AUDIO_FRAMES) % a->ring_frames;
++		a->period_used += HWS_AUDIO_FRAMES;
++		if (a->period_used >= a->period_frames) {
++			a->period_used %= a->period_frames;
++			ss = a->substream;
++		}
++		if (from_card) {
++			a->last_pkt_ns = ktime_get_ns();
++			a->silence_frames = 0;
++		}
++	}
++	spin_unlock_irqrestore(&a->lock, flags);
++	if (ss)
++		snd_pcm_period_elapsed(ss);
++}
++
++/* Called from the IRQ thread for each packet interrupt. */
++void hws_audio_packet(struct hws_pcie_dev *hws, unsigned int ch, u8 toggle)
++{
++	struct hws_audio *a = &hws->audio[ch];
++	const u8 *ring;
++
++	if (!READ_ONCE(a->running) || !hws->dma_buf_sz)
++		return;
++	if (a->skip) {
++		a->skip--;
++		return;
++	}
++	ring = (const u8 *)hws->scratch_vid[ch].cpu + hws->dma_buf_sz - HWS_AUDIO_RING_SIZE;
++	dma_rmb();	/* coherent memory: order the reads after the interrupt */
++	/* the toggle already points at the packet the card has moved on to */
++	hws_audio_deliver(a, toggle ? ring : ring + HWS_AUDIO_PKT_SIZE, true);
++}
++
++/*
++ * With no packets (a source changing mode, no source, a source with no audio),
++ * the pointer would stand still, and PipeWire would replay its last buffers as
++ * a buzz. Deliver silence at 48 kHz from the last packet's time instead.
++ */
++static void hws_audio_silence_work(struct work_struct *work)
++{
++	struct hws_audio *a = container_of(to_delayed_work(work), struct hws_audio, silence);
++	unsigned long next = msecs_to_jiffies(HWS_AUDIO_GAP_POLL_MS);
++	u64 gap, due;
++
++	if (!READ_ONCE(a->running))
++		return;
++	gap = ktime_get_ns() - READ_ONCE(a->last_pkt_ns);
++	if (gap > HWS_AUDIO_GAP_NS) {
++		due = div_u64(gap * 48, NSEC_PER_MSEC);
++		while (READ_ONCE(a->running) &&
++		       READ_ONCE(a->silence_frames) + HWS_AUDIO_FRAMES <= due) {
++			WRITE_ONCE(a->silence_frames, a->silence_frames + HWS_AUDIO_FRAMES);
++			hws_audio_deliver(a, hws_audio_silence, false);
++		}
++	} else {
++		next = msecs_to_jiffies(div_u64(HWS_AUDIO_GAP_NS - gap, NSEC_PER_MSEC) + 1);
++	}
++	queue_delayed_work(a->hws->auwq, &a->silence, max_t(unsigned long, 1, next));
++}
++
++static int hws_pcm_open(struct snd_pcm_substream *ss)
++{
++	struct hws_audio *a = snd_pcm_substream_chip(ss);
++	unsigned long flags;
++
++	ss->runtime->hw = hws_pcm_hw;
++	spin_lock_irqsave(&a->lock, flags);
++	a->substream = ss;
++	spin_unlock_irqrestore(&a->lock, flags);
++	/* whole packets, so periods end on packet boundaries */
++	return snd_pcm_hw_constraint_step(ss->runtime, 0, SNDRV_PCM_HW_PARAM_PERIOD_BYTES,
++					  HWS_AUDIO_PKT_SIZE);
++}
++
++static int hws_pcm_close(struct snd_pcm_substream *ss)
++{
++	struct hws_audio *a = snd_pcm_substream_chip(ss);
++	unsigned long flags;
++
++	spin_lock_irqsave(&a->lock, flags);
++	a->substream = NULL;
++	spin_unlock_irqrestore(&a->lock, flags);
++	return 0;
++}
++
++static int hws_pcm_hw_free(struct snd_pcm_substream *ss)
++{
++	struct hws_audio *a = snd_pcm_substream_chip(ss);
++
++	cancel_delayed_work_sync(&a->silence);
++	return 0;
++}
++
++static int hws_pcm_prepare(struct snd_pcm_substream *ss)
++{
++	struct hws_audio *a = snd_pcm_substream_chip(ss);
++	struct snd_pcm_runtime *rt = ss->runtime;
++	unsigned long flags;
++
++	spin_lock_irqsave(&a->lock, flags);
++	a->ring_frames = rt->buffer_size;
++	a->period_frames = rt->period_size;
++	a->wpos = 0;
++	a->period_used = 0;
++	spin_unlock_irqrestore(&a->lock, flags);
++	return 0;
++}
++
++static int hws_pcm_trigger(struct snd_pcm_substream *ss, int cmd)
++{
++	struct hws_audio *a = snd_pcm_substream_chip(ss);
++	unsigned long flags;
++
++	switch (cmd) {
++	case SNDRV_PCM_TRIGGER_START:
++		spin_lock_irqsave(&a->lock, flags);
++		a->wpos = 0;
++		a->period_used = 0;
++		a->skip = HWS_AUDIO_STALE_PKTS;
++		a->last_pkt_ns = ktime_get_ns();
++		a->silence_frames = 0;
++		WRITE_ONCE(a->running, true);
++		spin_unlock_irqrestore(&a->lock, flags);
++		queue_delayed_work(a->hws->auwq, &a->silence, 0);
++		hws_audio_enable(a, true);
++		return 0;
++	case SNDRV_PCM_TRIGGER_SUSPEND:	/* no RESUME: the app prepares and starts again */
++	case SNDRV_PCM_TRIGGER_STOP:
++		spin_lock_irqsave(&a->lock, flags);
++		WRITE_ONCE(a->running, false);
++		spin_unlock_irqrestore(&a->lock, flags);
++		cancel_delayed_work(&a->silence);
++		hws_audio_enable(a, false);
++		return 0;
++	default:
++		return -EINVAL;
++	}
++}
++
++static snd_pcm_uframes_t hws_pcm_pointer(struct snd_pcm_substream *ss)
++{
++	struct hws_audio *a = snd_pcm_substream_chip(ss);
++	snd_pcm_uframes_t pos;
++	unsigned long flags;
++
++	spin_lock_irqsave(&a->lock, flags);
++	pos = a->wpos;
++	spin_unlock_irqrestore(&a->lock, flags);
++	return pos;
++}
++
++static const struct snd_pcm_ops hws_pcm_ops = {
++	.open = hws_pcm_open,
++	.close = hws_pcm_close,
++	.hw_free = hws_pcm_hw_free,
++	.prepare = hws_pcm_prepare,
++	.trigger = hws_pcm_trigger,
++	.pointer = hws_pcm_pointer,
++};
++
++int hws_audio_register(struct hws_pcie_dev *hws)
++{
++	struct device *dev = &hws->pdev->dev;
++	unsigned int ch;
++	int ret;
++
++	spin_lock_init(&hws->audio_en_lock);
++	hws->auwq = alloc_ordered_workqueue("hws-audio", 0);
++	if (!hws->auwq)
++		return -ENOMEM;
++
++	for (ch = 0; ch < hws->cur_max_video_ch; ch++) {
++		struct hws_audio *a = &hws->audio[ch];
++		struct snd_card *card;
++		struct snd_pcm *pcm;
++		char id[16], label[26];
++
++		a->hws = hws;
++		a->ch = ch;
++		spin_lock_init(&a->lock);
++		INIT_DELAYED_WORK(&a->silence, hws_audio_silence_work);
++
++		if (hws->cur_max_video_ch > 1)
++			snprintf(id, sizeof(id), "%sIn%u", hws->alsa_id, ch + 1);
++		else
++			strscpy(id, hws->alsa_id, sizeof(id));
++		ret = snd_card_new(dev, SNDRV_DEFAULT_IDX1, id, THIS_MODULE, 0, &card);
++		if (ret)
++			goto err;
++		a->card = card;
++		strscpy(card->driver, KBUILD_MODNAME, sizeof(card->driver));
++		hws_input_label(hws, ch, label, sizeof(label));
++		snprintf(card->shortname, sizeof(card->shortname), "%s Audio", label);
++		snprintf(card->longname, sizeof(card->longname), "%s at %s",
++			 card->shortname, pci_name(hws->pdev));
++
++		ret = snd_pcm_new(card, card->shortname, 0, 0, 1, &pcm);
++		if (ret)
++			goto err;
++		pcm->private_data = a;
++		strscpy(pcm->name, card->shortname, sizeof(pcm->name));
++		snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_CAPTURE, &hws_pcm_ops);
++		snd_pcm_set_managed_buffer_all(pcm, SNDRV_DMA_TYPE_CONTINUOUS, dev,
++					       hws_pcm_hw.buffer_bytes_max,
++					       hws_pcm_hw.buffer_bytes_max);
++		a->pcm = pcm;
++
++		ret = snd_card_register(card);
++		if (ret)
++			goto err;
++	}
++	return 0;
++
++err:
++	hws_audio_unregister(hws);
++	return ret;
++}
++
++/* Waits for open streams to close; disconnecting the cards makes them fail first. */
++void hws_audio_unregister(struct hws_pcie_dev *hws)
++{
++	unsigned int ch;
++
++	for (ch = 0; ch < hws->cur_max_video_ch; ch++) {
++		if (hws->audio[ch].card)
++			snd_card_disconnect(hws->audio[ch].card);
++	}
++	for (ch = 0; ch < hws->cur_max_video_ch; ch++) {
++		struct hws_audio *a = &hws->audio[ch];
++
++		if (!a->card)
++			continue;
++		WRITE_ONCE(a->running, false);
++		cancel_delayed_work_sync(&a->silence);
++		snd_card_free(a->card);
++		a->card = NULL;
++		a->pcm = NULL;
++	}
++	if (hws->auwq) {
++		destroy_workqueue(hws->auwq);
++		hws->auwq = NULL;
++	}
++}
++
++void hws_audio_suspend(struct hws_pcie_dev *hws)
++{
++	unsigned int ch;
++
++	for (ch = 0; ch < hws->cur_max_video_ch; ch++) {
++		if (!hws->audio[ch].card)
++			continue;
++		snd_power_change_state(hws->audio[ch].card, SNDRV_CTL_POWER_D3hot);
++		if (hws->audio[ch].pcm)
++			snd_pcm_suspend_all(hws->audio[ch].pcm);
++	}
++	if (hws->auwq)
++		flush_workqueue(hws->auwq);
++}
++
++void hws_audio_resume(struct hws_pcie_dev *hws)
++{
++	unsigned int ch;
++
++	for (ch = 0; ch < hws->cur_max_video_ch; ch++) {
++		if (hws->audio[ch].card)
++			snd_power_change_state(hws->audio[ch].card, SNDRV_CTL_POWER_D0);
++	}
++}
+--- a/drivers/media/pci/hws/hws_audio.h
++++ b/drivers/media/pci/hws/hws_audio.h
+@@ -0,0 +1,19 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++#ifndef HWS_AUDIO_H
++#define HWS_AUDIO_H
++
++#include <linux/types.h>
++
++/* The last 10 KiB of a channel's DMA buffer: two packets the card fills in turn. */
++#define HWS_AUDIO_RING_SIZE	(10 * 1024)
++#define HWS_AUDIO_PKT_SIZE	4096
++
++struct hws_pcie_dev;
++
++int hws_audio_register(struct hws_pcie_dev *hws);
++void hws_audio_unregister(struct hws_pcie_dev *hws);
++void hws_audio_suspend(struct hws_pcie_dev *hws);
++void hws_audio_resume(struct hws_pcie_dev *hws);
++void hws_audio_packet(struct hws_pcie_dev *hws, unsigned int ch, u8 toggle);
++
++#endif
+--- a/drivers/media/pci/hws/hws_convert.c
++++ b/drivers/media/pci/hws/hws_convert.c
+@@ -0,0 +1,563 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * The vendor drivers' conversions for cards that capture in their own 4:2:0
++ * layouts (register 88's format field): those layouts match no V4L2 format, so
++ * they become YUYV on the CPU. Taken unchanged from those drivers.
++ */
++#include "hws_convert.h"
++
++void FillNV12ToYUY2(BYTE *pSrc,BYTE *pOut, int nw,int nh,int interlace)
++{
++	BYTE *pVideoMem = pOut ;// g_pD1TempBuffer;
++	//DWORD dwDstPitch = nw;
++	DWORD dwSrcPitch;
++	DWORD dwPacket;
++	BYTE *pSrc1;
++	BYTE *pDstYUV = (BYTE *)pVideoMem;
++	BYTE *pNextLineSrc1;
++	DWORD dwJ;
++	BYTE bLineSel=0;
++	BOOL bUVSel;
++	DWORD dwI;
++	dwSrcPitch = nw*12/8;
++	dwPacket = dwSrcPitch/24;
++
++	pSrc1  = (BYTE *)pSrc;
++	pDstYUV = (BYTE *)pVideoMem;
++
++	if(interlace ==0)
++	{
++		for(dwI=0; dwI <nh; dwI++)
++		{
++			switch(bLineSel)
++			{
++				case 0:
++				{
++					bUVSel =0;
++					pNextLineSrc1 = (BYTE *)pSrc1+dwSrcPitch+nw; //  line2
++					for( dwJ=0; dwJ<dwPacket; dwJ++)
++					{
++
++						//-----------y0 ~y3
++						pDstYUV[0] = pSrc1[0];
++						pDstYUV[2] = pSrc1[1];
++						pDstYUV[4] = pSrc1[2];
++						pDstYUV[6] = pSrc1[3];
++						//y4~y7
++						pDstYUV[8]  =  pSrc1[8];
++						pDstYUV[10] =  pSrc1[9];
++						pDstYUV[12] =  pSrc1[10];
++						pDstYUV[14] =  pSrc1[11];
++						//----y8~y11
++						pDstYUV[16]= pSrc1[12];
++						pDstYUV[18]= pSrc1[13];
++						pDstYUV[20] = pSrc1[14];
++						pDstYUV[22] = pSrc1[15];
++						//y12~y15
++						pDstYUV[24] =  pSrc1[20];
++						pDstYUV[26] =  pSrc1[21];
++						pDstYUV[28] =  pSrc1[22];
++						pDstYUV[30] =  pSrc1[23];
++
++						if(bUVSel)
++						{
++							pDstYUV[3] =pSrc1[4];
++							pDstYUV[7] =pSrc1[5];
++							pDstYUV[11] =pSrc1[6];
++							pDstYUV[15] =pSrc1[7];
++
++							pDstYUV[19] =pSrc1[16];
++							pDstYUV[23] =pSrc1[17];
++							pDstYUV[27] =pSrc1[18];
++							pDstYUV[31] =pSrc1[19];
++
++
++							pDstYUV[1] =pNextLineSrc1[4];
++							pDstYUV[5] =pNextLineSrc1[5];
++							pDstYUV[9] =pNextLineSrc1[6];
++							pDstYUV[13] =pNextLineSrc1[7];
++
++							pDstYUV[17] =pNextLineSrc1[16];
++							pDstYUV[21] =pNextLineSrc1[17];
++							pDstYUV[25] =pNextLineSrc1[18];
++							pDstYUV[29] =pNextLineSrc1[19];
++
++						}
++						else
++						{
++
++							pDstYUV[3]  = pNextLineSrc1[4];
++							pDstYUV[7]  = pNextLineSrc1[5];
++							pDstYUV[11]  = pNextLineSrc1[6];
++							pDstYUV[15] = pNextLineSrc1[7];
++
++							pDstYUV[19]  = pNextLineSrc1[16];
++							pDstYUV[23]  = pNextLineSrc1[17];
++							pDstYUV[27]  = pNextLineSrc1[18];
++							pDstYUV[31] =  pNextLineSrc1[19];
++
++
++							pDstYUV[1] =pSrc1[4];
++							pDstYUV[5] =pSrc1[5];
++							pDstYUV[9] =pSrc1[6];
++							pDstYUV[13] =pSrc1[7];
++
++							pDstYUV[17] =pSrc1[16];
++							pDstYUV[21] =pSrc1[17];
++							pDstYUV[25] =pSrc1[18];
++							pDstYUV[29] =pSrc1[19];
++
++						}
++						pSrc1+=24;
++						pNextLineSrc1 +=24;
++						pDstYUV+=32;
++					}
++					break;
++				}
++				case 1:
++				{
++					memcpy(pDstYUV,pDstYUV-(nw*2),nw*2); // copy up line
++					//-----modify the curr line
++					for( dwJ=0; dwJ<nw; dwJ++)
++					{
++						pDstYUV[0] = pSrc1[0];
++						pDstYUV +=2;
++						pSrc1 ++;
++					}
++
++					break;
++				}
++				case 2:
++				{
++					memcpy(pDstYUV,pDstYUV-(nw*2),nw*2); // copy up line
++					//-----modify the curr line
++					for( dwJ=0; dwJ<dwPacket; dwJ++)
++					{
++						//-----------y0 ~y3
++						pDstYUV[0] = pSrc1[0];
++						pDstYUV[2] = pSrc1[1];
++						pDstYUV[4] = pSrc1[2];
++						pDstYUV[6] = pSrc1[3];
++						//y4~y7
++						pDstYUV[8]  =  pSrc1[8];
++						pDstYUV[10] =  pSrc1[9];
++						pDstYUV[12] =  pSrc1[10];
++						pDstYUV[14] =  pSrc1[11];
++						//----y8~y11
++						pDstYUV[16]= pSrc1[12];
++						pDstYUV[18]= pSrc1[13];
++						pDstYUV[20] = pSrc1[14];
++						pDstYUV[22] = pSrc1[15];
++						//y12~y15
++						pDstYUV[24] =  pSrc1[20];
++						pDstYUV[26] =  pSrc1[21];
++						pDstYUV[28] =  pSrc1[22];
++						pDstYUV[30] =  pSrc1[23];
++						pDstYUV+=32;
++						pSrc1+=24;
++					}
++					break;
++				}
++				case 3:
++				{
++					memcpy(pDstYUV,pDstYUV-(nw*2),nw*2); // copy up line
++					//-----modify the curr line
++					for( dwJ=0; dwJ<nw; dwJ++)
++					{
++						pDstYUV[0] = pSrc1[0];
++						pDstYUV +=2;
++						pSrc1 ++;
++					}
++					break;
++				}
++
++			}
++			bLineSel ++;
++			if(bLineSel>=4)
++			{
++				bLineSel =0;
++			}
++		}
++	}
++	else
++	{
++		//DbgPrint("nh");
++		nh= nh/2;
++		for( dwI=0; dwI <nh; dwI++)
++		{
++			switch(bLineSel)
++			{
++				case 0:
++				{
++					bUVSel =0;
++					pNextLineSrc1 = (BYTE *)pSrc1+dwSrcPitch+nw; //  line2
++					for( dwJ=0; dwJ<dwPacket; dwJ++)
++					{
++
++						//-----------y0 ~y3
++						pDstYUV[0] = pSrc1[0];
++						pDstYUV[2] = pSrc1[1];
++						pDstYUV[4] = pSrc1[2];
++						pDstYUV[6] = pSrc1[3];
++						//y4~y7
++						pDstYUV[8]  =  pSrc1[8];
++						pDstYUV[10] =  pSrc1[9];
++						pDstYUV[12] =  pSrc1[10];
++						pDstYUV[14] =  pSrc1[11];
++						//----y8~y11
++						pDstYUV[16]= pSrc1[12];
++						pDstYUV[18]= pSrc1[13];
++						pDstYUV[20] = pSrc1[14];
++						pDstYUV[22] = pSrc1[15];
++						//y12~y15
++						pDstYUV[24] =  pSrc1[20];
++						pDstYUV[26] =  pSrc1[21];
++						pDstYUV[28] =  pSrc1[22];
++						pDstYUV[30] =  pSrc1[23];
++
++						if(bUVSel)
++						{
++							pDstYUV[3] =pSrc1[4];
++							pDstYUV[7] =pSrc1[5];
++							pDstYUV[11] =pSrc1[6];
++							pDstYUV[15] =pSrc1[7];
++
++							pDstYUV[19] =pSrc1[16];
++							pDstYUV[23] =pSrc1[17];
++							pDstYUV[27] =pSrc1[18];
++							pDstYUV[31] =pSrc1[19];
++
++
++							pDstYUV[1] =pNextLineSrc1[4];
++							pDstYUV[5] =pNextLineSrc1[5];
++							pDstYUV[9] =pNextLineSrc1[6];
++							pDstYUV[13] =pNextLineSrc1[7];
++
++							pDstYUV[17] =pNextLineSrc1[16];
++							pDstYUV[21] =pNextLineSrc1[17];
++							pDstYUV[25] =pNextLineSrc1[18];
++							pDstYUV[29] =pNextLineSrc1[19];
++
++						}
++						else
++						{
++
++							pDstYUV[3]  = pNextLineSrc1[4];
++							pDstYUV[7]  = pNextLineSrc1[5];
++							pDstYUV[11]  = pNextLineSrc1[6];
++							pDstYUV[15] = pNextLineSrc1[7];
++
++							pDstYUV[19]  = pNextLineSrc1[16];
++							pDstYUV[23]  = pNextLineSrc1[17];
++							pDstYUV[27]  = pNextLineSrc1[18];
++							pDstYUV[31] =  pNextLineSrc1[19];
++
++
++							pDstYUV[1] =pSrc1[4];
++							pDstYUV[5] =pSrc1[5];
++							pDstYUV[9] =pSrc1[6];
++							pDstYUV[13] =pSrc1[7];
++
++							pDstYUV[17] =pSrc1[16];
++							pDstYUV[21] =pSrc1[17];
++							pDstYUV[25] =pSrc1[18];
++							pDstYUV[29] =pSrc1[19];
++
++						}
++						pSrc1+=24;
++						pNextLineSrc1 +=24;
++						pDstYUV+=32;
++					}
++					memcpy(pDstYUV,pDstYUV-(nw*2),nw*2); // copy up line
++					pDstYUV = pDstYUV+ nw*2;
++					break;
++				}
++				case 1:
++				{
++					memcpy(pDstYUV,pDstYUV-(nw*2),nw*2); // copy up line
++					//-----modify the curr line
++					for( dwJ=0; dwJ<nw; dwJ++)
++					{
++						pDstYUV[0] = pSrc1[0];
++						pDstYUV +=2;
++						pSrc1 ++;
++					}
++					memcpy(pDstYUV,pDstYUV-(nw*2),nw*2); // copy up line
++					pDstYUV = pDstYUV+ nw*2;
++					break;
++				}
++				case 2:
++				{
++					memcpy(pDstYUV,pDstYUV-(nw*2),nw*2); // copy up line
++					//-----modify the curr line
++					for( dwJ=0; dwJ<dwPacket; dwJ++)
++					{
++						//-----------y0 ~y3
++						pDstYUV[0] = pSrc1[0];
++						pDstYUV[2] = pSrc1[1];
++						pDstYUV[4] = pSrc1[2];
++						pDstYUV[6] = pSrc1[3];
++						//y4~y7
++						pDstYUV[8]  =  pSrc1[8];
++						pDstYUV[10] =  pSrc1[9];
++						pDstYUV[12] =  pSrc1[10];
++						pDstYUV[14] =  pSrc1[11];
++						//----y8~y11
++						pDstYUV[16]= pSrc1[12];
++						pDstYUV[18]= pSrc1[13];
++						pDstYUV[20] = pSrc1[14];
++						pDstYUV[22] = pSrc1[15];
++						//y12~y15
++						pDstYUV[24] =  pSrc1[20];
++						pDstYUV[26] =  pSrc1[21];
++						pDstYUV[28] =  pSrc1[22];
++						pDstYUV[30] =  pSrc1[23];
++						pDstYUV+=32;
++						pSrc1+=24;
++					}
++					memcpy(pDstYUV,pDstYUV-(nw*2),nw*2); // copy up line
++					pDstYUV = pDstYUV+ nw*2;
++					break;
++				}
++				case 3:
++				{
++					memcpy(pDstYUV,pDstYUV-(nw*2),nw*2); // copy up line
++					//-----modify the curr line
++					for( dwJ=0; dwJ<nw; dwJ++)
++					{
++						pDstYUV[0] = pSrc1[0];
++						pDstYUV +=2;
++						pSrc1 ++;
++					}
++					memcpy(pDstYUV,pDstYUV-(nw*2),nw*2); // copy up line
++					pDstYUV = pDstYUV+ nw*2;
++					break;
++				}
++
++			}
++			bLineSel ++;
++			if(bLineSel>=4)
++			{
++				bLineSel =0;
++			}
++		}
++	}
++}
++
++void FillYUU2(BYTE *pSrc,BYTE *pOut, int nw,int nh,int interlace)
++{
++	BYTE *pVideoMem = pOut ;// g_pD1TempBuffer;
++	//	DWORD dwDstPitch = nw;
++	DWORD dwSrcPitch;
++	DWORD dwI,dwJ;
++	DWORD dwPacket;
++	BYTE *pSrc1  = (BYTE *)pSrc;
++	BYTE *pDstYUV = (BYTE *)pVideoMem;
++	BYTE *pNextLineSrc1;
++	BOOL bUVSel;
++
++	dwSrcPitch = nw*12/8;
++	dwPacket = dwSrcPitch/24;
++	pNextLineSrc1 = (BYTE *)pSrc1+dwSrcPitch;
++	if(interlace ==0)
++	{
++		for( dwI=0; dwI <nh; dwI++)
++		{
++			bUVSel = (dwI&0x1);
++			for( dwJ=0; dwJ<dwPacket; dwJ++)
++			{
++				//-----------y0 ~y3
++				pDstYUV[0] = pSrc1[0];
++				pDstYUV[2] = pSrc1[1];
++				pDstYUV[4] = pSrc1[2];
++				pDstYUV[6] = pSrc1[3];
++				//y4~y7
++				pDstYUV[8]  =  pSrc1[8];
++				pDstYUV[10] =  pSrc1[9];
++				pDstYUV[12] =  pSrc1[10];
++				pDstYUV[14] =  pSrc1[11];
++				//----y8~y11
++				pDstYUV[16]= pSrc1[12];
++				pDstYUV[18]= pSrc1[13];
++				pDstYUV[20] = pSrc1[14];
++				pDstYUV[22] = pSrc1[15];
++				//y12~y15
++				pDstYUV[24] =  pSrc1[20];
++				pDstYUV[26] =  pSrc1[21];
++				pDstYUV[28] =  pSrc1[22];
++				pDstYUV[30] =  pSrc1[23];
++
++				if(bUVSel)
++				{
++					pDstYUV[3] =pSrc1[4];
++					pDstYUV[7] =pSrc1[5];
++					pDstYUV[11] =pSrc1[6];
++					pDstYUV[15] =pSrc1[7];
++
++					pDstYUV[19] =pSrc1[16];
++					pDstYUV[23] =pSrc1[17];
++					pDstYUV[27] =pSrc1[18];
++					pDstYUV[31] =pSrc1[19];
++
++
++					pDstYUV[1] =pNextLineSrc1[4];
++					pDstYUV[5] =pNextLineSrc1[5];
++					pDstYUV[9] =pNextLineSrc1[6];
++					pDstYUV[13] =pNextLineSrc1[7];
++
++					pDstYUV[17] =pNextLineSrc1[16];
++					pDstYUV[21] =pNextLineSrc1[17];
++					pDstYUV[25] =pNextLineSrc1[18];
++					pDstYUV[29] =pNextLineSrc1[19];
++
++				}
++				else
++				{
++
++					pDstYUV[3]  = pNextLineSrc1[4];
++					pDstYUV[7]  = pNextLineSrc1[5];
++					pDstYUV[11]  = pNextLineSrc1[6];
++					pDstYUV[15] = pNextLineSrc1[7];
++
++					pDstYUV[19]  = pNextLineSrc1[16];
++					pDstYUV[23]  = pNextLineSrc1[17];
++					pDstYUV[27]  = pNextLineSrc1[18];
++					pDstYUV[31] =  pNextLineSrc1[19];
++
++
++					pDstYUV[1] =pSrc1[4];
++					pDstYUV[5] =pSrc1[5];
++					pDstYUV[9] =pSrc1[6];
++					pDstYUV[13] =pSrc1[7];
++
++					pDstYUV[17] =pSrc1[16];
++					pDstYUV[21] =pSrc1[17];
++					pDstYUV[25] =pSrc1[18];
++					pDstYUV[29] =pSrc1[19];
++
++				}
++
++				pSrc1+=24;
++				pNextLineSrc1 +=24;
++				pDstYUV+=32;
++
++			}
++		}
++		//--------------------------------
++		pDstYUV -= 1*nw*2;
++		for( dwI=0; dwI <1; dwI++)
++		{
++			for(  dwJ=0; dwJ<nw; dwJ++)
++			{
++				pDstYUV[0] = 0x10;
++				pDstYUV[1] = 0x80;
++				pDstYUV +=2;
++			}
++		}
++
++		//---------------------------------
++	}
++	else
++	{
++		for( dwI=0; dwI <(nh/2); dwI++)
++		{
++			bUVSel = (dwI&0x1);
++			for( dwJ=0; dwJ<dwPacket; dwJ++)
++			{
++				//-----------y0 ~y3
++				pDstYUV[0] = pSrc1[0];
++				pDstYUV[2] = pSrc1[1];
++				pDstYUV[4] = pSrc1[2];
++				pDstYUV[6] = pSrc1[3];
++				//y4~y7
++				pDstYUV[8]  =  pSrc1[8];
++				pDstYUV[10] =  pSrc1[9];
++				pDstYUV[12] =  pSrc1[10];
++				pDstYUV[14] =  pSrc1[11];
++				//----y8~y11
++				pDstYUV[16]= pSrc1[12];
++				pDstYUV[18]= pSrc1[13];
++				pDstYUV[20] = pSrc1[14];
++				pDstYUV[22] = pSrc1[15];
++				//y12~y15
++				pDstYUV[24] =  pSrc1[20];
++				pDstYUV[26] =  pSrc1[21];
++				pDstYUV[28] =  pSrc1[22];
++				pDstYUV[30] =  pSrc1[23];
++
++				if(bUVSel)
++				{
++					pDstYUV[3] =pSrc1[4];
++					pDstYUV[7] =pSrc1[5];
++					pDstYUV[11] =pSrc1[6];
++					pDstYUV[15] =pSrc1[7];
++
++					pDstYUV[19] =pSrc1[16];
++					pDstYUV[23] =pSrc1[17];
++					pDstYUV[27] =pSrc1[18];
++					pDstYUV[31] =pSrc1[19];
++
++
++					pDstYUV[1] =pNextLineSrc1[4];
++					pDstYUV[5] =pNextLineSrc1[5];
++					pDstYUV[9] =pNextLineSrc1[6];
++					pDstYUV[13] =pNextLineSrc1[7];
++
++					pDstYUV[17] =pNextLineSrc1[16];
++					pDstYUV[21] =pNextLineSrc1[17];
++					pDstYUV[25] =pNextLineSrc1[18];
++					pDstYUV[29] =pNextLineSrc1[19];
++
++				}
++				else
++				{
++
++					pDstYUV[3]  = pNextLineSrc1[4];
++					pDstYUV[7]  = pNextLineSrc1[5];
++					pDstYUV[11]  = pNextLineSrc1[6];
++					pDstYUV[15] = pNextLineSrc1[7];
++
++					pDstYUV[19]  = pNextLineSrc1[16];
++					pDstYUV[23]  = pNextLineSrc1[17];
++					pDstYUV[27]  = pNextLineSrc1[18];
++					pDstYUV[31] =  pNextLineSrc1[19];
++
++
++					pDstYUV[1] =pSrc1[4];
++					pDstYUV[5] =pSrc1[5];
++					pDstYUV[9] =pSrc1[6];
++					pDstYUV[13] =pSrc1[7];
++
++					pDstYUV[17] =pSrc1[16];
++					pDstYUV[21] =pSrc1[17];
++					pDstYUV[25] =pSrc1[18];
++					pDstYUV[29] =pSrc1[19];
++
++				}
++
++				pSrc1+=24;
++				pNextLineSrc1 +=24;
++				pDstYUV+=32;
++
++			}
++			//------------------------------
++			memcpy(pDstYUV,(pDstYUV-nw*2),nw*2);
++			pDstYUV = pDstYUV+ nw*2;
++			//-----------------------------------
++		}
++		//--------------------------------
++		pDstYUV -= 2*nw*2;
++		for( dwI=0; dwI <2; dwI++)
++		{
++			for(  dwJ=0; dwJ<nw; dwJ++)
++			{
++				pDstYUV[0] = 0x10;
++				pDstYUV[1] = 0x80;
++				pDstYUV +=2;
++			}
++		}
++		//---------------------------------
++
++	}
++
++}
+--- a/drivers/media/pci/hws/hws_convert.h
++++ b/drivers/media/pci/hws/hws_convert.h
+@@ -0,0 +1,16 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++#ifndef HWS_CONVERT_H
++#define HWS_CONVERT_H
++
++#include <linux/string.h>
++#include <linux/types.h>
++
++/* the vendor code's types */
++typedef u8 BYTE;
++typedef u32 DWORD;
++typedef u8 BOOL;
++
++void FillNV12ToYUY2(BYTE *pSrc, BYTE *pOut, int nw, int nh, int interlace);
++void FillYUU2(BYTE *pSrc, BYTE *pOut, int nw, int nh, int interlace);
++
++#endif
+--- a/drivers/media/pci/hws/hws_copy.c
++++ b/drivers/media/pci/hws/hws_copy.c
+@@ -0,0 +1,486 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copy capture path. The card writes frames only into coherent DMA buffers
++ * the driver owns, and the IRQ thread copies each half into a vb2 buffer as
++ * it lands. The layouts come from the vendor drivers:
++ *
++ * - UHD family: four quarters, one per DMA buffer (and one address window),
++ *   used in pairs: buffers 0 and 1 make the top half, 2 and 3 the bottom.
++ * - Other cards: two halves, one after the other in the channel's DMA buffer.
++ *
++ * Either way the audio ring sits at the end of the channel's buffer, so video
++ * and audio always share the address window the card reaches them through.
++ */
++#include <linux/dma-mapping.h>
++#include <linux/ktime.h>
++#include <linux/math64.h>
++#include <linux/minmax.h>
++#include <linux/string.h>
++#include <linux/vmalloc.h>
++
++#include <media/videobuf2-v4l2.h>
++#include <media/videobuf2-vmalloc.h>
++
++#include "hws.h"
++#include "hws_audio.h"
++#include "hws_convert.h"
++#include "hws_copy.h"
++#include "hws_reg.h"
++#include "hws_scale.h"
++
++#define HWS_DMA_BLOCK		2048
++#define HWS_UHD_DMA_SIZE	0x480000	/* holds a 4096x2160 quarter and the reset register 9 limit */
++/* The driver writes this after reading a half; the card overwrites it when it refreshes the half. */
++#define HWS_HALF_MARK		0x55AAAA55
++
++unsigned int hws_num_dma_bufs(const struct hws_pcie_dev *hws)
++{
++	return hws->uhd ? 4 : hws->cur_max_video_ch;
++}
++
++static bool hws_crosses_window(dma_addr_t dma, size_t size)
++{
++	return ((u64)dma >> 29) != (((u64)dma + size - 1) >> 29);
++}
++
++static void hws_copy_free_bufs(struct hws_pcie_dev *hws)
++{
++	unsigned int i;
++
++	for (i = 0; i < MAX_VID_CHANNELS; i++) {
++		if (!hws->scratch_vid[i].cpu)
++			continue;
++		dma_free_coherent(&hws->pdev->dev, hws->scratch_vid[i].size,
++				  hws->scratch_vid[i].cpu,
++				  hws->scratch_vid[i].dma);
++		hws->scratch_vid[i].cpu = NULL;
++		hws->scratch_vid[i].size = 0;
++	}
++}
++
++static int hws_copy_alloc_bufs(struct hws_pcie_dev *hws, size_t size)
++{
++	unsigned int i;
++
++	for (i = 0; i < hws_num_dma_bufs(hws); i++) {
++		dma_addr_t dma;
++		void *cpu;
++
++		cpu = dma_alloc_coherent(&hws->pdev->dev, size, &dma,
++					 GFP_KERNEL | __GFP_NOWARN);
++		if (!cpu) {
++			hws_copy_free_bufs(hws);
++			return -ENOMEM;
++		}
++		hws->scratch_vid[i].cpu = cpu;
++		hws->scratch_vid[i].dma = dma;
++		hws->scratch_vid[i].size = size;
++		/* the card reaches a buffer through one 512 MiB window */
++		if (hws_crosses_window(dma, size)) {
++			hws_copy_free_bufs(hws);
++			return -ENOMEM;
++		}
++	}
++	hws->dma_buf_sz = size;
++	return 0;
++}
++
++int hws_copy_alloc(struct hws_pcie_dev *hws)
++{
++	/* the converters write a line or two past the frame */
++	size_t frame = (size_t)hws->max_w * (hws->max_h + 4) * 2;
++	unsigned int ch;
++	int ret;
++
++	if (hws->uhd) {
++		/* Larger than MAX_PAGE_ORDER: it needs IOMMU translation or CMA. */
++		ret = hws_copy_alloc_bufs(hws, HWS_UHD_DMA_SIZE);
++		if (!ret) {
++			hws->input_w_limit = hws->hw_ver ? 4096 : 3840;
++		} else {
++			ret = hws_copy_alloc_bufs(hws, MAX_MM_VIDEO_SIZE);
++			if (ret)
++				return ret;
++			hws->input_w_limit = 3840;
++			dev_warn(&hws->pdev->dev,
++				 "4.5 MiB DMA buffers unavailable; 4096-wide input is captured at 3840\n");
++			if (!hws->hw_ver)
++				dev_warn(&hws->pdev->dev,
++					 "keep the IOMMU on to contain an over-long DMA run\n");
++		}
++	} else {
++		/*
++		 * Version-0 cards never get register 9 programmed, and its reset
++		 * limit (4.25 MiB) is past the end of a 4 MiB buffer.
++		 */
++		ret = hws->hw_ver ? -ENOMEM : hws_copy_alloc_bufs(hws, HWS_UHD_DMA_SIZE);
++		if (ret) {
++			ret = hws_copy_alloc_bufs(hws, MAX_MM_VIDEO_SIZE);
++			if (ret)
++				return ret;
++			if (!hws->hw_ver)
++				dev_warn(&hws->pdev->dev,
++					 "4.5 MiB DMA buffers unavailable; keep the IOMMU on to contain an over-long DMA run\n");
++		}
++		hws->input_w_limit = hws->max_w;
++	}
++
++	for (ch = 0; ch < hws->cur_max_video_ch; ch++) {
++		struct hws_video *v = &hws->video[ch];
++
++		v->staging = vzalloc(frame);
++		if (hws->support_yv12)
++			v->conv = vzalloc(frame);
++		if (!v->staging || (hws->support_yv12 && !v->conv)) {
++			hws_copy_free(hws);
++			return -ENOMEM;
++		}
++	}
++	return 0;
++}
++
++void hws_copy_free(struct hws_pcie_dev *hws)
++{
++	unsigned int ch;
++
++	for (ch = 0; ch < MAX_VID_CHANNELS; ch++) {
++		vfree(hws->video[ch].staging);
++		hws->video[ch].staging = NULL;
++		vfree(hws->video[ch].conv);
++		hws->video[ch].conv = NULL;
++	}
++	hws_copy_free_bufs(hws);
++}
++
++static u32 hws_frame_bytes(const struct hws_pcie_dev *hws, u32 w, u32 h)
++{
++	switch (hws->support_yv12) {
++	case 0:
++		return w * h * 2;
++	case 1:
++		return w * h * 12 / 8;
++	default:
++		return w * h * 5 / 4;
++	}
++}
++
++/*
++ * Register 9 caps a run the card makes past a quarter's length (after a mode
++ * change, with old lengths): it ends with one 2 KiB block at this limit, whose
++ * reset value is past the end of a 4 MiB buffer.
++ */
++static void hws_copy_set_dma_max(struct hws_video *v)
++{
++	struct hws_pcie_dev *hws = v->parent;
++	u32 cap = hws->dma_buf_sz - HWS_AUDIO_RING_SIZE - HWS_DMA_BLOCK;
++	u32 max = max(v->len[0], v->len[3]);
++
++	if (!hws->hw_ver)
++		return;
++	if (!max || max > cap)
++		max = cap;
++	writel(max / 16, hws->bar0_base + HWS_REG_DMA_MAX_SIZE);
++}
++
++/* Set the card's lengths for the input in v->in_*. A size that doesn't fit is never programmed. */
++int hws_copy_program(struct hws_video *v)
++{
++	struct hws_pcie_dev *hws = v->parent;
++	u32 room = hws->dma_buf_sz - HWS_AUDIO_RING_SIZE;
++	u32 frame = hws_frame_bytes(hws, v->in_w, v->in_h);
++	unsigned int ch = v->channel_index;
++	unsigned int i;
++
++	v->lens_ok = false;
++	if (!frame || !hws->dma_buf_sz)
++		return -EINVAL;
++	/* never a size the staging and conversion buffers weren't made for */
++	if (v->in_w > hws->input_w_limit ||
++	    (v->in_il ? v->in_h * 2 : v->in_h) > hws->max_h)
++		return -ERANGE;
++
++	if (hws->uhd) {
++		u32 q = frame / (4 * HWS_DMA_BLOCK) * HWS_DMA_BLOCK;
++		u32 last = ((frame - q * 3) / HWS_DMA_BLOCK + 1) * HWS_DMA_BLOCK;
++
++		if (q > room || last > room)
++			return -ERANGE;
++		v->len[0] = q;
++		v->len[1] = q;
++		v->len[2] = q;
++		v->len[3] = last;
++		for (i = 0; i < 4; i++)
++			writel(v->len[i] / 16, hws->bar0_base + CVBS_IN_BUF_BASE2 +
++			       i * PCIE_BARADDROFSIZE);
++		hws_copy_set_dma_max(v);
++	} else {
++		u32 hf = frame / (2 * HWS_DMA_BLOCK) * HWS_DMA_BLOCK;
++
++		if (frame > room)
++			return -ERANGE;
++		v->len[0] = hf;
++		v->len[1] = frame - hf;
++		writel(hf / 16, hws->bar0_base + CVBS_IN_BUF_BASE2 +
++		       ch * PCIE_BARADDROFSIZE);
++	}
++	(void)readl(hws->bar0_base + HWS_REG_INT_STATUS);
++	v->frame_bytes = frame;
++	v->lens_ok = true;
++	return 0;
++}
++
++/* After the buffer addresses are (re)written: the rest the card needs. */
++void hws_copy_seed_tail(struct hws_pcie_dev *hws)
++{
++	unsigned int ch;
++
++	if (!hws->copy_mode || !hws->dma_buf_sz)
++		return;
++	for (ch = 0; ch < hws->cur_max_video_ch; ch++) {
++		dma_addr_t ring = hws->scratch_vid[ch].dma + hws->dma_buf_sz -
++				  HWS_AUDIO_RING_SIZE;
++
++		hws_copy_program(&hws->video[ch]);
++		writel((ch + 1) * PCIEBAR_AXI_BASE +
++		       (lower_32_bits(ring) & PCI_E_BAR_ADD_LOWMASK),
++		       hws->bar0_base + CVBS_IN_BUF_BASE +
++		       (8 + ch) * PCIE_BARADDROFSIZE);
++	}
++	(void)readl(hws->bar0_base + HWS_REG_INT_STATUS);
++}
++
++int hws_copy_start(struct hws_video *v)
++{
++	v->top_done = false;
++	v->frame_late = false;
++	v->last_half_ts = 0;
++	v->half_gap = 0;
++	v->fps_start_ns = 0;
++	return hws_copy_program(v);
++}
++
++bool hws_hdcp_active(struct hws_pcie_dev *hws, unsigned int ch)
++{
++	u32 reg;
++
++	/* the register is new with FPGA version 122 on the other families */
++	if (!hws->uhd && !hws->hw_ver)
++		return false;
++	reg = readl(hws->bar0_base + HWS_REG_HDCP_STATUS);
++	return reg != 0xFFFFFFFF && (reg & BIT(ch));
++}
++
++static struct hwsvideo_buffer *hws_copy_take_buffer(struct hws_video *v)
++{
++	struct hwsvideo_buffer *buf;
++	unsigned long flags;
++
++	for (;;) {
++		buf = NULL;
++		spin_lock_irqsave(&v->irq_lock, flags);
++		if (v->active) {
++			buf = v->active;	/* kept from a frame that was lost */
++			spin_unlock_irqrestore(&v->irq_lock, flags);
++			return buf;
++		}
++		if (!list_empty(&v->capture_queue)) {
++			buf = list_first_entry(&v->capture_queue, struct hwsvideo_buffer, list);
++			list_del_init(&buf->list);
++			if (v->queued_count)
++				v->queued_count--;
++			/* queued for an earlier, smaller input: it can't take this frame */
++			if (vb2_plane_size(&buf->vb.vb2_buf, 0) >= v->pix.sizeimage)
++				v->active = buf;
++		}
++		spin_unlock_irqrestore(&v->irq_lock, flags);
++		if (!buf || v->active == buf)
++			return buf;
++		vb2_buffer_done(&buf->vb.vb2_buf, VB2_BUF_STATE_ERROR);
++	}
++}
++
++static void hws_copy_complete(struct hws_video *v, struct hwsvideo_buffer *buf,
++			      u64 ts, enum vb2_buffer_state state)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&v->irq_lock, flags);
++	v->active = NULL;
++	spin_unlock_irqrestore(&v->irq_lock, flags);
++
++	buf->vb.field = V4L2_FIELD_NONE;
++	buf->vb.sequence = (u32)atomic_inc_return(&v->sequence_number);
++	buf->vb.vb2_buf.timestamp = ts;
++	vb2_set_plane_payload(&buf->vb.vb2_buf, 0, v->pix.sizeimage);
++	vb2_buffer_done(&buf->vb.vb2_buf, state);
++}
++
++/* Turn the frame assembled in staging into the output YUYV frame. */
++static void hws_copy_render(struct hws_video *v, u8 *dst)
++{
++	struct hws_pcie_dev *hws = v->parent;
++	u32 w = v->in_w, h = v->in_h, y;
++	u32 disp_h = v->in_il ? h * 2 : h;
++	bool same = w == v->pix.width && disp_h == v->pix.height;
++
++	if (!hws->support_yv12) {
++		const u8 *src = v->staging;
++
++		if (!same) {
++			hws_scale_yuyv(src, w, h, disp_h, dst, v->pix.width, v->pix.height);
++			return;
++		}
++		for (y = 0; y < h; y++) {	/* interlaced: double each field's lines */
++			memcpy(dst + y * 2 * w * 2, src, w * 2);
++			memcpy(dst + (y * 2 + 1) * w * 2, src, w * 2);
++			src += w * 2;
++		}
++		return;
++	}
++	if (hws->support_yv12 == 1)
++		FillYUU2(v->staging, v->conv, w, disp_h, v->in_il);
++	else
++		FillNV12ToYUY2(v->staging, v->conv, w, disp_h, v->in_il);
++	if (same)
++		memcpy(dst, v->conv, v->pix.sizeimage);
++	else
++		hws_scale_yuyv(v->conv, w, disp_h, disp_h, dst, v->pix.width, v->pix.height);
++}
++
++/*
++ * One half of a frame has landed: @half is 1 for the top half, 0 for the bottom
++ * one, which ends the frame. The top half takes a buffer and the bottom one
++ * completes it with the frame-end time @ts. A half the card didn't refresh, or
++ * a bottom half without its top half, loses the frame, and the buffer waits for
++ * the next one. Runs in the IRQ thread, which stop paths flush with
++ * synchronize_irq() before they change anything this reads.
++ */
++void hws_copy_half(struct hws_video *v, int half, u64 ts)
++{
++	struct hws_pcie_dev *hws = v->parent;
++	unsigned int ch = v->channel_index;
++	/* otherwise the frame is assembled in staging, and hws_copy_render() makes it fit */
++	bool direct = !hws->support_yv12 && !v->in_il &&
++		      v->in_w == v->pix.width && v->in_h == v->pix.height;
++	u32 pitch = hws->support_yv12 == 1 ? v->in_w * 12 / 8 : v->in_w * 2;
++	u8 *src[2] = { NULL, NULL };
++	u32 n[2] = { 0, 0 };
++	struct hwsvideo_buffer *buf;
++	unsigned long flags;
++	u32 *mark;
++	u8 *dst;
++	u32 markoff, marklen;
++
++	if (!READ_ONCE(v->cap_active) || !v->lens_ok || !pitch)
++		return;
++
++	if (hws->uhd) {
++		unsigned int b = half ? 0 : 2;
++
++		src[0] = hws->scratch_vid[b].cpu;
++		src[1] = hws->scratch_vid[b + 1].cpu;
++		n[0] = v->len[b];
++		n[1] = v->len[b + 1];
++		marklen = n[1];
++		if (marklen / pitch < 2)
++			return;
++		markoff = marklen - (marklen / pitch - 1) * pitch;
++		mark = (u32 *)(src[1] + markoff);
++	} else {
++		src[0] = (u8 *)hws->scratch_vid[ch].cpu + (half ? 0 : v->len[0]);
++		n[0] = half ? v->len[0] : v->len[1];
++		marklen = n[0];
++		if (marklen / pitch < 3)
++			return;
++		markoff = marklen - (marklen / pitch - 2) * pitch;
++		mark = (u32 *)(src[0] + markoff);
++	}
++
++	/* a half is safe to copy until the card starts the next frame's run into it */
++	v->half_gap = v->last_half_ts && ts > v->last_half_ts ? ts - v->last_half_ts : 0;
++	v->last_half_ts = ts;
++
++	dma_rmb();	/* coherent memory: no sync call, but order the reads after the interrupt */
++	if (READ_ONCE(*mark) == HWS_HALF_MARK) {
++		if (v->top_done) {
++			v->top_done = false;
++			v->frames_lost++;
++			atomic_inc(&v->sequence_number);
++		}
++		return;
++	}
++
++	if (half) {
++		if (v->top_done) {	/* the previous frame's bottom half never came */
++			v->frames_lost++;
++			atomic_inc(&v->sequence_number);
++		}
++		v->frame_hdcp = hws_hdcp_active(hws, ch);
++		buf = hws_copy_take_buffer(v);
++		v->top_bytes = n[0] + n[1];
++		if (buf && !v->frame_hdcp && v->top_bytes <= v->frame_bytes) {
++			dst = direct ? vb2_plane_vaddr(&buf->vb.vb2_buf, 0) : v->staging;
++			if (dst) {
++				memcpy(dst, src[0], n[0]);
++				if (n[1])
++					memcpy(dst + n[0], src[1], n[1]);
++			}
++		}
++		v->top_done = true;
++		v->frame_late = v->half_gap && ktime_get_ns() - ts > v->half_gap;
++	} else if (!v->top_done) {
++		v->frames_lost++;
++		atomic_inc(&v->sequence_number);
++	} else {
++		enum vb2_buffer_state state = VB2_BUF_STATE_DONE;
++		u32 rest = v->frame_bytes - min(v->top_bytes, v->frame_bytes);
++		u32 c0 = min(n[0], rest);
++		u32 c1 = min(n[1], rest - c0);
++		bool hdcp = v->frame_hdcp || hws_hdcp_active(hws, ch);
++		void *out;
++
++		v->top_done = false;
++		/* version-0 cards have no frame-rate register: measure it */
++		if (!v->fps_start_ns) {
++			v->fps_start_ns = ts;
++			v->frames_counted = 0;
++		} else if (++v->frames_counted, ts - v->fps_start_ns >= NSEC_PER_SEC) {
++			if (!hws->hw_ver)
++				WRITE_ONCE(v->current_fps,
++					   (u32)div64_u64((u64)v->frames_counted * NSEC_PER_SEC +
++							  (ts - v->fps_start_ns) / 2,
++							  ts - v->fps_start_ns));
++			v->fps_start_ns = ts;
++			v->frames_counted = 0;
++		}
++		spin_lock_irqsave(&v->irq_lock, flags);
++		buf = v->active;
++		spin_unlock_irqrestore(&v->irq_lock, flags);
++		if (!buf) {
++			atomic_inc(&v->sequence_number);
++			goto out;
++		}
++		out = vb2_plane_vaddr(&buf->vb.vb2_buf, 0);
++		if (!out || vb2_plane_size(&buf->vb.vb2_buf, 0) < v->pix.sizeimage) {
++			state = VB2_BUF_STATE_ERROR;
++		} else if (hdcp) {
++			/* like the vendor's Windows driver, never pass on protected video */
++			memset32(out, HWS_BLACK_YUYV, v->pix.sizeimage / 4);
++		} else {
++			dst = (direct ? (u8 *)out : (u8 *)v->staging) + v->top_bytes;
++			memcpy(dst, src[0], c0);
++			if (c1)
++				memcpy(dst + c0, src[1], c1);
++			if (v->frame_late || (v->half_gap && ktime_get_ns() - ts > v->half_gap)) {
++				/* the card may have started overwriting what was copied */
++				v->late_copies++;
++				state = VB2_BUF_STATE_ERROR;
++			} else if (!direct) {
++				hws_copy_render(v, out);
++			}
++		}
++		hws_copy_complete(v, buf, ts, state);
++	}
++out:
++	*mark = HWS_HALF_MARK;
++}
+--- a/drivers/media/pci/hws/hws_copy.h
++++ b/drivers/media/pci/hws/hws_copy.h
+@@ -0,0 +1,22 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++#ifndef HWS_COPY_H
++#define HWS_COPY_H
++
++#include <linux/types.h>
++
++/* Black in the YUYV the cards deliver, as bytes Y U Y V. */
++#define HWS_BLACK_YUYV		0x80108010
++
++struct hws_pcie_dev;
++struct hws_video;
++
++unsigned int hws_num_dma_bufs(const struct hws_pcie_dev *hws);
++int hws_copy_alloc(struct hws_pcie_dev *hws);
++void hws_copy_free(struct hws_pcie_dev *hws);
++int hws_copy_program(struct hws_video *v);
++void hws_copy_seed_tail(struct hws_pcie_dev *hws);
++int hws_copy_start(struct hws_video *v);
++void hws_copy_half(struct hws_video *v, int half, u64 ts);
++bool hws_hdcp_active(struct hws_pcie_dev *hws, unsigned int ch);
++
++#endif
+--- a/drivers/media/pci/hws/hws.h
++++ b/drivers/media/pci/hws/hws.h
+@@ -11,6 +11,8 @@
+ #include <linux/spinlock.h>
+ #include <linux/sizes.h>
+ #include <linux/atomic.h>
++#include <linux/kfifo.h>
++#include <linux/workqueue.h>
+ 
+ #include <media/v4l2-ctrls.h>
+ #include <media/v4l2-device.h>
+@@ -107,6 +109,50 @@
+ 
+ 	/* Misc counters */
+ 	int signal_loss_cnt;
++
++	/* Copy capture path, see hws_copy.c. The IRQ thread reads these. */
++	u32 in_w, in_h;		/* the input; a field's height if interlaced */
++	bool in_il;
++	bool lens_ok;		/* len[] fits the DMA buffers and is programmed */
++	bool input_bad;		/* the input is a size the card can't deliver */
++	u8 bad_polls;		/* polls in a row that it has looked that way */
++	u32 len[4];		/* bytes per quarter, or per half in len[0..1] */
++	u32 frame_bytes;	/* one captured frame, as the card lays it out */
++	u32 top_bytes;		/* copied at the top half */
++	bool top_done;
++	bool frame_hdcp;
++	bool frame_late;
++	u64 last_half_ts;
++	u64 half_gap;		/* time between the last two halves */
++	void *staging;		/* a frame that needs converting or line-doubling */
++	void *conv;		/* the conversion's output */
++	u32 frames_lost;
++	u32 late_copies;
++	u32 frames_counted;	/* for version-0 cards' software frame rate */
++	u64 fps_start_ns;
++};
++
++/* One half of a frame or one audio packet, from the hard IRQ to the IRQ thread. */
++struct hws_event {
++	u64 ts;
++	u8 ch;
++	u8 val;		/* the toggle register */
++	bool audio;
++};
++
++struct hws_audio {
++	struct hws_pcie_dev *hws;
++	struct snd_card *card;
++	struct snd_pcm *pcm;
++	struct snd_pcm_substream *substream;
++	unsigned int ch;
++	spinlock_t lock;	/* Protects the stream position and substream. */
++	u32 wpos, ring_frames, period_frames, period_used;
++	bool running;
++	u8 skip;		/* stale packets still to drop */
++	u64 last_pkt_ns;
++	u64 silence_frames;
++	struct delayed_work silence;
+ };
+ 
+ static inline void hws_set_current_dv_timings(struct hws_video *vid,
+@@ -136,6 +182,22 @@
+ 	/* Core objects */
+ 	struct pci_dev *pdev;
+ 	struct hws_video video[MAX_VID_CHANNELS];
++	struct hws_audio audio[MAX_VID_CHANNELS];
++
++	const char *model;	/* make and model, or the family if unknown */
++	const char *alsa_id;	/* start of its sound cards' ALSA ids */
++
++	/* Which capture path and limits this card uses, see read_chip_id(). */
++	bool uhd;		/* four DMA quarters, up to 4096x2160 */
++	bool no_audio;		/* the card has none */
++	bool copy_mode;		/* see hws_copy.c; otherwise DMA into vb2 buffers */
++	bool has_audio;
++	u32 max_w, max_h;
++	u32 input_w_limit;	/* wider input is captured this wide */
++	size_t dma_buf_sz;	/* copy path: each of scratch_vid */
++	DECLARE_KFIFO(events, struct hws_event, 64);
++	spinlock_t audio_en_lock;	/* Protects HWS_REG_ACAP_ENABLE. */
++	struct workqueue_struct *auwq;
+ 
+ 	/* BAR and workqueues */
+ 	void __iomem *bar0_base;
+@@ -170,4 +232,7 @@
+ 	int pci_lost;
+ };
+ 
++void hws_input_label(const struct hws_pcie_dev *hws, unsigned int ch,
++		     char *buf, size_t size);
++
+ #endif
+--- a/drivers/media/pci/hws/hws_irq.c
++++ b/drivers/media/pci/hws/hws_irq.c
+@@ -13,6 +13,8 @@
+ #include "hws_reg.h"
+ #include "hws_video.h"
+ #include "hws.h"
++#include "hws_audio.h"
++#include "hws_copy.h"
+ 
+ #define MAX_INT_LOOPS 100
+ 
+@@ -186,9 +188,38 @@
+ 	/* On success the engine now points at v->active's DMA address */
+ }
+ 
++irqreturn_t hws_irq_thread(int irq, void *info)
++{
++	struct hws_pcie_dev *pdx = info;
++	struct hws_event ev;
++
++	while (kfifo_get(&pdx->events, &ev)) {
++		if (ev.ch >= pdx->cur_max_video_ch)
++			continue;
++		if (ev.audio)
++			hws_audio_packet(pdx, ev.ch, ev.val);
++		else
++			hws_copy_half(&pdx->video[ev.ch], ev.val, ev.ts);
++	}
++	return IRQ_HANDLED;
++}
++
++/* Hand one interrupt's work to the IRQ thread. A full queue means it's far behind. */
++static void hws_irq_queue(struct hws_pcie_dev *pdx, unsigned int ch, u8 val,
++			  bool audio, bool *wake)
++{
++	struct hws_event ev = {
++		.ts = ktime_get_ns(), .ch = ch, .val = val, .audio = audio,
++	};
++
++	if (kfifo_put(&pdx->events, ev))
++		*wake = true;
++}
++
+ irqreturn_t hws_irq_handler(int irq, void *info)
+ {
+ 	struct hws_pcie_dev *pdx = info;
++	bool wake = false;
+ 	u32 int_state;
+ 
+ 	dev_dbg(&pdx->pdev->dev, "irq: entry\n");
+@@ -225,7 +256,17 @@
+ 			if (!(int_state & vbit))
+ 				continue;
+ 
+-			if (READ_ONCE(pdx->video[ch].cap_active) &&
++			if (pdx->copy_mode) {
++				struct hws_video *v = &pdx->video[ch];
++				u8 toggle = readl_relaxed(pdx->bar0_base +
++							  HWS_REG_VBUF_TOGGLE(ch)) & 0x01;
++
++				/* always sample it: a change is one half done */
++				if (READ_ONCE(v->cap_active) &&
++				    toggle != READ_ONCE(v->last_buf_half_toggle))
++					hws_irq_queue(pdx, ch, toggle, false, &wake);
++				WRITE_ONCE(v->last_buf_half_toggle, toggle);
++			} else if (READ_ONCE(pdx->video[ch].cap_active) &&
+ 			    !READ_ONCE(pdx->video[ch].stop_requested)) {
+ 				if (hws_toggle_debug) {
+ 					u32 toggle =
+@@ -254,6 +295,35 @@
+ 			(void)readl_relaxed(pdx->bar0_base + HWS_REG_INT_STATUS);
+ 		}
+ 
++		if (pdx->has_audio) {
++			for (unsigned int ch = 0; ch < pdx->cur_max_video_ch; ++ch) {
++				u32 abit = HWS_INT_ADONE_BIT(ch);
++
++				if (!(int_state & abit))
++					continue;
++				hws_irq_queue(pdx, ch,
++					      readl_relaxed(pdx->bar0_base +
++							    HWS_REG_ABUF_TOGGLE(ch)) & 0x01,
++					      true, &wake);
++			}
++		}
++
++		/*
++		 * The video bits are acknowledged above. Acknowledge the rest too:
++		 * every source is enabled, and an unacknowledged one (line-in audio
++		 * is bit 12 on some models) would keep this loop busy.
++		 */
++		{
++			u32 others = int_state & 0x00ffffff;
++
++			for (unsigned int ch = 0; ch < pdx->cur_max_video_ch; ++ch)
++				others &= ~HWS_INT_VDONE_BIT(ch);
++			if (others) {
++				writel(others, pdx->bar0_base + HWS_REG_INT_STATUS);
++				(void)readl_relaxed(pdx->bar0_base + HWS_REG_INT_STATUS);
++			}
++		}
++
+ 		/* Re-read in case new interrupt bits popped while processing */
+ 		int_state = readl_relaxed(pdx->bar0_base + HWS_REG_INT_STATUS);
+ 		dev_dbg(&pdx->pdev->dev,
+@@ -265,5 +335,5 @@
+ 					     int_state);
+ 	}
+ 
+-	return IRQ_HANDLED;
++	return wake ? IRQ_WAKE_THREAD : IRQ_HANDLED;
+ }
+--- a/drivers/media/pci/hws/hws_irq.h
++++ b/drivers/media/pci/hws/hws_irq.h
+@@ -6,5 +6,6 @@
+ #include "hws.h"
+ 
+ irqreturn_t hws_irq_handler(int irq, void *info);
++irqreturn_t hws_irq_thread(int irq, void *info);
+ 
+ #endif /* HWS_INTERRUPT_H */
+--- a/drivers/media/pci/hws/hws_pci.c
++++ b/drivers/media/pci/hws/hws_pci.c
+@@ -22,8 +22,18 @@
+ #include "hws_video.h"
+ #include "hws_irq.h"
+ #include "hws_v4l2_ioctl.h"
++#include "hws_copy.h"
++#include "hws_audio.h"
+ 
+ #define DRV_NAME "hws"
++
++#define HWS_F_UHD	BIT(0)	/* four DMA quarters, up to 4096x2160 */
++#define HWS_F_NO_AUDIO	BIT(1)
++
++static bool direct_dma;
++module_param(direct_dma, bool, 0444);
++MODULE_PARM_DESC(direct_dma,
++		 "DMA straight into capture buffers, without audio; for 1080p cards in YUYV only (default off)");
+ #define HWS_BUSY_POLL_DELAY_US 10
+ #define HWS_BUSY_POLL_TIMEOUT_US 1000000
+ 
+@@ -52,7 +62,7 @@
+  * The subsystem IDs are fixed at 0x8888:0x0007 for this family. Some boards
+  * enumerate with vendor ID 0x8888 or 0x1f33. Exact SKU names are not fully
+  * pinned down yet; update these comments when vendor documentation or INF
+- * strings are available.
++ * strings are available. hws_identify_model() names the ones that are known.
+  */
+ static const struct pci_device_id hws_pci_table[] = {
+ 	/* HWS family, SKU unknown. */
+@@ -85,12 +95,56 @@
+ 	MAKE_ENTRY(0x8888, 0x8521, 0x8888, 0x0007, NULL),
+ 
+ 	/* HWS AHD analog camera family (note the subsystem ID). */
+-	MAKE_ENTRY(0x8888, 0x5504, 0x8888, 0x0008, NULL),
+-	MAKE_ENTRY(0x8888, 0x5502, 0x8888, 0x0008, NULL),
++	MAKE_ENTRY(0x8888, 0x5504, 0x8888, 0x0008, HWS_F_NO_AUDIO),
++	MAKE_ENTRY(0x8888, 0x5502, 0x8888, 0x0008, HWS_F_NO_AUDIO),
++
++	/* HWS single-input 4K family (AVMatrix VC12-4K and others). */
++	MAKE_ENTRY(0x8888, 0x8581, 0x8888, 0x0007, HWS_F_UHD),
++	MAKE_ENTRY(0x8888, 0x85A1, 0x8888, 0x0007, HWS_F_UHD),
++	MAKE_ENTRY(0x1F33, 0x8581, 0x8888, 0x0007, HWS_F_UHD),
++	MAKE_ENTRY(0x8888, 0x8591, 0x8888, 0x0007, HWS_F_UHD),
+ 
+ 	{}
+ };
+ 
++/*
++ * The names the PCI ID database gives these IDs. Nothing on the card tells its
++ * vendor apart (same subsystem ID, no VPD, zero serial number), so any other
++ * company's board using one of these IDs shows this name too. Other IDs get
++ * their family's name rather than a guess.
++ */
++static void hws_identify_model(struct hws_pcie_dev *hws)
++{
++	struct pci_dev *pdev = hws->pdev;
++
++	if (pdev->vendor == 0x8888 && pdev->device == 0x8581) {
++		hws->model = "AVMatrix VC12-4K";
++		hws->alsa_id = "VC12";
++	} else if (pdev->vendor == 0x8888 && pdev->device == 0x8504) {
++		hws->model = "AVMatrix VC42";
++		hws->alsa_id = "VC42";
++	} else if (hws->uhd) {
++		hws->model = "HWS 4K Capture";
++		hws->alsa_id = "HWS4K";
++	} else if (hws->no_audio) {
++		hws->model = "HWS AHD Capture";
++		hws->alsa_id = "HWSAHD";
++	} else {
++		hws->model = "HWS Capture";
++		hws->alsa_id = "HWS";
++	}
++}
++
++/* What one input is called in V4L2 and ALSA. Every name fits 26 bytes. */
++void hws_input_label(const struct hws_pcie_dev *hws, unsigned int ch,
++		     char *buf, size_t size)
++{
++	if (hws->cur_max_video_ch > 1)
++		snprintf(buf, size, "%s Input %u", hws->model, ch + 1);
++	else
++		snprintf(buf, size, "%s", hws->model);
++}
++
+ static void enable_pcie_relaxed_ordering(struct pci_dev *dev)
+ {
+ 	pcie_capability_set_word(dev, PCI_EXP_DEVCTL, PCI_EXP_DEVCTL_RELAX_EN);
+@@ -100,6 +154,18 @@
+ {
+ 	u16 id = hdev->device_id;
+ 
++	if (hdev->uhd) {
++		/* Register 9 follows the input, see hws_copy_set_dma_max(). */
++		hdev->cur_max_video_ch = 1;
++		hdev->hw_ver = hdev->device_ver > 121;
++		hdev->max_w = MAX_VIDEO_UHD_W;
++		hdev->max_h = MAX_VIDEO_UHD_H;
++		hdev->max_hw_video_buf_sz = MAX_VIDEO_UHD_W * MAX_VIDEO_UHD_H * 2;
++		return;
++	}
++	hdev->max_w = MAX_VIDEO_HW_W;
++	hdev->max_h = MAX_VIDEO_HW_H;
++
+ 	/* select per-chip channel counts */
+ 	switch (id) {
+ 	case 0x9534:
+@@ -202,7 +268,6 @@
+ 	hdev->max_hw_video_buf_sz = MAX_MM_VIDEO_SIZE;
+ 	hdev->max_channels = 4;
+ 	hdev->buf_allocated = false;
+-	hdev->main_task = NULL;
+ 	hdev->start_run = false;
+ 	hdev->pci_lost = 0;
+ 
+@@ -211,6 +276,16 @@
+ 
+ 	hws_configure_hardware_capabilities(hdev);
+ 
++	/*
++	 * Copying is the only way for these: the 4K family's quarters need the
++	 * address windows to stay put, YV12/NV12 needs converting, and the audio
++	 * ring shares its window with video.
++	 */
++	if (hdev->uhd)
++		hdev->support_yv12 = 0;	/* always YUYV: both vendor drivers ignore this */
++	hdev->copy_mode = hdev->uhd || hdev->support_yv12 || !direct_dma;
++	hdev->has_audio = hdev->copy_mode && !hdev->no_audio;
++
+ 	dev_info(&hdev->pdev->dev,
+ 		 "chip detected: ver=%u subver=%u port=%u yv12=%u\n",
+ 		 hdev->device_ver, hdev->sub_ver, hdev->port_id,
+@@ -275,6 +350,9 @@
+ 	/* 64 KiB is plenty for a safe dummy; hardware needs 64-byte alignment. */
+ 	const size_t need = ALIGN(64 * 1024, 64);
+ 
++	if (hws->copy_mode)
++		return hws_copy_alloc(hws);
++
+ 	for (ch = 0; ch < hws->cur_max_video_ch; ch++) {
+ #if defined(CONFIG_HAS_DMA) /* normal on PCIe platforms */
+ 		void *cpu = dma_alloc_coherent(&hws->pdev->dev, need,
+@@ -308,6 +386,11 @@
+ {
+ 	int ch;
+ 
++	if (hws->copy_mode) {
++		hws_copy_free(hws);
++		return;
++	}
++
+ 	for (ch = 0; ch < hws->cur_max_video_ch; ch++) {
+ 		if (hws->scratch_vid[ch].cpu) {
+ 			dma_free_coherent(&hws->pdev->dev,
+@@ -359,10 +442,11 @@
+ {
+ 	int ch;
+ 
+-	for (ch = 0; ch < hws->cur_max_video_ch; ch++) {
++	for (ch = 0; ch < hws_num_dma_bufs(hws); ch++) {
+ 		if (hws->scratch_vid[ch].cpu)
+ 			hws_seed_channel(hws, ch);
+ 	}
++	hws_copy_seed_tail(hws);
+ }
+ 
+ static void hws_irq_mask_gate(struct hws_pcie_dev *hws)
+@@ -413,6 +497,10 @@
+ 		return -ENOMEM;
+ 
+ 	hws->pdev = pdev;
++	hws->uhd = pci_id->driver_data & HWS_F_UHD;
++	hws->no_audio = pci_id->driver_data & HWS_F_NO_AUDIO;
++	hws_identify_model(hws);
++	INIT_KFIFO(hws->events);
+ 	hws->irq = -1;
+ 	hws->suspended = false;
+ 	pci_set_drvdata(pdev, hws);
+@@ -465,18 +553,38 @@
+ 
+ 	/* 6) Allocate scratch DMA and seed BAR table + channel base/half (legacy SetDMAAddress) */
+ 	ret = hws_alloc_seed_buffers(hws);
+-	if (!ret)
++	if (!ret) {
+ 		hws_seed_all_channels(hws);
++	} else if (hws->copy_mode) {
++		dev_err(&pdev->dev, "can't allocate the DMA buffers\n");
++		goto err_unwind_channels;
++	}
+ 
+-	/* 7) Start-run sequence. */
++	/* 7) Start-run sequence. The copy path's addresses must be set before it. */
++	if (hws->copy_mode)
++		hws->start_run = false;
+ 	hws_init_video_sys(hws, false);
+ 
+-	/* A) Force legacy INTx; legacy used request_irq(pdev->irq, ..., IRQF_SHARED) */
+-	pci_intx(pdev, 1);
+-	irqf = IRQF_SHARED;
+-	irq = pdev->irq;
++	/*
++	 * A) MSI, as the vendor drivers use. With INTx, a VC12-4K and a VC42 (both
++	 * FPGA 121) raised no interrupts at all while capturing. INTx remains the
++	 * fallback.
++	 */
++	ret = pci_alloc_irq_vectors(pdev, 1, 1, PCI_IRQ_MSI | PCI_IRQ_INTX);
++	if (ret < 0) {
++		dev_err(&pdev->dev, "no usable interrupt: %d\n", ret);
++		goto err_unwind_channels;
++	}
++	if (pdev->msi_enabled) {
++		irqf = 0;
++	} else {
++		pci_intx(pdev, 1);
++		irqf = IRQF_SHARED;
++	}
++	irq = pci_irq_vector(pdev, 0);
+ 	hws->irq = irq;
+-	dev_info(&pdev->dev, "IRQ mode: legacy INTx (shared), irq=%d\n", irq);
++	dev_info(&pdev->dev, "IRQ mode: %s, irq=%d\n",
++		 pdev->msi_enabled ? "MSI" : "legacy INTx (shared)", irq);
+ 
+ 	/* B) Mask the device's global/bridge gate (INT_EN_REG_BASE) */
+ 	hws_irq_mask_gate(hws);
+@@ -485,8 +593,9 @@
+ 	hws_irq_clear_pending(hws);
+ 
+ 	/* D) Request the legacy shared interrupt line (no vectors/MSI/MSI-X) */
+-	ret = devm_request_irq(&pdev->dev, irq, hws_irq_handler, irqf,
+-			       dev_name(&pdev->dev), hws);
++	ret = devm_request_threaded_irq(&pdev->dev, irq, hws_irq_handler,
++					hws_irq_thread, irqf,
++					dev_name(&pdev->dev), hws);
+ 	if (ret) {
+ 		dev_err(&pdev->dev, "request_irq(%d) failed: %d\n", irq, ret);
+ 		goto err_unwind_channels;
+@@ -515,6 +624,14 @@
+ 	}
+ 	v4l2_registered = true;
+ 
++	if (hws->has_audio) {
++		ret = hws_audio_register(hws);
++		if (ret) {
++			dev_warn(&pdev->dev, "no audio: can't register sound cards: %d\n", ret);
++			hws->has_audio = false;
++		}
++	}
++
+ 	/* 12) Background monitor thread (managed) */
+ 	hws->main_task = kthread_run(main_ks_thread_handle, hws, "hws-mon");
+ 	if (IS_ERR(hws->main_task)) {
+@@ -534,6 +651,8 @@
+ 	return 0;
+ 
+ err_unregister_va:
++	if (hws->has_audio)
++		hws_audio_unregister(hws);
+ 	hws_stop_device(hws);
+ 	hws_video_unregister(hws);
+ 	hws_free_seed_buffers(hws);
+@@ -611,6 +730,8 @@
+ 
+ 	/* Mask device enables: no new DMA starts. */
+ 	writel(0x0, hws->bar0_base + HWS_REG_VCAP_ENABLE);
++	if (hws->has_audio)
++		writel(0x0, hws->bar0_base + HWS_REG_ACAP_ENABLE);
+ 	(void)readl(hws->bar0_base + HWS_REG_INT_STATUS); /* flush */
+ 
+ 	/* Let any in-flight DMAs finish (best-effort). */
+@@ -618,7 +739,7 @@
+ 
+ 	/* Ack any latched VDONE. */
+ 	for (i = 0; i < hws->cur_max_video_ch; ++i)
+-		ackmask |= HWS_INT_VDONE_BIT(i);
++		ackmask |= HWS_INT_VDONE_BIT(i) | HWS_INT_ADONE_BIT(i);
+ 	if (ackmask) {
+ 		writel(ackmask, hws->bar0_base + HWS_REG_INT_STATUS);
+ 		(void)readl(hws->bar0_base + HWS_REG_INT_STATUS);
+@@ -722,6 +843,10 @@
+ 	hws_block_hotpaths(hws);
+ 	hws_stop_kthread_action(hws);
+ 
++	/* Audio first: closing a stream still touches the card. */
++	if (hws->has_audio)
++		hws_audio_unregister(hws);
++
+ 	/* Stop hardware and capture cleanly. */
+ 	hws_stop_device(hws);
+ 
+@@ -746,6 +871,8 @@
+ 	u64 step_ns;
+ 
+ 	dev_info(dev, "lifecycle:pm_suspend begin\n");
++	if (hws->has_audio)
++		hws_audio_suspend(hws);
+ 	vret = hws_quiesce_for_transition(hws, "pm_suspend", false);
+ 
+ 	step_ns = ktime_get_mono_fast_ns();
+@@ -810,6 +937,8 @@
+ 	/* vb2: nothing mandatory; userspace will STREAMON again when ready */
+ 	step_ns = ktime_get_mono_fast_ns();
+ 	hws_video_pm_resume(hws);
++	if (hws->has_audio)
++		hws_audio_resume(hws);
+ 	dev_dbg(dev, "lifecycle:pm_resume:video-resume (%lluus)\n",
+ 		hws_elapsed_us(step_ns));
+ 	hws_log_lifecycle_snapshot(hws, "pm_resume", "end");
+@@ -875,5 +1004,6 @@
+ MODULE_DESCRIPTION(DRV_NAME);
+ MODULE_AUTHOR("Ben Hoff <hoff.benjamin.k@gmail.com>");
+ MODULE_AUTHOR("Sales <sales@avmatrix.com>");
++MODULE_AUTHOR("Alex Liu <alex.liu@longtimetech.com>");
+ MODULE_LICENSE("GPL");
+ MODULE_IMPORT_NS("DMA_BUF");
+--- a/drivers/media/pci/hws/hws_reg.h
++++ b/drivers/media/pci/hws/hws_reg.h
+@@ -39,6 +39,8 @@
+ 
+ #define MAX_VIDEO_HW_W 1920
+ #define MAX_VIDEO_HW_H 1080
++#define MAX_VIDEO_UHD_W 4096
++#define MAX_VIDEO_UHD_H 2160
+ #define MAX_VIDEO_SCALER_SIZE     (1920U * 1080U * 2U)
+ 
+ #define MIN_VAMP_BRIGHTNESS_UNITS   0
+@@ -82,6 +84,8 @@
+ /* Capture enable switches. */
+ /* bit0-3: CH0-CH3 video enable */
+ #define HWS_REG_VCAP_ENABLE           (CVBS_IN_BASE +  2 * PCIE_BARADDROFSIZE)
++/* bit0-3: CH0-CH3 audio enable */
++#define HWS_REG_ACAP_ENABLE           (CVBS_IN_BASE +  3 * PCIE_BARADDROFSIZE)
+ /* bits0-3: signal present, bits8-11: interlace */
+ #define HWS_REG_ACTIVE_STATUS          (CVBS_IN_BASE +  5  * PCIE_BARADDROFSIZE)
+ /* bits0-3: HDCP detected */
+@@ -104,6 +108,10 @@
+ /* Per-interrupt bits (video 0-3). */
+ #define HWS_INT_VDONE_BIT(ch)     BIT(ch)         /* 0x01,0x02,0x04,0x08  */
+ 
++/* Per-interrupt bits (audio 0-3), and which packet the card is filling. */
++#define HWS_INT_ADONE_BIT(ch)     BIT(8 + (ch))
++#define HWS_REG_ABUF_TOGGLE(ch)   (CVBS_IN_BASE + (40 + (ch)) * PCIE_BARADDROFSIZE)
++
+ #define HWS_REG_INT_ACK           (CVBS_IN_BASE + 0x4000 + 1 * PCIE_BARADDROFSIZE)
+ 
+ /* 16-bit W | 16-bit H. */
+--- a/drivers/media/pci/hws/hws_scale.c
++++ b/drivers/media/pci/hws/hws_scale.c
+@@ -0,0 +1,75 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Keeps a capture running when the source changes mode: the program's buffers
++ * keep the size it started with, and each frame is fitted to them. Nearest pixel,
++ * keeping the shape, with black bars. A program that restarts capture gets the
++ * input's own size and never comes through here.
++ */
++#include "hws_scale.h"
++
++#define HWS_BARS_Y	0x00	/* the cards deliver full-range video */
++#define HWS_BARS_C	0x80
++
++/*
++ * Fit the @sw x @sh YUYV frame into @dw x @dh. @disp_h is the height it shows at,
++ * which is twice @sh for an interlaced field. All sizes must be even and non-zero.
++ */
++void hws_scale_yuyv(const u8 *src, u32 sw, u32 sh, u32 disp_h,
++		    u8 *dst, u32 dw, u32 dh)
++{
++	u32 rw = dw, rh = (u32)((u64)dw * disp_h / sw);
++	u32 x0, y0, x, y, xstep, ystep, ypos = 0;
++
++	if (rh > dh) {
++		rh = dh;
++		rw = (u32)((u64)dh * sw / disp_h);
++	}
++	rw &= ~1U;
++	if (!rw)
++		rw = 2;
++	if (!rh)
++		rh = 1;
++	x0 = ((dw - rw) / 2) & ~1U;
++	y0 = (dh - rh) / 2;
++	/* 16.16 fixed point; the largest sizes here are 4096 and 2160 */
++	xstep = (sw << 16) / rw;
++	ystep = (sh << 16) / rh;
++
++	for (y = 0; y < dh; y++) {
++		u8 *d = dst + (u64)y * dw * 2;
++
++		if (y < y0 || y >= y0 + rh) {
++			for (x = 0; x < dw; x++) {
++				*d++ = HWS_BARS_Y;
++				*d++ = HWS_BARS_C;
++			}
++			continue;
++		}
++		for (x = 0; x < x0; x++) {
++			*d++ = HWS_BARS_Y;
++			*d++ = HWS_BARS_C;
++		}
++		{
++			const u8 *line = src + (u64)(ypos >> 16) * sw * 2;
++			u32 xpos = 0;
++
++			for (x = 0; x < rw; x += 2) {
++				u32 a = xpos >> 16;
++				u32 b = (xpos + xstep) >> 16;
++				u32 pair = a & ~1U;
++
++				d[0] = line[a * 2];
++				d[1] = line[pair * 2 + 1];
++				d[2] = line[b * 2];
++				d[3] = line[pair * 2 + 3];
++				d += 4;
++				xpos += 2 * xstep;
++			}
++		}
++		for (x = x0 + rw; x < dw; x++) {
++			*d++ = HWS_BARS_Y;
++			*d++ = HWS_BARS_C;
++		}
++		ypos += ystep;
++	}
++}
+--- a/drivers/media/pci/hws/hws_scale.h
++++ b/drivers/media/pci/hws/hws_scale.h
+@@ -0,0 +1,17 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++#ifndef HWS_SCALE_H
++#define HWS_SCALE_H
++
++#ifdef __KERNEL__
++#include <linux/types.h>
++#else
++#include <stdint.h>
++typedef uint8_t u8;
++typedef uint32_t u32;
++typedef uint64_t u64;
++#endif
++
++void hws_scale_yuyv(const u8 *src, u32 sw, u32 sh, u32 disp_h,
++		    u8 *dst, u32 dw, u32 dh);
++
++#endif
+--- a/drivers/media/pci/hws/hws_v4l2_ioctl.c
++++ b/drivers/media/pci/hws/hws_v4l2_ioctl.c
+@@ -20,6 +20,7 @@
+ struct hws_dv_mode {
+ 	struct v4l2_dv_timings timings;
+ 	u32 refresh_hz;
++	bool uhd_only;
+ };
+ 
+ static const struct hws_dv_mode *
+@@ -225,10 +226,77 @@
+ 		},
+ 		60,
+ 	},
++	/* The 4K family */
++	{
++		{
++			.type = V4L2_DV_BT_656_1120,
++			.bt = {
++				.width = 1920,
++				.height = 1200,
++				.interlaced = 0,
++			},
++		},
++		60,
++		true,
++	},
++	{
++		{
++			.type = V4L2_DV_BT_656_1120,
++			.bt = {
++				.width = 2560,
++				.height = 1080,
++				.interlaced = 0,
++			},
++		},
++		60,
++		true,
++	},
++	{
++		{
++			.type = V4L2_DV_BT_656_1120,
++			.bt = {
++				.width = 2560,
++				.height = 1440,
++				.interlaced = 0,
++			},
++		},
++		60,
++		true,
++	},
++	{
++		{
++			.type = V4L2_DV_BT_656_1120,
++			.bt = {
++				.width = 3840,
++				.height = 2160,
++				.interlaced = 0,
++			},
++		},
++		60,
++		true,
++	},
++	{
++		{
++			.type = V4L2_DV_BT_656_1120,
++			.bt = {
++				.width = 4096,
++				.height = 2160,
++				.interlaced = 0,
++			},
++		},
++		60,
++		true,
++	},
+ };
+ 
+ static const size_t hws_dv_modes_cnt = ARRAY_SIZE(hws_dv_modes);
+ 
++static bool hws_dv_mode_offered(const struct hws_pcie_dev *pdx,
++				const struct hws_dv_mode *m)
++{
++	return pdx->uhd || !m->uhd_only;
++}
++
+ /* YUYV: 16 bpp; align to 64 as you did elsewhere */
+ static inline u32 hws_calc_bpl_yuyv(u32 w)     { return ALIGN(w * 2, 64); }
+ static inline u32 hws_calc_size_yuyv(u32 w, u32 h) { return hws_calc_bpl_yuyv(w) * h; }
+@@ -360,6 +428,10 @@
+ 	if (!pdx || !pdx->bar0_base)
+ 		return 0;
+ 
++	/* version-0 cards have no such register */
++	if (!pdx->hw_ver)
++		return 0;
++
+ 	fps = readl(pdx->bar0_base + HWS_REG_FRAME_RATE(vid->channel_index));
+ 	if (!fps || fps == 0xFFFFFFFF || fps > 240)
+ 		return 0;
+@@ -385,8 +457,17 @@
+ 	m = fps ? hws_find_dv_by_wh_fps(w, h, interlace, fps) : NULL;
+ 	if (!m)
+ 		m = hws_find_dv_by_wh(w, h, interlace);
+-	if (!m)
+-		return -ENOLINK;
++	if (!m) {
++		/* A size outside the table is still what the card captures. */
++		if (!w || !h)
++			return -ENOLINK;
++		memset(timings, 0, sizeof(*timings));
++		timings->type = V4L2_DV_BT_656_1120;
++		timings->bt.width = w;
++		timings->bt.height = h;
++		timings->bt.interlaced = interlace;
++		return 0;
++	}
+ 
+ 	*timings = m->timings;
+ 	return 0;
+@@ -473,11 +554,20 @@
+ 		}
+ 	}
+ 
+-	if (edv->index >= hws_dv_modes_cnt)
+-		return -EINVAL;
++	{
++		u32 left = edv->index;
++		size_t i;
+ 
+-	edv->timings = hws_dv_modes[edv->index].timings;
+-	return 0;
++		for (i = 0; i < hws_dv_modes_cnt; i++) {
++			if (!hws_dv_mode_offered(vid->parent, &hws_dv_modes[i]))
++				continue;
++			if (!left--) {
++				edv->timings = hws_dv_modes[i].timings;
++				return 0;
++			}
++		}
++	}
++	return -EINVAL;
+ }
+ 
+ /* Get the *currently configured* DV timings. */
+@@ -518,6 +608,14 @@
+ 	p->xfer_func    = V4L2_XFER_FUNC_DEFAULT;
+ }
+ 
++/* Measured on the VC12-4K: Rec. 709 full range, unlike the 1080p cards' BT.601. */
++static inline void hws_set_colorimetry_uhd(enum v4l2_colorspace *cs,
++					   enum v4l2_ycbcr_encoding *enc)
++{
++	*cs = V4L2_COLORSPACE_REC709;
++	*enc = V4L2_YCBCR_ENC_709;
++}
++
+ /* Set DV timings: must match one of our supported modes.
+  * If buffers are queued and this implies a size change, we reject with -EBUSY.
+  * Otherwise we update pix state and (optionally) reprogram the HW.
+@@ -540,8 +638,18 @@
+ 	if (!timings)
+ 		return -EINVAL;
+ 
++	/*
++	 * What the input is sending always works, whatever its size or measured
++	 * rate: the receiver owns the timing, and this is what ENUM_DV_TIMINGS lists.
++	 */
++	if (vid->parent->copy_mode &&
++	    hws_get_live_dv_geometry(vid, &live_w, &live_h, &live_interlaced) &&
++	    timings->bt.width == live_w && timings->bt.height == live_h &&
++	    !!timings->bt.interlaced == live_interlaced)
++		return 0;
++
+ 	m = hws_match_supported_dv(timings);
+-	if (!m)
++	if (!m || !hws_dv_mode_offered(vid->parent, m))
+ 		return -EINVAL;
+ 
+ 	bt = &m->timings.bt;
+@@ -591,10 +699,17 @@
+ 
+ 	hws_set_colorimetry_state(&vid->pix);
+ 
++	if (vid->parent->uhd)
++		hws_set_colorimetry_uhd(&vid->pix.colorspace, &vid->pix.ycbcr_enc);
++
+ 	/* Recompute stride, sizeimage, and half_size. */
+-	vid->pix.bytesperline = hws_calc_bpl_yuyv(new_w);
+-	vid->pix.sizeimage    = hws_calc_size_yuyv(new_w, new_h);
++	vid->pix.bytesperline = vid->parent->copy_mode ? new_w * 2 :
++				hws_calc_bpl_yuyv(new_w);
++	vid->pix.sizeimage    = vid->pix.bytesperline * new_h;
+ 	vid->pix.half_size    = hws_calc_half_size(vid->pix.sizeimage);
++	vid->in_w             = new_w;
++	vid->in_h             = new_h;
++	vid->in_il            = false;
+ 	vid->cur_dv_timings   = m->timings;
+ 	vid->current_fps      = m->refresh_hz;
+ 	return ret;
+@@ -609,6 +724,7 @@
+ 	u32 min_w = ~0U, min_h = ~0U;
+ 	u32 max_w = 0,       max_h = 0;
+ 	size_t i, n = 0;
++	struct hws_video *vid = video_drvdata(file);
+ 
+ 	if (!cap)
+ 		return -EINVAL;
+@@ -619,7 +735,8 @@
+ 	for (i = 0; i < ARRAY_SIZE(hws_dv_modes); i++) {
+ 		const struct v4l2_bt_timings *bt = &hws_dv_modes[i].timings.bt;
+ 
+-		if (hws_dv_modes[i].timings.type != V4L2_DV_BT_656_1120)
++		if (hws_dv_modes[i].timings.type != V4L2_DV_BT_656_1120 ||
++		    !hws_dv_mode_offered(vid->parent, &hws_dv_modes[i]))
+ 			continue;
+ 		n++;
+ 
+@@ -698,11 +815,9 @@
+ int hws_vidioc_querycap(struct file *file, void *priv, struct v4l2_capability *cap)
+ {
+ 	struct hws_video *vid = video_drvdata(file);
+-	int vi_index = vid->channel_index + 1; /* keep it simple */
+ 
+ 	strscpy(cap->driver, KBUILD_MODNAME, sizeof(cap->driver));
+-	snprintf(cap->card, sizeof(cap->card),
+-		 "AVMatrix HWS Capture %d", vi_index);
++	hws_input_label(vid->parent, vid->channel_index, cap->card, sizeof(cap->card));
+ 	return 0;
+ }
+ 
+@@ -719,6 +834,7 @@
+ {
+ 	struct hws_video *vid = video_drvdata(file);
+ 
++	hws_pix_follow_input(vid);
+ 	fmt->fmt.pix.width        = vid->pix.width;
+ 	fmt->fmt.pix.height       = vid->pix.height;
+ 	fmt->fmt.pix.pixelformat  = V4L2_PIX_FMT_YUYV;
+@@ -755,6 +871,20 @@
+ 	/* Only YUYV */
+ 	pix->pixelformat = V4L2_PIX_FMT_YUYV;
+ 
++	/* The copy path keeps the size it has: the input's, unless buffers are out. */
++	if (pdev && pdev->copy_mode) {
++		hws_pix_follow_input(vid);
++		pix->width = vid->pix.width;
++		pix->height = vid->pix.height;
++		pix->field = V4L2_FIELD_NONE;
++		pix->bytesperline = pix->width * 2;
++		pix->sizeimage = pix->bytesperline * pix->height;
++		hws_set_colorimetry_fmt(pix);
++		if (pdev->uhd)
++			hws_set_colorimetry_uhd(&pix->colorspace, &pix->ycbcr_enc);
++		return 0;
++	}
++
+ 	/* Defaults then clamp */
+ 	w = (req_w ? req_w : 640);
+ 	h = (req_h ? req_h : 480);
+@@ -854,7 +984,8 @@
+ 	vid->pix.bytesperline = f->fmt.pix.bytesperline; /* aligned */
+ 	vid->pix.sizeimage    = f->fmt.pix.sizeimage;    /* logical */
+ 	vid->pix.half_size    = hws_calc_half_size(vid->pix.sizeimage);
+-	vid->pix.interlaced   = false;
++	if (!vid->parent->copy_mode)
++		vid->pix.interlaced = false;
+ 	/* S_FMT negotiates buffer layout only. Keep detector-owned DV timing
+ 	 * state unchanged so a harmless restart cannot clobber the live FPS.
+ 	 */
+@@ -883,7 +1014,7 @@
+ 		fps = vid->current_fps ? vid->current_fps : 60;
+ 
+ 	/* HDMI receivers report the detected frame period, they don't set it. */
+-	param->parm.capture.capability           = 0;
++	param->parm.capture.capability           = V4L2_CAP_TIMEPERFRAME;
+ 	param->parm.capture.capturemode          = 0;
+ 	param->parm.capture.timeperframe.numerator   = 1;
+ 	param->parm.capture.timeperframe.denominator = fps;
+@@ -893,6 +1024,48 @@
+ 	return 0;
+ }
+ 
++/* The input decides the rate: a request can only get the current one back. */
++int hws_vidioc_s_parm(struct file *file, void *fh, struct v4l2_streamparm *param)
++{
++	return hws_vidioc_g_parm(file, fh, param);
++}
++
++/*
++ * The one size the driver delivers: the input's own, or while buffers are out the
++ * size they have. Programs build their resolution lists from this.
++ */
++int hws_vidioc_enum_framesizes(struct file *file, void *fh,
++			       struct v4l2_frmsizeenum *fsize)
++{
++	struct hws_video *vid = video_drvdata(file);
++
++	if (fsize->index || fsize->pixel_format != V4L2_PIX_FMT_YUYV)
++		return -EINVAL;
++	hws_pix_follow_input(vid);
++	fsize->type = V4L2_FRMSIZE_TYPE_DISCRETE;
++	fsize->discrete.width = vid->pix.width;
++	fsize->discrete.height = vid->pix.height;
++	return 0;
++}
++
++int hws_vidioc_enum_frameintervals(struct file *file, void *fh,
++				   struct v4l2_frmivalenum *fival)
++{
++	struct hws_video *vid = video_drvdata(file);
++	u32 fps;
++
++	if (fival->index || fival->pixel_format != V4L2_PIX_FMT_YUYV ||
++	    fival->width != vid->pix.width || fival->height != vid->pix.height)
++		return -EINVAL;
++	fps = hws_get_live_fps(vid);
++	if (!fps)
++		fps = vid->current_fps ? vid->current_fps : 60;
++	fival->type = V4L2_FRMIVAL_TYPE_DISCRETE;
++	fival->discrete.numerator = 1;
++	fival->discrete.denominator = fps;
++	return 0;
++}
++
+ int hws_vidioc_enum_input(struct file *file, void *priv,
+ 			  struct v4l2_input *input)
+ {
+@@ -901,7 +1074,7 @@
+ 	if (input->index)
+ 		return -EINVAL;
+ 	input->type         = V4L2_INPUT_TYPE_CAMERA;
+-	strscpy(input->name, KBUILD_MODNAME, sizeof(input->name));
++	hws_input_label(vid->parent, vid->channel_index, input->name, sizeof(input->name));
+ 	input->capabilities = V4L2_IN_CAP_DV_TIMINGS;
+ 	input->status       = hws_input_status(vid);
+ 
+--- a/drivers/media/pci/hws/hws_v4l2_ioctl.h
++++ b/drivers/media/pci/hws/hws_v4l2_ioctl.h
+@@ -14,6 +14,11 @@
+ int hws_vidioc_g_std(struct file *file, void *priv, v4l2_std_id *tvnorms);
+ int hws_vidioc_s_std(struct file *file, void *priv, v4l2_std_id tvnorms);
+ int hws_vidioc_g_parm(struct file *file, void *fh, struct v4l2_streamparm *setfps);
++int hws_vidioc_s_parm(struct file *file, void *fh, struct v4l2_streamparm *param);
++int hws_vidioc_enum_framesizes(struct file *file, void *fh,
++			       struct v4l2_frmsizeenum *fsize);
++int hws_vidioc_enum_frameintervals(struct file *file, void *fh,
++				   struct v4l2_frmivalenum *fival);
+ int hws_vidioc_enum_input(struct file *file, void *priv, struct v4l2_input *i);
+ int hws_vidioc_g_input(struct file *file, void *priv, unsigned int *i);
+ int hws_vidioc_s_input(struct file *file, void *priv, unsigned int i);
+--- a/drivers/media/pci/hws/hws_video.c
++++ b/drivers/media/pci/hws/hws_video.c
+@@ -11,6 +11,8 @@
+ #include <linux/math64.h>
+ #include <linux/interrupt.h>
+ #include <linux/moduleparam.h>
++#include <linux/minmax.h>
++#include <linux/vmalloc.h>
+ 
+ #include <media/v4l2-ioctl.h>
+ #include <media/v4l2-ctrls.h>
+@@ -19,12 +21,14 @@
+ #include <media/videobuf2-v4l2.h>
+ #include <media/v4l2-device.h>
+ #include <media/videobuf2-dma-contig.h>
++#include <media/videobuf2-vmalloc.h>
+ 
+ #include "hws.h"
+ #include "hws_reg.h"
+ #include "hws_video.h"
+ #include "hws_irq.h"
+ #include "hws_v4l2_ioctl.h"
++#include "hws_copy.h"
+ 
+ #define HWS_REMAP_SLOT_OFF(ch)   (0x208 + (ch) * 8)	/* one 64-bit slot per ch */
+ #define HWS_BUF_BASE_OFF(ch)     (CVBS_IN_BUF_BASE  + (ch) * PCIE_BARADDROFSIZE)
+@@ -38,6 +42,8 @@
+ static void handle_legacy_path(struct hws_pcie_dev *hws, unsigned int ch);
+ static u32 hws_calc_sizeimage(struct hws_video *v, u16 w, u16 h,
+ 			      bool interlaced);
++static inline void hws_write_if_diff(struct hws_pcie_dev *hws, u32 reg_off,
++				     u32 new_val);
+ 
+ /* DMA helper functions */
+ static void hws_program_dma_window(struct hws_video *vid, dma_addr_t dma);
+@@ -191,6 +197,18 @@
+ 	if (!hws || READ_ONCE(v->stop_requested) || !READ_ONCE(v->cap_active))
+ 		return false;
+ 	spin_lock_irqsave(&v->irq_lock, flags);
++	if (hws->copy_mode) {
++		/* v->active belongs to the IRQ thread: use a queued buffer. */
++		if (!list_empty(&v->capture_queue)) {
++			buf = list_first_entry(&v->capture_queue,
++					       struct hwsvideo_buffer, list);
++			list_del_init(&buf->list);
++			if (v->queued_count)
++				v->queued_count--;
++		}
++		spin_unlock_irqrestore(&v->irq_lock, flags);
++		goto complete;
++	}
+ 	if (v->active) {
+ 		buf = v->active;
+ 		v->active = NULL;
+@@ -222,19 +240,23 @@
+ 		v->active = NULL;
+ 	}
+ 	spin_unlock_irqrestore(&v->irq_lock, flags);
++complete:
+ 	if (!buf)
+ 		return false;
+ 	/* Complete buffer with a neutral frame so dequeuers keep running. */
+ 	{
+ 		struct vb2_v4l2_buffer *vb2v = &buf->vb;
+ 		void *dst = vb2_plane_vaddr(&vb2v->vb2_buf, 0);
++		bool fits = vb2_plane_size(&vb2v->vb2_buf, 0) >= v->pix.sizeimage;
+ 
+-		if (dst)
+-			memset(dst, 0x10, v->pix.sizeimage);
+-		vb2_set_plane_payload(&vb2v->vb2_buf, 0, v->pix.sizeimage);
++		if (dst && fits) {
++			memset32(dst, HWS_BLACK_YUYV, v->pix.sizeimage / 4);
++			vb2_set_plane_payload(&vb2v->vb2_buf, 0, v->pix.sizeimage);
++		}
+ 		vb2v->sequence = (u32)atomic_inc_return(&v->sequence_number);
+ 		vb2v->vb2_buf.timestamp = ktime_get_ns();
+-		vb2_buffer_done(&vb2v->vb2_buf, VB2_BUF_STATE_DONE);
++		vb2_buffer_done(&vb2v->vb2_buf, fits ? VB2_BUF_STATE_DONE :
++				VB2_BUF_STATE_ERROR);
+ 	}
+ 	if (have_next && next) {
+ 		dma_addr_t dma =
+@@ -332,6 +354,14 @@
+ 	vid->pix.xfer_func = V4L2_XFER_FUNC_DEFAULT;
+ 	vid->pix.interlaced = false;
+ 	vid->pix.half_size = vid->pix.sizeimage / 2;
++	vid->in_w = vid->pix.width;
++	vid->in_h = vid->pix.height;
++	if (pdev->copy_mode) {
++		vid->pix.bytesperline = vid->pix.width * 2;
++		vid->pix.sizeimage = vid->pix.bytesperline * vid->pix.height;
++	}
++	if (pdev->uhd)
++		vid->pix.ycbcr_enc = V4L2_YCBCR_ENC_709;
+ 	hws_set_current_dv_timings(vid, vid->pix.width,
+ 				   vid->pix.height, vid->pix.interlaced);
+ 	vid->current_fps = 60;
+@@ -544,7 +574,7 @@
+ 	if (!hws->cur_max_video_ch || hws->cur_max_video_ch > hws->max_channels)
+ 		hws->cur_max_video_ch = hws->max_channels;
+ 
+-	for (ch = 0; ch < hws->cur_max_video_ch; ch++, table += 8) {
++	for (ch = 0; ch < hws_num_dma_bufs(hws); ch++, table += 8) {
+ 		if (!hws->scratch_vid[ch].cpu)
+ 			continue;
+ 
+@@ -584,6 +614,8 @@
+ 		}
+ 	}
+ 
++	hws_copy_seed_tail(hws);
++
+ 	/* Post writes so device sees them before we move on */
+ 	(void)readl(hws->bar0_base + HWS_REG_INT_STATUS);
+ }
+@@ -634,6 +666,7 @@
+ 
+ 	/* 4) Start run: set bit31, wait a bit, then program low 24 bits. */
+ 	writel(0x80000000, hws->bar0_base + HWS_REG_DEC_MODE);
++	usleep_range(500, 600);	/* as the vendor's Windows driver does */
+ 	writel(0x80FFFFFF, hws->bar0_base + HWS_REG_DEC_MODE);
+ 	writel(0x13, hws->bar0_base + HWS_REG_DEC_MODE);
+ 	hws_ack_all_irqs(hws);
+@@ -669,6 +702,16 @@
+ 	return 0;
+ }
+ 
++/* state_lock keeps stop_streaming from taking back a buffer in use here. */
++static void hws_no_signal_frame(struct hws_video *v)
++{
++	if (!READ_ONCE(v->cap_active) || !mutex_trylock(&v->state_lock))
++		return;
++	if (READ_ONCE(v->cap_active))
++		hws_force_no_signal_frame(v, "monitor_nosignal");
++	mutex_unlock(&v->state_lock);
++}
++
+ void check_video_format(struct hws_pcie_dev *pdx)
+ {
+ 	int i;
+@@ -680,9 +723,7 @@
+ 			/* No active video; optionally feed neutral frames to keep streaming. */
+ 			if (pdx->video[i].signal_loss_cnt == 0)
+ 				pdx->video[i].signal_loss_cnt = 1;
+-			if (READ_ONCE(pdx->video[i].cap_active))
+-				hws_force_no_signal_frame(&pdx->video[i],
+-							  "monitor_nosignal");
++			hws_no_signal_frame(&pdx->video[i]);
+ 		} else {
+ 			if (pdx->hw_ver > 0)
+ 				handle_hwv2_path(pdx, i);
+@@ -756,11 +797,13 @@
+ 	(void)in_fps;
+ 
+ 	/* 2) Output resolution programming.
+-	 * For now, mirror the current format to OUT_RES.
++	 * For now, mirror the current format to OUT_RES. On the 4K family
++	 * (measured on FPGA 122) it is plain storage.
+ 	 */
+-	want_out_res = (vid->pix.height << 16) | vid->pix.width;
++	want_out_res = hws->copy_mode ? (vid->in_h << 16) | vid->in_w :
++		       (vid->pix.height << 16) | vid->pix.width;
+ 	cur_out_res = readl(hws->bar0_base + HWS_REG_OUT_RES(ch));
+-	if (cur_out_res != want_out_res)
++	if (!hws->uhd && cur_out_res != want_out_res)
+ 		hws_write_if_diff(hws, HWS_REG_OUT_RES(ch), want_out_res);
+ 
+ 	/* 3) Output FPS: only program if you actually track a target.
+@@ -805,26 +848,81 @@
+ 	 * - The *2 factor assumed VDONE fired per-field; if legacy VDONE is
+ 	 *   per-frame, drop the factor.
+ 	 *
+-	 * Current code keeps this path as a no-op; vid->current_fps stays at the
+-	 * default or mode-derived value. If accurate legacy FPS reporting is
+-	 * needed (V4L2 g_parm/timeperframe), reintroduce the accumulator in the
+-	 * IRQ path and perform the mapping/reset here.
+-	 *
+-	 * No-op by default. If you introduce a SW FPS accumulator, map it here.
+-	 *
+-	 * Example skeleton:
+-	 *
+-	 *   u32 sw_rate = READ_ONCE(hws->sw_fps[ch]); // incremented elsewhere
+-	 *   if (sw_rate > THRESHOLD) {
+-	 *       u32 fps = pick_fps_from_rate(sw_rate);
+-	 *       hws_write_if_diff(hws, HWS_REG_OUT_FRAME_RATE(ch), fps);
+-	 *       WRITE_ONCE(hws->sw_fps[ch], 0);
+-	 *   }
++	 * The copy path measures whole frames as they end (hws_copy_half()), so it
++	 * needs no such mapping. The direct path keeps vid->current_fps at the
++	 * mode-derived value.
+ 	 */
+ 	(void)hws;
+ 	(void)ch;
+ }
+ 
++static bool hws_geometry_changed(struct hws_video *v, u16 w, u16 h, bool il)
++{
++	if (v->parent->copy_mode)
++		return v->input_bad || w != v->in_w || h != v->in_h || il != v->in_il;
++	return w != v->pix.width || h != v->pix.height || il != v->pix.interlaced;
++}
++
++/*
++ * With no buffers out, the format follows the input, so a program starting or
++ * restarting capture gets the input's own size. Under state_lock.
++ */
++void hws_pix_follow_input(struct hws_video *v)
++{
++	u32 h = v->in_il ? v->in_h * 2 : v->in_h;
++
++	if (!v->parent->copy_mode || vb2_is_busy(&v->buffer_queue) ||
++	    (v->pix.width == v->in_w && v->pix.height == h))
++		return;
++	v->pix.width = v->in_w;
++	v->pix.height = h;
++	hws_calc_sizeimage(v, v->in_w, v->in_h, v->in_il);
++	if (!v->parent->uhd)
++		v->pix.colorspace = h <= 576 ? V4L2_COLORSPACE_SMPTE170M :
++					       V4L2_COLORSPACE_REC709;
++}
++
++/*
++ * The input changed under a capture. Its buffers keep their size, and
++ * hws_copy_half() fits frames to them, so the capture carries on: programs like
++ * OBS don't recover from an error here. Stop the engine to change its lengths, as
++ * the card may apply new ones to a run in progress. Under state_lock.
++ */
++static void hws_copy_change_input(struct hws_video *v, u16 w, u16 h,
++				  bool interlaced, u32 fps)
++{
++	struct hws_pcie_dev *hws = v->parent;
++	unsigned int ch = v->channel_index;
++	bool streaming = vb2_is_streaming(&v->buffer_queue);
++	struct v4l2_event ev = {
++		.type = V4L2_EVENT_SOURCE_CHANGE,
++		.u.src_change.changes = V4L2_EVENT_SRC_CH_RESOLUTION,
++	};
++
++	if (streaming) {
++		hws_enable_video_capture(hws, ch, false);
++		if (hws->irq >= 0)
++			synchronize_irq(hws->irq);
++	}
++	v->in_w = w;
++	v->in_h = h;
++	v->in_il = interlaced;
++	v->input_bad = false;
++	v->pix.interlaced = interlaced;
++	hws_set_current_dv_timings(v, w, h, interlaced);
++	v->current_fps = fps;
++	if (!hws->uhd)
++		hws_write_if_diff(hws, HWS_REG_OUT_RES(ch), (h << 16) | w);
++	if (hws_copy_start(v))
++		dev_warn(&hws->pdev->dev, "ch%u: input %ux%u doesn't fit the DMA buffers\n",
++			 ch, w, h);
++	v4l2_event_queue(v->video_device, &ev);
++	if (streaming) {
++		WRITE_ONCE(v->last_buf_half_toggle, 0);
++		hws_enable_video_capture(hws, ch, true);
++	}
++}
++
+ static void hws_video_apply_mode_change(struct hws_pcie_dev *pdx,
+ 					unsigned int ch, u16 w, u16 h,
+ 					bool interlaced, u32 fps)
+@@ -840,15 +938,14 @@
+ 		return;
+ 	if (ch >= pdx->max_channels)
+ 		return;
+-	if (!w || !h || w > MAX_VIDEO_HW_W ||
+-	    (!interlaced && h > MAX_VIDEO_HW_H) ||
+-	    (interlaced && (h * 2) > MAX_VIDEO_HW_H))
++	if (!w || !h || w > pdx->max_w ||
++	    (!interlaced && h > pdx->max_h) ||
++	    (interlaced && (h * 2) > pdx->max_h))
+ 		return;
+ 	if (!fps || fps == 0xFFFFFFFF || fps > 240)
+ 		fps = (h == 576) ? 50 : 60;
+ 
+-	geometry_changed = w != v->pix.width || h != v->pix.height ||
+-		interlaced != v->pix.interlaced;
++	geometry_changed = hws_geometry_changed(v, w, h, interlaced);
+ 	if (!geometry_changed && fps == v->current_fps)
+ 		return;
+ 
+@@ -858,8 +955,9 @@
+ 		 */
+ 		mutex_lock(&v->state_lock);
+ 		v->pix.interlaced = interlaced;
+-		v->pix.field = interlaced ? V4L2_FIELD_INTERLACED :
+-					    V4L2_FIELD_NONE;
++		if (!pdx->copy_mode)
++			v->pix.field = interlaced ? V4L2_FIELD_INTERLACED :
++						    V4L2_FIELD_NONE;
+ 		hws_set_current_dv_timings(v, w, h, interlaced);
+ 		v->current_fps = fps;
+ 		mutex_unlock(&v->state_lock);
+@@ -872,6 +970,12 @@
+ 	INIT_LIST_HEAD(&done);
+ 	queue_busy = vb2_is_busy(&v->buffer_queue);
+ 
++	if (pdx->copy_mode && queue_busy) {
++		hws_copy_change_input(v, w, h, interlaced, fps);
++		mutex_unlock(&v->state_lock);
++		return;
++	}
++
+ 	WRITE_ONCE(v->stop_requested, true);
+ 	WRITE_ONCE(v->cap_active, false);
+ 	/* Publish software stop first so the IRQ completion path sees the stop
+@@ -893,8 +997,12 @@
+ 
+ 	/* Update software pixel state */
+ 	v->pix.width = w;
+-	v->pix.height = h;
++	v->pix.height = pdx->copy_mode && interlaced ? h * 2 : h;
+ 	v->pix.interlaced = interlaced;
++	v->in_w = w;
++	v->in_h = h;
++	v->in_il = interlaced;
++	v->input_bad = false;
+ 	v->pix.colorspace = h <= 576 ? V4L2_COLORSPACE_SMPTE170M :
+ 					 V4L2_COLORSPACE_REC709;
+ 	hws_set_current_dv_timings(v, w, h, interlaced);
+@@ -921,13 +1029,21 @@
+ 	}
+ 
+ 	/* Program HW with new resolution */
+-	hws_write_if_diff(pdx, HWS_REG_OUT_RES(ch), (h << 16) | w);
++	if (!pdx->uhd)
++		hws_write_if_diff(pdx, HWS_REG_OUT_RES(ch), (h << 16) | w);
+ 
+-	/* Legacy half-buffer programming */
+-	writel(v->pix.half_size / 16,
+-	       pdx->bar0_base + CVBS_IN_BUF_BASE2 + ch * PCIE_BARADDROFSIZE);
+-	(void)readl(pdx->bar0_base + CVBS_IN_BUF_BASE2 +
+-		    ch * PCIE_BARADDROFSIZE);
++	if (pdx->copy_mode) {
++		if (hws_copy_program(v))
++			dev_warn(&pdx->pdev->dev,
++				 "ch%u: input %ux%u doesn't fit the DMA buffers\n",
++				 ch, w, h);
++	} else {
++		/* Legacy half-buffer programming */
++		writel(v->pix.half_size / 16,
++		       pdx->bar0_base + CVBS_IN_BUF_BASE2 + ch * PCIE_BARADDROFSIZE);
++		(void)readl(pdx->bar0_base + CVBS_IN_BUF_BASE2 +
++			    ch * PCIE_BARADDROFSIZE);
++	}
+ 
+ 	/* Reset per-channel toggles/counters */
+ 	WRITE_ONCE(v->last_buf_half_toggle, 0);
+@@ -945,23 +1061,58 @@
+ 				   bool interlace)
+ {
+ 	u32 reg = readl(pdx->bar0_base + HWS_REG_IN_RES(ch));
+-	u32 fps = readl(pdx->bar0_base + HWS_REG_FRAME_RATE(ch));
++	/* version-0 cards have no such register: see handle_legacy_path() */
++	u32 fps = pdx->hw_ver ? readl(pdx->bar0_base + HWS_REG_FRAME_RATE(ch)) :
++		  READ_ONCE(pdx->video[ch].current_fps);
+ 	u16 res_w = reg & 0xFFFF;
+ 	u16 res_h = (reg >> 16) & 0xFFFF;
+ 	struct hws_video *vid = &pdx->video[ch];
+ 	bool geometry_changed;
+ 	bool fps_changed;
++	bool within_hw;
+ 
+-	bool within_hw = (res_w <= MAX_VIDEO_HW_W) &&
+-	    ((!interlace && res_h <= MAX_VIDEO_HW_H) ||
+-	     (interlace && (res_h * 2) <= MAX_VIDEO_HW_H));
+-
+-	if (!within_hw)
++	/* The 4K family's quarter must fit its buffer: see hws_copy_alloc(). */
++	if (pdx->uhd) {
++		res_w = min_t(u32, res_w, pdx->input_w_limit);
++		if (!pdx->hw_ver)
++			res_h = min_t(u16, res_h, MAX_VIDEO_UHD_H);
++	}
++
++	within_hw = (res_w <= pdx->max_w) &&
++	    ((!interlace && res_h <= pdx->max_h) ||
++	     (interlace && (res_h * 2) <= pdx->max_h));
++
++	if (pdx->copy_mode) {
++		/*
++		 * The vendor's limits. The 4:2:0 conversions work in 16-pixel
++		 * packets, so other widths would leave lines unwritten.
++		 */
++		if (res_w < 320 || (interlace ? res_h * 2 : res_h) < 240 ||
++		    (res_w & 1) || (pdx->support_yv12 && (res_w % 16)))
++			within_hw = false;
++		if (!within_hw) {
++			/* a source changing mode can read as this for a moment */
++			if (!vid->input_bad && ++vid->bad_polls < 2)
++				return;
++			/* no frames from lengths that don't match the input */
++			if (!vid->input_bad)
++				dev_warn(&pdx->pdev->dev,
++					 "ch%u: unsupported input %ux%u%s, showing no-signal frames\n",
++					 ch, res_w, res_h, interlace ? "i" : "p");
++			vid->input_bad = true;
++			WRITE_ONCE(vid->lens_ok, false);
++			hws_no_signal_frame(vid);
++			return;
++		}
++	} else if (!within_hw) {
+ 		return;
++	}
+ 
+-	geometry_changed = res_w != vid->pix.width ||
+-		res_h != vid->pix.height ||
+-		interlace != vid->pix.interlaced;
++	vid->bad_polls = 0;
++	geometry_changed = hws_geometry_changed(vid, res_w, res_h, interlace);
++	/* a measured rate belongs to the old mode; apply_mode_change() picks a default */
++	if (geometry_changed && !pdx->hw_ver)
++		fps = 0;
+ 	fps_changed = fps && fps != 0xFFFFFFFF && fps <= 240 &&
+ 		fps != vid->current_fps;
+ 
+@@ -1034,6 +1185,9 @@
+ 	.vidioc_subscribe_event = hws_subscribe_event,
+ 	.vidioc_unsubscribe_event = v4l2_event_unsubscribe,
+ 	.vidioc_g_parm = hws_vidioc_g_parm,
++	.vidioc_s_parm = hws_vidioc_s_parm,
++	.vidioc_enum_framesizes = hws_vidioc_enum_framesizes,
++	.vidioc_enum_frameintervals = hws_vidioc_enum_frameintervals,
+ };
+ 
+ static u32 hws_calc_sizeimage(struct hws_video *v, u16 w, u16 h,
+@@ -1044,6 +1198,15 @@
+ 	u32 bytesperline = ALIGN(w * 2, 64);
+ 	u32 sizeimage, half0;
+ 
++	/* The copy path delivers tight lines, with an interlaced field's doubled. */
++	if (v->parent->copy_mode) {
++		v->pix.bytesperline = w * 2;
++		v->pix.sizeimage = w * 2 * (interlaced ? h * 2 : h);
++		v->pix.half_size = v->pix.sizeimage / 2;
++		v->pix.field = V4L2_FIELD_NONE;
++		return v->pix.sizeimage;
++	}
++
+ 	/* publish into pix, since we now carry these in-state */
+ 	v->pix.bytesperline = bytesperline;
+ 	sizeimage = bytesperline * lines;
+@@ -1063,6 +1226,7 @@
+ {
+ 	struct hws_video *vid = q->drv_priv;
+ 
++	hws_pix_follow_input(vid);
+ 	if (*nplanes) {
+ 		if (sizes[0] < vid->pix.sizeimage)
+ 			return -EINVAL;
+@@ -1084,6 +1248,11 @@
+ 	if (vb2_plane_size(vb, 0) < need)
+ 		return -EINVAL;
+ 
++	if (hws->copy_mode) {
++		vb2_set_plane_payload(vb, 0, need);
++		return 0;
++	}
++
+ 	/* Validate DMA address alignment */
+ 	dma_addr = vb2_dma_contig_plane_dma_addr(vb, 0);
+ 	if (dma_addr & 0x3F) {	/* 64-byte alignment required */
+@@ -1117,7 +1286,9 @@
+ 	vid->queued_count++;
+ 
+ 	/* If streaming and no in-flight buffer, prime HW immediately */
+-	if (READ_ONCE(vid->cap_active) && !vid->active) {
++	if (hws->copy_mode) {
++		/* the IRQ thread takes it at the next top half */
++	} else if (READ_ONCE(vid->cap_active) && !vid->active) {
+ 		dma_addr_t dma_addr;
+ 
+ 		dev_dbg(&hws->pdev->dev,
+@@ -1155,6 +1326,9 @@
+ 		v->channel_index, count);
+ 
+ 	ret = hws_check_card_status(hws);
++	/* A mode change marked the queue in error: the buffers may be too small. */
++	if (!ret && hws->copy_mode)
++		ret = q->error ? -EIO : hws_copy_start(v);
+ 	if (ret) {
+ 		struct hwsvideo_buffer *b, *tmp;
+ 		unsigned long f;
+@@ -1192,6 +1366,12 @@
+ 	WRITE_ONCE(v->half_seen, false);
+ 	WRITE_ONCE(v->last_buf_half_toggle, 0);
+ 
++	/* The card captures all the time; the IRQ thread takes buffers as it needs. */
++	if (hws->copy_mode) {
++		hws_enable_video_capture(hws, v->channel_index, true);
++		return 0;
++	}
++
+ 	/* Try to prime a buffer, but it's OK if none are queued yet */
+ 	spin_lock_irqsave(&v->irq_lock, flags);
+ 	if (!v->active && !list_empty(&v->capture_queue)) {
+@@ -1361,8 +1541,7 @@
+ 		ch->video_device = vdev;
+ 
+ 		/* Basic V4L2 node setup */
+-		snprintf(vdev->name, sizeof(vdev->name), "%s-hdmi%u",
+-			 KBUILD_MODNAME, i);
++		hws_input_label(dev, i, vdev->name, sizeof(vdev->name));
+ 		vdev->v4l2_dev = &dev->v4l2_device;
+ 		vdev->fops = &hws_fops;
+ 		vdev->ioctl_ops = &hws_ioctl_fops;
+@@ -1382,10 +1561,13 @@
+ 		memset(q, 0, sizeof(*q));
+ 		q->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+ 		q->io_modes = VB2_MMAP | VB2_DMABUF;
++		if (dev->copy_mode)
++			q->io_modes = VB2_MMAP | VB2_USERPTR;
+ 		q->drv_priv = ch;
+ 		q->buf_struct_size = sizeof(struct hwsvideo_buffer);
+ 		q->ops = &hwspcie_video_qops;
+-		q->mem_ops = &vb2_dma_contig_memops;
++		q->mem_ops = dev->copy_mode ? &vb2_vmalloc_memops :
++					      &vb2_dma_contig_memops;
+ 		q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
+ 		q->lock = &ch->state_lock;
+ 		q->min_queued_buffers = 1;
+--- a/drivers/media/pci/hws/hws_video.h
++++ b/drivers/media/pci/hws/hws_video.h
+@@ -26,4 +26,6 @@
+ int hws_video_quiesce(struct hws_pcie_dev *hws, const char *reason);
+ void hws_video_pm_resume(struct hws_pcie_dev *hws);
+ 
++void hws_pix_follow_input(struct hws_video *v);
++
+ #endif
+--- a/drivers/media/pci/hws/Kconfig
++++ b/drivers/media/pci/hws/Kconfig
+@@ -1,11 +1,14 @@
+ # SPDX-License-Identifier: GPL-2.0-only
+ config VIDEO_HWS
+ 	tristate "AVMatrix HWS PCIe capture devices"
+-	depends on PCI && VIDEO_DEV
++	depends on PCI && VIDEO_DEV && SND
+ 	select VIDEOBUF2_DMA_CONTIG
++	select VIDEOBUF2_VMALLOC
++	select SND_PCM
+ 	help
+ 	  Enable support for AVMatrix HWS series multi-channel PCIe capture
+-	  devices that provide HDMI video capture.
++	  devices, including their 4K and AHD models and ACASIS's versions,
++	  that provide video and audio capture.
+ 
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be named hws.
+--- a/drivers/media/pci/hws/Makefile
++++ b/drivers/media/pci/hws/Makefile
+@@ -1,4 +1,5 @@
+ # SPDX-License-Identifier: GPL-2.0-only
+-hws-objs := hws_pci.o hws_irq.o hws_video.o hws_v4l2_ioctl.o
++hws-objs := hws_pci.o hws_irq.o hws_video.o hws_v4l2_ioctl.o hws_copy.o hws_audio.o \
++	hws_convert.o hws_scale.o
+ 
+ obj-$(CONFIG_VIDEO_HWS) += hws.o
