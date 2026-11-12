@@ -1,6 +1,6 @@
 Name:          nobara-updater
-Version:       2.0.1
-Release:       88%{?dist}
+Version:       2.0.2
+Release:       2%{?dist}
 License:       GPL-3.0-or-later
 Summary:       Nobara System Updater
 
@@ -53,6 +53,10 @@ Requires: xdg-utils
 Requires: xprop
 Requires: libnotify
 Requires: pbcli
+# pkexec, for the Secure Boot key setup dialog
+Requires: polkit
+# nobara-eac-enroll --password-stdin and the Nobara EAC CA
+Requires: (nobara-eac >= 1.2 if nobara-eac)
 
 Provides: nobara-sync
 Obsoletes: nobara-sync
@@ -94,6 +98,8 @@ done
 %{_sysconfdir}/dnf/libdnf5-plugins/actions.d/nobara-codecs.actions
 %{_libexecdir}/nobara-update-notice
 %{_sysconfdir}/xdg/autostart/nobara-update-notice.desktop
+%{_libexecdir}/nobara-eac-enroll-notice
+%{_sysconfdir}/xdg/autostart/nobara-eac-enroll-notice.desktop
 %{_datadir}/applications/nobara-update-recovery.desktop
 %{_sysconfdir}/grub.d/42_nobara_update
 %{_prefix}/lib/dracut/modules.d/91nobara-rollback/
@@ -110,6 +116,37 @@ done
 rm -rf %{buildroot}
 
 %changelog
+* Thu Nov 12 2026 Nobara Project <support@nobaraproject.org> - 2.0.2-1
+- Remove rsyslog and its rsyslog-* modules once, as with the move from SDDM:
+  the journal keeps every message, and rsyslog's copies in /var/log grew
+  without a size limit. After the update, delete the logs it wrote (messages,
+  secure, maillog, cron, spooler and their rotated copies) and
+  /var/lib/rsyslog. Recorded in /var/lib/nobara-updater/rsyslog-removal.json,
+  so a reinstalled rsyslog is left alone; rsyslog also stays while another
+  installed package requires it.
+
+* Wed Nov 11 2026 Nobara Project <support@nobaraproject.org> - 2.0.1-99
+- Fix the move to the Nobara boot splash never happening: every standard
+  install has gamescope-session-common (the Steam session), and was treated as
+  an HTPC and put back on BGRT at every update. Only installs with both
+  gamescope-htpc-common and gamescope-session-common are HTPC/handheld now and
+  keep the SteamOS splash; all others follow the standard rule, and a selected
+  Nobara or custom theme is no longer reverted to BGRT.
+- A Theme= line naming a theme that is not installed (steamos left behind by a
+  removed gamescope-htpc-common) counts as the default, as Plymouth treats it.
+
+* Wed Nov 11 2026 Nobara Project <support@nobaraproject.org> - 2.0.1-96
+- Move standard installs that still use the default BGRT boot splash, once, to
+  the Nobara Plymouth theme from nobara-logos 44.0.0-2, rebuilding the boot
+  images. Chosen themes, a later return to BGRT and HTPC/handheld (gamescope)
+  installs are left alone; without the theme files the splash is kept and a
+  later update tries again.
+
+* Wed Nov 04 2026 Nobara Project <support@nobaraproject.org> - 2.0.1-94
+- With Secure Boot on and the Easy Anti-Cheat kernel installed, offer at login
+  to enroll the Nobara EAC CA: the user chooses the one-time MokManager password
+  in a dialog, and nobara-eac-enroll queues the keys through pkexec.
+
 * Mon Sep 28 2026 Nobara Project <support@nobaraproject.org> - 2.0.1-53
 - Document immediate and offline updates, restart behavior, and recovery triggers.
 - Explain supported filesystems and snapshot creation, promotion, and retirement.
