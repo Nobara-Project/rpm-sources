@@ -1,0 +1,125 @@
+diff --git a/src/modules/shellprocess/shellprocess.conf b/src/modules/shellprocess/shellprocess.conf
+index e39926a..fd03002 100644
+--- a/src/modules/shellprocess/shellprocess.conf
++++ b/src/modules/shellprocess/shellprocess.conf
+@@ -153,7 +153,16 @@ script:
+     # initramfs includes it. "-": a missing theme must not fail the install.
+     - command: "-/usr/bin/plymouth-set-default-theme nobara"
+       timeout: 3600
+-    - command: "/bin/kernel-install add $(uname -r) /lib/modules/$(uname -r)/vmlinuz"
++    # Every kernel in the image (the normal kernel and kernel-eac), not just
++    # the one the live system booted
++    - command: >
++        bash -ce '
++          for image in /lib/modules/*/vmlinuz; do
++            kver=$${image%/vmlinuz}
++            kver=$${kver##*/}
++            /bin/kernel-install add "$$kver" "$$image"
++          done
++        '
+       timeout: 3600
+     - command: "/usr/sbin/grub2-mkconfig -o /boot/grub2/grub.cfg"
+       timeout: 3600
+@@ -170,13 +179,6 @@ script:
+     - "echo 'nameserver 127.0.0.53' > /etc/resolv.conf"
+     - "echo 'options edns0 trust-ad' >> /etc/resolv.conf"
+     - "echo 'search Home' >> /etc/resolv.conf"
+-    - command: >
+-        bash -ce '
+-          if [ -n "${gs[nobara.update]}" ]; then
+-            env -u SUDO_USER -u SUDO_UID -u SUDO_GID -u PKEXEC_UID -u ORIG_USER -u ORIGINAL_USER_HOME -u DISPLAY -u XAUTHORITY HOME=/root USER=root LOGNAME=root nobara-sync cli
+-          fi
+-        '
+-      status: "Installing latest updates…"
+     - command: >
+         bash -ce '
+           if [ -n "${gs[nobara.codecs]}" ]; then
+@@ -232,4 +234,11 @@ script:
+     - command: "/usr/lib/nobara-kernel-manager/kernel-manager rescue reinstall"
+       timeout: 3600
+       status: "Creating rescue kernel…"
++    # The Easy Anti-Cheat kernel's boot entries, and the default: kernel-eac
++    # when Secure Boot is on, the Nobara EAC CA is enrolled and its signed
++    # modules are installed, otherwise the normal kernel. Set before the first
++    # boot: with Secure Boot on, the normal kernel only boots once the Nobara
++    # Secure Boot CA is enrolled too. "-": not every image has nobara-eac.
++    - command: "-/usr/lib/kernel/install.d/95-nobara-eac.install apply-all"
++      timeout: 3600
+     - command: "rm -Rf /home/liveuser"
+diff --git a/src/modules/welcome/WelcomePage.cpp b/src/modules/welcome/WelcomePage.cpp
+index 540d0a9..709d622 100644
+--- a/src/modules/welcome/WelcomePage.cpp
++++ b/src/modules/welcome/WelcomePage.cpp
+@@ -111,10 +111,6 @@ WelcomePage::WelcomePage( Config* config, QWidget* parent )
+     const bool online = isOnlineNow();
+ 
+     // Create checkboxes
+-    m_cbUpdate = new QCheckBox(this);
+-    m_cbUpdate->setText(tr("Update installed packages to latest versions."));
+-    m_cbUpdate->setChecked(false); // hidden
+-
+     m_cbCodecs = new QCheckBox(this);
+     m_cbCodecs->setText(tr("Install media codec packages (strongly recommended)."));
+     m_cbCodecs->setChecked(false); // hidden
+@@ -140,7 +136,6 @@ WelcomePage::WelcomePage( Config* config, QWidget* parent )
+     if (online)
+     {
+         // Defaults when online
+-        m_cbUpdate->setChecked(true);
+         m_cbCodecs->setChecked(true);
+         m_cbCodecsRepo->setChecked(false); // hidden
+ 
+@@ -153,27 +148,22 @@ WelcomePage::WelcomePage( Config* config, QWidget* parent )
+         int langIdx = ui->verticalLayout->indexOf(ui->languageWidget);
+         if (langIdx < 0) { langIdx = ui->verticalLayout->count(); }
+         ui->verticalLayout->insertWidget(langIdx, m_cbCodecs);
+-        ui->verticalLayout->insertWidget(langIdx, m_cbUpdate);
+         ui->verticalLayout->insertWidget(langIdx, netLabel);
+ 
+         // hide repo checkbox when online
+         m_cbCodecsRepo->setVisible(false);
+ 
+         // Initialize ALL GS flags
+-        setFlag("nobara.update",     m_cbUpdate->isChecked());     // "1"
+         setFlag("nobara.codecs",     m_cbCodecs->isChecked());     // "1"
+         setFlag("nobara.codecsrepo", m_cbCodecsRepo->isChecked()); // "" (unchecked)
+ 
+         // Keep GS in sync with user toggles
+-        connect(m_cbUpdate, &QCheckBox::toggled, this,
+-                [setFlag](bool on){ setFlag("nobara.update", on); });
+         connect(m_cbCodecs, &QCheckBox::toggled, this,
+                 [setFlag](bool on){ setFlag("nobara.codecs", on); });
+     }
+     else
+     {
+         // Defaults when offline
+-        m_cbUpdate->setChecked(false);  // hidden
+         m_cbCodecs->setChecked(false);  // hidden
+         m_cbCodecsRepo->setChecked(true);
+ 
+@@ -187,12 +177,10 @@ WelcomePage::WelcomePage( Config* config, QWidget* parent )
+         ui->verticalLayout->insertWidget(langIdx, m_cbCodecsRepo);
+         ui->verticalLayout->insertWidget(langIdx, netLabel);
+ 
+-        // hide online-only checkboxes when offline
+-        m_cbUpdate->setVisible(false);
++        // hide the online-only checkbox when offline
+         m_cbCodecs->setVisible(false);
+ 
+         // Initialize ALL GS flags
+-        setFlag("nobara.update",     m_cbUpdate->isChecked());     // "1"
+         setFlag("nobara.codecs",     m_cbCodecs->isChecked());     // "1"
+         setFlag("nobara.codecsrepo", m_cbCodecsRepo->isChecked()); // "" (unchecked)
+ 
+diff --git a/src/modules/welcome/WelcomePage.h b/src/modules/welcome/WelcomePage.h
+index e5c407f..69baf14 100644
+--- a/src/modules/welcome/WelcomePage.h
++++ b/src/modules/welcome/WelcomePage.h
+@@ -68,7 +68,6 @@ private:
+ 
+     Config* m_conf;
+ 
+-    QCheckBox* m_cbUpdate = nullptr;
+     QCheckBox* m_cbCodecs = nullptr;
+     QCheckBox* m_cbNvidia = nullptr;
+     QCheckBox* m_cbCodecsRepo = nullptr;

@@ -2,7 +2,16 @@ dontChroot: false
 timeout: 36000
 verbose: false
 script:
-    - command: "/bin/kernel-install add $(ls /lib/modules) /lib/modules/$(ls /lib/modules)/vmlinuz"
+    # Every kernel in the image (the normal kernel and kernel-eac), not just
+    # the one the live system booted
+    - command: >
+        bash -ce '
+          for image in /lib/modules/*/vmlinuz; do
+            kver=$${image%/vmlinuz}
+            kver=$${kver##*/}
+            /bin/kernel-install add "$$kver" "$$image"
+          done
+        '
       timeout: 3600
     - command: "/usr/sbin/grub2-mkconfig -o /boot/grub2/grub.cfg"
       timeout: 3600
@@ -19,13 +28,6 @@ script:
     - "echo 'nameserver 127.0.0.53' > /etc/resolv.conf"
     - "echo 'options edns0 trust-ad' >> /etc/resolv.conf"
     - "echo 'search Home' >> /etc/resolv.conf"
-    - command: >
-        bash -ce '
-          if [ -n "${gs[nobara.update]}" ]; then
-            env -u SUDO_USER -u SUDO_UID -u SUDO_GID -u PKEXEC_UID -u ORIG_USER -u ORIGINAL_USER_HOME -u DISPLAY -u XAUTHORITY HOME=/root USER=root LOGNAME=root nobara-sync cli
-          fi
-        '
-      status: "Installing latest updates…"
     - command: >
         bash -ce '
           if [ -n "${gs[nobara.codecs]}" ]; then
@@ -135,5 +137,12 @@ script:
     - command: "/usr/lib/nobara-kernel-manager/kernel-manager rescue reinstall"
       timeout: 3600
       status: "Creating rescue kernel…"
+    # The Easy Anti-Cheat kernel's boot entries, and the default: kernel-eac
+    # when Secure Boot is on, the Nobara EAC CA is enrolled and its signed
+    # modules are installed, otherwise the normal kernel. Set before the first
+    # boot: with Secure Boot on, the normal kernel only boots once the Nobara
+    # Secure Boot CA is enrolled too. "-": not every image has nobara-eac.
+    - command: "-/usr/lib/kernel/install.d/95-nobara-eac.install apply-all"
+      timeout: 3600
     - command: "rm -Rf /home/liveuser"
       timeout: 3600

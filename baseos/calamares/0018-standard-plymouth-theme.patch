@@ -1,0 +1,13 @@
+--- a/src/modules/shellprocess/shellprocess.conf
++++ b/src/modules/shellprocess/shellprocess.conf
+@@ -149,6 +149,10 @@
+ #     name[en_GB]: "Just a moment"
+ 
+ script:
++    # Nobara boot splash; before kernel-install and dracut so the target
++    # initramfs includes it. "-": a missing theme must not fail the install.
++    - command: "-/usr/bin/plymouth-set-default-theme nobara"
++      timeout: 3600
+     - command: "/bin/kernel-install add $(uname -r) /lib/modules/$(uname -r)/vmlinuz"
+       timeout: 3600
+     - command: "/usr/sbin/grub2-mkconfig -o /boot/grub2/grub.cfg"

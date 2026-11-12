@@ -1,6 +1,6 @@
 Name:           calamares
 Version:        3.3.14
-Release:        140%{?dist}
+Release:        144%{?dist}
 Summary:        Installer from a live CD/DVD/USB to disk
 
 License:        GPL-3.0-or-later
@@ -8,7 +8,6 @@ URL:            https://codeberg.org/KaOS/calamares/
 Source0:        https://codeberg.org/KaOS/calamares/archive/b005897c8870399ed34a901b6a4d012a1c292928.tar.gz
 Source2:        samegame.tar.gz
 
-Source6:        install-icon.svg
 Source7:        input-keyboard-virtual-off.svg
 Source8:        input-keyboard-virtual-on.svg
 Source9:        shellprocess.conf.landscape
@@ -28,8 +27,6 @@ Source1005:       fsresizer.tar.gz
 Source1006:       services-systemd.tar.gz
 Source1007:       hwclock.tar.gz
 Source1008:       displaymanager.tar.gz
-Source1009:       nobara-gdm-logo-calamares.png
-Source1010:       nobara-logo.png
 
 Patch1006:       0005-rebase-over-kaos-calamares.patch
 Patch1008:       calamares-3.3.3-kdesu.patch
@@ -60,6 +57,13 @@ Patch1020:       0016-installer-size-and-efi-hint.patch
 # Erase disk: list disks before LVM volume groups, allow erasing a disk with an
 # unused volume group, and wipe its old LVM/LUKS signatures before repartitioning
 Patch1021:       0017-erase-disk-with-old-lvm.patch
+# Standard editions: select the nobara Plymouth theme before the initramfs is built
+Patch1022:       0018-standard-plymouth-theme.patch
+# Remove the "Update installed packages" option; install every kernel in the
+# image and set the Easy Anti-Cheat kernel default before the first boot
+Patch1023:       0019-drop-update-option-and-boot-kernel-eac.patch
+# Erase disk offers ext4 with LVM and Btrfs only
+Patch1024:       0020-ext4-or-btrfs-only.patch
 #Patch1007:       fixup_branding.patch
 
 # Fedora-specific changes
@@ -101,6 +105,10 @@ BuildRequires:  cmake(Qt6Gui)
 BuildRequires:  cmake(Qt6LinguistTools)
 BuildRequires:  cmake(Qt6Network)
 BuildRequires:  cmake(Qt6Svg)
+# The logos come from nobara-logos (the new Nobara logo, 44.0.0-2 and later):
+# the installer icon is copied and the welcome wordmark rendered from it
+BuildRequires:  nobara-logos >= 44.0.0-2
+BuildRequires:  librsvg2-tools
 BuildRequires:  cmake(Qt6Widgets)
 BuildRequires:  cmake(Qt6Quick)
 BuildRequires:  cmake(Qt6QuickWidgets)
@@ -124,9 +132,10 @@ BuildRequires:  cmake(PolkitQt6-1)
 
 # KPMcore
 BuildRequires:  cmake(KPMcore) >= 4.2.0
-# Planned LVM volume groups in manual partitioning (patch 0015)
-BuildRequires:  kpmcore-devel >= 26.08.1-1.nobara
-Requires:       kpmcore%{?_isa} >= 26.08.1-1.nobara
+# Planned LVM volume groups in manual partitioning (patch 0015) need the
+# Nobara kpmcore patch; a version requirement is also met by newer Fedora builds
+BuildRequires:  kpmcore-devel(nobara-lvm-planning)%{?_isa}
+Requires:       kpmcore(nobara-lvm-planning)%{?_isa}
 
 # Python 3
 BuildRequires:  python3-devel >= 3.3
@@ -147,7 +156,8 @@ BuildRequires:  bsdtar
 Requires(post): system-release
 Requires(post): system-logos
 Requires:       system-logos
-Requires:	nobara-logos
+# The sidebar logo and window icon are nobara-logos' files
+Requires:	nobara-logos >= 44.0.0-2
 Requires:       coreutils
 Requires:       util-linux
 Requires:       upower
@@ -277,13 +287,15 @@ cd ../../
 %patch 1019 -p1
 %patch 1020 -p1
 %patch 1021 -p1
+%patch 1022 -p1
+%patch 1023 -p1
+%patch 1024 -p1
 
-mv %{SOURCE1009} src/branding/nobara_branding/
-mv %{SOURCE1010} src/branding/nobara_branding/
 
 
 
-cp %{SOURCE6} ./data/images/squid.svg
+# The installer icon (About dialog) is nobara-logos' installer icon
+cp %{_datadir}/icons/hicolor/scalable/apps/org.fedoraproject.AnacondaInstaller.svg ./data/images/squid.svg
 sed -i '/^Icon/ s/calamares/org.fedoraproject.AnacondaInstaller/g' ./calamares.desktop
 sed -i '/^Icon\[.*$/d' ./calamares.desktop
 sed -i '/^Icon/ s/calamares/org.fedoraproject.AnacondaInstaller/g' ./calamares.desktop.in
@@ -319,6 +331,13 @@ mkdir -p %{buildroot}%{_sysconfdir}/calamares/branding
 # delete dummypythonqt translations, we do not use PythonQt at this time
 rm -f %{buildroot}%{_datadir}/locale/*/LC_MESSAGES/calamares-dummypythonqt.mo
 
+# The welcome page logo, as a PNG because the welcome page shows the image at
+# its own size. The welcome page follows the Qt theme, light or dark, so use
+# nobara-logos' lighter tanzanite wordmark: about 3.3:1 on the light page and
+# 4:1 on the dark one (the deeper one for light backgrounds is 1.6:1 on dark)
+rsvg-convert -w 540 %{_datadir}/nobara-logos/nobara_darkbackground.svg \
+  -o %{buildroot}%{_datadir}/calamares/branding/nobara_branding/nobara-logo.png
+
 # samegame (minigame while installing)
 tar -zxvf %{SOURCE2} -C  %{buildroot}%{_datadir}/calamares/branding/nobara_branding/
 
@@ -340,7 +359,8 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/calamares.desktop
 . %{_sysconfdir}/os-release
 
 LOGO="%{_datadir}/calamares/branding/nobara_branding/nobara-logo.png"
-SPRITE="%{_datadir}/calamares/branding/nobara_branding/nobara-gdm-logo-calamares.png"
+# The sidebar is dark: nobara-logos' mark, which is drawn for dark backgrounds
+SPRITE="%{_datadir}/icons/hicolor/256x256/apps/nobara-logo-icon.png"
 if [ -e %{_datadir}/icons/hicolor/48x48/apps/nobara-logo-icon.png ] ; then
   ICON="%{_datadir}/icons/hicolor/48x48/apps/nobara-logo-icon.png"
 else
@@ -450,6 +470,30 @@ EOF
 
 
 %changelog
+* Thu Nov 12 2026 Nobara Project <support@nobaraproject.org> - 3.3.14-144
+- Remove "xfs with LVM" from the erase-disk filesystem choices; ext4 with LVM
+  and Btrfs remain. XFS cannot be shrunk, so the system volume of an XFS
+  install could never be grown later. Manual partitioning still offers XFS.
+
+* Thu Nov 12 2026 Nobara Project <support@nobaraproject.org> - 3.3.14-143
+- Use the new Nobara logo from nobara-logos instead of the old black and
+  white ones: the tanzanite wordmark on the welcome page (readable with light
+  and dark themes), the mark on the sidebar, and the installer icon in the
+  About dialog
+
+* Thu Nov 12 2026 Nobara Project <support@nobaraproject.org> - 3.3.14-142
+- Remove the "Update installed packages to latest versions" option and its
+  install step. The media codecs option stays.
+- Add boot entries for every kernel in the image, not only the one the live
+  system runs, so installs get both the normal kernel and kernel-eac.
+- Run 95-nobara-eac.install apply-all at the end: with Secure Boot on and the
+  Nobara EAC CA enrolled, kernel-eac is the default from the first boot.
+
+* Wed Nov 11 2026 Nobara Project <support@nobaraproject.org> - 3.3.14-141
+- Standard installs select the nobara Plymouth theme before the initramfs
+  is built; a missing theme does not fail the install. The HTPC and
+  handheld shellprocess configs still set steamos.
+
 * Sun Nov 01 2026 Nobara Project <support@nobaraproject.org> - 3.3.14-140
 - Erase disk works on disks with an earlier LVM install: the PVs of an unused
   volume group no longer count as mounted.
@@ -457,6 +501,8 @@ EOF
 - Deactivate old volume groups, close old LUKS mappings and wipe old
   signatures before writing a new partition table, so the new LVM PV can be
   created where the old one was.
+- Depend on kpmcore(nobara-lvm-planning): Fedora's kpmcore 26.08.2 met the
+  old version requirement but lacks the Nobara patch, which broke the build.
 
 * Fri Oct 30 2026 Nobara Project <support@nobaraproject.org> - 3.3.14-139
 - Fix manual partitioning crash when creating an LVM volume group.
