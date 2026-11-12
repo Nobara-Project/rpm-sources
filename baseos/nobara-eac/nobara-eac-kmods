@@ -1,0 +1,55 @@
+#!/usr/bin/bash
+#
+# nobara-eac-kmods - install the Nobara-signed driver builds for the EAC kernels
+#
+# The Easy Anti-Cheat kernel (kernel-eac) only loads modules signed by Nobara.
+# A new kernel-eac brings the kmod-*-signed-<kernel> packages of the drivers
+# installed at that time. Run this after installing or switching a driver
+# (nobara-driver-manager does, for NVIDIA), so the EAC kernels installed
+# already get its signed build too. Without one, the EAC kernel doesn't become
+# the default boot entry.
+#
+# Usage: nobara-eac-kmods          install the missing packages
+#        nobara-eac-kmods --list   only list them
+
+HOOK=/usr/lib/kernel/install.d/95-nobara-eac.install
+
+log() { echo "nobara-eac-kmods: $*" >&2; }
+
+mapfile -t missing < <("$HOOK" missing-kmods)
+
+case "$1" in
+    --list)
+        printf '%s\n' "${missing[@]}"
+        exit 0
+        ;;
+    "") ;;
+    *)
+        echo "Usage: $0 [--list]" >&2
+        exit 2
+        ;;
+esac
+
+if [[ ${#missing[@]} -eq 0 ]]; then
+    log "nothing to install"
+    exit 0
+fi
+
+[[ $EUID -eq 0 ]] || { log "run this as root: sudo $0"; exit 1; }
+
+log "installing: ${missing[*]}"
+# A driver version with no signed build yet (e.g. an NVIDIA beta, or a driver
+# update published before its signed build) is skipped: the EAC kernel then
+# isn't made the default, and the normal kernel keeps working.
+dnf -y install --skip-unavailable "${missing[@]}" || { log "dnf install failed"; exit 1; }
+
+# The default boot entry, now that the modules may be complete
+"$HOOK" apply-all
+
+left="$("$HOOK" missing-kmods)"
+if [[ -n "$left" ]]; then
+    log "no signed build is available yet for:"
+    echo "$left" | sed 's/^/  /' >&2
+    exit 1
+fi
+exit 0

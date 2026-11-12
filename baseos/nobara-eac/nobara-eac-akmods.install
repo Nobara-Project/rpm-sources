@@ -1,0 +1,14 @@
+#!/usr/bin/bash
+#
+# Installed by nobara-eac as /etc/kernel/install.d/95-akmodsposttrans.install, which kernel-install
+# runs instead of /usr/lib/kernel/install.d/95-akmodsposttrans.install (from akmods).
+#
+# The Easy Anti-Cheat kernel (kernel-eac) has no development files and loads
+# only Nobara-signed modules (the kmod-*-signed-<kernel> packages), so akmods
+# has nothing to build for it: skip it there instead of failing. Every
+# other kernel runs akmods's own plugin, unchanged.
+
+[[ "$2" == *.eac.* ]] && exit 0
+plugin=/usr/lib/kernel/install.d/95-akmodsposttrans.install
+[[ -x "$plugin" ]] || exit 0
+exec "$plugin" "$@"

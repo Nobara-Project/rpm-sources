@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>Nobara</vendor>
+  <vendor_url>https://nobaraproject.org</vendor_url>
+  <!-- pkexec nobara-eac-enroll, from the Nobara updater's Secure Boot dialog.
+       Queues the Nobara keys for enrollment: they are only enrolled once the
+       user confirms them in MokManager, at the computer, on the next boot. -->
+  <action id="org.nobaraproject.eac-enroll">
+    <description>Enroll the Nobara Secure Boot keys</description>
+    <message>Authentication is required to enroll the Nobara Secure Boot keys</message>
+    <icon_name>security-high</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/nobara-eac-enroll</annotate>
+  </action>
+</policyconfig>

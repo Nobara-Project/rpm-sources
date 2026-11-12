@@ -1,47 +1,50 @@
 #!/usr/bin/bash
 #
-# 95-nobara-eac.install - Easy Anti-Cheat Linux v2 boot entries for GRUB
+# 95-nobara-eac.install - GRUB boot entries for the Easy Anti-Cheat kernel
 #
 # EAC Linux v2 reads the measured kernel command line and requires kernel
 # lockdown in integrity mode, enforced module signatures, kexec disabled,
 # the IOMMU enabled without passthrough and the BPF LSM active:
 # https://onlineservices.epicgames.com/news/introducing-easy-anti-cheat-linux-v2
 #
+# Nobara has two kernels, signed by two key hierarchies, so Easy Anti-Cheat
+# can tell them apart by the CA shim measures when it boots them:
+#   kernel      the normal kernel, signed by the Nobara Secure Boot CA. It
+#               trusts MOKs, so modules DKMS and akmods sign with enrolled
+#               keys load with Secure Boot on.
+#   kernel-eac  the EAC kernel (SBAT entry linux.nobara-eac), signed by the
+#               Nobara EAC CA, like GRUB. It trusts no MOK and only loads
+#               modules signed by the Nobara EAC signer, among them the
+#               kmod-*-signed-<kernel> packages of the drivers in
+#               SIGNED_KMODS below.
 # For every kernel, 20-grub.install writes <machine-id>-<version>.conf. This
-# plugin rewrites that entry for the default mode and adds a second entry
-# for the other mode, so both are one GRUB menu selection away:
-#   <machine-id>-<version>~noeac.conf  when EAC is the default
-#   <machine-id>-<version>~eac.conf    when EAC is not the default
-# Only kernels built for EAC get an EAC entry: their image carries the
-# linux.nobara SBAT entry, and only those are signed with the Nobara key.
-# Older kernels cannot boot with Secure Boot and keep their plain entry.
+# plugin gives the entries of EAC kernels the EAC command line and an "[EAC] "
+# title prefix, and keeps the entries of normal kernels plain. It also removes
+# what nobara-eac 1.0 added: its ~eac and ~noeac entries, and EAC options
+# and marks on normal kernels.
 #
-# EAC entries start their title with "[EAC] ", where it stays visible even
-# when the release name fills the GRUB menu. Other entries are not marked.
-#
-# EAC_DEFAULT in /etc/sysconfig/nobara-eac selects the default:
-#   auto - EAC when Secure Boot is enabled and nobara-eac-enroll has enrolled
-#          the Nobara CA and the local DKMS and akmods keys. EAC cannot pass
-#          without Secure Boot, and enforced module signatures would block
-#          modules signed with a key the kernel does not trust.
-#          nobara-eac.service re-checks this on every boot.
-#   yes  - always EAC
-#   no   - never EAC
-#
-# EAC_ENTRIES=no in the same file turns the EAC entries off: every kernel
-# keeps only its plain entry, whatever EAC_DEFAULT says. The default, yes,
-# gives each EAC kernel both entries.
+# EAC_DEFAULT in /etc/sysconfig/nobara-eac selects the default entry:
+#   auto - the newest EAC kernel that is ready: Secure Boot is enabled, the
+#          Nobara EAC CA is enrolled, and every out-of-tree driver in
+#          SIGNED_KMODS installed for the normal kernel has its signed
+#          package for that EAC kernel, so nothing is missing in it.
+#          Otherwise the newest normal kernel. nobara-eac.service re-checks
+#          this on every boot.
+#   yes  - the newest EAC kernel
+#   no   - never an EAC kernel
 #
 # Besides the add and remove commands of kernel-install, this script accepts
-#   apply-all  - (re)create the entries of all installed kernels
-#   remove-all - remove the EAC entries and options from all kernels
+#   apply-all     - (re)write the entries of all installed kernels and the default
+#   remove-all    - remove the EAC options from all entries
+#   missing-kmods - list the signed module packages (capabilities) missing for
+#                   the installed EAC kernels, one per line (nobara-eac-kmods
+#                   installs them)
 
 COMMAND="$1"
 KERNEL_VERSION="$2"
 BOOT_DIR_ABS="$3"
 
 EAC_DEFAULT=auto
-EAC_ENTRIES=yes
 [[ -f /etc/sysconfig/nobara-eac ]] && . /etc/sysconfig/nobara-eac
 [[ -f /etc/default/grub ]] && . /etc/default/grub
 
@@ -57,29 +60,96 @@ EAC_ARGS=(
 )
 EAC_TITLE="[EAC] "
 
+# Driver packages for the normal kernel, and the capability of their signed
+# build for an EAC kernel (KVER is replaced by its version)
+SIGNED_KMODS=(
+    "nvidia-kmod-common nvidia-signed-kmod-KVER"
+    "xone kmod-xone-signed-KVER"
+    "xpad-noone kmod-xpad-noone-signed-KVER"
+    "openrazer-kernel-modules-dkms kmod-openrazer-signed-KVER"
+    "hid-tmff2 kmod-hid-tmff2-signed-KVER"
+    "hid-fanatecff kmod-hid-fanatecff-signed-KVER"
+    "new-lg4ff kmod-new-lg4ff-signed-KVER"
+    "displaylink kmod-evdi-signed-KVER"
+    "dkms-r8125 kmod-r8125-signed-KVER"
+    "nct6687d kmod-nct6687d-signed-KVER"
+    # Built for the LTS EAC kernel only: with zfs-dkms installed, the
+    # mainline EAC kernel never becomes the default
+    "zfs-dkms kmod-zfs-signed-KVER"
+)
+
 # Same conditions as 20-grub.install: BLS entries managed by GRUB only
 [[ -n "$MACHINE_ID" ]] || exit 0
 [[ "x$KERNEL_INSTALL_LAYOUT" != "xuki" ]] || exit 0
 [[ "x${GRUB_ENABLE_BLSCFG}" = "xtrue" ]] || [[ ! -f /sbin/new-kernel-pkg ]] || exit 0
+
+entry_file() { echo "${BLS_DIR}/${MACHINE_ID}-$1.conf"; }
+entry_id() { echo "${MACHINE_ID}-$1"; }
 
 secure_boot_enabled() {
     local var=/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c
     [[ -r "$var" ]] && [[ "$(od -An -t u1 -j4 -N1 "$var" | tr -d ' ')" = 1 ]]
 }
 
-eac_entries_enabled() {
-    case "$EAC_ENTRIES" in
-        no|false|0|never) return 1 ;;
-        *) return 0 ;;
-    esac
+# Whether a kernel is an EAC kernel: kernel-eac.spec embeds this SBAT entry
+eac_kernel() {
+    local image="/lib/modules/$1/vmlinuz"
+    [[ -f "$image" ]] || image="/boot/vmlinuz-$1"
+    [[ -f "$image" ]] && grep -qa '^linux\.nobara-eac,' "$image"
 }
 
-eac_is_default() {
-    case "$EAC_DEFAULT" in
-        yes|true|1) return 0 ;;
-        no|false|0) return 1 ;;
-        *) secure_boot_enabled && /usr/bin/nobara-eac-enroll --check ;;
-    esac
+# Whether the out-of-tree modules of an EAC kernel are complete and signed by
+# Nobara: a signed package for every installed driver, and every module in
+# extra/ or updates/ that modprobe would load signed with the Nobara EAC
+# signer certificate. Module signatures name their key by issuer and serial number,
+# so compare the serial (modinfo's "signer" is the issuer, the CA).
+NOBARA_SIGNER_CERT=/usr/share/nobara/eac/nobara-eac-signer.crt
+NOBARA_SIGNER_SERIAL=
+modules_ready() {
+    local kver="$1" pair driver capability dir module name path key
+    local -A seen=()
+    for pair in "${SIGNED_KMODS[@]}"; do
+        driver="${pair%% *}"
+        capability="${pair#* }"
+        capability="${capability/KVER/$kver}"
+        if rpm -q --quiet "$driver" && ! rpm -q --quiet --whatprovides "$capability"; then
+            return 1
+        fi
+    done
+    if [[ -z "$NOBARA_SIGNER_SERIAL" ]]; then
+        NOBARA_SIGNER_SERIAL="$(openssl x509 -in "$NOBARA_SIGNER_CERT" -noout -serial 2>/dev/null)"
+        NOBARA_SIGNER_SERIAL="${NOBARA_SIGNER_SERIAL#serial=}"
+        NOBARA_SIGNER_SERIAL="${NOBARA_SIGNER_SERIAL^^}"
+        [[ -n "$NOBARA_SIGNER_SERIAL" ]] || return 1
+    fi
+    for dir in "/lib/modules/$kver/extra" "/lib/modules/$kver/updates"; do
+        [[ -d "$dir" ]] || continue
+        while IFS= read -r -d '' module; do
+            name="${module##*/}"
+            name="${name%%.ko*}"
+            [[ -n "${seen[$name]}" ]] && continue
+            seen[$name]=1
+            path="$(modinfo -k "$kver" -n "$name" 2>/dev/null)"
+            [[ -n "$path" ]] || path="$module"
+            key="$(modinfo -F sig_key "$path" 2>/dev/null)"
+            key="${key//:/}"
+            [[ "${key^^}" = "$NOBARA_SIGNER_SERIAL" ]] || return 1
+        done < <(find "$dir" -name '*.ko*' -print0)
+    done
+    return 0
+}
+
+# Checked once, the same for every kernel
+EAC_READY=
+eac_ready() {
+    if [[ -z "$EAC_READY" ]]; then
+        if secure_boot_enabled && /usr/bin/nobara-eac-enroll --check; then
+            EAC_READY=yes
+        else
+            EAC_READY=no
+        fi
+    fi
+    [[ "$EAC_READY" = yes ]]
 }
 
 # The LSM order the kernel was built with, so lsm= changes nothing but
@@ -103,23 +173,9 @@ is_eac() {
     return 0
 }
 
-# The user's own command line for a kernel. An entry without the EAC options
-# is the user's own. If the main entry is the EAC one, the ~noeac entry keeps
-# the user's options unchanged. Without one, the main entry was copied from
-# /proc/cmdline of an EAC boot, and only the EAC options can be removed.
-user_options() {
-    local kver="$1"
-    local entry="${BLS_DIR}/${MACHINE_ID}-${kver}.conf"
-    local -a options
-    read -r -a options <<< "$(entry_options "$entry")"
-    if is_eac "${options[@]}" && [[ -f "${entry%.conf}~noeac.conf" ]]; then
-        entry_options "${entry%.conf}~noeac.conf"
-        return
-    fi
-    strip_eac "$(kernel_lsm "$kver")" "${options[@]}"
-}
-
-# Command line without the options this script adds, if it has all of them
+# Command line without the options this script adds, if it has all of them.
+# 20-grub.install copies /proc/cmdline when there is no /etc/kernel/cmdline,
+# so a kernel installed while an EAC kernel runs starts with its options.
 strip_eac() {
     local lsm="$1" opt
     shift
@@ -131,6 +187,20 @@ strip_eac() {
         out+=("$opt")
     done
     echo "${out[*]}"
+}
+
+# The user's own command line for a kernel. nobara-eac 1.0 kept it unchanged
+# in the ~noeac entry when the main entry was the EAC one.
+user_options() {
+    local kver="$1" entry
+    entry="$(entry_file "$kver")"
+    local -a options
+    read -r -a options <<< "$(entry_options "$entry")"
+    if is_eac "${options[@]}" && [[ -f "${entry%.conf}~noeac.conf" ]]; then
+        entry_options "${entry%.conf}~noeac.conf"
+        return
+    fi
+    strip_eac "$(kernel_lsm "$kver")" "${options[@]}"
 }
 
 # Command line for EAC: options that weaken the requirements are dropped,
@@ -187,52 +257,33 @@ write_entry() {
     return 0
 }
 
-# Whether the kernel was built for EAC, see above
-eac_kernel() {
-    local image="/lib/modules/$1/vmlinuz"
-    [[ -f "$image" ]] || image="/boot/vmlinuz-$1"
-    [[ -f "$image" ]] && grep -qa '^linux\.nobara,' "$image"
-}
-
-add_entries() {
-    local kver="$1"
-    local entry="${BLS_DIR}/${MACHINE_ID}-${kver}.conf"
-    [[ -f "$entry" ]] || return 0
-    if ! eac_entries_enabled || ! eac_kernel "$kver"; then
-        restore_entry "$kver"
-        return 0
-    fi
-
-    local options base eac
-    base="$(user_options "$kver")"
-    read -r -a options <<< "$base"
-    eac="$(eac_options "$(kernel_lsm "$kver")" "${options[@]}")"
-
-    if eac_is_default; then
-        render "$entry" "$base" "" | write_entry "${entry%.conf}~noeac.conf"
-        render "$entry" "$eac" "$EAC_TITLE" | write_entry "$entry"
-        rm -f "${entry%.conf}~eac.conf"
-    else
-        render "$entry" "$eac" "$EAC_TITLE" | write_entry "${entry%.conf}~eac.conf"
-        render "$entry" "$base" "" | write_entry "$entry"
-        rm -f "${entry%.conf}~noeac.conf"
-    fi
-}
-
-remove_entries() {
-    local kver="$1"
-    local entry="${BLS_DIR}/${MACHINE_ID}-${kver}.conf"
+# The entries nobara-eac 1.0 added next to the main entry
+remove_legacy() {
+    local entry
+    entry="$(entry_file "$1")"
     rm -f "${entry%.conf}~eac.conf" "${entry%.conf}~noeac.conf"
 }
 
-# Restore the plain entry, used when this package is removed
-restore_entry() {
-    local kver="$1"
-    local entry="${BLS_DIR}/${MACHINE_ID}-${kver}.conf"
-    if [[ -f "$entry" ]]; then
-        render "$entry" "$(user_options "$kver")" "" | write_entry "$entry"
+write_entries() {
+    local kver="$1" entry base
+    entry="$(entry_file "$kver")"
+    [[ -f "$entry" ]] || return 0
+    base="$(user_options "$kver")"
+    if eac_kernel "$kver"; then
+        local -a options
+        read -r -a options <<< "$base"
+        render "$entry" "$(eac_options "$(kernel_lsm "$kver")" "${options[@]}")" "$EAC_TITLE" | write_entry "$entry"
+    else
+        render "$entry" "$base" "" | write_entry "$entry"
     fi
-    remove_entries "$kver"
+    remove_legacy "$kver"
+}
+
+restore_entry() {
+    local kver="$1" entry
+    entry="$(entry_file "$kver")"
+    [[ -f "$entry" ]] && render "$entry" "$(user_options "$kver")" "" | write_entry "$entry"
+    remove_legacy "$kver"
 }
 
 installed_kernels() {
@@ -246,24 +297,126 @@ installed_kernels() {
     done
 }
 
+# Installed kernels of one kind (eac, normal), newest first
+kernels_newest_first() {
+    local kver
+    for kver in $(installed_kernels); do
+        if eac_kernel "$kver"; then
+            [[ "$1" = eac ]] && echo "$kver"
+        else
+            [[ "$1" = normal ]] && echo "$kver"
+        fi
+    done | sort -rV
+}
+
+# The entry that should be the default, given the current one ($1):
+#   an EAC kernel when EAC_DEFAULT selects one, else the current entry if it
+#   is a normal kernel, else the newest normal kernel. Empty: no change.
+wanted_default() {
+    local current="$1" kver
+    case "$EAC_DEFAULT" in
+        yes|true|1)
+            kver="$(kernels_newest_first eac | head -n 1)"
+            ;;
+        no|false|0)
+            kver=
+            ;;
+        *)
+            kver=
+            if eac_ready; then
+                for kver in $(kernels_newest_first eac) ""; do
+                    [[ -z "$kver" ]] || modules_ready "$kver" && break
+                done
+            fi
+            ;;
+    esac
+    if [[ -n "$kver" ]]; then
+        entry_id "$kver"
+        return
+    fi
+    # No EAC default: leave a normal kernel's entry alone, replace an EAC one
+    kver="${current#"${MACHINE_ID}"-}"
+    if [[ -n "$current" ]] && [[ "$kver" != "$current" ]] && [[ -d "/lib/modules/$kver" ]] && ! eac_kernel "$kver"; then
+        return
+    fi
+    kver="$(kernels_newest_first normal | head -n 1)"
+    [[ -n "$kver" ]] && entry_id "$kver"
+}
+
+grubenv_get() {
+    grub2-editenv list 2>/dev/null | sed -n "s/^$1=//p"
+}
+
+# kernel-install add: 20-grub.install has put the new default in
+# tmp_saved_entry, which 95-set-boot-entry.install saves after this plugin
+default_on_install() {
+    local current wanted
+    current="$(grubenv_get tmp_saved_entry)"
+    [[ -n "$current" ]] || return 0
+    wanted="$(wanted_default "$current")"
+    if [[ -n "$wanted" ]] && [[ "$wanted" != "$current" ]] && [[ -f "${BLS_DIR}/${wanted}.conf" ]]; then
+        grub2-editenv - set "tmp_saved_entry=$wanted"
+    fi
+}
+
+# On boot. The Nobara updater boots and confirms the kernel it installed and
+# sets the default itself, and its recovery relies on the GRUB environment:
+# leave it alone until the update is confirmed.
+updater_settled() {
+    local state=/var/lib/nobara-updater/state.json status
+    [[ -e "$state" ]] || return 0
+    # The updater keeps state.json after an update, with its final status.
+    # Top-level keys are indented by two spaces (json.dump indent=2).
+    status="$(sed -n 's/^  "status": "\([^"]*\)".*/\1/p' "$state" 2>/dev/null)"
+    case "$status" in
+        complete|unchanged|live-complete|recovered) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+default_on_boot() {
+    local current wanted
+    updater_settled || return 0
+    [[ -n "$(grubenv_get nobara_fallback)$(grubenv_get nobara_trial)$(grubenv_get next_entry)$(grubenv_get tmp_saved_entry)" ]] && return 0
+    current="$(grubenv_get saved_entry)"
+    wanted="$(wanted_default "$current")"
+    if [[ -n "$wanted" ]] && [[ "$wanted" != "$current" ]] && [[ -f "${BLS_DIR}/${wanted}.conf" ]]; then
+        grub2-set-default "$wanted"
+    fi
+}
+
 case "$COMMAND" in
     add)
         # If ${BOOT_DIR_ABS} exists, some other boot loader is active.
         [[ -d "$BOOT_DIR_ABS" ]] && exit 0
-        add_entries "$KERNEL_VERSION"
+        write_entries "$KERNEL_VERSION"
+        default_on_install
         ;;
     remove)
         [[ -d "$BOOT_DIR_ABS" ]] && exit 0
-        remove_entries "$KERNEL_VERSION"
+        remove_legacy "$KERNEL_VERSION"
         ;;
     apply-all)
         for kver in $(installed_kernels); do
-            add_entries "$kver"
+            write_entries "$kver"
         done
+        default_on_boot
         ;;
     remove-all)
         for kver in $(installed_kernels); do
             restore_entry "$kver"
+        done
+        ;;
+    missing-kmods)
+        for kver in $(kernels_newest_first eac); do
+            for pair in "${SIGNED_KMODS[@]}"; do
+                driver="${pair%% *}"
+                capability="${pair#* }"
+                capability="${capability/KVER/$kver}"
+                if rpm -q --quiet "$driver" && ! rpm -q --quiet --whatprovides "$capability"; then
+                    echo "$capability"
+                fi
+            done
         done
         ;;
 esac

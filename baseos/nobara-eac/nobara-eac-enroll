@@ -1,19 +1,37 @@
 #!/usr/bin/bash
 #
-# nobara-eac-enroll - enroll the keys the Easy Anti-Cheat boot entry needs
+# nobara-eac-enroll - enroll the keys for Secure Boot on Nobara
 #
-# The EAC entry boots with enforced module signatures. GRUB and the kernels
-# are signed by the Nobara Secure Boot CA, while DKMS and akmods sign the
-# modules they build on this machine (NVIDIA, xone, ...) with local keys.
-# Shim and the kernel trust all of them once they are enrolled as MOKs:
-#   /usr/share/nobara/eac/nobara-sb-ca.der  Nobara Secure Boot CA
+# Nobara signs with two key hierarchies, so Easy Anti-Cheat can tell the
+# kernels apart by the CA shim measures when it boots them. Shim boots them
+# once both CAs are enrolled as MOKs:
+#   /usr/share/nobara/eac/nobara-eac-ca.der  Nobara EAC CA: GRUB and the
+#                                            Easy Anti-Cheat kernel (kernel-eac)
+#   /usr/share/nobara/eac/nobara-sb-ca.der   Nobara Secure Boot CA: the normal
+#                                            kernel (kernel)
+# Don't remove the Nobara EAC CA once GRUB is signed by it: with Secure Boot
+# on, the system would not boot.
+#
+# The normal kernel (kernel) also trusts the keys DKMS and akmods sign the
+# modules they build on this machine (NVIDIA, xone, ...), once they are
+# enrolled too, so those modules load with Secure Boot on:
 #   /var/lib/dkms/mok.pub                   DKMS modules
 #   /etc/pki/akmods/certs/public_key.der    akmods modules
 # The DKMS and akmods keys are created first when those are installed.
 #
+# The Easy Anti-Cheat kernel (kernel-eac) trusts no MOK: it only loads modules
+# signed by Nobara (the kmod-*-signed-<kernel> packages), whatever is enrolled.
+#
 # Usage: nobara-eac-enroll          enroll the keys that are not enrolled yet
-#        nobara-eac-enroll --check  exit 0 if all keys are enrolled
+#        nobara-eac-enroll --password-stdin
+#                                   the same, without prompting: read the
+#                                   one-time password from the first line of
+#                                   stdin (for the Nobara updater's dialog,
+#                                   through pkexec)
+#        nobara-eac-enroll --check  exit 0 if the Nobara EAC CA is enrolled
+#        nobara-eac-enroll --list   show which keys are enrolled
 
+NOBARA_EAC_CA=/usr/share/nobara/eac/nobara-eac-ca.der
 NOBARA_CA=/usr/share/nobara/eac/nobara-sb-ca.der
 DKMS_CERT=/var/lib/dkms/mok.pub
 AKMODS_CERT=/etc/pki/akmods/certs/public_key.der
@@ -21,6 +39,7 @@ AKMODS_CERT=/etc/pki/akmods/certs/public_key.der
 log() { echo "nobara-eac-enroll: $*" >&2; }
 
 keys() {
+    echo "$NOBARA_EAC_CA"
     echo "$NOBARA_CA"
     [[ -s "$DKMS_CERT" ]] && echo "$DKMS_CERT"
     [[ -s "$AKMODS_CERT" ]] && echo "$AKMODS_CERT"
@@ -34,12 +53,56 @@ pending() {
     mokutil --test-key "$1" 2>/dev/null | grep -qxF "$1 is already in the enrollment request"
 }
 
-if [[ "$1" = "--check" ]]; then
-    command -v mokutil &>/dev/null || exit 1
-    while read -r key; do
-        enrolled "$key" || exit 1
-    done < <(keys)
-    exit 0
+describe() {
+    case "$1" in
+        "$NOBARA_EAC_CA") echo "Nobara EAC CA" ;;
+        "$NOBARA_CA") echo "Nobara Secure Boot CA" ;;
+        "$DKMS_CERT") echo "DKMS module signing key" ;;
+        "$AKMODS_CERT") echo "akmods module signing key" ;;
+    esac
+}
+
+case "$1" in
+    --check)
+        command -v mokutil &>/dev/null || exit 1
+        enrolled "$NOBARA_EAC_CA"
+        exit
+        ;;
+    --list)
+        while read -r key; do
+            if enrolled "$key"; then
+                state="enrolled"
+            elif pending "$key"; then
+                state="enrolled on the next restart"
+            else
+                state="not enrolled"
+            fi
+            echo "$(describe "$key"): $state"
+        done < <(keys)
+        exit 0
+        ;;
+    --password-stdin)
+        PASSWORD_STDIN=1
+        ;;
+    "") ;;
+    *)
+        echo "Usage: $0 [--password-stdin|--check|--list]" >&2
+        exit 2
+        ;;
+esac
+
+# MokManager reads the password with the firmware's keyboard handling, which
+# can't be relied on beyond US-layout letters and digits
+valid_password() {
+    # An explicit list: ranges like [A-Za-z] also match accented letters in
+    # some locales
+    local allowed=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789
+    [[ ${#1} -ge 4 && ${#1} -le 32 && "$1" != *[!$allowed]* ]]
+}
+
+if [[ -n "${PASSWORD_STDIN:-}" ]]; then
+    IFS= read -r PASSWORD || PASSWORD=
+    valid_password "$PASSWORD" || { log "the password must be 4 to 32 letters (A-Z, a-z) and digits"; exit 2; }
 fi
 
 [[ $EUID -eq 0 ]] || { log "run this as root: sudo $0"; exit 1; }
@@ -56,9 +119,9 @@ fi
 new=()
 while read -r key; do
     if enrolled "$key"; then
-        log "$key is already enrolled"
+        log "$(describe "$key") is already enrolled"
     elif pending "$key"; then
-        log "$key is already waiting for confirmation on the next boot"
+        log "$(describe "$key") is already waiting for confirmation on the next boot"
     else
         new+=("$key")
     fi
@@ -69,7 +132,21 @@ if [[ ${#new[@]} -eq 0 ]]; then
     exit 0
 fi
 
-echo "Enrolling ${new[*]}"
+for key in "${new[@]}"; do
+    echo "Enrolling the $(describe "$key") ($key)"
+done
+if [[ -n "${PASSWORD_STDIN:-}" ]]; then
+    # mokutil hashes the password (SHA-512 crypt) and enrolls with the hash,
+    # so the password is never on a command line
+    hash="$(mktemp)" || exit 1
+    trap 'rm -f "$hash"' EXIT
+    printf '%s\n%s\n' "$PASSWORD" "$PASSWORD" | mokutil --generate-hash 2>/dev/null \
+        | grep -E '^\$[0-9a-z]+\$' > "$hash" \
+        || { log "mokutil could not hash the password"; exit 1; }
+    mokutil --import "${new[@]}" --hash-file "$hash" || { log "mokutil --import failed"; exit 1; }
+    echo "The keys are enrolled on your next restart, after you confirm them in MokManager."
+    exit 0
+fi
 echo "Choose a one-time password. You will type it again in MokManager on the next restart."
 mokutil --import "${new[@]}" || { log "mokutil --import failed"; exit 1; }
 
@@ -83,6 +160,8 @@ On that restart, a blue MokManager screen appears right after the firmware
 logo and waits about 10 seconds. Press a key, then choose "Enroll MOK",
 "Continue", "Yes", type the password you just chose and choose "Reboot".
 
-Once the keys are enrolled and Secure Boot is enabled, the Easy Anti-Cheat
-entry becomes the default boot entry.
+Once the Nobara EAC CA is enrolled and Secure Boot is enabled, the Easy
+Anti-Cheat kernel (kernel-eac) becomes the default boot entry, if it is
+installed. The Nobara Secure Boot CA and the DKMS and akmods keys are for the
+normal kernel: the Easy Anti-Cheat kernel only loads modules signed by Nobara.
 EOF

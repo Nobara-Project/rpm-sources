@@ -1,8 +1,10 @@
 [Unit]
-Description=Update the Easy Anti-Cheat boot entries
+Description=Update the Easy Anti-Cheat boot entries and default
 Documentation=file:///etc/sysconfig/nobara-eac
-# Secure Boot and the enrolled MOKs can change between boots
-After=local-fs.target
+# Secure Boot, the enrolled MOKs and the signed modules can change between
+# boots. The Nobara updater confirms its update first and sets the default
+# itself; this only changes it afterwards.
+After=local-fs.target nobara-updater-confirm.service
 ConditionPathIsDirectory=/boot/loader/entries
 
 [Service]
