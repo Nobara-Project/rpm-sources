@@ -1,0 +1,108 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Fix <fix@example.com>
+Date: Thu, 20 Mar 2026 00:00:00 +0000
+Subject: [PATCH] xone-wired: Fix USB reset race condition causing system
+ freeze
+
+The xone_wired driver was calling usb_reset_device() unconditionally
+in probe(), which causes severe race conditions when the controller is
+rapidly connected/disconnected. This can leave the xHCI controller in
+a bad state, eventually causing a complete system freeze.
+
+The reset was intended for "newer devices after system sleep" but was
+being applied to all connections. This is the same bug that was already
+fixed in the dongle driver (see dongle.c:1495-1499).
+
+The fix:
+1. Remove the unconditional usb_reset_device() from probe
+2. Add proper reset_resume handler that reinitializes the device after
+   system resume, similar to how the dongle driver handles it
+
+This allows rapid plug/unplug operations without freezing the system,
+while still properly handling resume from sleep.
+
+Fixes: https://github.com/dlundqvist/xone/issues/14
+---
+ transport/wired.c | 55 ++++++++++++++++++++++++++++++++++++++++++-----
+ 1 file changed, 50 insertions(+), 5 deletions(-)
+
+diff --git a/transport/wired.c b/transport/wired.c
+index 0000000..1111111 100644
+--- a/transport/wired.c
++++ b/transport/wired.c
+@@ -482,9 +482,6 @@ static int xone_wired_probe(struct usb_interface *intf,
+
+ 	wired->udev = interface_to_usbdev(intf);
+
+-	/* newer devices require a reset after system sleep */
+-	usb_reset_device(wired->udev);
+-
+ 	err = xone_wired_init_data_port(wired, intf);
+ 	if (err)
+ 		return err;
+@@ -542,6 +539,53 @@ static void xone_wired_disconnect(struct usb_interface *intf)
+ 	usb_set_intfdata(intf, NULL);
+ }
+
++static int xone_wired_suspend(struct usb_interface *intf, pm_message_t message)
++{
++	struct xone_wired *wired = usb_get_intfdata(intf);
++
++	/* ignore audio interface */
++	if (!wired)
++		return 0;
++
++	usb_kill_urb(wired->data_port.urb_in);
++	usb_kill_urb(wired->audio_port.urb_in);
++	usb_kill_anchored_urbs(&wired->data_port.urbs_out_busy);
++	usb_kill_anchored_urbs(&wired->audio_port.urbs_out_busy);
++
++	return 0;
++}
++
++static int xone_wired_resume(struct usb_interface *intf)
++{
++	struct xone_wired *wired = usb_get_intfdata(intf);
++	int err;
++
++	/* ignore audio interface */
++	if (!wired)
++		return 0;
++
++	/* restart data input */
++	err = usb_submit_urb(wired->data_port.urb_in, GFP_KERNEL);
++	if (err)
++		return err;
++
++	/* restart audio input if it was active */
++	if (wired->audio_port.urb_in) {
++		err = usb_submit_urb(wired->audio_port.urb_in, GFP_KERNEL);
++		if (err)
++			return err;
++	}
++
++	return 0;
++}
++
++static int xone_wired_reset_resume(struct usb_interface *intf)
++{
++	/* The kernel already reset the device before calling reset_resume.
++	 * Just resume normally without an additional reset. */
++	return xone_wired_resume(intf);
++}
++
+ static const struct usb_device_id xone_wired_id_table[] = {
+ 	{ XONE_WIRED_VENDOR(0x045e) }, /* Microsoft */
+ 	{ XONE_WIRED_VENDOR(0x0738) }, /* Mad Catz */
+@@ -573,6 +617,9 @@ static struct usb_driver xone_wired_driver = {
+ 	.probe = xone_wired_probe,
+ 	.disconnect = xone_wired_disconnect,
+ 	.id_table = xone_wired_id_table,
++	.suspend = xone_wired_suspend,
++	.resume = xone_wired_resume,
++	.reset_resume = xone_wired_reset_resume,
+ };
+
+ module_usb_driver(xone_wired_driver);
+--
+2.46.0
