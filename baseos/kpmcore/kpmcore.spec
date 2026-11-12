@@ -3,7 +3,7 @@
 %global sover 13
 
 Name:           kpmcore
-Version:        26.08.1
+Version:        26.08.2
 Release:        1.nobara%{?dist}
 Summary:        Library for managing partitions by KDE programs
 License:        GPL-3.0-or-later AND MIT AND CC-BY-4.0 AND CC0-1.0
@@ -11,6 +11,9 @@ URL:            https://github.com/KDE/kpmcore
 Source:         https://download.kde.org/stable/release-service/%{version}/src/%{name}-%{version}.tar.xz
 # Nobara: let Calamares plan logical volumes in a volume group it will create
 Patch0:         0001-manual-lvm-planning.patch
+# Calamares depends on these instead of a version: a newer Fedora kpmcore
+# satisfies any version requirement but lacks the patch
+Provides:       kpmcore(nobara-lvm-planning)%{?_isa} = 1
 
 
 BuildRequires:  cmake >= 3.16
@@ -55,6 +58,7 @@ and other KDE projects
 Summary:        Development files for %{name}
 Requires:       %{name}%{?_isa} = %{version}-%{release}
 Requires:       cmake(Qt6Core) >= %{qt6min}
+Provides:       kpmcore-devel(nobara-lvm-planning)%{?_isa} = 1
 
 %description    devel
 The %{name}-devel package contains libraries and header files for
@@ -93,6 +97,11 @@ developing applications that use %{name}
 
 
 %changelog
+* Sun Nov 01 2026 Nobara Project <support@nobaraproject.org> - 26.08.2-1.nobara
+- Update to 26.08.2: Fedora's 26.08.2 was newer than our patched 26.08.1, so
+  Calamares built against it without the LVM planning patch.
+- Provide kpmcore(nobara-lvm-planning) for Calamares to depend on.
+
 * Fri Oct 30 2026 Nobara Project <support@nobaraproject.org> - 26.08.1-1.nobara
 - Add an LvmDevice constructor for planned (not yet created) volume groups,
   used by Calamares manual partitioning.
