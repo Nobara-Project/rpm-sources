@@ -1,5 +1,5 @@
 Name:           nobara-kernel-manager
-Version:        0.1.4
+Version:        0.1.6
 Release:        1%{?dist}
 Summary:        Graphical manager for Nobara Mainline, LTS, and rescue kernels
 License:        MPL-2.0
@@ -54,6 +54,17 @@ desktop-file-validate \
 %{_datadir}/polkit-1/actions/org.nobaraproject.kernel-manager.status.policy
 
 %changelog
+* Mon Nov 02 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 0.1.6-1
+- kernel now recommends kernel-eac: a switch on a system without kernel-eac
+  keeps it out instead of installing it
+
+* Mon Nov 02 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 0.1.5-1
+- Treat Easy Anti-Cheat kernels (kernel-eac) as part of their Mainline or LTS
+  family instead of reporting both families installed
+- Switching replaces an installed kernel-eac with the selected family's, with
+  its Nobara-signed modules
+- Rescue kernel: prefer the normal kernel over kernel-eac
+
 * Sun Aug 23 2026 Nobara Project <hello@nobaraproject.org> - 0.1.1-1
 - Show booted, rescue, latest Mainline, and latest LTS kernel versions
 
