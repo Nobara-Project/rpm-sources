@@ -1,0 +1,344 @@
+From ac86deb1dcce051cc4c97e80d9db4ba1d60972cf Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Thu, 12 Nov 2026 01:30:00 -0700
+Subject: [PATCH] output: add per-output adaptive sync modes
+
+Add a top-level <adaptiveSyncOutputs> block whose <output name="" mode=""/>
+entries override <core><adaptiveSync> for one connector. mode takes the
+same yes|no|fullscreen values; later entries win and outputs without an
+entry keep the global setting.
+
+Reconfigure brings each usable output in line with its mode. An output
+already in the wanted state is left alone, there and when the focused
+window changes, so neither commits anything without a change. With fullscreen, adaptive sync is on
+only while a mapped fullscreen view is shown on that output; a fullscreen
+view deactivated after it was unmapped no longer turns it back on.
+
+Log a refused enable at info level, since a refused output silently
+stays at a fixed refresh rate.
+---
+ docs/labwc-config.5.scd | 18 +++++++++
+ docs/rc.xml.all         |  5 +++
+ include/config/rcxml.h  | 10 +++++
+ include/output.h        |  1 +
+ src/config/rcxml.c      | 59 ++++++++++++++++++++++++++++
+ src/output.c            | 85 ++++++++++++++++++++++++++++++++++++-----
+ src/server.c            |  1 +
+ 7 files changed, 170 insertions(+), 9 deletions(-)
+
+diff --git a/docs/labwc-config.5.scd b/docs/labwc-config.5.scd
+index 304e59f..d011a81 100644
+--- a/docs/labwc-config.5.scd
++++ b/docs/labwc-config.5.scd
+@@ -199,6 +199,24 @@ this is for compatibility with Openbox.
+ 	*fullscreen* enables adaptive sync whenever a window is in fullscreen
+ 	mode.
+ 
++*<adaptiveSyncOutputs><output name="..." mode="..." />* [yes|no|fullscreen]
++	Override the global adaptive sync setting for an individual output. The
++	output name is the connector name advertised by the compositor, such as
++	"HDMI-A-1" or "DP-1". *mode* takes the same values as
++	*<core><adaptiveSync>*; with *fullscreen*, adaptive sync is enabled while
++	a fullscreen window is shown on that output. Outputs without an entry use
++	the global setting. Later entries for the same output take precedence.
++	Changes are applied to connected outputs on reconfigure.
++
++	For example, keep adaptive sync off globally but use it for fullscreen
++	windows on one output:
++
++	```
++	<adaptiveSyncOutputs>
++	  <output name="DP-2" mode="fullscreen" />
++	</adaptiveSyncOutputs>
++	```
++
+ *<core><allowTearing>* [yes|no|fullscreen|fullscreenForced]
+ 	Allow tearing to reduce input lag. Default is no.
+ 
+diff --git a/docs/rc.xml.all b/docs/rc.xml.all
+index 2d86a5c..8bc07c1 100644
+--- a/docs/rc.xml.all
++++ b/docs/rc.xml.all
+@@ -30,6 +30,11 @@
+     <!-- <output name="DP-1" enabled="no" /> -->
+   </hdrOutputs>
+ 
++  <!-- Per-output overrides for the global <core><adaptiveSync> setting. -->
++  <adaptiveSyncOutputs>
++    <!-- <output name="DP-2" mode="fullscreen" /> -->
++  </adaptiveSyncOutputs>
++
+   <!-- SDR monitor characterization, calibration and output precision (Vulkan). -->
+   <colorManagement>
+     <!-- <output name="DP-1" profile="/absolute/path/monitor.icc"
+diff --git a/include/config/rcxml.h b/include/config/rcxml.h
+index 369b766..d9aa8a9 100644
+--- a/include/config/rcxml.h
++++ b/include/config/rcxml.h
+@@ -69,6 +69,12 @@ struct output_hdr_override {
+ 	struct wl_list link; /* struct rcxml.output_hdr_overrides */
+ };
+ 
++struct output_adaptive_sync_override {
++	char *output;
++	enum adaptive_sync_mode mode;
++	struct wl_list link; /* struct rcxml.output_adaptive_sync_overrides */
++};
++
+ struct workspace_config {
+ 	struct wl_list link; /* struct rcxml.workspace_config.workspaces */
+ 	char *name;
+@@ -138,6 +144,9 @@ struct rcxml {
+ 	/* <hdrOutputs><output name="" enabled="" /></hdrOutputs> */
+ 	struct wl_list output_hdr_overrides;
+ 
++	/* <adaptiveSyncOutputs><output name="" mode="" /></adaptiveSyncOutputs> */
++	struct wl_list output_adaptive_sync_overrides;
++
+ 	/* keyboard */
+ 	int repeat_rate;
+ 	int repeat_delay;
+@@ -239,6 +248,7 @@ extern struct rcxml rc;
+ void rcxml_read(const char *filename);
+ void rcxml_finish(void);
+ enum render_bit_depth rcxml_get_output_render_bit_depth(const char *output_name);
++enum adaptive_sync_mode rcxml_get_output_adaptive_sync(const char *output_name);
+ 
+ /*
+  * Parse the child <action> nodes and append them to the list.
+diff --git a/include/output.h b/include/output.h
+index 2066bdb..47b222a 100644
+--- a/include/output.h
++++ b/include/output.h
+@@ -87,6 +87,7 @@ void output_enable_hdr(struct output *output, struct wlr_output_state *os,
+ 	bool enabled, bool silent);
+ void output_state_setup_hdr(struct output *output, bool silent);
+ void output_reconfigure_hdr(void);
++void output_reconfigure_adaptive_sync(void);
+ 
+ /**
+  * Notifies whether a fullscreen view is displayed on the given output.
+diff --git a/src/config/rcxml.c b/src/config/rcxml.c
+index a66e6b6..1bd1d91 100644
+--- a/src/config/rcxml.c
++++ b/src/config/rcxml.c
+@@ -1100,6 +1100,41 @@ set_adaptive_sync_mode(const char *str, enum adaptive_sync_mode *variable)
+ 	}
+ }
+ 
++static void
++fill_output_adaptive_sync_overrides(xmlNode *node)
++{
++	xmlNode *child;
++	char *key, *content;
++	LAB_XML_FOR_EACH(node, child, key, content) {
++		if (strcasecmp(key, "output")) {
++			wlr_log(WLR_ERROR,
++				"Unexpected element in <adaptiveSyncOutputs>: %s", key);
++			continue;
++		}
++
++		char output_name[256] = {0};
++		char mode[32] = {0};
++		if (!lab_xml_get_string(child, "name", output_name,
++				ARRAY_SIZE(output_name)) || string_null_or_empty(output_name)) {
++			wlr_log(WLR_ERROR,
++				"Ignoring <adaptiveSyncOutputs><output> without a name");
++			continue;
++		}
++		if (!lab_xml_get_string(child, "mode", mode, ARRAY_SIZE(mode))
++				|| (strcasecmp(mode, "fullscreen")
++					&& parse_bool(mode, -1) == -1)) {
++			wlr_log(WLR_ERROR, "Ignoring adaptive sync override for "
++				"output %s without a valid mode value", output_name);
++			continue;
++		}
++
++		struct output_adaptive_sync_override *override = znew(*override);
++		override->output = xstrdup(output_name);
++		set_adaptive_sync_mode(mode, &override->mode);
++		wl_list_append(&rc.output_adaptive_sync_overrides, &override->link);
++	}
++}
++
+ static void
+ set_tearing_mode(const char *str, enum tearing_mode *variable)
+ {
+@@ -1144,6 +1179,8 @@ entry(xmlNode *node, char *nodename, char *content)
+ 		color_config_parse(node);
+ 	} else if (!strcasecmp(nodename, "hdrOutputs")) {
+ 		fill_output_hdr_overrides(node);
++	} else if (!strcasecmp(nodename, "adaptiveSyncOutputs")) {
++		fill_output_adaptive_sync_overrides(node);
+ 	} else if (!strcasecmp(nodename, "keybind.keyboard")) {
+ 		fill_keybind(node);
+ 	} else if (!strcasecmp(nodename, "context.mouse")) {
+@@ -1548,6 +1585,7 @@ rcxml_init(void)
+ 	if (!has_run) {
+ 		wl_list_init(&rc.usable_area_overrides);
+ 		wl_list_init(&rc.output_hdr_overrides);
++		wl_list_init(&rc.output_adaptive_sync_overrides);
+ 		wl_list_init(&rc.keybinds);
+ 		wl_list_init(&rc.mousebinds);
+ 		wl_list_init(&rc.libinput_categories);
+@@ -2133,6 +2171,14 @@ rcxml_finish(void)
+ 		zfree(hdr);
+ 	}
+ 
++	struct output_adaptive_sync_override *vrr, *vrr_tmp;
++	wl_list_for_each_safe(vrr, vrr_tmp, &rc.output_adaptive_sync_overrides,
++			link) {
++		wl_list_remove(&vrr->link);
++		zfree(vrr->output);
++		zfree(vrr);
++	}
++
+ 	struct keybind *k, *k_tmp;
+ 	wl_list_for_each_safe(k, k_tmp, &rc.keybinds, link) {
+ 		wl_list_remove(&k->link);
+@@ -2193,3 +2239,16 @@ rcxml_get_output_render_bit_depth(const char *output_name)
+ 	}
+ 	return rc.target_render_depth;
+ }
++
++enum adaptive_sync_mode
++rcxml_get_output_adaptive_sync(const char *output_name)
++{
++	struct output_adaptive_sync_override *override;
++	wl_list_for_each_reverse(override, &rc.output_adaptive_sync_overrides,
++			link) {
++		if (!strcmp(override->output, output_name)) {
++			return override->mode;
++		}
++	}
++	return rc.adaptive_sync;
++}
+diff --git a/src/output.c b/src/output.c
+index 6d1e5d9..987c810 100644
+--- a/src/output.c
++++ b/src/output.c
+@@ -597,7 +597,8 @@ configure_new_output(struct output *output)
+ 		return;
+ 	}
+ 
+-	if (rc.adaptive_sync == LAB_ADAPTIVE_SYNC_ENABLED) {
++	if (rcxml_get_output_adaptive_sync(wlr_output->name)
++			== LAB_ADAPTIVE_SYNC_ENABLED) {
+ 		output_enable_adaptive_sync(output, true);
+ 	}
+ 
+@@ -1425,25 +1426,91 @@ output_enable_adaptive_sync(struct output *output, bool enabled)
+ 	wlr_output_state_set_adaptive_sync_enabled(&output->pending, enabled);
+ 	if (!wlr_output_test_state(output->wlr_output, &output->pending)) {
+ 		wlr_output_state_set_adaptive_sync_enabled(&output->pending, false);
+-		wlr_log(WLR_DEBUG,
+-			"failed to enable adaptive sync for output %s",
+-			output->wlr_output->name);
++		if (enabled) {
++			wlr_log(WLR_INFO,
++				"failed to enable adaptive sync for output %s",
++				output->wlr_output->name);
++		}
+ 	} else {
+ 		wlr_log(WLR_INFO, "adaptive sync %sabled for output %s",
+ 			enabled ? "en" : "dis", output->wlr_output->name);
+ 	}
+ }
+ 
++static bool
++output_has_fullscreen_view(struct output *output)
++{
++	struct view *view;
++	wl_list_for_each(view, &server.views, link) {
++		if (view->mapped && !view->minimized && view->fullscreen
++				&& view->output == output) {
++			return true;
++		}
++	}
++	return false;
++}
++
++/* Change adaptive sync only when the output is not already in that state */
++static void
++output_update_adaptive_sync(struct output *output, bool wanted)
++{
++	bool enabled = output->wlr_output->adaptive_sync_status
++		!= WLR_OUTPUT_ADAPTIVE_SYNC_DISABLED;
++	if (wanted == enabled) {
++		return;
++	}
++
++	output_enable_adaptive_sync(output, wanted);
++	if (output->pending.adaptive_sync_enabled != wanted) {
++		/* The output refused, there is nothing to change */
++		output->pending.committed &=
++			~WLR_OUTPUT_STATE_ADAPTIVE_SYNC_ENABLED;
++		return;
++	}
++	output_state_commit(output);
++}
++
++void
++output_reconfigure_adaptive_sync(void)
++{
++	struct output *output;
++	wl_list_for_each(output, &server.outputs, link) {
++		struct wlr_output *wlr_output = output->wlr_output;
++		if (!output_is_usable(output)) {
++			continue;
++		}
++
++		bool wanted;
++		switch (rcxml_get_output_adaptive_sync(wlr_output->name)) {
++		case LAB_ADAPTIVE_SYNC_ENABLED:
++			wanted = true;
++			break;
++		case LAB_ADAPTIVE_SYNC_FULLSCREEN:
++			wanted = output_has_fullscreen_view(output);
++			break;
++		default:
++			wanted = false;
++			break;
++		}
++		output_update_adaptive_sync(output, wanted);
++	}
++}
++
+ void
+ output_set_has_fullscreen_view(struct output *output, bool has_fullscreen_view)
+ {
+-	if (rc.adaptive_sync != LAB_ADAPTIVE_SYNC_FULLSCREEN
+-			|| !output_is_usable(output)) {
++	if (!output_is_usable(output)
++			|| rcxml_get_output_adaptive_sync(output->wlr_output->name)
++				!= LAB_ADAPTIVE_SYNC_FULLSCREEN) {
+ 		return;
+ 	}
+-	/* Enable adaptive sync if view is fullscreen */
+-	output_enable_adaptive_sync(output, has_fullscreen_view);
+-	output_state_commit(output);
++	/*
++	 * Enable adaptive sync if view is fullscreen. A fullscreen view
++	 * that is deactivated after it was unmapped still reports
++	 * fullscreen, so check that one is actually shown.
++	 */
++	output_update_adaptive_sync(output,
++		has_fullscreen_view && output_has_fullscreen_view(output));
+ }
+ 
+ void
+diff --git a/src/server.c b/src/server.c
+index b188477..8e6121f 100644
+--- a/src/server.c
++++ b/src/server.c
+@@ -127,6 +127,7 @@ reload_config_and_theme(void)
+ 	workspaces_reconfigure();
+ 	output_color_reconfigure();
+ 	output_reconfigure_hdr();
++	output_reconfigure_adaptive_sync();
+ 
+ 	wl_event_loop_add_idle(server.wl_event_loop, nag_show_callback, NULL);
+ }
+-- 
+2.56.0
+

@@ -4,7 +4,7 @@
 Name:           labwc
 Version:        0.20.2
 %forgemeta
-Release:        25%{?dist}
+Release:        26%{?dist}
 Summary:        A Wayland window-stacking compositor
 
 License:        GPL-2.0-only AND MIT
@@ -34,6 +34,7 @@ Patch:          0015-add-keyboard-shortcuts-inhibit.patch
 Patch:          0016-tile-into-a-grid-and-resize-tiles-live.patch
 Patch:          0017-remove-the-shortcuts-inhibit-listener-at-shutdown.patch
 Patch:          0018-survive-a-client-decorated-window-destroyed-in-its-tile.patch
+Patch:          0019-add-per-output-adaptive-sync-modes.patch
 
 BuildRequires:  gcc
 BuildRequires:  meson >= 0.59.0
@@ -203,6 +204,11 @@ cp subprojects/wlroots/LICENSE WLROOTS-LICENSE
 %{_userunitdir}/labwc-session.target
 
 %changelog
+* Thu Nov 12 2026 Nobara Project - 0.20.2-26
+- Add <adaptiveSyncOutputs> to set adaptive sync (yes, no or fullscreen) per output
+- In fullscreen mode, change adaptive sync only when the state differs, and do not turn it back on when a fullscreen window closes
+- Log at info level when an output refuses adaptive sync
+
 * Tue Nov 10 2026 Nobara Project - 0.20.2-25
 - Fix a compositor crash when a window with its own title bar (Discord, GTK header bars) closes while tiled
 - Fix a segfault in window shadows when the theme has no shadow image
