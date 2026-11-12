@@ -1,7 +1,7 @@
 Name:		nobara-logos
 Summary:	Nobara-related icons and pictures
 Version:	44.0.0
-Release:	2%{?dist}
+Release:	3%{?dist}
 URL:            https://github.com/nobara-project/nobara-core-packages
 Source0:        %{URL}/releases/download/1.0/nobara-logos.tar.gz
 License:	Licensed only for approved usage, see COPYING for details.
@@ -407,6 +407,17 @@ hardlink -vv %{buildroot}/usr
 
 
 %changelog
+* Wed Nov 11 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 44.0.0-3
+- Boot theme: the logo fades in before the eye opens; at shutdown and reboot
+  the eye closes and the logo fades out
+- Boot theme: every screen has a status line, "Starting up", "Updating",
+  "Upgrading", "Shutting down" or "Restarting", with the hint that Esc shows
+  the status output; it stays on screen during a long shutdown
+- Boot theme: the update screens no longer draw the updater's messages at the
+  bottom
+- Boot theme: punctuation outside ASCII (an ellipsis, curly quotes, dashes) is
+  drawn in ASCII, since Plymouth draws boxes for it in the initramfs
+
 * Wed Nov 11 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 44.0.0-2
 - New Nobara logo: tanzanite letters with a blue zircon eye, drawn as paths
 - The *_classic files are unchanged and keep the old logo
