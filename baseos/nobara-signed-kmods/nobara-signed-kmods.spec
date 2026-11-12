@@ -28,7 +28,7 @@
 %undefine _auto_set_build_flags
 
 %global kernels_mainline 7.3.1-203.eac.nobara%{?dist}.%{_target_cpu}
-%global kernels_lts      6.18.60-201.lts.eac.nobara%{?dist}.%{_target_cpu}
+%global kernels_lts      6.18.60-202.lts.eac.nobara%{?dist}.%{_target_cpu}
 %if "%{?copr_projectname}" == "linux-nobara-lts"
 %{!?kernels:%global kernels %{kernels_lts}}
 %else
