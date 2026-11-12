@@ -1,0 +1,102 @@
+diff -ru a/docs/mock.1 b/docs/mock.1
+--- a/docs/mock.1	2026-10-01 06:51:27.000000000 -0600
++++ b/docs/mock.1	2026-11-12 13:06:28.971722278 -0700
+@@ -224,8 +224,8 @@
+ .TP
+ \fB\-\-scrub\-all\-chroots\fP
+ Run \fBmock \-\-scrub=all \-r <\fIchroot\fB>\fR for all chroots that appear to
+-have been used previously (some leftovers in \fB/var/lib/mock\fR or
+-\fB/var/cache/mock\fR were detected by the heuristic).  This option cannot clean
++have been used previously (some leftovers in \fB/home/mock/lib\fR or
++\fB/home/mock/cache\fR were detected by the heuristic).  This option cannot clean
+ leftovers for chroots with configurations in non-standard locations, or if the
+ configuration is no longer available.  It also attempts to detect previous use
+ of \fB\-\-uniqueext\fR and adjusts the corresponding \fB\-\-scrub=all\fR call
+@@ -446,7 +446,7 @@
+ Note that this option does not have an effect for \-\-chain command. You can use \-\-localrepo instead.
+ .TP
+ \fB\-\-rootdir\fR=\fIROOTDIR\fP
+-The path for where the chroot should be built. By default it is created in /var/lib/mock/<\fICONFIG\fP>/root/.
++The path for where the chroot should be built. By default it is created in /home/mock/lib/<\fICONFIG\fP>/root/.
+ .TP
+ \fB\-\-rpmbuild\-opts\fR=\fIOPTIONS\fR
+ Pass additional options to rpmbuild. To pass more options, put them in quotes.
+@@ -527,7 +527,7 @@
+ .LP
+ \fI/etc/mock/\fP \- default configuration directory
+ .LP
+-\fI/var/lib/mock\fP \- directory where chroots and results are created. You should not put there your input files.
++\fI/home/mock/lib\fP \- directory where chroots and results are created. You should not put there your input files.
+ .SH "EXAMPLES"
+ .LP
+ To rebuild test.src.rpm using the Fedora 14 configuration for x86_64
+diff -ru a/docs/site-defaults.cfg b/docs/site-defaults.cfg
+--- a/docs/site-defaults.cfg	2026-10-01 06:51:27.000000000 -0600
++++ b/docs/site-defaults.cfg	2026-11-12 13:06:28.971062164 -0700
+@@ -29,8 +29,8 @@
+ #
+ # Things that we recommend you set in site-defaults.cfg:
+ #
+-# config_opts['basedir'] = '/var/lib/mock/'
+-# config_opts['cache_topdir'] = '/var/cache/mock'
++# config_opts['basedir'] = '/home/mock/lib/'
++# config_opts['cache_topdir'] = '/home/mock/cache'
+ #  Note: the path pointed to by basedir and cache_topdir must be owned
+ #        by group 'mock' and must have mode: g+rws
+ # config_opts['rpmbuild_timeout'] = 0
+@@ -446,7 +446,7 @@
+ # config_opts['chroothome'] = '/builddir'
+ # config_opts['clean'] = True
+ ## you could not really use substitution here so it will not work if overridden:
+-# config['rootdir'] = '/var/lib/mock/<CONFIG>/root/'
++# config['rootdir'] = '/home/mock/lib/<CONFIG>/root/'
+ ## This works in F25+ chroots. This overrides 'use_container_host_hostname' option
+ # config_opts['macros']['%_buildhost'] = 'my.own.hostname'
+ #
+diff -ru a/py/mockbuild/buildroot.py b/py/mockbuild/buildroot.py
+--- a/py/mockbuild/buildroot.py	2026-10-01 06:51:27.000000000 -0600
++++ b/py/mockbuild/buildroot.py	2026-11-12 13:06:28.973039456 -0700
+@@ -801,7 +801,7 @@
+         # we need to set the $HOME environment variable to non-standard
+         # directory.  But note that we don't just set HOME=/rpmconfig because
+         # `rpm --rootdir <ROOTDIR>` reads the macros file from caller's
+-        # filesystem, so we set HOME=/var/lib/mock/<basedir>/<root>/rpmconfig.
++        # filesystem, so we set HOME=<basedir>/<root>/rpmconfig.
+         return rpm_config_home
+ 
+     @traceLog()
+diff -ru a/py/mockbuild/config.py b/py/mockbuild/config.py
+--- a/py/mockbuild/config.py	2026-10-01 06:51:27.000000000 -0600
++++ b/py/mockbuild/config.py	2026-11-12 13:06:28.970336069 -0700
+@@ -68,10 +68,10 @@
+ 
+     config_opts['config_paths'] = []
+     config_opts['version'] = VERSION
+-    config_opts['basedir'] = '/var/lib/mock'  # root name is automatically added to this
++    config_opts['basedir'] = '/home/mock/lib'  # root name is automatically added to this
+     config_opts['resultdir'] = '{{basedir}}/{{root}}/result'
+     config_opts['rootdir'] = '{{basedir}}/{{root}}/root'
+-    config_opts['cache_topdir'] = '/var/cache/mock'
++    config_opts['cache_topdir'] = '/home/mock/cache'
+     config_opts['clean'] = True
+     config_opts['check'] = True
+     config_opts['separate_check'] = 'off'
+diff -ru a/py/mockbuild/scrub_all.py b/py/mockbuild/scrub_all.py
+--- a/py/mockbuild/scrub_all.py	2026-10-01 06:51:27.000000000 -0600
++++ b/py/mockbuild/scrub_all.py	2026-11-12 13:06:28.972586123 -0700
+@@ -1,5 +1,5 @@
+ """
+-Logic for observing /var/lib/mock and /var/cache/mock, and try to cleanup as
++Logic for observing /home/mock/lib and /home/mock/cache, and try to cleanup as
+ much as possible sub-directories there.
+ """
+ 
+@@ -43,7 +43,7 @@
+     configs = {os.path.basename(f)[:-4]: ("eol" if eol else "normal")
+                for _, f, eol in traverse_chroot_configs(MOCKCONFDIR,
+                                                         include_eol=True)}
+-    for directory in glob("/var/lib/mock/*") + glob("/var/cache/mock/*"):
++    for directory in glob("/home/mock/lib/*") + glob("/home/mock/cache/*"):
+         if not os.path.isdir(directory):
+             continue
+ 
