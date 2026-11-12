@@ -116,7 +116,10 @@ actual kernel image. Leftover module trees from removed kernels are skipped
 without deleting them. For split kernels in `/boot`, it explicitly writes
 `/boot/initramfs-<kernel-version>.img`, avoiding dracut's EFI path guessing.
 Kernels with only a module-tree `vmlinuz` retain dracut's configured destination
-and UKI policy. Failures for installed kernels remain fatal and keep the request
+and UKI policy when kernel-install placed them in another layout (a
+`<entry-token>/<kernel-version>/linux` directory or a unified EFI image).
+An installed kernel with no boot files anywhere is skipped, because no boot
+entry can use its initramfs. Failures for installed kernels remain fatal and keep the request
 pending; other installed kernels are still attempted.
 
 The marker is runtime state, so after rebooting following a failed transaction,

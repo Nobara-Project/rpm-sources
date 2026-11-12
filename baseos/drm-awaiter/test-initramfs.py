@@ -36,6 +36,8 @@ if '--regenerate-all' in sys.argv or os.environ.get('TEST_FAIL_KERNEL') in sys.a
         script = SOURCE.replace('/run/drm-awaiter', str(self.runtime))
         script = script.replace('/lib/modules', str(self.modules)).replace('/boot', str(self.boot))
         script = script.replace('/usr/bin/dracut', str(dracut))
+        self.efi = self.root / 'efi'
+        script = script.replace('for root in /efi ', 'for root in ' + str(self.efi) + ' ')
         self.helper = self.root / 'helper'
         self.helper.write_text(script)
         self.env = dict(os.environ, TEST_CALLS=str(self.calls))
@@ -96,10 +98,29 @@ if '--regenerate-all' in sys.argv or os.environ.get('TEST_FAIL_KERNEL') in sys.a
         self.assertEqual(len(self.recorded()), 4)
 
     def test_module_image_layout_keeps_native_dracut_destination_policy(self):
-        self.kernel('7.2-uki', layout='module')
+        for version, image in (('7.2-bls', self.efi / '0123abcd/7.2-bls/linux'),
+                               ('7.2-uki', self.boot / 'EFI/Linux/0123abcd-7.2-uki.efi'),
+                               ('7.2-esp', self.boot / 'efi/EFI/Linux/0123abcd-7.2-esp.efi')):
+            self.kernel(version, layout='module')
+            image.parent.mkdir(parents=True, exist_ok=True)
+            image.touch()
         self.run_helper('request')
         self.run_helper('flush')
-        self.assertEqual(self.recorded(), [['--force', '--kver', '7.2-uki']])
+        self.assertEqual(self.recorded(), [['--force', '--kver', version]
+                                           for version in ('7.2-bls', '7.2-esp', '7.2-uki')])
+
+    def test_installed_kernel_without_boot_files_is_skipped(self):
+        # GRUB system whose /boot copy of one kernel is gone, with a stale
+        # systemd-boot tree on the ESP that dracut would otherwise target.
+        self.kernel('7.2.9-orphaned', layout='module')
+        (self.boot / 'efi/loader/entries').mkdir(parents=True)
+        (self.boot / 'efi/0123abcd/7.2.10-current').mkdir(parents=True)
+        self.kernel('7.2.10-current')
+        self.run_helper('request')
+        result = self.run_helper('flush')
+        self.assertIn('Skipping kernel without installed boot files: 7.2.9-orphaned', result.stdout)
+        self.assertEqual([args[2] for args in self.recorded()], ['7.2.10-current'])
+        self.assertFalse(self.pending.exists())
 
     def test_boot_image_layout_wins_even_when_module_image_also_exists(self):
         modules = self.kernel('7.2-split')

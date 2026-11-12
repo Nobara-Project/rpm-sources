@@ -19,6 +19,17 @@ fi
 [[ -e /run/drm-awaiter/initramfs-pending ]] || exit 0
 echo 'Rebuilding initramfs once for queued GPU package changes...'
 
+# kernel-install's other layouts: a BLS type 1 directory or a unified image.
+has_other_boot_files() {
+    local root path
+    for root in /efi /boot /boot/efi; do
+        for path in "$root"/*/"$1"/linux "$root"/EFI/Linux/*"$1"*.efi; do
+            [[ -f $path ]] && return 0
+        done
+    done
+    return 1
+}
+
 rebuild_installed_kernels() {
     local modules kernel found=0 failed=0
     local -a args
@@ -33,10 +44,16 @@ rebuild_installed_kernels() {
             # Nobara's split kernel/initramfs layout: do not let stale EFI
             # directories redirect the image away from the GRUB boot entry.
             args+=(--no-uefi "/boot/initramfs-$kernel.img")
-        elif [[ -f $modules/vmlinuz ]]; then
+        elif [[ -f $modules/vmlinuz ]] && has_other_boot_files "$kernel"; then
             # Other installed kernel layouts retain dracut's configured
             # destination and UKI policy. Genuine rebuild errors still fail.
             :
+        elif [[ -f $modules/vmlinuz ]]; then
+            # The package is installed but its boot files are gone, so no
+            # boot entry can use an initramfs. dracut would guess a stale
+            # EFI directory for it and fail the entire RPM transaction.
+            echo "Skipping kernel without installed boot files: $kernel"
+            continue
         else
             echo "Skipping module tree without an installed kernel image: $kernel"
             continue

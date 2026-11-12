@@ -1,6 +1,6 @@
 Name:           drm-awaiter
 Version:        1
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        Load GPU drivers from the root filesystem before graphical login
 License:        GPL-3.0-or-later
 URL:            https://github.com/CachyOS/CachyOS-PKGBUILDS/pull/1695
@@ -65,6 +65,11 @@ python3 test-initramfs.py
 %{_libexecdir}/drm-awaiter-initramfs
 
 %changelog
+* Sun Nov 01 2026 Nobara Project <contact@nobaraproject.org> - 1-6
+- Skip installed kernels whose boot files are missing instead of letting
+  dracut guess a stale /boot/efi/<machine-id> destination and fail the RPM
+  transaction.
+
 * Mon Oct 19 2026 Nobara Project <contact@nobaraproject.org> - 1-5
 - Filter modprobe -c to blacklist lines before parsing; saves ~1.4 s per boot
   and daemon-reload (#635).
