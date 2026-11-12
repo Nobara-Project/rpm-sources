@@ -409,7 +409,7 @@ hardlink -vv %{buildroot}/usr
 %changelog
 * Wed Nov 11 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 44.0.0-3
 - Boot theme: the logo fades in before the eye opens; at shutdown and reboot
-  the eye closes and the logo fades out
+  the eye closes, continuing the turn it opened with, and the logo fades out
 - Boot theme: every screen has a status line, "Starting up", "Updating",
   "Upgrading", "Shutting down" or "Restarting", with the hint that Esc shows
   the status output; it stays on screen during a long shutdown
