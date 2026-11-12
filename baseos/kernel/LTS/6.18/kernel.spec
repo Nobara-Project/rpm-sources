@@ -74,7 +74,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 201
+%define customver 202
 %endif
 
 Release:%{customver}.lts%{?eactag}.nobara%{?dist}
@@ -212,6 +212,11 @@ Patch39: hws-backport-from-7.3.patch
 Patch40: hws-upstream-fixes.patch
 Patch41: hws-add-ahd-and-8521.patch
 Patch42: hws-uhd-audio-copy-path.patch
+
+# From 7.0 (10a47fb67340): the tools build's own linux/types.h lacks __u128,
+# which arm64's uapi headers in /usr/include use from kernel-headers 7.x on.
+# Without it resolve_btfids fails to build on aarch64.
+Patch43: tools-linux-types-add-u128.patch
 
 # aarch64 patches
 Patch20: 0001-arm64-mm-Handle-alignment-faults.patch
@@ -592,6 +597,7 @@ patch -p1 -i %{PATCH39}
 patch -p1 -i %{PATCH40}
 patch -p1 -i %{PATCH41}
 patch -p1 -i %{PATCH42}
+patch -p1 -i %{PATCH43}
 
 # Apply aarch64 patches
 %ifarch aarch64
@@ -1319,6 +1325,11 @@ fi
 %files
 
 %changelog
+* Thu Nov 12 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 6.18.60-202
+- Fix the aarch64 build with kernel-headers 7.x in the buildroot: backport
+  "tools: linux/types.h: Add 128-bit integer types for arm64 UAPI structures"
+  so resolve_btfids builds against arm64's __u128 uapi headers
+
 * Thu Nov 12 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 6.18.60-201
 - Add patches for hws capture card hardware
 
