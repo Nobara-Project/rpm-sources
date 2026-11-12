@@ -1,0 +1,15 @@
+[Unit]
+Description=Install GRUB to the ESP once Secure Boot can boot it
+Documentation=file:///usr/libexec/grub2-esp-update
+# The update is held back while Secure Boot is on and the Nobara EAC CA isn't
+# enrolled; this installs it on the first boot after the enrollment
+ConditionPathIsDirectory=/sys/firmware/efi
+RequiresMountsFor=/boot/efi
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/grub2-esp-update
+
+[Install]
+WantedBy=multi-user.target

@@ -17,7 +17,7 @@
 Name:		grub2
 Epoch:		1
 Version:	2.12
-Release:	64%{?dist}
+Release:	65%{?dist}
 Summary:	Bootloader with support for Linux, Multiboot and more
 License:	GPL-3.0-or-later
 URL:		http://www.gnu.org/software/grub/
@@ -37,6 +37,10 @@ Source11:	grub.patches
 Source12:	sbat.csv.in
 Source13:	gen_grub_cfgstub
 Source14:	95-set-boot-entry.install
+# Installs the EFI images to the ESP, held back while Secure Boot is on and the
+# Nobara EAC CA (which signs GRUB) isn't enrolled
+Source15:	grub2-esp-update
+Source16:	grub2-esp-update.service
 
 %include %{SOURCE1}
 
@@ -323,6 +327,12 @@ rm -fr $RPM_BUILD_ROOT
 %endif
 rm -f $RPM_BUILD_ROOT%{_infodir}/dir
 ln -s grub2-set-password ${RPM_BUILD_ROOT}/%{_sbindir}/grub2-setpassword
+sed 's|@@EFI_ESP_DIR@@|%{efi_esp_dir}|' %{SOURCE15} > grub2-esp-update
+install -Dm755 grub2-esp-update ${RPM_BUILD_ROOT}%{_libexecdir}/grub2-esp-update
+install -Dm644 %{SOURCE16} ${RPM_BUILD_ROOT}%{_unitdir}/grub2-esp-update.service
+# Always on: it only installs GRUB images the ESP doesn't have yet
+install -d ${RPM_BUILD_ROOT}%{_unitdir}/multi-user.target.wants
+ln -s ../grub2-esp-update.service ${RPM_BUILD_ROOT}%{_unitdir}/multi-user.target.wants/grub2-esp-update.service
 echo '.so man8/grub2-set-password.8' > ${RPM_BUILD_ROOT}/%{_datadir}/man/man8/grub2-setpassword.8
 %ifnarch x86_64
 rm -vf ${RPM_BUILD_ROOT}/%{_bindir}/grub2-render-label
@@ -463,13 +473,10 @@ else
     gen_grub_cfgstub ${GRUB_DIR} ${EFI_DIR} || :
 fi
 
-# On image mode, bootupd takes care of installing bootloader updates to the ESP
-if [[ ! -e "/run/ostree-booted" ]]; then
-   # Note that cp -R is not indicated because CC binaries are
-   # located in a EFI_DIR subfolder and we do not want to copy
-   # these into the ESP
-   cp -d --preserve=all ${EFI_DIR}/* ${EFI_ESP_DIR} || :
-fi
+# Install to the ESP: the EFI images only once shim can boot them (signed by
+# the Nobara EAC CA), see /usr/libexec/grub2-esp-update. It skips image mode,
+# where bootupd installs bootloader updates, and the CC images in subfolders.
+/usr/libexec/grub2-esp-update ${EFI_DIR} ${EFI_ESP_DIR} || :
 
 if test -f ${EFI_DIR}/grubenv; then
     cp -a ${EFI_DIR}/grubenv ${EFI_DIR}/grubenv.rpmsave
@@ -484,6 +491,9 @@ fi
 %{_prefix}/lib/kernel/install.d/20-grub.install
 %{_prefix}/lib/kernel/install.d/95-set-boot-entry.install
 %{_prefix}/lib/kernel/install.d/99-grub-mkconfig.install
+%{_libexecdir}/grub2-esp-update
+%{_unitdir}/grub2-esp-update.service
+%{_unitdir}/multi-user.target.wants/grub2-esp-update.service
 %dir %{_datarootdir}/grub
 %exclude %{_datarootdir}/grub/*
 %dir /boot/grub2
@@ -655,6 +665,13 @@ fi
 %endif
 
 %changelog
+* Wed Nov 04 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 2.12-65
+- GRUB is signed by the Nobara EAC CA (SBAT grub.nobara,2), so Easy Anti-Cheat
+  can tell an EAC boot by the CA shim measures
+- Install the EFI images to the ESP with grub2-esp-update: while Secure Boot is
+  on and the Nobara EAC CA isn't enrolled, keep the current GRUB, and install
+  the new one on the first boot after the enrollment (grub2-esp-update.service)
+
 * Fri Oct 30 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 2.12-64
 - Add a Nobara SBAT entry
 - Sign the EFI images when nobara_sb_key/nobara_sb_cert are defined

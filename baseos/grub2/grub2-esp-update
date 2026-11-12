@@ -1,0 +1,81 @@
+#!/usr/bin/bash
+#
+# grub2-esp-update - install GRUB's EFI images to the ESP, once shim can boot them
+#
+# GRUB is signed by the Nobara EAC CA, a separate hierarchy from the Nobara
+# Secure Boot CA that signs the normal kernel, so Easy Anti-Cheat can tell an
+# EAC boot by the CA shim measures. Shim only boots GRUB once that CA is
+# enrolled as a MOK. Until then, with Secure Boot on, the GRUB already on the
+# ESP is kept (it is signed by the Nobara Secure Boot CA): installing the new
+# one would leave the system unable to boot. grub2-esp-update.service retries
+# on every boot, so the new GRUB is installed on the first boot after the
+# enrollment (sudo nobara-eac-enroll).
+#
+# The images are installed when any of these holds:
+#   - Secure Boot is off, or shim's verification is disabled (mokutil
+#     --disable-validation)
+#   - the Nobara EAC CA is enrolled
+#   - the ESP has no such image yet (a new installation: nothing to keep)
+# The other files (fonts, the grub.cfg stub) are always installed.
+#
+# Usage: grub2-esp-update [<grub EFI dir> [<ESP dir>]]
+#   Without arguments: the EFI directories of the installed grub2-efi-*
+#   packages, and @@EFI_ESP_DIR@@
+
+ESP_DIR="${2:-@@EFI_ESP_DIR@@}"
+NOBARA_EAC_CA=/usr/share/nobara/eac/nobara-eac-ca.der
+
+log() { echo "grub2-esp-update: $*" >&2; }
+
+secure_boot_enabled() {
+    local var=/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c
+    [[ -r "$var" ]] && [[ "$(od -An -t u1 -j4 -N1 "$var" | tr -d ' ')" = 1 ]]
+}
+
+# Whether shim boots an image signed by the Nobara EAC CA
+shim_boots_eac() {
+    secure_boot_enabled || return 0
+    command -v mokutil &>/dev/null || return 1
+    mokutil --sb-state 2>/dev/null | grep -qi 'validation is disabled' && return 0
+    [[ -r "$NOBARA_EAC_CA" ]] || return 1
+    mokutil --test-key "$NOBARA_EAC_CA" 2>/dev/null | grep -qxF "$NOBARA_EAC_CA is already enrolled"
+}
+
+efi_dirs() {
+    if [[ -n "${1:-}" ]]; then
+        echo "$1"
+        return
+    fi
+    rpm -qa --qf '[%{FILENAMES}\n]' 'grub2-efi-*' 2>/dev/null \
+        | grep -E '^/usr/lib/efi/grub2/[^/]+/EFI/[^/]+/grub[^/]*\.efi$' \
+        | xargs -r -n1 dirname | sort -u
+}
+
+# On image mode, bootupd takes care of installing bootloader updates to the ESP
+[[ -e /run/ostree-booted ]] && exit 0
+[[ -d "$ESP_DIR" ]] || { log "$ESP_DIR does not exist"; exit 0; }
+SHIM_BOOTS_EAC=
+shim_boots_eac && SHIM_BOOTS_EAC=1
+
+kept=()
+while read -r dir; do
+    [[ -d "$dir" ]] || continue
+    for f in "$dir"/*; do
+        # Not subdirectories: the confidential computing images aren't for the ESP
+        [[ -f "$f" ]] || [[ -L "$f" ]] || continue
+        dest="$ESP_DIR/${f##*/}"
+        cmp -s "$f" "$dest" && continue
+        if [[ "$f" = *.efi ]] && [[ -z "$SHIM_BOOTS_EAC" ]] && [[ -e "$dest" ]]; then
+            kept+=("${f##*/}")
+            continue
+        fi
+        cp -d --preserve=all "$f" "$dest.new" && mv -f "$dest.new" "$dest" \
+            || { rm -f "$dest.new"; log "could not install $dest"; }
+    done
+done < <(efi_dirs "${1:-}")
+
+if [[ ${#kept[@]} -gt 0 ]]; then
+    log "Secure Boot is on and the Nobara EAC CA is not enrolled yet: keeping the current ${kept[*]} on the ESP."
+    log "Run 'sudo nobara-eac-enroll' and restart; the new GRUB is installed on the next boot."
+fi
+exit 0
