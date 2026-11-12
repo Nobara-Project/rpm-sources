@@ -1,0 +1,612 @@
+From a2f3663e0f04e67c77d25962880d0936a7d849b5 Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Thu, 12 Nov 2026 16:00:00 -0700
+Subject: [PATCH] regions: add per-output snap regions
+
+A <region> may name one output with output="<connector>". An output named
+by at least one region gets only its own regions, a snap layout; every
+other output keeps the regions without an output attribute, as before.
+An empty output is the same as none and a name without an output has no
+effect. Region names only need to be unique per output, and several
+<regions> elements add up.
+
+On an output with a layout, the cardinal SnapToEdge and ToggleSnapToEdge
+actions move the window through its regions: a window in a region goes
+to the nearest region beyond it in that direction, preferring regions
+that overlap it on the other axis, and past the last one to the adjacent
+output (its region at the shared edge, or the opposite edge of an output
+without a layout). Any other window goes to the region furthest in that
+direction, ties going to the one nearest the window. ToggleSnapToEdge
+restores the untiled position where SnapToEdge would change outputs. A
+window snapped to an edge of an output without a layout that is moved
+onto an output with one enters it by a region instead of a half.
+
+Dragging a window to an edge of an output with a layout offers the
+region nearest the cursor instead of the half, quarter or maximized
+target; the overlay shows it with the usual edge delay.
+
+Fullscreen windows and windows managed by tiling are left as they were.
+Hotplug, reconfigure and disabled outputs reuse the existing evacuation
+and name matching.
+---
+ docs/labwc-actions.5.scd |  27 ++++
+ docs/labwc-config.5.scd  |  21 ++++
+ docs/rc.xml.all          |   9 ++
+ include/regions.h        |  21 ++++
+ src/action.c             |   5 +
+ src/config/rcxml.c       |  11 +-
+ src/interactive.c        |   6 +-
+ src/overlay.c            |  23 +++-
+ src/regions.c            | 262 ++++++++++++++++++++++++++++++++++++++-
+ 9 files changed, 380 insertions(+), 5 deletions(-)
+
+diff --git a/docs/labwc-actions.5.scd b/docs/labwc-actions.5.scd
+index 3414247..70db537 100644
+--- a/docs/labwc-actions.5.scd
++++ b/docs/labwc-actions.5.scd
+@@ -116,6 +116,33 @@ Actions are used in menus and keyboard/mouse bindings.
+ 	ToggleSnapToEdge additionally toggles the active window between
+ 	tiled to the given direction and its untiled position.
+ 
++	On an output with its own snap regions (*<region output="">*, see
++	labwc-config(5)), *up*, *down*, *left* and *right* move the window
++	through those regions instead and *combine* has no effect:
++
++	- A window snapped to one of the output's regions moves to the
++	  nearest region whose centre lies beyond the current one in the
++	  given direction, preferring regions that overlap it on the other
++	  axis. Without such a region it moves to the adjacent output in that
++	  direction: onto the region nearest to the shared edge if that
++	  output has its own regions, otherwise snapped to the opposite edge.
++	  Without an adjacent output nothing happens.
++
++	- Any other window (floating, maximized or snapped to an edge) is
++	  snapped to the region lying furthest in the given direction; among
++	  regions equally far, the one nearest to the window's centre.
++
++	- ToggleSnapToEdge does the same, except that where SnapToEdge would
++	  move the window to another output it restores the window's untiled
++	  position instead.
++
++	A window snapped to the right edge of an output without its own
++	regions that is snapped to the right again moves to the adjacent
++	output as usual; if that output has its own regions, the window is
++	placed in the region nearest to the shared edge instead of its left
++	half (likewise for the other directions). Fullscreen windows and
++	windows managed by tiling keep the behaviour described above.
++
+ *<action name="ToggleSnapToRegion" region="value" />*++
+ *<action name="SnapToRegion" region="value" />*
+ 	Resize and move active window according to the given region.
+diff --git a/docs/labwc-config.5.scd b/docs/labwc-config.5.scd
+index d011a81..b9e7194 100644
+--- a/docs/labwc-config.5.scd
++++ b/docs/labwc-config.5.scd
+@@ -665,6 +665,27 @@ extending outward from the snapped edge.
+ 	Windows can either be snapped to regions by keeping a keyboard modifier
+ 	pressed while moving a window (Ctrl, Alt, Shift, Logo) or by using the
+ 	SnapToRegion action. By default there are no regions defined.
++	Several *<regions>* elements add up.
++
++*<regions><region name="" output="HDMI-A-1" x="" y="" width="" height="">*
++	The optional *output* attribute gives a region to one output only,
++	named by its connector, such as "HDMI-A-1" or "DP-1". An output named
++	by at least one region uses its own regions as a snap layout and does
++	not get the regions without an *output* attribute. Outputs that no
++	region names keep all regions without an *output* attribute. An empty
++	*output* is the same as leaving it out; a name that matches no output
++	has no effect. Region names only need to be unique per output.
++
++	On an output with a snap layout, the cardinal SnapToEdge and
++	ToggleSnapToEdge actions move the window between the layout's regions
++	(see labwc-actions(5)), and dragging a window to an output edge snaps
++	it to the layout's region nearest to the cursor instead of an edge,
++	corner or maximized position. The overlay then shows that region,
++	with the usual edge delay and region theme.
++
++	When an output is removed or the regions change, windows snapped to a
++	region move to the region of the same name on their new output, or
++	return to their untiled size if there is none.
+ 
+ ## WORKSPACES
+ 
+diff --git a/docs/rc.xml.all b/docs/rc.xml.all
+index 8bc07c1..83b3dfd 100644
+--- a/docs/rc.xml.all
++++ b/docs/rc.xml.all
+@@ -261,6 +261,15 @@
+     </regions>
+   -->
+ 
++  <!-- Regions with an output attribute form that output's own snap layout -->
++  <!--
++    <regions>
++      <region name="top"    output="DP-2" x="0%" y="0%"  width="100%" height="33%" />
++      <region name="middle" output="DP-2" x="0%" y="33%" width="100%" height="34%" />
++      <region name="bottom" output="DP-2" x="0%" y="67%" width="100%" height="33%" />
++    </regions>
++  -->
++
+   <!--
+     Keybind actions are specified in labwc-actions(5)
+     The following keybind modifiers are supported:
+diff --git a/include/regions.h b/include/regions.h
+index 1035400..dba38ca 100644
+--- a/include/regions.h
++++ b/include/regions.h
+@@ -2,7 +2,9 @@
+ #ifndef LABWC_REGIONS_H
+ #define LABWC_REGIONS_H
+ 
++#include <stdbool.h>
+ #include <wlr/util/box.h>
++#include "common/edge.h"
+ 
+ struct seat;
+ struct view;
+@@ -17,6 +19,8 @@ struct region {
+ 	struct wl_list link; /* struct rcxml.regions, struct output.regions */
+ 	struct output *output;
+ 	char *name;
++	/* Connector name from rc.xml; NULL means every output */
++	char *output_name;
+ 	struct wlr_box geo;
+ 	struct wlr_box percentage;
+ 	struct {
+@@ -65,4 +69,21 @@ void regions_destroy(struct seat *seat, struct wl_list *regions);
+ struct region *regions_from_cursor(void);
+ struct region *regions_from_name(const char *region_name, struct output *output);
+ 
++/* True if the output has regions of its own (<region output="...">) */
++bool regions_output_has_layout(struct output *output);
++
++/*
++ * Keyboard snapping on an output with a layout: move the view to the next
++ * region in the given direction, or to the adjacent output. Returns false
++ * if the output has no layout and the caller should snap to the edge.
++ */
++bool regions_snap_in_direction(struct view *view, enum lab_edge edge,
++	bool toggle);
++
++/*
++ * Region offered by edge snapping on an output with a layout: the one
++ * nearest to the cursor. NULL if the output has no layout.
++ */
++struct region *regions_from_edge_cursor(struct output *output);
++
+ #endif /* LABWC_REGIONS_H */
+diff --git a/src/action.c b/src/action.c
+index c5adfda..77c59df 100644
+--- a/src/action.c
++++ b/src/action.c
+@@ -1120,6 +1120,11 @@ run_action(struct view *view, struct action *action,
+ 				view_apply_natural_geometry(view);
+ 				break;
+ 			}
++			/* Outputs with their own regions snap to those */
++			if (regions_snap_in_direction(view, edge,
++					action->type == ACTION_TYPE_TOGGLE_SNAP_TO_EDGE)) {
++				break;
++			}
+ 			bool combine = action_get_bool(action, "combine", false);
+ 			view_snap_to_edge(view, edge, /*across_outputs*/ true,
+ 				combine);
+diff --git a/src/config/rcxml.c b/src/config/rcxml.c
+index 1bd1d91..6ff9dcc 100644
+--- a/src/config/rcxml.c
++++ b/src/config/rcxml.c
+@@ -441,6 +441,13 @@ fill_region(xmlNode *node)
+ 	LAB_XML_FOR_EACH(node, child, key, content) {
+ 		if (!strcasecmp(key, "name")) {
+ 			xstrdup_replace(region->name, content);
++		} else if (!strcasecmp(key, "output")) {
++			/* An empty name is the same as no output attribute */
++			if (content && *content) {
++				xstrdup_replace(region->output_name, content);
++			} else {
++				zfree(region->output_name);
++			}
+ 		} else if (strstr("xywidtheight", key)
+ 				&& !strchr(content, '%')) {
+ 			wlr_log(WLR_ERROR, "Removing invalid region "
+@@ -448,6 +455,7 @@ fill_region(xmlNode *node)
+ 				region->name, key, content);
+ 			wl_list_remove(&region->link);
+ 			zfree(region->name);
++			zfree(region->output_name);
+ 			zfree(region);
+ 			return;
+ 		} else if (!strcmp(key, "x")) {
+@@ -468,7 +476,7 @@ fill_region(xmlNode *node)
+ static void
+ fill_regions(xmlNode *node)
+ {
+-	/* TODO: make sure <regions> is empty here */
++	/* Several <regions> elements add up */
+ 
+ 	xmlNode *child;
+ 	char *key, *content;
+@@ -2055,6 +2063,7 @@ validate(void)
+ 				region->name, box.width, box.height, box.x, box.y);
+ 			wl_list_remove(&region->link);
+ 			zfree(region->name);
++			zfree(region->output_name);
+ 			free(region);
+ 		}
+ 	}
+diff --git a/src/interactive.c b/src/interactive.c
+index fb4252a..92df40a 100644
+--- a/src/interactive.c
++++ b/src/interactive.c
+@@ -289,7 +289,11 @@ snap_to_edge(struct view *view)
+ 	enum lab_edge edge = edge1 | edge2;
+ 
+ 	view_set_output(view, output);
+-	if (edge == LAB_EDGE_TOP && rc.snap_top_maximize) {
++	struct region *region = regions_from_edge_cursor(output);
++	if (region) {
++		/* Output with its own regions */
++		view_snap_to_region(view, region);
++	} else if (edge == LAB_EDGE_TOP && rc.snap_top_maximize) {
+ 		/* <topMaximize> */
+ 		view_maximize(view, VIEW_AXIS_BOTH);
+ 	} else {
+diff --git a/src/overlay.c b/src/overlay.c
+index 817bb3f..d0ac1d9 100644
+--- a/src/overlay.c
++++ b/src/overlay.c
+@@ -51,7 +51,8 @@ show_overlay(struct seat *seat, struct theme_snapping_overlay *overlay_theme,
+ static void
+ show_region_overlay(struct seat *seat, struct region *region)
+ {
+-	if (region == seat->overlay.active.region) {
++	if (region == seat->overlay.active.region
++			&& seat->overlay.active.edge == LAB_EDGE_NONE) {
+ 		return;
+ 	}
+ 	overlay_finish(seat);
+@@ -77,6 +78,13 @@ handle_edge_overlay_timeout(void *data)
+ 	struct seat *seat = data;
+ 	assert(seat->overlay.active.edge != LAB_EDGE_NONE
+ 		&& seat->overlay.active.output);
++	if (seat->overlay.active.region) {
++		/* Output with its own regions */
++		struct wlr_box box = view_get_region_snap_box(NULL,
++			seat->overlay.active.region);
++		show_overlay(seat, &rc.theme->snapping_overlay_region, &box);
++		return 0;
++	}
+ 	struct wlr_box box = get_edge_snap_box(seat->overlay.active.edge,
+ 		seat->overlay.active.output);
+ 	show_overlay(seat, &rc.theme->snapping_overlay_edge, &box);
+@@ -105,13 +113,24 @@ show_edge_overlay(struct seat *seat, enum lab_edge edge1, enum lab_edge edge2,
+ 		return;
+ 	}
+ 	enum lab_edge edge = edge1 | edge2;
++	struct region *region = regions_from_edge_cursor(output);
+ 	if (seat->overlay.active.edge == edge
+-			&& seat->overlay.active.output == output) {
++			&& seat->overlay.active.output == output
++			&& seat->overlay.active.region == region) {
+ 		return;
+ 	}
++	/* Moving along the edge to another region needs no new delay */
++	bool shown = region && seat->overlay.rect
++		&& seat->overlay.active.region
++		&& seat->overlay.active.output == output;
+ 	overlay_finish(seat);
+ 	seat->overlay.active.edge = edge;
+ 	seat->overlay.active.output = output;
++	seat->overlay.active.region = region;
++	if (shown) {
++		handle_edge_overlay_timeout(seat);
++		return;
++	}
+ 
+ 	int delay;
+ 	if (edge_has_adjacent_output_from_cursor(seat, output, edge1)) {
+diff --git a/src/regions.c b/src/regions.c
+index 9f19572..9191711 100644
+--- a/src/regions.c
++++ b/src/regions.c
+@@ -4,7 +4,9 @@
+ #include "regions.h"
+ #include <assert.h>
+ #include <float.h>
++#include <limits.h>
+ #include <math.h>
++#include <stdint.h>
+ #include <string.h>
+ #include <wlr/types/wlr_cursor.h>
+ #include <wlr/util/box.h>
+@@ -14,6 +16,7 @@
+ #include "input/keyboard.h"
+ #include "labwc.h"
+ #include "output.h"
++#include "tiling.h"
+ #include "view.h"
+ 
+ bool
+@@ -84,13 +87,33 @@ regions_reconfigure_output(struct output *output)
+ 		regions_destroy(&server.seat, &output->regions);
+ 	}
+ 
+-	/* Initialize regions from config */
++	/*
++	 * Initialize regions from config. An output named by at least one
++	 * region gets only its own regions, all others get the regions
++	 * without an output attribute.
++	 */
++	const char *name = output->wlr_output->name;
++	bool own = false;
+ 	struct region *region;
+ 	wl_list_for_each(region, &rc.regions, link) {
++		if (region->output_name && !strcmp(region->output_name, name)) {
++			own = true;
++			break;
++		}
++	}
++	wl_list_for_each(region, &rc.regions, link) {
++		if (own ? !region->output_name
++				|| strcmp(region->output_name, name)
++				: region->output_name != NULL) {
++			continue;
++		}
+ 		struct region *region_new = znew(*region_new);
+ 		/* Create a copy */
+ 		region_new->output = output;
+ 		region_new->name = xstrdup(region->name);
++		if (region->output_name) {
++			region_new->output_name = xstrdup(region->output_name);
++		}
+ 		region_new->percentage = region->percentage;
+ 		wl_list_append(&output->regions, &region_new->link);
+ 	}
+@@ -167,7 +190,244 @@ regions_destroy(struct seat *seat, struct wl_list *regions)
+ 			overlay_finish(seat);
+ 		}
+ 		zfree(region->name);
++		zfree(region->output_name);
+ 		zfree(region);
+ 	}
+ }
+ 
++bool
++regions_output_has_layout(struct output *output)
++{
++	if (!output) {
++		return false;
++	}
++	/* An output holds either only its own regions or none of them */
++	struct region *region;
++	wl_list_for_each(region, &output->regions, link) {
++		return region->output_name != NULL;
++	}
++	return false;
++}
++
++static int
++dist_sq(int x1, int y1, int x2, int y2)
++{
++	int64_t dx = (int64_t)x1 - x2;
++	int64_t dy = (int64_t)y1 - y2;
++	int64_t d = dx * dx + dy * dy;
++	return d > INT_MAX ? INT_MAX : (int)d;
++}
++
++/* Position of the region's edge facing the given direction, larger is further */
++static int
++leading_edge(struct region *region, enum lab_edge edge)
++{
++	struct wlr_box *geo = &region->geo;
++	switch (edge) {
++	case LAB_EDGE_LEFT:
++		return -geo->x;
++	case LAB_EDGE_RIGHT:
++		return geo->x + geo->width;
++	case LAB_EDGE_TOP:
++		return -geo->y;
++	case LAB_EDGE_BOTTOM:
++		return geo->y + geo->height;
++	default:
++		return 0;
++	}
++}
++
++/*
++ * Region lying furthest in the given direction; ties go to the region
++ * whose centre is nearest to (x, y).
++ */
++static struct region *
++furthest_region(struct output *output, enum lab_edge edge, int x, int y)
++{
++	struct region *best = NULL;
++	int best_edge = 0;
++	int best_dist = 0;
++	struct region *region;
++	wl_list_for_each(region, &output->regions, link) {
++		int e = leading_edge(region, edge);
++		int d = dist_sq(region->center.x, region->center.y, x, y);
++		if (!best || e > best_edge || (e == best_edge && d < best_dist)) {
++			best = region;
++			best_edge = e;
++			best_dist = d;
++		}
++	}
++	return best;
++}
++
++static bool
++ranges_overlap(int a, int a_len, int b, int b_len)
++{
++	return a < b + b_len && b < a + a_len;
++}
++
++/*
++ * Nearest region whose centre lies beyond the centre of the current
++ * one in the given direction. Regions overlapping the current one on
++ * the other axis are preferred.
++ */
++static struct region *
++next_region(struct region *current, enum lab_edge edge)
++{
++	bool horizontal = edge == LAB_EDGE_LEFT || edge == LAB_EDGE_RIGHT;
++	int sign = (edge == LAB_EDGE_LEFT || edge == LAB_EDGE_TOP) ? -1 : 1;
++	struct wlr_box *cur = &current->geo;
++
++	struct region *best = NULL;
++	bool best_overlap = false;
++	int best_dist = 0;
++	struct region *region;
++	wl_list_for_each(region, &current->output->regions, link) {
++		if (region == current) {
++			continue;
++		}
++		int delta = horizontal
++			? region->center.x - current->center.x
++			: region->center.y - current->center.y;
++		if (delta * sign <= 0) {
++			continue;
++		}
++		struct wlr_box *geo = &region->geo;
++		bool overlap = horizontal
++			? ranges_overlap(geo->y, geo->height, cur->y, cur->height)
++			: ranges_overlap(geo->x, geo->width, cur->x, cur->width);
++		int d = dist_sq(region->center.x, region->center.y,
++			current->center.x, current->center.y);
++		if (!best || (overlap && !best_overlap)
++				|| (overlap == best_overlap && d < best_dist)) {
++			best = region;
++			best_overlap = overlap;
++			best_dist = d;
++		}
++	}
++	return best;
++}
++
++bool
++regions_snap_in_direction(struct view *view, enum lab_edge edge, bool toggle)
++{
++	assert(view);
++	struct output *output = view->output;
++	if (!lab_edge_is_cardinal(edge) || view->fullscreen
++			|| tiling_is_managed(view) || !output_is_usable(output)) {
++		return false;
++	}
++
++	if (!regions_output_has_layout(output)) {
++		/*
++		 * Snapping to the edge a view is already snapped to moves
++		 * it to the adjacent output; if that one has a layout,
++		 * enter it by the region nearest to the shared edge.
++		 */
++		if (toggle || view->tiled != edge
++				|| view->maximized != VIEW_AXIS_NONE) {
++			return false;
++		}
++		struct output *adjacent = output_get_adjacent(output, edge,
++			/* wrap */ false);
++		if (!output_is_usable(adjacent)
++				|| !regions_output_has_layout(adjacent)) {
++			return false;
++		}
++		struct wlr_box box = view->pending;
++		struct region *region = furthest_region(adjacent,
++			lab_edge_invert(edge), box.x + box.width / 2,
++			box.y + box.height / 2);
++		view_set_output(view, adjacent);
++		view_snap_to_region(view, region);
++		return true;
++	}
++
++	struct region *current = view->tiled_region;
++	if (current && (current->output != output
++			|| view->maximized != VIEW_AXIS_NONE)) {
++		current = NULL;
++	}
++
++	if (!current) {
++		struct wlr_box box = view->pending;
++		struct region *region = furthest_region(output, edge,
++			box.x + box.width / 2, box.y + box.height / 2);
++		view_snap_to_region(view, region);
++		return true;
++	}
++
++	struct region *region = next_region(current, edge);
++	if (region) {
++		view_snap_to_region(view, region);
++		return true;
++	}
++
++	if (toggle) {
++		/* Like ToggleSnapToEdge on the edge the view is snapped to */
++		view_set_untiled(view);
++		view_apply_natural_geometry(view);
++		return true;
++	}
++
++	struct output *adjacent = output_get_adjacent(output, edge,
++		/* wrap */ false);
++	if (!output_is_usable(adjacent)) {
++		return true;
++	}
++	view_set_output(view, adjacent);
++	if (regions_output_has_layout(adjacent)) {
++		/* Enter by the region nearest to the shared edge */
++		region = furthest_region(adjacent, lab_edge_invert(edge),
++			current->center.x, current->center.y);
++		view_snap_to_region(view, region);
++	} else {
++		view_snap_to_edge(view, lab_edge_invert(edge),
++			/* across_outputs */ false, /* combine */ false);
++	}
++	return true;
++}
++
++/* Squared distance from a point to a box, 0 inside */
++static int
++dist_to_box_sq(struct wlr_box *box, int x, int y)
++{
++	int dx = 0, dy = 0;
++	if (x < box->x) {
++		dx = box->x - x;
++	} else if (x >= box->x + box->width) {
++		dx = x - (box->x + box->width - 1);
++	}
++	if (y < box->y) {
++		dy = box->y - y;
++	} else if (y >= box->y + box->height) {
++		dy = y - (box->y + box->height - 1);
++	}
++	return dist_sq(dx, dy, 0, 0);
++}
++
++struct region *
++regions_from_edge_cursor(struct output *output)
++{
++	if (!output_is_usable(output) || !regions_output_has_layout(output)) {
++		return NULL;
++	}
++	int x = server.seat.cursor->x;
++	int y = server.seat.cursor->y;
++
++	struct region *best = NULL;
++	int best_box = 0;
++	int best_center = 0;
++	struct region *region;
++	wl_list_for_each(region, &output->regions, link) {
++		int b = dist_to_box_sq(&region->geo, x, y);
++		int c = dist_sq(region->center.x, region->center.y, x, y);
++		if (!best || b < best_box || (b == best_box && c < best_center)) {
++			best = region;
++			best_box = b;
++			best_center = c;
++		}
++	}
++	return best;
++}
++
+-- 
+2.56.0
+

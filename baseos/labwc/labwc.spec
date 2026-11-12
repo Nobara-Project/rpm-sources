@@ -4,7 +4,7 @@
 Name:           labwc
 Version:        0.20.2
 %forgemeta
-Release:        26%{?dist}
+Release:        27%{?dist}
 Summary:        A Wayland window-stacking compositor
 
 License:        GPL-2.0-only AND MIT
@@ -35,6 +35,7 @@ Patch:          0016-tile-into-a-grid-and-resize-tiles-live.patch
 Patch:          0017-remove-the-shortcuts-inhibit-listener-at-shutdown.patch
 Patch:          0018-survive-a-client-decorated-window-destroyed-in-its-tile.patch
 Patch:          0019-add-per-output-adaptive-sync-modes.patch
+Patch:          0020-add-per-output-snap-regions.patch
 
 BuildRequires:  gcc
 BuildRequires:  meson >= 0.59.0
@@ -204,6 +205,11 @@ cp subprojects/wlroots/LICENSE WLROOTS-LICENSE
 %{_userunitdir}/labwc-session.target
 
 %changelog
+* Thu Nov 12 2026 Nobara Project - 0.20.2-27
+- Add an output attribute to <region> so each output can have its own snap layout; outputs without one keep the shared regions
+- On outputs with their own regions, Super+arrow keys move windows from region to region and on to the next output
+- On those outputs, dragging a window to a screen edge snaps it into the region nearest the pointer
+
 * Thu Nov 12 2026 Nobara Project - 0.20.2-26
 - Add <adaptiveSyncOutputs> to set adaptive sync (yes, no or fullscreen) per output
 - In fullscreen mode, change adaptive sync only when the state differs, and do not turn it back on when a fullscreen window closes
