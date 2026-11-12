@@ -2,13 +2,13 @@
 %global debug_package %{nil}
 %global dkms_source_dir %{_usrsrc}/%{name}-%{version}
 # Nobara's fork: xone_mtnet runs the new dongle on MediaTek's firmware, with wake on wireless
-%global commit ad0d17e74ccd5447e33e37c5952e73ed3ca6bb2d
+%global commit ea58108d597fd0715796a8bd9eed960b28afefde
 
 Name:     xone
 # A new version (not just a release) for every source change: DKMS keys builds on
 # the version, so the same version over different source is never rebuilt
-Version:  0.5.8.2
-Release:  2%{?dist}
+Version:  0.5.8.3
+Release:  1%{?dist}
 Summary:  Linux kernel driver for Xbox One and Xbox Series X|S accessories
 License:  GPLv2
 URL:      https://github.com/GloriousEggroll/xone
@@ -104,6 +104,13 @@ dkms remove -m %{name} -v %{version} --all --rpm_safe_upgrade || :
 %{_libexecdir}/xone-mtnet-setup
 
 %changelog
+* Wed Nov 11 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 0.5.8.3-1
+- xone_mtnet: turn connected controllers off before the system sleeps; one
+  left on kept transmitting and woke the system straight back up
+- xone_mtnet: turn controllers off after 15 minutes without input; stick
+  drift and report timestamps don't count. Live toggle: the idle_poweroff
+  module parameter (Y/N), with idle_timeout for the minutes
+
 * Wed Nov 11 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 0.5.8.2-2
 - Remove "blacklist mt76x2u" from /etc/modprobe.d/xone-blacklist.conf (left
   by xone's install.sh), which overrode 60-xone.conf and left the new dongle
