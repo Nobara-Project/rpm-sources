@@ -1,0 +1,12 @@
+--- a/cmake/modules/vvencTests.cmake	2025-03-21 06:40:20.000000000 -0600
++++ b/cmake/modules/vvencTests.cmake	2026-11-13 14:00:09.131743434 -0700
+@@ -28,6 +28,9 @@ set( CLEANUP_TEST_FILES "" )
+ function( add_vvenc_test NAME TIMEOUT OUT_OUTPUT REQUIRES )
+   set( command ${ARGN} )                                    # use remaining arguments after REQUIRES as commandline
+ 
++  # the upstream limits assume a native build host; emulated builders need far longer
++  math( EXPR TIMEOUT "${TIMEOUT} * 10" )
++
+   if( "OUTPUT" IN_LIST command )
+     set( out_file "out_${NAME}.vvc" )                       # generate output file name
+     list( TRANSFORM command REPLACE "OUTPUT" ${out_file} )  # substitute output file in command line

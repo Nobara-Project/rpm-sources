@@ -12,6 +12,8 @@ License:        BSD-3-Clause-Clear
 URL:            %{forgeurl}
 Source:         %{forgesource}
 Patch0:         vvenc-1.13.1-detect-i686-as-x86.patch
+# the encoder tests time out when aarch64 is built under qemu emulation
+Patch1:         vvenc-increase-test-timeout.patch
 
 BuildRequires: cmake
 BuildRequires: ninja-build
@@ -49,6 +51,7 @@ The vvenc-libs package contains the library files
 %prep
 %forgesetup
 %patch -P 0 -p1
+%patch -P 1 -p1
 #sanitize thirdparty
 rm -rf ./thirdparty
 
