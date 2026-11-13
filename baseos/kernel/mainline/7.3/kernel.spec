@@ -74,7 +74,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 200
+%define customver 201
 %endif
 
 Release:%{customver}%{?eactag}.nobara%{?dist}
@@ -1267,6 +1267,11 @@ fi
 %files
 
 %changelog
+* Fri Nov 13 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 7.3.4-201
+- aarch64: build vmlinuz as an EFI zboot application (CONFIG_EFI_ZBOOT), so
+  the kernel image is a PE binary that carries the SBAT section and can be
+  Secure Boot signed like on x86_64 (Image.gz could be neither)
+
 * Fri Nov 13 2026 LionHeartP <LionHeartP@proton.me> - 7.3.4-200
 - Update to 7.3.4
 - Clean up spec file - use Fedora build flags and minor other optimizations

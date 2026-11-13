@@ -1,30 +1,51 @@
-From 2fa83dac159ee4be2f2e08be8f211aadf6a65c5c Mon Sep 17 00:00:00 2001
+From 62a33c475b89031c8f893bd82c2e9d4c82a9a025 Mon Sep 17 00:00:00 2001
 From: Antheas Kapenekakis <git@antheas.dev>
 Date: Sun, 30 Aug 2026 21:32:17 +0200
 Subject: [PATCH] add CEC support via DP to HDMI dongles
 
-
-Upstream: https://github.com/anatase-org/open-gpu-kernel-modules/commit/2fa83dac159ee4be2f2e08be8f211aadf6a65c5c
-Rebased for NVIDIA 595.104.02 after Nobara's existing patch stack.
-Adapt the event/function-table additions to the 595 interfaces and preserve
-subDeviceInstance when issuing AUX transactions.
-
 ---
+ kernel-open/common/inc/nvkms-api-types.h      |   1 +
+ kernel-open/common/inc/nvkms-kapi.h           |  25 ++++
+ kernel-open/header-presence-tests.mk          |   2 +-
+ kernel-open/nvidia-drm/nvidia-drm-connector.c | 103 ++++++++++++++
+ kernel-open/nvidia-drm/nvidia-drm-connector.h |   8 ++
+ kernel-open/nvidia-drm/nvidia-drm-drv.c       |   7 +
+ kernel-open/nvidia-drm/nvidia-drm-encoder.c   |  19 +++
+ kernel-open/nvidia-drm/nvidia-drm-encoder.h   |   3 +
+ src/common/displayport/inc/dp_configcaps.h    |   7 +
+ src/common/displayport/inc/dp_connector.h     |   1 +
+ src/common/displayport/inc/dp_connectorimpl.h |   1 +
+ src/common/displayport/src/dp_configcaps.cpp  |   5 +-
+ .../displayport/src/dp_connectorimpl.cpp      |  19 ++-
+ src/common/inc/displayport/dpcd.h             |   3 +
+ src/nvidia-modeset/include/nvkms-rm.h         |  14 ++
+ .../interface/nvkms-api-types.h               |   1 +
+ src/nvidia-modeset/interface/nvkms-api.h      |  41 ++++++
+ .../kapi/interface/nvkms-kapi.h               |  25 ++++
+ src/nvidia-modeset/kapi/src/nvkms-kapi.c      |  56 ++++++++
+ .../src/dp/nvdp-connector-event-sink.cpp      |   9 ++
+ .../src/dp/nvdp-connector-event-sink.hpp      |   1 +
+ src/nvidia-modeset/src/nvkms-rm.c             | 134 +++++++++++-------
+ src/nvidia-modeset/src/nvkms.c                |  56 ++++++++
+ 23 files changed, 487 insertions(+), 54 deletions(-)
+
 diff --git a/kernel-open/common/inc/nvkms-api-types.h b/kernel-open/common/inc/nvkms-api-types.h
+index 14b8cd7183..b85e6733f4 100644
 --- a/kernel-open/common/inc/nvkms-api-types.h
 +++ b/kernel-open/common/inc/nvkms-api-types.h
-@@ -185,6 +185,7 @@
-     NVKMS_EVENT_TYPE_DPY_ATTRIBUTE_CHANGED,
-     NVKMS_EVENT_TYPE_FRAMELOCK_ATTRIBUTE_CHANGED,
+@@ -191,6 +191,7 @@ enum NvKmsEventType {
      NVKMS_EVENT_TYPE_FLIP_OCCURRED,
+     NVKMS_EVENT_TYPE_DPY_CONTENT_PROTECTION_CHANGED,
+     NVKMS_EVENT_TYPE_DPY_CP_TOPOLOGY_CHANGED,
 +    NVKMS_EVENT_TYPE_DP_CEC_IRQ,
  };
  
  enum NvKmsFlipResult {
 diff --git a/kernel-open/common/inc/nvkms-kapi.h b/kernel-open/common/inc/nvkms-kapi.h
+index 736e0353a1..68129b6a4e 100644
 --- a/kernel-open/common/inc/nvkms-kapi.h
 +++ b/kernel-open/common/inc/nvkms-kapi.h
-@@ -233,6 +233,23 @@
+@@ -244,6 +244,23 @@ struct NvKmsKapiStaticDisplayInfo {
      NvBool isDpMST;
  };
  
@@ -48,18 +69,18 @@ diff --git a/kernel-open/common/inc/nvkms-kapi.h b/kernel-open/common/inc/nvkms-
  struct NvKmsKapiSyncParams {
      union {
          struct {
-@@ -486,6 +503,7 @@
+@@ -531,6 +548,7 @@ struct NvKmsKapiEvent {
  
      union {
          struct NvKmsKapiEventDisplayChanged displayChanged;
 +        struct NvKmsKapiEventDisplayChanged dpCecIrq;
          struct NvKmsKapiEventDynamicDisplayConnected dynamicDisplayConnected;
          struct NvKmsKapiEventFlipOccurred flipOccurred;
-     } u;
-@@ -1614,6 +1632,13 @@
-     (
-         struct NvKmsKapiDevice *device
-     );
+         struct NvKmsKapiEventDisplayCpChanged displayCpChanged;
+@@ -1697,6 +1715,13 @@ struct NvKmsKapiFunctionsTable {
+         struct NvKmsKapiDevice *device,
+         const NvU32 head,
+         struct NvKmsKapiVblankIntrCallback *pCallback);
 +
 +    /* Perform a native AUX transaction on an SST DisplayPort display. */
 +    NvBool (*dpAuxTransfer)
@@ -71,9 +92,10 @@ diff --git a/kernel-open/common/inc/nvkms-kapi.h b/kernel-open/common/inc/nvkms-
  
  /** @} */
 diff --git a/kernel-open/header-presence-tests.mk b/kernel-open/header-presence-tests.mk
+index a1a0e6323a..69536033ee 100644
 --- a/kernel-open/header-presence-tests.mk
 +++ b/kernel-open/header-presence-tests.mk
-@@ -5,6 +5,7 @@
+@@ -5,6 +5,7 @@ NV_HEADER_PRESENCE_TESTS = \
    drm/drm_hdcp.h \
    drm/display/drm_hdcp.h \
    drm/display/drm_hdcp_helper.h \
@@ -81,17 +103,18 @@ diff --git a/kernel-open/header-presence-tests.mk b/kernel-open/header-presence-
    drm/drmP.h \
    drm/drm_aperture.h \
    drm/drm_atomic_state_helper.h \
-@@ -47,4 +48,3 @@
-   asm/mshyperv.h \
-   crypto/sig.h \
+@@ -51,4 +52,3 @@ NV_HEADER_PRESENCE_TESTS = \
+   linux/iommu-dma.h \
+   linux/nvgrace-egm.h \
    linux/sysfb.h
 -
 diff --git a/kernel-open/nvidia-drm/nvidia-drm-connector.c b/kernel-open/nvidia-drm/nvidia-drm-connector.c
+index c830c33383..75a541966c 100644
 --- a/kernel-open/nvidia-drm/nvidia-drm-connector.c
 +++ b/kernel-open/nvidia-drm/nvidia-drm-connector.c
-@@ -45,9 +45,78 @@
- #include <drm/drm_atomic_helper.h>
- #include <drm/drm_edid.h>
+@@ -50,6 +50,68 @@
+ static void nv_drm_connector_set_allm_capable(struct nv_drm_connector *nv_connector,
+                                               NvBool allmCapable);
  
 +#if defined(NV_DRM_DISPLAY_DRM_DP_HELPER_H_PRESENT)
 +#include <drm/display/drm_dp_helper.h>
@@ -155,20 +178,24 @@ diff --git a/kernel-open/nvidia-drm/nvidia-drm-connector.c b/kernel-open/nvidia-
 +}
 +#endif
 +
- static void nv_drm_connector_destroy(struct drm_connector *connector)
+ /*
+  * Dithering support requires connector atomic_check, which we only enable on
+  * kernels with HDR metadata support (v5.14+). This serves as a proxy for
+@@ -144,6 +206,13 @@ static void nv_drm_connector_destroy(struct drm_connector *connector)
  {
      struct nv_drm_connector *nv_connector = to_nv_connector(connector);
-+
+ 
 +#if defined(NV_DRM_DISPLAY_DRM_DP_HELPER_H_PRESENT)
 +    if ((nv_connector->type == NVKMS_CONNECTOR_TYPE_DP) &&
 +        (nvKms->dpAuxTransfer != NULL)) {
 +        drm_dp_cec_unregister_connector(&nv_connector->aux);
 +    }
 +#endif
- 
++
      drm_connector_unregister(connector);
  
-@@ -198,6 +267,13 @@
+     drm_connector_cleanup(connector);
+@@ -298,6 +367,13 @@ static enum drm_connector_status __nv_drm_connector_detect_internal(
  
      nv_connector->nv_detected_encoder = nv_detected_encoder;
  
@@ -182,11 +209,10 @@ diff --git a/kernel-open/nvidia-drm/nvidia-drm-connector.c b/kernel-open/nvidia-
      if (nv_connector->type == NVKMS_CONNECTOR_TYPE_DVI_I) {
          drm_object_property_set_value(
              &connector->base,
-@@ -208,6 +284,14 @@
-     }
+@@ -309,6 +385,14 @@ static enum drm_connector_status __nv_drm_connector_detect_internal(
  
  done:
-+
+ 
 +#if defined(NV_DRM_DISPLAY_DRM_DP_HELPER_H_PRESENT)
 +    if ((status == connector_status_disconnected) &&
 +        (nv_connector->type == NVKMS_CONNECTOR_TYPE_DP) &&
@@ -194,12 +220,13 @@ diff --git a/kernel-open/nvidia-drm/nvidia-drm-connector.c b/kernel-open/nvidia-
 +        drm_dp_cec_unset_edid(&nv_connector->aux);
 +    }
 +#endif
- 
++
      nv_drm_free(pDetectParams);
  
-@@ -557,6 +641,15 @@
-     nv_connector->modeset_permission_filep = NULL;
+     if (status == connector_status_disconnected &&
+@@ -910,6 +994,15 @@ nv_drm_connector_new(struct drm_device *dev,
      nv_connector->modeset_permission_crtc = NULL;
+     nv_connector->cp = NVKMS_CONTENT_PROTECTION_OFF;
  
 +#if defined(NV_DRM_DISPLAY_DRM_DP_HELPER_H_PRESENT)
 +    if ((type == NVKMS_CONNECTOR_TYPE_DP) &&
@@ -213,11 +240,10 @@ diff --git a/kernel-open/nvidia-drm/nvidia-drm-connector.c b/kernel-open/nvidia-
      strcpy(nv_connector->dpAddress, dpAddress);
  
      ret = drm_connector_init(
-@@ -618,6 +711,16 @@
-             nv_connector->physicalIndex);
+@@ -1035,6 +1128,16 @@ nv_drm_connector_new(struct drm_device *dev,
          goto failed_connector_register;
      }
-+
+ 
 +#if defined(NV_DRM_DISPLAY_DRM_DP_HELPER_H_PRESENT)
 +    if ((type == NVKMS_CONNECTOR_TYPE_DP) &&
 +        (nvKms->dpAuxTransfer != NULL)) {
@@ -227,10 +253,12 @@ diff --git a/kernel-open/nvidia-drm/nvidia-drm-connector.c b/kernel-open/nvidia-
 +                                      &nv_connector->base);
 +    }
 +#endif
- 
++
      return &nv_connector->base;
  
+ failed_connector_register:
 diff --git a/kernel-open/nvidia-drm/nvidia-drm-connector.h b/kernel-open/nvidia-drm/nvidia-drm-connector.h
+index 2ab433ece6..6409ad7fb7 100644
 --- a/kernel-open/nvidia-drm/nvidia-drm-connector.h
 +++ b/kernel-open/nvidia-drm/nvidia-drm-connector.h
 @@ -33,6 +33,10 @@
@@ -244,22 +272,23 @@ diff --git a/kernel-open/nvidia-drm/nvidia-drm-connector.h b/kernel-open/nvidia-
  #include "nvtypes.h"
  #include "nvkms-api-types.h"
  
-@@ -48,6 +52,10 @@
-     struct edid *edid;
+@@ -58,6 +62,10 @@ struct nv_drm_connector {
  
      atomic_t connection_status_dirty;
-+
+ 
 +#if defined(NV_DRM_DISPLAY_DRM_DP_HELPER_H_PRESENT)
 +    struct drm_dp_aux aux;
 +#endif
- 
++
      /**
       * @modeset_permission_filep:
+      *
 diff --git a/kernel-open/nvidia-drm/nvidia-drm-drv.c b/kernel-open/nvidia-drm/nvidia-drm-drv.c
+index de784e28db..09246201f0 100644
 --- a/kernel-open/nvidia-drm/nvidia-drm-drv.c
 +++ b/kernel-open/nvidia-drm/nvidia-drm-drv.c
-@@ -210,6 +210,12 @@
-                 event->u.displayChanged.display);
+@@ -186,6 +186,12 @@ static void nv_drm_event_callback(const struct NvKmsKapiEvent *event)
+                 event->u.displayCpTopologyChanged.topology);
              break;
  
 +        case NVKMS_EVENT_TYPE_DP_CEC_IRQ:
@@ -271,19 +300,20 @@ diff --git a/kernel-open/nvidia-drm/nvidia-drm-drv.c b/kernel-open/nvidia-drm/nv
          case NVKMS_EVENT_TYPE_DYNAMIC_DPY_CONNECTED:
              nv_drm_handle_dynamic_display_connected(
                  nv_dev,
-@@ -811,6 +817,7 @@
-             nv_dev->pDevice,
-             ((1 << NVKMS_EVENT_TYPE_DPY_CHANGED) |
+@@ -983,6 +989,7 @@ static int nv_drm_dev_load(struct drm_device *dev)
               (1 << NVKMS_EVENT_TYPE_DYNAMIC_DPY_CONNECTED) |
+              (1 << NVKMS_EVENT_TYPE_DPY_CONTENT_PROTECTION_CHANGED) |
+              (1 << NVKMS_EVENT_TYPE_DPY_CP_TOPOLOGY_CHANGED) |
 +             (1 << NVKMS_EVENT_TYPE_DP_CEC_IRQ) |
               (1 << NVKMS_EVENT_TYPE_FLIP_OCCURRED)))) {
          NV_DRM_DEV_LOG_ERR(nv_dev, "Failed to register event mask");
      }
 diff --git a/kernel-open/nvidia-drm/nvidia-drm-encoder.c b/kernel-open/nvidia-drm/nvidia-drm-encoder.c
+index e3ff2ca4c7..f943fb69cf 100644
 --- a/kernel-open/nvidia-drm/nvidia-drm-encoder.c
 +++ b/kernel-open/nvidia-drm/nvidia-drm-encoder.c
-@@ -299,6 +299,25 @@
-     schedule_delayed_work(&nv_dev->hotplug_event_work, 0);
+@@ -343,6 +343,25 @@ void nv_drm_handle_display_cp_topology_change(struct nv_drm_device *nv_dev,
+     mutex_unlock(&dev->mode_config.mutex);
  }
  
 +void nv_drm_handle_dp_cec_irq(struct nv_drm_device *nv_dev,
@@ -309,11 +339,12 @@ diff --git a/kernel-open/nvidia-drm/nvidia-drm-encoder.c b/kernel-open/nvidia-dr
                                               NvKmsKapiDisplay hDisplay)
  {
 diff --git a/kernel-open/nvidia-drm/nvidia-drm-encoder.h b/kernel-open/nvidia-drm/nvidia-drm-encoder.h
+index c572a11668..00b60f580e 100644
 --- a/kernel-open/nvidia-drm/nvidia-drm-encoder.h
 +++ b/kernel-open/nvidia-drm/nvidia-drm-encoder.h
-@@ -56,6 +56,9 @@
- void nv_drm_handle_display_change(struct nv_drm_device *nv_dev,
-                                   NvKmsKapiDisplay hDisplay);
+@@ -64,6 +64,9 @@ void nv_drm_handle_display_cp_topology_change(struct nv_drm_device *nv_dev,
+                                               NvKmsKapiDisplay hDisplay,
+                                               const void *topology);
  
 +void nv_drm_handle_dp_cec_irq(struct nv_drm_device *nv_dev,
 +                              NvKmsKapiDisplay hDisplay);
@@ -322,9 +353,10 @@ diff --git a/kernel-open/nvidia-drm/nvidia-drm-encoder.h b/kernel-open/nvidia-dr
                                               NvKmsKapiDisplay hDisplay);
  
 diff --git a/src/common/displayport/inc/dp_configcaps.h b/src/common/displayport/inc/dp_configcaps.h
+index f3a2a5c8af..8f27dae53f 100644
 --- a/src/common/displayport/inc/dp_configcaps.h
 +++ b/src/common/displayport/inc/dp_configcaps.h
-@@ -455,6 +455,7 @@
+@@ -467,6 +467,7 @@ namespace DisplayPort
          virtual void             clearInterruptContentProtection() = 0;
  
          virtual bool             intteruptMCCS() = 0;
@@ -332,7 +364,7 @@ diff --git a/src/common/displayport/inc/dp_configcaps.h b/src/common/displayport
          virtual void             clearInterruptMCCS() = 0;
  
          virtual bool             interruptDownReplyReady() = 0;
-@@ -711,6 +712,7 @@
+@@ -743,6 +744,7 @@ namespace DisplayPort
              bool      automatedTestRequest;
              bool      cpIRQ;
              bool      mccsIRQ;
@@ -340,7 +372,7 @@ diff --git a/src/common/displayport/inc/dp_configcaps.h b/src/common/displayport
              bool      downRepMsgRdy;
              bool      upReqMsgRdy;
              bool      prErrorStatus;                                // DPCD offset 2004h[3]
-@@ -1185,6 +1187,11 @@
+@@ -1240,6 +1242,11 @@ namespace DisplayPort
              return interrupts.mccsIRQ;
          }
  
@@ -353,20 +385,22 @@ diff --git a/src/common/displayport/inc/dp_configcaps.h b/src/common/displayport
  
          virtual bool interruptDownReplyReady()
 diff --git a/src/common/displayport/inc/dp_connector.h b/src/common/displayport/inc/dp_connector.h
+index eada990e71..464545164e 100644
 --- a/src/common/displayport/inc/dp_connector.h
 +++ b/src/common/displayport/inc/dp_connector.h
-@@ -431,6 +431,7 @@
-             virtual void notifyCableOkStateChange(Device * dev, bool cableOk) = 0;  // Notification that device got cable state chagne (true - cable is good, false - cables is bad)
+@@ -436,6 +436,7 @@ namespace DisplayPort
              virtual void notifyHDCPCapDone(Device * dev, bool hdcpCap) = 0;         // Notification that device's HDCP cap detection is done and get state change.
+             virtual void notifyHDCPEnabled(Device * dev, bool hdcpEnabled) { };     // Notification that HDCP ECF is enabled
              virtual void notifyMCCSEvent(Device * dev) = 0;                         // Notification that an MCCS event is coming
 +            virtual void notifyCECEvent(Device * dev) = 0;                          // Notification that a CEC-over-AUX IRQ is pending
          };
  
          // Query current Device topology
 diff --git a/src/common/displayport/inc/dp_connectorimpl.h b/src/common/displayport/inc/dp_connectorimpl.h
+index e2b741c106..1e341a9a3a 100644
 --- a/src/common/displayport/inc/dp_connectorimpl.h
 +++ b/src/common/displayport/inc/dp_connectorimpl.h
-@@ -750,6 +750,7 @@
+@@ -783,6 +783,7 @@ namespace DisplayPort
          bool handleCPIRQ();
          void handleSSC();
          void handleMCCSIRQ();
@@ -375,9 +409,10 @@ diff --git a/src/common/displayport/inc/dp_connectorimpl.h b/src/common/displayp
          void handleHdmiLinkStatusChanged();
          void sortActiveGroups(bool ascending);
 diff --git a/src/common/displayport/src/dp_configcaps.cpp b/src/common/displayport/src/dp_configcaps.cpp
+index e189a59da7..5185e175e9 100644
 --- a/src/common/displayport/src/dp_configcaps.cpp
 +++ b/src/common/displayport/src/dp_configcaps.cpp
-@@ -1578,6 +1578,9 @@
+@@ -1698,6 +1698,9 @@ void DPCDHALImpl::parseAndReadInterruptsESI()
      interrupts.downRepMsgRdy               = FLD_TEST_DRF(_DPCD, _DEVICE_SERVICE_IRQ_VECTOR_ESI0, _DOWN_REP_MSG_RDY, _YES, buffer[3]);
      interrupts.upReqMsgRdy                 = FLD_TEST_DRF(_DPCD, _DEVICE_SERVICE_IRQ_VECTOR_ESI0, _UP_REQ_MSG_RDY, _YES, buffer[3]);
  
@@ -387,7 +422,7 @@ diff --git a/src/common/displayport/src/dp_configcaps.cpp b/src/common/displaypo
      interrupts.prErrorStatus               = FLD_TEST_DRF(_DPCD, _DEVICE_SERVICE_IRQ_VECTOR_ESI1,
                                                            _PANEL_REPLAY_ERROR_STATUS, _YES, buffer[4]);
  
-@@ -1909,6 +1912,7 @@
+@@ -2061,6 +2064,7 @@ void DPCDHALImpl::parseAndReadInterruptsLegacy()
      automatedTestRequest                   = FLD_TEST_DRF(_DPCD, _DEVICE_SERVICE_IRQ_VECTOR, _AUTO_TEST, _YES, buffer[1]);
      interrupts.cpIRQ                       = FLD_TEST_DRF(_DPCD, _DEVICE_SERVICE_IRQ_VECTOR, _CP, _YES, buffer[1]);
      interrupts.mccsIRQ                     = FLD_TEST_DRF(_DPCD, _DEVICE_SERVICE_IRQ_VECTOR, _MCCS_IRQ, _YES, buffer[1]);
@@ -395,15 +430,16 @@ diff --git a/src/common/displayport/src/dp_configcaps.cpp b/src/common/displaypo
      interrupts.downRepMsgRdy               = FLD_TEST_DRF(_DPCD, _DEVICE_SERVICE_IRQ_VECTOR, _DOWN_REP_MSG_RDY, _YES, buffer[1]);
      interrupts.upReqMsgRdy                 = FLD_TEST_DRF(_DPCD, _DEVICE_SERVICE_IRQ_VECTOR, _UP_REQ_MSG_RDY, _YES, buffer[1]);
  
-@@ -3079,4 +3083,3 @@
+@@ -3353,4 +3357,3 @@ DPCDHAL * DisplayPort::MakeDPCDHAL(AuxBus *  bus, Timer * timer, MainLink * main
          return new DPCDHALImpl(bus, timer);
      }
  }
 -
 diff --git a/src/common/displayport/src/dp_connectorimpl.cpp b/src/common/displayport/src/dp_connectorimpl.cpp
+index 62eb0f7428..1214bc94ca 100644
 --- a/src/common/displayport/src/dp_connectorimpl.cpp
 +++ b/src/common/displayport/src/dp_connectorimpl.cpp
-@@ -5498,6 +5498,18 @@
+@@ -6257,6 +6257,18 @@ void ConnectorImpl::handleMCCSIRQ()
      }
  }
  
@@ -422,8 +458,8 @@ diff --git a/src/common/displayport/src/dp_connectorimpl.cpp b/src/common/displa
  void ConnectorImpl::handlePanelReplayError()
  {
      hal->readPanelReplayError();
-@@ -8016,6 +8028,12 @@
-     DP_PRINTF(DP_INFO, "DP> IRQ");
+@@ -9070,6 +9082,12 @@ void ConnectorImpl::notifyShortPulse()
+     }
      hal->notifyIRQ();
  
 +    // Leave the CEC IRQ bit set for the DRM CEC helper to acknowledge.
@@ -435,15 +471,16 @@ diff --git a/src/common/displayport/src/dp_connectorimpl.cpp b/src/common/displa
      // Handle CP_IRQ
      if (hal->interruptContentProtection())
      {
-@@ -9277,4 +9295,3 @@
-         }
+@@ -10417,4 +10435,3 @@ void ConnectorImpl::ensureMstNodesPoweredUp(Group * target)
+         pendingPowerUpPhyMessage->post();
      }
  }
 -
 diff --git a/src/common/inc/displayport/dpcd.h b/src/common/inc/displayport/dpcd.h
+index 41f2a35ec9..cd8a4afe2e 100644
 --- a/src/common/inc/displayport/dpcd.h
 +++ b/src/common/inc/displayport/dpcd.h
-@@ -1289,6 +1289,9 @@
+@@ -1302,6 +1302,9 @@ number of Downstream ports will be limited to 32.
  #define NV_DPCD_DEVICE_SERVICE_IRQ_VECTOR_ESI1_RX_GTC_MSTR_REQ_STATUS_CHANGE                0:0  /* R-XUF */
  #define NV_DPCD_DEVICE_SERVICE_IRQ_VECTOR_ESI1_RX_GTC_MSTR_REQ_STATUS_CHANGE_NO     (0x00000000) /* R-XUV */
  #define NV_DPCD_DEVICE_SERVICE_IRQ_VECTOR_ESI1_RX_GTC_MSTR_REQ_STATUS_CHANGE_YES    (0x00000001) /* R-XUV */
@@ -454,13 +491,13 @@ diff --git a/src/common/inc/displayport/dpcd.h b/src/common/inc/displayport/dpcd
  #define NV_DPCD_DEVICE_SERVICE_IRQ_VECTOR_ESI1_PANEL_REPLAY_ERROR_STATUS_NO         (0x00000000) /* R-XUV */
  #define NV_DPCD_DEVICE_SERVICE_IRQ_VECTOR_ESI1_PANEL_REPLAY_ERROR_STATUS_YES        (0x00000001) /* R-XUV */
 diff --git a/src/nvidia-modeset/include/nvkms-rm.h b/src/nvidia-modeset/include/nvkms-rm.h
+index 0385bf3f53..4f3283e23c 100644
 --- a/src/nvidia-modeset/include/nvkms-rm.h
 +++ b/src/nvidia-modeset/include/nvkms-rm.h
-@@ -39,6 +39,20 @@
- NvBool nvWriteDPCDReg(NVConnectorEvoPtr pConnectorEvo,
-                       NvU32 dpcdAddr,
-                       NvU8 dpcdData);
-+
+@@ -45,6 +45,20 @@ enum NvKmsContentProtection nvGetContentProtectionState(const NVDpyEvoRec *pDpyE
+ void nvGetContentProtectionTopology(NVConnectorEvoPtr pConnectorEvo,
+                                     void *pTopology);
+ 
 +enum NvRmDpAuxReply {
 +    NV_RM_DP_AUX_REPLY_ACK,
 +    NV_RM_DP_AUX_REPLY_NACK,
@@ -474,32 +511,35 @@ diff --git a/src/nvidia-modeset/include/nvkms-rm.h b/src/nvidia-modeset/include/
 +                         NvU8 size,
 +                         enum NvRmDpAuxReply *pReply,
 +                         NvU8 *pTransferred);
- 
++
  NvBool nvRmRegisterCallback(const NVDevEvoRec *pDevEvo,
                              NVOS10_EVENT_KERNEL_CALLBACK_EX *cb,
+                             struct nvkms_ref_ptr *ref_ptr,
 diff --git a/src/nvidia-modeset/interface/nvkms-api-types.h b/src/nvidia-modeset/interface/nvkms-api-types.h
+index 14b8cd7183..b85e6733f4 100644
 --- a/src/nvidia-modeset/interface/nvkms-api-types.h
 +++ b/src/nvidia-modeset/interface/nvkms-api-types.h
-@@ -185,6 +185,7 @@
-     NVKMS_EVENT_TYPE_DPY_ATTRIBUTE_CHANGED,
-     NVKMS_EVENT_TYPE_FRAMELOCK_ATTRIBUTE_CHANGED,
+@@ -191,6 +191,7 @@ enum NvKmsEventType {
      NVKMS_EVENT_TYPE_FLIP_OCCURRED,
+     NVKMS_EVENT_TYPE_DPY_CONTENT_PROTECTION_CHANGED,
+     NVKMS_EVENT_TYPE_DPY_CP_TOPOLOGY_CHANGED,
 +    NVKMS_EVENT_TYPE_DP_CEC_IRQ,
  };
  
  enum NvKmsFlipResult {
 diff --git a/src/nvidia-modeset/interface/nvkms-api.h b/src/nvidia-modeset/interface/nvkms-api.h
+index b3b2767b88..c8a627146c 100644
 --- a/src/nvidia-modeset/interface/nvkms-api.h
 +++ b/src/nvidia-modeset/interface/nvkms-api.h
-@@ -272,6 +272,7 @@
-     NVKMS_IOCTL_DISABLE_VBLANK_SEM_CONTROL,
-     NVKMS_IOCTL_ACCEL_VBLANK_SEM_CONTROLS,
+@@ -270,6 +270,7 @@ enum NvKmsIoctlCommand {
      NVKMS_IOCTL_FRAMEBUFFER_CONSOLE_DISABLED,
+     NVKMS_IOCTL_REGISTER_VBLANK_INTR_CALLBACK,
+     NVKMS_IOCTL_UNREGISTER_VBLANK_INTR_CALLBACK,
 +    NVKMS_IOCTL_DP_AUX_TRANSFER,
  };
  
  
-@@ -1471,6 +1472,40 @@
+@@ -1574,6 +1575,40 @@ struct NvKmsQueryDpyDynamicDataRequest {
      } edid;
  };
  
@@ -537,34 +577,34 @@ diff --git a/src/nvidia-modeset/interface/nvkms-api.h b/src/nvidia-modeset/inter
 +    struct NvKmsDpAuxTransferReply reply;     /*! out */
 +};
 +
- /*! Values for the NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC attributes. */
- enum NvKmsDpyAttributeColorBpcValue {
-     NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_UNKNOWN =  0,
-@@ -3096,6 +3131,12 @@
+ typedef struct _NvKmsDpyOutputColorFormatInfo {
+     struct {
+         enum NvKmsDpyAttributeColorBpcValue maxBpc;
+@@ -3211,6 +3246,11 @@ struct NvKmsEventDpyChanged {
      NVDpyId dpyId;
  };
  
 +struct NvKmsEventDpCecIrq {
 +    NvKmsDeviceHandle deviceHandle;
-+    NvKmsDispHandle dispHandle;
 +    NVDpyId dpyId;
 +};
 +
  
  /*!
   * NVKMS_EVENT_TYPE_DYNAMIC_DPY_CONNECTED
-@@ -3178,6 +3219,7 @@
-         struct NvKmsEventDpyAttributeChanged dpyAttributeChanged;
-         struct NvKmsEventFrameLockAttributeChanged frameLockAttributeChanged;
+@@ -3314,6 +3354,7 @@ struct NvKmsEvent {
          struct NvKmsEventFlipOccurred flipOccurred;
+         struct NvKmsEventDpyCpChanged dpyCpChanged;
+         struct NvKmsEventDpyCpTopologyChanged dpyCpTopologyChanged;
 +        struct NvKmsEventDpCecIrq dpCecIrq;
      } u;
  };
  
 diff --git a/src/nvidia-modeset/kapi/interface/nvkms-kapi.h b/src/nvidia-modeset/kapi/interface/nvkms-kapi.h
+index 736e0353a1..68129b6a4e 100644
 --- a/src/nvidia-modeset/kapi/interface/nvkms-kapi.h
 +++ b/src/nvidia-modeset/kapi/interface/nvkms-kapi.h
-@@ -233,6 +233,23 @@
+@@ -244,6 +244,23 @@ struct NvKmsKapiStaticDisplayInfo {
      NvBool isDpMST;
  };
  
@@ -588,18 +628,18 @@ diff --git a/src/nvidia-modeset/kapi/interface/nvkms-kapi.h b/src/nvidia-modeset
  struct NvKmsKapiSyncParams {
      union {
          struct {
-@@ -486,6 +503,7 @@
+@@ -531,6 +548,7 @@ struct NvKmsKapiEvent {
  
      union {
          struct NvKmsKapiEventDisplayChanged displayChanged;
 +        struct NvKmsKapiEventDisplayChanged dpCecIrq;
          struct NvKmsKapiEventDynamicDisplayConnected dynamicDisplayConnected;
          struct NvKmsKapiEventFlipOccurred flipOccurred;
-     } u;
-@@ -1614,6 +1632,13 @@
-     (
-         struct NvKmsKapiDevice *device
-     );
+         struct NvKmsKapiEventDisplayCpChanged displayCpChanged;
+@@ -1697,6 +1715,13 @@ struct NvKmsKapiFunctionsTable {
+         struct NvKmsKapiDevice *device,
+         const NvU32 head,
+         struct NvKmsKapiVblankIntrCallback *pCallback);
 +
 +    /* Perform a native AUX transaction on an SST DisplayPort display. */
 +    NvBool (*dpAuxTransfer)
@@ -611,17 +651,18 @@ diff --git a/src/nvidia-modeset/kapi/interface/nvkms-kapi.h b/src/nvidia-modeset
  
  /** @} */
 diff --git a/src/nvidia-modeset/kapi/src/nvkms-kapi.c b/src/nvidia-modeset/kapi/src/nvkms-kapi.c
+index 2d6550ceee..59e3df3f11 100644
 --- a/src/nvidia-modeset/kapi/src/nvkms-kapi.c
 +++ b/src/nvidia-modeset/kapi/src/nvkms-kapi.c
-@@ -70,6 +70,7 @@
- #define NVKMS_KAPI_SUPPORTED_EVENTS_MASK             \
-     ((1 << NVKMS_EVENT_TYPE_DPY_CHANGED) |           \
+@@ -71,6 +71,7 @@ ct_assert(NVKMS_KAPI_LAYER_MAX == NVKMS_MAX_LAYERS_PER_HEAD);
       (1 << NVKMS_EVENT_TYPE_DYNAMIC_DPY_CONNECTED) | \
+      (1 << NVKMS_EVENT_TYPE_DPY_CONTENT_PROTECTION_CHANGED) | \
+      (1 << NVKMS_EVENT_TYPE_DPY_CP_TOPOLOGY_CHANGED) | \
 +     (1 << NVKMS_EVENT_TYPE_DP_CEC_IRQ) |            \
       (1 << NVKMS_EVENT_TYPE_FLIP_OCCURRED))
  
  static NvU32 EnumerateGpus(void (*gpuCallback)(const struct NvKmsKapiGpuInfo *info))
-@@ -1568,6 +1569,55 @@
+@@ -1559,6 +1560,55 @@ static NvBool GetDynamicDisplayInfo(
      return status;
  }
  
@@ -677,9 +718,9 @@ diff --git a/src/nvidia-modeset/kapi/src/nvkms-kapi.c b/src/nvidia-modeset/kapi/
  static void FreeMemory
  (
      struct NvKmsKapiDevice *device, struct NvKmsKapiMemory *memory
-@@ -3824,6 +3874,11 @@
-                     nvDpyIdToNvU32(kmsEventParams.
-                                    reply.event.u.dpyChanged.dpyId);
+@@ -3930,6 +3980,11 @@ void nvKmsKapiHandleEventQueueChange
+                 kapiEvent.u.displayCpTopologyChanged.topology =
+                     kmsEventParams.reply.event.u.dpyCpTopologyChanged.topology;
                  break;
 +            case NVKMS_EVENT_TYPE_DP_CEC_IRQ:
 +                kapiEvent.u.dpCecIrq.display =
@@ -689,7 +730,7 @@ diff --git a/src/nvidia-modeset/kapi/src/nvkms-kapi.c b/src/nvidia-modeset/kapi/
              case NVKMS_EVENT_TYPE_DYNAMIC_DPY_CONNECTED:
                  kapiEvent.u.dynamicDisplayConnected.display =
                      nvDpyIdToNvU32(kmsEventParams.
-@@ -4033,6 +4088,7 @@
+@@ -4196,6 +4251,7 @@ NvBool nvKmsKapiGetFunctionsTableInternal
  
      funcsTable->getStaticDisplayInfo   = GetStaticDisplayInfo;
      funcsTable->getDynamicDisplayInfo  = GetDynamicDisplayInfo;
@@ -698,9 +739,10 @@ diff --git a/src/nvidia-modeset/kapi/src/nvkms-kapi.c b/src/nvidia-modeset/kapi/
      funcsTable->allocateMemory       = AllocateMemory;
      funcsTable->importMemory         = ImportMemory;
 diff --git a/src/nvidia-modeset/src/dp/nvdp-connector-event-sink.cpp b/src/nvidia-modeset/src/dp/nvdp-connector-event-sink.cpp
+index 21f5252f6e..fe59da0e66 100644
 --- a/src/nvidia-modeset/src/dp/nvdp-connector-event-sink.cpp
 +++ b/src/nvidia-modeset/src/dp/nvdp-connector-event-sink.cpp
-@@ -510,6 +510,15 @@
+@@ -557,6 +557,15 @@ void ConnectorEventSink::notifyMCCSEvent(DisplayPort::Device *dev)
  {
  }
  
@@ -717,23 +759,28 @@ diff --git a/src/nvidia-modeset/src/dp/nvdp-connector-event-sink.cpp b/src/nvidi
  
  // The functions below are exported to the rest of nvkms.  Declare them outside
 diff --git a/src/nvidia-modeset/src/dp/nvdp-connector-event-sink.hpp b/src/nvidia-modeset/src/dp/nvdp-connector-event-sink.hpp
+index d05bf74841..0c43a439ab 100644
 --- a/src/nvidia-modeset/src/dp/nvdp-connector-event-sink.hpp
 +++ b/src/nvidia-modeset/src/dp/nvdp-connector-event-sink.hpp
-@@ -52,6 +52,7 @@
-     virtual void notifyCableOkStateChange(DisplayPort::Device *dev, bool cableOk);
+@@ -53,6 +53,7 @@ class ConnectorEventSink : public DisplayPort::Object,
      virtual void notifyHDCPCapDone(DisplayPort::Device *dev, bool hdcpCap);
+     virtual void notifyHDCPEnabled(DisplayPort::Device *dev, bool hdcpEnabled);
      virtual void notifyMCCSEvent(DisplayPort::Device *dev);
 +    virtual void notifyCECEvent(DisplayPort::Device *dev);
  };
  
  const char *nvDPGetDeviceGUIDStr(DisplayPort::Device *device);
 diff --git a/src/nvidia-modeset/src/nvkms-rm.c b/src/nvidia-modeset/src/nvkms-rm.c
+index 9c67bffa42..fe82c920f2 100644
 --- a/src/nvidia-modeset/src/nvkms-rm.c
 +++ b/src/nvidia-modeset/src/nvkms-rm.c
-@@ -1465,83 +1465,114 @@
+@@ -1462,81 +1462,113 @@ static void ProbeVRRCaps(NVDispEvoPtr pDispEvo)
  }
  
  
+-static NvBool ReadDPCDReg(NVConnectorEvoPtr pConnectorEvo,
+-                          NvU32 dpcdAddr,
+-                          NvU8 *dpcdData)
 +NvBool nvRmDpAuxTransfer(NVConnectorEvoPtr pConnectorEvo,
 +                         NvU32 address,
 +                         NvBool write,
@@ -741,9 +788,9 @@ diff --git a/src/nvidia-modeset/src/nvkms-rm.c b/src/nvidia-modeset/src/nvkms-rm
 +                         NvU8 size,
 +                         enum NvRmDpAuxReply *pReply,
 +                         NvU8 *pTransferred)
-+{
-+    NV0073_CTRL_DP_AUXCH_CTRL_PARAMS params = { };
-+    NVDevEvoPtr pDevEvo = pConnectorEvo->pDispEvo->pDevEvo;
+ {
+     NV0073_CTRL_DP_AUXCH_CTRL_PARAMS params = { };
+     NVDevEvoPtr pDevEvo = pConnectorEvo->pDispEvo->pDevEvo;
 +    NvU32 status;
 +    NvU8 retries = 0;
 +
@@ -751,22 +798,33 @@ diff --git a/src/nvidia-modeset/src/nvkms-rm.c b/src/nvidia-modeset/src/nvkms-rm
 +        (data == NULL) || (pReply == NULL) || (pTransferred == NULL)) {
 +        return FALSE;
 +    }
-+
-+    params.subDeviceInstance = pConnectorEvo->pDispEvo->displayOwner;
-+    params.displayId = nvDpyIdToNvU32(pConnectorEvo->displayId);
-+
-+    params.cmd = DRF_DEF(0073_CTRL, _DP, _AUXCH_CMD_TYPE, _AUX);
+ 
+     params.displayId = nvDpyIdToNvU32(pConnectorEvo->displayId);
+ 
+     params.cmd = DRF_DEF(0073_CTRL, _DP, _AUXCH_CMD_TYPE, _AUX);
+-    params.cmd |= DRF_DEF(0073_CTRL, _DP, _AUXCH_CMD_REQ_TYPE, _READ);
 +    params.cmd |= write ?
 +        DRF_DEF(0073_CTRL, _DP, _AUXCH_CMD_REQ_TYPE, _WRITE) :
 +        DRF_DEF(0073_CTRL, _DP, _AUXCH_CMD_REQ_TYPE, _READ);
-+
+ 
+-    params.addr = dpcdAddr;
 +    params.addr = address;
 +    params.size = size - 1U;
-+
+ 
+-    /* Requested size is 0-based */
+-    params.size = 0;
 +    if (write) {
 +        nvkms_memcpy(params.data, data, size);
 +    }
-+
+ 
+-    if (nvRmApiControl(nvEvoGlobal.clientHandle,
+-                       pDevEvo->displayCommonHandle,
+-                       NV0073_CTRL_CMD_DP_AUXCH_CTRL,
+-                       &params, sizeof(params)) != NVOS_STATUS_SUCCESS) {
+-        nvEvoLogDev(pDevEvo, EVO_LOG_ERROR,
+-                    "AUX read failed for DPCD addr 0x%x",
+-                    dpcdAddr);
+-        return FALSE;
 +    do {
 +        params.retryTimeMs = 0;
 +        status = nvRmApiControl(nvEvoGlobal.clientHandle,
@@ -786,12 +844,17 @@ diff --git a/src/nvidia-modeset/src/nvkms-rm.c b/src/nvidia-modeset/src/nvkms-rm
 +        *pReply = NV_RM_DP_AUX_REPLY_DEFER;
 +        *pTransferred = 0U;
 +        return TRUE;
-+    }
-+
+     }
+ 
+-    if (params.size != 1U) {
+-        nvEvoLogDev(pDevEvo, EVO_LOG_ERROR,
+-                    "AUX read returned 0 bytes for DPCD addr 0x%x",
+-                    dpcdAddr);
 +    if (status != NVOS_STATUS_SUCCESS) {
-+        return FALSE;
-+    }
-+
+         return FALSE;
+     }
+ 
+-    *dpcdData = params.data[0];
 +    switch (params.replyType) {
 +    case NV0073_CTRL_DP_AUXCH_REPLYTYPE_ACK:
 +        *pReply = NV_RM_DP_AUX_REPLY_ACK;
@@ -814,48 +877,14 @@ diff --git a/src/nvidia-modeset/src/nvkms-rm.c b/src/nvidia-modeset/src/nvkms-rm
 +    if (!write && (*pTransferred != 0U)) {
 +        nvkms_memcpy(data, params.data, *pTransferred);
 +    }
-+
-+    return TRUE;
-+}
-+
- static NvBool ReadDPCDReg(NVConnectorEvoPtr pConnectorEvo,
-                           NvU32 dpcdAddr,
-                           NvU8 *dpcdData)
- {
--    NV0073_CTRL_DP_AUXCH_CTRL_PARAMS params = { };
--    NVDevEvoPtr pDevEvo = pConnectorEvo->pDispEvo->pDevEvo;
--
--    params.subDeviceInstance = pConnectorEvo->pDispEvo->displayOwner;
--    params.displayId = nvDpyIdToNvU32(pConnectorEvo->displayId);
--
--    params.cmd = DRF_DEF(0073_CTRL, _DP, _AUXCH_CMD_TYPE, _AUX);
--    params.cmd |= DRF_DEF(0073_CTRL, _DP, _AUXCH_CMD_REQ_TYPE, _READ);
--
--    params.addr = dpcdAddr;
--
--    /* Requested size is 0-based */
--    params.size = 0;
--
--    if (nvRmApiControl(nvEvoGlobal.clientHandle,
--                       pDevEvo->displayCommonHandle,
--                       NV0073_CTRL_CMD_DP_AUXCH_CTRL,
--                       &params, sizeof(params)) != NVOS_STATUS_SUCCESS) {
--        nvEvoLogDev(pDevEvo, EVO_LOG_ERROR,
--                    "AUX read failed for DPCD addr 0x%x",
--                    dpcdAddr);
--        return FALSE;
--    }
--
--    if (params.size != 1U) {
--        nvEvoLogDev(pDevEvo, EVO_LOG_ERROR,
--                    "AUX read returned 0 bytes for DPCD addr 0x%x",
--                    dpcdAddr);
--        return FALSE;
--    }
--
--    *dpcdData = params.data[0];
--
--    return TRUE;
+ 
+     return TRUE;
+ }
+ 
++static NvBool ReadDPCDReg(NVConnectorEvoPtr pConnectorEvo,
++                          NvU32 dpcdAddr,
++                          NvU8 *dpcdData)
++{
 +    enum NvRmDpAuxReply reply;
 +    NvU8 transferred;
 +
@@ -863,8 +892,8 @@ diff --git a/src/nvidia-modeset/src/nvkms-rm.c b/src/nvidia-modeset/src/nvkms-rm
 +                             dpcdData, 1U, &reply, &transferred) &&
 +           (reply == NV_RM_DP_AUX_REPLY_ACK) &&
 +           (transferred == 1U);
- }
- 
++}
++
  NvBool nvWriteDPCDReg(NVConnectorEvoPtr pConnectorEvo,
                        NvU32 dpcdAddr,
                        NvU8 dpcdData)
@@ -872,7 +901,6 @@ diff --git a/src/nvidia-modeset/src/nvkms-rm.c b/src/nvidia-modeset/src/nvkms-rm
 -    NV0073_CTRL_DP_AUXCH_CTRL_PARAMS params = { };
 -    NVDevEvoPtr pDevEvo = pConnectorEvo->pDispEvo->pDevEvo;
 -
--    params.subDeviceInstance = pConnectorEvo->pDispEvo->displayOwner;
 -    params.displayId = nvDpyIdToNvU32(pConnectorEvo->displayId);
 -
 -    params.cmd = DRF_DEF(0073_CTRL, _DP, _AUXCH_CMD_TYPE, _AUX);
@@ -893,7 +921,9 @@ diff --git a/src/nvidia-modeset/src/nvkms-rm.c b/src/nvidia-modeset/src/nvkms-rm
 -                    dpcdAddr);
 -        return FALSE;
 -    }
--
++    enum NvRmDpAuxReply reply;
++    NvU8 transferred;
+ 
 -    if (params.size != 1U) {
 -        nvEvoLogDev(pDevEvo, EVO_LOG_ERROR,
 -                    "Wrote 0 bytes for DPCD addr 0x%x",
@@ -902,25 +932,21 @@ diff --git a/src/nvidia-modeset/src/nvkms-rm.c b/src/nvidia-modeset/src/nvkms-rm
 -    }
 -
 -    return TRUE;
-+    enum NvRmDpAuxReply reply;
-+    NvU8 transferred;
-+
 +    return nvRmDpAuxTransfer(pConnectorEvo, dpcdAddr, TRUE,
 +                             &dpcdData, 1U, &reply, &transferred) &&
 +           (reply == NV_RM_DP_AUX_REPLY_ACK) &&
 +           (transferred == 1U);
  }
  
- static NvBool ReadDPSerializerCaps(NVConnectorEvoPtr pConnectorEvo)
+ enum NvKmsContentProtection nvGetContentProtectionState(const NVDpyEvoRec *pDpyEvo)
 diff --git a/src/nvidia-modeset/src/nvkms.c b/src/nvidia-modeset/src/nvkms.c
+index b40637ccf4..b6d56f52e9 100644
 --- a/src/nvidia-modeset/src/nvkms.c
 +++ b/src/nvidia-modeset/src/nvkms.c
-@@ -1853,6 +1853,57 @@
-     }
- 
+@@ -1816,6 +1816,56 @@ static NvBool QueryDpyDynamicData(struct NvKmsPerOpen *pOpen,
      return nvDpyGetDynamicData(pDpyEvo, pParams);
-+}
-+
+ }
+ 
 +static NvBool DpAuxTransfer(struct NvKmsPerOpen *pOpen,
 +                            void *pParamsVoid)
 +{
@@ -931,7 +957,6 @@ diff --git a/src/nvidia-modeset/src/nvkms.c b/src/nvidia-modeset/src/nvkms.c
 +
 +    pDpyEvo = GetPerOpenDpy(pOpen,
 +                            pParams->request.deviceHandle,
-+                            pParams->request.dispHandle,
 +                            pParams->request.dpyId);
 +    if ((pDpyEvo == NULL) ||
 +        !nvConnectorUsesDPLib(pDpyEvo->pConnectorEvo) ||
@@ -970,10 +995,12 @@ diff --git a/src/nvidia-modeset/src/nvkms.c b/src/nvidia-modeset/src/nvkms.c
 +    }
 +
 +    return TRUE;
- }
- 
++}
++
  /* Store a copy of the user's infoString pointer, so we can copy out to it when
-@@ -4995,6 +5046,7 @@
+  * we're done. */
+ struct InfoStringExtraUserStateCommon
+@@ -4932,6 +4982,7 @@ NvBool nvKmsIoctl(
          ENTRY(NVKMS_IOCTL_QUERY_CONNECTOR_DYNAMIC_DATA, QueryConnectorDynamicData),
          ENTRY(NVKMS_IOCTL_QUERY_DPY_STATIC_DATA, QueryDpyStaticData),
          ENTRY(NVKMS_IOCTL_QUERY_DPY_DYNAMIC_DATA, QueryDpyDynamicData),
@@ -981,16 +1008,15 @@ diff --git a/src/nvidia-modeset/src/nvkms.c b/src/nvidia-modeset/src/nvkms.c
          ENTRY_CUSTOM_USER(NVKMS_IOCTL_VALIDATE_MODE_INDEX, ValidateModeIndex),
          ENTRY_CUSTOM_USER(NVKMS_IOCTL_VALIDATE_MODE, ValidateMode),
          ENTRY_CUSTOM_USER(NVKMS_IOCTL_SET_MODE, SetMode),
-@@ -6385,6 +6437,12 @@
-             event.u.dpyChanged.dpyId = pDpyEvo->id;
+@@ -6412,6 +6463,11 @@ static void SendDpyEventEvo(const NVDpyEvoRec *pDpyEvo,
+             }
              break;
  
 +        case NVKMS_EVENT_TYPE_DP_CEC_IRQ:
 +            event.u.dpCecIrq.deviceHandle = deviceHandle;
-+            event.u.dpCecIrq.dispHandle = dispHandle;
 +            event.u.dpCecIrq.dpyId = pDpyEvo->id;
 +            break;
 +
          case NVKMS_EVENT_TYPE_DYNAMIC_DPY_CONNECTED:
              event.u.dynamicDpyConnected.deviceHandle = deviceHandle;
-             event.u.dynamicDpyConnected.dispHandle = dispHandle;
+             event.u.dynamicDpyConnected.dpyId = pDpyEvo->id;

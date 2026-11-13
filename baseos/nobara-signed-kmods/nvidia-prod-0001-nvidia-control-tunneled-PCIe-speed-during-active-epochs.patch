@@ -1,17 +1,21 @@
-From ab2ed1443400caa8097da1107ccd0eda8e6a5354 Mon Sep 17 00:00:00 2001
+From f84dd30f52ee525e78686e6853ba0c2894057b5c Mon Sep 17 00:00:00 2001
 From: Antheas Kapenekakis <git@antheas.dev>
 Date: Fri, 28 Aug 2026 17:11:57 +0200
 Subject: [PATCH] nvidia: control tunneled PCIe speed during active epochs
 
-
-Upstream: https://github.com/anatase-org/open-gpu-kernel-modules/commit/ab2ed1443400caa8097da1107ccd0eda8e6a5354
-Rebased for NVIDIA 595.104.02 after Nobara's existing patch stack.
-
 ---
+ kernel-open/common/inc/nv-linux.h |   5 ++
+ kernel-open/common/inc/nv-pci.h   |   2 +
+ kernel-open/nvidia/nv-pci.c       | 105 ++++++++++++++++++++++++++++++
+ kernel-open/nvidia/nv.c           |  18 ++++-
+ kernel-open/nvidia/nvidia.Kbuild  |   1 +
+ 5 files changed, 130 insertions(+), 1 deletion(-)
+
 diff --git a/kernel-open/common/inc/nv-linux.h b/kernel-open/common/inc/nv-linux.h
+index 96905a57ee..da54626d82 100644
 --- a/kernel-open/common/inc/nv-linux.h
 +++ b/kernel-open/common/inc/nv-linux.h
-@@ -1293,6 +1293,11 @@
+@@ -1255,6 +1255,11 @@ typedef struct nv_linux_state_s {
  
      nv_work_t work;
  
@@ -24,23 +28,26 @@ diff --git a/kernel-open/common/inc/nv-linux.h b/kernel-open/common/inc/nv-linux
      struct nv_timer rc_timer;
  
 diff --git a/kernel-open/common/inc/nv-pci.h b/kernel-open/common/inc/nv-pci.h
+index 8a15d47db9..4e4dc8b30a 100644
 --- a/kernel-open/common/inc/nv-pci.h
 +++ b/kernel-open/common/inc/nv-pci.h
-@@ -39,4 +39,6 @@
- NvBool nv_pci_is_valid_topology_for_direct_pci(nv_state_t *, struct pci_dev *);
- NvBool nv_pci_has_common_pci_switch(nv_state_t *nv, struct pci_dev *);
+@@ -50,6 +50,8 @@ NvBool nv_pci_has_common_pci_switch(nv_state_t *nv, struct pci_dev *);
+ NV_STATUS nv_pci_find_nvidia_dvsec_capability(struct pci_dev *, NvU16,
+                                               NvU32 *, NvU32 *);
  void nv_pci_tegra_boost_clocks(struct device *dev);
 +int nv_pci_begin_active_epoch(nv_linux_state_t *nvl);
 +void nv_pci_end_active_epoch(nv_linux_state_t *nvl);
- #endif
+ 
+ #define NV_PCI_EXT_CAP_START_OFFSET         0x100
+ #define NV_PCI_EXT_CAP_END_OFFSET           0x1000
 diff --git a/kernel-open/nvidia/nv-pci.c b/kernel-open/nvidia/nv-pci.c
+index 5aee2347b1..a5914422f7 100644
 --- a/kernel-open/nvidia/nv-pci.c
 +++ b/kernel-open/nvidia/nv-pci.c
-@@ -79,6 +79,101 @@
- #endif
+@@ -62,6 +62,101 @@
  
  extern int NVreg_ExcludeAllGpus;
-+
+ 
 +int nv_pci_begin_active_epoch(nv_linux_state_t *nvl)
 +{
 +#if NV_IS_EXPORT_SYMBOL_GPL_pcie_set_target_speed
@@ -135,10 +142,11 @@ diff --git a/kernel-open/nvidia/nv-pci.c b/kernel-open/nvidia/nv-pci.c
 +    nvl->pcie_upstream_hasd_set = NV_FALSE;
 +#endif
 +}
- 
++
  static void
  nv_check_and_exclude_gpu(
-@@ -1896,6 +1991,10 @@
+     nvidia_stack_t *sp,
+@@ -1250,6 +1345,10 @@ nv_pci_probe_body
          goto err_not_supported;
      }
  
@@ -147,20 +155,20 @@ diff --git a/kernel-open/nvidia/nv-pci.c b/kernel-open/nvidia/nv-pci.c
 +#endif
 +
      nv  = NV_STATE_PTR(nvl);
+     atomic_set(&nvl->tdisp_aer_reported, 0);
      os_mem_copy(nv->cached_gpu_info.vbios_version, "??.??.??.??.??", 15);
- 
-@@ -2192,6 +2291,10 @@
-     rm_notify_gpu_addition(sp, nv);
+@@ -1595,6 +1694,10 @@ nv_pci_probe_body
  
      nvidia_modeset_probe(nvl);
-+
+ 
 +    if (nv_pci_begin_active_epoch(nvl) != 0)
 +        NV_DEV_PRINTF(NV_DBG_ERRORS, nv,
 +                      "Failed to negotiate tunneled PCIe link at startup\n");
- 
++
      /*
       * Dynamic power management should be enabled as the last step.
-@@ -2271,6 +2374,8 @@
+      * Kernel runtime power management framework can put the device
+@@ -1753,6 +1856,8 @@ static void nv_pci_remove_helper(struct pci_dev *pci_dev, bool block_if_gpu_in_u
          return;
      }
  
@@ -170,6 +178,7 @@ diff --git a/kernel-open/nvidia/nv-pci.c b/kernel-open/nvidia/nv-pci.c
  
  #if NV_IS_EXPORT_SYMBOL_GPL_iommu_dev_disable_feature
 diff --git a/kernel-open/nvidia/nv.c b/kernel-open/nvidia/nv.c
+index 03bc901c07..a80cae7edf 100644
 --- a/kernel-open/nvidia/nv.c
 +++ b/kernel-open/nvidia/nv.c
 @@ -36,6 +36,7 @@
@@ -180,18 +189,18 @@ diff --git a/kernel-open/nvidia/nv.c b/kernel-open/nvidia/nv.c
  #include "nv-chardev-numbers.h"
  
  #if defined(NV_UVM_ENABLE)
-@@ -1730,6 +1731,10 @@
-     }
+@@ -1881,6 +1882,10 @@ static int nv_open_device(nv_state_t *nv, nvidia_stack_t *sp)
  
      nv_assert_not_in_gpu_exclusion_list(sp, nv);
-+
+ 
 +    rc = nv_pci_begin_active_epoch(nvl);
 +    if (rc)
 +        return rc;
- 
++
      atomic64_inc(&nvl->usage_count);
  
-@@ -5162,6 +5167,8 @@
+     return 0;
+@@ -5353,6 +5358,8 @@ int nv_pmops_runtime_suspend(
      nv_pci_tegra_boost_clocks(dev);
  #endif
  
@@ -200,27 +209,26 @@ diff --git a/kernel-open/nvidia/nv.c b/kernel-open/nvidia/nv.c
      err = nvidia_transition_dynamic_power(dev, NV_TRUE);
      if (err)
      {
-@@ -5179,6 +5186,7 @@
+@@ -5370,6 +5377,7 @@ int nv_pmops_runtime_suspend(
      return err;
  
  nv_pmops_runtime_suspend_exit:
 +    nv_pci_begin_active_epoch(nvl);
  #if defined(CONFIG_PM_DEVFREQ)
-     if (nvl->devfreq_resume != NULL)
+     if (resume_devfreq_on_error && (resume_devfreq_cb != NULL))
      {
-@@ -5193,10 +5201,9 @@
+@@ -5384,9 +5392,9 @@ int nv_pmops_runtime_resume(
  )
  {
      int err = 0;
 -#if defined(CONFIG_PM_DEVFREQ)
      struct pci_dev *pci_dev = to_pci_dev(dev);
      nv_linux_state_t *nvl = pci_get_drvdata(pci_dev);
--
 +#if defined(CONFIG_PM_DEVFREQ)
-     nv_pci_tegra_boost_clocks(dev);
- #endif
+     int (*resume_devfreq_cb)(struct device *dev);
  
-@@ -5206,6 +5213,13 @@
+     nv_pci_tegra_boost_clocks(dev);
+@@ -5398,6 +5406,13 @@ int nv_pmops_runtime_resume(
          return err;
      }
  
@@ -232,9 +240,9 @@ diff --git a/kernel-open/nvidia/nv.c b/kernel-open/nvidia/nv.c
 +    }
 +
  #if defined(CONFIG_PM_DEVFREQ)
-     if (nvl->devfreq_resume != NULL)
-     {
-@@ -5221,6 +5235,7 @@
+     resume_devfreq_cb = READ_ONCE(nvl->resume_devfreq_cb);
+     if (resume_devfreq_cb != NULL)
+@@ -5414,6 +5429,7 @@ int nv_pmops_runtime_resume(
  
  #if defined(CONFIG_PM_DEVFREQ)
  nv_pmops_runtime_resume_exit:
@@ -243,9 +251,10 @@ diff --git a/kernel-open/nvidia/nv.c b/kernel-open/nvidia/nv.c
      return err;
  #endif
 diff --git a/kernel-open/nvidia/nvidia.Kbuild b/kernel-open/nvidia/nvidia.Kbuild
+index e1e33a5534..4a7aff266a 100644
 --- a/kernel-open/nvidia/nvidia.Kbuild
 +++ b/kernel-open/nvidia/nvidia.Kbuild
-@@ -192,6 +192,7 @@
+@@ -224,6 +224,7 @@ NV_CONFTEST_SYMBOL_COMPILE_TESTS += follow_pte_arg_vma
  NV_CONFTEST_SYMBOL_COMPILE_TESTS += dma_buf_ops_attach_has_arg_dev
  NV_CONFTEST_SYMBOL_COMPILE_TESTS += is_export_symbol_present_follow_pfnmap_start
  NV_CONFTEST_SYMBOL_COMPILE_TESTS += is_export_symbol_gpl_pci_ats_supported

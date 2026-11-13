@@ -1,7 +1,7 @@
-From 7cbf8d3fe4a57913f090a1868b066a6e4153c89d Mon Sep 17 00:00:00 2001
+From e8197c87647b90b4c9eb2a82aae85d009e108442 Mon Sep 17 00:00:00 2001
 From: triple-groove <triple-groove@users.noreply.github.com>
 Date: Sun, 22 Feb 2026 16:08:46 -0800
-Subject: [PATCH 4/4] fix(dp): add Bigscreen Beyond VR headset to WAR database
+Subject: [PATCH] fix(dp): add Bigscreen Beyond VR headset to WAR database
 
 Add the Bigscreen Beyond (ManufacturerID 0x2709, ProductID 0x1234)
 to the DisplayPort workaround database. Force maximum link
@@ -18,10 +18,10 @@ Signed-off-by: triple-groove <triple-groove@users.noreply.github.com>
  1 file changed, 13 insertions(+)
 
 diff --git a/src/common/displayport/src/dp_wardatabase.cpp b/src/common/displayport/src/dp_wardatabase.cpp
-index 74daf1e7..4fafb5fc 100644
+index b9187261c8..91703ee352 100644
 --- a/src/common/displayport/src/dp_wardatabase.cpp
 +++ b/src/common/displayport/src/dp_wardatabase.cpp
-@@ -547,6 +547,19 @@ void Edid::applyEdidWorkArounds(NvU32 warFlag, const DpMonitorDenylistData *pDen
+@@ -567,6 +567,19 @@ void Edid::applyEdidWorkArounds(NvU32 warFlag, const DpMonitorDenylistData *pDen
              }
              break;
  
@@ -41,6 +41,3 @@ index 74daf1e7..4fafb5fc 100644
          // CMN
          case 0xAE0D:
              if (ProductID == 0x1747)
--- 
-2.55.0
-

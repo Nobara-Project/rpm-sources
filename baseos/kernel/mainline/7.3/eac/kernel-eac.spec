@@ -6,7 +6,7 @@
 %global _sourcedir %(d="%{_sourcedir}"; [ -f "$d/genconfig.py" ] || d="$d/.."; cd "$d" && pwd)
 %global nobara_eac 1
 # Refuse to build from a kernel.spec this file wasn't generated from
-%global nobara_eac_base_sha256 894b2998e0dadbe89b3977681b3e2a27f690fe35027f935ee9bdf1baea5f962c
+%global nobara_eac_base_sha256 1a6490906a20ba744d11201b4d3f78cb7205f3091adffc9875cb8b9840edab63
 %if "%(f="%{_sourcedir}/kernel.spec"; [ -f "$f" ] && sha256sum "$f" | cut -c1-64 || echo %{nobara_eac_base_sha256})" != "%{nobara_eac_base_sha256}"
 %{error:../kernel.spec changed since kernel-eac.spec was generated: run ./update-eac-spec.sh}
 %endif
@@ -87,7 +87,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 200
+%define customver 201
 %endif
 
 Release:%{customver}%{?eactag}.nobara%{?dist}
@@ -1280,6 +1280,11 @@ fi
 %files
 
 %changelog
+* Fri Nov 13 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 7.3.4-201
+- aarch64: build vmlinuz as an EFI zboot application (CONFIG_EFI_ZBOOT), so
+  the kernel image is a PE binary that carries the SBAT section and can be
+  Secure Boot signed like on x86_64 (Image.gz could be neither)
+
 * Fri Nov 13 2026 LionHeartP <LionHeartP@proton.me> - 7.3.4-200
 - Update to 7.3.4
 - Clean up spec file - use Fedora build flags and minor other optimizations
