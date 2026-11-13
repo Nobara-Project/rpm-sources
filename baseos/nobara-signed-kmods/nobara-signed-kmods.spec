@@ -65,10 +65,13 @@
 # baseos/dkms-msi-ec
 %global msi_ec_commit         c8cbd48ed01f5c4fa7e34ff622a66f5a5380c705
 %global msi_ec_version        0.18^20261109git.c8cbd48
+# baseos/dkms-linuwu-sense
+%global linuwu_commit         4483b6c38b9bb963ac9ada9ca476578e0c63cc08
+%global linuwu_version        1.0^20261019git.4483b6c
 
 Name:           nobara-signed-kmods
 Version:        1
-Release:        11%{?dist}
+Release:        12%{?dist}
 Summary:        Nobara-signed kernel modules for the Easy Anti-Cheat kernel
 License:        GPL-2.0-only AND GPL-2.0-or-later AND MIT AND CDDL-1.0 AND NVIDIA License
 URL:            https://nobaraproject.org
@@ -90,6 +93,7 @@ Source14:       https://github.com/Fred78290/nct6687d/archive/%{nct6687d_commit}
 # in OpenZFS's signed zfs-%%{zfs_version}.sha256.asc
 Source15:       https://github.com/openzfs/zfs/releases/download/zfs-%{zfs_version}/zfs-%{zfs_version}.tar.gz
 Source16:       https://github.com/BeardOverflow/msi-ec/archive/%{msi_ec_commit}.tar.gz#/msi-ec-%{msi_ec_commit}.tar.gz
+Source17:       https://github.com/0x7375646F/Linuwu-Sense/archive/%{linuwu_commit}.tar.gz#/linuwu-sense-%{linuwu_commit}.tar.gz
 
 # Same patches as nvidia/prod/<version>/kmod
 Patch100:       nvidia-prod-0001-Add-IBT-support.patch
@@ -116,6 +120,10 @@ Patch600:       r8125-remove-rtltool.patch
 # root raw writes to every embedded controller register (same patch as
 # baseos/dkms-msi-ec)
 Patch700:       msi-ec-remove-debug.patch
+# Fix linuwu-sense's state-file save error paths (an error pointer passed to
+# kernel_write, and a double close), which crashed the kernel when /etc
+# couldn't be written (same patch as baseos/dkms-linuwu-sense)
+Patch800:       linuwu-sense-state-file-errors.patch
 
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
@@ -185,6 +193,10 @@ local modules = {
   { name = "msi-ec", dir = "msi-ec", version = rpm.expand("%{msi_ec_version}"),
     summary = "msi-ec (MSI laptop embedded controller) kernel module",
     extra = "Requires:       dkms-msi-ec\n" },
+  -- dkms-linuwu-sense blacklists acer_wmi and saves the settings at shutdown
+  { name = "linuwu-sense", dir = "linuwu-sense", version = rpm.expand("%{linuwu_version}"),
+    summary = "Linuwu-Sense (Acer Predator and Nitro laptops) kernel module",
+    extra = "Requires:       dkms-linuwu-sense\n" },
   { name = "zfs", dir = "zfs", version = rpm.expand("%{zfs_version}"), lts_only = true,
     summary = "OpenZFS (zfs and spl) kernel modules",
     extra = "Requires:       zfs-dkms\n" },
@@ -220,7 +232,7 @@ end
 
 %prep
 %setup -q -c -T
-mkdir nvidia-prod nvidia-nf xone xpad-noone openrazer hid-tmff2 hid-fanatecff new-lg4ff evdi r8125 nct6687d msi-ec zfs
+mkdir nvidia-prod nvidia-nf xone xpad-noone openrazer hid-tmff2 hid-fanatecff new-lg4ff evdi r8125 nct6687d msi-ec linuwu-sense zfs
 tar -xf %{SOURCE0} -C nvidia-prod --strip-components=1
 tar -xf %{SOURCE1} -C nvidia-nf --strip-components=1
 tar -xf %{SOURCE2} -C xone --strip-components=1
@@ -238,6 +250,9 @@ tar -xf %{SOURCE13} -C r8125 --strip-components=1
 tar -xf %{SOURCE14} -C nct6687d --strip-components=1
 tar -xf %{SOURCE15} -C zfs --strip-components=1
 tar -xf %{SOURCE16} -C msi-ec --strip-components=1
+tar -xf %{SOURCE17} -C linuwu-sense --strip-components=1
+# Upstream's Makefile installs and signs; build the module alone
+echo 'obj-m := linuwu_sense.o' > linuwu-sense/src/Kbuild
 # The same options as rpm's %%patch, so the patches apply as in their own specs
 apply() { %{__patch} -p1 -s --fuzz=2 --no-backup-if-mismatch -f -d "$1" -i "$2"; }
 for p in %{P:100} %{P:101} %{P:102} %{P:103} %{P:104} %{P:105}; do apply nvidia-prod $p; done
@@ -249,11 +264,12 @@ apply openrazer %{P:500}
 apply openrazer %{P:501}
 apply r8125 %{P:600}
 apply msi-ec %{P:700}
+apply linuwu-sense %{P:800}
 
 %build
 # The modules built for a kernel (zfs: LTS kernels only)
 modules_for() {
-    echo nvidia-prod nvidia-nf xone xpad-noone openrazer hid-tmff2 hid-fanatecff new-lg4ff evdi r8125 nct6687d msi-ec
+    echo nvidia-prod nvidia-nf xone xpad-noone openrazer hid-tmff2 hid-fanatecff new-lg4ff evdi r8125 nct6687d msi-ec linuwu-sense
     case "$1" in *.lts.*) echo zfs ;; esac
 }
 for kver in %{kernels}; do
@@ -277,6 +293,7 @@ for kver in %{kernels}; do
     make %{?_smp_mflags} -C $kdir M=$PWD/r8125/src modules
     make %{?_smp_mflags} -C $kdir M=$PWD/nct6687d modules
     make %{?_smp_mflags} -C $kdir M=$PWD/msi-ec modules
+    make %{?_smp_mflags} -C $kdir M=$PWD/linuwu-sense/src modules
     if [ -d zfs ]; then
         # As zfs-dkms (scripts/dkms.mkconf): only the kernel modules
         pushd zfs
@@ -293,7 +310,7 @@ for kver in %{kernels}; do
     b="build-$kver"
     d=%{buildroot}/lib/modules/$kver/updates/nobara
     install -d $d/nvidia-prod $d/nvidia-nf $d/xone $d/xpad-noone $d/openrazer \
-        $d/hid-tmff2 $d/hid-fanatecff $d/new-lg4ff $d/evdi $d/r8125 $d/nct6687d $d/msi-ec
+        $d/hid-tmff2 $d/hid-fanatecff $d/new-lg4ff $d/evdi $d/r8125 $d/nct6687d $d/msi-ec $d/linuwu-sense
     install -m 0644 $b/nvidia-prod/kernel-open/*.ko $d/nvidia-prod/
     install -m 0644 $b/nvidia-nf/kernel-open/*.ko $d/nvidia-nf/
     install -m 0644 $b/xone/*.ko $d/xone/
@@ -307,6 +324,7 @@ for kver in %{kernels}; do
     install -m 0644 $b/r8125/src/r8125.ko $d/r8125/
     install -m 0644 $b/nct6687d/nct6687.ko $d/nct6687d/
     install -m 0644 $b/msi-ec/msi-ec.ko $d/msi-ec/
+    install -m 0644 $b/linuwu-sense/src/linuwu_sense.ko $d/linuwu-sense/
     if [ -d $b/zfs ]; then
         install -d $d/zfs
         install -m 0644 $b/zfs/module/zfs.ko $b/zfs/module/spl.ko $d/zfs/
@@ -316,6 +334,11 @@ done
 find %{buildroot}/lib/modules -name '*.ko' -exec strip --strip-debug {} +
 
 %changelog
+* Thu Nov 12 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 1-12
+- Add linuwu-sense %{linuwu_version} (Acer Predator and Nitro laptops, a
+  fork of acer-wmi), as baseos/dkms-linuwu-sense, with its state-file save
+  error paths fixed
+
 * Thu Nov 12 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 1-11
 - Add msi-ec %{msi_ec_version} (MSI laptops' embedded controller), as
   baseos/dkms-msi-ec, replacing the kernel's own msi-ec. Its debug mode is
