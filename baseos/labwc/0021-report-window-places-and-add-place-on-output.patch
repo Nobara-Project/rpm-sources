@@ -1,0 +1,355 @@
+From dcf686c8b65d92b203870d9e2ad4347cc92f97aa Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Fri, 13 Nov 2026 15:00:00 -0700
+Subject: [PATCH] tiling: report window places and add PlaceOnOutput
+
+The windows reply of the tiling control socket gains, per entry and after
+the existing keys: app_id (what <windowRule identifier=""> matches),
+title, type_normal (whether type="normal" would match), output_name,
+maximized and place. place is the window's position relative to the
+top-left corner of its output plus its size, in the same units as the
+existing x/y/width/height (the client area without server-side
+decorations, which for client-decorated windows is their window
+geometry). For maximized, fullscreen, snapped or tiled windows it is the
+geometry they return to when restored, when that is known on the same
+output. Strings are JSON-escaped, invalid UTF-8 becomes U+FFFD, app_id is
+cut to 128 bytes and title to 96 bytes on a character boundary. A reply
+that would exceed the 60000-byte limit is sent again with empty titles.
+Every reply ends with "positions_supported":true.
+
+The PlaceOnOutput action moves a window to the named output (connector
+name, case-insensitive) and gives it the position and size the place of
+the windows reply describes, so that feeding place back into the action
+puts a window at the same spot. Fullscreen, maximized, snapped and shaded
+states are left first, the frame is shrunk and shifted into the usable
+area, a width or height of 0 keeps the window's size, and maximized="yes"
+maximizes it on that output afterwards. An unknown or unusable output
+leaves the window alone. A window that tiling arranges, or will arrange,
+is only moved to the output and tiling places it.
+
+As a window rule it runs on first map, after labwc's initial placement
+(xdg-shell windows are placed in the map handler just before the rules
+run, XWayland windows when they are associated), so the rule wins; the
+size of client-decorated windows is known by then.
+---
+ docs/labwc-actions.5.scd |  32 ++++++++
+ include/tiling.h         |   2 +
+ src/action.c             |  41 +++++++++++
+ src/tiling.c             | 155 ++++++++++++++++++++++++++++++---------
+ 4 files changed, 197 insertions(+), 33 deletions(-)
+
+diff --git a/docs/labwc-actions.5.scd b/docs/labwc-actions.5.scd
+index 70db537..5634762 100644
+--- a/docs/labwc-actions.5.scd
++++ b/docs/labwc-actions.5.scd
+@@ -336,6 +336,38 @@ Actions are used in menus and keyboard/mouse bindings.
+ 	Resizes active window size to width and height of the output when the
+ 	window size exceeds the output size.
+ 
++*<action name="PlaceOnOutput" output="DP-2" x="0" y="0" width="0" height="0" maximized="no" />*
++	Moves the window to the named output and gives it a position and size.
++	Fullscreen, maximized, snapped and shaded states are left first. If no
++	usable output has that name, the window is left where it is.
++
++	*output* Output (connector) name. Required.
++
++	*x* and *y* Position of the window, relative to the top-left corner
++	of the output. Like *width* and *height*, they describe the window
++	without server-side decorations, as the "place" of the windows reply on
++	the tiling control socket does. Default is 0.
++
++	*width* and *height* Size of the window. 0 or unset keeps its size.
++
++	A window that does not fit the usable area of the output (the output
++	without panels) is shrunk and shifted until it does.
++
++	*maximized* [yes|no] Maximize the window on that output afterwards.
++	Default is no.
++
++	A window that tiling arranges is only moved to the output; tiling then
++	places it.
++
++	As a window rule action, it runs when the window is first mapped, after
++	the initial placement:
++
++```
++<windowRule identifier="discord" type="normal" matchOnce="true">
++  <action name="PlaceOnOutput" output="DP-2" x="1620" y="40" width="900" height="1300" />
++</windowRule>
++```
++
+ *<action name="GoToDesktop" to="value" wrap="yes" toggle="no" />*
+ 	Switch to workspace.
+ 
+diff --git a/include/tiling.h b/include/tiling.h
+index f017bde..d064fdf 100644
+--- a/include/tiling.h
++++ b/include/tiling.h
+@@ -4,6 +4,7 @@
+ #include <stdbool.h>
+ #include "common/edge.h"
+ struct view;
++struct output;
+ struct wlr_box;
+ void tiling_init(void);
+ void tiling_finish(void);
+@@ -13,6 +14,7 @@ void tiling_constrain_geometry(struct view *view, struct wlr_box *box);
+ void tiling_forget(struct view *view);
+ void tiling_action(struct view *view, const char *command);
+ bool tiling_is_managed(struct view *view);
++void tiling_place_on_output(struct view *view, struct output *output, const struct wlr_box *box, bool maximize);
+ bool tiling_drag_finish(struct view *view);
+ bool tiling_resize_motion(struct view *view, double dx, double dy);
+ enum lab_edge tiling_divider_edge(double x, double y);
+diff --git a/src/action.c b/src/action.c
+index 77c59df..dd50b09 100644
+--- a/src/action.c
++++ b/src/action.c
+@@ -121,6 +121,7 @@ struct action_arg_list {
+ 	X(FOCUS_OUTPUT, "FocusOutput") \
+ 	X(MOVE_TO_OUTPUT, "MoveToOutput") \
+ 	X(FIT_TO_OUTPUT, "FitToOutput") \
++	X(PLACE_ON_OUTPUT, "PlaceOnOutput") \
+ 	X(IF, "If") \
+ 	X(FOR_EACH, "ForEach") \
+ 	X(VIRTUAL_OUTPUT_ADD, "VirtualOutputAdd") \
+@@ -513,6 +514,21 @@ action_arg_from_xml_node(struct action *action, const char *nodename, const char
+ 			goto cleanup;
+ 		}
+ 		break;
++	case ACTION_TYPE_PLACE_ON_OUTPUT:
++		if (!strcmp(argument, "output")) {
++			action_arg_add_str(action, argument, content);
++			goto cleanup;
++		}
++		if (!strcmp(argument, "x") || !strcmp(argument, "y")
++				|| !strcmp(argument, "width") || !strcmp(argument, "height")) {
++			action_arg_add_int(action, argument, atoi(content));
++			goto cleanup;
++		}
++		if (!strcmp(argument, "maximized")) {
++			action_arg_add_bool(action, argument, parse_bool(content, false));
++			goto cleanup;
++		}
++		break;
+ 	case ACTION_TYPE_VIRTUAL_OUTPUT_ADD:
+ 	case ACTION_TYPE_VIRTUAL_OUTPUT_REMOVE:
+ 		if (!strcmp(argument, "output_name")) {
+@@ -657,6 +673,9 @@ action_is_valid(struct action *action)
+ 	case ACTION_TYPE_SNAP_TO_REGION:
+ 		arg_name = "region";
+ 		break;
++	case ACTION_TYPE_PLACE_ON_OUTPUT:
++		arg_name = "output";
++		break;
+ 	case ACTION_TYPE_IF:
+ 	case ACTION_TYPE_FOR_EACH:
+ 		return action_branches_are_valid(action);
+@@ -1412,6 +1431,28 @@ run_action(struct view *view, struct action *action,
+ 		}
+ 		view_constrain_size_to_that_of_usable_area(view);
+ 		break;
++	case ACTION_TYPE_PLACE_ON_OUTPUT: {
++		if (!view) {
++			break;
++		}
++		/* An unknown or unusable output leaves the window alone */
++		struct output *output =
++			output_from_name(action_get_str(action, "output", ""));
++		if (!output) {
++			wlr_log(WLR_DEBUG, "PlaceOnOutput: no output '%s'",
++				action_get_str(action, "output", ""));
++			break;
++		}
++		struct wlr_box box = {
++			.x = action_get_int(action, "x", 0),
++			.y = action_get_int(action, "y", 0),
++			.width = action_get_int(action, "width", 0),
++			.height = action_get_int(action, "height", 0),
++		};
++		tiling_place_on_output(view, output, &box,
++			action_get_bool(action, "maximized", false));
++		break;
++	}
+ 	case ACTION_TYPE_TOGGLE_SNAP_TO_REGION:
+ 	case ACTION_TYPE_SNAP_TO_REGION: {
+ 		if (!view) {
+diff --git a/src/tiling.c b/src/tiling.c
+index cea4ab4..c8a1cea 100644
+--- a/src/tiling.c
++++ b/src/tiling.c
+@@ -838,6 +838,105 @@ bool tiling_drag_finish(struct view *v) {
+     }
+     tiling_schedule(); return true;
+ }
++/* PlaceOnOutput. Boxes are view->pending style (client area without server
++ * decorations); x/y are relative to the output's top-left corner, as in the
++ * "place" of the windows reply. The frame is kept inside the usable area. */
++static int clamp_int(int value, int low, int high) { return value > high ? high : value < low ? low : value; }
++void tiling_place_on_output(struct view *v, struct output *o, const struct wlr_box *place, bool maximize) {
++    if (!v || !output_is_usable(o) || view_has_strut_partial(v)) return;
++    struct wlr_box full, usable = output_usable_area_in_layout_coords(o);
++    wlr_output_layout_get_box(server.output_layout, o->wlr_output, &full);
++    if (wlr_box_empty(&usable) || wlr_box_empty(&full)) return;
++    struct record *r = initialized ? record_for(v) : NULL;
++    /* Windows tiling arranges (or will on its next pass) only change output. */
++    bool tiles = initialized && enabled && !special(v) && (r ? !r->floating && !r->scratch : eligible(v));
++    if (tiles && r && v->auto_tiled) {
++        if (v->output != o) { detach(r); view_set_output(v, o); }
++        tiling_schedule(); return;
++    }
++    struct wlr_box before = v->pending;
++    view_set_fullscreen(v, false);
++    view_maximize(v, VIEW_AXIS_NONE);
++    view_set_shade(v, false);
++    if (v->tiled || v->tiled_region || v->tiled_region_evacuate) view_set_untiled(v);
++    int width = place->width > 0 ? place->width : v->pending.width > 0 ? v->pending.width : before.width;
++    int height = place->height > 0 ? place->height : v->pending.height > 0 ? v->pending.height : before.height;
++    struct border margin = ssd_get_margin(v->ssd);
++    int room_w = usable.width - margin.left - margin.right, room_h = usable.height - margin.top - margin.bottom;
++    if (width < 1 || height < 1 || room_w < 1 || room_h < 1) return;
++    width = width < room_w ? width : room_w; height = height < room_h ? height : room_h;
++    struct wlr_box box = {
++        clamp_int(full.x + place->x, usable.x + margin.left, usable.x + usable.width - margin.right - width),
++        clamp_int(full.y + place->y, usable.y + margin.top, usable.y + usable.height - margin.bottom - height),
++        width, height};
++    view_set_output(v, o);
++    view_move_resize(v, box);
++    if (maximize && !tiles) view_maximize(v, VIEW_AXIS_BOTH);
++    tiling_schedule();
++}
++/* Length of the valid UTF-8 sequence at p, 0 when invalid (never reads past a NUL). */
++static size_t utf8_length(const unsigned char *p) {
++    if (p[0] < 0x80) return 1;
++    size_t n; unsigned char low = 0x80, high = 0xbf;
++    if (p[0] >= 0xc2 && p[0] <= 0xdf) n = 2;
++    else if (p[0] >= 0xe0 && p[0] <= 0xef) { n = 3; if (p[0] == 0xe0) low = 0xa0; if (p[0] == 0xed) high = 0x9f; }
++    else if (p[0] >= 0xf0 && p[0] <= 0xf4) { n = 4; if (p[0] == 0xf0) low = 0x90; if (p[0] == 0xf4) high = 0x8f; }
++    else return 0;
++    if (p[1] < low || p[1] > high) return 0;
++    for (size_t i = 2; i < n; i++) if (p[i] < 0x80 || p[i] > 0xbf) return 0;
++    return n;
++}
++/* A JSON string of at most max bytes of UTF-8, cut on a character boundary;
++ * invalid bytes become U+FFFD. */
++static void put_string(FILE *stream, const char *text, size_t max) {
++    const unsigned char *p = (const unsigned char *)(text ? text : "");
++    size_t used = 0;
++    fputc('"', stream);
++    while (*p) {
++        size_t n = utf8_length(p);
++        if (used + (n ? n : 3) > max) break;
++        used += n ? n : 3;
++        if (!n) { fputs("\\ufffd", stream); p++; continue; }
++        if (*p == '"' || *p == '\\') fprintf(stream, "\\%c", *p);
++        else if (*p < 0x20) fprintf(stream, "\\u%04x", *p);
++        else fwrite(p, 1, n, stream);
++        p += n;
++    }
++    fputc('"', stream);
++}
++/* Where the window returns to when restored, if known on its output. */
++static struct wlr_box natural_place(struct view *v, struct record *r) {
++    struct wlr_box box = v->pending, full = {0}, saved = {0}, overlap;
++    if (output_is_usable(v->output)) wlr_output_layout_get_box(server.output_layout, v->output->wlr_output, &full);
++    if (v->auto_tiled && r) saved = r->original;
++    else if (!view_is_floating(v)) saved = v->natural_geometry;
++    if (!wlr_box_empty(&saved) && (wlr_box_empty(&full) || wlr_box_intersection(&overlap, &saved, &full))) box = saved;
++    box.x -= full.x; box.y -= full.y;
++    return box;
++}
++static void put_windows(FILE *stream, bool titles) {
++    struct view *v; bool first = true;
++    wl_list_for_each(v, &server.views, link) {
++        if (!v->mapped && !v->minimized) continue;
++        struct record *r = record_for(v);
++        struct wlr_box area = output_is_usable(v->output) ? output_usable_area_in_layout_coords(v->output) : (struct wlr_box){0};
++        bool outlined = r && r->outline && r->outline->node.enabled && v->scene_tree->node.enabled;
++        fprintf(stream, "%s{\"id\":%lu,\"active\":%s,\"tiled\":%s,\"visible\":%s,\"output\":%lu,\"x\":%d,\"y\":%d,\"width\":%d,\"height\":%d,\"fullscreen\":%s,\"minimized\":%s,\"outlined\":%s,\"parked\":%s,\"current\":{\"x\":%d,\"y\":%d,\"width\":%d,\"height\":%d},\"workarea\":{\"x\":%d,\"y\":%d,\"width\":%d,\"height\":%d}",
++            first ? "" : ",", (unsigned long)v->creation_id, server.active_view == v ? "true" : "false",
++            v->auto_tiled ? "true" : "false", v->scene_tree->node.enabled ? "true" : "false",
++            (unsigned long)(v->output ? v->output->id_bit : 0), v->pending.x, v->pending.y, v->pending.width, v->pending.height,
++            v->fullscreen ? "true" : "false", v->minimized ? "true" : "false", outlined ? "true" : "false", r && r->parked_order ? "true" : "false",
++            v->current.x, v->current.y, v->current.width, v->current.height,
++            area.x, area.y, area.width, area.height); first = false;
++        struct wlr_box place = natural_place(v, r);
++        fputs(",\"app_id\":", stream); put_string(stream, v->app_id, 128);
++        fputs(",\"title\":", stream); put_string(stream, titles ? v->title : "", 96);
++        fprintf(stream, ",\"type_normal\":%s,\"output_name\":", v->impl->contains_window_type && v->impl->contains_window_type(v, LAB_WINDOW_TYPE_NORMAL) ? "true" : "false");
++        put_string(stream, output_is_usable(v->output) ? v->output->wlr_output->name : "", 128);
++        fprintf(stream, ",\"maximized\":%s,\"place\":{\"x\":%d,\"y\":%d,\"width\":%d,\"height\":%d}}",
++            v->maximized == VIEW_AXIS_BOTH ? "true" : "false", place.x, place.y, place.width, place.height);
++    }
++}
+ static int control(int fd, uint32_t mask, void *data) {
+     (void)mask; (void)data;
+     struct sockaddr_un peer;
+@@ -881,42 +980,32 @@ static int control(int fd, uint32_t mask, void *data) {
+     else if (!strncmp(request, "action ", 7)) tiling_action(NULL, request + 7);
+     else error = "Unknown tiling request.";
+     char *text = NULL; size_t length = 0;
+-    FILE *stream = open_memstream(&text, &length);
+-    if (!stream) return 0;
+-    fprintf(stream, "{\"version\":1,\"ready\":true,\"compositor_pid\":%ld,\"enabled\":%s,\"parking_supported\":true,\"tile_bounds_supported\":true,\"outline_supported\":true,\"outline_enabled\":%s,\"error\":\"%s\",\"windows\":[", (long)getpid(), enabled ? "true" : "false", outline_enabled ? "true" : "false", error);
+-    if (!strcmp(request, "windows") && !locked) {
+-        struct view *v; bool first = true;
+-        wl_list_for_each(v, &server.views, link) {
+-            if (!v->mapped && !v->minimized) continue;
+-            struct record *r = record_for(v);
+-            struct wlr_box area = output_is_usable(v->output) ? output_usable_area_in_layout_coords(v->output) : (struct wlr_box){0};
+-            bool outlined = r && r->outline && r->outline->node.enabled && v->scene_tree->node.enabled;
+-            fprintf(stream, "%s{\"id\":%lu,\"active\":%s,\"tiled\":%s,\"visible\":%s,\"output\":%lu,\"x\":%d,\"y\":%d,\"width\":%d,\"height\":%d,\"fullscreen\":%s,\"minimized\":%s,\"outlined\":%s,\"parked\":%s,\"current\":{\"x\":%d,\"y\":%d,\"width\":%d,\"height\":%d},\"workarea\":{\"x\":%d,\"y\":%d,\"width\":%d,\"height\":%d}}",
+-                first ? "" : ",", (unsigned long)v->creation_id, server.active_view == v ? "true" : "false",
+-                v->auto_tiled ? "true" : "false", v->scene_tree->node.enabled ? "true" : "false",
+-                (unsigned long)(v->output ? v->output->id_bit : 0), v->pending.x, v->pending.y, v->pending.width, v->pending.height,
+-                v->fullscreen ? "true" : "false", v->minimized ? "true" : "false", outlined ? "true" : "false", r && r->parked_order ? "true" : "false",
+-                v->current.x, v->current.y, v->current.width, v->current.height,
+-                area.x, area.y, area.width, area.height); first = false;
+-        }
+-    }
+-    fputs("],\"capture_output_supported\":true,\"capture_output\":", stream);
+-    struct wlr_box capture_box = {0};
+-    if (!locked && !strncmp(request, "capture-output ", 15)) {
+-        struct view *v;
+-        wl_list_for_each(v, &server.views, link) {
+-            const char *identifier = foreign_toplevel_identifier(v->foreign_toplevel);
+-            if (identifier && !strcmp(identifier, request + 15) && output_is_usable(v->output)) {
+-                wlr_output_layout_get_box(server.output_layout, v->output->wlr_output, &capture_box);
+-                break;
++    /* Too long a reply is dropped: retry once without titles. */
++    for (int titles = 1; titles >= 0; titles--) {
++        free(text); text = NULL; length = 0;
++        FILE *stream = open_memstream(&text, &length);
++        if (!stream) return 0;
++        fprintf(stream, "{\"version\":1,\"ready\":true,\"compositor_pid\":%ld,\"enabled\":%s,\"parking_supported\":true,\"tile_bounds_supported\":true,\"outline_supported\":true,\"outline_enabled\":%s,\"error\":\"%s\",\"windows\":[", (long)getpid(), enabled ? "true" : "false", outline_enabled ? "true" : "false", error);
++        if (!strcmp(request, "windows") && !locked) put_windows(stream, titles);
++        fputs("],\"capture_output_supported\":true,\"capture_output\":", stream);
++        struct wlr_box capture_box = {0};
++        if (!locked && !strncmp(request, "capture-output ", 15)) {
++            struct view *v;
++            wl_list_for_each(v, &server.views, link) {
++                const char *identifier = foreign_toplevel_identifier(v->foreign_toplevel);
++                if (identifier && !strcmp(identifier, request + 15) && output_is_usable(v->output)) {
++                    wlr_output_layout_get_box(server.output_layout, v->output->wlr_output, &capture_box);
++                    break;
++                }
+             }
+         }
++        if (capture_box.width > 0 && capture_box.height > 0) {
++            fprintf(stream, "{\"x\":%d,\"y\":%d,\"width\":%d,\"height\":%d}",
++                capture_box.x, capture_box.y, capture_box.width, capture_box.height);
++        } else fputs("null", stream);
++        fputs(",\"positions_supported\":true}", stream); fclose(stream);
++        if (length < 60000 || strcmp(request, "windows")) break;
+     }
+-    if (capture_box.width > 0 && capture_box.height > 0) {
+-        fprintf(stream, "{\"x\":%d,\"y\":%d,\"width\":%d,\"height\":%d}",
+-            capture_box.x, capture_box.y, capture_box.width, capture_box.height);
+-    } else fputs("null", stream);
+-    fputs("}", stream); fclose(stream);
+     if (length < 60000) sendto(fd, text, length, MSG_DONTWAIT | MSG_NOSIGNAL, (struct sockaddr *)&peer, msg.msg_namelen);
+     free(text); return 0;
+ }
+-- 
+2.56.0
+

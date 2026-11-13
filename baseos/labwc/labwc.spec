@@ -4,7 +4,7 @@
 Name:           labwc
 Version:        0.20.2
 %forgemeta
-Release:        28%{?dist}
+Release:        29%{?dist}
 Summary:        A Wayland window-stacking compositor
 
 License:        GPL-2.0-only AND MIT
@@ -37,6 +37,7 @@ Patch:          0017-remove-the-shortcuts-inhibit-listener-at-shutdown.patch
 Patch:          0018-survive-a-client-decorated-window-destroyed-in-its-tile.patch
 Patch:          0019-add-per-output-adaptive-sync-modes.patch
 Patch:          0020-add-per-output-snap-regions.patch
+Patch:          0021-report-window-places-and-add-place-on-output.patch
 
 BuildRequires:  gcc
 BuildRequires:  meson >= 0.59.0
@@ -207,6 +208,10 @@ cp subprojects/wlroots/LICENSE WLROOTS-LICENSE
 %{_userunitdir}/labwc-session.target
 
 %changelog
+* Fri Nov 13 2026 Nobara Project - 0.20.2-29
+- Add the PlaceOnOutput action: put a window on a named output at a given position and size, optionally maximized; as a window rule it places an app's window when it opens
+- The tiling control socket's window list now reports each window's app ID, title, output name, maximized state and its place on the output, so Tessel can remember where an app's window sits
+
 * Fri Nov 13 2026 Nobara Project - 0.20.2-28
 - Try the Vulkan renderer first when WLR_RENDERER is not set, so HDR and ICC profiles work without setting it; GLES2 is used when Vulkan cannot be created
 - WLR_RENDERER_PREFER_GLES2=1 keeps the previous order (GLES2, then Vulkan)
