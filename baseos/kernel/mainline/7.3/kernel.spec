@@ -49,7 +49,7 @@
 # whether to build kernel with llvm compiler(clang)
 %define llvm_kbuild 0
 %if %{llvm_kbuild}
-%define llvm_build_env_vars CC=clang CXX=clang++ LD=ld.lld LLVM=1 LLVM_IAS=1
+%define llvm_build_env_vars LLVM=1 LLVM_IAS=1
 %define ltoflavor 1
 %endif
 
@@ -61,7 +61,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 7.3
-%define _stablekver 1
+%define _stablekver 4
 %define _PKGBUILD 1
 %define _rcver rc7
 %define _tarkver %{_basekver}.%{_stablekver}
@@ -74,7 +74,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 203
+%define customver 200
 %endif
 
 Release:%{customver}%{?eactag}.nobara%{?dist}
@@ -140,13 +140,10 @@ Patch8: xpadneo-kernel-integration.patch
 Patch9: MA350.patch
 
 # AMD vfio passthrough
-Patch11: vfio-amd-passthrough.patch
-
-# ASUS Laptop keyboard fix
-Patch12: 0001-skip-interrupt-in-polling-for-devices.patch
+Patch10: vfio-amd-passthrough.patch
 
 # AMDGPU GFX10 fix sleep/suspend
-Patch13: drm-amdgpu-restore-csib-submission-on-gfx10-dgpus.patch
+Patch11: drm-amdgpu-restore-csib-submission-on-gfx10-dgpus.patch
 
 # ASUS I226-V rev 06 (8086:125c, subsystem 1043:8867) PCIe detach workaround.
 # Seen locally on X870-A with NIC firmware 2023:889d and kernel 7.2.4:
@@ -161,15 +158,14 @@ Patch13: drm-amdgpu-restore-csib-submission-on-gfx10-dgpus.patch
 # https://lists.openwall.net/netdev/2025/09/01/324
 # https://lists.openwall.net/netdev/2025/09/05/17
 # https://www.spinics.net/lists/netdev/msg1121863.html
-Patch14: igc-disable-aspm-l1-asus-i226-v.patch
+Patch12: igc-disable-aspm-l1-asus-i226-v.patch
 
 # hws capture driver. First the upstream fixes 7.3.1 lacks; drop that patch once
-# the base kernel has them. Then the rest of the cards the vendor drivers cover:
+# the base kernel has them [DROPPED]. Then the rest of the cards the vendor drivers cover:
 # ACASIS's AHD cards and 8888:8521, then the 4K family, audio and the copy path.
 # Not yet run on these cards.
-Patch15: hws-upstream-fixes.patch
-Patch16: hws-add-ahd-and-8521.patch
-Patch17: hws-uhd-audio-copy-path.patch
+Patch13: hws-add-ahd-and-8521.patch
+Patch14: hws-uhd-audio-copy-path.patch
 
 # aarch64 patches
 Patch21: 0001-arm64-mm-Handle-alignment-faults.patch
@@ -198,7 +194,7 @@ BuildRequires: binutils-%{_build_arch}-linux-gnu, gcc-%{_build_arch}-linux-gnu
 BuildRequires: bzip2, xz, findutils, m4, perl-interpreter, perl-Carp, perl-devel, perl-generators, make, diffutils, gawk, %compression
 BuildRequires: dracut
 BuildRequires: dwarves
-BuildRequires: gcc, binutils, redhat-rpm-config, hmaccalc, bison, flex, gcc-c++
+BuildRequires: gcc, binutils, redhat-rpm-config, bison, flex, gcc-c++
 BuildRequires: gettext ncurses-devel
 BuildRequires: glibc-static
 BuildRequires: gzip
@@ -527,13 +523,11 @@ patch -p1 -i %{PATCH6}
 patch -p1 -i %{PATCH7}
 patch -p1 -i %{PATCH8}
 patch -p1 -i %{PATCH9}
+patch -p1 -i %{PATCH10}
 patch -p1 -i %{PATCH11}
 patch -p1 -i %{PATCH12}
 patch -p1 -i %{PATCH13}
 patch -p1 -i %{PATCH14}
-patch -p1 -i %{PATCH15}
-patch -p1 -i %{PATCH16}
-patch -p1 -i %{PATCH17}
 
 # Apply aarch64 patches
 %ifarch aarch64
@@ -601,13 +595,13 @@ scripts/config --enable LOCK_DOWN_KERNEL_FORCE_INTEGRITY
 %endif
 
 # Finalize the patched config
-make %{?_smp_mflags} %{?llvm_build_env_vars} EXTRAVERSION=-%{krelstr} olddefconfig
+%make_build %{?llvm_build_env_vars} EXTRAVERSION=-%{krelstr} olddefconfig
 
 # Save configuration for later reuse
 cat .config > config-linux-bore
 
 %build
-make %{?_smp_mflags} %{?llvm_build_env_vars} EXTRAVERSION=-%{krelstr}
+%make_build %{?llvm_build_env_vars} EXTRAVERSION=-%{krelstr}
 %if %{llvm_kbuild}
 clang -Itools/include/uapi ./scripts/sign-file.c -o ./scripts/sign-file -lssl -lcrypto
 %else
@@ -743,9 +737,9 @@ mkdir -p %{buildroot}/lib/modules/%{kverstr}/updates
 mkdir -p %{buildroot}/lib/modules/%{kverstr}/weak-updates
 # CONFIG_KERNEL_HEADER_TEST generates some extra files in the process of
 # testing so just delete
-find . -name *.h.s -delete
+find . -name '*.h.s' -delete
 # first copy everything
-cp --parents `find  -type f -name "Makefile*" -o -name "Kconfig*"` %{buildroot}/lib/modules/%{kverstr}/build
+cp --parents `find . -type f \( -name 'Makefile*' -o -name 'Kconfig*' \)` %{buildroot}/lib/modules/%{kverstr}/build
 if [ ! -e Module.symvers ]; then
 touch Module.symvers
 fi
@@ -946,10 +940,22 @@ cp -v System.map %{buildroot}/lib/modules/%{kverstr}/System.map
 cp -v .config %{buildroot}/boot/config-%{kverstr}
 cp -v .config %{buildroot}/lib/modules/%{kverstr}/config
 
-(cd "%{buildroot}/boot/" && sha512hmac "vmlinuz-%{kverstr}" > ".vmlinuz-%{kverstr}.hmac")
+# Generate kernel HMAC using OpenSSL instead of AF_ALG/sha512hmac
+(
+    cd "%{buildroot}/boot/"
+    openssl dgst -sha512 -r \
+        -hmac 'FIPS-FTW-RHT2009' \
+        "vmlinuz-%{kverstr}" > ".vmlinuz-%{kverstr}.hmac"
+)
 
-cp -v  %{buildroot}/boot/vmlinuz-%{kverstr} %{buildroot}/lib/modules/%{kverstr}/vmlinuz
-(cd "%{buildroot}/lib/modules/%{kverstr}" && sha512hmac vmlinuz > .vmlinuz.hmac)
+cp -v %{buildroot}/boot/vmlinuz-%{kverstr} %{buildroot}/lib/modules/%{kverstr}/vmlinuz
+
+(
+    cd "%{buildroot}/lib/modules/%{kverstr}"
+    openssl dgst -sha512 -r \
+        -hmac 'FIPS-FTW-RHT2009' \
+        vmlinuz > .vmlinuz.hmac
+)
 
 # create dummy initramfs image to inflate the disk space requirement for the initramfs. 48M seems to be the right size nowadays with more and more hardware requiring initramfs-located firmware to work properly (for reference, Fedora has it set to 20M)
 dd if=/dev/zero of=%{buildroot}/boot/initramfs-%{kverstr}.img bs=1M count=48
@@ -1261,6 +1267,13 @@ fi
 %files
 
 %changelog
+* Fri Nov 13 2026 LionHeartP <LionHeartP@proton.me> - 7.3.4-200
+- Update to 7.3.4
+- Clean up spec file - use Fedora build flags and minor other optimizations
+- Fixup genconfig.py so we don't get errors on config generation when there's a flag with an equals sign
+- Remove ASUS laptop keyboard fix patch. A different solution was upstreamed.
+- Replace sha512hmac calls with openssl in preparation for 7.3.x build environments
+
 * Thu Nov 12 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 7.3.1-203
 - Add patches for hws capture card hardware
 

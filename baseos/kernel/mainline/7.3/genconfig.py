@@ -8,22 +8,32 @@ def parse_config_file(filepath):
     config = {}
 
     with open(filepath, 'r', encoding='utf-8') as f:
-        for line in f:
-            line = line.strip()
+        for lineno, raw_line in enumerate(f, 1):
+            line = raw_line.strip()
 
             if not line:
                 continue
 
             if line.startswith('# CONFIG_') and line.endswith('is not set'):
                 config[line[2:-11]] = "unset"
-            
-            if not line.startswith('#') and '=' in line:
-                r = line.split('=')
+                continue
 
-                if not r[0].startswith('CONFIG_'):
-                    r[0] = "CONFIG_" + r[0]
+            if line.startswith('#') or '=' not in line:
+                continue
 
-                config[r[0]] = r[1]
+            key, _, value = line.partition('=')
+
+            if not key.startswith('CONFIG_'):
+                key = "CONFIG_" + key
+
+            # Detect unterminated Kconfig string values
+            if value.startswith('"') and not value.endswith('"'):
+                raise ValueError(
+                    f"{filepath}:{lineno}: "
+                    f"unterminated string for {key}: {value}"
+                )
+
+            config[key] = value
 
     return config
 
