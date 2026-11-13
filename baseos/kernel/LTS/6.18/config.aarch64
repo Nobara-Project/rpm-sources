@@ -51,3 +51,8 @@ CONFIG_BCM2835_MBOX=y
 CONFIG_RASPBERRYPI_FIRMWARE=y
 CONFIG_DRM_VC4=m
 CONFIG_DRM_V3D=m
+
+## Secure Boot: build vmlinuz as an EFI application (zboot), the only arm64
+## image that can be signed and carry the SBAT section (EFI_SBAT_FILE). The
+## plain Image.gz is neither a PE binary nor has room for SBAT
+CONFIG_EFI_ZBOOT=y

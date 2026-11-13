@@ -6,7 +6,7 @@
 %global _sourcedir %(d="%{_sourcedir}"; [ -f "$d/genconfig.py" ] || d="$d/.."; cd "$d" && pwd)
 %global nobara_eac 1
 # Refuse to build from a kernel.spec this file wasn't generated from
-%global nobara_eac_base_sha256 7cdd383898f7f812036c8b23ba205b9bc5e54673a88c7ff5ffd2cd8fb95e04e8
+%global nobara_eac_base_sha256 b0bbae0e0ffcf6cd122412e30e6fd4b019036026025d86a0a4ebdb07d1502307
 %if "%(f="%{_sourcedir}/kernel.spec"; [ -f "$f" ] && sha256sum "$f" | cut -c1-64 || echo %{nobara_eac_base_sha256})" != "%{nobara_eac_base_sha256}"
 %{error:../kernel.spec changed since kernel-eac.spec was generated: run ./update-eac-spec.sh}
 %endif
@@ -87,7 +87,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 202
+%define customver 203
 %endif
 
 Release:%{customver}.lts%{?eactag}.nobara%{?dist}
@@ -1338,6 +1338,11 @@ fi
 %files
 
 %changelog
+* Fri Nov 13 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 6.18.60-203
+- aarch64: build vmlinuz as an EFI zboot application (CONFIG_EFI_ZBOOT), so
+  the kernel image is a PE binary that carries the SBAT section and can be
+  Secure Boot signed like on x86_64 (Image.gz could be neither)
+
 * Thu Nov 12 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 6.18.60-202
 - Fix the aarch64 build with kernel-headers 7.x in the buildroot: backport
   "tools: linux/types.h: Add 128-bit integer types for arm64 UAPI structures"
