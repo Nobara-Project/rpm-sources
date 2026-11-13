@@ -1,6 +1,6 @@
 Name:          nobara-updater
 Version:       2.0.2
-Release:       2%{?dist}
+Release:       3%{?dist}
 License:       GPL-3.0-or-later
 Summary:       Nobara System Updater
 
@@ -124,6 +124,18 @@ rm -rf %{buildroot}
   /var/lib/rsyslog. Recorded in /var/lib/nobara-updater/rsyslog-removal.json,
   so a reinstalled rsyslog is left alone; rsyslog also stays while another
   installed package requires it.
+- Fix Btrfs recovery that could never be confirmed when the recovery entry's
+  kernel has no modules in the recovered root (an earlier rollback left that
+  kernel in the shared /boot). The recovered system started on another
+  installed kernel through its normal entry was refused ("The recovery boot
+  entry does not match the running kernel"). Recovery now confirms with that
+  kernel when the recovered root has its complete module tree and its normal
+  entry, and disables the entries of kernels the root has no modules for.
+- Don't roll back an update because a DKMS module that no package provides
+  fails to build for the new kernel (such as xone or xpad-noone installed
+  with upstream's install.sh, which no longer build for 7.2). Skip it for
+  that kernel and, once the update is confirmed, name it at the desktop with
+  the command to remove it. Packaged DKMS modules still have to build.
 
 * Wed Nov 11 2026 Nobara Project <support@nobaraproject.org> - 2.0.1-99
 - Fix the move to the Nobara boot splash never happening: every standard
