@@ -27,8 +27,8 @@
 # Build flags come from the kernel, not rpm (rpm's LDFLAGS break the NVIDIA link)
 %undefine _auto_set_build_flags
 
-%global kernels_mainline 7.3.4-200.eac.nobara%{?dist}.%{_target_cpu}
-%global kernels_lts      6.18.60-202.lts.eac.nobara%{?dist}.%{_target_cpu}
+%global kernels_mainline 7.3.4-201.eac.nobara%{?dist}.%{_target_cpu}
+%global kernels_lts      6.18.60-203.lts.eac.nobara%{?dist}.%{_target_cpu}
 %if "%{?copr_projectname}" == "linux-nobara-lts"
 %{!?kernels:%global kernels %{kernels_lts}}
 %else
@@ -37,7 +37,7 @@
 
 # Module versions, kept in step with their DKMS/akmod packages. v4l2loopback
 # is not here: the Nobara kernels build it in-tree, signed with the kernel.
-%global nvidia_prod_version   595.112.07
+%global nvidia_prod_version   620.70.06
 %global nvidia_nf_version     615.78.08
 %global nvidia_epoch          3
 %global xone_version          0.5.8.3
@@ -69,13 +69,26 @@
 %global linuwu_commit         4483b6c38b9bb963ac9ada9ca476578e0c63cc08
 %global linuwu_version        1.0^20261019git.4483b6c
 
+# The modules built for a kernel (zfs: LTS kernels only), for %%build and
+# %%install. As the subpackages: nct6687d, msi-ec, linuwu-sense and zfs on
+# x86_64 only
+%global modules_for %{expand:
+modules_for() {
+    echo nvidia-prod nvidia-nf xone xpad-noone openrazer hid-tmff2 hid-fanatecff new-lg4ff evdi r8125
+    if [ "%{_target_cpu}" = x86_64 ]; then
+        echo nct6687d msi-ec linuwu-sense
+        case "$1" in *.lts.*) echo zfs ;; esac
+    fi
+}
+}
+
 Name:           nobara-signed-kmods
 Version:        1
-Release:        13%{?dist}
+Release:        14%{?dist}
 Summary:        Nobara-signed kernel modules for the Easy Anti-Cheat kernel
 License:        GPL-2.0-only AND GPL-2.0-or-later AND MIT AND CDDL-1.0 AND NVIDIA License
 URL:            https://nobaraproject.org
-ExclusiveArch:  x86_64
+ExclusiveArch:  x86_64 aarch64
 
 Source0:        https://github.com/NVIDIA/open-gpu-kernel-modules/archive/refs/tags/%{nvidia_prod_version}.tar.gz#/open-gpu-kernel-modules-%{nvidia_prod_version}.tar.gz
 Source1:        https://github.com/NVIDIA/open-gpu-kernel-modules/archive/refs/tags/%{nvidia_nf_version}.tar.gz#/open-gpu-kernel-modules-%{nvidia_nf_version}.tar.gz
@@ -96,12 +109,12 @@ Source16:       https://github.com/BeardOverflow/msi-ec/archive/%{msi_ec_commit}
 Source17:       https://github.com/0x7375646F/Linuwu-Sense/archive/%{linuwu_commit}.tar.gz#/linuwu-sense-%{linuwu_commit}.tar.gz
 
 # Same patches as nvidia/prod/<version>/kmod
-Patch100:       nvidia-prod-0001-Add-IBT-support.patch
-Patch101:       nvidia-prod-0002-fix-dsc-correct-RC-parameter-tables-to-match-VESA-DS.patch
-Patch102:       nvidia-prod-0003-fix-dsc-use-bits_per_component-for-flatnessDetThresh.patch
-Patch103:       nvidia-prod-0004-fix-dp-add-Bigscreen-Beyond-VR-headset-to-WAR-databa.patch
-Patch104:       nvidia-prod-0005-nvidia-control-tunneled-PCIe-speed-during-active-epochs.patch
-Patch105:       nvidia-prod-0006-add-CEC-support-via-DP-to-HDMI-dongles.patch
+Patch100:       nvidia-prod-0001-nvidia-control-tunneled-PCIe-speed-during-active-epochs.patch
+Patch101:       nvidia-prod-0002-add-CEC-support-via-DP-to-HDMI-dongles.patch
+Patch102:       nvidia-prod-0003-fix-dp-add-Bigscreen-Beyond-VR-headset-to-WAR-databa.patch
+Patch103:       nvidia-prod-0004-fix-dsc-use-VESA-DSC-1.1-RC-parameters-for-Bigscreen.patch
+Patch104:       nvidia-prod-0005-nvidia-Open-the-PCI-sysfs-config-file-through-init-s.patch
+
 # Same patches as nvidia/new-feature/<version>/kmod
 Patch200:       nvidia-nf-0001-nvidia-control-tunneled-PCIe-speed-during-active-epochs.patch
 Patch201:       nvidia-nf-0002-add-CEC-support-via-DP-to-HDMI-dongles.patch
@@ -145,7 +158,8 @@ synced: the only out-of-tree modules kernel-eac loads.
 %{lua:
 -- One subpackage per module and kernel. The modules are installed in
 -- updates/nobara/<dir>, which depmod prefers over DKMS and akmods in extra/.
--- lts_only: built for the LTS kernels only.
+-- lts_only: built for the LTS kernels only. x86_only: built on x86_64 only
+-- (no aarch64 zfs-dkms package, x86 hardware drivers).
 local modules = {
   { name = "nvidia-prod", dir = "nvidia-prod", epoch = rpm.expand("%{nvidia_epoch}"),
     version = rpm.expand("%{nvidia_prod_version}"),
@@ -187,23 +201,25 @@ local modules = {
     extra = "Requires:       dkms-r8125\n" },
   -- nct6687d has the nct6683 blacklist and the modules-load.d entry
   { name = "nct6687d", dir = "nct6687d", version = rpm.expand("%{nct6687d_version}"),
-    summary = "nct6687d (Nuvoton NCT6687-R sensors) kernel module",
+    summary = "nct6687d (Nuvoton NCT6687-R sensors) kernel module", x86_only = true,
     extra = "Requires:       nct6687d\n" },
   -- Replaces the kernel's own msi-ec (updates/ is searched first)
   { name = "msi-ec", dir = "msi-ec", version = rpm.expand("%{msi_ec_version}"),
-    summary = "msi-ec (MSI laptop embedded controller) kernel module",
+    summary = "msi-ec (MSI laptop embedded controller) kernel module", x86_only = true,
     extra = "Requires:       dkms-msi-ec\n" },
   -- dkms-linuwu-sense blacklists acer_wmi and saves the settings at shutdown
   { name = "linuwu-sense", dir = "linuwu-sense", version = rpm.expand("%{linuwu_version}"),
-    summary = "Linuwu-Sense (Acer Predator and Nitro laptops) kernel module",
+    summary = "Linuwu-Sense (Acer Predator and Nitro laptops) kernel module", x86_only = true,
     extra = "Requires:       dkms-linuwu-sense\n" },
-  { name = "zfs", dir = "zfs", version = rpm.expand("%{zfs_version}"), lts_only = true,
+  { name = "zfs", dir = "zfs", version = rpm.expand("%{zfs_version}"), lts_only = true, x86_only = true,
     summary = "OpenZFS (zfs and spl) kernel modules",
     extra = "Requires:       zfs-dkms\n" },
 }
+local x86 = rpm.expand("%{_target_cpu}") == "x86_64"
 for kver in rpm.expand("%{kernels}"):gmatch("%S+") do
   for _, m in ipairs(modules) do
     if m.lts_only and not kver:find(".lts.", 1, true) then goto continue end
+    if m.x86_only and not x86 then goto continue end
     local pkg = "kmod-" .. m.name .. "-signed-" .. kver
     local extra = m.extra:gsub("KVER", kver)
     print(rpm.expand(
@@ -255,7 +271,7 @@ tar -xf %{SOURCE17} -C linuwu-sense --strip-components=1
 echo 'obj-m := linuwu_sense.o' > linuwu-sense/src/Kbuild
 # The same options as rpm's %%patch, so the patches apply as in their own specs
 apply() { %{__patch} -p1 -s --fuzz=2 --no-backup-if-mismatch -f -d "$1" -i "$2"; }
-for p in %{P:100} %{P:101} %{P:102} %{P:103} %{P:104} %{P:105}; do apply nvidia-prod $p; done
+for p in %{P:100} %{P:101} %{P:102} %{P:103} %{P:104}; do apply nvidia-prod $p; done
 for p in %{P:200} %{P:201}; do apply nvidia-nf $p; done
 apply xone %{P:300}
 apply xpad-noone %{P:400}
@@ -267,11 +283,7 @@ apply msi-ec %{P:700}
 apply linuwu-sense %{P:800}
 
 %build
-# The modules built for a kernel (zfs: LTS kernels only)
-modules_for() {
-    echo nvidia-prod nvidia-nf xone xpad-noone openrazer hid-tmff2 hid-fanatecff new-lg4ff evdi r8125 nct6687d msi-ec linuwu-sense
-    case "$1" in *.lts.*) echo zfs ;; esac
-}
+%{modules_for}
 for kver in %{kernels}; do
     kdir=/usr/src/kernels/$kver
     for m in $(modules_for $kver); do
@@ -280,60 +292,69 @@ for kver in %{kernels}; do
         cp -a "$m" "build-$kver/$m"
     done
     pushd "build-$kver"
-    for m in nvidia-prod nvidia-nf; do
-        make -C $m %{?_smp_mflags} SYSSRC=$kdir KERNEL_UNAME=$kver modules
+    for m in $(modules_for $kver); do
+        case $m in
+            nvidia-prod|nvidia-nf)
+                make -C $m %{?_smp_mflags} SYSSRC=$kdir KERNEL_UNAME=$kver modules ;;
+            openrazer) make %{?_smp_mflags} -C $kdir M=$PWD/openrazer/driver modules ;;
+            hid-tmff2) make %{?_smp_mflags} -C hid-tmff2 KDIR=$kdir ;;
+            evdi) make %{?_smp_mflags} -C $kdir M=$PWD/evdi/module modules ;;
+            r8125|linuwu-sense) make %{?_smp_mflags} -C $kdir M=$PWD/$m/src modules ;;
+            zfs)
+                # As zfs-dkms (scripts/dkms.mkconf): only the kernel modules
+                pushd zfs
+                ./configure --disable-dependency-tracking --prefix=/usr --with-config=kernel \
+                    --with-linux=$kdir --with-linux-obj=$kdir
+                make %{?_smp_mflags}
+                popd
+                ;;
+            *) make %{?_smp_mflags} -C $kdir M=$PWD/$m modules ;;
+        esac
     done
-    make %{?_smp_mflags} -C $kdir M=$PWD/xone modules
-    make %{?_smp_mflags} -C $kdir M=$PWD/xpad-noone modules
-    make %{?_smp_mflags} -C $kdir M=$PWD/openrazer/driver modules
-    make %{?_smp_mflags} -C hid-tmff2 KDIR=$kdir
-    make %{?_smp_mflags} -C $kdir M=$PWD/hid-fanatecff modules
-    make %{?_smp_mflags} -C $kdir M=$PWD/new-lg4ff modules
-    make %{?_smp_mflags} -C $kdir M=$PWD/evdi/module modules
-    make %{?_smp_mflags} -C $kdir M=$PWD/r8125/src modules
-    make %{?_smp_mflags} -C $kdir M=$PWD/nct6687d modules
-    make %{?_smp_mflags} -C $kdir M=$PWD/msi-ec modules
-    make %{?_smp_mflags} -C $kdir M=$PWD/linuwu-sense/src modules
-    if [ -d zfs ]; then
-        # As zfs-dkms (scripts/dkms.mkconf): only the kernel modules
-        pushd zfs
-        ./configure --disable-dependency-tracking --prefix=/usr --with-config=kernel \
-            --with-linux=$kdir --with-linux-obj=$kdir
-        make %{?_smp_mflags}
-        popd
-    fi
     popd
 done
 
 %install
+%{modules_for}
 for kver in %{kernels}; do
     b="build-$kver"
     d=%{buildroot}/lib/modules/$kver/updates/nobara
-    install -d $d/nvidia-prod $d/nvidia-nf $d/xone $d/xpad-noone $d/openrazer \
-        $d/hid-tmff2 $d/hid-fanatecff $d/new-lg4ff $d/evdi $d/r8125 $d/nct6687d $d/msi-ec $d/linuwu-sense
-    install -m 0644 $b/nvidia-prod/kernel-open/*.ko $d/nvidia-prod/
-    install -m 0644 $b/nvidia-nf/kernel-open/*.ko $d/nvidia-nf/
-    install -m 0644 $b/xone/*.ko $d/xone/
-    install -m 0644 $b/xpad-noone/*.ko $d/xpad-noone/
-    install -m 0644 $b/openrazer/driver/*.ko $d/openrazer/
-    install -m 0644 $b/hid-tmff2/hid-tmff-new.ko $b/hid-tmff2/deps/hid-tminit/*.ko $d/hid-tmff2/
-    install -m 0644 $b/hid-fanatecff/hid-fanatec.ko $d/hid-fanatecff/
-    # As dkms-new-lg4ff: it replaces the in-kernel hid-logitech
-    install -m 0644 $b/new-lg4ff/hid-logitech-new.ko $d/new-lg4ff/hid-logitech.ko
-    install -m 0644 $b/evdi/module/evdi.ko $d/evdi/
-    install -m 0644 $b/r8125/src/r8125.ko $d/r8125/
-    install -m 0644 $b/nct6687d/nct6687.ko $d/nct6687d/
-    install -m 0644 $b/msi-ec/msi-ec.ko $d/msi-ec/
-    install -m 0644 $b/linuwu-sense/src/linuwu_sense.ko $d/linuwu-sense/
-    if [ -d $b/zfs ]; then
-        install -d $d/zfs
-        install -m 0644 $b/zfs/module/zfs.ko $b/zfs/module/spl.ko $d/zfs/
-    fi
+    for m in $(modules_for $kver); do
+        install -d $d/$m
+        case $m in
+            nvidia-prod|nvidia-nf) install -m 0644 $b/$m/kernel-open/*.ko $d/$m/ ;;
+            xone|xpad-noone) install -m 0644 $b/$m/*.ko $d/$m/ ;;
+            openrazer) install -m 0644 $b/openrazer/driver/*.ko $d/openrazer/ ;;
+            hid-tmff2) install -m 0644 $b/hid-tmff2/hid-tmff-new.ko $b/hid-tmff2/deps/hid-tminit/*.ko $d/hid-tmff2/ ;;
+            hid-fanatecff) install -m 0644 $b/hid-fanatecff/hid-fanatec.ko $d/hid-fanatecff/ ;;
+            # As dkms-new-lg4ff: it replaces the in-kernel hid-logitech
+            new-lg4ff) install -m 0644 $b/new-lg4ff/hid-logitech-new.ko $d/new-lg4ff/hid-logitech.ko ;;
+            evdi) install -m 0644 $b/evdi/module/evdi.ko $d/evdi/ ;;
+            r8125) install -m 0644 $b/r8125/src/r8125.ko $d/r8125/ ;;
+            nct6687d) install -m 0644 $b/nct6687d/nct6687.ko $d/nct6687d/ ;;
+            msi-ec) install -m 0644 $b/msi-ec/msi-ec.ko $d/msi-ec/ ;;
+            linuwu-sense) install -m 0644 $b/linuwu-sense/src/linuwu_sense.ko $d/linuwu-sense/ ;;
+            zfs) install -m 0644 $b/zfs/module/zfs.ko $b/zfs/module/spl.ko $d/zfs/ ;;
+        esac
+    done
 done
 # Unsigned and uncompressed: secureboot/sb-resign.sh signs them at repo sync
 find %{buildroot}/lib/modules -name '*.ko' -exec strip --strip-debug {} +
 
 %changelog
+* Fri Nov 13 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 1-14
+- NVIDIA production branch 620.70.06, with nvidia/prod/620.70.06/kmod's
+  patches: tunneled PCIe speed, CEC over DP-to-HDMI dongles, the Bigscreen
+  Beyond DP and DSC fixes, and opening the PCI sysfs config file through
+  init's root on Linux 7.3 (kthreads start in an empty nullfs there, so
+  runtime D3 stayed disabled)
+- Build for kernel-eac 7.3.4-201 and 6.18.60-203
+- Build on aarch64 too, for the aarch64 kernel-eac (Secure Boot signed from
+  7.3.4-201 and 6.18.60-203): NVIDIA (prod and new feature), xone,
+  xpad-noone, openrazer, hid-tmff2, hid-fanatecff, new-lg4ff, evdi and r8125.
+  zfs stays x86_64 only (no aarch64 zfs-dkms), as do the x86 hardware
+  drivers nct6687d, msi-ec and linuwu-sense
+
 * Thu Nov 12 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 1-12
 - Add linuwu-sense %{linuwu_version} (Acer Predator and Nitro laptops, a
   fork of acer-wmi), as baseos/dkms-linuwu-sense, with its state-file save
