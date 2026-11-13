@@ -1,0 +1,16 @@
+[Unit]
+Description=Save Linuwu-Sense fan, thermal and keyboard settings at shutdown
+Documentation=https://github.com/0x7375646F/Linuwu-Sense
+# linuwu_sense writes /etc/predator_state and /etc/four_zone_kb_state when
+# it is removed, and restores them when it loads. Stopping this unit at
+# shutdown removes it while /etc is still writable.
+RequiresMountsFor=/etc
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/true
+ExecStop=-/usr/sbin/rmmod linuwu_sense
+
+[Install]
+WantedBy=multi-user.target
