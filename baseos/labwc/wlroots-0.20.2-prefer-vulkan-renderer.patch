@@ -1,0 +1,71 @@
+From: Tessel <noreply@nobaraproject.org>
+Subject: [PATCH] render: try the Vulkan renderer first when none is chosen
+
+HDR, ICC profiles and output color correction need a renderer with output
+color transforms, which only the Vulkan renderer has. With WLR_RENDERER
+unset the GLES2 renderer was created whenever it could be, so on a fresh
+installation turning HDR on did nothing but log "Cannot enable HDR ...
+renderer doesn't support output color transforms".
+
+Automatic selection now tries Vulkan, then GLES2, then pixman. A machine
+whose Vulkan renderer cannot be created gets GLES2 as before.
+WLR_RENDERER_PREFER_GLES2=1 keeps the old order with all its fallbacks;
+software rendering (WLR_RENDERER_FORCE_SOFTWARE) keeps it too. A renderer
+named in WLR_RENDERER is used as before, without fallback.
+---
+--- a/render/wlr_renderer.c
++++ b/render/wlr_renderer.c
+@@ -231,7 +231,22 @@
+ 
+ 	bool own_drm_fd = false;
+ 
+-	if ((is_auto && WLR_HAS_GLES2_RENDERER) || strcmp(renderer_name, "gles2") == 0) {
++	/*
++	 * Automatic selection tries Vulkan before GLES2: HDR, ICC profiles and
++	 * output color correction need output color transforms, which only the
++	 * Vulkan renderer has. GLES2 is used when no Vulkan renderer can be
++	 * created. WLR_RENDERER_PREFER_GLES2=1 keeps the upstream order, as does
++	 * software rendering.
++	 */
++	bool vulkan_first = is_auto && WLR_HAS_VULKAN_RENDERER
++		&& !env_parse_bool("WLR_RENDERER_PREFER_GLES2")
++		&& !env_parse_bool("WLR_RENDERER_FORCE_SOFTWARE");
++	bool vulkan_failed = false;
++
++	for (int attempt = 0; attempt < 2; attempt++) {
++	bool gles2_attempt = (attempt == 0) != vulkan_first;
++
++	if (gles2_attempt && ((is_auto && WLR_HAS_GLES2_RENDERER) || strcmp(renderer_name, "gles2") == 0)) {
+ 		if (!open_preferred_drm_fd(backend, &drm_fd, &own_drm_fd)) {
+ 			log_creation_failure(is_auto, "Cannot create GLES2 renderer: no DRM FD available");
+ 		} else {
+@@ -241,6 +256,10 @@
+ 			wlr_log(WLR_ERROR, "Cannot create GLES renderer: disabled at compile-time");
+ #endif
+ 			if (renderer) {
++				if (vulkan_failed) {
++					wlr_log(WLR_INFO, "No Vulkan renderer could be created: "
++						"using GLES2, without HDR and ICC profiles");
++				}
+ 				goto out;
+ 			} else {
+ 				log_creation_failure(is_auto, "Failed to create a GLES2 renderer");
+@@ -248,7 +267,8 @@
+ 		}
+ 	}
+ 
+-	if ((is_auto && WLR_HAS_VULKAN_RENDERER) || strcmp(renderer_name, "vulkan") == 0) {
++	if (!gles2_attempt && ((is_auto && WLR_HAS_VULKAN_RENDERER) || strcmp(renderer_name, "vulkan") == 0)) {
++		vulkan_failed = true;
+ 		if (!open_preferred_drm_fd(backend, &drm_fd, &own_drm_fd)) {
+ 			log_creation_failure(is_auto, "Cannot create Vulkan renderer: no DRM FD available");
+ 		} else {
+@@ -265,6 +285,8 @@
+ 		}
+ 	}
+ 
++	}
++
+ 	if ((is_auto && !has_render_node(backend)) || strcmp(renderer_name, "pixman") == 0) {
+ 		renderer = wlr_pixman_renderer_create();
+ 		if (renderer) {
