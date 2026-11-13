@@ -27,7 +27,7 @@
 # Build flags come from the kernel, not rpm (rpm's LDFLAGS break the NVIDIA link)
 %undefine _auto_set_build_flags
 
-%global kernels_mainline 7.3.1-203.eac.nobara%{?dist}.%{_target_cpu}
+%global kernels_mainline 7.3.4-200.eac.nobara%{?dist}.%{_target_cpu}
 %global kernels_lts      6.18.60-202.lts.eac.nobara%{?dist}.%{_target_cpu}
 %if "%{?copr_projectname}" == "linux-nobara-lts"
 %{!?kernels:%global kernels %{kernels_lts}}
@@ -71,7 +71,7 @@
 
 Name:           nobara-signed-kmods
 Version:        1
-Release:        12%{?dist}
+Release:        13%{?dist}
 Summary:        Nobara-signed kernel modules for the Easy Anti-Cheat kernel
 License:        GPL-2.0-only AND GPL-2.0-or-later AND MIT AND CDDL-1.0 AND NVIDIA License
 URL:            https://nobaraproject.org
