@@ -1,0 +1,139 @@
+#!/usr/bin/python3
+"""Remove legacy NVIDIA boot arguments; driver policy lives in modprobe/dracut."""
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+# Keep the historical cleanup, but never add boot arguments. Match complete
+# tokens so user arguments containing these strings are not accidentally edited.
+REMOVE = {
+    'nomodeset', 'gfxpayload=vga=normal', 'nouveau.modeset=0',
+    'nvidia-drm.modeset=1', 'nvidia_drm.modeset=1',
+    'nvidia-drm.fbdev=1', 'nvidia_drm.fbdev=1',
+    'initcall_blacklist=simpledrm_platform_driver_init',
+}
+BLACKLIST_KEYS = {'rd.driver.blacklist', 'modprobe.blacklist'}
+LEGACY_MODULES = {'nouveau', 'nova_core'}
+TOKEN = re.compile(r'''(?:[^\s"']+|"[^"\n]*"|'[^'\n]*')+''')
+ASSIGNMENT = re.compile(r'^(\s*(?:export\s+)?GRUB_CMDLINE_LINUX(?:_DEFAULT)?\s*=\s*)(.*)$')
+
+
+def clean_cmdline(value):
+    def replace(match):
+        token = match.group()
+        if token in REMOVE:
+            return ''
+        key, sep, modules = token.partition('=')
+        if sep and key in BLACKLIST_KEYS:
+            remaining = [m for m in modules.split(',')
+                         if m.replace('-', '_') not in LEGACY_MODULES]
+            if remaining != modules.split(','):
+                return key + '=' + ','.join(remaining) if remaining else ''
+        return token
+    # Preserve whitespace and quoting of all unrelated arguments.
+    return TOKEN.sub(replace, value)
+
+
+def clean_grub(text):
+    lines = []
+    for line in text.splitlines(keepends=True):
+        match = ASSIGNMENT.match(line.rstrip('\n'))
+        if match:
+            prefix, value = match.groups()
+            if value.startswith(('"', "'")):
+                # Locate the shell string's closing quote without evaluating
+                # /etc/default/grub or executing substitutions in it.
+                quote = value[0]
+                end = 1
+                while end < len(value):
+                    if quote == '"' and value[end] == '\\':
+                        end += 2
+                        continue
+                    if value[end] == quote:
+                        break
+                    end += 1
+                if end < len(value):
+                    value = quote + clean_cmdline(value[1:end]) + value[end:]
+            else:
+                # Unquoted simple assignments, with any shell comment intact.
+                value, marker, comment = value.partition(' #')
+                value = clean_cmdline(value) + marker + comment
+            line = prefix + value + ('\n' if line.endswith('\n') else '')
+        lines.append(line)
+    return ''.join(lines)
+
+
+def clean_bls(text):
+    return ''.join(re.sub(r'^(\s*options\s+)(.*)$',
+                          lambda m: m[1] + clean_cmdline(m[2]), line)
+                   for line in text.splitlines(keepends=True))
+
+
+def update_file(path, cleaner):
+    if not path.is_file():
+        return False
+    old = path.read_text()
+    new = cleaner(old)
+    if old == new:
+        return False
+    # Updating the existing inode preserves permissions, ownership, SELinux
+    # labels and symlinks (notably /etc/kernel/cmdline on some installations).
+    with path.open('r+') as stream:
+        stream.write(new)
+        stream.truncate()
+    return True
+
+
+def cleanup(root=Path('/'), run=subprocess.run):
+    # root/run arguments are for isolated tests; the CLI always uses the host.
+    if (root / 'run/ostree-booted').exists():
+        return
+    changed = update_file(root / 'etc/default/grub', clean_grub)
+    changed |= update_file(root / 'etc/kernel/cmdline', clean_cmdline)
+    for directory in ('boot/loader/entries', 'boot/efi/loader/entries'):
+        for entry in sorted((root / directory).glob('*.conf')):
+            changed |= update_file(entry, clean_bls)
+
+    # Older BLS entries may reference $kernelopts in the GRUB environment.
+    grubenv = root / 'boot/grub2/grubenv'
+    if grubenv.is_file():
+        result = run(['grub2-editenv', str(grubenv), 'list'],
+                     check=True, text=True, capture_output=True)
+        for line in result.stdout.splitlines():
+            if line.startswith('kernelopts='):
+                old = line.partition('=')[2]
+                new = clean_cmdline(old)
+                if new != old:
+                    run(['grub2-editenv', str(grubenv), 'set', 'kernelopts=' + new], check=True)
+                    changed = True
+
+    # Legacy non-BLS menus can contain arguments even when defaults were
+    # already cleaned. Detect these too, but let GRUB regenerate its own file.
+    grubcfg = root / 'boot/grub2/grub.cfg'
+    if grubcfg.is_file():
+        for line in grubcfg.read_text().splitlines():
+            if re.match(r'^\s*linux(?:efi|16)?\s', line) and clean_cmdline(line) != line:
+                changed = True
+                break
+    if changed and (root / 'etc/default/grub').is_file() and grubcfg.parent.is_dir():
+        # Nobara/Fedora's canonical path for both BIOS and UEFI. Never overwrite
+        # the small EFI vendor forwarding stub with a generated GRUB menu.
+        run(['grub2-mkconfig', '-o', str(grubcfg)], check=True)
+
+
+def main():
+    if len(sys.argv) != 2 or sys.argv[1] not in ('post', 'preun'):
+        print('Usage: nvidia-boot-update post|preun\n'
+              'Both modes remove legacy NVIDIA boot arguments; neither adds any.')
+        return 0 if sys.argv[1:] in (['--help'], ['-h']) else 2
+    try:
+        cleanup()
+    except (OSError, subprocess.CalledProcessError) as error:
+        print(f'nvidia-boot-update: cleanup failed: {error}', file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())
