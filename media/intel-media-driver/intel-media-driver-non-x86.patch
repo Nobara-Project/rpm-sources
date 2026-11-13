@@ -1,0 +1,176 @@
+diff -Naur a/media_driver/agnostic/common/cm/cm_mem.cpp b/media_driver/agnostic/common/cm/cm_mem.cpp
+--- a/media_driver/agnostic/common/cm/cm_mem.cpp
++++ b/media_driver/agnostic/common/cm/cm_mem.cpp
+@@ -33,7 +33,11 @@
+ 
+ #define CM_FAST_MEM_COPY_CPU_INIT_C(func)       (func ## _C)
+ #define CM_FAST_MEM_COPY_CPU_INIT_SSE2(func)    (func ## _SSE2)
++#ifdef CM_MEM_X86
+ #define CM_FAST_MEM_COPY_CPU_INIT(func)         (is_SSE2_available ? CM_FAST_MEM_COPY_CPU_INIT_SSE2(func) : CM_FAST_MEM_COPY_CPU_INIT_C(func))
++#else
++#define CM_FAST_MEM_COPY_CPU_INIT(func)         CM_FAST_MEM_COPY_CPU_INIT_C(func)
++#endif
+ 
+ void CmFastMemCopy( void* dst, const void* src, const size_t bytes )
+ {
+diff -Naur a/media_driver/agnostic/common/cm/cm_mem.h b/media_driver/agnostic/common/cm/cm_mem.h
+--- a/media_driver/agnostic/common/cm/cm_mem.h
++++ b/media_driver/agnostic/common/cm/cm_mem.h
+@@ -25,9 +25,13 @@
+ //!
+ #pragma once
+ 
++// The SSE copy routines exist only on x86; other architectures use the C ones.
++#if defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64)
++#define CM_MEM_X86 1
+ #include <mmintrin.h>
+ #include <xmmintrin.h>
+ #include <emmintrin.h>
++#endif
+ #include "cm_debug.h"
+ #include "mos_utilities.h"
+ 
+@@ -43,7 +47,11 @@
+     NUM_CPU_INSTRUCTION_LEVELS
+ };
+ 
++#ifdef CM_MEM_X86
+ typedef __m128              DQWORD;         // 128-bits,   16-bytes
++#else
++typedef struct { uint8_t b[16]; } __attribute__((aligned(16))) DQWORD; // 128-bits, 16-bytes
++#endif
+ typedef uint32_t            PREFETCH[8];    //             32-bytes
+ typedef uint32_t            CACHELINE[8];   //             32-bytes
+ typedef uint16_t            DHWORD[32];     // 512-bits,   64-bytes
+diff -Naur a/media_driver/cmake/linux/media_compile_flags_linux.cmake b/media_driver/cmake/linux/media_compile_flags_linux.cmake
+--- a/media_driver/cmake/linux/media_compile_flags_linux.cmake
++++ b/media_driver/cmake/linux/media_compile_flags_linux.cmake
+@@ -18,6 +18,13 @@
+ # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ # OTHER DEALINGS IN THE SOFTWARE.
+ 
++# The x86-only compiler options below are skipped on other architectures.
++if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64|i[3-6]86|x86)$")
++    set(MEDIA_ARCH_IS_X86 TRUE)
++else()
++    set(MEDIA_ARCH_IS_X86 FALSE)
++endif()
++
+ set(MEDIA_COMPILER_FLAGS_COMMON
+     # Global setting for warnings
+     -Wall
+@@ -54,8 +61,6 @@
+ 
+     # Enable c++14 features
+     -std=c++14
+-    # -m32 or -m64
+-    -m${ARCH}
+ 
+     # Global defines
+     -DLINUX=1
+@@ -66,6 +71,18 @@
+     -g
+ )
+ 
++if(MEDIA_ARCH_IS_X86)
++    set(MEDIA_COMPILER_FLAGS_COMMON
++        ${MEDIA_COMPILER_FLAGS_COMMON}
++        # -m32 or -m64
++        -m${ARCH})
++else()
++    set(MEDIA_COMPILER_FLAGS_COMMON
++        ${MEDIA_COMPILER_FLAGS_COMMON}
++        # The driver is developed on x86, where plain char is signed.
++        -fsigned-char)
++endif()
++
+ if(MEDIA_BUILD_HARDENING)
+     set(MEDIA_COMPILER_FLAGS_COMMON
+         ${MEDIA_COMPILER_FLAGS_COMMON}
+diff -Naur a/media_driver/linux/common/cm/hal/osservice/cm_mem_os.cpp b/media_driver/linux/common/cm/hal/osservice/cm_mem_os.cpp
+--- a/media_driver/linux/common/cm/hal/osservice/cm_mem_os.cpp
++++ b/media_driver/linux/common/cm/hal/osservice/cm_mem_os.cpp
+@@ -33,7 +33,11 @@
+ 
+ #define CM_FAST_MEM_COPY_CPU_INIT_C(func)       (func ## _C)
+ #define CM_FAST_MEM_COPY_CPU_INIT_SSE4(func)    (func ## _SSE4)
++#ifdef CM_MEM_X86
+ #define CM_FAST_MEM_COPY_CPU_INIT(func)         (is_SSE4_available ? CM_FAST_MEM_COPY_CPU_INIT_SSE4(func) : CM_FAST_MEM_COPY_CPU_INIT_C(func))
++#else
++#define CM_FAST_MEM_COPY_CPU_INIT(func)         CM_FAST_MEM_COPY_CPU_INIT_C(func)
++#endif
+ 
+ void CmFastMemCopyFromWC( void* dst, const void* src, const size_t bytes, CPU_INSTRUCTION_LEVEL cpuInstructionLevel )
+ {
+diff -Naur a/media_driver/linux/common/cm/hal/osservice/cm_mem_os.h b/media_driver/linux/common/cm/hal/osservice/cm_mem_os.h
+--- a/media_driver/linux/common/cm/hal/osservice/cm_mem_os.h
++++ b/media_driver/linux/common/cm/hal/osservice/cm_mem_os.h
+@@ -26,8 +26,10 @@
+ #pragma once
+ 
+ #include <iostream>
++#ifdef CM_MEM_X86
+ #include "cpuid.h"
+ #include <smmintrin.h>
++#endif
+ 
+ typedef uintptr_t           UINT_PTR;
+ #define __fastcall
+@@ -72,11 +74,18 @@
+ \*****************************************************************************/
+ inline void Prefetch( const void* ptr )
+ {
++#ifdef CM_MEM_X86
+     __asm__("prefetchnta 0(%0)"::"r"(ptr));
++#else
++    __builtin_prefetch(ptr, 0, 0);
++#endif
+ }
+ 
+ inline bool TestSSE4_1( void )
+ {
++#ifndef CM_MEM_X86
++    return false;
++#else
+     bool success = true;
+ 
+ #ifndef NO_EXCEPTION_HANDLING
+@@ -105,6 +114,7 @@
+     }
+ #endif // NO_EXCEPTION_HANDLING
+     return success;
++#endif // CM_MEM_X86
+ }
+ 
+ /*****************************************************************************\
+@@ -125,7 +135,9 @@
+     {
+ #endif //NO_EXCEPTION_HANDLING
+ 
++#ifdef CM_MEM_X86
+     __get_cpuid(infoType, (unsigned int*)cpuInfo, (unsigned int*)cpuInfo + 1, (unsigned int*)cpuInfo + 2, (unsigned int*)cpuInfo + 3);
++#endif // otherwise cpuInfo stays zeroed, which selects the C implementations
+ 
+ #ifndef NO_EXCEPTION_HANDLING
+     }
+diff -Naur a/media_driver/media_top_cmake.cmake b/media_driver/media_top_cmake.cmake
+--- a/media_driver/media_top_cmake.cmake
++++ b/media_driver/media_top_cmake.cmake
+@@ -420,11 +420,15 @@
+     ${SOFTLET_VP_PRIVATE_INCLUDE_DIRS_})
+ 
+ add_library(${LIB_NAME}_SSE2 OBJECT ${SOURCES_SSE2})
+-target_compile_options(${LIB_NAME}_SSE2 PRIVATE -msse2)
++if(MEDIA_ARCH_IS_X86)
++    target_compile_options(${LIB_NAME}_SSE2 PRIVATE -msse2)
++endif()
+ target_include_directories(${LIB_NAME}_SSE2 BEFORE PRIVATE ${SOFTLET_MOS_PREPEND_INCLUDE_DIRS_} ${MOS_PUBLIC_INCLUDE_DIRS_} ${SOFTLET_MOS_PUBLIC_INCLUDE_DIRS_} ${COMMON_PRIVATE_INCLUDE_DIRS_} ${SOFTLET_MHW_PRIVATE_INCLUDE_DIRS_} ${SOFTLET_DDI_PUBLIC_INCLUDE_DIRS_})
+ 
+ add_library(${LIB_NAME}_SSE4 OBJECT ${SOURCES_SSE4})
+-target_compile_options(${LIB_NAME}_SSE4 PRIVATE -msse4.1)
++if(MEDIA_ARCH_IS_X86)
++    target_compile_options(${LIB_NAME}_SSE4 PRIVATE -msse4.1)
++endif()
+ target_include_directories(${LIB_NAME}_SSE4 BEFORE PRIVATE ${SOFTLET_MOS_PREPEND_INCLUDE_DIRS_} ${MOS_PUBLIC_INCLUDE_DIRS_} ${SOFTLET_MOS_PUBLIC_INCLUDE_DIRS_} ${COMMON_PRIVATE_INCLUDE_DIRS_} ${SOFTLET_MHW_PRIVATE_INCLUDE_DIRS_} ${SOFTLET_DDI_PUBLIC_INCLUDE_DIRS_})
+ 
+ add_library(${LIB_NAME}_COMMON OBJECT ${COMMON_SOURCES_} ${SOFTLET_DDI_SOURCES_})

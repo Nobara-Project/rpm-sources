@@ -9,8 +9,13 @@ URL:        https://github.com/intel/media-driver
 Source0:    %{url}/archive/intel-media-%{version}%{?pre}.tar.gz
 Source1:    intel-media-driver.metainfo.xml
 
-# This is an Intel only vaapi backend
-ExclusiveArch:  i686 x86_64
+# Build on non-x86: skip the x86-only compiler flags and use the existing C
+# memory-copy fallbacks instead of the SSE ones. No effect on x86 builds.
+Patch0:     intel-media-driver-non-x86.patch
+
+# This is an Intel only vaapi backend. aarch64 is for Intel Arc discrete
+# cards in ARM machines.
+ExclusiveArch:  i686 x86_64 aarch64
 
 
 BuildRequires:  cmake >= 3.5
