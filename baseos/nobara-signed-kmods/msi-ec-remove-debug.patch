@@ -1,0 +1,204 @@
+Remove msi-ec debug mode (the debug module parameter).
+
+With debug=1 the driver exported /sys/devices/platform/msi-ec/debug/:
+ec_set writes any value to any of the embedded controller's 256 registers,
+ec_get and ec_dump read any of them, and the driver also loaded on
+unsupported or banned firmware. A signed module must not give root raw
+hardware register writes, which lockdown exists to remove (the kernel's
+ec_sys write support goes through debugfs, which lockdown restricts).
+The fixed-function attributes are unchanged; fw_version stays in the root
+group.
+
+--- a/msi-ec.c
++++ b/msi-ec.c
+@@ -1671,9 +1671,6 @@
+ module_param(firmware, charp, 0);
+ MODULE_PARM_DESC(firmware, "Load a configuration for a specified firmware version");
+ 
+-static bool debug = false;
+-module_param(debug, bool, 0);
+-MODULE_PARM_DESC(debug, "Load the driver in the debug mode, exporting the debug attributes");
+ 
+ // ============================================================ //
+ // Helper functions
+@@ -2476,132 +2473,6 @@
+ };
+ 
+ // ============================================================ //
+-// Sysfs platform device attributes (debug)
+-// ============================================================ //
+-
+-// Prints an EC memory dump in form of a table
+-static ssize_t ec_dump_show(struct device *device,
+-			    struct device_attribute *attr,
+-			    char *buf)
+-{
+-	int count = 0;
+-	char ascii_row[16]; // not null-terminated
+-
+-	// print header
+-	count += sysfs_emit(
+-		buf,
+-		"|      | _0 _1 _2 _3 _4 _5 _6 _7 _8 _9 _a _b _c _d _e _f\n"
+-		"|------+------------------------------------------------\n");
+-
+-	// print dump
+-	for (u8 i = 0x0; i <= 0xf; i++) {
+-		u8 addr_base = i * 16;
+-
+-		count += sysfs_emit_at(buf, count, "| %#x_ |", i);
+-		for (u8 j = 0x0; j <= 0xf; j++) {
+-			u8 rdata;
+-			int result = ec_read(addr_base + j, &rdata);
+-			if (result < 0)
+-				return result;
+-
+-			count += sysfs_emit_at(buf, count, " %02x", rdata);
+-			ascii_row[j] = isascii(rdata) && isgraph(rdata) ? rdata : '.';
+-		}
+-
+-		count += sysfs_emit_at(buf, count, "  |%.16s|\n", ascii_row);
+-	}
+-
+-	return count;
+-}
+-
+-// stores a value in the specified EC memory address. Format: "xx=xx", xx - hex u8
+-static ssize_t ec_set_store(struct device *dev, struct device_attribute *attr,
+-			    const char *buf, size_t count)
+-{
+-	if (count > 6) // "xx=xx\n" - 6 chars
+-		return -EINVAL;
+-
+-	int result;
+-
+-	char addr_s[3], val_s[3];
+-	result = sscanf(buf, "%2s=%2s", addr_s, val_s);
+-	if (result != 2)
+-		return -EINVAL;
+-
+-	u8 addr, val;
+-
+-	// convert addr
+-	result = kstrtou8(addr_s, 16, &addr);
+-	if (result < 0)
+-		return result;
+-
+-	// convert val
+-	result = kstrtou8(val_s, 16, &val);
+-	if (result < 0)
+-		return result;
+-
+-	// write val to EC[addr]
+-	result = ec_write(addr, val);
+-	if (result < 0)
+-		return result;
+-
+-	return count;
+-}
+-
+-// ec_get. stores the specified EC memory address. MAY BE UNSAFE!!!
+-static u8 ec_get_addr;
+-
+-// ec_get. reads and stores the specified EC memory address. Format: "xx", xx - hex u8
+-static ssize_t ec_get_store(struct device *dev, struct device_attribute *attr,
+-			    const char *buf, size_t count)
+-{
+-	if (count > 3) // "xx\n" - 3 chars
+-		return -EINVAL;
+-
+-	int result;
+-	char addr_s[3];
+-
+-	result = sscanf(buf, "%2s", addr_s);
+-	if (result != 1)
+-		return -EINVAL;
+-
+-	// convert addr
+-	result = kstrtou8(addr_s, 16, &ec_get_addr);
+-	if (result < 0)
+-		return result;
+-
+-	return count;
+-};
+-
+-// ec_get. prints value of previously stored EC memory address
+-static ssize_t ec_get_show(struct device *device,
+-			   struct device_attribute *attr,
+-			   char *buf)
+-{
+-	u8 rdata;
+-	int result;
+-
+-	result = ec_read(ec_get_addr, &rdata);
+-	if (result < 0)
+-		return result;
+-
+-	//	return sysfs_emit(buf, "%02x=%02x\n", ec_get_addr, rdata);
+-	return sysfs_emit(buf, "%02x\n", rdata);
+-};
+-
+-static DEVICE_ATTR_RO(ec_dump);
+-static DEVICE_ATTR_WO(ec_set);
+-static DEVICE_ATTR_RW(ec_get);
+-
+-static struct attribute *msi_debug_attrs[] = {
+-	&dev_attr_fw_version.attr,
+-	&dev_attr_ec_dump.attr,
+-	&dev_attr_ec_set.attr,
+-	&dev_attr_ec_get.attr,
+-	NULL
+-};
+-
+-// ============================================================ //
+ // Sysfs leds subsystem
+ // ============================================================ //
+ 
+@@ -2752,12 +2623,6 @@
+ 	.attrs = msi_gpu_attrs,
+ };
+ 
+-static const struct attribute_group msi_debug_group = {
+-	.name = "debug",
+-	.attrs = msi_debug_attrs,
+-};
+-
+-/* the debug group is created separately if needed */
+ static const struct attribute_group *msi_platform_groups[] = {
+ 	&msi_root_group,
+ 	&msi_cpu_group,
+@@ -2767,13 +2632,6 @@
+ 
+ static int __init msi_platform_probe(struct platform_device *pdev)
+ {
+-	if (debug) {
+-		int result = sysfs_create_group(&pdev->dev.kobj,
+-						&msi_debug_group);
+-		if (result < 0)
+-			return result;
+-	}
+-
+ 	return 0;
+ }
+ 
+@@ -2783,9 +2641,6 @@
+ static int msi_platform_remove(struct platform_device *pdev)
+ #endif
+ {
+-	if (debug)
+-		sysfs_remove_group(&pdev->dev.kobj, &msi_debug_group);
+-
+ #if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0))
+ 	return 0;
+ #endif
+@@ -2848,10 +2703,6 @@
+ 	}
+ 	
+ 
+-	// debug mode works regardless of whether the firmware is supported
+-	if (debug)
+-		return 0;
+-
+ 	if (!banned)
+ 		pr_err("Your firmware version is not supported!\n");
+ 	else

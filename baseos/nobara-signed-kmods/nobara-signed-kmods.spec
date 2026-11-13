@@ -62,10 +62,13 @@
 # OpenZFS's zfs-dkms (its own Fedora repository). LTS kernels only: OpenZFS
 # releases lag behind new mainline kernels
 %global zfs_version           2.4.4
+# baseos/dkms-msi-ec
+%global msi_ec_commit         c8cbd48ed01f5c4fa7e34ff622a66f5a5380c705
+%global msi_ec_version        0.18^20261109git.c8cbd48
 
 Name:           nobara-signed-kmods
 Version:        1
-Release:        10%{?dist}
+Release:        11%{?dist}
 Summary:        Nobara-signed kernel modules for the Easy Anti-Cheat kernel
 License:        GPL-2.0-only AND GPL-2.0-or-later AND MIT AND CDDL-1.0 AND NVIDIA License
 URL:            https://nobaraproject.org
@@ -86,6 +89,7 @@ Source14:       https://github.com/Fred78290/nct6687d/archive/%{nct6687d_commit}
 # SHA-256 2a3c70d55a37cc71618a95a60e81ad66530201eb118d37741dc92efcf848c8b1, as
 # in OpenZFS's signed zfs-%%{zfs_version}.sha256.asc
 Source15:       https://github.com/openzfs/zfs/releases/download/zfs-%{zfs_version}/zfs-%{zfs_version}.tar.gz
+Source16:       https://github.com/BeardOverflow/msi-ec/archive/%{msi_ec_commit}.tar.gz#/msi-ec-%{msi_ec_commit}.tar.gz
 
 # Same patches as nvidia/prod/<version>/kmod
 Patch100:       nvidia-prod-0001-Add-IBT-support.patch
@@ -108,6 +112,10 @@ Patch501:       openrazer-lts-reset-resume.patch
 # exists to remove. It is also the only way to enable the DASH firmware
 # buffer ioctls (rtk_enable_diag), which stay disabled without it
 Patch600:       r8125-remove-rtltool.patch
+# Drop msi-ec's debug mode (the debug parameter): its ec_set attribute gives
+# root raw writes to every embedded controller register (same patch as
+# baseos/dkms-msi-ec)
+Patch700:       msi-ec-remove-debug.patch
 
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
@@ -173,6 +181,10 @@ local modules = {
   { name = "nct6687d", dir = "nct6687d", version = rpm.expand("%{nct6687d_version}"),
     summary = "nct6687d (Nuvoton NCT6687-R sensors) kernel module",
     extra = "Requires:       nct6687d\n" },
+  -- Replaces the kernel's own msi-ec (updates/ is searched first)
+  { name = "msi-ec", dir = "msi-ec", version = rpm.expand("%{msi_ec_version}"),
+    summary = "msi-ec (MSI laptop embedded controller) kernel module",
+    extra = "Requires:       dkms-msi-ec\n" },
   { name = "zfs", dir = "zfs", version = rpm.expand("%{zfs_version}"), lts_only = true,
     summary = "OpenZFS (zfs and spl) kernel modules",
     extra = "Requires:       zfs-dkms\n" },
@@ -208,7 +220,7 @@ end
 
 %prep
 %setup -q -c -T
-mkdir nvidia-prod nvidia-nf xone xpad-noone openrazer hid-tmff2 hid-fanatecff new-lg4ff evdi r8125 nct6687d zfs
+mkdir nvidia-prod nvidia-nf xone xpad-noone openrazer hid-tmff2 hid-fanatecff new-lg4ff evdi r8125 nct6687d msi-ec zfs
 tar -xf %{SOURCE0} -C nvidia-prod --strip-components=1
 tar -xf %{SOURCE1} -C nvidia-nf --strip-components=1
 tar -xf %{SOURCE2} -C xone --strip-components=1
@@ -225,6 +237,7 @@ tar -xf %{SOURCE10} -C evdi --strip-components=1
 tar -xf %{SOURCE13} -C r8125 --strip-components=1
 tar -xf %{SOURCE14} -C nct6687d --strip-components=1
 tar -xf %{SOURCE15} -C zfs --strip-components=1
+tar -xf %{SOURCE16} -C msi-ec --strip-components=1
 # The same options as rpm's %%patch, so the patches apply as in their own specs
 apply() { %{__patch} -p1 -s --fuzz=2 --no-backup-if-mismatch -f -d "$1" -i "$2"; }
 for p in %{P:100} %{P:101} %{P:102} %{P:103} %{P:104} %{P:105}; do apply nvidia-prod $p; done
@@ -235,11 +248,12 @@ apply xpad-noone %{P:401}
 apply openrazer %{P:500}
 apply openrazer %{P:501}
 apply r8125 %{P:600}
+apply msi-ec %{P:700}
 
 %build
 # The modules built for a kernel (zfs: LTS kernels only)
 modules_for() {
-    echo nvidia-prod nvidia-nf xone xpad-noone openrazer hid-tmff2 hid-fanatecff new-lg4ff evdi r8125 nct6687d
+    echo nvidia-prod nvidia-nf xone xpad-noone openrazer hid-tmff2 hid-fanatecff new-lg4ff evdi r8125 nct6687d msi-ec
     case "$1" in *.lts.*) echo zfs ;; esac
 }
 for kver in %{kernels}; do
@@ -262,6 +276,7 @@ for kver in %{kernels}; do
     make %{?_smp_mflags} -C $kdir M=$PWD/evdi/module modules
     make %{?_smp_mflags} -C $kdir M=$PWD/r8125/src modules
     make %{?_smp_mflags} -C $kdir M=$PWD/nct6687d modules
+    make %{?_smp_mflags} -C $kdir M=$PWD/msi-ec modules
     if [ -d zfs ]; then
         # As zfs-dkms (scripts/dkms.mkconf): only the kernel modules
         pushd zfs
@@ -278,7 +293,7 @@ for kver in %{kernels}; do
     b="build-$kver"
     d=%{buildroot}/lib/modules/$kver/updates/nobara
     install -d $d/nvidia-prod $d/nvidia-nf $d/xone $d/xpad-noone $d/openrazer \
-        $d/hid-tmff2 $d/hid-fanatecff $d/new-lg4ff $d/evdi $d/r8125 $d/nct6687d
+        $d/hid-tmff2 $d/hid-fanatecff $d/new-lg4ff $d/evdi $d/r8125 $d/nct6687d $d/msi-ec
     install -m 0644 $b/nvidia-prod/kernel-open/*.ko $d/nvidia-prod/
     install -m 0644 $b/nvidia-nf/kernel-open/*.ko $d/nvidia-nf/
     install -m 0644 $b/xone/*.ko $d/xone/
@@ -291,6 +306,7 @@ for kver in %{kernels}; do
     install -m 0644 $b/evdi/module/evdi.ko $d/evdi/
     install -m 0644 $b/r8125/src/r8125.ko $d/r8125/
     install -m 0644 $b/nct6687d/nct6687.ko $d/nct6687d/
+    install -m 0644 $b/msi-ec/msi-ec.ko $d/msi-ec/
     if [ -d $b/zfs ]; then
         install -d $d/zfs
         install -m 0644 $b/zfs/module/zfs.ko $b/zfs/module/spl.ko $d/zfs/
@@ -300,6 +316,12 @@ done
 find %{buildroot}/lib/modules -name '*.ko' -exec strip --strip-debug {} +
 
 %changelog
+* Thu Nov 12 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 1-11
+- Add msi-ec %{msi_ec_version} (MSI laptops' embedded controller), as
+  baseos/dkms-msi-ec, replacing the kernel's own msi-ec. Its debug mode is
+  removed: the ec_set attribute gave root raw writes to every embedded
+  controller register
+
 * Wed Nov 11 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 1-9
 - xone: version 0.5.8.3 (fork ea58108), matching baseos/xone: xone_mtnet
   turns controllers off before system sleep and after 15 minutes idle
