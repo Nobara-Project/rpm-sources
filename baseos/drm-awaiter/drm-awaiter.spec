@@ -1,6 +1,6 @@
 Name:           drm-awaiter
 Version:        1
-Release:        6%{?dist}
+Release:        7%{?dist}
 Summary:        Load GPU drivers from the root filesystem before graphical login
 License:        GPL-3.0-or-later
 URL:            https://github.com/CachyOS/CachyOS-PKGBUILDS/pull/1695
@@ -12,6 +12,7 @@ Source3:        COPYING
 Source4:        test-generator.py
 Source5:        drm-awaiter-initramfs
 Source6:        test-initramfs.py
+Source7:        test-dracut-conf.py
 BuildRequires:  systemd-rpm-macros
 BuildRequires:  python3
 BuildRequires:  bash
@@ -31,7 +32,7 @@ modules and their firmware no longer need to be included in each initramfs.
 
 %prep
 %setup -q -T -c
-cp %{SOURCE0} %{SOURCE1} %{SOURCE2} %{SOURCE3} %{SOURCE4} %{SOURCE5} %{SOURCE6} .
+cp %{SOURCE0} %{SOURCE1} %{SOURCE2} %{SOURCE3} %{SOURCE4} %{SOURCE5} %{SOURCE6} %{SOURCE7} .
 
 %build
 
@@ -45,6 +46,7 @@ bash -n drm-module-awaiter-generator
 bash -n drm-awaiter-initramfs
 python3 test-generator.py
 python3 test-initramfs.py
+python3 test-dracut-conf.py
 
 %post
 %{_libexecdir}/drm-awaiter-initramfs request
@@ -65,6 +67,15 @@ python3 test-initramfs.py
 %{_libexecdir}/drm-awaiter-initramfs
 
 %changelog
+* Thu Nov 12 2026 Nobara Project <contact@nobaraproject.org> - 1-7
+- Leave only NVIDIA, Nouveau and Nova out of the initramfs. Every other GPU
+  driver, on any architecture, is included as dracut normally selects it, so
+  the boot splash and LUKS prompt are drawn at the monitor's resolution: on
+  SimpleDRM they used the firmware framebuffer's, which many GPUs (AMD in
+  particular) start below the monitor's, so they looked stretched. Images
+  with amdgpu grow by about 33 MB (its firmware). The upgrade rebuilds the
+  initramfs of every installed kernel.
+
 * Sun Nov 01 2026 Nobara Project <contact@nobaraproject.org> - 1-6
 - Skip installed kernels whose boot files are missing instead of letting
   dracut guess a stale /boot/efi/<machine-id> destination and fail the RPM

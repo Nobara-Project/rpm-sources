@@ -7,8 +7,15 @@ GPL-2.0-or-later; this adaptation is distributed under GPL-3.0-or-later,
 with the license in COPYING.
 
 The firmware framebuffer and built-in SimpleDRM provide the early console.
-Dracut excludes AMD, Intel and NVIDIA GPU modules (including Nouveau) and
-their otherwise-unneeded firmware. After mounting the real root, the
+Dracut excludes the NVIDIA, Nouveau and Nova modules and their
+otherwise-unneeded firmware. Every other GPU driver, on any architecture,
+follows dracut's usual selection: a host-only image has the drivers this
+computer's displays use, and a generic image (`--no-hostonly`, such as the
+rescue image) has them all. The boot splash and LUKS prompt are then drawn
+by the real driver at the monitor's resolution; on SimpleDRM they get the
+firmware framebuffer's, which many GPUs start at a lower resolution that the
+monitor stretches. amdgpu brings its firmware for every AMD GPU generation
+(about 33 MB per image). After mounting the real root, the
 generator detects PCI display devices and orders the display manager and
 tty1 login after a bounded module-loading service. NVIDIA packages retain
 their Nouveau/Nova blacklists to select the installed NVIDIA driver. There
@@ -151,18 +158,20 @@ their existing cleanup. No change to the global DKMS hook is required.
 
 ## Validation before release
 
-`python3 test-generator.py` runs isolated topology/blacklist/recovery fixtures;
+`python3 test-dracut-conf.py` sources the dracut policy and checks that only
+NVIDIA, Nouveau and Nova are omitted. `python3 test-generator.py` runs isolated topology/blacklist/recovery fixtures;
 it does not load host modules. `python3 test-initramfs.py` checks kernel selection,
 orphan module trees, output destinations, batching and failed-rebuild retries
-using temporary boot trees and a recording dracut stub. RPM `%check` runs both
-suites and bash syntax validation. These checks do not replace a boot test.
+using temporary boot trees and a recording dracut stub. RPM `%check` runs all
+three suites and bash syntax validation. These checks do not replace a boot test.
 
 Test both kernels with each NVIDIA channel, plus AMD, Intel, Nouveau,
 hybrid graphics, a VM and a machine without a GPU. For each relevant machine:
 
 1. Test an upgrade with existing initramfs images and a fresh kernel install.
-   Use `lsinitrd /boot/initramfs-<kernel-version>.img` to confirm vendor GPU
-   modules and their GPU-only firmware are absent, while storage, keyboard
+   Use `lsinitrd /boot/initramfs-<kernel-version>.img` to confirm NVIDIA and
+   Nouveau modules are absent and the other GPU driver in use is present,
+   while storage, keyboard
    and encryption support remain present. Compare image sizes before/after.
 2. Boot with LUKS and verify the password prompt, keyboard, display handoff,
    SDDM/GDM and tty1 autologin/gamescope. Test BIOS/UEFI paths in use by Nobara.
@@ -174,7 +183,7 @@ hybrid graphics, a VM and a machine without a GPU. For each relevant machine:
    login wait. Verify switching NVIDIA flavors and uninstalling NVIDIA restores
    Nouveau selection after reboot. Verify resume and external displays.
 
-Early GPU-accelerated Plymouth is intentionally lost. Firmware with no usable
+Early GPU-accelerated Plymouth is intentionally lost on NVIDIA. Firmware with no usable
 framebuffer can require early KMS for a visible encrypted-root prompt; verify
 this on hardware before publishing broadly. Non-PCI GPUs and late hotplug
 remain handled by normal udev and are not synchronized by this generator.
