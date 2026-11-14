@@ -4,7 +4,7 @@
 Name:           labwc
 Version:        0.20.2
 %forgemeta
-Release:        29%{?dist}
+Release:        30%{?dist}
 Summary:        A Wayland window-stacking compositor
 
 License:        GPL-2.0-only AND MIT
@@ -17,6 +17,7 @@ Source4:        wlroots-0.20.2-xwayland-associate.patch
 Source5:        wlroots-0.20.2-xwayland-clipboard-focus.patch
 Source6:        wlroots-0.20.2-scene-corner-clip.patch
 Source7:        wlroots-0.20.2-prefer-vulkan-renderer.patch
+Source8:        wlroots-0.20.2-toplevel-icon-keep-replaced-buffers.patch
 Patch:          0001-add-per-output-hdr-overrides.patch
 Patch:          0002-allow-moving-fullscreen-views-between-outputs.patch
 Patch:          0003-defer-live-hdr-changes-to-next-frame.patch
@@ -161,6 +162,7 @@ mv subprojects/wlroots-0.20.2 subprojects/wlroots
 %{__patch} -d subprojects/wlroots -p1 < %{SOURCE5}
 %{__patch} -d subprojects/wlroots -p1 < %{SOURCE6}
 %{__patch} -d subprojects/wlroots -p1 < %{SOURCE7}
+%{__patch} -d subprojects/wlroots -p1 < %{SOURCE8}
 cp subprojects/wlroots/LICENSE WLROOTS-LICENSE
 
 
@@ -208,6 +210,9 @@ cp subprojects/wlroots/LICENSE WLROOTS-LICENSE
 %{_userunitdir}/labwc-session.target
 
 %changelog
+* Sat Nov 14 2026 Nobara Project - 0.20.2-30
+- Stop GTK 4.22 apps from crashing when a window closes: a window icon buffer that the app replaced is now kept until the app destroys the icon, instead of being released early, which made GTK free it twice (seen as Ptyxis losing every window when one was closed)
+
 * Fri Nov 13 2026 Nobara Project - 0.20.2-29
 - Add the PlaceOnOutput action: put a window on a named output at a given position and size, optionally maximized; as a window rule it places an app's window when it opens
 - The tiling control socket's window list now reports each window's app ID, title, output name, maximized state and its place on the output, so Tessel can remember where an app's window sits

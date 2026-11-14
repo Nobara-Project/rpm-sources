@@ -1,0 +1,77 @@
+From: Tessel <noreply@nobaraproject.org>
+Subject: [PATCH] xdg-toplevel-icon: keep replaced buffers until the icon is destroyed
+
+When a client adds a second buffer of the same size and scale to an icon,
+the first one was unlocked straight away, which sends wl_buffer.release
+while the client still holds the icon.
+
+GTK 4.22 destroys its icon wl_buffer when it is released and destroys it
+again when the window closes or its icon changes (fixed in GTK 4.24 by
+"gdk/wayland: Avoid destroying toplevel icon buffers twice"). Every GTK 4
+app that sets a themed window icon sends two buffers of one size, so on
+wlroots compositors closing a window used a freed proxy and, depending on
+what the memory held by then, took the whole app down - with a terminal,
+all of its windows and shells.
+
+Hold the replaced buffer until the icon itself is destroyed. Clients
+destroy their buffers at that point, so the late release reaches nothing.
+
+--- a/include/wlr/types/wlr_xdg_toplevel_icon_v1.h
++++ b/include/wlr/types/wlr_xdg_toplevel_icon_v1.h
+@@ -52,6 +52,8 @@ struct wlr_xdg_toplevel_icon_v1 {
+ 	struct {
+ 		int n_refs;
+ 		bool immutable;
++		// Buffers another add_buffer replaced, kept until the icon is destroyed
++		struct wl_list replaced; // wlr_xdg_toplevel_icon_v1_buffer.link
+ 	} WLR_PRIVATE;
+ };
+ 
+--- a/types/wlr_xdg_toplevel_icon_v1.c
++++ b/types/wlr_xdg_toplevel_icon_v1.c
+@@ -27,6 +27,11 @@ static void icon_destroy(struct wlr_xdg_
+ 		wl_list_remove(&icon_buffer->link);
+ 		free(icon_buffer);
+ 	}
++	wl_list_for_each_safe(icon_buffer, tmp, &icon->replaced, link) {
++		wlr_buffer_unlock(icon_buffer->buffer);
++		wl_list_remove(&icon_buffer->link);
++		free(icon_buffer);
++	}
+ 
+ 	free(icon->name);
+ 	free(icon);
+@@ -85,7 +90,24 @@ static void icon_handle_add_buffer(struc
+ 	struct wlr_xdg_toplevel_icon_v1_buffer *icon_buffer;
+ 	wl_list_for_each(icon_buffer, &icon->buffers, link) {
+ 		if (icon_buffer->buffer->width == buffer->width && icon_buffer->scale == scale) {
+-			wlr_buffer_unlock(icon_buffer->buffer);
++			/*
++			 * Unlocking the replaced buffer here sends wl_buffer.release
++			 * while the client still holds the icon. GTK 4.22 destroys
++			 * the buffer on release and again when the window closes
++			 * (fixed in GTK 4.24), which crashes the client: every app
++			 * that sets a themed window icon sends two buffers of one
++			 * size. Keep the buffer until the icon goes away, where
++			 * the client destroys its buffers anyway.
++			 */
++			struct wlr_xdg_toplevel_icon_v1_buffer *replaced =
++				calloc(1, sizeof(*replaced));
++			if (replaced != NULL) {
++				replaced->buffer = icon_buffer->buffer;
++				replaced->scale = icon_buffer->scale;
++				wl_list_insert(&icon->replaced, &replaced->link);
++			} else {
++				wlr_buffer_unlock(icon_buffer->buffer);
++			}
+ 			icon_buffer->buffer = buffer;
+ 			return;
+ 		}
+@@ -160,6 +182,7 @@ static void manager_handle_create_icon(s
+ 	}
+ 
+ 	wl_list_init(&icon->buffers);
++	wl_list_init(&icon->replaced);
+ 	icon->n_refs = 1;
+ 
+ 	wl_resource_set_implementation(icon_resource, &icon_impl, icon, icon_handle_resource_destroy);
