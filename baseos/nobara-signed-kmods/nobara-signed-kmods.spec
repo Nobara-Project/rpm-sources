@@ -84,7 +84,7 @@ modules_for() {
 
 Name:           nobara-signed-kmods
 Version:        1
-Release:        14%{?dist}
+Release:        15%{?dist}
 Summary:        Nobara-signed kernel modules for the Easy Anti-Cheat kernel
 License:        GPL-2.0-only AND GPL-2.0-or-later AND MIT AND CDDL-1.0 AND NVIDIA License
 URL:            https://nobaraproject.org
