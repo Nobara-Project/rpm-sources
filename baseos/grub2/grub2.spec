@@ -17,7 +17,7 @@
 Name:		grub2
 Epoch:		1
 Version:	2.12
-Release:	66%{?dist}
+Release:	67%{?dist}
 Summary:	Bootloader with support for Linux, Multiboot and more
 License:	GPL-3.0-or-later
 URL:		http://www.gnu.org/software/grub/
@@ -665,6 +665,15 @@ fi
 %endif
 
 %changelog
+* Fri Nov 13 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 2.12-67
+- On the Lenovo ThinkPad T14s Gen 6 (Snapdragon X Elite) with 64 GB, keep
+  0x8800000000-0x8fffffffff unused from the start (as "cutmem 0x8800000000
+  0x8fffffffff", which Secure Boot lockdown disables): GRUB reset the
+  machine as soon as it started. Detected from SMBIOS; nothing changes on
+  other machines
+- aarch64: build in the mmap and smbios modules, so grub.cfg can detect
+  machines through SMBIOS with Secure Boot on
+
 * Wed Nov 04 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 2.12-65
 - GRUB is signed by the Nobara EAC CA (SBAT grub.nobara,2), so Easy Anti-Cheat
   can tell an EAC boot by the CA shim measures

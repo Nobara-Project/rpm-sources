@@ -1,0 +1,197 @@
+From e3535b6b7cc8f5b2bdc9f045cd6c70eabf4bf1a3 Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Fri, 13 Nov 2026 23:33:36 -0700
+Subject: [PATCH] efi: reserve 0x8800000000-0x8fffffffff on the ThinkPad T14s
+ Gen 6
+
+The Lenovo ThinkPad T14s Gen 6 (Snapdragon X Elite) with 64 GB of RAM
+resets as soon as GRUB starts unless that range stays unused, which
+"cutmem 0x8800000000 0x8fffffffff" does by hand. Secure Boot lockdown
+disables cutmem, so on that model (SMBIOS type 1: LENOVO, version or
+family "ThinkPad T14s Gen 6", or machine type 21N1/21N2) mark the free
+memory in the range unusable before the heap is set up, as cutmem
+does on EFI. Other machines are not affected.
+---
+ grub-core/kern/efi/init.c | 159 ++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 159 insertions(+)
+
+diff --git a/grub-core/kern/efi/init.c b/grub-core/kern/efi/init.c
+index ce8a7fe..28455be 100644
+--- a/grub-core/kern/efi/init.c
++++ b/grub-core/kern/efi/init.c
+@@ -131,6 +131,160 @@ grub_efi_env_init (void)
+   grub_free (envblk_s.buf);
+ }
+ 
++#if defined (__aarch64__)
++/*
++ * Nobara: the Lenovo ThinkPad T14s Gen 6 (Snapdragon X Elite) with 64 GB of
++ * RAM resets as soon as GRUB starts unless 0x8800000000-0x8fffffffff stays
++ * unused, which "cutmem 0x8800000000 0x8fffffffff" does by hand
++ * (https://fedoraproject.org/wiki/Thinkpad_t14s). Secure Boot lockdown
++ * disables cutmem, so on that model mark the free memory in the range
++ * unusable here, before GRUB sets up its heap: GRUB allocates nothing there,
++ * and the range stays unusable in the memory map the kernel gets, as with
++ * cutmem. Every other machine, and that range on smaller models, is left as
++ * it is.
++ */
++#define NOBARA_T14S_CUT_START	0x8800000000ULL
++#define NOBARA_T14S_CUT_END	0x9000000000ULL
++
++/* String INDEX (1-based) of an SMBIOS structure, from its string set
++   [STRINGS, LAST], where LAST is the NUL that ends the last string.  */
++static const char *
++nobara_smbios_string (const grub_uint8_t *strings, const grub_uint8_t *last,
++		      grub_uint8_t index)
++{
++  const grub_uint8_t *p = strings;
++  grub_uint8_t i;
++
++  if (index == 0)
++    return NULL;
++  for (i = 1; p < last; i++)
++    {
++      if (i == index)
++	return *p ? (const char *) p : NULL;
++      while (p < last && *p)
++	p++;
++      p++;
++    }
++  return NULL;
++}
++
++static int
++nobara_is_thinkpad_t14s_gen6 (void)
++{
++  static grub_guid_t smbios3_guid = GRUB_EFI_SMBIOS3_TABLE_GUID;
++  static grub_guid_t smbios_guid = GRUB_EFI_SMBIOS_TABLE_GUID;
++  const grub_uint8_t *eps, *p, *end;
++  grub_uint64_t table = 0;
++  grub_uint64_t len = 0;
++
++  eps = grub_efi_find_configuration_table (&smbios3_guid);
++  if (eps && grub_memcmp (eps, "_SM3_", 5) == 0)
++    {
++      len = grub_get_unaligned32 (eps + 0x0c);
++      table = grub_get_unaligned64 (eps + 0x10);
++    }
++  else
++    {
++      eps = grub_efi_find_configuration_table (&smbios_guid);
++      if (eps && grub_memcmp (eps, "_SM_", 4) == 0)
++	{
++	  len = grub_get_unaligned16 (eps + 0x16);
++	  table = grub_get_unaligned32 (eps + 0x18);
++	}
++    }
++  if (table == 0 || len < 4)
++    return 0;
++
++  p = (const grub_uint8_t *) (grub_addr_t) table;
++  end = p + len;
++  while (p + 4 <= end)
++    {
++      grub_uint8_t type = p[0], hlen = p[1];
++      const grub_uint8_t *q;
++
++      if (hlen < 4 || p + hlen > end)
++	return 0;
++      /* The string set ends with two NULs.  */
++      for (q = p + hlen; q + 1 < end && (q[0] || q[1]); q++)
++	;
++      if (q + 1 >= end)
++	return 0;
++
++      if (type == 1)
++	{
++	  const char *manufacturer, *product, *version, *family = NULL;
++	  const char *model = "ThinkPad T14s Gen 6";
++
++	  if (hlen < 0x08)
++	    return 0;
++	  manufacturer = nobara_smbios_string (p + hlen, q + 1, p[0x04]);
++	  product = nobara_smbios_string (p + hlen, q + 1, p[0x05]);
++	  version = nobara_smbios_string (p + hlen, q + 1, p[0x06]);
++	  if (hlen > 0x1a)
++	    family = nobara_smbios_string (p + hlen, q + 1, p[0x1a]);
++	  if (!manufacturer || grub_strcmp (manufacturer, "LENOVO") != 0)
++	    return 0;
++	  return (version && grub_strstr (version, model))
++	    || (family && grub_strstr (family, model))
++	    || (product && (grub_strncmp (product, "21N1", 4) == 0
++			    || grub_strncmp (product, "21N2", 4) == 0));
++	}
++      if (type == 127)
++	return 0;
++      p = q + 2;
++    }
++  return 0;
++}
++
++/* Mark the free memory in [START, END) unusable, as cutmem does on EFI.  */
++static void
++nobara_reserve_range (grub_uint64_t start, grub_uint64_t end)
++{
++  grub_efi_boot_services_t *b = grub_efi_system_table->boot_services;
++  grub_efi_uintn_t size = 0, key, dsize, pages;
++  grub_efi_uint32_t version;
++  grub_efi_physical_address_t buf = 0xffffffff;
++  grub_efi_memory_descriptor_t *map, *d;
++  grub_efi_status_t status;
++
++  status = b->get_memory_map (&size, NULL, &key, &dsize, &version);
++  if (status != GRUB_EFI_BUFFER_TOO_SMALL || dsize == 0)
++    return;
++  /* Room for the descriptors the buffer itself adds; below 4 GiB, so it is
++     never inside the range.  */
++  size += 8 * dsize;
++  pages = (size + 0xfff) >> 12;
++  status = b->allocate_pages (GRUB_EFI_ALLOCATE_MAX_ADDRESS,
++			      GRUB_EFI_LOADER_DATA, pages, &buf);
++  if (status != GRUB_EFI_SUCCESS)
++    return;
++  map = (grub_efi_memory_descriptor_t *) (grub_addr_t) buf;
++  size = pages << 12;
++  status = b->get_memory_map (&size, map, &key, &dsize, &version);
++  if (status == GRUB_EFI_SUCCESS)
++    for (d = map; (grub_uint8_t *) d + dsize <= (grub_uint8_t *) map + size;
++	 d = (grub_efi_memory_descriptor_t *) ((grub_uint8_t *) d + dsize))
++      {
++	grub_uint64_t s = d->physical_start;
++	grub_uint64_t e = s + (d->num_pages << 12);
++	grub_efi_physical_address_t addr;
++
++	if (d->type != GRUB_EFI_CONVENTIONAL_MEMORY)
++	  continue;
++	if (s < start)
++	  s = start;
++	if (e > end)
++	  e = end;
++	if (s >= e)
++	  continue;
++	addr = s;
++	b->allocate_pages (GRUB_EFI_ALLOCATE_ADDRESS, GRUB_EFI_UNUSABLE_MEMORY,
++			   (e - s) >> 12, &addr);
++      }
++  b->free_pages (buf, pages);
++}
++#endif
++
+ __attribute__ ((__optimize__ ("-fno-stack-protector"))) void
+ grub_efi_init (void)
+ {
+@@ -141,6 +295,11 @@ grub_efi_init (void)
+ 
+   stack_protector_init ();
+ 
++#if defined (__aarch64__)
++  if (nobara_is_thinkpad_t14s_gen6 ())
++    nobara_reserve_range (NOBARA_T14S_CUT_START, NOBARA_T14S_CUT_END);
++#endif
++
+   /* Initialize the memory management system.  */
+   grub_efi_mm_init ();
+ 
+-- 
+2.56.0
+

@@ -179,8 +179,15 @@
 %global platform_modules " appendedsig tpm ofnet "
 %endif
 
-%ifarch aarch64 %{arm} riscv64
+%ifarch %{arm} riscv64
 %global platform_modules " "
+%endif
+
+# Nobara: aarch64 GRUB has mmap (cutmem, badram) and smbios built in: the
+# aarch64 live ISO's grub.cfg detects machines through SMBIOS, which also
+# works with Secure Boot on, where no module can be loaded
+%ifarch aarch64
+%global platform_modules " mmap smbios "
 %endif
 
 %ifarch aarch64 %{arm} riscv64
