@@ -1,3 +1,9 @@
+# grub.macros and grub.patches (Source1, Source11) are %%included while the
+# spec is parsed, from %%{_sourcedir}. When they aren't there, as with
+# "spectool -g *.spec" in this directory, read them from the current
+# directory. Builds (rpmbuild, mock, COPR) have them in %%{_sourcedir}.
+%global _sourcedir %(d="%{_sourcedir}"; [ -f "$d/grub.macros" ] || d="$PWD"; cd "$d" && pwd)
+
 # This package calls binutils components directly and would need to pass
 # in flags to enable the LTO plugins
 # Disable LTO
