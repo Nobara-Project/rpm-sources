@@ -6,7 +6,7 @@
 %global _sourcedir %(d="%{_sourcedir}"; [ -f "$d/genconfig.py" ] || d="$d/.."; cd "$d" && pwd)
 %global nobara_eac 1
 # Refuse to build from a kernel.spec this file wasn't generated from
-%global nobara_eac_base_sha256 b0bbae0e0ffcf6cd122412e30e6fd4b019036026025d86a0a4ebdb07d1502307
+%global nobara_eac_base_sha256 6e5be8a2b44247ef2c3607db9b203947b545680293cbb18eae393467132a4e04
 %if "%(f="%{_sourcedir}/kernel.spec"; [ -f "$f" ] && sha256sum "$f" | cut -c1-64 || echo %{nobara_eac_base_sha256})" != "%{nobara_eac_base_sha256}"
 %{error:../kernel.spec changed since kernel-eac.spec was generated: run ./update-eac-spec.sh}
 %endif
@@ -87,7 +87,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 203
+%define customver 204
 %endif
 
 Release:%{customver}.lts%{?eactag}.nobara%{?dist}
@@ -1338,6 +1338,15 @@ fi
 %files
 
 %changelog
+* Sat Nov 14 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 6.18.60-204
+- aarch64: take the platform and driver options of the kernel's own
+  arch/arm64/configs/defconfig (genconfig.py). The CachyOS x86 base config
+  had none of them, and olddefconfig dropped what config.aarch64 set when a
+  parent option was off: no Qualcomm clock controllers, SPMI/PMIC, IPCC,
+  ADSP or eUSB2 PHY, so USB and much else never came up on Snapdragon X
+  laptops (the ThinkPad T14s Gen 6 live ISO could not find its USB stick).
+  Generic tuning, debug and security options keep CachyOS's settings
+
 * Fri Nov 13 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 6.18.60-203
 - aarch64: build vmlinuz as an EFI zboot application (CONFIG_EFI_ZBOOT), so
   the kernel image is a PE binary that carries the SBAT section and can be
