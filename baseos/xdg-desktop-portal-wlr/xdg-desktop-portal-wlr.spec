@@ -1,6 +1,6 @@
 Name:           xdg-desktop-portal-wlr
 Version:        0.8.4
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        xdg-desktop-portal backend for wlroots
 
 License:        MIT
@@ -18,6 +18,12 @@ Patch0:         0001-screencast-publish-Wayland-output-colorimetry.patch
 Patch1:         0002-remotedesktop-implement-RemoteDesktop-portal.patch
 # Tell the chooser which ScreenCast session it is selecting for
 Patch2:         0003-screencast-chooser-session-context.patch
+# Offer converted 8-bit shm frames when the compositor captures in 10 bits
+# (HDR), and survive a stream that fails to negotiate
+Patch3:         0004-screencast-convert-10-bit-shm-frames-to-8-bit.patch
+# Do not deliver an unwritten, mistimed buffer when the consumer pauses the
+# stream while a capture is in flight (GStreamer does while starting up)
+Patch4:         0005-screencast-abandon-the-capture-when-the-stream-pauses.patch
 
 BuildRequires:  gcc
 BuildRequires:  gnupg2
@@ -66,6 +72,10 @@ xdg-desktop-portal interfaces for wlroots based compositors.
 %meson_build
 
 
+%check
+%meson_test
+
+
 %install
 %meson_install
 install -D -pv -m644 %{SOURCE3} \
@@ -91,6 +101,15 @@ install -D -pv -m644 %{SOURCE3} \
 
 
 %changelog
+* Fri Nov 13 2026 Nobara Project <nobara@protonmail.com> - 0.8.4-5
+- Offer 8-bit shm frames, converted (and on HDR outputs tone mapped to SDR),
+  when the compositor only captures in 10 bits, so that consumers without
+  dmabuf or 10-bit support such as RustDesk can share an HDR monitor
+- Do not exit when a single PipeWire stream fails to negotiate
+- Abandon the capture in flight when the stream pauses, instead of handing
+  the consumer an unwritten buffer with a stale timestamp, which stalled
+  GStreamer consumers such as RustDesk after the first frame
+
 * Mon Nov 02 2026 Nobara Project <nobara@protonmail.com> - 0.8.4-4
 - Export XDPW_CHOOSER_SESSION to the chooser so it can match its
   selection to the requesting ScreenCast session

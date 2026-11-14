@@ -1,0 +1,1321 @@
+From 526d5ca61674ec26745eed6994c3d9891484edf9 Mon Sep 17 00:00:00 2001
+From: t <t@t>
+Date: Fri, 13 Nov 2026 21:04:19 -0700
+Subject: [PATCH] screencast: offer converted 8-bit shm frames for 10-bit
+ outputs
+
+A compositor that renders an output in 10 bits (HDR, or 10-bit SDR) only
+offers a 10-bit wl_shm capture format. Consumers that can neither import
+dmabufs nor read 10-bit packed RGB, such as GStreamer's pipewiresrc and
+with it RustDesk, then had no format in common with the stream: the link
+failed with "no more input formats".
+
+Offer XRGB8888 (BGRx) over shm as a last choice when the compositor has no
+8-bit shm format. The frame is captured into a private 10-bit buffer and
+converted into the buffer the consumer maps; only the regions that changed
+since that buffer was last filled are converted, large ones on a few
+threads. On a PQ output the frame is tone mapped to SDR: PQ is decoded, the
+compositor's SDR reference white (from the output's image description)
+becomes 1.0, BT.2020 becomes sRGB primaries and the result is encoded with
+gamma 2.2, which is how wlroots puts untagged SDR surfaces on such an
+output, so SDR content comes back as it went in. Light above reference
+white clips.
+
+Also stop exiting on every error the PipeWire core relays. Only a lost
+connection is fatal; an error on one stream (such as the failed link above)
+took all other screencasts and remote desktop sessions down with it.
+---
+ include/screencast_common.h          |  26 +++
+ include/shm_convert.h                |  49 ++++
+ meson.build                          |  12 +
+ src/screencast/pipewire_screencast.c | 141 ++++++++++-
+ src/screencast/screencast_common.c   | 126 ++++++++--
+ src/screencast/shm_convert.c         | 336 +++++++++++++++++++++++++++
+ src/screencast/wlr_screencast.c      |  15 +-
+ src/screencast/wlr_screencopy.c      |   3 +-
+ tests/shm_convert_test.c             | 311 +++++++++++++++++++++++++
+ 9 files changed, 989 insertions(+), 30 deletions(-)
+ create mode 100644 include/shm_convert.h
+ create mode 100644 src/screencast/shm_convert.c
+ create mode 100644 tests/shm_convert_test.c
+
+diff --git a/include/screencast_common.h b/include/screencast_common.h
+index eda97ad..a4fcc1d 100644
+--- a/include/screencast_common.h
++++ b/include/screencast_common.h
+@@ -89,6 +89,20 @@ struct xdpw_buffer {
+ 	struct wl_array damage;
+ 
+ 	struct wl_buffer *buffer;
++
++	// Only for WL_SHM buffers whose frame is captured in another format than
++	// the consumer negotiated (see shm_convert.h). The members above describe
++	// what the consumer maps; these describe what the compositor writes to.
++	bool convert;
++	uint32_t capture_format;
++	uint32_t capture_stride;
++	uint32_t capture_size;
++	int capture_fd;
++	void *capture_data;
++	void *data;
++	// Whether data holds a complete frame, and the regions that changed since
++	bool converted;
++	struct wl_array convert_damage;
+ };
+ 
+ 
+@@ -104,6 +118,8 @@ struct xdpw_output_colorimetry {
+ 	enum spa_video_color_matrix matrix;
+ 	enum spa_video_transfer_function transfer_function;
+ 	enum spa_video_color_primaries color_primaries;
++	// SDR reference white in nits, 0 when the compositor does not tell
++	float reference_luminance;
+ };
+ 
+ 
+@@ -280,6 +296,16 @@ enum spa_video_format xdpw_format_pw_strip_alpha(enum spa_video_format format);
+ 
+ int xdpw_bpp_from_drm_fourcc(uint32_t format);
+ 
++// The shm format the compositor captures in, NULL when it does not offer it
++struct xdpw_shm_format *xdpw_shm_format_find(struct xdpw_buffer_constraints *constraints,
++	uint32_t fourcc);
++// The format captures are converted from when consumers get XRGB8888 that the
++// compositor does not offer itself; NULL when no conversion is needed or possible
++struct xdpw_shm_format *xdpw_shm_convert_source(struct xdpw_buffer_constraints *constraints);
++// The format and stride of the wl_buffer the compositor writes to
++uint32_t xdpw_buffer_capture_format(const struct xdpw_buffer *buffer);
++uint32_t xdpw_buffer_capture_stride(const struct xdpw_buffer *buffer);
++
+ enum xdpw_chooser_types get_chooser_type(const char *chooser_type);
+ const char *chooser_type_str(enum xdpw_chooser_types chooser_type);
+ 
+diff --git a/include/shm_convert.h b/include/shm_convert.h
+new file mode 100644
+index 0000000..a2aef1e
+--- /dev/null
++++ b/include/shm_convert.h
+@@ -0,0 +1,49 @@
++#ifndef SHM_CONVERT_H
++#define SHM_CONVERT_H
++
++#include <stdbool.h>
++#include <stdint.h>
++
++/*
++ * CPU conversion of 10-bit shm captures to 8-bit XRGB8888 (PipeWire BGRx).
++ *
++ * A compositor that renders an output in 10 bits (HDR, or 10-bit SDR) only
++ * offers a 10-bit wl_shm capture format. Consumers which can neither import
++ * dmabufs nor read 10-bit packed RGB (GStreamer's pipewiresrc, and with it
++ * RustDesk) then have no format in common with us. For them the frame is
++ * captured into a private 10-bit buffer and converted into the buffer the
++ * consumer sees.
++ */
++
++/* SDR reference white assumed for PQ when the compositor does not say. */
++#define XDPW_SHM_CONVERT_DEFAULT_REFERENCE 203.0f
++
++struct xdpw_shm_convert_params {
++	uint32_t src_format; /* drm fourcc of the captured buffer */
++	/* The capture is PQ (SMPTE ST 2084) encoded: decode it, put SDR
++	 * reference white at 1.0 and encode with gamma 2.2. Values above
++	 * reference white clip. Without this only the bit depth changes. */
++	bool pq;
++	/* The capture uses BT.2020 primaries: convert to sRGB primaries.
++	 * Only honoured together with pq. */
++	bool bt2020;
++	/* SDR reference white in nits, <= 0 for the default. */
++	float reference_luminance;
++};
++
++/* Whether src_format is a 10-bit packed RGB format this module converts. */
++bool xdpw_shm_convert_supported(uint32_t drm_format);
++
++/*
++ * Convert the rectangle (x, y, width, height) of src into dst. Both buffers
++ * are 32 bits per pixel; strides are in bytes. The rectangle must lie inside
++ * both buffers.
++ */
++void xdpw_shm_convert(const struct xdpw_shm_convert_params *params,
++	const void *src, uint32_t src_stride, void *dst, uint32_t dst_stride,
++	uint32_t x, uint32_t y, uint32_t width, uint32_t height);
++
++/* Stop the worker threads. Safe to call when none were started. */
++void xdpw_shm_convert_finish(void);
++
++#endif /* SHM_CONVERT_H */
+diff --git a/meson.build b/meson.build
+index 997127c..eb4df40 100644
+--- a/meson.build
++++ b/meson.build
+@@ -25,6 +25,8 @@ add_project_arguments([
+ inc = include_directories('include')
+ 
+ rt = cc.find_library('rt')
++m = cc.find_library('m', required: false)
++threads = dependency('threads')
+ pipewire = dependency('libpipewire-0.3', version: '>= 0.3.62')
+ wayland_client = dependency('wayland-client')
+ wayland_protos = dependency('wayland-protocols', version: '>=1.47')
+@@ -66,6 +68,7 @@ xdpw_files = files(
+ 	'src/screencast/wlr_screencopy.c',
+ 	'src/screencast/pipewire_screencast.c',
+ 	'src/screencast/fps_limit.c',
++	'src/screencast/shm_convert.c',
+ 	'src/remotedesktop/remotedesktop.c',
+ )
+ 
+@@ -82,12 +85,21 @@ executable(
+ 		drm,
+ 		xkbcommon,
+ 		epoll,
++		m,
++		threads,
+ 	],
+ 	include_directories: [inc],
+ 	install: true,
+ 	install_dir: get_option('libexecdir'),
+ )
+ 
++test('shm-convert', executable(
++	'shm-convert-test',
++	['tests/shm_convert_test.c', 'src/screencast/shm_convert.c'],
++	dependencies: [drm, m, threads],
++	include_directories: [inc],
++))
++
+ conf_data = configuration_data()
+ conf_data.set('libexecdir', get_option('prefix') / get_option('libexecdir'))
+ conf_data.set('systemd_service', '')
+diff --git a/src/screencast/pipewire_screencast.c b/src/screencast/pipewire_screencast.c
+index 04f61e8..9512e8d 100644
+--- a/src/screencast/pipewire_screencast.c
++++ b/src/screencast/pipewire_screencast.c
+@@ -10,14 +10,18 @@
+ #include <sys/mman.h>
+ #include <unistd.h>
+ #include <assert.h>
++#include <errno.h>
+ #include <libdrm/drm_fourcc.h>
+ 
+ #include "screencast.h"
+ #include "wlr_screencast.h"
+ #include "xdpw.h"
+ #include "logger.h"
++#include "shm_convert.h"
+ 
+ #define DAMAGE_REGION_COUNT 16
++// More pending regions than this and a converted buffer is redone in full
++#define CONVERT_DAMAGE_MAX 64
+ 
+ static const struct xdpw_output_colorimetry *get_output_colorimetry(
+ 		struct xdpw_screencast_instance *cast) {
+@@ -31,21 +35,46 @@ static const struct xdpw_output_colorimetry *get_output_colorimetry(
+ }
+ 
+ static void add_colorimetry(struct spa_pod_builder *b,
+-		struct xdpw_screencast_instance *cast) {
++		struct xdpw_screencast_instance *cast, bool converted) {
+ 	const struct xdpw_output_colorimetry *colorimetry =
+ 		get_output_colorimetry(cast);
+ 	if (colorimetry == NULL) {
+ 		return;
+ 	}
+ 
++	enum spa_video_transfer_function transfer = colorimetry->transfer_function;
++	enum spa_video_color_primaries primaries = colorimetry->color_primaries;
++	if (converted && transfer == SPA_VIDEO_TRANSFER_SMPTE2084) {
++		// Converted frames are tone mapped to SDR, see convert_params()
++		transfer = SPA_VIDEO_TRANSFER_SRGB;
++		if (primaries == SPA_VIDEO_COLOR_PRIMARIES_BT2020) {
++			primaries = SPA_VIDEO_COLOR_PRIMARIES_BT709;
++		}
++	}
++
+ 	spa_pod_builder_add(b, SPA_FORMAT_VIDEO_colorRange,
+ 		SPA_POD_Id(colorimetry->range), 0);
+ 	spa_pod_builder_add(b, SPA_FORMAT_VIDEO_colorMatrix,
+ 		SPA_POD_Id(colorimetry->matrix), 0);
+ 	spa_pod_builder_add(b, SPA_FORMAT_VIDEO_transferFunction,
+-		SPA_POD_Id(colorimetry->transfer_function), 0);
++		SPA_POD_Id(transfer), 0);
+ 	spa_pod_builder_add(b, SPA_FORMAT_VIDEO_colorPrimaries,
+-		SPA_POD_Id(colorimetry->color_primaries), 0);
++		SPA_POD_Id(primaries), 0);
++}
++
++static struct xdpw_shm_convert_params convert_params(
++		struct xdpw_screencast_instance *cast, uint32_t src_format) {
++	struct xdpw_shm_convert_params params = { .src_format = src_format };
++	const struct xdpw_output_colorimetry *colorimetry =
++		get_output_colorimetry(cast);
++	if (colorimetry != NULL &&
++			colorimetry->transfer_function == SPA_VIDEO_TRANSFER_SMPTE2084) {
++		params.pq = true;
++		params.bt2020 =
++			colorimetry->color_primaries == SPA_VIDEO_COLOR_PRIMARIES_BT2020;
++		params.reference_luminance = colorimetry->reference_luminance;
++	}
++	return params;
+ }
+ 
+ static struct spa_pod *build_buffer(struct spa_pod_builder *b, uint32_t blocks, uint32_t size,
+@@ -107,14 +136,14 @@ static struct spa_pod *fixate_format(struct spa_pod_builder *b,
+ 				&SPA_FRACTION(framerate, 1)),
+ 			0);
+ 	}
+-	add_colorimetry(b, cast);
++	add_colorimetry(b, cast, false);
+ 	return spa_pod_builder_pop(b, &f[0]);
+ }
+ 
+ static struct spa_pod *build_format(struct spa_pod_builder *b,
+ 		struct xdpw_screencast_instance *cast, enum spa_video_format format,
+ 		uint32_t width, uint32_t height, uint32_t framerate,
+-		uint64_t *modifiers, int modifier_count) {
++		uint64_t *modifiers, int modifier_count, bool converted) {
+ 	struct spa_pod_frame f[2];
+ 	int i, c;
+ 
+@@ -159,7 +188,7 @@ static struct spa_pod *build_format(struct spa_pod_builder *b,
+ 				&SPA_FRACTION(framerate, 1)),
+ 			0);
+ 	}
+-	add_colorimetry(b, cast);
++	add_colorimetry(b, cast, converted);
+ 	return spa_pod_builder_pop(b, &f[0]);
+ }
+ 
+@@ -206,20 +235,92 @@ static void build_formats(struct spa_pod_builder *builder, struct xdpw_screencas
+ 			if (modifier_count > 0) {
+ 				add_pod(params, build_format(builder, cast, pw_format,
+ 						cast->current_constraints.width, cast->current_constraints.height,
+-						cast->framerate, modifiers, modifier_count));
++						cast->framerate, modifiers, modifier_count, false));
+ 			}
+ 			free(modifiers);
+ 		}
+ 	}
+ 
+-	uint32_t *format;
++	struct xdpw_shm_format *format;
+ 	wl_array_for_each(format, &cast->current_constraints.shm_formats) {
+-		enum spa_video_format pw_format = xdpw_format_pw_from_drm_fourcc(*format);
++		enum spa_video_format pw_format = xdpw_format_pw_from_drm_fourcc(format->fourcc);
+ 		if (pw_format != SPA_VIDEO_FORMAT_UNKNOWN) {
+ 			add_pod(params, build_format(builder, cast, pw_format,
+ 						cast->current_constraints.width, cast->current_constraints.height,
+-						cast->framerate, NULL, 0));
++						cast->framerate, NULL, 0, false));
++		}
++	}
++
++	// The compositor has no 8-bit shm format when it renders the output in
++	// 10 bits (HDR, 10-bit SDR). Consumers that take neither dmabufs nor
++	// 10-bit RGB would find nothing to agree on, so offer them 8 bits, which
++	// we convert to. Listed last: whoever can use the above keeps getting it.
++	if (xdpw_shm_convert_source(&cast->current_constraints) != NULL) {
++		add_pod(params, build_format(builder, cast, SPA_VIDEO_FORMAT_BGRx,
++					cast->current_constraints.width, cast->current_constraints.height,
++					cast->framerate, NULL, 0, true));
++	}
++}
++
++// Brings the consumer's copy of a converted buffer up to date with the frame
++// that was just captured. Each buffer only gets the regions that changed
++// since it was last filled.
++static void convert_current_frame(struct xdpw_screencast_instance *cast) {
++	struct xdpw_buffer *current = cast->current_frame.xdpw_buffer;
++	bool damage_known = cast->current_frame.damage.size > 0;
++
++	struct xdpw_buffer *buffer;
++	wl_list_for_each(buffer, &cast->buffer_list, link) {
++		if (!buffer->convert || !buffer->converted) {
++			continue;
++		}
++		if (!damage_known) {
++			buffer->converted = false;
++			continue;
++		}
++		struct xdpw_frame_damage *damage;
++		wl_array_for_each(damage, &cast->current_frame.damage) {
++			struct xdpw_frame_damage *pending =
++				wl_array_add(&buffer->convert_damage, sizeof(*pending));
++			if (pending == NULL) {
++				buffer->converted = false;
++				break;
++			}
++			*pending = *damage;
+ 		}
++		if (buffer->convert_damage.size > CONVERT_DAMAGE_MAX * sizeof(*damage)) {
++			buffer->converted = false;
++		}
++	}
++
++	struct xdpw_shm_convert_params params =
++		convert_params(cast, current->capture_format);
++	if (!current->converted) {
++		xdpw_shm_convert(&params, current->capture_data, current->capture_stride,
++			current->data, current->stride[0], 0, 0, current->width, current->height);
++	} else {
++		struct xdpw_frame_damage *damage;
++		wl_array_for_each(damage, &current->convert_damage) {
++			if (damage->x >= current->width || damage->y >= current->height) {
++				continue;
++			}
++			uint32_t width = SPA_MIN(damage->width, current->width - damage->x);
++			uint32_t height = SPA_MIN(damage->height, current->height - damage->y);
++			xdpw_shm_convert(&params, current->capture_data, current->capture_stride,
++				current->data, current->stride[0], damage->x, damage->y, width, height);
++		}
++	}
++	current->converted = true;
++	current->convert_damage.size = 0;
++}
++
++// A frame that was not captured leaves every converted buffer behind by an
++// unknown region
++static void convert_invalidate(struct xdpw_screencast_instance *cast) {
++	struct xdpw_buffer *buffer;
++	wl_list_for_each(buffer, &cast->buffer_list, link) {
++		buffer->converted = false;
++		buffer->convert_damage.size = 0;
+ 	}
+ }
+ 
+@@ -271,6 +372,14 @@ void xdpw_pwr_enqueue_buffer(struct xdpw_screencast_instance *cast) {
+ 		return;
+ 	}
+ 
++	if (cast->current_frame.xdpw_buffer != NULL && cast->current_frame.xdpw_buffer->convert) {
++		if (buffer_corrupt) {
++			convert_invalidate(cast);
++		} else {
++			convert_current_frame(cast);
++		}
++	}
++
+ 	logprint(TRACE, "********************");
+ 	struct spa_meta_header *h;
+ 	if ((h = spa_buffer_find_meta_data(spa_buf, SPA_META_Header, sizeof(*h)))) {
+@@ -753,6 +862,16 @@ void xdpw_pwr_stream_destroy(struct xdpw_screencast_instance *cast) {
+ }
+ 
+ static void on_core_error(void *data, uint32_t id, int seq, int res, const char* message) {
++	// The core also relays errors of single objects here, for example of a
++	// stream whose consumer found no format in common with us. That stream
++	// is in its error state then; it is no reason to take every other
++	// screencast and remote desktop session down with it.
++	if (id != PW_ID_CORE || res != -EPIPE) {
++		logprint(WARN, "pipewire: error on object %u: %s (%s)", id,
++			message ? message : "", spa_strerror(res));
++		return;
++	}
++
+ 	// If our pipewire connection drops then we won't be able to actually
+ 	// do a screencast.  Exit the process so someone restarts us and the
+ 	// new xdpw can reconnect to pipewire.
+@@ -800,6 +919,8 @@ void xdpw_pwr_context_destroy(struct xdpw_state *state) {
+ 
+ 	logprint(DEBUG, "pipewire: disconnecting fom core");
+ 
++	xdpw_shm_convert_finish();
++
+ 	if (ctx->core) {
+ 		pw_core_disconnect(ctx->core);
+ 		ctx->core = NULL;
+diff --git a/src/screencast/screencast_common.c b/src/screencast/screencast_common.c
+index 721da03..57da4e0 100644
+--- a/src/screencast/screencast_common.c
++++ b/src/screencast/screencast_common.c
+@@ -10,6 +10,7 @@
+ #include "linux-dmabuf-unstable-v1-client-protocol.h"
+ 
+ #include "logger.h"
++#include "shm_convert.h"
+ 
+ void randname(char *buf) {
+ 	struct timespec ts;
+@@ -116,26 +117,28 @@ struct xdpw_buffer *xdpw_buffer_create(struct xdpw_screencast_instance *cast,
+ 	buffer->format = format;
+ 	wl_array_init(&buffer->damage);
+ 
++	buffer->capture_fd = -1;
++	wl_array_init(&buffer->convert_damage);
++
+ 	switch (buffer_type) {
+ 	case WL_SHM:;
+-		struct xdpw_shm_format *fmt;
+-		bool found = false;
+-		wl_array_for_each(fmt, &cast->current_constraints.shm_formats) {
+-			if (fmt->fourcc == format) {
+-				found = true;
+-				break;
+-			}
+-		}
+-		if (!found) {
++		struct xdpw_shm_format *fmt =
++			xdpw_shm_format_find(&cast->current_constraints, format);
++		struct xdpw_shm_format *source = NULL;
++		uint32_t stride;
++		if (fmt != NULL) {
++			stride = fmt->stride;
++		} else if (format == DRM_FORMAT_XRGB8888 &&
++				(source = xdpw_shm_convert_source(&cast->current_constraints)) != NULL) {
++			stride = buffer->width * 4;
++		} else {
+ 			logprint(ERROR, "xdpw: unable to find format: %d", format);
+ 			xdpw_buffer_destroy(buffer);
+ 			return NULL;
+-
+ 		}
+ 
+-		buffer->plane_count = 1;
+-		buffer->size[0] = fmt->stride * buffer->height;
+-		buffer->stride[0] = fmt->stride;
++		buffer->size[0] = stride * buffer->height;
++		buffer->stride[0] = stride;
+ 		buffer->offset[0] = 0;
+ 		buffer->fd[0] = anonymous_shm_open();
+ 		if (buffer->fd[0] == -1) {
+@@ -143,6 +146,7 @@ struct xdpw_buffer *xdpw_buffer_create(struct xdpw_screencast_instance *cast,
+ 			xdpw_buffer_destroy(buffer);
+ 			return NULL;
+ 		}
++		buffer->plane_count = 1;
+ 
+ 		if (ftruncate(buffer->fd[0], buffer->size[0]) < 0) {
+ 			logprint(ERROR, "xdpw: unable to truncate filedescriptor");
+@@ -150,12 +154,46 @@ struct xdpw_buffer *xdpw_buffer_create(struct xdpw_screencast_instance *cast,
+ 			return NULL;
+ 		}
+ 
+-		buffer->buffer = import_wl_shm_buffer(cast, buffer->fd[0], xdpw_format_wl_shm_from_drm_fourcc(format),
+-			buffer->width, buffer->height, fmt->stride);
++		if (source == NULL) {
++			buffer->buffer = import_wl_shm_buffer(cast, buffer->fd[0],
++				xdpw_format_wl_shm_from_drm_fourcc(format),
++				buffer->width, buffer->height, stride);
++		} else {
++			// The compositor writes its own format into a buffer the
++			// consumer never sees; the frame is converted on completion.
++			buffer->convert = true;
++			buffer->capture_format = source->fourcc;
++			buffer->capture_stride = source->stride;
++			buffer->capture_size = source->stride * buffer->height;
++			buffer->capture_fd = anonymous_shm_open();
++			if (buffer->capture_fd == -1 ||
++					ftruncate(buffer->capture_fd, buffer->capture_size) < 0) {
++				logprint(ERROR, "xdpw: unable to create the capture buffer");
++				xdpw_buffer_destroy(buffer);
++				return NULL;
++			}
++			buffer->capture_data = mmap(NULL, buffer->capture_size, PROT_READ,
++				MAP_SHARED, buffer->capture_fd, 0);
++			if (buffer->capture_data == MAP_FAILED) {
++				buffer->capture_data = NULL;
++			}
++			buffer->data = mmap(NULL, buffer->size[0], PROT_READ | PROT_WRITE,
++				MAP_SHARED, buffer->fd[0], 0);
++			if (buffer->data == MAP_FAILED) {
++				buffer->data = NULL;
++			}
++			if (buffer->capture_data == NULL || buffer->data == NULL) {
++				logprint(ERROR, "xdpw: unable to map the capture buffer");
++				xdpw_buffer_destroy(buffer);
++				return NULL;
++			}
++			buffer->buffer = import_wl_shm_buffer(cast, buffer->capture_fd,
++				xdpw_format_wl_shm_from_drm_fourcc(source->fourcc),
++				buffer->width, buffer->height, source->stride);
++		}
+ 		if (buffer->buffer == NULL) {
+ 			logprint(ERROR, "xdpw: unable to create wl_buffer");
+-			close(buffer->fd[0]);
+-			free(buffer);
++			xdpw_buffer_destroy(buffer);
+ 			return NULL;
+ 		}
+ 		break;
+@@ -237,10 +275,64 @@ void xdpw_buffer_destroy(struct xdpw_buffer *buffer) {
+ 	for (int plane = 0; plane < buffer->plane_count; plane++) {
+ 		close(buffer->fd[plane]);
+ 	}
++	if (buffer->capture_data != NULL) {
++		munmap(buffer->capture_data, buffer->capture_size);
++	}
++	if (buffer->data != NULL) {
++		munmap(buffer->data, buffer->size[0]);
++	}
++	if (buffer->capture_fd >= 0) {
++		close(buffer->capture_fd);
++	}
+ 	wl_array_release(&buffer->damage);
++	wl_array_release(&buffer->convert_damage);
+ 	free(buffer);
+ }
+ 
++struct xdpw_shm_format *xdpw_shm_format_find(struct xdpw_buffer_constraints *constraints,
++		uint32_t fourcc) {
++	struct xdpw_shm_format *fmt;
++	wl_array_for_each(fmt, &constraints->shm_formats) {
++		if (fmt->fourcc == fourcc) {
++			return fmt;
++		}
++	}
++	return NULL;
++}
++
++struct xdpw_shm_format *xdpw_shm_convert_source(struct xdpw_buffer_constraints *constraints) {
++	// Consumers that only read 8-bit RGB are served when the compositor
++	// offers any 8-bit format; convert only when it offers none.
++	struct xdpw_shm_format *fmt, *source = NULL;
++	wl_array_for_each(fmt, &constraints->shm_formats) {
++		switch (fmt->fourcc) {
++		case DRM_FORMAT_ARGB8888:
++		case DRM_FORMAT_XRGB8888:
++		case DRM_FORMAT_ABGR8888:
++		case DRM_FORMAT_XBGR8888:
++		case DRM_FORMAT_RGBA8888:
++		case DRM_FORMAT_RGBX8888:
++		case DRM_FORMAT_BGRA8888:
++		case DRM_FORMAT_BGRX8888:
++			return NULL;
++		default:
++			if (source == NULL && fmt->stride > 0 &&
++					xdpw_shm_convert_supported(fmt->fourcc)) {
++				source = fmt;
++			}
++		}
++	}
++	return source;
++}
++
++uint32_t xdpw_buffer_capture_format(const struct xdpw_buffer *buffer) {
++	return buffer->convert ? buffer->capture_format : buffer->format;
++}
++
++uint32_t xdpw_buffer_capture_stride(const struct xdpw_buffer *buffer) {
++	return buffer->convert ? buffer->capture_stride : buffer->stride[0];
++}
++
+ enum wl_shm_format xdpw_format_wl_shm_from_drm_fourcc(uint32_t format) {
+ 	switch (format) {
+ 	case DRM_FORMAT_ARGB8888:
+diff --git a/src/screencast/shm_convert.c b/src/screencast/shm_convert.c
+new file mode 100644
+index 0000000..eca7945
+--- /dev/null
++++ b/src/screencast/shm_convert.c
+@@ -0,0 +1,336 @@
++#include "shm_convert.h"
++
++#include <libdrm/drm_fourcc.h>
++#include <math.h>
++#include <pthread.h>
++#include <stdlib.h>
++#include <string.h>
++#include <unistd.h>
++
++/* Rectangles below this many pixels are converted on the calling thread. */
++#define PARALLEL_MIN_PIXELS (512 * 512)
++#define MAX_WORKERS 6
++
++/*
++ * Gamma 2.2 encoding table, indexed by the upper bits of a float in
++ * [2^-GAMMA_OCTAVES, 1): GAMMA_STEPS entries per octave keep the error far
++ * below one 8-bit code, also in the darks where a linear table would not.
++ * Anything below 2^-GAMMA_OCTAVES encodes to 0.
++ */
++#define GAMMA_OCTAVES 20
++#define GAMMA_STEP_BITS 10
++#define GAMMA_STEPS (1 << GAMMA_STEP_BITS)
++#define GAMMA_SIZE (GAMMA_OCTAVES * GAMMA_STEPS)
++#define GAMMA_SHIFT (23 - GAMMA_STEP_BITS)
++#define GAMMA_BASE ((uint32_t)(127 - GAMMA_OCTAVES) << GAMMA_STEP_BITS)
++
++/* Linear BT.2020 to linear sRGB primaries, both D65. */
++static const float bt2020_to_srgb[9] = {
++	 1.6604910f, -0.5876411f, -0.0728499f,
++	-0.1245505f,  1.1328999f, -0.0083494f,
++	-0.0181508f, -0.1005789f,  1.1187297f,
++};
++
++struct shifts {
++	unsigned r, g, b;
++};
++
++static bool format_shifts(uint32_t format, struct shifts *shifts) {
++	switch (format) {
++	case DRM_FORMAT_XRGB2101010:
++	case DRM_FORMAT_ARGB2101010:
++		*shifts = (struct shifts){ .r = 20, .g = 10, .b = 0 };
++		return true;
++	case DRM_FORMAT_XBGR2101010:
++	case DRM_FORMAT_ABGR2101010:
++		*shifts = (struct shifts){ .r = 0, .g = 10, .b = 20 };
++		return true;
++	case DRM_FORMAT_RGBX1010102:
++	case DRM_FORMAT_RGBA1010102:
++		*shifts = (struct shifts){ .r = 22, .g = 12, .b = 2 };
++		return true;
++	case DRM_FORMAT_BGRX1010102:
++	case DRM_FORMAT_BGRA1010102:
++		*shifts = (struct shifts){ .r = 2, .g = 12, .b = 22 };
++		return true;
++	default:
++		return false;
++	}
++}
++
++bool xdpw_shm_convert_supported(uint32_t drm_format) {
++	struct shifts shifts;
++	return format_shifts(drm_format, &shifts);
++}
++
++/* Tables. depth_lut never changes; the PQ table depends on reference white. */
++static pthread_once_t tables_once = PTHREAD_ONCE_INIT;
++static uint8_t depth_lut[1024];
++static uint8_t gamma_lut[GAMMA_SIZE];
++
++static pthread_mutex_t pq_lock = PTHREAD_MUTEX_INITIALIZER;
++static float pq_lut[1024];
++static float pq_lut_reference;
++
++static void init_tables(void) {
++	for (int i = 0; i < 1024; i++) {
++		depth_lut[i] = (uint8_t)((i * 255 + 511) / 1023);
++	}
++	for (int i = 0; i < GAMMA_SIZE; i++) {
++		union { uint32_t u; float f; } lo, hi;
++		lo.u = (GAMMA_BASE + (uint32_t)i) << GAMMA_SHIFT;
++		hi.u = (GAMMA_BASE + (uint32_t)i + 1) << GAMMA_SHIFT;
++		double mid = ((double)lo.f + (double)hi.f) / 2;
++		long code = lround(255.0 * pow(mid, 1 / 2.2));
++		gamma_lut[i] = (uint8_t)(code > 255 ? 255 : code);
++	}
++}
++
++static double pq_eotf(double signal) {
++	const double m1 = 2610.0 / 16384;
++	const double m2 = 2523.0 / 4096 * 128;
++	const double c1 = 3424.0 / 4096;
++	const double c2 = 2413.0 / 4096 * 32;
++	const double c3 = 2392.0 / 4096 * 32;
++	double p = pow(signal, 1 / m2);
++	double num = p - c1;
++	if (num < 0) {
++		num = 0;
++	}
++	return 10000.0 * pow(num / (c2 - c3 * p), 1 / m1);
++}
++
++/* Fills dst with linear light, 1.0 being SDR reference white. */
++static void get_pq_table(float reference, float dst[static 1024]) {
++	pthread_mutex_lock(&pq_lock);
++	if (pq_lut_reference != reference) {
++		for (int i = 0; i < 1024; i++) {
++			pq_lut[i] = (float)(pq_eotf(i / 1023.0) / reference);
++		}
++		pq_lut_reference = reference;
++	}
++	memcpy(dst, pq_lut, sizeof(pq_lut));
++	pthread_mutex_unlock(&pq_lock);
++}
++
++static inline uint8_t encode_gamma(float value) {
++	if (!(value > 0)) {
++		return 0;
++	}
++	if (value >= 1) {
++		return 255;
++	}
++	union { float f; uint32_t u; } bits = { .f = value };
++	uint32_t index = bits.u >> GAMMA_SHIFT;
++	if (index < GAMMA_BASE) {
++		return 0;
++	}
++	return gamma_lut[index - GAMMA_BASE];
++}
++
++struct job {
++	struct shifts shifts;
++	bool pq, bt2020;
++	const float *pq_table;
++	const uint8_t *src;
++	uint8_t *dst;
++	uint32_t src_stride, dst_stride;
++	uint32_t x, width;
++};
++
++static void convert_rows(const struct job *job, uint32_t y0, uint32_t y1) {
++	const struct shifts s = job->shifts;
++	const float *pq = job->pq_table;
++	const float *m = bt2020_to_srgb;
++
++	for (uint32_t y = y0; y < y1; y++) {
++		const uint32_t *src = (const uint32_t *)(const void *)
++			(job->src + (size_t)y * job->src_stride) + job->x;
++		uint32_t *dst = (uint32_t *)(void *)
++			(job->dst + (size_t)y * job->dst_stride) + job->x;
++		/* Desktop content repeats pixels a lot: remember the last one. */
++		uint32_t last_in = ~src[0];
++		uint32_t last_out = 0;
++
++		for (uint32_t i = 0; i < job->width; i++) {
++			uint32_t in = src[i];
++			if (in == last_in) {
++				dst[i] = last_out;
++				continue;
++			}
++			uint32_t r10 = (in >> s.r) & 0x3ff;
++			uint32_t g10 = (in >> s.g) & 0x3ff;
++			uint32_t b10 = (in >> s.b) & 0x3ff;
++			uint32_t r8, g8, b8;
++			if (job->pq) {
++				float r = pq[r10], g = pq[g10], b = pq[b10];
++				if (job->bt2020) {
++					float lr = m[0] * r + m[1] * g + m[2] * b;
++					float lg = m[3] * r + m[4] * g + m[5] * b;
++					float lb = m[6] * r + m[7] * g + m[8] * b;
++					r = lr;
++					g = lg;
++					b = lb;
++				}
++				r8 = encode_gamma(r);
++				g8 = encode_gamma(g);
++				b8 = encode_gamma(b);
++			} else {
++				r8 = depth_lut[r10];
++				g8 = depth_lut[g10];
++				b8 = depth_lut[b10];
++			}
++			last_in = in;
++			last_out = 0xff000000u | (r8 << 16) | (g8 << 8) | b8;
++			dst[i] = last_out;
++		}
++	}
++}
++
++/*
++ * Worker pool. One conversion runs at a time (it is called from the main
++ * loop); the rows are handed out in bands and the caller converts bands too.
++ */
++static struct {
++	pthread_mutex_t lock;
++	pthread_cond_t work, done;
++	pthread_t threads[MAX_WORKERS];
++	int count;
++	bool started, stop;
++
++	const struct job *job;
++	uint64_t generation;
++	uint32_t next_row, end_row, band;
++	int busy;
++} pool = {
++	.lock = PTHREAD_MUTEX_INITIALIZER,
++	.work = PTHREAD_COND_INITIALIZER,
++	.done = PTHREAD_COND_INITIALIZER,
++};
++
++/* Called with the lock held; returns with it held. */
++static void run_bands(const struct job *job) {
++	while (pool.job == job && pool.next_row < pool.end_row) {
++		uint32_t y0 = pool.next_row;
++		uint32_t y1 = y0 + pool.band;
++		if (y1 > pool.end_row) {
++			y1 = pool.end_row;
++		}
++		pool.next_row = y1;
++		pool.busy++;
++		pthread_mutex_unlock(&pool.lock);
++		convert_rows(job, y0, y1);
++		pthread_mutex_lock(&pool.lock);
++		pool.busy--;
++	}
++}
++
++static void *worker(void *data) {
++	(void)data;
++	uint64_t seen = 0;
++	pthread_mutex_lock(&pool.lock);
++	while (!pool.stop) {
++		if (pool.job == NULL || pool.generation == seen) {
++			pthread_cond_wait(&pool.work, &pool.lock);
++			continue;
++		}
++		seen = pool.generation;
++		run_bands(pool.job);
++		if (pool.busy == 0) {
++			pthread_cond_signal(&pool.done);
++		}
++	}
++	pthread_mutex_unlock(&pool.lock);
++	return NULL;
++}
++
++/* Called with the lock held. */
++static void start_pool(void) {
++	pool.started = true;
++	long cpus = sysconf(_SC_NPROCESSORS_ONLN);
++	/* The caller converts too, so one thread less than the share we take. */
++	long want = cpus / 2 - 1;
++	if (want > MAX_WORKERS) {
++		want = MAX_WORKERS;
++	}
++	for (long i = 0; i < want; i++) {
++		if (pthread_create(&pool.threads[pool.count], NULL, worker, NULL) != 0) {
++			break;
++		}
++		pool.count++;
++	}
++}
++
++void xdpw_shm_convert_finish(void) {
++	pthread_mutex_lock(&pool.lock);
++	pool.stop = true;
++	pthread_cond_broadcast(&pool.work);
++	int count = pool.count;
++	pthread_mutex_unlock(&pool.lock);
++	for (int i = 0; i < count; i++) {
++		pthread_join(pool.threads[i], NULL);
++	}
++	pthread_mutex_lock(&pool.lock);
++	pool.count = 0;
++	pool.started = false;
++	pool.stop = false;
++	pthread_mutex_unlock(&pool.lock);
++}
++
++void xdpw_shm_convert(const struct xdpw_shm_convert_params *params,
++		const void *src, uint32_t src_stride, void *dst, uint32_t dst_stride,
++		uint32_t x, uint32_t y, uint32_t width, uint32_t height) {
++	struct job job = {
++		.pq = params->pq,
++		.bt2020 = params->pq && params->bt2020,
++		.src = src,
++		.dst = dst,
++		.src_stride = src_stride,
++		.dst_stride = dst_stride,
++		.x = x,
++		.width = width,
++	};
++	if (width == 0 || height == 0 || !format_shifts(params->src_format, &job.shifts)) {
++		return;
++	}
++
++	pthread_once(&tables_once, init_tables);
++	float pq_table[1024];
++	if (job.pq) {
++		float reference = params->reference_luminance > 0 ?
++			params->reference_luminance : XDPW_SHM_CONVERT_DEFAULT_REFERENCE;
++		get_pq_table(reference, pq_table);
++		job.pq_table = pq_table;
++	}
++
++	if ((uint64_t)width * height < PARALLEL_MIN_PIXELS) {
++		convert_rows(&job, y, y + height);
++		return;
++	}
++
++	pthread_mutex_lock(&pool.lock);
++	if (!pool.started) {
++		start_pool();
++	}
++	if (pool.count == 0) {
++		pthread_mutex_unlock(&pool.lock);
++		convert_rows(&job, y, y + height);
++		return;
++	}
++	pool.job = &job;
++	pool.generation++;
++	pool.next_row = y;
++	pool.end_row = y + height;
++	/* Several bands per thread, so a slow thread does not hold the rest up. */
++	pool.band = height / ((uint32_t)(pool.count + 1) * 4);
++	if (pool.band < 16) {
++		pool.band = 16;
++	}
++	pthread_cond_broadcast(&pool.work);
++	run_bands(&job);
++	while (pool.busy > 0) {
++		pthread_cond_wait(&pool.done, &pool.lock);
++	}
++	pool.job = NULL;
++	pthread_mutex_unlock(&pool.lock);
++}
+diff --git a/src/screencast/wlr_screencast.c b/src/screencast/wlr_screencast.c
+index f764c2c..6c51222 100644
+--- a/src/screencast/wlr_screencast.c
++++ b/src/screencast/wlr_screencast.c
+@@ -219,15 +219,24 @@ static bool colorimetry_equal(const struct xdpw_output_colorimetry *a,
+ static void output_colorimetry_commit(struct xdpw_wlr_output *output,
+ 		const struct xdpw_output_colorimetry *colorimetry) {
+ 	if (colorimetry_equal(&output->colorimetry, colorimetry)) {
++		// Consumers are not told the reference white; only our own
++		// conversion uses it, and reads it for every frame.
++		if (output->colorimetry.reference_luminance != colorimetry->reference_luminance) {
++			logprint(INFO, "wayland: output %s reference white: %g nits",
++				output->name ? output->name : "(unknown)",
++				colorimetry->reference_luminance);
++		}
++		output->colorimetry.reference_luminance = colorimetry->reference_luminance;
+ 		return;
+ 	}
+ 
+ 	output->colorimetry = *colorimetry;
+ 	if (colorimetry->valid) {
+-		logprint(INFO, "wayland: output %s colorimetry: range=%u matrix=%u transfer=%u primaries=%u",
++		logprint(INFO, "wayland: output %s colorimetry: range=%u matrix=%u transfer=%u primaries=%u"
++			" reference white=%g nits",
+ 			output->name ? output->name : "(unknown)", colorimetry->range,
+ 			colorimetry->matrix, colorimetry->transfer_function,
+-			colorimetry->color_primaries);
++			colorimetry->color_primaries, colorimetry->reference_luminance);
+ 	} else {
+ 		logprint(DEBUG, "wayland: output %s colorimetry is unavailable",
+ 			output->name ? output->name : "(unknown)");
+@@ -318,6 +327,8 @@ static void image_description_info_handle_tf_named(void *data,
+ static void image_description_info_handle_luminances(void *data,
+ 		struct wp_image_description_info_v1 *info, uint32_t min_lum,
+ 		uint32_t max_lum, uint32_t reference_lum) {
++	struct xdpw_wlr_output *output = data;
++	output->pending_colorimetry.reference_luminance = reference_lum;
+ }
+ 
+ static void image_description_info_handle_target_primaries(void *data,
+diff --git a/src/screencast/wlr_screencopy.c b/src/screencast/wlr_screencopy.c
+index 81beb9e..a63100a 100644
+--- a/src/screencast/wlr_screencopy.c
++++ b/src/screencast/wlr_screencopy.c
+@@ -109,7 +109,8 @@ static bool check_constraints(struct xdpw_buffer_constraints *constraints, struc
+ 	case WL_SHM:;
+ 		struct xdpw_shm_format *format;
+ 		wl_array_for_each(format, &constraints->shm_formats) {
+-			if (buffer->format == format->fourcc && buffer->stride[0] == format->stride) {
++			if (xdpw_buffer_capture_format(buffer) == format->fourcc &&
++					xdpw_buffer_capture_stride(buffer) == format->stride) {
+ 				return true;
+ 			}
+ 		}
+diff --git a/tests/shm_convert_test.c b/tests/shm_convert_test.c
+new file mode 100644
+index 0000000..fa73142
+--- /dev/null
++++ b/tests/shm_convert_test.c
+@@ -0,0 +1,311 @@
++/* Checks the 10-bit to 8-bit shm conversion. "bench" as argument times it. */
++#include <libdrm/drm_fourcc.h>
++#include <math.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <time.h>
++
++#include "shm_convert.h"
++
++static int failures;
++
++#define CHECK(cond, ...) do { \
++	if (!(cond)) { \
++		failures++; \
++		fprintf(stderr, "FAIL %s:%d: ", __FILE__, __LINE__); \
++		fprintf(stderr, __VA_ARGS__); \
++		fprintf(stderr, "\n"); \
++	} \
++} while (0)
++
++static uint32_t pack(uint32_t format, uint32_t r, uint32_t g, uint32_t b) {
++	switch (format) {
++	case DRM_FORMAT_XRGB2101010:
++		return (r << 20) | (g << 10) | b;
++	case DRM_FORMAT_ARGB2101010:
++		return (3u << 30) | (r << 20) | (g << 10) | b;
++	case DRM_FORMAT_XBGR2101010:
++		return (b << 20) | (g << 10) | r;
++	case DRM_FORMAT_ABGR2101010:
++		return (3u << 30) | (b << 20) | (g << 10) | r;
++	case DRM_FORMAT_RGBX1010102:
++		return (r << 22) | (g << 12) | (b << 2);
++	case DRM_FORMAT_RGBA1010102:
++		return (r << 22) | (g << 12) | (b << 2) | 3;
++	case DRM_FORMAT_BGRX1010102:
++		return (b << 22) | (g << 12) | (r << 2);
++	case DRM_FORMAT_BGRA1010102:
++		return (b << 22) | (g << 12) | (r << 2) | 3;
++	}
++	abort();
++}
++
++static uint32_t convert_one(const struct xdpw_shm_convert_params *params, uint32_t pixel) {
++	uint32_t out = 0;
++	xdpw_shm_convert(params, &pixel, 4, &out, 4, 0, 0, 1, 1);
++	return out;
++}
++
++static const uint32_t formats[] = {
++	DRM_FORMAT_XRGB2101010, DRM_FORMAT_ARGB2101010,
++	DRM_FORMAT_XBGR2101010, DRM_FORMAT_ABGR2101010,
++	DRM_FORMAT_RGBX1010102, DRM_FORMAT_RGBA1010102,
++	DRM_FORMAT_BGRX1010102, DRM_FORMAT_BGRA1010102,
++};
++#define FORMATS (sizeof(formats) / sizeof(formats[0]))
++
++static void test_supported(void) {
++	for (size_t i = 0; i < FORMATS; i++) {
++		CHECK(xdpw_shm_convert_supported(formats[i]), "format %zu", i);
++	}
++	CHECK(!xdpw_shm_convert_supported(DRM_FORMAT_XRGB8888), "XRGB8888");
++	CHECK(!xdpw_shm_convert_supported(DRM_FORMAT_NV12), "NV12");
++}
++
++/* Without PQ only the depth changes: 10 bits scale to 8 with rounding. */
++static void test_depth(void) {
++	for (size_t i = 0; i < FORMATS; i++) {
++		struct xdpw_shm_convert_params params = { .src_format = formats[i] };
++		CHECK(convert_one(&params, pack(formats[i], 1023, 0, 512)) == 0xffff0080,
++			"format %zu: %08x", i, convert_one(&params, pack(formats[i], 1023, 0, 512)));
++		CHECK(convert_one(&params, pack(formats[i], 0, 1023, 4)) == 0xff00ff01,
++			"format %zu: %08x", i, convert_one(&params, pack(formats[i], 0, 1023, 4)));
++		/* bt2020 alone must not change colours */
++		params.bt2020 = true;
++		CHECK(convert_one(&params, pack(formats[i], 1023, 0, 512)) == 0xffff0080,
++			"format %zu with bt2020", i);
++	}
++	struct xdpw_shm_convert_params params = { .src_format = DRM_FORMAT_XRGB2101010 };
++	for (uint32_t v = 0; v < 1024; v++) {
++		uint32_t expect = (uint32_t)lround(v * 255.0 / 1023);
++		uint32_t out = convert_one(&params, pack(params.src_format, v, v, v));
++		CHECK(out == (0xff000000 | expect << 16 | expect << 8 | expect),
++			"depth %u: %08x", v, out);
++	}
++}
++
++/* What the compositor does to an sRGB pixel on a PQ BT.2020 output. */
++static double pq_oetf(double nits) {
++	const double m1 = 2610.0 / 16384, m2 = 2523.0 / 4096 * 128;
++	const double c1 = 3424.0 / 4096, c2 = 2413.0 / 4096 * 32, c3 = 2392.0 / 4096 * 32;
++	double y = pow(nits / 10000, m1);
++	return pow((c1 + c2 * y) / (1 + c3 * y), m2);
++}
++
++static uint32_t compose(uint32_t format, double reference, bool bt2020,
++		uint32_t r8, uint32_t g8, uint32_t b8) {
++	static const double to2020[9] = {
++		0.6274039, 0.3292830, 0.0433131,
++		0.0690973, 0.9195404, 0.0113623,
++		0.0163914, 0.0880133, 0.8955953,
++	};
++	double r = pow(r8 / 255.0, 2.2), g = pow(g8 / 255.0, 2.2), b = pow(b8 / 255.0, 2.2);
++	if (bt2020) {
++		double x = to2020[0] * r + to2020[1] * g + to2020[2] * b;
++		double y = to2020[3] * r + to2020[4] * g + to2020[5] * b;
++		double z = to2020[6] * r + to2020[7] * g + to2020[8] * b;
++		r = x; g = y; b = z;
++	}
++	return pack(format,
++		(uint32_t)lround(1023 * pq_oetf(r * reference)),
++		(uint32_t)lround(1023 * pq_oetf(g * reference)),
++		(uint32_t)lround(1023 * pq_oetf(b * reference)));
++}
++
++/* Largest channel difference in linear light, 1.0 being SDR white. */
++static double linear_error(uint32_t out, uint32_t r, uint32_t g, uint32_t b) {
++	double er = fabs(pow(((out >> 16) & 0xff) / 255.0, 2.2) - pow(r / 255.0, 2.2));
++	double eg = fabs(pow(((out >> 8) & 0xff) / 255.0, 2.2) - pow(g / 255.0, 2.2));
++	double eb = fabs(pow((out & 0xff) / 255.0, 2.2) - pow(b / 255.0, 2.2));
++	double e = er > eg ? er : eg;
++	return e > eb ? e : eb;
++}
++
++static int channel_error(uint32_t out, uint32_t r, uint32_t g, uint32_t b) {
++	int er = abs((int)((out >> 16) & 0xff) - (int)r);
++	int eg = abs((int)((out >> 8) & 0xff) - (int)g);
++	int eb = abs((int)(out & 0xff) - (int)b);
++	int e = er > eg ? er : eg;
++	return e > eb ? e : eb;
++}
++
++/* SDR content shown on an HDR output comes back as it went in. */
++static void test_pq(void) {
++	static const float references[] = { 0, 203, 100, 80, 400 };
++	for (size_t ri = 0; ri < sizeof(references) / sizeof(references[0]); ri++) {
++		double reference = references[ri] > 0 ? references[ri] : 203;
++		for (int bt2020 = 0; bt2020 <= 1; bt2020++) {
++			struct xdpw_shm_convert_params params = {
++				.src_format = DRM_FORMAT_XRGB2101010,
++				.pq = true,
++				.bt2020 = bt2020,
++				.reference_luminance = references[ri],
++			};
++			int worst_grey = 0, worst_colour = 0;
++			double worst_linear = 0;
++			for (uint32_t v = 0; v < 256; v++) {
++				uint32_t out = convert_one(&params,
++					compose(params.src_format, reference, bt2020, v, v, v));
++				int e = channel_error(out, v, v, v);
++				worst_grey = e > worst_grey ? e : worst_grey;
++				CHECK((out >> 24) == 0xff, "alpha %08x", out);
++			}
++			for (uint32_t r = 0; r < 256; r += 15) {
++				for (uint32_t g = 0; g < 256; g += 15) {
++					for (uint32_t b = 0; b < 256; b += 15) {
++						uint32_t out = convert_one(&params,
++							compose(params.src_format, reference, bt2020, r, g, b));
++						int e = channel_error(out, r, g, b);
++						worst_colour = e > worst_colour ? e : worst_colour;
++						double le = linear_error(out, r, g, b);
++						worst_linear = le > worst_linear ? le : worst_linear;
++					}
++				}
++			}
++			printf("pq reference=%g bt2020=%d: worst grey error %d, worst colour error %d"
++				" (%.4f of white in linear light)\n",
++				reference, bt2020, worst_grey, worst_colour, worst_linear);
++			/* The 10-bit PQ signal itself is the limit. One of its steps
++			 * is about one 8-bit step near white, so greys can be off by
++			 * one. With BT.2020 the gamut matrix spreads the rounding of
++			 * a bright channel into the others. In light that stays
++			 * around 1% of white (one 8-bit step at white is 0.9%), but
++			 * it is many 8-bit steps where a channel is near zero next
++			 * to a bright one (pure green: red up to ~23). */
++			CHECK(worst_grey <= 1, "grey error %d", worst_grey);
++			if (bt2020) {
++				CHECK(worst_linear <= 0.012, "linear error %.4f", worst_linear);
++				CHECK(worst_colour <= 26, "colour error %d", worst_colour);
++			} else {
++				CHECK(worst_colour <= 1, "colour error %d", worst_colour);
++			}
++			CHECK(convert_one(&params, compose(params.src_format, reference, bt2020, 255, 255, 255))
++				== 0xffffffff, "white");
++			CHECK(convert_one(&params, compose(params.src_format, reference, bt2020, 0, 0, 0))
++				== 0xff000000, "black");
++		}
++	}
++
++	/* Brighter than SDR white clips; nothing wraps around. */
++	struct xdpw_shm_convert_params params = {
++		.src_format = DRM_FORMAT_XRGB2101010, .pq = true, .bt2020 = true,
++	};
++	CHECK(convert_one(&params, pack(params.src_format, 1023, 1023, 1023)) == 0xffffffff, "peak");
++	CHECK(convert_one(&params, pack(params.src_format, 1023, 0, 0)) == 0xffff0000,
++		"peak red %08x", convert_one(&params, pack(params.src_format, 1023, 0, 0)));
++	/* A saturated BT.2020 green lies outside sRGB: negative channels clip to 0 */
++	CHECK(convert_one(&params, pack(params.src_format, 0, 500, 0)) >> 16 == 0xff00,
++		"wide green %08x", convert_one(&params, pack(params.src_format, 0, 500, 0)));
++}
++
++static uint32_t rng_state = 12345;
++static uint32_t rng(void) {
++	rng_state ^= rng_state << 13;
++	rng_state ^= rng_state >> 17;
++	rng_state ^= rng_state << 5;
++	return rng_state;
++}
++
++/* Large frames run on several threads and give the same result; a rectangle
++ * leaves the rest alone, also with strides wider than the image. */
++static void test_frames(void) {
++	const uint32_t width = 1921, height = 1083;
++	const uint32_t src_stride = (width + 5) * 4, dst_stride = (width + 2) * 4;
++	uint32_t *src = malloc((size_t)src_stride * height);
++	uint32_t *whole = malloc((size_t)dst_stride * height);
++	uint32_t *rows = malloc((size_t)dst_stride * height);
++	for (size_t i = 0; i < (size_t)src_stride / 4 * height; i++) {
++		/* runs of equal pixels and noise, like a desktop */
++		src[i] = (i / 97) % 3 == 0 ? rng() : 0x2ff7fdff;
++	}
++	struct xdpw_shm_convert_params params = {
++		.src_format = DRM_FORMAT_XBGR2101010, .pq = true, .bt2020 = true,
++		.reference_luminance = 203,
++	};
++	memset(whole, 0x55, (size_t)dst_stride * height);
++	memset(rows, 0x55, (size_t)dst_stride * height);
++	for (int round = 0; round < 3; round++) {
++		xdpw_shm_convert(&params, src, src_stride, whole, dst_stride, 0, 0, width, height);
++	}
++	for (uint32_t y = 0; y < height; y++) {
++		xdpw_shm_convert(&params, src, src_stride, rows, dst_stride, 0, y, width, 1);
++	}
++	CHECK(memcmp(whole, rows, (size_t)dst_stride * height) == 0, "threaded result differs");
++	CHECK(whole[width] == 0x55555555, "wrote past the row");
++
++	memset(rows, 0x55, (size_t)dst_stride * height);
++	xdpw_shm_convert(&params, src, src_stride, rows, dst_stride, 700, 200, 900, 700);
++	size_t wrong = 0;
++	for (uint32_t y = 0; y < height; y++) {
++		for (uint32_t x = 0; x < dst_stride / 4; x++) {
++			bool inside = x >= 700 && x < 1600 && y >= 200 && y < 900;
++			uint32_t got = rows[(size_t)y * (dst_stride / 4) + x];
++			uint32_t want = inside ? whole[(size_t)y * (dst_stride / 4) + x] : 0x55555555;
++			wrong += got != want;
++		}
++	}
++	CHECK(wrong == 0, "%zu pixels wrong around a rectangle", wrong);
++
++	/* empty and unsupported input do nothing */
++	xdpw_shm_convert(&params, src, src_stride, rows, dst_stride, 0, 0, 0, 10);
++	struct xdpw_shm_convert_params bad = { .src_format = DRM_FORMAT_XRGB8888 };
++	rows[0] = 0x12345678;
++	xdpw_shm_convert(&bad, src, src_stride, rows, dst_stride, 0, 0, 10, 10);
++	CHECK(rows[0] == 0x12345678, "unsupported format wrote");
++
++	free(src);
++	free(whole);
++	free(rows);
++}
++
++static double now_ms(void) {
++	struct timespec ts;
++	clock_gettime(CLOCK_MONOTONIC, &ts);
++	return ts.tv_sec * 1000.0 + ts.tv_nsec / 1e6;
++}
++
++static void bench(void) {
++	const uint32_t width = 3840, height = 2160;
++	uint32_t *src = malloc((size_t)width * height * 4);
++	uint32_t *dst = malloc((size_t)width * height * 4);
++	struct xdpw_shm_convert_params params = {
++		.src_format = DRM_FORMAT_XRGB2101010, .pq = true, .bt2020 = true,
++	};
++	const char *names[] = { "noise", "desktop-like", "flat" };
++	for (int kind = 0; kind < 3; kind++) {
++		for (size_t i = 0; i < (size_t)width * height; i++) {
++			src[i] = kind == 0 ? rng() : kind == 1 ? ((i / 61) % 4 == 0 ? rng() : 0x2ff7fdff) : 0x2ff7fdff;
++		}
++		xdpw_shm_convert(&params, src, width * 4, dst, width * 4, 0, 0, width, height);
++		double start = now_ms();
++		for (int i = 0; i < 20; i++) {
++			xdpw_shm_convert(&params, src, width * 4, dst, width * 4, 0, 0, width, height);
++		}
++		printf("%-12s 3840x2160: %.1f ms per frame\n", names[kind], (now_ms() - start) / 20);
++	}
++	free(src);
++	free(dst);
++}
++
++int main(int argc, char **argv) {
++	if (argc > 1 && strcmp(argv[1], "bench") == 0) {
++		bench();
++		xdpw_shm_convert_finish();
++		return 0;
++	}
++	test_supported();
++	test_depth();
++	test_pq();
++	test_frames();
++	xdpw_shm_convert_finish();
++	/* the pool can be started again after it was stopped */
++	test_frames();
++	xdpw_shm_convert_finish();
++	if (failures > 0) {
++		fprintf(stderr, "%d checks failed\n", failures);
++		return 1;
++	}
++	printf("all checks passed\n");
++	return 0;
++}
+-- 
+2.56.0
+

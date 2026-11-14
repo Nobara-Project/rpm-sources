@@ -1,0 +1,172 @@
+From 2e154b7bb3a1e428961c23a44407214ac1b9bd72 Mon Sep 17 00:00:00 2001
+From: t <t@t>
+Date: Fri, 13 Nov 2026 21:21:02 -0700
+Subject: [PATCH] screencast: abandon the capture when the stream pauses
+
+When the stream left the streaming state while a capture was in flight,
+the dequeued buffer was queued as corrupt but the capture kept running.
+On resume a second capture was started; the ready event of the first was
+then taken for the second, which delivered a buffer the compositor never
+wrote to and destroyed the frame that was to fill it. The corrupt buffer
+also carried the previous frame's timestamp, zero before the first frame;
+followed by real timestamps that makes clock-synced consumers (GStreamer
+sinks, and with them RustDesk) wait forever after the first buffer, and
+the stream runs out of buffers.
+
+GStreamer's pipewiresrc pauses and resumes the stream while starting up,
+so this happened on a fair share of starts.
+
+Cancel the capture when the stream pauses and hand the buffer back unused
+(pw_stream_return_buffer, PipeWire 1.4), never start a frame while another
+is pending, and stamp buffers that were not captured with the current time.
+---
+ include/ext_image_copy.h             |  1 +
+ include/wlr_screencast.h             |  2 ++
+ src/screencast/ext_image_copy.c      |  9 +++++++-
+ src/screencast/pipewire_screencast.c | 33 +++++++++++++++++++++++++++-
+ src/screencast/wlr_screencast.c      | 10 +++++++++
+ 5 files changed, 53 insertions(+), 2 deletions(-)
+
+diff --git a/include/ext_image_copy.h b/include/ext_image_copy.h
+index f90cfcd..4877d2a 100644
+--- a/include/ext_image_copy.h
++++ b/include/ext_image_copy.h
+@@ -6,5 +6,6 @@
+ void xdpw_ext_ic_frame_capture(struct xdpw_screencast_instance *cast);
+ int xdpw_ext_ic_session_init(struct xdpw_screencast_instance *cast);
+ void xdpw_ext_ic_session_close(struct xdpw_screencast_instance *cast);
++void xdpw_ext_ic_frame_cancel(struct xdpw_screencast_instance *cast);
+ 
+ #endif
+diff --git a/include/wlr_screencast.h b/include/wlr_screencast.h
+index 4ec56dc..432acc9 100644
+--- a/include/wlr_screencast.h
++++ b/include/wlr_screencast.h
+@@ -27,5 +27,7 @@ bool xdpw_wlr_target_from_data(struct xdpw_screencast_context *ctx, struct xdpw_
+ void xdpw_wlr_frame_capture(struct xdpw_screencast_instance *cast);
+ int xdpw_wlr_session_init(struct xdpw_screencast_instance *cast);
+ void xdpw_wlr_session_close(struct xdpw_screencast_instance *cast);
++// Abandon the capture that is in flight, if any; the session stays
++void xdpw_wlr_frame_cancel(struct xdpw_screencast_instance *cast);
+ 
+ #endif
+diff --git a/src/screencast/ext_image_copy.c b/src/screencast/ext_image_copy.c
+index afdfcd9..1ff696a 100644
+--- a/src/screencast/ext_image_copy.c
++++ b/src/screencast/ext_image_copy.c
+@@ -294,6 +294,9 @@ static void ext_register_frame_cb(struct xdpw_screencast_instance *cast) {
+ 			return;
+ 		}
+ 	}
++	// A session has one frame at a time; a second one is a protocol error.
++	// A capture that is still in flight here is for a buffer we gave up on.
++	xdpw_ext_ic_frame_cancel(cast);
+ 	cast->ext_session.frame = ext_image_copy_capture_session_v1_create_frame(
+ 			cast->ext_session.capture_session);
+ 	ext_image_copy_capture_frame_v1_add_listener(cast->ext_session.frame,
+@@ -321,11 +324,15 @@ void xdpw_ext_ic_frame_capture(struct xdpw_screencast_instance *cast) {
+ 	ext_register_frame_cb(cast);
+ }
+ 
+-void xdpw_ext_ic_session_close(struct xdpw_screencast_instance *cast) {
++void xdpw_ext_ic_frame_cancel(struct xdpw_screencast_instance *cast) {
+ 	if (cast->ext_session.frame) {
+ 		ext_image_copy_capture_frame_v1_destroy(cast->ext_session.frame);
+ 		cast->ext_session.frame = NULL;
+ 	}
++}
++
++void xdpw_ext_ic_session_close(struct xdpw_screencast_instance *cast) {
++	xdpw_ext_ic_frame_cancel(cast);
+ 	if (cast->ext_session.capture_session) {
+ 		ext_image_copy_capture_session_v1_destroy(cast->ext_session.capture_session);
+ 		cast->ext_session.capture_session = NULL;
+diff --git a/src/screencast/pipewire_screencast.c b/src/screencast/pipewire_screencast.c
+index 9512e8d..1df816b 100644
+--- a/src/screencast/pipewire_screencast.c
++++ b/src/screencast/pipewire_screencast.c
+@@ -8,6 +8,7 @@
+ #include <spa/param/video/format-utils.h>
+ #include <spa/pod/dynamic.h>
+ #include <sys/mman.h>
++#include <time.h>
+ #include <unistd.h>
+ #include <assert.h>
+ #include <errno.h>
+@@ -380,6 +381,16 @@ void xdpw_pwr_enqueue_buffer(struct xdpw_screencast_instance *cast) {
+ 		}
+ 	}
+ 
++	if (buffer_corrupt) {
++		// Nothing was captured, so the frame's timestamp is the previous
++		// frame's, or zero before the first one. A zero followed by real
++		// timestamps makes clock-synced consumers wait for hours.
++		struct timespec now;
++		clock_gettime(CLOCK_MONOTONIC, &now);
++		cast->current_frame.tv_sec = now.tv_sec;
++		cast->current_frame.tv_nsec = now.tv_nsec;
++	}
++
+ 	logprint(TRACE, "********************");
+ 	struct spa_meta_header *h;
+ 	if ((h = spa_buffer_find_meta_data(spa_buf, SPA_META_Header, sizeof(*h)))) {
+@@ -471,6 +482,26 @@ done:
+ 	cast->current_frame.pw_buffer = NULL;
+ }
+ 
++// Gives the dequeued buffer back unused. Called when the stream stops while a
++// capture is in flight: the capture is abandoned first, because its ready
++// event would otherwise be taken for the next capture's and deliver a buffer
++// the compositor never wrote to.
++static void pwr_abandon_buffer(struct xdpw_screencast_instance *cast) {
++	xdpw_wlr_frame_cancel(cast);
++	if (cast->current_frame.xdpw_buffer != NULL && cast->current_frame.xdpw_buffer->convert) {
++		convert_invalidate(cast);
++	}
++#if PW_CHECK_VERSION(1, 4, 0)
++	logprint(TRACE, "pipewire: returning unused buffer");
++	pw_stream_return_buffer(cast->stream, cast->current_frame.pw_buffer);
++	cast->current_frame.xdpw_buffer = NULL;
++	cast->current_frame.pw_buffer = NULL;
++#else
++	cast->current_frame.completed = false;
++	xdpw_pwr_enqueue_buffer(cast);
++#endif
++}
++
+ void pwr_update_stream_param(struct xdpw_screencast_instance *cast) {
+ 	logprint(TRACE, "pipewire: stream update parameters");
+ 	struct pw_stream *stream = cast->stream;
+@@ -512,7 +543,7 @@ static void pwr_handle_stream_state_changed(void *data,
+ 		break;
+ 	case PW_STREAM_STATE_PAUSED:
+ 		if (old == PW_STREAM_STATE_STREAMING && cast->current_frame.pw_buffer) {
+-			xdpw_pwr_enqueue_buffer(cast);
++			pwr_abandon_buffer(cast);
+ 		}
+ 		// fall through
+ 	default:
+diff --git a/src/screencast/wlr_screencast.c b/src/screencast/wlr_screencast.c
+index 6c51222..8cf505f 100644
+--- a/src/screencast/wlr_screencast.c
++++ b/src/screencast/wlr_screencast.c
+@@ -60,6 +60,16 @@ void xdpw_wlr_session_close(struct xdpw_screencast_instance *cast) {
+ 	}
+ }
+ 
++void xdpw_wlr_frame_cancel(struct xdpw_screencast_instance *cast) {
++	if (cast->ctx->ext_image_copy_capture_manager
++			&& cast->ctx->ext_output_image_capture_source_manager) {
++		xdpw_ext_ic_frame_cancel(cast);
++	} else if (cast->ctx->screencopy_manager) {
++		// a wlr-screencopy session is nothing but its frame
++		xdpw_wlr_sc_session_close(cast);
++	}
++}
++
+ int xdpw_wlr_session_init(struct xdpw_screencast_instance *cast) {
+ 	if (cast->ctx->ext_image_copy_capture_manager
+ 			&& cast->ctx->ext_output_image_capture_source_manager) {
+-- 
+2.56.0
+
