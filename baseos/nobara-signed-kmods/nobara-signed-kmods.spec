@@ -27,8 +27,8 @@
 # Build flags come from the kernel, not rpm (rpm's LDFLAGS break the NVIDIA link)
 %undefine _auto_set_build_flags
 
-%global kernels_mainline 7.3.4-201.eac.nobara%{?dist}.%{_target_cpu}
-%global kernels_lts      6.18.60-203.lts.eac.nobara%{?dist}.%{_target_cpu}
+%global kernels_mainline 7.3.4-202.eac.nobara%{?dist}.%{_target_cpu}
+%global kernels_lts      6.18.60-204.lts.eac.nobara%{?dist}.%{_target_cpu}
 %if "%{?copr_projectname}" == "linux-nobara-lts"
 %{!?kernels:%global kernels %{kernels_lts}}
 %else
@@ -84,7 +84,7 @@ modules_for() {
 
 Name:           nobara-signed-kmods
 Version:        1
-Release:        15%{?dist}
+Release:        16%{?dist}
 Summary:        Nobara-signed kernel modules for the Easy Anti-Cheat kernel
 License:        GPL-2.0-only AND GPL-2.0-or-later AND MIT AND CDDL-1.0 AND NVIDIA License
 URL:            https://nobaraproject.org
@@ -342,6 +342,9 @@ done
 find %{buildroot}/lib/modules -name '*.ko' -exec strip --strip-debug {} +
 
 %changelog
+* Sat Nov 14 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 1-16
+- Build for kernel-eac 7.3.4-202 and 6.18.60-204 (aarch64 platform drivers)
+
 * Fri Nov 13 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 1-14
 - NVIDIA production branch 620.70.06, with nvidia/prod/620.70.06/kmod's
   patches: tunneled PCIe speed, CEC over DP-to-HDMI dongles, the Bigscreen
