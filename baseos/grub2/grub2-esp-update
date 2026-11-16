@@ -16,7 +16,11 @@
 #     --disable-validation)
 #   - the Nobara EAC CA is enrolled
 #   - the ESP has no such image yet (a new installation: nothing to keep)
-# The other files (fonts, the grub.cfg stub) are always installed.
+# The other files (fonts) are always installed. The grub.cfg stub is not
+# copied: the one next to the images was generated when the package was
+# installed, which on a live image is the image build's /boot, not this
+# system's. The ESP's stub is generated for this system's /boot instead, when
+# it is missing or points at a /boot that does not exist here.
 #
 # Usage: grub2-esp-update [<grub EFI dir> [<ESP dir>]]
 #   Without arguments: the EFI directories of the installed grub2-efi-*
@@ -63,6 +67,7 @@ while read -r dir; do
     for f in "$dir"/*; do
         # Not subdirectories: the confidential computing images aren't for the ESP
         [[ -f "$f" ]] || [[ -L "$f" ]] || continue
+        [[ "${f##*/}" = grub.cfg ]] && continue
         dest="$ESP_DIR/${f##*/}"
         cmp -s "$f" "$dest" && continue
         if [[ "$f" = *.efi ]] && [[ -z "$SHIM_BOOTS_EAC" ]] && [[ -e "$dest" ]]; then
@@ -73,6 +78,20 @@ while read -r dir; do
             || { rm -f "$dest.new"; log "could not install $dest"; }
     done
 done < <(efi_dirs "${1:-}")
+
+# The ESP's grub.cfg stub: it finds /boot by filesystem UUID
+boot_uuid=$(grub2-probe --target=fs_uuid /boot/grub2 2>/dev/null) || boot_uuid=
+if [[ -n "$boot_uuid" ]] && command -v gen_grub_cfgstub &>/dev/null; then
+    stub="$ESP_DIR/grub.cfg"
+    stub_uuid=
+    [[ -f "$stub" ]] && stub_uuid=$(grep -oP -- '--fs-uuid --set=dev \K\S+' "$stub" | head -n1)
+    if [[ ! -f "$stub" ]] || { [[ -n "$stub_uuid" ]] && [[ "$stub_uuid" != "$boot_uuid" ]] &&
+            [[ ! -e "/dev/disk/by-uuid/$stub_uuid" ]]; }; then
+        gen_grub_cfgstub /boot/grub2 "$ESP_DIR" \
+            && log "wrote $stub for /boot ($boot_uuid)" \
+            || log "could not write $stub"
+    fi
+fi
 
 if [[ ${#kept[@]} -gt 0 ]]; then
     log "Secure Boot is on and the Nobara EAC CA is not enrolled yet: keeping the current ${kept[*]} on the ESP."
