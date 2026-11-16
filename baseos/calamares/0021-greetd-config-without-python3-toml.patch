@@ -1,0 +1,64 @@
+Subject: displaymanager: write greetd config without python3-toml
+
+python3-toml is retired in Fedora 44 (fedora-obsolete-packages obsoletes it),
+so the greetd setup failed with "No module named toml". Read the config with
+the standard library tomllib and write greetd's flat-table layout directly.
+
+--- a/src/modules/displaymanager/main.py	2026-11-14 07:55:48.979947773 -0700
++++ b/src/modules/displaymanager/main.py	2026-11-14 07:56:00.682392380 -0700
+@@ -857,11 +857,13 @@
+         return self.os_path("etc/greetd/environments")
+ 
+     def config_load(self):
+-        import toml
++        # python3-toml is retired in Fedora 44 (fedora-obsolete-packages);
++        # read with the standard library's tomllib instead
++        import tomllib
+ 
+         if (os.path.exists(self.config_path())):
+-            with open(self.config_path(), "r") as f:
+-                self.config_data = toml.load(f)
++            with open(self.config_path(), "rb") as f:
++                self.config_data = tomllib.load(f)
+ 
+         self.config_data['terminal'] = dict(vt = "next")
+ 
+@@ -873,10 +875,36 @@
+ 
+         return self.config_data
+ 
++    @staticmethod
++    def toml_value(value):
++        if isinstance(value, bool):
++            return "true" if value else "false"
++        if isinstance(value, (int, float)):
++            return str(value)
++        if isinstance(value, (list, tuple)):
++            return "[" + ", ".join(DMgreetd.toml_value(v) for v in value) + "]"
++        text = str(value).replace("\\", "\\\\").replace('"', '\\"')
++        return '"' + text.replace("\n", "\\n") + '"'
++
+     def config_write(self):
+-        import toml
++        # greetd's config is top-level keys plus flat tables
++        # ([terminal], [general], [default_session], [initial_session]);
++        # tomllib cannot write, so write that layout directly
++        lines = []
++        tables = []
++        for key, value in self.config_data.items():
++            if isinstance(value, dict):
++                tables.append((key, value))
++            else:
++                lines.append(f"{key} = {self.toml_value(value)}")
++        for name, table in tables:
++            if lines:
++                lines.append("")
++            lines.append(f"[{name}]")
++            for key, value in table.items():
++                lines.append(f"{key} = {self.toml_value(value)}")
+         with open(self.config_path(), "w") as f:
+-            toml.dump(self.config_data, f)
++            f.write("\n".join(lines) + "\n")
+ 
+     def basic_setup(self):
+         if libcalamares.utils.target_env_call(
