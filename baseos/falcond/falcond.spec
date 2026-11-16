@@ -3,7 +3,7 @@
 
 Name:           falcond
 Version:        2.0.14
-Release:        %autorelease
+Release:        %autorelease -b 2
 Summary:        Advanced Linux Gaming Performance Daemon
 
 License:        MIT
