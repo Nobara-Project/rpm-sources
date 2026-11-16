@@ -45,8 +45,11 @@ zig build \
     -Doptimize=ReleaseFast \
     -Dcpu=x86_64_v2
 %else
+# Zig builds for the build host's CPU without -Dcpu, which gives aarch64
+# binaries instructions other CPUs lack (SIGILL on Snapdragon X)
 zig build \
-    -Doptimize=ReleaseFast
+    -Doptimize=ReleaseFast \
+    -Dcpu=baseline
 %endif
     
 %pre
@@ -72,6 +75,10 @@ usermod -aG 'falcond' root || :
 %{_unitdir}/%{name}.service
 
 %changelog
+* Mon Nov 16 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 2.0.14-2
+- aarch64: build for the baseline CPU instead of the build host's, which
+  crashed with an illegal instruction on Snapdragon X laptops
+
 * Mon Aug 03 2026 LionHeartP <LionHeartP@proton.me> - 2.0.14-1
 - Update to 2.0.14
 
