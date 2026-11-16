@@ -39,14 +39,15 @@ tar -xzf %{SOURCE1} -C %{name}/
 cd %{name}
 mkdir -p %{buildroot}%{_unitdir}/
 install -Dm644 debian/%{name}.service %{buildroot}%{_unitdir}
+# aarch64: Zig builds for the build host's CPU without -Dcpu, which gives
+# binaries instructions other CPUs lack (SIGILL on Snapdragon X). No comment
+# lines between DESTDIR and zig build: they end the line continuation
 DESTDIR="%{buildroot}" \
 %ifarch x86_64
 zig build \
     -Doptimize=ReleaseFast \
     -Dcpu=x86_64_v2
 %else
-# Zig builds for the build host's CPU without -Dcpu, which gives aarch64
-# binaries instructions other CPUs lack (SIGILL on Snapdragon X)
 zig build \
     -Doptimize=ReleaseFast \
     -Dcpu=baseline
