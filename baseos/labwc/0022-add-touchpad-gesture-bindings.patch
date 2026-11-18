@@ -1,0 +1,1172 @@
+From 12ff951298eb25e30252d92e999697ba9f48a921 Mon Sep 17 00:00:00 2001
+From: GloriousEggroll <gloriouseggroll@gmail.com>
+Date: Wed, 18 Nov 2026 01:33:50 -0500
+Subject: [PATCH] input: add touchpad gesture bindings
+
+Multi-finger touchpad swipes and pinches were only ever passed on to the
+client, so the compositor could not be driven with them.
+
+A new <touchpad> section of rc.xml binds them to actions:
+
+  <touchpad>
+    <gesture type="swipe" fingers="3" direction="left">
+      <action name="GoToDesktop" to="right" />
+    </gesture>
+  </touchpad>
+
+type is swipe or pinch, fingers is 3 to 5 for a swipe and 2 to 5 for a
+pinch, direction is left, right, up or down for a swipe (the way the
+fingers move) and in or out for a pinch. All three are required and an
+entry with a bad value is dropped with an error.
+
+A gesture is claimed when it begins if anything is bound for its type
+and number of fingers, and stays claimed until it ends, so the client
+sees either all of a gesture or none of it, also across a Reconfigure.
+The actions run once per gesture: for a swipe when the fingers have
+travelled 100 units along the longer axis, for a pinch when they are at
+0.8 or 1.25 times their first spread. The last definition of a gesture
+wins. Nothing is claimed or run while the session is locked. Gestures
+with no binding for their type and finger count are passed on as before.
+
+t/gesture.c covers the names and thresholds, t/gesture-handlers.c drives
+the handlers with touchpad events around a stubbed compositor.
+---
+ docs/labwc-config.5.scd      |  45 ++++
+ include/config/gesturebind.h |  72 ++++++
+ include/config/rcxml.h       |   3 +
+ include/labwc.h              |   3 +
+ src/config/gesturebind.c     |  76 +++++++
+ src/config/meson.build       |   1 +
+ src/config/rcxml.c           |  86 +++++++
+ src/input/gestures.c         |  96 ++++++++
+ t/gesture-handlers.c         | 429 +++++++++++++++++++++++++++++++++++
+ t/gesture.c                  |  86 +++++++
+ t/meson.build                |  16 ++
+ 11 files changed, 913 insertions(+)
+ create mode 100644 include/config/gesturebind.h
+ create mode 100644 src/config/gesturebind.c
+ create mode 100644 t/gesture-handlers.c
+ create mode 100644 t/gesture.c
+
+diff --git a/docs/labwc-config.5.scd b/docs/labwc-config.5.scd
+index b9e7194..84f7ca7 100644
+--- a/docs/labwc-config.5.scd
++++ b/docs/labwc-config.5.scd
+@@ -1111,6 +1111,51 @@ input-devices by the Wayland protocol.
+ 	<mouse><mousebind> entries exist, the same default mousebinds will be
+ 	loaded even if the <default /> element is not provided.
+ 
++## TOUCHPAD
++
++Multi-finger touchpad gestures can run actions. A gesture that is bound
++here is handled by the compositor and is not passed on to the client;
++all other gestures are passed on as before.
++
++```
++<touchpad>
++  <gesture type="swipe" fingers="3" direction="left">
++    <action name="GoToDesktop" to="right" />
++  </gesture>
++  <gesture type="pinch" fingers="4" direction="in">
++    <action name="ToggleShowDesktop" />
++  </gesture>
++</touchpad>
++```
++
++*<touchpad><gesture type="" fingers="" direction=""><action>*
++	Run the actions when the gesture is made. All three attributes are
++	required.
++
++	*type* [swipe|pinch]
++
++	*fingers* The number of fingers, 3 to 5 for a swipe and 2 to 5 for
++	a pinch. Two-finger swipes are scrolling and cannot be bound. Once
++	any direction is bound for a type and number of fingers, no gesture
++	of that type and number of fingers is passed on to the client.
++
++	*direction* [left|right|up|down] for a swipe is the direction the
++	fingers move in. [in|out] for a pinch is whether the fingers move
++	together or apart.
++
++	The actions run once per gesture, as soon as the fingers have moved
++	far enough for the direction to be clear, and without waiting for
++	them to be lifted. If the same gesture is defined more than once,
++	the last definition is used. Gestures do nothing while the session
++	is locked.
++
++	A *<touchpad>* section without gestures is allowed and binds
++	nothing.
++
++	The libinput setting *threeFingerDrag* uses three or four fingers
++	for dragging, in which case swipes with that many fingers are not
++	reported and cannot be bound.
++
+ ## TOUCH
+ 
+ This section relates to touchscreens and *not* touchpads.
+diff --git a/include/config/gesturebind.h b/include/config/gesturebind.h
+new file mode 100644
+index 0000000..1817548
+--- /dev/null
++++ b/include/config/gesturebind.h
+@@ -0,0 +1,72 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++#ifndef LABWC_GESTUREBIND_H
++#define LABWC_GESTUREBIND_H
++
++#include <stdbool.h>
++#include <stdint.h>
++#include <wayland-util.h>
++
++enum gesture_type {
++	LAB_GESTURE_TYPE_INVALID = 0,
++	LAB_GESTURE_TYPE_SWIPE,
++	LAB_GESTURE_TYPE_PINCH,
++};
++
++enum gesture_direction {
++	LAB_GESTURE_DIRECTION_NONE = 0,
++	LAB_GESTURE_DIRECTION_LEFT,
++	LAB_GESTURE_DIRECTION_RIGHT,
++	LAB_GESTURE_DIRECTION_UP,
++	LAB_GESTURE_DIRECTION_DOWN,
++	LAB_GESTURE_DIRECTION_IN,
++	LAB_GESTURE_DIRECTION_OUT,
++};
++
++/*
++ * Distance the fingers travel, in the unaccelerated pointer units libinput
++ * reports for swipes, before a swipe counts as made. About a centimetre
++ * on most touchpads.
++ */
++#define LAB_GESTURE_SWIPE_THRESHOLD 100.0
++
++/* Relative finger spread at which a pinch counts as made */
++#define LAB_GESTURE_PINCH_IN_SCALE 0.8
++#define LAB_GESTURE_PINCH_OUT_SCALE 1.25
++
++/* <touchpad><gesture type="" fingers="" direction=""> */
++struct gesturebind {
++	enum gesture_type type;
++	uint32_t fingers;
++	enum gesture_direction direction;
++	struct wl_list actions;  /* struct action.link */
++	struct wl_list link;     /* struct rcxml.gesturebinds */
++};
++
++/* Progress of the touchpad gesture that is under way */
++struct gesture_tracker {
++	bool captured;  /* bound, so not passed on to the client */
++	bool fired;     /* actions ran, the rest of the gesture is ignored */
++	uint32_t fingers;
++	double dx, dy;
++};
++
++enum gesture_type gesture_type_from_str(const char *str);
++
++/* Returns LAB_GESTURE_DIRECTION_NONE for a direction the type does not have */
++enum gesture_direction gesture_direction_from_str(enum gesture_type type,
++	const char *str);
++
++/*
++ * The direction of a swipe that moved (dx, dy) in total since it began, or
++ * LAB_GESTURE_DIRECTION_NONE while it is shorter than the threshold. The
++ * longer axis decides.
++ */
++enum gesture_direction gesture_swipe_direction(double dx, double dy);
++
++/*
++ * The direction of a pinch whose fingers are @scale times as far apart as
++ * when it began, or LAB_GESTURE_DIRECTION_NONE while it is undecided.
++ */
++enum gesture_direction gesture_pinch_direction(double scale);
++
++#endif /* LABWC_GESTUREBIND_H */
+diff --git a/include/config/rcxml.h b/include/config/rcxml.h
+index d9aa8a9..dbcf6a1 100644
+--- a/include/config/rcxml.h
++++ b/include/config/rcxml.h
+@@ -158,6 +158,9 @@ struct rcxml {
+ 	long doubleclick_time;     /* in ms */
+ 	struct wl_list mousebinds; /* struct mousebind.link */
+ 
++	/* touchpad */
++	struct wl_list gesturebinds; /* struct gesturebind.link */
++
+ 	/* touch tablet */
+ 	struct wl_list touch_configs;
+ 
+diff --git a/include/labwc.h b/include/labwc.h
+index 395bf9e..f7d2c92 100644
+--- a/include/labwc.h
++++ b/include/labwc.h
+@@ -5,6 +5,7 @@
+ #include <wlr/util/box.h>
+ #include <wlr/util/log.h>
+ #include "common/set.h"
++#include "config/gesturebind.h"
+ #include "cycle.h"
+ #include "input/cursor.h"
+ #include "overlay.h"
+@@ -118,6 +119,8 @@ struct seat {
+ 	struct wl_listener swipe_end;
+ 	struct wl_listener hold_begin;
+ 	struct wl_listener hold_end;
++	struct gesture_tracker swipe_gesture;
++	struct gesture_tracker pinch_gesture;
+ 
+ 	struct wl_listener request_set_cursor;
+ 	struct wl_listener request_set_shape;
+diff --git a/src/config/gesturebind.c b/src/config/gesturebind.c
+new file mode 100644
+index 0000000..0eac04f
+--- /dev/null
++++ b/src/config/gesturebind.c
+@@ -0,0 +1,76 @@
++// SPDX-License-Identifier: GPL-2.0-only
++#include "config/gesturebind.h"
++#include <math.h>
++#include <strings.h>
++
++enum gesture_type
++gesture_type_from_str(const char *str)
++{
++	if (!str) {
++		return LAB_GESTURE_TYPE_INVALID;
++	}
++	if (!strcasecmp(str, "swipe")) {
++		return LAB_GESTURE_TYPE_SWIPE;
++	}
++	if (!strcasecmp(str, "pinch")) {
++		return LAB_GESTURE_TYPE_PINCH;
++	}
++	return LAB_GESTURE_TYPE_INVALID;
++}
++
++enum gesture_direction
++gesture_direction_from_str(enum gesture_type type, const char *str)
++{
++	if (!str) {
++		return LAB_GESTURE_DIRECTION_NONE;
++	}
++	if (type == LAB_GESTURE_TYPE_SWIPE) {
++		if (!strcasecmp(str, "left")) {
++			return LAB_GESTURE_DIRECTION_LEFT;
++		} else if (!strcasecmp(str, "right")) {
++			return LAB_GESTURE_DIRECTION_RIGHT;
++		} else if (!strcasecmp(str, "up")) {
++			return LAB_GESTURE_DIRECTION_UP;
++		} else if (!strcasecmp(str, "down")) {
++			return LAB_GESTURE_DIRECTION_DOWN;
++		}
++	} else if (type == LAB_GESTURE_TYPE_PINCH) {
++		if (!strcasecmp(str, "in")) {
++			return LAB_GESTURE_DIRECTION_IN;
++		} else if (!strcasecmp(str, "out")) {
++			return LAB_GESTURE_DIRECTION_OUT;
++		}
++	}
++	return LAB_GESTURE_DIRECTION_NONE;
++}
++
++enum gesture_direction
++gesture_swipe_direction(double dx, double dy)
++{
++	if (!isfinite(dx) || !isfinite(dy)) {
++		return LAB_GESTURE_DIRECTION_NONE;
++	}
++	if (fmax(fabs(dx), fabs(dy)) < LAB_GESTURE_SWIPE_THRESHOLD) {
++		return LAB_GESTURE_DIRECTION_NONE;
++	}
++	if (fabs(dx) >= fabs(dy)) {
++		return dx < 0 ? LAB_GESTURE_DIRECTION_LEFT
++			: LAB_GESTURE_DIRECTION_RIGHT;
++	}
++	return dy < 0 ? LAB_GESTURE_DIRECTION_UP : LAB_GESTURE_DIRECTION_DOWN;
++}
++
++enum gesture_direction
++gesture_pinch_direction(double scale)
++{
++	if (!isfinite(scale) || scale <= 0) {
++		return LAB_GESTURE_DIRECTION_NONE;
++	}
++	if (scale <= LAB_GESTURE_PINCH_IN_SCALE) {
++		return LAB_GESTURE_DIRECTION_IN;
++	}
++	if (scale >= LAB_GESTURE_PINCH_OUT_SCALE) {
++		return LAB_GESTURE_DIRECTION_OUT;
++	}
++	return LAB_GESTURE_DIRECTION_NONE;
++}
+diff --git a/src/config/meson.build b/src/config/meson.build
+index 70b1baa..cc75eda 100644
+--- a/src/config/meson.build
++++ b/src/config/meson.build
+@@ -3,6 +3,7 @@ labwc_sources += files(
+   'keybind.c',
+   'session.c',
+   'mousebind.c',
++  'gesturebind.c',
+   'touch.c',
+   'tablet.c',
+   'tablet-tool.c',
+diff --git a/src/config/rcxml.c b/src/config/rcxml.c
+index 6ff9dcc..bf0d768 100644
+--- a/src/config/rcxml.c
++++ b/src/config/rcxml.c
+@@ -25,6 +25,7 @@
+ #include "common/string-helpers.h"
+ #include "common/xml.h"
+ #include "config/default-bindings.h"
++#include "config/gesturebind.h"
+ #include "config/keybind.h"
+ #include "config/libinput.h"
+ #include "config/mousebind.h"
+@@ -681,6 +682,67 @@ fill_mousebind(xmlNode *node, const char *context)
+ 	append_parsed_actions(node, &mousebind->actions);
+ }
+ 
++static void
++fill_gesturebind(xmlNode *node)
++{
++	/*
++	 * Example of what we are parsing:
++	 * <touchpad>
++	 *   <gesture type="swipe" fingers="3" direction="left">
++	 *     <action name="GoToDesktop" to="right" />
++	 *   </gesture>
++	 * </touchpad>
++	 */
++	char buf[256];
++	enum gesture_type type = LAB_GESTURE_TYPE_INVALID;
++	if (lab_xml_get_string(node, "type", buf, sizeof(buf))) {
++		type = gesture_type_from_str(buf);
++	}
++	if (type == LAB_GESTURE_TYPE_INVALID) {
++		wlr_log(WLR_ERROR, "Invalid gesture: type must be swipe or pinch");
++		return;
++	}
++
++	enum gesture_direction direction = LAB_GESTURE_DIRECTION_NONE;
++	if (lab_xml_get_string(node, "direction", buf, sizeof(buf))) {
++		direction = gesture_direction_from_str(type, buf);
++	}
++	if (direction == LAB_GESTURE_DIRECTION_NONE) {
++		wlr_log(WLR_ERROR, "Invalid gesture: direction must be %s",
++			type == LAB_GESTURE_TYPE_SWIPE
++			? "left, right, up or down" : "in or out");
++		return;
++	}
++
++	/*
++	 * libinput reports pinches from two fingers and swipes from three.
++	 * Two-finger swipes are scrolling and never arrive as gestures.
++	 */
++	long fingers = 0;
++	int min_fingers = type == LAB_GESTURE_TYPE_SWIPE ? 3 : 2;
++	if (lab_xml_get_string(node, "fingers", buf, sizeof(buf))) {
++		char *end;
++		fingers = strtol(buf, &end, 10);
++		if (end == buf || *end != '\0') {
++			fingers = 0;
++		}
++	}
++	if (fingers < min_fingers || fingers > 5) {
++		wlr_log(WLR_ERROR, "Invalid gesture: fingers must be %d to 5",
++			min_fingers);
++		return;
++	}
++
++	struct gesturebind *gesturebind = znew(*gesturebind);
++	gesturebind->type = type;
++	gesturebind->fingers = fingers;
++	gesturebind->direction = direction;
++	wl_list_init(&gesturebind->actions);
++	wl_list_append(&rc.gesturebinds, &gesturebind->link);
++
++	append_parsed_actions(node, &gesturebind->actions);
++}
++
+ static void
+ fill_mouse_context(xmlNode *node)
+ {
+@@ -1195,6 +1257,11 @@ entry(xmlNode *node, char *nodename, char *content)
+ 		fill_mouse_context(node);
+ 	} else if (!strcasecmp(nodename, "touch")) {
+ 		fill_touch(node);
++	} else if (!strcasecmp(nodename, "gesture.touchpad")) {
++		fill_gesturebind(node);
++	} else if (!strcasecmp(nodename, "touchpad")
++			&& lab_xml_node_is_leaf(node)) {
++		/* <touchpad /> without gestures: nothing is bound */
+ 	} else if (!strcasecmp(nodename, "device.libinput")) {
+ 		fill_libinput_category(node);
+ 	} else if (!strcasecmp(nodename, "regions")) {
+@@ -1596,6 +1663,7 @@ rcxml_init(void)
+ 		wl_list_init(&rc.output_adaptive_sync_overrides);
+ 		wl_list_init(&rc.keybinds);
+ 		wl_list_init(&rc.mousebinds);
++		wl_list_init(&rc.gesturebinds);
+ 		wl_list_init(&rc.libinput_categories);
+ 		wl_list_init(&rc.workspace_config.workspaces);
+ 		wl_list_init(&rc.regions);
+@@ -2033,6 +2101,17 @@ validate_actions(void)
+ 		}
+ 	}
+ 
++	struct gesturebind *gesturebind;
++	wl_list_for_each(gesturebind, &rc.gesturebinds, link) {
++		wl_list_for_each_safe(action, action_tmp, &gesturebind->actions, link) {
++			if (!action_is_valid(action)) {
++				wl_list_remove(&action->link);
++				action_free(action);
++				wlr_log(WLR_ERROR, "Removed invalid gesture action");
++			}
++		}
++	}
++
+ 	struct window_rule *rule;
+ 	wl_list_for_each(rule, &rc.window_rules, link) {
+ 		wl_list_for_each_safe(action, action_tmp, &rule->actions, link) {
+@@ -2202,6 +2281,13 @@ rcxml_finish(void)
+ 		zfree(m);
+ 	}
+ 
++	struct gesturebind *g, *g_tmp;
++	wl_list_for_each_safe(g, g_tmp, &rc.gesturebinds, link) {
++		wl_list_remove(&g->link);
++		action_list_free(&g->actions);
++		zfree(g);
++	}
++
+ 	struct touch_config_entry *touch_config, *touch_config_tmp;
+ 	wl_list_for_each_safe(touch_config, touch_config_tmp, &rc.touch_configs, link) {
+ 		wl_list_remove(&touch_config->link);
+diff --git a/src/input/gestures.c b/src/input/gestures.c
+index 6b488ed..54614e3 100644
+--- a/src/input/gestures.c
++++ b/src/input/gestures.c
+@@ -2,9 +2,68 @@
+ #include "input/gestures.h"
+ #include <wlr/types/wlr_cursor.h>
+ #include <wlr/types/wlr_pointer_gestures_v1.h>
++#include "action.h"
+ #include "common/macros.h"
++#include "config/gesturebind.h"
++#include "config/rcxml.h"
+ #include "labwc.h"
+ #include "idle.h"
++#include "session-lock.h"
++
++/*
++ * Touchpad gestures bound in <touchpad><gesture> are handled here and not
++ * passed on to the client. A gesture is claimed when it begins and stays
++ * claimed until it ends, so that the client sees either the whole gesture
++ * or nothing of it, also when the configuration is reloaded in between.
++ */
++static bool
++gesture_is_bound(enum gesture_type type, uint32_t fingers)
++{
++	if (server.session_lock_manager->locked) {
++		return false;
++	}
++	struct gesturebind *gesturebind;
++	wl_list_for_each(gesturebind, &rc.gesturebinds, link) {
++		if (gesturebind->type == type && gesturebind->fingers == fingers) {
++			return true;
++		}
++	}
++	return false;
++}
++
++static void
++gesture_begin(struct gesture_tracker *tracker, enum gesture_type type,
++		uint32_t fingers)
++{
++	*tracker = (struct gesture_tracker){
++		.captured = gesture_is_bound(type, fingers),
++		.fingers = fingers,
++	};
++}
++
++/* Runs the actions of a claimed gesture once its direction is known */
++static void
++gesture_fire(struct gesture_tracker *tracker, enum gesture_type type,
++		enum gesture_direction direction)
++{
++	if (tracker->fired || direction == LAB_GESTURE_DIRECTION_NONE) {
++		return;
++	}
++	tracker->fired = true;
++	if (server.session_lock_manager->locked) {
++		return;
++	}
++	/* As with key and mouse bindings, a later definition wins */
++	struct gesturebind *gesturebind;
++	wl_list_for_each_reverse(gesturebind, &rc.gesturebinds, link) {
++		if (gesturebind->type == type
++				&& gesturebind->fingers == tracker->fingers
++				&& gesturebind->direction == direction) {
++			actions_run(NULL, &gesturebind->actions, NULL);
++			return;
++		}
++	}
++}
+ 
+ static void
+ handle_pinch_begin(struct wl_listener *listener, void *data)
+@@ -15,6 +74,11 @@ handle_pinch_begin(struct wl_listener *listener, void *data)
+ 	idle_manager_notify_activity(seat->wlr_seat);
+ 	cursor_set_visible(seat, /* visible */ true);
+ 
++	gesture_begin(&seat->pinch_gesture, LAB_GESTURE_TYPE_PINCH, event->fingers);
++	if (seat->pinch_gesture.captured) {
++		return;
++	}
++
+ 	wlr_pointer_gestures_v1_send_pinch_begin(seat->pointer_gestures,
+ 		seat->wlr_seat, event->time_msec, event->fingers);
+ }
+@@ -28,6 +92,12 @@ handle_pinch_update(struct wl_listener *listener, void *data)
+ 	idle_manager_notify_activity(seat->wlr_seat);
+ 	cursor_set_visible(seat, /* visible */ true);
+ 
++	if (seat->pinch_gesture.captured) {
++		gesture_fire(&seat->pinch_gesture, LAB_GESTURE_TYPE_PINCH,
++			gesture_pinch_direction(event->scale));
++		return;
++	}
++
+ 	wlr_pointer_gestures_v1_send_pinch_update(seat->pointer_gestures,
+ 		seat->wlr_seat, event->time_msec, event->dx, event->dy,
+ 		event->scale, event->rotation);
+@@ -42,6 +112,11 @@ handle_pinch_end(struct wl_listener *listener, void *data)
+ 	idle_manager_notify_activity(seat->wlr_seat);
+ 	cursor_set_visible(seat, /* visible */ true);
+ 
++	if (seat->pinch_gesture.captured) {
++		seat->pinch_gesture = (struct gesture_tracker){0};
++		return;
++	}
++
+ 	wlr_pointer_gestures_v1_send_pinch_end(seat->pointer_gestures,
+ 		seat->wlr_seat, event->time_msec, event->cancelled);
+ }
+@@ -55,6 +130,11 @@ handle_swipe_begin(struct wl_listener *listener, void *data)
+ 	idle_manager_notify_activity(seat->wlr_seat);
+ 	cursor_set_visible(seat, /* visible */ true);
+ 
++	gesture_begin(&seat->swipe_gesture, LAB_GESTURE_TYPE_SWIPE, event->fingers);
++	if (seat->swipe_gesture.captured) {
++		return;
++	}
++
+ 	wlr_pointer_gestures_v1_send_swipe_begin(seat->pointer_gestures,
+ 		seat->wlr_seat, event->time_msec, event->fingers);
+ }
+@@ -68,6 +148,17 @@ handle_swipe_update(struct wl_listener *listener, void *data)
+ 	idle_manager_notify_activity(seat->wlr_seat);
+ 	cursor_set_visible(seat, /* visible */ true);
+ 
++	if (seat->swipe_gesture.captured) {
++		struct gesture_tracker *tracker = &seat->swipe_gesture;
++		if (!tracker->fired) {
++			tracker->dx += event->dx;
++			tracker->dy += event->dy;
++			gesture_fire(tracker, LAB_GESTURE_TYPE_SWIPE,
++				gesture_swipe_direction(tracker->dx, tracker->dy));
++		}
++		return;
++	}
++
+ 	wlr_pointer_gestures_v1_send_swipe_update(seat->pointer_gestures,
+ 		seat->wlr_seat, event->time_msec, event->dx, event->dy);
+ }
+@@ -81,6 +172,11 @@ handle_swipe_end(struct wl_listener *listener, void *data)
+ 	idle_manager_notify_activity(seat->wlr_seat);
+ 	cursor_set_visible(seat, /* visible */ true);
+ 
++	if (seat->swipe_gesture.captured) {
++		seat->swipe_gesture = (struct gesture_tracker){0};
++		return;
++	}
++
+ 	wlr_pointer_gestures_v1_send_swipe_end(seat->pointer_gestures,
+ 		seat->wlr_seat, event->time_msec, event->cancelled);
+ }
+diff --git a/t/gesture-handlers.c b/t/gesture-handlers.c
+new file mode 100644
+index 0000000..11d9cc9
+--- /dev/null
++++ b/t/gesture-handlers.c
+@@ -0,0 +1,429 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Drives the touchpad gesture handlers of src/input/gestures.c with the
++ * events a touchpad would send, to check which gestures run actions and
++ * which are passed on to the client.
++ */
++#include <setjmp.h>
++#include <stdarg.h>
++#include <stddef.h>
++#include <stdint.h>
++#include <cmocka.h>
++#include <wlr/types/wlr_cursor.h>
++#include <wlr/types/wlr_pointer.h>
++#include <wlr/types/wlr_pointer_gestures_v1.h>
++#include "action.h"
++#include "config/gesturebind.h"
++#include "config/rcxml.h"
++#include "idle.h"
++#include "input/cursor.h"
++#include "input/gestures.h"
++#include "labwc.h"
++#include "session-lock.h"
++
++struct server server;
++struct rcxml rc;
++
++static struct session_lock_manager lock_manager;
++static struct wlr_cursor cursor;
++static struct seat test_seat;
++
++/* What reached the client, and which actions ran */
++static struct sent {
++	int swipe_begin, swipe_update, swipe_end;
++	int pinch_begin, pinch_update, pinch_end;
++	int hold_begin, hold_end;
++} sent;
++static int ran;
++static struct wl_list *last_ran;
++
++void
++idle_manager_notify_activity(struct wlr_seat *wlr_seat)
++{
++}
++
++void
++cursor_set_visible(struct seat *seat, bool visible)
++{
++}
++
++void
++actions_run(struct view *activator, struct wl_list *actions,
++		struct cursor_context *ctx)
++{
++	ran++;
++	last_ran = actions;
++}
++
++struct wlr_pointer_gestures_v1 *
++wlr_pointer_gestures_v1_create(struct wl_display *display)
++{
++	return NULL;
++}
++
++void
++wlr_pointer_gestures_v1_send_swipe_begin(struct wlr_pointer_gestures_v1 *gestures,
++		struct wlr_seat *seat, uint32_t time_msec, uint32_t fingers)
++{
++	sent.swipe_begin++;
++}
++
++void
++wlr_pointer_gestures_v1_send_swipe_update(struct wlr_pointer_gestures_v1 *gestures,
++		struct wlr_seat *seat, uint32_t time_msec, double dx, double dy)
++{
++	sent.swipe_update++;
++}
++
++void
++wlr_pointer_gestures_v1_send_swipe_end(struct wlr_pointer_gestures_v1 *gestures,
++		struct wlr_seat *seat, uint32_t time_msec, bool cancelled)
++{
++	sent.swipe_end++;
++}
++
++void
++wlr_pointer_gestures_v1_send_pinch_begin(struct wlr_pointer_gestures_v1 *gestures,
++		struct wlr_seat *seat, uint32_t time_msec, uint32_t fingers)
++{
++	sent.pinch_begin++;
++}
++
++void
++wlr_pointer_gestures_v1_send_pinch_update(struct wlr_pointer_gestures_v1 *gestures,
++		struct wlr_seat *seat, uint32_t time_msec, double dx, double dy,
++		double scale, double rotation)
++{
++	sent.pinch_update++;
++}
++
++void
++wlr_pointer_gestures_v1_send_pinch_end(struct wlr_pointer_gestures_v1 *gestures,
++		struct wlr_seat *seat, uint32_t time_msec, bool cancelled)
++{
++	sent.pinch_end++;
++}
++
++void
++wlr_pointer_gestures_v1_send_hold_begin(struct wlr_pointer_gestures_v1 *gestures,
++		struct wlr_seat *seat, uint32_t time_msec, uint32_t fingers)
++{
++	sent.hold_begin++;
++}
++
++void
++wlr_pointer_gestures_v1_send_hold_end(struct wlr_pointer_gestures_v1 *gestures,
++		struct wlr_seat *seat, uint32_t time_msec, bool cancelled)
++{
++	sent.hold_end++;
++}
++
++static void
++bind(struct gesturebind *gesturebind, enum gesture_type type, uint32_t fingers,
++		enum gesture_direction direction)
++{
++	gesturebind->type = type;
++	gesturebind->fingers = fingers;
++	gesturebind->direction = direction;
++	wl_list_init(&gesturebind->actions);
++	wl_list_insert(rc.gesturebinds.prev, &gesturebind->link);
++}
++
++static void
++swipe_begin(uint32_t fingers)
++{
++	struct wlr_pointer_swipe_begin_event event = { .fingers = fingers };
++	wl_signal_emit_mutable(&cursor.events.swipe_begin, &event);
++}
++
++static void
++swipe_update(double dx, double dy)
++{
++	struct wlr_pointer_swipe_update_event event = { .dx = dx, .dy = dy };
++	wl_signal_emit_mutable(&cursor.events.swipe_update, &event);
++}
++
++static void
++swipe_end(bool cancelled)
++{
++	struct wlr_pointer_swipe_end_event event = { .cancelled = cancelled };
++	wl_signal_emit_mutable(&cursor.events.swipe_end, &event);
++}
++
++static void
++pinch_begin(uint32_t fingers)
++{
++	struct wlr_pointer_pinch_begin_event event = { .fingers = fingers };
++	wl_signal_emit_mutable(&cursor.events.pinch_begin, &event);
++}
++
++static void
++pinch_update(double scale)
++{
++	struct wlr_pointer_pinch_update_event event = { .scale = scale };
++	wl_signal_emit_mutable(&cursor.events.pinch_update, &event);
++}
++
++static void
++pinch_end(void)
++{
++	struct wlr_pointer_pinch_end_event event = {0};
++	wl_signal_emit_mutable(&cursor.events.pinch_end, &event);
++}
++
++static int
++setup(void **state)
++{
++	(void)state;
++	wl_list_init(&rc.gesturebinds);
++	lock_manager.locked = false;
++	server.session_lock_manager = &lock_manager;
++	wl_signal_init(&cursor.events.swipe_begin);
++	wl_signal_init(&cursor.events.swipe_update);
++	wl_signal_init(&cursor.events.swipe_end);
++	wl_signal_init(&cursor.events.pinch_begin);
++	wl_signal_init(&cursor.events.pinch_update);
++	wl_signal_init(&cursor.events.pinch_end);
++	wl_signal_init(&cursor.events.hold_begin);
++	wl_signal_init(&cursor.events.hold_end);
++	test_seat = (struct seat){ .cursor = &cursor };
++	gestures_init(&test_seat);
++	sent = (struct sent){0};
++	ran = 0;
++	last_ran = NULL;
++	return 0;
++}
++
++static int
++teardown(void **state)
++{
++	(void)state;
++	gestures_finish(&test_seat);
++	return 0;
++}
++
++static void
++test_unbound_is_passed_on(void **state)
++{
++	(void)state;
++	swipe_begin(3);
++	swipe_update(-300, 0);
++	swipe_end(false);
++	pinch_begin(2);
++	pinch_update(0.5);
++	pinch_end();
++
++	assert_int_equal(ran, 0);
++	assert_int_equal(sent.swipe_begin, 1);
++	assert_int_equal(sent.swipe_update, 1);
++	assert_int_equal(sent.swipe_end, 1);
++	assert_int_equal(sent.pinch_begin, 1);
++	assert_int_equal(sent.pinch_update, 1);
++	assert_int_equal(sent.pinch_end, 1);
++}
++
++static void
++test_bound_swipe_runs_once(void **state)
++{
++	(void)state;
++	struct gesturebind left, right;
++	bind(&left, LAB_GESTURE_TYPE_SWIPE, 3, LAB_GESTURE_DIRECTION_LEFT);
++	bind(&right, LAB_GESTURE_TYPE_SWIPE, 3, LAB_GESTURE_DIRECTION_RIGHT);
++
++	swipe_begin(3);
++	swipe_update(-60, 5);
++	assert_int_equal(ran, 0);
++	/* the distance adds up over the updates */
++	swipe_update(-60, 5);
++	assert_int_equal(ran, 1);
++	assert_ptr_equal(last_ran, &left.actions);
++	/* going on, or back, does not run anything again */
++	swipe_update(-300, 0);
++	swipe_update(900, 0);
++	assert_int_equal(ran, 1);
++	swipe_end(false);
++
++	/* the next gesture starts afresh */
++	swipe_begin(3);
++	swipe_update(150, 0);
++	swipe_end(false);
++	assert_int_equal(ran, 2);
++	assert_ptr_equal(last_ran, &right.actions);
++
++	/* nothing of a bound gesture reaches the client */
++	assert_int_equal(sent.swipe_begin, 0);
++	assert_int_equal(sent.swipe_update, 0);
++	assert_int_equal(sent.swipe_end, 0);
++}
++
++static void
++test_other_fingers_and_directions(void **state)
++{
++	(void)state;
++	struct gesturebind left;
++	bind(&left, LAB_GESTURE_TYPE_SWIPE, 3, LAB_GESTURE_DIRECTION_LEFT);
++
++	/* four fingers are not bound: the client gets the swipe */
++	swipe_begin(4);
++	swipe_update(-300, 0);
++	swipe_end(false);
++	assert_int_equal(ran, 0);
++	assert_int_equal(sent.swipe_begin, 1);
++	assert_int_equal(sent.swipe_update, 1);
++	assert_int_equal(sent.swipe_end, 1);
++
++	/* three fingers upwards: claimed, but no action for that direction */
++	swipe_begin(3);
++	swipe_update(0, -300);
++	swipe_end(false);
++	assert_int_equal(ran, 0);
++	assert_int_equal(sent.swipe_begin, 1);
++
++	/* a three-finger pinch is another gesture and is passed on */
++	pinch_begin(3);
++	pinch_update(0.5);
++	pinch_end();
++	assert_int_equal(ran, 0);
++	assert_int_equal(sent.pinch_begin, 1);
++	assert_int_equal(sent.pinch_update, 1);
++	assert_int_equal(sent.pinch_end, 1);
++}
++
++static void
++test_short_or_cancelled_swipe(void **state)
++{
++	(void)state;
++	struct gesturebind left;
++	bind(&left, LAB_GESTURE_TYPE_SWIPE, 3, LAB_GESTURE_DIRECTION_LEFT);
++
++	swipe_begin(3);
++	swipe_update(-40, 0);
++	swipe_end(true);
++	/* what the short swipe moved is not carried over */
++	swipe_begin(3);
++	swipe_update(-70, 0);
++	swipe_end(false);
++	assert_int_equal(ran, 0);
++	assert_int_equal(sent.swipe_begin + sent.swipe_update + sent.swipe_end, 0);
++}
++
++static void
++test_last_definition_wins(void **state)
++{
++	(void)state;
++	struct gesturebind first, second;
++	bind(&first, LAB_GESTURE_TYPE_SWIPE, 4, LAB_GESTURE_DIRECTION_DOWN);
++	bind(&second, LAB_GESTURE_TYPE_SWIPE, 4, LAB_GESTURE_DIRECTION_DOWN);
++
++	swipe_begin(4);
++	swipe_update(0, 200);
++	swipe_end(false);
++	assert_int_equal(ran, 1);
++	assert_ptr_equal(last_ran, &second.actions);
++}
++
++static void
++test_pinch(void **state)
++{
++	(void)state;
++	struct gesturebind in, out;
++	bind(&in, LAB_GESTURE_TYPE_PINCH, 4, LAB_GESTURE_DIRECTION_IN);
++	bind(&out, LAB_GESTURE_TYPE_PINCH, 4, LAB_GESTURE_DIRECTION_OUT);
++
++	pinch_begin(4);
++	pinch_update(0.95);
++	assert_int_equal(ran, 0);
++	pinch_update(0.7);
++	assert_int_equal(ran, 1);
++	assert_ptr_equal(last_ran, &in.actions);
++	pinch_update(0.4);
++	pinch_update(2.0);
++	assert_int_equal(ran, 1);
++	pinch_end();
++
++	pinch_begin(4);
++	pinch_update(1.4);
++	pinch_end();
++	assert_int_equal(ran, 2);
++	assert_ptr_equal(last_ran, &out.actions);
++	assert_int_equal(sent.pinch_begin + sent.pinch_update + sent.pinch_end, 0);
++
++	/* a two-finger pinch still zooms in the client */
++	pinch_begin(2);
++	pinch_update(0.5);
++	pinch_end();
++	assert_int_equal(ran, 2);
++	assert_int_equal(sent.pinch_begin, 1);
++	assert_int_equal(sent.pinch_update, 1);
++	assert_int_equal(sent.pinch_end, 1);
++}
++
++static void
++test_locked_session(void **state)
++{
++	(void)state;
++	struct gesturebind left;
++	bind(&left, LAB_GESTURE_TYPE_SWIPE, 3, LAB_GESTURE_DIRECTION_LEFT);
++
++	/* locked: nothing runs, the lock screen gets the gesture */
++	lock_manager.locked = true;
++	swipe_begin(3);
++	swipe_update(-300, 0);
++	swipe_end(false);
++	assert_int_equal(ran, 0);
++	assert_int_equal(sent.swipe_begin, 1);
++	assert_int_equal(sent.swipe_update, 1);
++	assert_int_equal(sent.swipe_end, 1);
++
++	/* locked while the fingers are down: nothing runs either */
++	lock_manager.locked = false;
++	swipe_begin(3);
++	lock_manager.locked = true;
++	swipe_update(-300, 0);
++	swipe_end(false);
++	assert_int_equal(ran, 0);
++	assert_int_equal(sent.swipe_begin, 1);
++	assert_int_equal(sent.swipe_end, 1);
++}
++
++static void
++test_reconfigure_during_gesture(void **state)
++{
++	(void)state;
++	struct gesturebind left;
++	bind(&left, LAB_GESTURE_TYPE_SWIPE, 3, LAB_GESTURE_DIRECTION_LEFT);
++
++	/* bindings removed mid-gesture: the client must not get half of it */
++	swipe_begin(3);
++	wl_list_init(&rc.gesturebinds);
++	swipe_update(-300, 0);
++	swipe_end(false);
++	assert_int_equal(ran, 0);
++	assert_int_equal(sent.swipe_begin + sent.swipe_update + sent.swipe_end, 0);
++
++	/* bindings added mid-gesture: the client keeps the one it was given */
++	swipe_begin(3);
++	bind(&left, LAB_GESTURE_TYPE_SWIPE, 3, LAB_GESTURE_DIRECTION_LEFT);
++	swipe_update(-300, 0);
++	swipe_end(false);
++	assert_int_equal(ran, 0);
++	assert_int_equal(sent.swipe_begin, 1);
++	assert_int_equal(sent.swipe_update, 1);
++	assert_int_equal(sent.swipe_end, 1);
++}
++
++int main(int argc, char **argv)
++{
++	const struct CMUnitTest tests[] = {
++		cmocka_unit_test_setup_teardown(test_unbound_is_passed_on, setup, teardown),
++		cmocka_unit_test_setup_teardown(test_bound_swipe_runs_once, setup, teardown),
++		cmocka_unit_test_setup_teardown(test_other_fingers_and_directions, setup, teardown),
++		cmocka_unit_test_setup_teardown(test_short_or_cancelled_swipe, setup, teardown),
++		cmocka_unit_test_setup_teardown(test_last_definition_wins, setup, teardown),
++		cmocka_unit_test_setup_teardown(test_pinch, setup, teardown),
++		cmocka_unit_test_setup_teardown(test_locked_session, setup, teardown),
++		cmocka_unit_test_setup_teardown(test_reconfigure_during_gesture, setup, teardown),
++	};
++
++	return cmocka_run_group_tests(tests, NULL, NULL);
++}
+diff --git a/t/gesture.c b/t/gesture.c
+new file mode 100644
+index 0000000..8ab987e
+--- /dev/null
++++ b/t/gesture.c
+@@ -0,0 +1,86 @@
++// SPDX-License-Identifier: GPL-2.0-only
++#include <setjmp.h>
++#include <stdarg.h>
++#include <stddef.h>
++#include <stdint.h>
++#include <math.h>
++#include <cmocka.h>
++#include "config/gesturebind.h"
++
++static void
++test_names(void **state)
++{
++	(void)state;
++	assert_int_equal(gesture_type_from_str("swipe"), LAB_GESTURE_TYPE_SWIPE);
++	assert_int_equal(gesture_type_from_str("Pinch"), LAB_GESTURE_TYPE_PINCH);
++	assert_int_equal(gesture_type_from_str("hold"), LAB_GESTURE_TYPE_INVALID);
++	assert_int_equal(gesture_type_from_str(NULL), LAB_GESTURE_TYPE_INVALID);
++
++	assert_int_equal(gesture_direction_from_str(LAB_GESTURE_TYPE_SWIPE, "Left"),
++		LAB_GESTURE_DIRECTION_LEFT);
++	assert_int_equal(gesture_direction_from_str(LAB_GESTURE_TYPE_SWIPE, "down"),
++		LAB_GESTURE_DIRECTION_DOWN);
++	assert_int_equal(gesture_direction_from_str(LAB_GESTURE_TYPE_PINCH, "out"),
++		LAB_GESTURE_DIRECTION_OUT);
++	/* a direction of the other type is not one */
++	assert_int_equal(gesture_direction_from_str(LAB_GESTURE_TYPE_SWIPE, "in"),
++		LAB_GESTURE_DIRECTION_NONE);
++	assert_int_equal(gesture_direction_from_str(LAB_GESTURE_TYPE_PINCH, "left"),
++		LAB_GESTURE_DIRECTION_NONE);
++	assert_int_equal(gesture_direction_from_str(LAB_GESTURE_TYPE_INVALID, "left"),
++		LAB_GESTURE_DIRECTION_NONE);
++	assert_int_equal(gesture_direction_from_str(LAB_GESTURE_TYPE_SWIPE, NULL),
++		LAB_GESTURE_DIRECTION_NONE);
++}
++
++static void
++test_swipe(void **state)
++{
++	(void)state;
++	double t = LAB_GESTURE_SWIPE_THRESHOLD;
++
++	assert_int_equal(gesture_swipe_direction(0, 0), LAB_GESTURE_DIRECTION_NONE);
++	assert_int_equal(gesture_swipe_direction(t - 1, -(t - 1)),
++		LAB_GESTURE_DIRECTION_NONE);
++	assert_int_equal(gesture_swipe_direction(-t, 0), LAB_GESTURE_DIRECTION_LEFT);
++	assert_int_equal(gesture_swipe_direction(t, 0), LAB_GESTURE_DIRECTION_RIGHT);
++	assert_int_equal(gesture_swipe_direction(0, -t), LAB_GESTURE_DIRECTION_UP);
++	assert_int_equal(gesture_swipe_direction(0, t), LAB_GESTURE_DIRECTION_DOWN);
++	/* the longer axis decides */
++	assert_int_equal(gesture_swipe_direction(-2 * t, t + 1),
++		LAB_GESTURE_DIRECTION_LEFT);
++	assert_int_equal(gesture_swipe_direction(t + 1, -2 * t),
++		LAB_GESTURE_DIRECTION_UP);
++	assert_int_equal(gesture_swipe_direction(NAN, t), LAB_GESTURE_DIRECTION_NONE);
++	assert_int_equal(gesture_swipe_direction(INFINITY, 0),
++		LAB_GESTURE_DIRECTION_NONE);
++}
++
++static void
++test_pinch(void **state)
++{
++	(void)state;
++	assert_int_equal(gesture_pinch_direction(1.0), LAB_GESTURE_DIRECTION_NONE);
++	assert_int_equal(gesture_pinch_direction(0.9), LAB_GESTURE_DIRECTION_NONE);
++	assert_int_equal(gesture_pinch_direction(1.2), LAB_GESTURE_DIRECTION_NONE);
++	assert_int_equal(gesture_pinch_direction(LAB_GESTURE_PINCH_IN_SCALE),
++		LAB_GESTURE_DIRECTION_IN);
++	assert_int_equal(gesture_pinch_direction(0.3), LAB_GESTURE_DIRECTION_IN);
++	assert_int_equal(gesture_pinch_direction(LAB_GESTURE_PINCH_OUT_SCALE),
++		LAB_GESTURE_DIRECTION_OUT);
++	assert_int_equal(gesture_pinch_direction(3.0), LAB_GESTURE_DIRECTION_OUT);
++	assert_int_equal(gesture_pinch_direction(0), LAB_GESTURE_DIRECTION_NONE);
++	assert_int_equal(gesture_pinch_direction(-1), LAB_GESTURE_DIRECTION_NONE);
++	assert_int_equal(gesture_pinch_direction(NAN), LAB_GESTURE_DIRECTION_NONE);
++}
++
++int main(int argc, char **argv)
++{
++	const struct CMUnitTest tests[] = {
++		cmocka_unit_test(test_names),
++		cmocka_unit_test(test_swipe),
++		cmocka_unit_test(test_pinch),
++	};
++
++	return cmocka_run_group_tests(tests, NULL, NULL);
++}
+diff --git a/t/meson.build b/t/meson.build
+index 07d55a1..c681d85 100644
+--- a/t/meson.build
++++ b/t/meson.build
+@@ -3,6 +3,7 @@ test_deps = [
+   glib,
+   xml2,
+   wlroots,
++  math,
+ ]
+ 
+ test_lib = static_library(
+@@ -13,6 +14,7 @@ test_lib = static_library(
+     '../src/common/string-helpers.c',
+     '../src/common/xml.c',
+     '../src/common/parse-bool.c',
++    '../src/config/gesturebind.c',
+   ),
+   include_directories: [labwc_inc],
+   dependencies: test_deps,
+@@ -22,6 +24,7 @@ tests = [
+   'buf-simple',
+   'str',
+   'xml',
++  'gesture',
+ ]
+ 
+ foreach t : tests
+@@ -37,3 +40,16 @@ foreach t : tests
+     is_parallel: false,
+   )
+ endforeach
++
++# The touchpad gesture handlers, with the compositor around them stubbed
++test(
++  'test_gesture-handlers',
++  executable(
++    'test_gesture-handlers',
++    sources: ['gesture-handlers.c', '../src/input/gestures.c'],
++    include_directories: [labwc_inc],
++    link_with: [test_lib],
++    dependencies: test_deps + [server_protos, wayland_server, xkbcommon, input, pixman, cairo, pangocairo],
++  ),
++  is_parallel: false,
++)
+-- 
+2.56.0
+
