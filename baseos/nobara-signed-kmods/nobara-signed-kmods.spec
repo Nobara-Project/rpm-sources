@@ -40,9 +40,9 @@
 %global nvidia_prod_version   620.70.06
 %global nvidia_nf_version     615.78.08
 %global nvidia_epoch          3
-%global xone_version          0.5.8.3
-# Same fork commit as baseos/xone (xone_mtnet: new dongle on MediaTek's firmware, wake on wireless)
-%global xone_commit           ea58108d597fd0715796a8bd9eed960b28afefde
+%global xone_version          0.5.8.4
+# Same fork commit as baseos/xone (xone_mtnet: both USB dongles on MediaTek's firmware, wake on wireless)
+%global xone_commit           9f96cb54877c07d2dc6f7f43edca4d712efe20da
 %global xpad_noone_commit     c3d1610
 %global openrazer_version     3.12.4
 # Terra's dkms-/akmod-hid-tmff2, -hid-fanatecff and -new-lg4ff
@@ -84,7 +84,7 @@ modules_for() {
 
 Name:           nobara-signed-kmods
 Version:        1
-Release:        16%{?dist}
+Release:        17%{?dist}
 Summary:        Nobara-signed kernel modules for the Easy Anti-Cheat kernel
 License:        GPL-2.0-only AND GPL-2.0-or-later AND MIT AND CDDL-1.0 AND NVIDIA License
 URL:            https://nobaraproject.org
@@ -342,6 +342,12 @@ done
 find %{buildroot}/lib/modules -name '*.ko' -exec strip --strip-debug {} +
 
 %changelog
+* Wed Nov 18 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 1-17
+- xone: version 0.5.8.4 (fork 9f96cb5), matching baseos/xone: the old
+  dongle (045e:02e6) runs on mt76x2u and xone_mtnet too, xone_mtnet
+  syncs the dongle's MAC and BSSID registers so pairing works, and waits
+  for the post-resume re-probe before the next suspend
+
 * Sat Nov 14 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 1-16
 - Build for kernel-eac 7.3.4-202 and 6.18.60-204 (aarch64 platform drivers)
 
