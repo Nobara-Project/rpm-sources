@@ -27,7 +27,7 @@
 # Build flags come from the kernel, not rpm (rpm's LDFLAGS break the NVIDIA link)
 %undefine _auto_set_build_flags
 
-%global kernels_mainline 7.3.4-202.eac.nobara%{?dist}.%{_target_cpu}
+%global kernels_mainline 7.3.5-200.eac.nobara%{?dist}.%{_target_cpu}
 %global kernels_lts      6.18.60-204.lts.eac.nobara%{?dist}.%{_target_cpu}
 %if "%{?copr_projectname}" == "linux-nobara-lts"
 %{!?kernels:%global kernels %{kernels_lts}}
