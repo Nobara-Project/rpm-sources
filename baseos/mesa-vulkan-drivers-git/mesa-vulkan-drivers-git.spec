@@ -1,9 +1,9 @@
 %global _default_patch_fuzz 2
 
-%global commit a379b735aa859a628b6a88783d4eec07b22e061a
+%global commit 2f2105eb694d82909346ca6cb9cd71d45626132d
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global build_timestamp %(date +"%Y%m%d")
-%global rel_build 1.git.%{build_timestamp}.%{shortcommit}%{?dist}
+%global rel_build 2.git.%{build_timestamp}.%{shortcommit}%{?dist}
 
 %ifnarch s390x
 %global with_hardware 1
@@ -62,7 +62,7 @@
 %if !0%{?rhel}
 %global with_libunwind 1
 %global with_lmsensors 1
-%global with_virtio    0
+%global with_virtio    1
 %endif
 
 %ifarch %{valgrind_arches}
@@ -563,6 +563,9 @@ rm -Rf %{buildroot}%{_datadir}/drirc.d/00-radv-defaults.conf
 %endif
 
 %changelog
+* Thu Nov 19 2026 LionHeartP <LionHeartP@proton.me> - 27.0.0-2
+- Update to latest commit
+
 * Tue Nov 10 2026 LionHeartP <LionHeartP@proton.me> - 27.0.0-1
 - Update to latest commit
 - Restore Virtio (package now available on Fedora)
