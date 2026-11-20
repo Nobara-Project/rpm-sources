@@ -1,0 +1,48 @@
+From: Nobara Project
+Subject: [PATCH] ir3: avoid isam for SSBO loads on Adreno X1-85
+
+Cyberpunk 2077 (vkd3d-proton) hangs the GPU a few seconds after the title
+screen on the Adreno X1-85 (Snapdragon X Elite):
+
+  adreno 3d00000.gpu: [drm:a6xx_irq [msm]] *ERROR* gpu fault ring 2 ...
+  offending task: vkd3d_queue (Cyberpunk2077.exe)
+
+The recovery that follows also makes the compositor lose its device.
+
+The hang happens while a compute shader (12x12x24 groups, local size
+4x4x4) runs that does 64 isam.v fetches per invocation from a read-only
+SSBO and one image store.  Compiling read-only SSBO loads with ldib
+instead of isam/isam.v makes the hang go away; the hardware-level reason
+is not known.  Restrict the workaround to the X1-85, the only GPU this
+was reproduced on.
+---
+ src/freedreno/ir3/ir3_compiler_nir.c | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+--- a/src/freedreno/ir3/ir3_compiler_nir.c
++++ b/src/freedreno/ir3/ir3_compiler_nir.c
+@@ -2035,6 +2035,15 @@
+    assert(nir_intrinsic_offset_shift(intr) ==
+           util_logbase2(intr->def.bit_size / 8));
+ 
++   /* Reading SSBOs through isam.v trips the hardware hang detect on the
++    * Adreno X1-85 (chip id 0x43050cXX) in a Cyberpunk 2077 compute shader
++    * that does 64 such fetches per invocation, shortly after the title
++    * screen.  Use the ldib path for SSBO loads on that GPU instead.
++    */
++   bool x1_85_no_isam =
++      (ctx->compiler->dev_id->chip_id & UINT64_C(0xffffff00)) ==
++      UINT64_C(0x43050c00);
++
+    /* Note: we can only use isam for vectorized loads/stores if isam.v is
+     * available.
+     * Note: isam also can't handle 8-bit loads.
+@@ -2042,7 +2051,7 @@
+    if (!(nir_intrinsic_access(intr) & ACCESS_CAN_REORDER) ||
+        (intr->def.num_components > 1 && !ctx->compiler->info->props.has_isam_v) ||
+        (ctx->compiler->options.storage_8bit && intr->def.bit_size == 8) ||
+-       !ctx->compiler->has_isam_ssbo) {
++       !ctx->compiler->has_isam_ssbo || x1_85_no_isam) {
+       ctx->funcs->emit_intrinsic_load_ssbo(ctx, intr, dst);
+       return;
+    }

@@ -105,6 +105,9 @@ Source15:       https://crates.io/api/v1/crates/rustc-hash/%{rustc_hash_ver}/dow
 # https://gitlab.com/evlaV/mesa/
 Patch30:        valve.patch
 
+# Local: Cyberpunk 2077 GPU hang on Adreno X1-85 (Snapdragon X Elite)
+Patch31:        0001-ir3-avoid-isam-for-SSBO-loads-on-Adreno-X1-85.patch
+
 BuildRequires:  meson >= 1.3.0
 BuildRequires:  cbindgen
 BuildRequires:  gcc
