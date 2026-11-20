@@ -1,6 +1,6 @@
 Name:           calamares
 Version:        3.3.14
-Release:        144%{?dist}
+Release:        145%{?dist}
 Summary:        Installer from a live CD/DVD/USB to disk
 
 License:        GPL-3.0-or-later
@@ -64,6 +64,8 @@ Patch1022:       0018-standard-plymouth-theme.patch
 Patch1023:       0019-drop-update-option-and-boot-kernel-eac.patch
 # Erase disk offers ext4 with LVM and Btrfs only
 Patch1024:       0020-ext4-or-btrfs-only.patch
+# greetd setup without python3-toml, retired in Fedora 44
+Patch1025:       0021-greetd-config-without-python3-toml.patch
 #Patch1007:       fixup_branding.patch
 
 # Fedora-specific changes
@@ -290,6 +292,7 @@ cd ../../
 %patch 1022 -p1
 %patch 1023 -p1
 %patch 1024 -p1
+%patch 1025 -p1
 
 
 
@@ -470,6 +473,11 @@ EOF
 
 
 %changelog
+* Sat Nov 14 2026 Nobara Project <support@nobaraproject.org> - 3.3.14-145
+- displaymanager: the greetd setup no longer needs python3-toml, which Fedora
+  44 retired (fedora-obsolete-packages); it failed with "No module named toml"
+  when installing a greetd desktop such as Tessel.
+
 * Thu Nov 12 2026 Nobara Project <support@nobaraproject.org> - 3.3.14-144
 - Remove "xfs with LVM" from the erase-disk filesystem choices; ext4 with LVM
   and Btrfs remain. XFS cannot be shrunk, so the system volume of an XFS

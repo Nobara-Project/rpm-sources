@@ -1,5 +1,5 @@
 Name:           nobara-kernel-manager
-Version:        0.1.6
+Version:        0.1.7
 Release:        1%{?dist}
 Summary:        Graphical manager for Nobara Mainline, LTS, and rescue kernels
 License:        MPL-2.0
@@ -54,6 +54,11 @@ desktop-file-validate \
 %{_datadir}/polkit-1/actions/org.nobaraproject.kernel-manager.status.policy
 
 %changelog
+* Mon Nov 16 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 0.1.7-1
+- Run the privileged commands directly when already root: Calamares' rescue
+  kernel step failed with "normal boot entry not found", because sudo cannot
+  allocate a pty in the installed system
+
 * Mon Nov 02 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 0.1.6-1
 - kernel now recommends kernel-eac: a switch on a system without kernel-eac
   keeps it out instead of installing it

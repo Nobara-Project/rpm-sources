@@ -3,7 +3,7 @@
 
 Name:           falcond
 Version:        2.0.14
-Release:        %autorelease
+Release:        %autorelease -b 2
 Summary:        Advanced Linux Gaming Performance Daemon
 
 License:        MIT
@@ -39,6 +39,9 @@ tar -xzf %{SOURCE1} -C %{name}/
 cd %{name}
 mkdir -p %{buildroot}%{_unitdir}/
 install -Dm644 debian/%{name}.service %{buildroot}%{_unitdir}
+# aarch64: Zig builds for the build host's CPU without -Dcpu, which gives
+# binaries instructions other CPUs lack (SIGILL on Snapdragon X). No comment
+# lines between DESTDIR and zig build: they end the line continuation
 DESTDIR="%{buildroot}" \
 %ifarch x86_64
 zig build \
@@ -46,7 +49,8 @@ zig build \
     -Dcpu=x86_64_v2
 %else
 zig build \
-    -Doptimize=ReleaseFast
+    -Doptimize=ReleaseFast \
+    -Dcpu=baseline
 %endif
     
 %pre
@@ -72,6 +76,10 @@ usermod -aG 'falcond' root || :
 %{_unitdir}/%{name}.service
 
 %changelog
+* Mon Nov 16 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 2.0.14-2
+- aarch64: build for the baseline CPU instead of the build host's, which
+  crashed with an illegal instruction on Snapdragon X laptops
+
 * Mon Aug 03 2026 LionHeartP <LionHeartP@proton.me> - 2.0.14-1
 - Update to 2.0.14
 

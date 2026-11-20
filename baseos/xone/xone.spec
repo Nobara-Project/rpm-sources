@@ -1,13 +1,13 @@
 %global _default_patch_fuzz 2
 %global debug_package %{nil}
 %global dkms_source_dir %{_usrsrc}/%{name}-%{version}
-# Nobara's fork: xone_mtnet runs the new dongle on MediaTek's firmware, with wake on wireless
-%global commit ea58108d597fd0715796a8bd9eed960b28afefde
+# Nobara's fork: xone_mtnet runs the old and new dongles on MediaTek's firmware, with wake on wireless
+%global commit 9f96cb54877c07d2dc6f7f43edca4d712efe20da
 
 Name:     xone
 # A new version (not just a release) for every source change: DKMS keys builds on
 # the version, so the same version over different source is never rebuilt
-Version:  0.5.8.3
+Version:  0.5.8.4
 Release:  1%{?dist}
 Summary:  Linux kernel driver for Xbox One and Xbox Series X|S accessories
 License:  GPLv2
@@ -26,11 +26,11 @@ BuildArch:      noarch
 
 Requires:       dkms
 Requires:       bash
-# Microsoft's firmware is still needed for the old (045e:02e6) and built-in dongles
-Requires:       lpf-xone-firmware
+# Microsoft's firmware (lpf-xone-firmware) is only needed for the built-in dongles
+# (045e:02f9, 045e:091e) in a few laptops, so it isn't required
 Requires:       gcc, make, kernel-devel
 Requires:       xpad-noone
-# xone-mtnet-setup puts the new dongle's interface into monitor mode with iw
+# xone-mtnet-setup puts the dongle's interface into monitor mode with iw
 Requires:       iw
 
 Conflicts:      xow <= 0.5
@@ -55,8 +55,8 @@ mkdir -p %{buildroot}%{dkms_source_dir}
 cp -fr . %{buildroot}%{dkms_source_dir}
 install -D -m 0644 install/modprobe.conf %{buildroot}%{_modprobedir}/60-%{name}.conf
 install -D -m 0644 %{SOURCE1} %{buildroot}%{_modulesloaddir}/%{name}.conf
-# The new dongle (045e:02fe) runs on mt76x2u + xone_mtnet: this udev rule puts
-# its interface into monitor mode so xone_mtnet attaches.
+# The old and new dongles (045e:02e6, 045e:02fe) run on mt76x2u + xone_mtnet:
+# this udev rule puts their interface into monitor mode so xone_mtnet attaches.
 install -D -m 0644 install/mtnet/70-xone-mtnet.rules %{buildroot}%{_udevrulesdir}/70-xone-mtnet.rules
 install -D -m 0755 install/mtnet/xone-mtnet-setup %{buildroot}%{_libexecdir}/xone-mtnet-setup
 
@@ -104,6 +104,16 @@ dkms remove -m %{name} -v %{version} --all --rpm_safe_upgrade || :
 %{_libexecdir}/xone-mtnet-setup
 
 %changelog
+* Tue Nov 17 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 0.5.8.4-1
+- xone_mtnet: run the old dongle (045e:02e6) on mt76x2u and MediaTek's
+  firmware too; xone_dongle no longer claims it
+- xone_mtnet: keep the hardware MAC address in sync with the interface; a
+  random address left by NetworkManager stopped controllers from pairing
+- xone_mtnet: don't let a suspend start while the dongle is still being
+  re-probed after the previous resume, which hung the next resume
+- Drop the lpf-xone-firmware requirement: Microsoft's firmware is only needed
+  for the built-in dongles (045e:02f9, 045e:091e) in a few laptops
+
 * Wed Nov 11 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 0.5.8.3-1
 - xone_mtnet: turn connected controllers off before the system sleeps; one
   left on kept transmitting and woke the system straight back up

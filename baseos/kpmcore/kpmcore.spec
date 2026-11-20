@@ -3,7 +3,7 @@
 %global sover 13
 
 Name:           kpmcore
-Version:        26.08.2
+Version:        26.08.3
 Release:        1.nobara%{?dist}
 Summary:        Library for managing partitions by KDE programs
 License:        GPL-3.0-or-later AND MIT AND CC-BY-4.0 AND CC0-1.0
@@ -97,6 +97,10 @@ developing applications that use %{name}
 
 
 %changelog
+* Mon Nov 16 2026 Nobara Project <support@nobaraproject.org> - 26.08.3-1.nobara
+- Update to 26.08.3: Fedora's 26.08.3 was newer than our patched 26.08.2,
+  which broke Calamares' build dependencies (kpmcore-devel from both).
+
 * Sun Nov 01 2026 Nobara Project <support@nobaraproject.org> - 26.08.2-1.nobara
 - Update to 26.08.2: Fedora's 26.08.2 was newer than our patched 26.08.1, so
   Calamares built against it without the LVM planning patch.

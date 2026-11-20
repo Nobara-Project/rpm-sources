@@ -80,8 +80,10 @@ BuildRequires:  libdvdnav-devel >= 5.0.1
 BuildRequires:  libdvdread-devel >= 5.0.0
 %if 0%{?_with_vpl:1}
 BuildRequires:  libvpl-devel
-BuildRequires:  libva-devel
 %endif
+# VAAPI is enabled on all arches, HandBrakeCLI links X11/va/va-drm/va-x11
+BuildRequires:  libva-devel
+BuildRequires:  libX11-devel
 BuildRequires:  libsamplerate-devel
 BuildRequires:  libtheora-devel
 BuildRequires:  libvorbis-devel

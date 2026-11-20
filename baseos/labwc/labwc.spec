@@ -4,7 +4,7 @@
 Name:           labwc
 Version:        0.20.2
 %forgemeta
-Release:        30%{?dist}
+Release:        31%{?dist}
 Summary:        A Wayland window-stacking compositor
 
 License:        GPL-2.0-only AND MIT
@@ -39,12 +39,14 @@ Patch:          0018-survive-a-client-decorated-window-destroyed-in-its-tile.pat
 Patch:          0019-add-per-output-adaptive-sync-modes.patch
 Patch:          0020-add-per-output-snap-regions.patch
 Patch:          0021-report-window-places-and-add-place-on-output.patch
+Patch:          0022-add-touchpad-gesture-bindings.patch
 
 BuildRequires:  gcc
 BuildRequires:  meson >= 0.59.0
 BuildRequires:  cmake
 
 BuildRequires:  pkgconfig(cairo)
+BuildRequires:  pkgconfig(cmocka)
 BuildRequires:  pkgconfig(glib-2.0)
 BuildRequires:  pkgconfig(libdrm) >= 2.4.129
 BuildRequires:  pkgconfig(libinput) >= 1.26
@@ -169,6 +171,7 @@ cp subprojects/wlroots/LICENSE WLROOTS-LICENSE
 %build
 %meson \
     --wrap-mode=nodownload \
+    -Dtest=enabled \
     --force-fallback-for=wlroots-0.20 \
     -Dxwayland=enabled \
     -Dwlroots:default_library=static \
@@ -210,6 +213,10 @@ cp subprojects/wlroots/LICENSE WLROOTS-LICENSE
 %{_userunitdir}/labwc-session.target
 
 %changelog
+* Wed Nov 18 2026 Nobara Project - 0.20.2-31
+- Add touchpad gesture bindings: three- to five-finger swipes and two- to five-finger pinches can run actions from a new <touchpad><gesture> section of rc.xml; bound gestures are no longer passed to the application, unbound ones still are
+- Run labwc's unit tests during the build
+
 * Sat Nov 14 2026 Nobara Project - 0.20.2-30
 - Stop GTK 4.22 apps from crashing when a window closes: a window icon buffer that the app replaced is now kept until the app destroys the icon, instead of being released early, which made GTK free it twice (seen as Ptyxis losing every window when one was closed)
 

@@ -23,7 +23,7 @@
 Name:		grub2
 Epoch:		1
 Version:	2.12
-Release:	67%{?dist}
+Release:	68%{?dist}
 Summary:	Bootloader with support for Linux, Multiboot and more
 License:	GPL-3.0-or-later
 URL:		http://www.gnu.org/software/grub/
@@ -671,6 +671,15 @@ fi
 %endif
 
 %changelog
+* Mon Nov 16 2026 Nobara Project <support@nobaraproject.org> - 2.12-68
+- grub2-esp-update: stop copying the grub.cfg stub from the package's EFI
+  directory to the ESP. That stub is generated when the package is installed,
+  which for a live image is the image build, so every installation's first
+  boot replaced the installer's stub with one pointing at the build's /boot,
+  and GRUB found no configuration on the next boot. The ESP's stub is now
+  generated for the system's /boot when it is missing or points at a
+  filesystem that does not exist, which also repairs affected systems.
+
 * Fri Nov 13 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 2.12-67
 - On the Lenovo ThinkPad T14s Gen 6 (Snapdragon X Elite) with 64 GB, keep
   0x8800000000-0x8fffffffff unused from the start (as "cutmem 0x8800000000
