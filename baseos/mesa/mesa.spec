@@ -73,7 +73,7 @@
 
 Name:           mesa
 Summary:        Mesa graphics libraries
-Version:        26.2.6
+Version:        26.3.1
 Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
 URL:            http://www.mesa3d.org
@@ -196,6 +196,9 @@ BuildRequires:  vulkan-headers
 BuildRequires:  glslang
 %if 0%{?with_vulkan_hw}
 BuildRequires:  pkgconfig(vulkan)
+%endif
+%if 0%{?with_virtio}
+BuildRequires:  pkgconfig(venus-protocol)
 %endif
 %if 0%{?with_d3d12}
 BuildRequires:  pkgconfig(DirectX-Headers) >= 1.614.1
@@ -436,7 +439,7 @@ rewrite_wrap_file rustc-hash
   -Dgallium-rusticl=true \
 %endif
   -Dvulkan-drivers=%{?vulkan_drivers} \
-  -Dvulkan-layers=device-select,anti-lag \
+  -Dvulkan-layers=device-select \
   -Dgles1=enabled \
   -Dgles2=enabled \
   -Dopengl=true \
@@ -687,9 +690,7 @@ ln -s libGLX_mesa.so.0 %{buildroot}%{_libdir}/libGLX_system.so.0
 %{_libdir}/libvulkan_lvp.so
 %{_datadir}/vulkan/icd.d/lvp_icd.*.json
 %{_datadir}/drirc.d/00-lavapipe-defaults.conf
-%{_libdir}/libVkLayer_MESA_anti_lag.so
 %{_libdir}/libVkLayer_MESA_device_select.so
-%{_datadir}/vulkan/implicit_layer.d/VkLayer_MESA_anti_lag.json
 %{_datadir}/vulkan/implicit_layer.d/VkLayer_MESA_device_select.json
 %if 0%{?with_virtio}
 %{_libdir}/libvulkan_virtio.so
@@ -697,6 +698,7 @@ ln -s libGLX_mesa.so.0 %{buildroot}%{_libdir}/libGLX_system.so.0
 %{_datadir}/drirc.d/00-venus-defaults.conf
 %endif
 %if 0%{?with_vulkan_hw}
+%{_datadir}/drirc.d/01-radv-performance.conf
 %{_libdir}/libvulkan_radeon.so
 %{_datadir}/drirc.d/00-radv-defaults.conf
 %{_datadir}/vulkan/icd.d/radeon_icd.*.json
@@ -740,6 +742,12 @@ ln -s libGLX_mesa.so.0 %{buildroot}%{_libdir}/libGLX_system.so.0
 %endif
 
 %changelog
+* Thu Nov 19 2026 LionHeartP <LionHeartP@proton.me> - 26.3.1-1
+- Update to 26.3.1
+
+* Tue Nov 10 2026 LionHeartP <LionHeartP@proton.me> - 26.3.0-1
+- Update to 26.3.0
+
 * Thu Oct 29 2026 LionHeartP <LionHeartP@proton.me> - 26.2.6-1
 - Update to 26.2.6
 

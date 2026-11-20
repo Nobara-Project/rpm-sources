@@ -73,7 +73,7 @@
 
 Name:           mesa-vulkan-drivers-freeworld
 Summary:        The mesa graphics vulkan driver stack.
-Version:        26.2.6
+Version:        26.3.1
 Release:        %autorelease
 License:        MIT
 URL:            http://www.mesa3d.org
@@ -185,6 +185,9 @@ BuildRequires:  glslang
 %if 0%{?with_vulkan_hw}
 BuildRequires:  pkgconfig(vulkan)
 %endif
+%if 0%{?with_virtio}
+BuildRequires:  pkgconfig(venus-protocol)
+%endif
 %if 0%{?with_d3d12}
 BuildRequires:  pkgconfig(DirectX-Headers) >= 1.614.1
 %endif
@@ -286,7 +289,7 @@ rewrite_wrap_file rustc-hash
   -Dgallium-rusticl=true \
 %endif
   -Dvulkan-drivers=%{?vulkan_drivers} \
-  -Dvulkan-layers=device-select,anti-lag \
+  -Dvulkan-layers=device-select \
   -Dgles1=enabled \
   -Dgles2=enabled \
   -Dopengl=true \
@@ -477,9 +480,7 @@ install -Dpm0644 cargo-vendor.txt \
 %{_libdir}/libvulkan_lvp.so
 %{_datadir}/vulkan/icd.d/lvp_icd.*.json
 %{_datadir}/drirc.d/00-lavapipe-defaults.conf
-%{_libdir}/libVkLayer_MESA_anti_lag.so
 %{_libdir}/libVkLayer_MESA_device_select.so
-%{_datadir}/vulkan/implicit_layer.d/VkLayer_MESA_anti_lag.json
 %{_datadir}/vulkan/implicit_layer.d/VkLayer_MESA_device_select.json
 %if 0%{?with_virtio}
 %{_libdir}/libvulkan_virtio.so
@@ -487,6 +488,7 @@ install -Dpm0644 cargo-vendor.txt \
 %{_datadir}/drirc.d/00-venus-defaults.conf
 %endif
 %if 0%{?with_vulkan_hw}
+%{_datadir}/drirc.d/01-radv-performance.conf
 %{_libdir}/libvulkan_radeon.so
 %ifarch aarch64 x86_64
 %{_datadir}/drirc.d/00-radv-defaults.conf
@@ -532,6 +534,12 @@ install -Dpm0644 cargo-vendor.txt \
 %endif
 
 %changelog
+* Thu Nov 19 2026 LionHeartP <LionHeartP@proton.me> - 26.3.1-1
+- Update to 26.3.1
+
+* Tue Nov 10 2026 LionHeartP <LionHeartP@proton.me> - 26.3.0-1
+- Update to 26.3.0
+
 * Thu Oct 29 2026 LionHeartP <LionHeartP@proton.me> - 26.2.6-1
 - Update to 26.2.6
 

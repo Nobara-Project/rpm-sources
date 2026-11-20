@@ -75,7 +75,7 @@ algorithms and decoding only VC1 algorithm.
 
 Name:           %{srcname}-freeworld
 Summary:        Mesa graphics libraries
-Version:        26.2.6
+Version:        26.3.1
 Release:        %autorelease
 License:        MIT AND BSD-3-Clause AND SGI-B-2.0
 URL:            http://www.mesa3d.org
@@ -198,6 +198,9 @@ BuildRequires:  vulkan-headers
 BuildRequires:  glslang
 %if 0%{?with_vulkan_hw}
 BuildRequires:  pkgconfig(vulkan)
+%endif
+%if 0%{?with_virtio}
+BuildRequires:  pkgconfig(venus-protocol)
 %endif
 %if 0%{?with_d3d12}
 BuildRequires:  pkgconfig(DirectX-Headers) >= 1.614.1
@@ -402,6 +405,12 @@ rm -fr %{buildroot}%{_libdir}/libteflon*
 %endif
 
 %changelog
+* Thu Nov 19 2026 LionHeartP <LionHeartP@proton.me> - 26.3.1-1
+- Update to 26.3.1
+
+* Tue Nov 10 2026 LionHeartP <LionHeartP@proton.me> - 26.3.0-1
+- Update to 26.3.0
+
 * Thu Oct 29 2026 LionHeartP <LionHeartP@proton.me> - 26.2.6-1
 - Update to 26.2.6
 
