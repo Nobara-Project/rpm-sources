@@ -1,7 +1,7 @@
 %define release_name Forty Four
 %define is_rawhide 0
 
-%define eol_date 2026-12-02
+%define eol_date 2027-05-19
 
 %define dist_version 44
 %define rhel_dist_version 12
@@ -27,7 +27,7 @@ Version:        44
 # The numbering is 0.<r> before a given Fedora Linux release is released,
 # with r starting at 1, and then just <r>, with r starting again at 1.
 # Use '%%autorelease -p' before final, and then drop the '-p'.
-Release:        %autorelease -b6
+Release:        %autorelease -b7
 License:        MIT
 URL:            https://www.nobaraproject.org/
 
@@ -274,7 +274,7 @@ sed 's|@@VERSION@@|%{dist_version}|g' %{SOURCE2} >licenses/Fedora-Legal-README.t
 
 %install
 install -d %{buildroot}%{_prefix}/lib
-echo "Nobara release %{version} (%{release_name})" > %{buildroot}%{_prefix}/lib/nobara-release
+echo "Nobara release %{version}" > %{buildroot}%{_prefix}/lib/nobara-release
 echo "cpe:/o:fedoraproject:fedora:%{version}" > %{buildroot}%{_prefix}/lib/system-release-cpe
 
 # Symlink the -release files
@@ -320,13 +320,13 @@ ln -s nobara-release %{buildroot}%{_sysconfdir}/system-release
 
 cat << EOF >> os-release
 NAME="Nobara Linux"
-VERSION="%{dist_version} (%{release_name}%{?prerelease})"
+VERSION="%{dist_version}%{?prerelease}"
 ID=nobara
 ID_LIKE="rhel centos fedora"
 VERSION_ID=%{dist_version}
 VERSION_CODENAME=""
 PLATFORM_ID="platform:f%{dist_version}"
-PRETTY_NAME="Nobara Linux %{dist_version} (%{release_name}%{?prerelease})"
+PRETTY_NAME="Nobara Linux %{dist_version}%{?prerelease}"
 ANSI_COLOR="0;38;2;60;110;180"
 LOGO=nobara-logo-icon
 CPE_NAME="cpe:/o:nobaraproject:nobara:%{dist_version}"
@@ -335,10 +335,6 @@ HOME_URL="%{dist_home_url}"
 DOCUMENTATION_URL="https://wiki.nobaraproject.org/"
 SUPPORT_URL="https://www.nobaraproject.org/"
 BUG_REPORT_URL="%{dist_bug_report_url}"
-REDHAT_BUGZILLA_PRODUCT="Nobara"
-REDHAT_BUGZILLA_PRODUCT_VERSION=%{bug_version}
-REDHAT_SUPPORT_PRODUCT="Nobara"
-REDHAT_SUPPORT_PRODUCT_VERSION=%{bug_version}
 SUPPORT_END=%{eol_date}
 EOF
 
@@ -370,10 +366,6 @@ cp -p os-release \
 # KDE Plasma Desktop
 cp -p os-release \
       %{buildroot}%{_prefix}/lib/os-release.kde-desktop
-echo "VARIANT=\"KDE Plasma Desktop Edition\"" >> %{buildroot}%{_prefix}/lib/os-release.kde-desktop
-# kept as-is from the spin to prevent third-party stuff from breaking
-echo "VARIANT_ID=kde" >> %{buildroot}%{_prefix}/lib/os-release.kde-desktop
-sed -i -e "s|(%{release_name}%{?prerelease})|(KDE Plasma Desktop Edition%{?prerelease})|g" %{buildroot}%{_prefix}/lib/os-release.kde-desktop
 sed -e "s#\$version#%{bug_version}#g" -e 's/$edition/KDE Desktop/;s/<!--.*-->//;/^$/d' %{SOURCE20} > %{buildroot}%{_swidtagdir}/org.fedoraproject.Fedora-edition.swidtag.kde-desktop
 # Add plasma-desktop to dnf protected packages list for KDE Desktop
 install -Dm0644 %{SOURCE25} -t %{buildroot}%{_sysconfdir}/dnf/protected.d/
@@ -398,9 +390,6 @@ install -Dm0644 %{SOURCE28} -t %{buildroot}%{_prefix}/lib/systemd/user.conf.d/
 # GNOME
 cp -p os-release \
       %{buildroot}%{_prefix}/lib/os-release.workstation
-echo "VARIANT=\"GNOME Edition\"" >> %{buildroot}%{_prefix}/lib/os-release.workstation
-echo "VARIANT_ID=workstation" >> %{buildroot}%{_prefix}/lib/os-release.workstation
-sed -i -e "s|(%{release_name}%{?prerelease})|(GNOME Edition%{?prerelease})|g" %{buildroot}%{_prefix}/lib/os-release.workstation
 sed -e "s#\$version#%{bug_version}#g" -e 's/$edition/GNOME/;s/<!--.*-->//;/^$/d' %{SOURCE20} > %{buildroot}%{_swidtagdir}/org.fedoraproject.Fedora-edition.swidtag.workstation
 # Add Fedora GNOME dnf protected packages list
 install -Dm0644 %{SOURCE21} -t %{buildroot}%{_sysconfdir}/dnf/protected.d/
