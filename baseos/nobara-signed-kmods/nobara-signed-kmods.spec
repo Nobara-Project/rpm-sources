@@ -348,6 +348,9 @@ find %{buildroot}/lib/modules -name '*.ko' -exec strip --strip-debug {} +
   syncs the dongle's MAC and BSSID registers so pairing works, and waits
   for the post-resume re-probe before the next suspend
 
+* Tue Nov 17 2026 LionHeartP <LionHeartP@proton.me> - 1-17
+- Build for kernel-eac 7.3.5-200
+
 * Sat Nov 14 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 1-16
 - Build for kernel-eac 7.3.4-202 and 6.18.60-204 (aarch64 platform drivers)
 

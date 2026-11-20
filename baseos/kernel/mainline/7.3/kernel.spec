@@ -61,7 +61,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 7.3
-%define _stablekver 4
+%define _stablekver 5
 %define _PKGBUILD 1
 %define _rcver rc7
 %define _tarkver %{_basekver}.%{_stablekver}
@@ -74,7 +74,7 @@ Version: %{_basekver}.%{_stablekver}
 %if 0%{?_is_rc}
 %define customver 0.%{_rcver}
 %else
-%define customver 202
+%define customver 200
 %endif
 
 Release:%{customver}%{?eactag}.nobara%{?dist}
@@ -93,7 +93,7 @@ Vendor: The Linux Community and CachyOS maintainer(s)
 URL: https://github.com/CachyOS/linux
 Source0: %{url}/archive/refs/tags/cachyos-%{_tarkver}-%{_PKGBUILD}.tar.gz
 
-%define config_commit cbd3c2573e7281c006e8f4dbf4e2dd781542d7f7
+%define config_commit 780dd8d6a2e611e3bdca15652845bb635c1fbd7f
 
 %if 0%{?_is_rc}
 Source1: https://raw.githubusercontent.com/CachyOS/linux-cachyos/%{config_commit}/linux-cachyos-rc/config
@@ -1267,6 +1267,9 @@ fi
 %files
 
 %changelog
+* Tue Nov 17 2026 LionHeartP <LionHeartP@proton.me> - 7.3.5-200
+- Update to 7.3.5
+
 * Sat Nov 14 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 7.3.4-202
 - aarch64: take the platform and driver options of the kernel's own
   arch/arm64/configs/defconfig (genconfig.py). The CachyOS x86 base config
