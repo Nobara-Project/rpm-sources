@@ -27,7 +27,7 @@
 # Build flags come from the kernel, not rpm (rpm's LDFLAGS break the NVIDIA link)
 %undefine _auto_set_build_flags
 
-%global kernels_mainline 7.3.5-200.eac.nobara%{?dist}.%{_target_cpu}
+%global kernels_mainline 7.3.6-200.eac.nobara%{?dist}.%{_target_cpu}
 %global kernels_lts      6.18.60-204.lts.eac.nobara%{?dist}.%{_target_cpu}
 %if "%{?copr_projectname}" == "linux-nobara-lts"
 %{!?kernels:%global kernels %{kernels_lts}}
@@ -84,7 +84,7 @@ modules_for() {
 
 Name:           nobara-signed-kmods
 Version:        1
-Release:        17%{?dist}
+Release:        18%{?dist}
 Summary:        Nobara-signed kernel modules for the Easy Anti-Cheat kernel
 License:        GPL-2.0-only AND GPL-2.0-or-later AND MIT AND CDDL-1.0 AND NVIDIA License
 URL:            https://nobaraproject.org
@@ -342,6 +342,9 @@ done
 find %{buildroot}/lib/modules -name '*.ko' -exec strip --strip-debug {} +
 
 %changelog
+* Mon Nov 23 2026 LionHeartP <LionHeartP@proton.me> - 1-18
+- Build for kernel-eac 7.3.6-200
+
 * Wed Nov 18 2026 GloriousEggroll <gloriouseggroll@gmail.com> - 1-17
 - xone: version 0.5.8.4 (fork 9f96cb5), matching baseos/xone: the old
   dongle (045e:02e6) runs on mt76x2u and xone_mtnet too, xone_mtnet

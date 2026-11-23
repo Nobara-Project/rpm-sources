@@ -61,7 +61,7 @@ Name: kernel
 Summary: The Linux Kernel with Cachyos and Nobara Patches
 
 %define _basekver 7.3
-%define _stablekver 5
+%define _stablekver 6
 %define _PKGBUILD 1
 %define _rcver rc7
 %define _tarkver %{_basekver}.%{_stablekver}
@@ -93,7 +93,7 @@ Vendor: The Linux Community and CachyOS maintainer(s)
 URL: https://github.com/CachyOS/linux
 Source0: %{url}/archive/refs/tags/cachyos-%{_tarkver}-%{_PKGBUILD}.tar.gz
 
-%define config_commit 780dd8d6a2e611e3bdca15652845bb635c1fbd7f
+%define config_commit d16eb41f38a434414c4c8e9bfdc5a1c3d7c81ed5
 
 %if 0%{?_is_rc}
 Source1: https://raw.githubusercontent.com/CachyOS/linux-cachyos/%{config_commit}/linux-cachyos-rc/config
@@ -137,13 +137,12 @@ Patch6: valve-gamescope-framerate-control-fixups.patch
 Patch7: 0001-Allow-to-set-custom-USB-pollrate-for-specific-device.patch
 # Add xpadneo as patch instead of using dkms module
 Patch8: xpadneo-kernel-integration.patch
-Patch9: MA350.patch
 
 # AMD vfio passthrough
-Patch10: vfio-amd-passthrough.patch
+Patch9: vfio-amd-passthrough.patch
 
 # AMDGPU GFX10 fix sleep/suspend
-Patch11: drm-amdgpu-restore-csib-submission-on-gfx10-dgpus.patch
+Patch10: drm-amdgpu-restore-csib-submission-on-gfx10-dgpus.patch
 
 # ASUS I226-V rev 06 (8086:125c, subsystem 1043:8867) PCIe detach workaround.
 # Seen locally on X870-A with NIC firmware 2023:889d and kernel 7.2.4:
@@ -158,14 +157,14 @@ Patch11: drm-amdgpu-restore-csib-submission-on-gfx10-dgpus.patch
 # https://lists.openwall.net/netdev/2025/09/01/324
 # https://lists.openwall.net/netdev/2025/09/05/17
 # https://www.spinics.net/lists/netdev/msg1121863.html
-Patch12: igc-disable-aspm-l1-asus-i226-v.patch
+Patch11: igc-disable-aspm-l1-asus-i226-v.patch
 
 # hws capture driver. First the upstream fixes 7.3.1 lacks; drop that patch once
 # the base kernel has them [DROPPED]. Then the rest of the cards the vendor drivers cover:
 # ACASIS's AHD cards and 8888:8521, then the 4K family, audio and the copy path.
 # Not yet run on these cards.
-Patch13: hws-add-ahd-and-8521.patch
-Patch14: hws-uhd-audio-copy-path.patch
+Patch12: hws-add-ahd-and-8521.patch
+Patch13: hws-uhd-audio-copy-path.patch
 
 # aarch64 patches
 Patch21: 0001-arm64-mm-Handle-alignment-faults.patch
@@ -527,7 +526,6 @@ patch -p1 -i %{PATCH10}
 patch -p1 -i %{PATCH11}
 patch -p1 -i %{PATCH12}
 patch -p1 -i %{PATCH13}
-patch -p1 -i %{PATCH14}
 
 # Apply aarch64 patches
 %ifarch aarch64
@@ -1267,6 +1265,9 @@ fi
 %files
 
 %changelog
+* Mon Nov 23 2026 LionHeartP <LionHeartP@proton.me> - 7.3.6-200
+- Update to 7.3.6
+
 * Tue Nov 17 2026 LionHeartP <LionHeartP@proton.me> - 7.3.5-200
 - Update to 7.3.5
 
