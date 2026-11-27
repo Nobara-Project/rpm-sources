@@ -1,11 +1,11 @@
-%define commit a69bfe26c36716bb1e2ced67236278b058ca5c07
-%define shortcommit a69bfe2
+%define commit 4b2b559ba03f79f4157cb935384ce3a7acbea995
+%define shortcommit 4b2b559
 %global appid net.lutris.Lutris
 %define debug_package %{nil}
 
 Name:           lutris
-Version:        0.5.22
-Release:        2.git.%{shortcommit}%{?dist}
+Version:        0.5.23
+Release:        1.git.%{shortcommit}%{?dist}
 Summary:        Video game preservation platform
 
 License:        GPL-3.0+
@@ -72,7 +72,8 @@ on Linux.
 
 %prep
 %autosetup -n %{name}-%{commit} -p1
-
+# Lutris has its own wrapper in lutris/util/magic.py, no need for extra python3-magic dep which creates conflicts
+sed -i '/^[[:space:]]*"python-magic",[[:space:]]*$/d' pyproject.toml
 %generate_buildrequires
 %pyproject_buildrequires
 
