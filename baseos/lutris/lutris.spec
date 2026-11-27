@@ -72,7 +72,8 @@ on Linux.
 
 %prep
 %autosetup -n %{name}-%{commit} -p1
-
+# Lutris has its own wrapper in lutris/util/magic.py, no need for extra python3-magic dep which creates conflicts
+sed -i '/^[[:space:]]*"python-magic",[[:space:]]*$/d' pyproject.toml
 %generate_buildrequires
 %pyproject_buildrequires
 
