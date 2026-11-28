@@ -1,5 +1,5 @@
 Name:           gpu-screen-recorder-ui
-Version:        1.15.1
+Version:        2.0.0
 Release:        1%{dist}
 Summary:        A shadowplay-like screen recorder for Linux. The fastest screen recorder for Linux.
 License:        GPL-3.0-or-later
@@ -9,24 +9,30 @@ URL:            https://git.dec05eba.com/%{name}/about
 BuildRequires:  desktop-file-utils
 BuildRequires:  gcc
 BuildRequires:  (gcc-g++ or gcc-c++)
+BuildRequires:  kernel-headers
 BuildRequires:  meson
+BuildRequires:  pkgconfig(dbus-1)
+BuildRequires:  pkgconfig(egl)
+BuildRequires:  pkgconfig(libavcodec)
+BuildRequires:  pkgconfig(libavfilter)
+BuildRequires:  pkgconfig(libavformat)
+BuildRequires:  pkgconfig(libdrm)
+BuildRequires:  pkgconfig(libglvnd)
+BuildRequires:  pkgconfig(libpulse-simple)
+BuildRequires:  pkgconfig(libswscale)
+BuildRequires:  pkgconfig(libva)
+BuildRequires:  pkgconfig(pango)
+BuildRequires:  pkgconfig(pangocairo)
+BuildRequires:  pkgconfig(wayland-client)
+BuildRequires:  pkgconfig(wayland-scanner)
 BuildRequires:  pkgconfig(x11)
 BuildRequires:  pkgconfig(xcomposite)
-BuildRequires:  pkgconfig(xrandr)
+BuildRequires:  pkgconfig(xcursor)
 BuildRequires:  pkgconfig(xfixes)
 BuildRequires:  pkgconfig(xi)
 BuildRequires:  pkgconfig(xkbcommon)
+BuildRequires:  pkgconfig(xrandr)
 BuildRequires:  pkgconfig(xrender)
-BuildRequires:  pkgconfig(libglvnd)
-BuildRequires:  pkgconfig(xcursor)
-BuildRequires:  pkgconfig(libpulse-simple)
-BuildRequires:  pkgconfig(wayland-scanner)
-BuildRequires:  pkgconfig(wayland-client)
-BuildRequires:  pkgconfig(libdrm)
-BuildRequires:  pkgconfig(dbus-1)
-BuildRequires:  pkgconfig(pango)
-BuildRequires:  pkgconfig(pangocairo)
-BuildRequires:  kernel-headers
 Requires:       gpu-screen-recorder
 Requires:       gpu-screen-recorder-notification
 Requires:	pango
@@ -67,6 +73,9 @@ rm -rf %{_buildroot}%{_datadir}/gsr-ui/fonts
 %{_mandir}/man1/gsr-ui*.1*
 
 %changelog
+* Sat Nov 28 2026 LionHeartP <LionHeartP@proton.me> - 2.0.0-1
+- Update to 2.0.0
+
 * Tue Nov 03 2026 LionHeartP <LionHeartP@proton.me> - 1.15.1-1
 - Update to 1.15.1
 
